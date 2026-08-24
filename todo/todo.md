@@ -14,7 +14,8 @@
 - [ ] Alle Apps sollen einwandfrei funktionieren. Alle Buttons sollen anklickbar, ausführbar... sein.
 - [ ] Bestimmte Apps müssen verknüpft werden damit z. B. bestellungen oder solche Sachen direkt bei abrechnungen vom Monat oder was eingetragen wird übernommen wird.
 - [ ] Wenn man unten links auf das SOCDOF Icon klickt geht ja das klein menu mit übersicht / suche und so wie bei Windows auf. Wenn man dort auf das Suchfeld klickt schlißt sich das klein menu.
-- [ ] Wenn man auf das SOCDOF icon klickt damit das startmenu mit den optionen erscheint sieht man dort einige Button für schnell optionen. Dort stehen Sachen wie "exe downloaden", "Windows App"..., jedoch sind wir bereits in einer App sodass wir diese optionen nicht mehr benötigen (siehe todo/socdof_start_menu_auswahl.png) 
+- [ ] Wenn man auf das SOCDOF icon klickt damit das startmenu mit den optionen erscheint sieht man dort einige Button für schnell optionen. Dort stehen Sachen wie "exe downloaden", "Windows App"..., jedoch sind wir bereits in einer App sodass wir diese optionen nicht mehr benötigen (siehe todo/socdof_start_menu_auswahl.png)
+- [ ] In der App "lagerverwaltung.." steht "odoo Prinzip". Das können wir mal schön entfernen
 
 ## 🛠️ GitHub & Workflow
 /
