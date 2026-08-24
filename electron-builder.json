@@ -21,17 +21,13 @@
         "target": "portable",
         "arch": ["x64"]
       }
-    ],
-    "icon": "public/socdof_icon.svg"
+    ]
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "SOCDOF Desktop",
-    "installerIcon": "public/socdof_icon.svg",
-    "uninstallerIcon": "public/socdof_icon.svg",
-    "installerHeaderIcon": "public/socdof_icon.svg"
+    "shortcutName": "SOCDOF Desktop"
   }
 }
