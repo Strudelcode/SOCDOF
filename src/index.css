@@ -2,6 +2,15 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+:root {
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-light: rgba(79, 70, 229, 0.12);
+  --accent-ring: rgba(79, 70, 229, 0.35);
+  --accent-border: #6366f1;
+  --accent-dark-text: #818cf8;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -15,6 +24,39 @@
     overflow: hidden;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
+}
+
+/* Dynamic Accent Color Utility Classes */
+.bg-accent {
+  background-color: var(--accent, #4f46e5) !important;
+}
+
+.bg-accent-hover:hover {
+  background-color: var(--accent-hover, #4338ca) !important;
+}
+
+.text-accent {
+  color: var(--accent, #4f46e5) !important;
+}
+
+.dark .text-accent {
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+.border-accent {
+  border-color: var(--accent, #4f46e5) !important;
+}
+
+.border-accent-subtle {
+  border-color: var(--accent-border, #6366f1) !important;
+}
+
+.bg-accent-light {
+  background-color: var(--accent-light, rgba(79, 70, 229, 0.12)) !important;
+}
+
+.ring-accent:focus {
+  --tw-ring-color: var(--accent-ring, rgba(79, 70, 229, 0.35)) !important;
 }
 
 /* Sleek subtle scrollbars across all windows and modules */

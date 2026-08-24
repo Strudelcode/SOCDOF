@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
+import { useLanguage, t } from '../lib/i18n';
 
 interface SidebarProps {
   activeModule: ActiveModule;
@@ -47,82 +48,84 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openInvoicesCount,
   isCleanMode
 }) => {
+  const lang = useLanguage();
+
   const navItems = [
     {
       id: 'dashboard' as ActiveModule,
-      label: 'Übersicht',
+      label: t('module.dashboard', lang, 'Übersicht'),
       icon: LayoutDashboard,
       badge: lowStockCount > 0 ? lowStockCount : null,
       badgeColor: 'bg-amber-500 text-white'
     },
     {
       id: 'invoices' as ActiveModule,
-      label: 'Verkauf & Faktura',
+      label: t('module.invoices', lang, 'Verkauf & Faktura'),
       icon: Receipt,
       badge: openInvoicesCount > 0 ? openInvoicesCount : null,
       badgeColor: 'bg-purple-600 text-white'
     },
     {
       id: 'accounting' as ActiveModule,
-      label: 'Abrechnung & BWA',
+      label: t('module.accounting', lang, 'Abrechnung & BWA'),
       icon: Calculator,
       badge: 'Neu',
       badgeColor: 'bg-emerald-600 text-white'
     },
     {
       id: 'contacts' as ActiveModule,
-      label: 'CRM & Kontakte',
+      label: t('module.contacts', lang, 'CRM & Kontakte'),
       icon: Users,
       badge: null
     },
     {
       id: 'products' as ActiveModule,
-      label: 'Artikel & Produkte',
+      label: t('module.products', lang, 'Artikel & Produkte'),
       icon: Package,
-      badge: lowStockCount > 0 ? `${lowStockCount} knapp` : null,
+      badge: lowStockCount > 0 ? `${lowStockCount} ${t('common.low_stock', lang, 'knapp')}` : null,
       badgeColor: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
     },
     {
       id: 'pos' as ActiveModule,
-      label: 'Point of Sale (POS)',
+      label: t('module.pos', lang, 'Point of Sale (POS)'),
       icon: ShoppingBag,
       badge: null
     },
     {
       id: 'ios_billing' as ActiveModule,
-      label: 'iOS Kasse & Speisen',
+      label: t('module.ios_billing', lang, 'iOS Kasse & Speisen'),
       icon: Utensils,
       badge: 'iOS',
       badgeColor: 'bg-indigo-600 text-white'
     },
     {
       id: 'restaurant' as ActiveModule,
-      label: 'Restaurant & Gastro',
+      label: t('module.restaurant', lang, 'Restaurant & Gastro'),
       icon: Utensils,
       badge: 'Neu',
       badgeColor: 'bg-amber-500 text-white'
     },
     {
       id: 'purchases' as ActiveModule,
-      label: 'Einkauf & RFQ',
+      label: t('module.purchases', lang, 'Einkauf & RFQ'),
       icon: ShoppingCart,
       badge: null
     },
     {
       id: 'stock' as ActiveModule,
-      label: 'Lagerbuchungen',
+      label: t('module.stock', lang, 'Lagerbuchungen'),
       icon: ArrowLeftRight,
       badge: null
     },
     {
       id: 'docs' as ActiveModule,
-      label: 'Handbuch & Docs',
+      label: t('module.docs', lang, 'Handbuch & Docs'),
       icon: BookOpen,
       badge: null
     },
     {
       id: 'settings' as ActiveModule,
-      label: 'Einstellungen',
+      label: t('module.settings', lang, 'Einstellungen'),
       icon: Settings,
       badge: null
     }

@@ -4,17 +4,19 @@
  */
 class SoundEngine {
   private ctx: AudioContext | null = null;
-  private muted: boolean = false;
+  private muted: boolean = true;
 
   constructor() {
-    // Read mute preference from localStorage
+    // Read mute preference from localStorage, default to true (muted by default)
     try {
       const saved = localStorage.getItem('odoo_sound_muted');
       if (saved !== null) {
         this.muted = saved === 'true';
+      } else {
+        this.muted = true;
       }
     } catch {
-      this.muted = false;
+      this.muted = true;
     }
   }
 

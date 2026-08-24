@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Minus, 
   Square, 
@@ -43,7 +43,9 @@ import {
   PanelLeft,
   PanelRight,
   Github,
-  MessageSquare
+  MessageSquare,
+  Globe,
+  Download
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -57,6 +59,12 @@ import {
   POSOrder 
 } from '../types';
 import { sounds } from '../lib/sound';
+import { applyAccentColor } from '../lib/accent';
+import { getLanguage, setLanguage, useLanguage, t, LanguageCode } from '../lib/i18n';
+import { FlagIcon } from './FlagIcon';
+import { LanguageSelectionModal } from './LanguageSelectionModal';
+import { WindowsExeNotificationToast } from './WindowsExeNotificationToast';
+import { downloadWindowsExecutablePackage } from '../lib/windowsExeDownloader';
 import { Dashboard } from './Dashboard';
 import { ContactsModule } from './ContactsModule';
 import { ProductsModule } from './ProductsModule';
@@ -88,7 +96,6 @@ interface DesktopWindowWorkspaceProps {
   onToggleTheme: () => void;
   isMuted: boolean;
   onToggleSound: () => void;
-  onSwitchToWebMode: () => void;
   onOpenStudio: () => void;
 }
 
@@ -134,9 +141,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   onToggleTheme,
   isMuted,
   onToggleSound,
-  onSwitchToWebMode,
   onOpenStudio
 }) => {
+  const currentLang = useLanguage();
+
   // Installed modules in App Store with guaranteed standard apps
   const [installedModules, setInstalledModules] = useState<ActiveModule[]>(() => {
     try {
@@ -340,7 +348,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isLockedStandby, setIsLockedStandby] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    if (company?.accent_color) {
+      applyAccentColor(company.accent_color);
+    }
+  }, [company?.accent_color]);
   // Unified Payment Config state & helper
   const [snapPreview, setSnapPreview] = useState<'left' | 'right' | 'top' | null>(null);
   const [draggedWindow, setDraggedWindow] = useState<{ id: string; startX: number; startY: number; initX: number; initY: number } | null>(null);
@@ -628,22 +643,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   }, [draggedWindow, resizingWindow, snapPreview, windows]);
 
   // Shortcut registry
-  const shortcutMeta: Record<ActiveModule, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
-    dashboard: { title: 'Übersicht', subtitle: 'ERP Dashboard', icon: Boxes, color: 'bg-purple-600' },
-    invoices: { title: 'Rechnungen', subtitle: 'Fakturierung & DIN-A4', icon: Receipt, color: 'bg-indigo-600' },
-    ios_billing: { title: 'iOS Kasse & Menü', subtitle: 'Speisen, Beilagen & Billing', icon: Utensils, color: 'bg-indigo-600' },
-    restaurant: { title: 'Gastro & Speisen', subtitle: 'Speisekarte & Tische', icon: Utensils, color: 'bg-amber-600' },
-    accounting: { title: 'Abrechnung', subtitle: 'BWA, EÜR & Finanzen', icon: Calculator, color: 'bg-emerald-600' },
-    contacts: { title: 'Kontakte', subtitle: 'Kunden & Lieferanten', icon: Users, color: 'bg-teal-600' },
-    products: { title: 'Artikel', subtitle: 'Produkte & Preise', icon: Package, color: 'bg-blue-600' },
-    stock: { title: 'Lager', subtitle: 'Warenbewegungen', icon: Layers, color: 'bg-amber-600' },
-    pos: { title: 'POS Kasse', subtitle: 'Point of Sale', icon: CreditCard, color: 'bg-violet-600' },
-    purchases: { title: 'Einkauf', subtitle: 'Lieferantenbestellungen', icon: ShoppingCart, color: 'bg-orange-600' },
-    appstore: { title: 'App Store', subtitle: 'Module verwalten', icon: Package, color: 'bg-fuchsia-600' },
-    docs: { title: 'Handbuch', subtitle: 'Dokumentation & Hilfe', icon: BookOpen, color: 'bg-sky-600' },
-    settings: { title: 'Einstellungen', subtitle: 'Briefkopf & Backup', icon: Settings, color: 'bg-slate-700' },
-    launcher: { title: 'Launcher', subtitle: 'App Launcher', icon: LayoutGrid, color: 'bg-indigo-600' }
-  };
+  const shortcutMeta: Record<ActiveModule, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }>; color: string }> = useMemo(() => ({
+    dashboard: { title: t('module.dashboard', currentLang, 'Übersicht'), subtitle: t('desc.dashboard', currentLang, 'ERP Dashboard'), icon: Boxes, color: 'bg-purple-600' },
+    invoices: { title: t('module.invoices', currentLang, 'Rechnungen'), subtitle: t('desc.invoices', currentLang, 'Fakturierung & DIN-A4'), icon: Receipt, color: 'bg-indigo-600' },
+    ios_billing: { title: t('module.ios_billing', currentLang, 'iOS Kasse & Menü'), subtitle: t('desc.ios_billing', currentLang, 'Speisen, Beilagen & Billing'), icon: Utensils, color: 'bg-indigo-600' },
+    restaurant: { title: t('module.restaurant', currentLang, 'Gastro & Speisen'), subtitle: t('desc.restaurant', currentLang, 'Speisekarte & Tische'), icon: Utensils, color: 'bg-amber-600' },
+    accounting: { title: t('module.accounting', currentLang, 'Abrechnung'), subtitle: t('desc.accounting', currentLang, 'BWA, EÜR & Finanzen'), icon: Calculator, color: 'bg-emerald-600' },
+    contacts: { title: t('module.contacts', currentLang, 'Kontakte'), subtitle: t('desc.contacts', currentLang, 'Kunden & Lieferanten'), icon: Users, color: 'bg-teal-600' },
+    products: { title: t('module.products', currentLang, 'Artikel'), subtitle: t('desc.products', currentLang, 'Produkte & Preise'), icon: Package, color: 'bg-blue-600' },
+    stock: { title: t('module.stock', currentLang, 'Lager'), subtitle: t('desc.stock', currentLang, 'Warenbewegungen'), icon: Layers, color: 'bg-amber-600' },
+    pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
+    purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
+    appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
+    docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
+    settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-slate-700' },
+    launcher: { title: t('module.launcher', currentLang, 'Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-indigo-600' }
+  }), [currentLang]);
 
   // Only real, actionable notifications (Red dot / count), no fake 'Live' badge
   const getBadgeForModule = (mod: ActiveModule) => {
@@ -1489,8 +1504,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Quick Tutorials, Docs & Windows App info */}
-          <div className="py-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          {/* Quick Tutorials, Docs, Language & Windows App info */}
+          <div className="py-2 grid grid-cols-2 sm:grid-cols-5 gap-1.5">
             <button
               onClick={() => { sounds.playClick(); setIsWindowsModalOpen(true); }}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition border border-indigo-200 dark:border-indigo-800/40"
@@ -1499,11 +1514,27 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <span>Windows App</span>
             </button>
             <button
+              onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40"
+              title="Sprache ändern / Change Language (Standard: English)"
+            >
+              <FlagIcon code={getLanguage()} size="sm" />
+              <span className="uppercase font-bold tracking-wider">{getLanguage()}</span>
+            </button>
+            <button
               onClick={() => openWindow('docs', 'Dokumentation & Handbuch')}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Handbuch</span>
+            </button>
+            <button
+              onClick={() => { downloadWindowsExecutablePackage(); }}
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/40 transition border border-purple-200 dark:border-purple-800/40"
+              title="Standalone .EXE Desktop App herunterladen"
+            >
+              <Download className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span>.EXE Download</span>
             </button>
             <a
               href="https://github.com/Strudelcode/SOCDOF"
@@ -1598,20 +1629,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <div>
                   <div className="text-xs font-bold">Neu starten</div>
                   <div className="text-[11px] opacity-80">Startet die SOCDOF Desktop-Umgebung frisch neu.</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsPowerMenuOpen(false);
-                  onSwitchToWebMode();
-                }}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-left transition"
-              >
-                <Monitor className="w-5 h-5 flex-shrink-0" />
-                <div>
-                  <div className="text-xs font-bold">Zu SOCDOF Webansicht wechseln</div>
-                  <div className="text-[11px] opacity-80">Klassischer Vollbild-Webmodus.</div>
                 </div>
               </button>
             </div>
@@ -1758,6 +1775,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <span className="hidden sm:inline">Windows App (Lokal)</span>
           </button>
 
+          {/* Language Selector in Taskbar Tray */}
+          <button
+            onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
+            title="Sprache ändern / Change Language (Standard: English)"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold transition border border-slate-300/80 dark:border-slate-700"
+          >
+            <FlagIcon code={getLanguage()} size="sm" />
+            <span className="uppercase tracking-wider">{getLanguage()}</span>
+          </button>
+
           {/* Tutorial Button in Taskbar */}
           <button
             onClick={() => { sounds.playClick(); setIsTutorialOpen(true); }}
@@ -1810,6 +1837,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       <WindowsDesktopManagerModal
         isOpen={isWindowsModalOpen}
         onClose={() => setIsWindowsModalOpen(false)}
+      />
+
+      {/* Language Selection Modal */}
+      <LanguageSelectionModal
+        isOpen={isLanguageModalOpen}
+        onClose={() => setIsLanguageModalOpen(false)}
+        currentLanguage={getLanguage()}
+        onSelectLanguage={(lang) => {
+          setLanguage(lang);
+          onUpdateCompany({ ...company, language: lang });
+        }}
+      />
+
+      {/* Periodic Windows Desktop .EXE Notification Toast */}
+      <WindowsExeNotificationToast
+        onOpenWindowsManager={() => setIsWindowsModalOpen(true)}
       />
     </div>
   );

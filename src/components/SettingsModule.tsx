@@ -45,11 +45,17 @@ import {
   Copy,
   Plus,
   Github,
-  MessageSquare
+  MessageSquare,
+  FolderTree
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
+import { FlagIcon } from './FlagIcon';
 import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, clearDatabaseToEmpty, getDatabaseStorageStats } from '../lib/db';
 import { sounds } from '../lib/sound';
+import { ACCENT_LIST, applyAccentColor, getAccentPreset } from '../lib/accent';
+import { SUPPORTED_LANGUAGES, setLanguage, useLanguage, t } from '../lib/i18n';
+import { APP_VERSION, APP_NAME } from '../lib/version';
+import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 
 interface SettingsModuleProps {
   company: CompanyProfile;
@@ -101,6 +107,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     totalRecords: number;
   }>({ sizeBytes: 0, sizeKB: 0, sizeMB: 0, totalRecords: 0 });
 
+  const currentLang = useLanguage();
+  const activeLang = profile.language || currentLang;
+
   // Delete Warning Confirmation Dialog State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmationWord, setDeleteConfirmationWord] = useState('');
@@ -135,6 +144,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     try {
       const updatedProfile = updates ? { ...profile, ...updates } : profile;
       setProfile(updatedProfile);
+      
+      if (updatedProfile.accent_color) {
+        applyAccentColor(updatedProfile.accent_color);
+      }
+      if (updatedProfile.language) {
+        setLanguage(updatedProfile.language);
+      }
+
       await db.settings.put({ key: 'company_profile', value: updatedProfile });
       onUpdateCompany(updatedProfile);
       sounds.playSuccess();
@@ -309,16 +326,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   }, [searchQuery]);
 
   const navItems: { id: SettingsSection; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string; danger?: boolean }[] = [
-    { id: 'home', label: 'Startseite', icon: Settings },
-    { id: 'general', label: 'Allgemein & Stammdaten', icon: Building2 },
-    { id: 'personalization', label: 'Personalisierung & Farben', icon: Palette },
-    { id: 'language', label: 'Sprache, Zeit & Region', icon: Globe },
-    { id: 'connections', label: 'Verbindungen & Kalender', icon: Link2, badge: 'Google Sync' },
-    { id: 'letterhead', label: 'Briefkopf & DIN 5008', icon: FileText },
-    { id: 'storage', label: 'Speicher & Backup', icon: HardDrive },
-    { id: 'audio', label: 'Sound & Audio', icon: Volume2 },
-    { id: 'windows', label: 'Windows Desktop-App', icon: Monitor },
-    { id: 'danger', label: 'System zurücksetzen', icon: ShieldAlert, danger: true }
+    { id: 'home', label: t('settings.home', activeLang, 'Startseite'), icon: Settings },
+    { id: 'general', label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2 },
+    { id: 'personalization', label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette },
+    { id: 'language', label: t('settings.language', activeLang, 'Spracheinstellungen & Region'), icon: Globe },
+    { id: 'connections', label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, badge: 'Google Sync' },
+    { id: 'letterhead', label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText },
+    { id: 'storage', label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive },
+    { id: 'audio', label: t('settings.audio', activeLang, 'Sound & Audio'), icon: Volume2 },
+    { id: 'windows', label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor },
+    { id: 'danger', label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true }
   ];
 
   return (
@@ -457,15 +474,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* Quick System Status Card & Community Links */}
           <div className="p-4 rounded-3xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-3 text-xs">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
-              <span>System-Status</span>
+              <span>{t('status.system_title', activeLang, 'System-Status')}</span>
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Lokal aktiv
+                {t('status.local_active', activeLang, 'Lokal aktiv')}
               </span>
             </div>
             <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 pb-1 border-b border-slate-200 dark:border-slate-700/60">
-              <div>Version: <span className="font-mono font-bold">SOCDOF 18.3.1</span></div>
-              <div>Speicher: <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} Datensätze)</div>
+              <div>{t('status.version_label', activeLang, 'Version:')} <span className="font-mono font-bold">{APP_NAME} {APP_VERSION}</span></div>
+              <div>{t('status.storage_label', activeLang, 'Speicher:')} <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} {t('status.records_label', activeLang, 'Datensätze')})</div>
             </div>
 
             {/* Open Source & Support Links */}
@@ -924,35 +941,113 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              {/* 3. Accent Colors */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                <label className="text-xs font-bold text-slate-900 dark:text-white block">
-                  System-Akzentfarbe
-                </label>
-                <div className="flex flex-wrap items-center gap-3">
-                  {[
-                    { id: 'indigo', label: 'Windows Indigo', color: 'bg-indigo-600' },
-                    { id: 'purple', label: 'Odoo Purple', color: 'bg-[#714B67]' },
-                    { id: 'emerald', label: 'Emerald Grün', color: 'bg-emerald-600' },
-                    { id: 'sky', label: 'Cyber Sky', color: 'bg-sky-500' },
-                    { id: 'amber', label: 'Sunset Gold', color: 'bg-amber-500' },
-                    { id: 'rose', label: 'Berry Rose', color: 'bg-rose-500' },
-                  ].map(c => {
+              {/* 3. Accent Colors & Color Picasso */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-indigo-500" style={{ color: 'var(--accent, #4f46e5)' }} />
+                      <span>System-Akzentfarbe & Color Picasso</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Wird sofort systemweit auf Fensterleisten, Buttons, Badges und Taskleiste angewendet.
+                    </p>
+                  </div>
+                  <span 
+                    className="px-2.5 py-1 rounded-lg text-white text-[11px] font-bold shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                    style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Aktiv</span>
+                  </span>
+                </div>
+
+                {/* Color Picasso Custom Color Palette Picker */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-pink-50/50 dark:from-slate-800/80 dark:via-indigo-950/40 dark:to-slate-800/80 border border-indigo-100 dark:border-indigo-900/50 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div 
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs"
+                        style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                      >
+                        <Palette className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Color Picasso Farbwähler</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                            HEX / RGB
+                          </span>
+                        </h4>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Eigene Akzentfarbe nach Wunsch frei definieren & speichern
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                        <input
+                          type="color"
+                          id="picasso-color-picker"
+                          value={(profile.accent_color?.startsWith('#') ? profile.accent_color : profile.accent_color?.startsWith('custom_') ? `#${profile.accent_color.replace('custom_', '')}` : '#4f46e5')}
+                          onChange={(e) => {
+                            const newHex = e.target.value;
+                            handleSaveProfile({ accent_color: `custom_${newHex.replace('#', '')}` });
+                          }}
+                          className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+                          title="Farbwähler öffnen"
+                        />
+                        <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {profile.accent_color?.startsWith('custom_') 
+                            ? `#${profile.accent_color.replace('custom_', '').toUpperCase()}` 
+                            : profile.accent_color?.startsWith('#') 
+                              ? profile.accent_color.toUpperCase() 
+                              : '#4F46E5'}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const quickColors = ['#ec4899', '#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#e11d48', '#3b82f6', '#14b8a6'];
+                          const randomColor = quickColors[Math.floor(Math.random() * quickColors.length)];
+                          handleSaveProfile({ accent_color: `custom_${randomColor.replace('#', '')}` });
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+                        title="Zufällige Picasso-Farbe generieren"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Zufall</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preset Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                  {ACCENT_LIST.map(c => {
                     const isSelected = (profile.accent_color || 'indigo') === c.id;
                     return (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => handleSaveProfile({ accent_color: c.id })}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+                        className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition ${
                           isSelected 
-                            ? 'border-indigo-600 bg-slate-100 dark:bg-slate-800 shadow-xs' 
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs ring-2' 
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750'
                         }`}
+                        style={isSelected ? { borderColor: c.hex, '--tw-ring-color': c.ringRgba } as any : {}}
                       >
-                        <span className={`w-3.5 h-3.5 rounded-full ${c.color}`} />
-                        <span>{c.label}</span>
-                        {isSelected && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
+                        <div className="flex items-center gap-2.5">
+                          <span 
+                            className="w-4 h-4 rounded-full shadow-xs shrink-0" 
+                            style={{ backgroundColor: c.hex }}
+                          />
+                          <span className="truncate">{c.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: c.hex }} />}
                       </button>
                     );
                   })}
@@ -982,30 +1077,33 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 {/* 1. Language Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Systemsprache
+                    {t('settings.language_title', activeLang, 'Systemsprache')}
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { code: 'de', label: 'Deutsch (DE)', flag: '🇩🇪' },
-                      { code: 'en', label: 'English (US)', flag: '🇺🇸' },
-                      { code: 'fr', label: 'Français (FR)', flag: '🇫🇷' },
-                      { code: 'es', label: 'Español (ES)', flag: '🇪🇸' }
+                      { code: 'de', label: 'Deutsch (DE)' },
+                      { code: 'en', label: 'English (US)' },
+                      { code: 'fr', label: 'Français (FR)' },
+                      { code: 'es', label: 'Español (ES)' }
                     ].map(lang => (
                       <button
                         key={lang.code}
                         type="button"
-                        onClick={() => handleSaveProfile({ language: lang.code as any })}
+                        onClick={() => {
+                          setLanguage(lang.code as any);
+                          handleSaveProfile({ language: lang.code as any });
+                        }}
                         className={`p-3 rounded-2xl border text-xs font-bold transition flex items-center justify-between ${
-                          (profile.language || 'de') === lang.code
+                          (profile.language || currentLang) === lang.code
                             ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 shadow-xs ring-1 ring-sky-500/20'
                             : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        <span className="flex items-center gap-2">
-                          <span className="text-base">{lang.flag}</span>
+                        <span className="flex items-center gap-2.5">
+                          <FlagIcon code={lang.code} size="md" />
                           <span>{lang.label}</span>
                         </span>
-                        {(profile.language || 'de') === lang.code && <Check className="w-3.5 h-3.5 text-sky-600" />}
+                        {(profile.language || currentLang) === lang.code && <Check className="w-3.5 h-3.5 text-sky-600" />}
                       </button>
                     ))}
                   </div>
@@ -1379,6 +1477,78 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
+              {/* Local Windows Directory & Backup Path Management */}
+              <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <h4 className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
+                        Lokaler Windows Installations- &amp; Sicherungspfad
+                      </h4>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Definieren Sie das Zielverzeichnis für automatische Backups und lokale Datendateien.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => downloadWindowsInstallerPackage({
+                      installPath: profile.backup_folder_path?.replace(/\\Backups\\?$/, '') || 'C:\\SOCDOF',
+                      createDesktopShortcut: true,
+                      createStartMenuShortcut: true,
+                      createDataFolders: true
+                    })}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Setup-Assistent (.cmd)</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Backup-Verzeichnis (z. B. auf externer Festplatte / Netzlaufwerk):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="C:\SOCDOF\Backups"
+                      value={profile.backup_folder_path || 'C:\\SOCDOF\\Backups'}
+                      onChange={(e) => setProfile({ ...profile, backup_folder_path: e.target.value })}
+                      onBlur={() => handleSaveProfile()}
+                      className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Sicherungsverantwortlicher / Notizen:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Administrator / IT-Verantwortlicher"
+                      value={profile.backup_owner || ''}
+                      onChange={(e) => setProfile({ ...profile, backup_owner: e.target.value })}
+                      onBlur={() => handleSaveProfile()}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">Automatische Ordnerstruktur:</span>
+                    <div className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                      {profile.backup_folder_path || 'C:\\SOCDOF\\Backups'} • \Data • \Exports • \Config
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    Lokal &amp; Offline
+                  </span>
+                </div>
+              </div>
+
               {importError && (
                 <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
@@ -1570,6 +1740,32 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
         </div>
       </div>
+
+      {/* Windows 11 Action Center Style Settings Saved Toast Notification */}
+      {savedSuccess && (
+        <div className="fixed bottom-12 right-6 z-50 animate-fade-in select-none">
+          <div 
+            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 flex items-center gap-3 min-w-[280px]"
+            style={{ borderColor: 'var(--accent-border, rgba(79, 70, 229, 0.4))' }}
+          >
+            <div 
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0"
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            >
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>Einstellungen gespeichert</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                Lokal in IndexedDB gesichert • Sofort aktiv
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal Dialog */}
       {isDeleteModalOpen && (

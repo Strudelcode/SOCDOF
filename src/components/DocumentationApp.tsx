@@ -23,9 +23,11 @@ import {
   Smartphone,
   ExternalLink,
   MessageSquare,
-  Github
+  Github,
+  History
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
+import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
 
 interface DocSection {
   id: string;
@@ -310,6 +312,47 @@ export const DocumentationApp: React.FC = () => {
                 </span>
               </div>
             </a>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'changelog',
+      title: 'Versionshistorie & Updates',
+      category: 'System & Releases',
+      icon: History,
+      summary: `Aktuelle Version SOCDOF v${APP_VERSION} und alle Release-Highlights.`,
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="flex items-center justify-between p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800/60">
+            <div>
+              <div className="text-[11px] uppercase font-bold text-indigo-600 dark:text-indigo-400">Installierte Version</div>
+              <div className="text-base font-extrabold text-slate-900 dark:text-white">SOCDOF v{APP_VERSION}</div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
+              Aktuell
+            </span>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            {VERSION_HISTORY.map((rel) => (
+              <div key={rel.version} className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-indigo-600 text-white">
+                      v{rel.version}
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{rel.title}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{rel.date}</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
+                  {rel.highlights.map((h, i) => (
+                    <li key={i}>{h}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
       )

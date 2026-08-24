@@ -6,7 +6,7 @@ import {
   UserPlus, 
   PackagePlus, 
   ArrowDownToLine, 
-  Sparkles,
+  Sparkles, 
   Grid,
   ShoppingCart,
   ShoppingBag,
@@ -21,10 +21,13 @@ import {
   ChevronDown,
   Command,
   Bell,
-  CheckCircle2
+  CheckCircle2,
+  Globe
 } from 'lucide-react';
 import { ActiveModule, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
+import { getLanguage, t } from '../lib/i18n';
+import { FlagIcon } from './FlagIcon';
 
 interface TopBarProps {
   activeModule: ActiveModule;
@@ -42,6 +45,7 @@ interface TopBarProps {
   isMuted: boolean;
   onToggleSound: () => void;
   totalRecordsCount: number;
+  onOpenLanguageModal?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -59,7 +63,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleTheme,
   isMuted,
   onToggleSound,
-  totalRecordsCount
+  totalRecordsCount,
+  onOpenLanguageModal
 }) => {
   const [timeStr, setTimeStr] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -210,6 +215,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
         </div>
+
+        {/* Language Selection Button */}
+        <button
+          type="button"
+          onClick={onOpenLanguageModal}
+          className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition text-xs font-bold flex items-center gap-1.5"
+          title="Sprache ändern / Change Language"
+        >
+          <FlagIcon code={getLanguage()} size="sm" />
+          <span className="text-[11px] uppercase tracking-wider">{getLanguage()}</span>
+        </button>
 
         {/* Audio Toggle */}
         <button
