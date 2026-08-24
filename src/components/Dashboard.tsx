@@ -24,8 +24,9 @@ import {
   DollarSign,
   ArrowRight
 } from 'lucide-react';
-import { Invoice, Product, StockMove, Contact, ActiveModule, PurchaseOrder, POSOrder } from '../types';
+import { Invoice, Product, StockMove, Contact, ActiveModule, PurchaseOrder, POSOrder, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
+import { SocdofLogo } from './SocdofLogo';
 
 interface DashboardProps {
   invoices: Invoice[];
@@ -34,6 +35,7 @@ interface DashboardProps {
   contacts: Contact[];
   purchases?: PurchaseOrder[];
   posOrders?: POSOrder[];
+  company?: CompanyProfile;
   onNavigate: (module: ActiveModule) => void;
   onOpenNewInvoice: () => void;
   onOpenNewContact: () => void;
@@ -48,6 +50,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   contacts = [],
   purchases = [],
   posOrders = [],
+  company,
   onNavigate,
   onOpenNewInvoice,
   onOpenNewContact,
@@ -228,16 +231,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* ZERO STATE ONBOARDING (When database is clean with 0 records) */}
       {isZeroState && (
-        <div className="bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/70 dark:from-slate-850 dark:via-slate-900 dark:to-purple-950/30 border border-purple-200/80 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/70 dark:from-slate-850 dark:via-slate-900 dark:to-indigo-950/30 border border-indigo-200/80 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
           <div className="max-w-3xl mx-auto text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-[#714B67] text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-900/20 font-bold text-2xl">
-              O
+            <div className="flex items-center justify-center mx-auto">
+              {company?.letterhead_photo_url ? (
+                <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg shadow-indigo-900/20 border border-indigo-200 dark:border-slate-700">
+                  <img src={company.letterhead_photo_url} alt="Logo" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <SocdofLogo size="lg" className="shadow-lg" />
+              )}
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              Willkommen in Ihrem sauberen Odoo ERP System
+              {company?.name ? `Willkommen bei ${company.name}` : 'Willkommen in Ihrem sauberen SOCDOF System'}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
-              Ihre Datenbank ist betriebsbereit und vollständig auf 0 initialisiert. Legen Sie direkt mit Ihren echten Kunden, Artikeln oder Rechnungen los:
+              Ihre lokale Datenbank ist betriebsbereit und vollständig auf 0 initialisiert. Legen Sie direkt mit Ihren echten Kunden, Artikeln oder Rechnungen los:
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 text-left">

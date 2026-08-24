@@ -43,7 +43,9 @@ import {
   ExternalLink,
   CheckCircle2,
   Copy,
-  Plus
+  Plus,
+  Github,
+  MessageSquare
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, clearDatabaseToEmpty, getDatabaseStorageStats } from '../lib/db';
@@ -452,8 +454,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             })}
           </div>
 
-          {/* Quick System Status Card */}
-          <div className="p-4 rounded-3xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-2 text-xs">
+          {/* Quick System Status Card & Community Links */}
+          <div className="p-4 rounded-3xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-3 text-xs">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
               <span>System-Status</span>
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
@@ -461,9 +463,38 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 Lokal aktiv
               </span>
             </div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+            <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 pb-1 border-b border-slate-200 dark:border-slate-700/60">
               <div>Version: <span className="font-mono font-bold">SOCDOF 18.3.1</span></div>
               <div>Speicher: <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} Datensätze)</div>
+            </div>
+
+            {/* Open Source & Support Links */}
+            <div className="space-y-1.5 pt-0.5">
+              <a
+                href="https://github.com/Strudelcode/SOCDOF"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-slate-800 dark:text-slate-200 text-[11px] font-semibold transition group"
+              >
+                <div className="flex items-center gap-2">
+                  <Github className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                  <span>GitHub Repository</span>
+                </div>
+                <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-indigo-600" />
+              </a>
+
+              <a
+                href="https://discord.gg/QW85EaXTgB"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-[#5865F2]/10 border border-[#5865F2]/30 hover:bg-[#5865F2]/20 text-[#5865F2] dark:text-indigo-300 text-[11px] font-semibold transition group"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Hilfe auf Discord</span>
+                </div>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
             </div>
           </div>
         </div>
@@ -626,7 +657,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="z.B. Mein Unternehmen GmbH"
+                      placeholder="z.B. Strudel's Test GmbH"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -639,7 +670,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. GmbH, Einzelunternehmen, UG"
+                      placeholder="z.B. GmbH"
                       value={profile.legal_form}
                       onChange={(e) => setProfile({ ...profile, legal_form: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -654,7 +685,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. Musterstraße 12"
+                      placeholder="z.B. Strudelstreet 99"
                       value={profile.street}
                       onChange={(e) => setProfile({ ...profile, street: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -667,7 +698,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. 10115 Berlin"
+                      placeholder="z.B. 12345 Strudelstadt"
                       value={profile.zip_city}
                       onChange={(e) => setProfile({ ...profile, zip_city: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -695,7 +726,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="email"
-                      placeholder="rechnung@mein-unternehmen.de"
+                      placeholder="buchhaltung@strudels-test.example"
                       value={profile.email}
                       onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -708,7 +739,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="+49 30 1234567"
+                      placeholder="+00 12 3456 789"
                       value={profile.phone}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -720,7 +751,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <CreditCard className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Bankverbindung & Steuer-Identifikation (Kostenlos)</span>
+                    <span>Bankverbindung & Steuer-Identifikation</span>
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -730,7 +761,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="DE 123 456 789"
+                        placeholder="AB 123 456 789"
                         value={profile.tax_id}
                         onChange={(e) => setProfile({ ...profile, tax_id: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -743,7 +774,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="z.B. Deutsche Bank / Sparkasse / N26"
+                        placeholder="z.B. StrudelBank DE"
                         value={profile.bank_name}
                         onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -752,11 +783,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        IBAN (wird für kostenlosen EPC-QR GiroCode genutzt)
+                        IBAN (wird für EPC-QR GiroCode genutzt)
                       </label>
                       <input
                         type="text"
-                        placeholder="DE89 3704 0044 0532 0130 00"
+                        placeholder="DE00 1234 5678 9012 3456 78"
                         value={profile.iban}
                         onChange={(e) => setProfile({ ...profile, iban: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -769,7 +800,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="DEUTDEDDBXX"
+                        placeholder="STRUDELXXX"
                         value={profile.bic}
                         onChange={(e) => setProfile({ ...profile, bic: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -1043,7 +1074,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     Verbindungen, Google Kalender & Schnittstellen
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    100% kostenlos und zuverlässig: Verbinden Sie SOCDOF mit Google Kalender, Apple iCal und Outlook.
+                    Koppeln Sie SOCDOF bei Bedarf mit Google Kalender, Apple iCal oder Microsoft Outlook.
                   </p>
                 </div>
               </div>
@@ -1065,8 +1096,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
-                    Kostenlos & Aktiv
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border self-start sm:self-auto ${
+                    copiedLink 
+                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}>
+                    {copiedLink ? 'Verbunden / Aktiv' : 'Nicht verbunden (Inaktiv)'}
                   </span>
                 </div>
 

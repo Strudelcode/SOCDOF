@@ -9,7 +9,7 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234f46e5'/%3E%3Cpath d='M160 160h192v192H160z' fill='white' opacity='0.2' rx='32'/%3E%3Cpath d='M192 192h128v128H192z' fill='white' rx='16'/%3E%3C/svg%3E",
+      "src": "/socdof_icon.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

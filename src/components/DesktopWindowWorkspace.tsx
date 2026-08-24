@@ -41,7 +41,9 @@ import {
   Utensils,
   Sliders,
   PanelLeft,
-  PanelRight
+  PanelRight,
+  Github,
+  MessageSquare
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -70,6 +72,7 @@ import { TutorialModal } from './TutorialModal';
 import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
 import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
+import { SocdofLogo } from './SocdofLogo';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -1203,6 +1206,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   contacts={contacts}
                   purchases={purchases}
                   posOrders={posOrders}
+                  company={company}
                   onNavigate={(mod) => openWindow(mod)}
                   onOpenNewInvoice={() => openWindow('invoices', 'Rechnungen & Fakturierung')}
                   onOpenNewContact={() => openWindow('contacts', 'Kontakte & Kunden')}
@@ -1407,9 +1411,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Start Menu Header */}
           <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
-                <Boxes className="w-5 h-5" />
-              </div>
+              <SocdofLogo size="md" className="shadow-md flex-shrink-0" />
               <div>
                 <h4 className="font-bold text-sm">{company.name}</h4>
                 <p className="text-[11px] text-slate-400">SOCDOF &bull; Offline Flow OS</p>
@@ -1488,28 +1490,39 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </div>
 
           {/* Quick Tutorials, Docs & Windows App info */}
-          <div className="py-2 flex gap-1.5">
+          <div className="py-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <button
               onClick={() => { sounds.playClick(); setIsWindowsModalOpen(true); }}
-              className="flex-1 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition border border-indigo-200 dark:border-indigo-800/40"
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition border border-indigo-200 dark:border-indigo-800/40"
             >
               <Monitor className="w-3.5 h-3.5" />
-              <span>Windows App (Lokal)</span>
-            </button>
-            <button
-              onClick={() => { setIsStartMenuOpen(false); setIsTutorialOpen(true); }}
-              className="flex-1 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition border border-amber-200 dark:border-amber-800/40"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Tutorial</span>
+              <span>Windows App</span>
             </button>
             <button
               onClick={() => openWindow('docs', 'Dokumentation & Handbuch')}
-              className="flex-1 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40"
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Handbuch</span>
             </button>
+            <a
+              href="https://github.com/Strudelcode/SOCDOF"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700"
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span>GitHub</span>
+            </a>
+            <a
+              href="https://discord.gg/QW85EaXTgB"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-[#5865F2]/10 text-[#5865F2] dark:text-indigo-300 text-[11px] font-semibold hover:bg-[#5865F2]/20 transition border border-[#5865F2]/30"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Discord</span>
+            </a>
           </div>
 
           {/* Bottom Footer Actions: Power Button & User */}
@@ -1622,14 +1635,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsStartMenuOpen(!isStartMenuOpen);
             }}
-            title="Start"
+            title="Start - SOCDOF OS"
             className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
               isStartMenuOpen 
-                ? 'bg-indigo-600 text-white shadow-md' 
-                : isDark ? 'hover:bg-white/10 active:scale-95 text-cyan-400' : 'hover:bg-black/5 active:scale-95 text-indigo-600'
+                ? 'bg-indigo-600/30 ring-2 ring-indigo-500 shadow-md scale-105' 
+                : 'hover:bg-slate-200/60 dark:hover:bg-white/10 active:scale-95'
             }`}
           >
-            <LayoutGrid className="w-5 h-5" />
+            <SocdofLogo size="sm" />
           </button>
 
           {/* Unified Windows 11 Taskbar App Items */}

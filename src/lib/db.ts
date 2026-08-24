@@ -40,31 +40,31 @@ export class LocalOdooDB extends Dexie {
 export const db = new LocalOdooDB();
 
 export const defaultCompanyProfile: CompanyProfile = {
-  name: 'Nexus Technologies GmbH',
+  name: "Strudel's Test GmbH",
   legal_form: 'GmbH',
-  street: 'Innovationsring 42',
-  zip_city: '80331 München',
+  street: 'Strudelstreet 99',
+  zip_city: '12345 Strudelstadt',
   country: 'Deutschland',
-  email: 'buchhaltung@nexus-tech.example',
-  phone: '+49 (0) 89 1234 5678',
-  tax_id: 'DE 304 882 109',
-  iban: 'DE44 7001 0080 0123 4567 89',
-  bic: 'GENODEF1MUC',
-  bank_name: 'Bayerische Volksbank eG',
+  email: 'buchhaltung@strudels-test.example',
+  phone: '+00 12 3456 789',
+  tax_id: 'AB 123 456 789',
+  iban: 'DE00 1234 5678 9012 3456 78',
+  bic: 'STRUDELXXX',
+  bank_name: 'StrudelBank DE',
   currency: '€',
   default_tax_rate: 19,
   invoice_template: 'din5008',
   letterhead_show_bg: false,
   letterhead_show_fold_marks: true,
   letterhead_default_subject: 'Rechnung für Lieferungen und Leistungen',
-  letterhead_managing_director: 'Geschäftsführer: Dr. Florian Weber, Sabine Lindner',
-  letterhead_commercial_register: 'Amtsgericht München HRB 249812',
-  letterhead_footer_line1: 'Nexus Technologies GmbH • Innovationsring 42 • 80331 München',
-  letterhead_footer_line2: 'Geschäftsführer: Dr. Florian Weber • AG München HRB 249812',
-  letterhead_footer_line3: 'Bayerische Volksbank eG • IBAN: DE44 7001 0080 0123 4567 89 • BIC: GENODEF1MUC',
-  letterhead_footer_line4: 'USt-IdNr: DE 304 882 109 • Steuer-Nr: 143/182/90214',
+  letterhead_managing_director: 'Geschäftsführer: Yuri Strudel',
+  letterhead_commercial_register: 'Amtsgericht Strudelstadt HRB 123456',
+  letterhead_footer_line1: "Strudel's Test GmbH • Strudelstreet 99 • 12345 Strudelstadt",
+  letterhead_footer_line2: 'Geschäftsführer: Yuri Strudel • AG Strudelstadt HRB 123456',
+  letterhead_footer_line3: 'StrudelBank DE • IBAN: DE00 1234 5678 9012 3456 78 • BIC: STRUDELXXX',
+  letterhead_footer_line4: 'USt-IdNr: AB 123 456 789 • Steuer-Nr: 000/123/45678',
   backup_owner: 'Hauptadministrator / IT-Leitung',
-  backup_folder_path: 'C:\\ERP-Daten\\Odoo_Backups',
+  backup_folder_path: 'C:\\ERP-Daten\\SOCDOF_Backups',
   max_storage_warning_kb: 5000 // 5 MB threshold warning
 };
 
@@ -73,6 +73,30 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
   const companyProfileRecord = await db.settings.get('company_profile');
   if (!companyProfileRecord) {
     await db.settings.put({ key: 'company_profile', value: defaultCompanyProfile });
+  } else {
+    const existing = companyProfileRecord.value as CompanyProfile;
+    // Auto-migrate legacy demo data to full fake test example data
+    if (existing?.name === 'Nexus Technologies GmbH' || existing?.street === 'Innovationsring 42' || existing?.tax_id === 'DE 304 882 109') {
+      const updated: CompanyProfile = {
+        ...existing,
+        name: "Strudel's Test GmbH",
+        street: 'Strudelstreet 99',
+        zip_city: '12345 Strudelstadt',
+        email: 'buchhaltung@strudels-test.example',
+        phone: '+00 12 3456 789',
+        tax_id: 'AB 123 456 789',
+        iban: 'DE00 1234 5678 9012 3456 78',
+        bic: 'STRUDELXXX',
+        bank_name: 'StrudelBank DE',
+        letterhead_managing_director: 'Geschäftsführer: Yuri Strudel',
+        letterhead_commercial_register: 'Amtsgericht Strudelstadt HRB 123456',
+        letterhead_footer_line1: "Strudel's Test GmbH • Strudelstreet 99 • 12345 Strudelstadt",
+        letterhead_footer_line2: 'Geschäftsführer: Yuri Strudel • AG Strudelstadt HRB 123456',
+        letterhead_footer_line3: 'StrudelBank DE • IBAN: DE00 1234 5678 9012 3456 78 • BIC: STRUDELXXX',
+        letterhead_footer_line4: 'USt-IdNr: AB 123 456 789 • Steuer-Nr: 000/123/45678'
+      };
+      await db.settings.put({ key: 'company_profile', value: updated });
+    }
   }
 
   // Only seed demo data if explicitly requested
@@ -173,7 +197,7 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
   // 2. Initial Products
   const initialProducts: Product[] = [
     {
-      name: 'Nexus IoT Gateway Pro',
+      name: "Strudel IoT Gateway Pro",
       sku: 'PRD-IOT-001',
       barcode: '426012345001',
       sale_price: 499.00,
@@ -250,7 +274,7 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
   const initialMoves: StockMove[] = [
     {
       product_id: 1,
-      product_name: 'Nexus IoT Gateway Pro',
+      product_name: "Strudel IoT Gateway Pro",
       product_sku: 'PRD-IOT-001',
       qty: 25,
       source_location: 'Virtual/Vendors',
@@ -305,7 +329,7 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
     },
     {
       product_id: 1,
-      product_name: 'Nexus IoT Gateway Pro',
+      product_name: "Strudel IoT Gateway Pro",
       product_sku: 'PRD-IOT-001',
       qty: 7,
       source_location: 'Physical/Warehouse',
@@ -335,7 +359,7 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
         {
           id: 'item_1',
           product_id: 1,
-          product_name: 'Nexus IoT Gateway Pro',
+          product_name: "Strudel IoT Gateway Pro",
           sku: 'PRD-IOT-001',
           qty: 5,
           unit_price: 499.00,
@@ -422,7 +446,7 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
         {
           id: 'item_5',
           product_id: 1,
-          product_name: 'Nexus IoT Gateway Pro',
+          product_name: "Strudel IoT Gateway Pro",
           sku: 'PRD-IOT-001',
           qty: 2,
           unit_price: 499.00,

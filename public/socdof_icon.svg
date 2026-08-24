@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%">
+  <defs>
+    <clipPath id="outer-rounded">
+      <rect x="0" y="0" width="256" height="256" rx="36" ry="36" />
+    </clipPath>
+  </defs>
+
+  <!-- Outer 4-Color Frame (SOCDOF Windows Palette) -->
+  <g clip-path="url(#outer-rounded)">
+    <!-- Top-Left Blue -->
+    <rect x="0" y="0" width="128" height="128" fill="#0078D7" />
+    <!-- Top-Right Green -->
+    <rect x="128" y="0" width="128" height="128" fill="#10B981" />
+    <!-- Bottom-Left Yellow -->
+    <rect x="0" y="128" width="128" height="128" fill="#F59E0B" />
+    <!-- Bottom-Right Red -->
+    <rect x="128" y="128" width="128" height="128" fill="#EF4444" />
+
+    <!-- Inner Dark Charcoal Card with Margin -->
+    <rect x="14" y="14" width="228" height="228" rx="26" ry="26" fill="#262626" />
+  </g>
+
+  <!-- Stylized Bold White "S" -->
+  <text 
+    x="128" 
+    y="180" 
+    text-anchor="middle" 
+    font-family="'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif" 
+    font-weight="900" 
+    font-size="168" 
+    fill="#FFFFFF" 
+    letter-spacing="-4"
+  >S</text>
+</svg>

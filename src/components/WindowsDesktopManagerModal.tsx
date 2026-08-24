@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { db } from '../lib/db';
+import { SocdofLogo } from './SocdofLogo';
 
 interface WindowsDesktopManagerModalProps {
   isOpen: boolean;
@@ -162,9 +163,7 @@ try {
         {/* Header */}
         <div className="p-6 pb-4 bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 text-white flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <Monitor className="w-6 h-6 text-white" />
-            </div>
+            <SocdofLogo size="lg" className="shadow-lg flex-shrink-0" />
             <div>
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold mb-1 border border-emerald-500/30">
                 <ShieldCheck className="w-3 h-3" />
@@ -343,7 +342,7 @@ try {
               </div>
 
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Legen Sie die <code>.bat</code> Datei einfach auf Ihren Windows Desktop. Ein Doppelklick öffnet Odoo ERP direkt als isoliertes Windows-Programmfenster.
+                Legen Sie die <code>.bat</code> Datei einfach auf Ihren Windows Desktop. Ein Doppelklick öffnet SOCDOF direkt als isoliertes Windows-Programmfenster.
               </p>
             </div>
           )}

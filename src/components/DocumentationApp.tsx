@@ -20,7 +20,10 @@ import {
   Printer, 
   ChevronRight,
   Info,
-  Smartphone
+  Smartphone,
+  ExternalLink,
+  MessageSquare,
+  Github
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 
@@ -238,6 +241,75 @@ export const DocumentationApp: React.FC = () => {
           </p>
           <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300">
             <strong>Empfehlung zur Datensicherung:</strong> Erstellen Sie regelmäßig über <strong>Einstellungen &gt; Datensicherung</strong> eine separate JSON-Backup-Datei und speichern Sie diese auf einem USB-Stick oder Netzlaufwerk.
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'community',
+      title: 'Open Source & Discord Community Hilfe',
+      category: 'Support & Community',
+      icon: MessageSquare,
+      summary: 'Offizielles Open-Source GitHub Repository & Support ausschließlich auf Discord.',
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 space-y-3">
+            <h5 className="font-bold text-sm text-indigo-900 dark:text-indigo-200">
+              Open Source Projekt & Community Support
+            </h5>
+            <p className="text-slate-700 dark:text-slate-300">
+              SOCDOF ist ein freies Open-Source-Projekt. Der gesamte Quellcode, Issues, Versionen und Erweiterungen sind transparent auf GitHub verfügbar.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* GitHub Card */}
+            <a
+              href="https://github.com/Strudelcode/SOCDOF"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition flex items-start gap-3 group"
+            >
+              <div className="p-2.5 rounded-xl bg-slate-900 text-white shrink-0">
+                <Github className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1 font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  <span>GitHub Repository</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  github.com/Strudelcode/SOCDOF
+                </p>
+                <span className="inline-block mt-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-md">
+                  Source Code &amp; Releases
+                </span>
+              </div>
+            </a>
+
+            {/* Discord Support Card */}
+            <a
+              href="https://discord.gg/QW85EaXTgB"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-4 rounded-2xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 transition flex items-start gap-3 group"
+            >
+              <div className="p-2.5 rounded-xl bg-[#5865F2] text-white shrink-0 shadow-sm">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1 font-bold text-xs text-[#5865F2] dark:text-indigo-300">
+                  <span>Hilfe &amp; Support (Discord)</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                  Hilfe ausschließlich auf unserem offiziellen Discord-Server!
+                </p>
+                <span className="inline-block mt-2 text-[10px] font-bold text-white bg-[#5865F2] px-2 py-0.5 rounded-md shadow-xs">
+                  discord.gg/QW85EaXTgB
+                </span>
+              </div>
+            </a>
           </div>
         </div>
       )
