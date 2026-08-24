@@ -1,4 +1,5 @@
 # ToDo Liste 
+
 When an item on the todo list is completed, tick it off and DO NOT delete it. If features that have been made are not yet on it, add them and tick them accordingly. If you have any questions, just get in touch
 ---
 
