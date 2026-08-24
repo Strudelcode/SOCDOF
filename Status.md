@@ -28,16 +28,18 @@ All data is stored purely on the client side inside **IndexedDB via Dexie.js** (
 ## 2. Version History & Recent Updates
 
 ### v18.3.5 (Current Release — 2026-08-24)
-- 🗂️ **Nativer Windows-Ordnerauswahldialog beim Ausführen:**
-  - Der Installationspfad wird nicht mehr im Browserfenster vorkonfiguriert, sondern öffnet beim Ausführen der `.cmd` / `.bat` / `.ps1` Datei direkt ein grafisches Windows-Auswahlfenster (`FolderBrowserDialog`).
-  - Der Benutzer wählt seinen Wunschordner (z. B. auf `C:\`, `D:\` oder Wechseldatenträgern) interaktiv auf seinem PC aus.
-  - Automatische Erstellung der Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Desktop-Verknüpfung und Konfigurationsdateien mit Erfolgsmeldung per Windows MessageBox.
+- 🗂️ **Nativer Windows-Ordnerauswahldialog & 100% robuster Script-Launcher:**
+  - **Batch & CMD Fix (PowerShell EncodedCommand):** Die `.cmd` und `.bat` Setup-Skripte nutzen jetzt eine atomare, Base64-codierte UTF-16LE PowerShell-Ausführung. Dadurch werden alle klassischen Windows-Batch-Syntaxfehler (Klammern `()`, Pipes `|`, Anführungszeichen, vorzeitiges Schließen des Fensters) zu 100% eliminiert.
+  - Der Installationsassistent öffnet zuverlässig den grafischen Windows `FolderBrowserDialog`.
+  - Der Benutzer wählt seinen Wunschordner (z. B. `C:\SOCDOF` oder `D:\Programme\SOCDOF`) interaktiv auf seinem PC aus.
+  - Automatische Erstellung der Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Startskripte und Desktop-Verknüpfung (`SOCDOF Desktop.lnk`) mit Windows MessageBox-Erfolgsmeldung.
+- 🧹 **Bereinigtes Download-Modal:**
+  - Überflüssige Tabs (*Ordnerstruktur* und *Lokaler Speicher*) wurden vollständig aus dem Setup-Fenster entfernt.
+  - Fokussiertes Interface mit klarem 3-Schritte-Ablauf, Direktdownload für `.cmd`, `.bat` und `.ps1` sowie PWA-Verknüpfung.
 - 🌐 **GitHub Pages & Standalone Offline Fix:**
   - Konfiguration von `base: './'` in `vite.config.ts` und relative Pfade in `index.html`.
   - Behebt den leeren/weißen Bildschirm auf `https://strudelcode.github.io/SOCDOF/` und ermöglicht direktes lokales Öffnen der erzeugten `index.html`.
-- 📦 **Vollständig überarbeiteter Windows Desktop Setup Manager:**
-  - Klares, schrittweises 3-Stufen-Layout im Setup-Modal.
-  - Direkte Download-Buttons für `.cmd`, `.bat` und `.ps1` sowie Verknüpfung zu GitHub Releases.
+- ⚙️ **Automatisierter GitHub Actions Release Workflow:** `.github/workflows/build-windows-exe.yml` zur Erzeugung von NSIS-Installern und Portable `.exe` Dateien bei Git-Tags.
 
 ### v18.3.4 (2026-08-24)
 - 💻 **Echter Windows Desktop Setup-Assistent (`Setup_SOCDOF_Windows.cmd` & `Install_SOCDOF_Wizard.ps1`):**
@@ -109,10 +111,32 @@ All data is stored purely on the client side inside **IndexedDB via Dexie.js** (
 
 ---
 
-## 4. Key Files Reference
+## 4. GitHub Actions & Automated Windows .EXE Releases
+
+We have established two automated CI/CD workflows:
+
+### A. Automatic Windows `.exe` Installer & Portable Builder (`.github/workflows/build-windows-exe.yml`)
+- **Triggered by:** Pushing any Git Tag (e.g. `v18.3.5`, `git tag v18.3.5 && git push origin v18.3.5`) or manually via the GitHub Actions tab (`workflow_dispatch`).
+- **Build runner:** `windows-latest`
+- **Output:**
+  1. `SOCDOF Setup 18.3.5.exe` (NSIS Installer with custom directory selector, start menu & desktop shortcuts)
+  2. `SOCDOF 18.3.5.exe` (Standalone Portable Executable)
+- **Automatic GitHub Release:** The workflow automatically publishes a new GitHub Release with download links for the `.exe` files attached!
+
+### B. Automatic GitHub Pages Deployment (`.github/workflows/deploy-pages.yml`)
+- **Triggered by:** Any commit push to the `main` branch.
+- **Output:** Builds `dist/` and deploys directly to `https://strudelcode.github.io/SOCDOF/`.
+
+---
+
+## 5. Key Files Reference
 
 | Path | Purpose |
 |------|---------|
+| `/.github/workflows/build-windows-exe.yml` | GitHub Actions workflow to build and attach NSIS + Portable `.exe` to GitHub Releases |
+| `/.github/workflows/deploy-pages.yml` | GitHub Actions workflow for automatic deployment to GitHub Pages |
+| `/electron/main.cjs` | Electron main process entry point for packaged desktop builds |
+| `/electron-builder.json` | Packaging configuration for NSIS installer and portable Windows `.exe` |
 | `/src/lib/version.ts` | Single source of truth for version number (`v18.3.5`) and changelog |
 | `/src/lib/windowsExeDownloader.ts` | Windows Setup Wizard (`.cmd`, `.bat`, `.ps1`) with native GUI folder picker & structure generator |
 | `/src/components/WindowsDesktopManagerModal.tsx` | Windows installation wizard dialog with 3-step guide & direct download actions |
@@ -127,6 +151,6 @@ All data is stored purely on the client side inside **IndexedDB via Dexie.js** (
 
 ---
 
-## 5. Verification & Validation
+## 6. Verification & Validation
 - Run `npm run lint` or `compile_applet` to ensure 0 TypeScript errors.
 - Version is consistently displayed as `SOCDOF 18.3.5` across the app.

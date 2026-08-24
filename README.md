@@ -111,7 +111,31 @@ npm install
 
 # Entwicklungsserver starten (Port 3000)
 npm run dev
+
+# Lokales Web-Build erstellen
+npm run build
 ```
+
+---
+
+## 🔨 Wie erstelle ich ein .exe Release auf GitHub?
+
+Wir haben eine fertige **GitHub Actions CI/CD Pipeline** (`.github/workflows/build-windows-exe.yml`) eingerichtet. Sie können `.exe` Releases auf 2 Wegen erstellen:
+
+### Methode 1: Automatisch über Git Tags (Empfohlen)
+Erstellen und pushen Sie einen Versionstag. GitHub baut die `.exe` automatisch und erstellt einen Release:
+```bash
+git tag v18.3.5
+git push origin v18.3.5
+```
+GitHub Actions startet automatisch auf einem Windows-Server, erzeugt den NSIS-Installer `SOCDOF Setup 18.3.5.exe` sowie die Portable `.exe` und hängt sie an den GitHub Release an!
+
+### Methode 2: Manuell im GitHub Webinterface
+1. Gehen Sie auf GitHub zu Ihrem Repository `https://github.com/Strudelcode/SOCDOF`.
+2. Klicken Sie auf den Tab **Actions**.
+3. Wählen Sie links den Workflow **"Build Windows .EXE Release"**.
+4. Klicken Sie rechts auf **"Run workflow"** > Branch `main` auswählen > **"Run workflow"** bestätigen.
+5. Nach ca. 2–3 Minuten können Sie die fertige `.exe` unter den Artefakten herunterladen.
 
 ---
 

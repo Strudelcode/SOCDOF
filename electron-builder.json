@@ -1,0 +1,37 @@
+{
+  "appId": "de.strudelcode.socdof",
+  "productName": "SOCDOF",
+  "copyright": "Copyright © 2026 Strudelcode",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "public/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/socdof_icon.svg"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "SOCDOF Desktop",
+    "installerIcon": "public/socdof_icon.svg",
+    "uninstallerIcon": "public/socdof_icon.svg",
+    "installerHeaderIcon": "public/socdof_icon.svg"
+  }
+}
