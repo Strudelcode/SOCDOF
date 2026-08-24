@@ -56,11 +56,12 @@ import {
   Invoice, 
   CompanyProfile, 
   PurchaseOrder, 
-  POSOrder 
+  POSOrder,
+  DesktopFolder 
 } from '../types';
 import { sounds } from '../lib/sound';
 import { applyAccentColor } from '../lib/accent';
-import { getLanguage, setLanguage, useLanguage, t, LanguageCode } from '../lib/i18n';
+import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, LanguageCode } from '../lib/i18n';
 import { FlagIcon } from './FlagIcon';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { WindowsExeNotificationToast } from './WindowsExeNotificationToast';
@@ -78,6 +79,7 @@ import { AppStoreModule } from './AppStoreModule';
 import { DocumentationApp } from './DocumentationApp';
 import { TutorialModal } from './TutorialModal';
 import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
+import { DesktopFolderModal } from './DesktopFolderModal';
 import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
 import { SocdofLogo } from './SocdofLogo';
@@ -211,6 +213,136 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       } catch {}
       return next;
     });
+  };
+
+  // Persistent Desktop Folders (Android / iOS Style App Nesting)
+  const [desktopFolders, setDesktopFolders] = useState<DesktopFolder[]>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_desktop_folders');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const [activeFolderModal, setActiveFolderModal] = useState<DesktopFolder | null>(null);
+  const [dragOverIconId, setDragOverIconId] = useState<string | null>(null);
+
+  const saveDesktopFolders = (folders: DesktopFolder[]) => {
+    setDesktopFolders(folders);
+    try {
+      localStorage.setItem('socdof_desktop_folders', JSON.stringify(folders));
+    } catch {}
+  };
+
+  // Create folder from merging 2 apps
+  const handleMergeAppsIntoFolder = (targetModId: ActiveModule, draggedModId: ActiveModule) => {
+    sounds.playSuccess();
+    const newFolderId = `folder_${Date.now()}`;
+    const newFolder: DesktopFolder = {
+      id: newFolderId,
+      name: 'Ordner',
+      modules: [targetModId, draggedModId],
+      createdAt: new Date().toISOString()
+    };
+
+    // Remove both apps from pinned desktop
+    const nextPinned = pinnedDesktop.filter(m => m !== targetModId && m !== draggedModId);
+    setPinnedDesktop(nextPinned);
+    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+
+    // Place folder at target position
+    const targetPos = desktopPositions[targetModId] || { x: 24, y: 24 };
+    setDesktopPositions(prev => {
+      const next = { ...prev, [newFolderId]: targetPos };
+      delete next[targetModId];
+      delete next[draggedModId];
+      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    saveDesktopFolders([...desktopFolders, newFolder]);
+    setDragOverIconId(null);
+    setDraggedDesktopItem(null);
+  };
+
+  // Add app to existing folder
+  const handleAddAppToExistingFolder = (folderId: string, draggedModId: ActiveModule) => {
+    sounds.playPop();
+    const nextFolders = desktopFolders.map(f => {
+      if (f.id === folderId) {
+        return {
+          ...f,
+          modules: Array.from(new Set([...f.modules, draggedModId]))
+        };
+      }
+      return f;
+    });
+
+    // Remove app from pinned desktop
+    const nextPinned = pinnedDesktop.filter(m => m !== draggedModId);
+    setPinnedDesktop(nextPinned);
+    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+
+    // Clean position
+    setDesktopPositions(prev => {
+      const next = { ...prev };
+      delete next[draggedModId];
+      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    saveDesktopFolders(nextFolders);
+    setDragOverIconId(null);
+    setDraggedDesktopItem(null);
+  };
+
+  // Remove app from folder -> move back to desktop
+  const handleRemoveFromFolder = (folderId: string, modId: ActiveModule) => {
+    const targetFolder = desktopFolders.find(f => f.id === folderId);
+    if (!targetFolder) return;
+
+    const remainingMods = targetFolder.modules.filter(m => m !== modId);
+    // Add app back to pinned desktop
+    const nextPinned = Array.from(new Set([...pinnedDesktop, modId]));
+    setPinnedDesktop(nextPinned);
+    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+
+    if (remainingMods.length <= 1) {
+      // Dissolve folder if 1 or 0 apps remaining
+      const otherMod = remainingMods[0];
+      const finalPinned = otherMod ? Array.from(new Set([...nextPinned, otherMod])) : nextPinned;
+      setPinnedDesktop(finalPinned);
+      try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(finalPinned)); } catch {}
+      saveDesktopFolders(desktopFolders.filter(f => f.id !== folderId));
+      if (activeFolderModal?.id === folderId) setActiveFolderModal(null);
+    } else {
+      const nextFolders = desktopFolders.map(f => f.id === folderId ? { ...f, modules: remainingMods } : f);
+      saveDesktopFolders(nextFolders);
+      if (activeFolderModal?.id === folderId) {
+        setActiveFolderModal({ ...targetFolder, modules: remainingMods });
+      }
+    }
+  };
+
+  // Dissolve folder completely
+  const handleDissolveFolder = (folderId: string) => {
+    const targetFolder = desktopFolders.find(f => f.id === folderId);
+    if (!targetFolder) return;
+
+    const nextPinned = Array.from(new Set([...pinnedDesktop, ...targetFolder.modules]));
+    setPinnedDesktop(nextPinned);
+    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+    saveDesktopFolders(desktopFolders.filter(f => f.id !== folderId));
+    if (activeFolderModal?.id === folderId) setActiveFolderModal(null);
+  };
+
+  // Rename folder
+  const handleRenameFolder = (folderId: string, newName: string) => {
+    const nextFolders = desktopFolders.map(f => f.id === folderId ? { ...f, name: newName } : f);
+    saveDesktopFolders(nextFolders);
+    if (activeFolderModal?.id === folderId) {
+      setActiveFolderModal({ ...activeFolderModal, name: newName });
+    }
   };
 
   // Desktop Icon XY Coordinates persistence (Freies Verschieben & Einrasten wie in Windows)
@@ -898,7 +1030,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     >
       
       {/* 1. Desktop Wallpaper Canvas & Ambient Lighting */}
-      {isDark ? (
+      {company.desktop_wallpaper_url ? (
+        <div 
+          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-all duration-500"
+          style={{ backgroundImage: `url(${company.desktop_wallpaper_url})` }}
+        >
+          <div className={`absolute inset-0 ${isDark ? 'bg-slate-950/40 backdrop-blur-xs' : 'bg-white/20 backdrop-blur-2xs'}`} />
+        </div>
+      ) : isDark ? (
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950/80 to-slate-900 pointer-events-none">
           <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -988,6 +1127,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           const badge = getBadgeForModule(modId);
           const pos = getDesktopPosition(modId, index);
           const isBeingDragged = draggedDesktopItem?.modId === modId;
+          const isDragOver = dragOverIconId === modId;
 
           return (
             <div
@@ -1003,6 +1143,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               }}
               onDragEnd={() => {
                 setDraggedDesktopItem(null);
+                setDragOverIconId(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (draggedDesktopItem && draggedDesktopItem.modId !== modId) {
+                  setDragOverIconId(modId);
+                }
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dragOverIconId === modId) {
+                  setDragOverIconId(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || draggedDesktopItem?.modId;
+                if (droppedModId && droppedModId !== modId) {
+                  handleMergeAppsIntoFolder(modId, droppedModId);
+                }
+                setDragOverIconId(null);
               }}
               style={{
                 position: 'absolute',
@@ -1010,8 +1174,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 top: `${pos.y}px`,
                 zIndex: isBeingDragged ? 40 : 2
               }}
-              className={`cursor-grab active:cursor-grabbing rounded-2xl select-none transition-shadow ${
+              className={`cursor-grab active:cursor-grabbing rounded-2xl select-none transition-all duration-150 ${
                 isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed' : 'hover:scale-102'
+              } ${
+                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20' : ''
               }`}
             >
               <button
@@ -1059,6 +1225,88 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           );
         })}
 
+        {/* Render Desktop Folders (Android / iOS Style Container with 2x2 Mini Preview) */}
+        {desktopFolders.map((folder, fIndex) => {
+          const pos = desktopPositions[folder.id] || { 
+            x: 24 + Math.floor((pinnedDesktop.length + fIndex) / 6) * 104, 
+            y: 24 + ((pinnedDesktop.length + fIndex) % 6) * 96 
+          };
+          const isDragOver = dragOverIconId === folder.id;
+
+          return (
+            <div
+              key={folder.id}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (draggedDesktopItem) {
+                  setDragOverIconId(folder.id);
+                }
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dragOverIconId === folder.id) {
+                  setDragOverIconId(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || draggedDesktopItem?.modId;
+                if (droppedModId) {
+                  handleAddAppToExistingFolder(folder.id, droppedModId);
+                }
+                setDragOverIconId(null);
+              }}
+              style={{
+                position: 'absolute',
+                left: `${pos.x}px`,
+                top: `${pos.y}px`,
+                zIndex: 3
+              }}
+              className={`rounded-2xl select-none transition-all duration-150 ${
+                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20' : 'hover:scale-102'
+              }`}
+            >
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setActiveFolderModal(folder);
+                }}
+                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
+                  isDark 
+                    ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
+                    : 'hover:bg-black/5 active:bg-black/10 hover:border-black/10'
+                }`}
+              >
+                {/* 2x2 Mini Apps Grid Squircle (Android Style) */}
+                <div className="relative w-12 h-12 rounded-2xl bg-slate-800/40 dark:bg-slate-700/50 backdrop-blur-md p-1.5 grid grid-cols-2 gap-1 border border-white/20 shadow-md group-hover:scale-105 transition-transform duration-200">
+                  {folder.modules.slice(0, 4).map((mod) => {
+                    const mMeta = shortcutMeta[mod];
+                    if (!mMeta) return null;
+                    const MIcon = mMeta.icon;
+                    return (
+                      <div key={mod} className={`rounded-[4px] ${mMeta.color} text-white flex items-center justify-center`}>
+                        <MIcon className="w-2.5 h-2.5" />
+                      </div>
+                    );
+                  })}
+                  {folder.modules.length < 4 && Array.from({ length: 4 - folder.modules.length }).map((_, i) => (
+                    <div key={i} className="rounded-[4px] bg-white/10" />
+                  ))}
+                </div>
+
+                <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center truncate max-w-[85px] ${
+                  isDark ? 'text-white' : 'text-slate-800'
+                }`}>
+                  {folder.name}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+
         {/* Desktop Context Menu (Rechtsklick auf Desktop-Hintergrund) */}
         {desktopContextMenu && (
           <div
@@ -1083,7 +1331,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
             <button
               onClick={() => {
-                openWindow('appstore', 'Odoo App Store');
+                openWindow('appstore', 'App Store');
                 setDesktopContextMenu(null);
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition"
@@ -1123,13 +1371,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               height: win.isMaximized ? 'calc(100vh - 48px)' : `${win.height}px`,
               top: win.isMaximized ? 0 : `${win.y}px`,
               left: win.isMaximized ? 0 : `${win.x}px`,
-              position: 'absolute'
+              position: 'absolute',
+              ...(isActive && !win.isMaximized ? {
+                borderColor: 'var(--accent, #4f46e5)',
+                boxShadow: '0 20px 40px -15px var(--accent-ring, rgba(79, 70, 229, 0.3)), 0 0 0 1px var(--accent, #4f46e5)'
+              } : {})
             }}
             className={`flex flex-col bg-white dark:bg-slate-900 ${
               win.isMaximized ? 'rounded-none border-0' : 'rounded-2xl border'
             } ${
               isActive 
-                ? 'border-indigo-500/80 shadow-2xl ring-1 ring-indigo-500/30' 
+                ? 'shadow-2xl' 
                 : 'border-slate-300 dark:border-slate-800 shadow-xl opacity-98'
             } overflow-hidden ${
               draggedWindow?.id === win.id || resizingWindow?.id === win.id 
@@ -1636,12 +1888,24 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 7. Authentic Windows 11 Taskbar */}
-      <div className={`relative z-40 h-12 ${
-        isDark 
-          ? 'bg-slate-900/90 border-slate-800/80 text-slate-300' 
-          : 'bg-white/90 border-slate-200/90 text-slate-700'
-      } backdrop-blur-xl border-t px-3 flex items-center justify-between text-xs`}>
+      {/* 7. Authentic Windows 11 Taskbar with Accent & Tint Customization */}
+      <div 
+        className={`relative z-40 h-12 backdrop-blur-xl border-t px-3 flex items-center justify-between text-xs transition-colors duration-300 ${
+          company.taskbar_tint === 'accent'
+            ? 'taskbar-tinted text-slate-800 dark:text-slate-100'
+            : company.taskbar_tint === 'dark'
+            ? 'bg-slate-950/95 border-slate-800 text-slate-200 shadow-2xl'
+            : company.taskbar_tint === 'glass'
+            ? 'bg-white/40 dark:bg-slate-900/40 border-white/20 dark:border-white/10 text-slate-800 dark:text-slate-200 backdrop-blur-2xl'
+            : isDark 
+            ? 'bg-slate-900/90 border-slate-800/80 text-slate-300' 
+            : 'bg-white/90 border-slate-200/90 text-slate-700'
+        }`}
+        style={company.taskbar_tint === 'accent' ? {
+          backgroundColor: 'var(--accent-taskbar-bg, rgba(79, 70, 229, 0.2))',
+          borderTopColor: 'var(--accent-taskbar-border, rgba(79, 70, 229, 0.45))'
+        } : undefined}
+      >
         
         {/* Left / Center: Start Button + Unified Taskbar Apps */}
         <div className="flex items-center gap-1 flex-1 min-w-0">
@@ -1655,9 +1919,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             title="Start - SOCDOF OS"
             className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
               isStartMenuOpen 
-                ? 'bg-indigo-600/30 ring-2 ring-indigo-500 shadow-md scale-105' 
+                ? 'ring-2 shadow-md scale-105' 
                 : 'hover:bg-slate-200/60 dark:hover:bg-white/10 active:scale-95'
             }`}
+            style={isStartMenuOpen ? {
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.25))',
+              outlineColor: 'var(--accent, #4f46e5)'
+            } : undefined}
           >
             <SocdofLogo size="sm" />
           </button>
@@ -1736,7 +2004,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                               : 'hover:bg-black/5 text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-indigo-500 dark:text-indigo-400' : ''}`} />
+                      <Icon 
+                        className="w-4 h-4 flex-shrink-0" 
+                        style={isActive ? { color: 'var(--accent, #4f46e5)' } : undefined}
+                      />
                       
                       {/* Actionable Notification Dot / Count Badge */}
                       {badge !== undefined && (
@@ -1750,9 +2021,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                         <span 
                           className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 rounded-full transition-all ${
                             isActive 
-                              ? 'w-4 h-1 bg-indigo-600 dark:bg-indigo-400 shadow-xs' 
+                              ? 'w-4 h-1 shadow-xs' 
                               : 'w-2 h-0.5 bg-slate-400 dark:bg-slate-500'
                           }`} 
+                          style={isActive ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
                         />
                       )}
                     </button>
@@ -1765,16 +2037,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         {/* Right: System Tray & Actions */}
         <div className="flex items-center gap-1.5">
-          {/* Windows Desktop App Local Status Indicator */}
-          <button
-            onClick={() => { sounds.playClick(); setIsWindowsModalOpen(true); }}
-            title="Windows App Status: 100% Lokal & Offline auf Ihrem PC"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition"
-          >
-            <Monitor className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span className="hidden sm:inline">Windows App (Lokal)</span>
-          </button>
-
           {/* Language Selector in Taskbar Tray */}
           <button
             onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
@@ -1814,16 +2076,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </button>
 
           {/* Live Digital Clock */}
-          <div className="text-right px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-default">
-            <div className="text-xs font-mono font-bold">
-              {currentTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          <div className="text-right px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-default select-none">
+            <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
-            <div className="text-[10px] text-slate-400">
-              {currentTime.toLocaleDateString('de-DE')}
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY')}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Desktop App Folder Modal (Android / iOS Style Overlay) */}
+      <DesktopFolderModal
+        folder={activeFolderModal}
+        isOpen={Boolean(activeFolderModal)}
+        onClose={() => setActiveFolderModal(null)}
+        onLaunchModule={(mod) => openWindow(mod)}
+        onRenameFolder={handleRenameFolder}
+        onRemoveFromFolder={handleRemoveFromFolder}
+        onDissolveFolder={handleDissolveFolder}
+        shortcutMeta={shortcutMeta}
+        isDark={isDark}
+      />
 
       {/* Interactive Step-by-Step Tutorial Wizard */}
       <TutorialModal
@@ -1850,8 +2125,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         }}
       />
 
-      {/* Periodic Windows Desktop .EXE Notification Toast */}
+      {/* Windows Desktop .EXE Notification Toast (Disabled if dismissed or in desktop app) */}
       <WindowsExeNotificationToast
+        disabled={Boolean(company.disable_exe_reminders)}
         onOpenWindowsManager={() => setIsWindowsModalOpen(true)}
       />
     </div>

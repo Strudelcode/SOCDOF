@@ -129,9 +129,13 @@ export default function App() {
         if (comp.language) {
           setLanguage(comp.language);
         }
+        if (comp.font_scale) {
+          document.documentElement.style.fontSize = `${comp.font_scale}%`;
+        }
       } else {
         applyAccentColor('indigo');
         setLanguage('en');
+        document.documentElement.style.fontSize = '100%';
       }
     } catch (err) {
       console.error('Database load error:', err);
@@ -146,7 +150,10 @@ export default function App() {
     if (company?.accent_color) {
       applyAccentColor(company.accent_color);
     }
-  }, [company?.accent_color]);
+    if (company?.font_scale) {
+      document.documentElement.style.fontSize = `${company.font_scale}%`;
+    }
+  }, [company?.accent_color, company?.font_scale]);
 
   // Clean Mode Toggle Handler for Studio Drawer
   const handleToggleCleanMode = async (enableClean: boolean) => {

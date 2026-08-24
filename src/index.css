@@ -59,6 +59,11 @@
   --tw-ring-color: var(--accent-ring, rgba(79, 70, 229, 0.35)) !important;
 }
 
+.taskbar-tinted {
+  background-color: var(--accent-taskbar-bg, rgba(79, 70, 229, 0.2)) !important;
+  border-top-color: var(--accent-taskbar-border, rgba(79, 70, 229, 0.4)) !important;
+}
+
 /* Sleek subtle scrollbars across all windows and modules */
 ::-webkit-scrollbar {
   width: 6px;

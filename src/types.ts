@@ -185,6 +185,10 @@ export interface CompanyProfile {
   theme_mode?: 'light' | 'dark' | 'system';
   glass_overlay?: boolean;
   accent_color?: string;
+  taskbar_tint?: 'default' | 'accent' | 'dark' | 'glass';
+  font_scale?: number; // 90 to 130 (%)
+  desktop_wallpaper_url?: string;
+  disable_exe_reminders?: boolean;
   language?: 'de' | 'en' | 'fr' | 'es';
   date_format?: 'DD.MM.YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY';
   timezone?: string;
@@ -229,6 +233,14 @@ export type ActiveModule =
   | 'docs'
   | 'restaurant'
   | 'ios_billing';
+
+export interface DesktopFolder {
+  id: string;
+  name: string;
+  modules: ActiveModule[];
+  createdAt: string;
+  color?: string;
+}
 
 export interface IOSSubcategoryOption {
   id: string;

@@ -138,6 +138,69 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.windows': 'Windows Desktop App',
     'settings.danger': 'System Reset & Danger Zone',
 
+    // Personalization & Appearance
+    'settings.personalization_title': 'Personalization & Color Scheme (Windows Style)',
+    'settings.personalization_desc': 'Customize appearance, system accent colors, and desktop window effects.',
+    'settings.theme_mode': 'Select Theme Mode',
+    'settings.light_mode': 'Light Mode',
+    'settings.light_mode_desc': 'Crisp, high-contrast light background',
+    'settings.dark_mode': 'Dark Mode',
+    'settings.dark_mode_desc': 'Eye-friendly Windows dark aesthetic',
+    'settings.mica_title': 'Windows Mica / Acrylic Glass Overlay',
+    'settings.mica_desc': 'Subtle blur and translucent titlebars for a native desktop feel.',
+    'settings.accent_system_title': 'System Accent Color & Color Picasso',
+    'settings.accent_system_desc': 'Instantly applied across window headers, buttons, badges, and the taskbar.',
+    'settings.active_badge': 'Active',
+    'settings.picasso_title': 'Color Picasso Palette Picker',
+    'settings.picasso_desc': 'Freely choose and customize any system accent color',
+    'settings.random_color': 'Random',
+    'settings.taskbar_title': 'Taskbar Color & Style (Bottom Bar)',
+    'settings.taskbar_desc': 'Choose the appearance and style of the bottom taskbar.',
+    'settings.taskbar_default': 'Standard Windows 11',
+    'settings.taskbar_default_desc': 'Neutral light / dark style',
+    'settings.taskbar_accent': 'Accent Tinted',
+    'settings.taskbar_accent_desc': 'Adapts selected system color',
+    'settings.taskbar_glass': 'Acrylic Glass',
+    'settings.taskbar_glass_desc': 'Semi-transparent with blur',
+    'settings.taskbar_dark': 'Deep Dark',
+    'settings.taskbar_dark_desc': 'Classic dark bar',
+    'settings.live_preview_title': 'Live Color Preview:',
+    'settings.live_preview_desc': 'Text, buttons, borders & badges',
+    'settings.font_scale_title': 'Font Size & Scaling (Zoom)',
+    'settings.font_scale_desc': 'Adjust the system font size smoothly (90% to 130%).',
+    'settings.font_scale_reset': '100% Reset',
+    'settings.wallpaper_title': 'Desktop Wallpaper Background',
+    'settings.wallpaper_desc': 'Choose a custom background image for your workspace or use the default gradient.',
+    'settings.wallpaper_upload': 'Upload Image',
+    'settings.wallpaper_remove': 'Remove Wallpaper',
+    'settings.wallpaper_default': 'Default',
+    'settings.save_now': 'Save Settings Now',
+    'settings.save_success': 'Settings successfully saved!',
+
+    // General & Master Data
+    'settings.company_data_title': 'Company & Master Data',
+    'settings.company_data_desc': 'Manage company name, address, tax ID, and contact information for invoices.',
+    'settings.company_name': 'Company Name',
+    'settings.owner_name': 'Managing Director / Owner',
+    'settings.street': 'Street & House Number',
+    'settings.city_zip': 'City & Postal Code',
+    'settings.country': 'Country',
+    'settings.tax_id': 'Tax Number / VAT ID',
+    'settings.bank_name': 'Bank Name',
+    'settings.iban': 'IBAN',
+    'settings.bic': 'BIC / Swift',
+    'settings.email': 'Email Address',
+    'settings.phone': 'Phone Number',
+    'settings.website': 'Website',
+
+    // Language & Region
+    'settings.lang_region_title': 'Language Settings, Currency & Regional Formats',
+    'settings.lang_region_desc': 'Choose your display language, date format, and currency.',
+    'settings.display_language': 'System Language',
+    'settings.currency_symbol': 'Currency Symbol',
+    'settings.date_format_label': 'Date Format',
+    'settings.timezone_label': 'Timezone',
+
     // System Status Card
     'status.system_title': 'System Status',
     'status.local_active': 'Local Active',
@@ -226,7 +289,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.pos': 'Point of Sale (POS Kasse)',
     'module.restaurant': 'Restaurant & Küchen-Display',
     'module.ios_billing': 'Schnellkasse Touch',
-    'module.appstore': 'Odoo App Store',
+    'module.appstore': 'App Store',
     'module.docs': 'Handbuch & Dokumentation',
     'module.settings': 'Einstellungen & Backup',
 
@@ -304,6 +367,69 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.audio': 'Sound & Audio',
     'settings.windows': 'Windows Desktop-App',
     'settings.danger': 'System zurücksetzen',
+
+    // Personalization & Appearance
+    'settings.personalization_title': 'Personalisierung & Farbschema (Windows-Stil)',
+    'settings.personalization_desc': 'Passen Sie das Erscheinungsbild, Akzentfarben und Fenstereffekte an.',
+    'settings.theme_mode': 'Design-Modus auswählen',
+    'settings.light_mode': 'Hellmodus (Light)',
+    'settings.light_mode_desc': 'Klarer, kontrastreicher Hintergrund',
+    'settings.dark_mode': 'Dunkelmodus (Dark)',
+    'settings.dark_mode_desc': 'Augenschonender Windows-Dark Look',
+    'settings.mica_title': 'Windows Mica / Acryl Glas-Overlay',
+    'settings.mica_desc': 'Subtiler Weichzeichner und transparente Titelleisten für ein natives Desktop-Gefühl.',
+    'settings.accent_system_title': 'System-Akzentfarbe & Color Picasso',
+    'settings.accent_system_desc': 'Wird sofort systemweit auf Fensterleisten, Buttons, Badges und Taskleiste angewendet.',
+    'settings.active_badge': 'Aktiv',
+    'settings.picasso_title': 'Color Picasso Farbwähler',
+    'settings.picasso_desc': 'Eigene Akzentfarbe nach Wunsch frei definieren & speichern',
+    'settings.random_color': 'Zufall',
+    'settings.taskbar_title': 'Farbe & Stil der unteren Leiste (Taskbar / Bottom Bar)',
+    'settings.taskbar_desc': 'Wählen Sie, wie die Leiste am unteren Bildschirmrand gestaltet wird.',
+    'settings.taskbar_default': 'Standard Windows 11',
+    'settings.taskbar_default_desc': 'Neutrales Hell / Dunkel',
+    'settings.taskbar_accent': 'Akzentfarbe getönt',
+    'settings.taskbar_accent_desc': 'Übernimmt die gewählte Farbe',
+    'settings.taskbar_glass': 'Acryl Glas',
+    'settings.taskbar_glass_desc': 'Halbtransparent & Weichzeichner',
+    'settings.taskbar_dark': 'Tiefschwarz (Dark)',
+    'settings.taskbar_dark_desc': 'Klassisch dunkle Leiste',
+    'settings.live_preview_title': 'Live-Vorschau der Farbübernahme:',
+    'settings.live_preview_desc': 'Texte, Buttons, Rahmen & Badges',
+    'settings.font_scale_title': 'Schriftgröße & Skalierung (Zoom)',
+    'settings.font_scale_desc': 'Passen Sie die Gesamt-Schriftgröße des Systems stufenlos an (90% bis 130%).',
+    'settings.font_scale_reset': '100% Reset',
+    'settings.wallpaper_title': 'Desktop-Hintergrundbild (Wallpaper)',
+    'settings.wallpaper_desc': 'Wählen Sie ein eigenes Hintergrundbild für Ihren Arbeitsbereich oder nutzen Sie den Standard-Verlauf.',
+    'settings.wallpaper_upload': 'Bild hochladen',
+    'settings.wallpaper_remove': 'Hintergrund entfernen',
+    'settings.wallpaper_default': 'Standard',
+    'settings.save_now': 'Einstellungen jetzt speichern',
+    'settings.save_success': 'Einstellungen erfolgreich gespeichert!',
+
+    // General & Master Data
+    'settings.company_data_title': 'Firmendaten & Stammdaten',
+    'settings.company_data_desc': 'Verwalten Sie Firmenname, Anschrift, Steuernummer und Kontaktdaten für Rechnungen.',
+    'settings.company_name': 'Firmenname / Unternehmensbezeichnung',
+    'settings.owner_name': 'Geschäftsführer / Inhaber',
+    'settings.street': 'Straße & Hausnummer',
+    'settings.city_zip': 'Stadt & Postleitzahl',
+    'settings.country': 'Land',
+    'settings.tax_id': 'Steuernummer / USt-IdNr.',
+    'settings.bank_name': 'Bankinstitut',
+    'settings.iban': 'IBAN',
+    'settings.bic': 'BIC / Swift',
+    'settings.email': 'E-Mail-Adresse',
+    'settings.phone': 'Telefonnummer',
+    'settings.website': 'Webseite',
+
+    // Language & Region
+    'settings.lang_region_title': 'Spracheinstellungen, Währung & Regionale Formate',
+    'settings.lang_region_desc': 'Wählen Sie Ihre Anzeigesprache, Datumsformate und Währung.',
+    'settings.display_language': 'Systemsprache',
+    'settings.currency_symbol': 'Währungssymbol',
+    'settings.date_format_label': 'Datumsformat',
+    'settings.timezone_label': 'Zeitzone',
 
     // System Status Card
     'status.system_title': 'System-Status',
@@ -472,6 +598,69 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.windows': 'Application Bureau Windows',
     'settings.danger': 'Réinitialisation du système',
 
+    // Personalization & Appearance
+    'settings.personalization_title': 'Personnalisation & Couleurs (Style Windows)',
+    'settings.personalization_desc': 'Personnalisez l’apparence, les couleurs d’accentuation et les effets de fenêtre.',
+    'settings.theme_mode': 'Sélectionner le thème',
+    'settings.light_mode': 'Mode clair (Light)',
+    'settings.light_mode_desc': 'Arrière-plan clair et contrasté',
+    'settings.dark_mode': 'Mode sombre (Dark)',
+    'settings.dark_mode_desc': 'Style sombre Windows agréable pour les yeux',
+    'settings.mica_title': 'Windows Mica / Effet de verre acrylique',
+    'settings.mica_desc': 'Flou subtil et barres de titre translucides pour un rendu natif.',
+    'settings.accent_system_title': 'Couleur d’accentuation & Color Picasso',
+    'settings.accent_system_desc': 'Appliqué immédiatement aux fenêtres, boutons, badges et barre des tâches.',
+    'settings.active_badge': 'Actif',
+    'settings.picasso_title': 'Sélecteur de palette Color Picasso',
+    'settings.picasso_desc': 'Définissez et enregistrez librement une couleur d’accentuation personnalisée',
+    'settings.random_color': 'Aléatoire',
+    'settings.taskbar_title': 'Style & Teinte de la barre des tâches',
+    'settings.taskbar_desc': 'Choisissez l’apparence de la barre au bas de l’écran.',
+    'settings.taskbar_default': 'Standard Windows 11',
+    'settings.taskbar_default_desc': 'Clair / Sombre neutre',
+    'settings.taskbar_accent': 'Teinté avec accentuation',
+    'settings.taskbar_accent_desc': 'Adopte la couleur choisie',
+    'settings.taskbar_glass': 'Verre acrylique',
+    'settings.taskbar_glass_desc': 'Semi-transparent et flouté',
+    'settings.taskbar_dark': 'Noir profond (Dark)',
+    'settings.taskbar_dark_desc': 'Barre sombre classique',
+    'settings.live_preview_title': 'Aperçu en direct des couleurs :',
+    'settings.live_preview_desc': 'Textes, boutons, bordures et badges',
+    'settings.font_scale_title': 'Taille de police & Échelle (Zoom)',
+    'settings.font_scale_desc': 'Ajustez la taille de police globale du système (90% à 130%).',
+    'settings.font_scale_reset': 'Réinitialiser à 100%',
+    'settings.wallpaper_title': 'Fond d’écran du bureau (Wallpaper)',
+    'settings.wallpaper_desc': 'Choisissez une image de fond personnalisée ou conservez le dégradé standard.',
+    'settings.wallpaper_upload': 'Téléverser image',
+    'settings.wallpaper_remove': 'Supprimer fond',
+    'settings.wallpaper_default': 'Standard',
+    'settings.save_now': 'Enregistrer les paramètres',
+    'settings.save_success': 'Paramètres enregistrés avec succès !',
+
+    // General & Master Data
+    'settings.company_data_title': 'Données d’entreprise & Coordonnées',
+    'settings.company_data_desc': 'Gérez le nom, l’adresse, le numéro fiscal et les coordonnées pour les factures.',
+    'settings.company_name': 'Nom de l’entreprise',
+    'settings.owner_name': 'Gérant / Propriétaire',
+    'settings.street': 'Rue & Numéro',
+    'settings.city_zip': 'Ville & Code postal',
+    'settings.country': 'Pays',
+    'settings.tax_id': 'Numéro TVA / Fiscal',
+    'settings.bank_name': 'Banque',
+    'settings.iban': 'IBAN',
+    'settings.bic': 'BIC / Swift',
+    'settings.email': 'Adresse e-mail',
+    'settings.phone': 'Téléphone',
+    'settings.website': 'Site Web',
+
+    // Language & Region
+    'settings.lang_region_title': 'Paramètres linguistiques, Devise & Formats régionaux',
+    'settings.lang_region_desc': 'Choisissez votre langue d’affichage, format de date et devise.',
+    'settings.display_language': 'Langue du système',
+    'settings.currency_symbol': 'Symbole monétaire',
+    'settings.date_format_label': 'Format de date',
+    'settings.timezone_label': 'Fuseau horaire',
+
     // System Status Card
     'status.system_title': 'État du système',
     'status.local_active': 'Actif localement',
@@ -639,6 +828,69 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.windows': 'Aplicación Escritorio Windows',
     'settings.danger': 'Restablecer sistema',
 
+    // Personalization & Appearance
+    'settings.personalization_title': 'Personalización & Esquema de Color (Estilo Windows)',
+    'settings.personalization_desc': 'Personalice la apariencia, colores de acento y efectos de ventana.',
+    'settings.theme_mode': 'Seleccionar modo de tema',
+    'settings.light_mode': 'Modo claro (Light)',
+    'settings.light_mode_desc': 'Fondo claro y nítido de alto contraste',
+    'settings.dark_mode': 'Modo oscuro (Dark)',
+    'settings.dark_mode_desc': 'Aspecto oscuro Windows cómodo para la vista',
+    'settings.mica_title': 'Windows Mica / Capa de Cristal Acrílico',
+    'settings.mica_desc': 'Desenfoque sutil y barras de título translúcidas para sensación nativa.',
+    'settings.accent_system_title': 'Color de Acento del Sistema & Color Picasso',
+    'settings.accent_system_desc': 'Aplicado al instante a ventanas, botones, insignias y barra de tareas.',
+    'settings.active_badge': 'Activo',
+    'settings.picasso_title': 'Selector de Paleta Color Picasso',
+    'settings.picasso_desc': 'Defina y guarde libremente cualquier color de acento HEX / RGB',
+    'settings.random_color': 'Aleatorio',
+    'settings.taskbar_title': 'Color y Estilo de la Barra de Tareas (Taskbar)',
+    'settings.taskbar_desc': 'Elija la apariencia de la barra en la parte inferior de la pantalla.',
+    'settings.taskbar_default': 'Estándar Windows 11',
+    'settings.taskbar_default_desc': 'Estilo neutro claro / oscuro',
+    'settings.taskbar_accent': 'Tintado con acento',
+    'settings.taskbar_accent_desc': 'Adopta el color seleccionado',
+    'settings.taskbar_glass': 'Cristal Acrílico',
+    'settings.taskbar_glass_desc': 'Semitransparente y desenfocado',
+    'settings.taskbar_dark': 'Oscuro Profundo (Dark)',
+    'settings.taskbar_dark_desc': 'Barra oscura clásica',
+    'settings.live_preview_title': 'Vista previa de adopción de color:',
+    'settings.live_preview_desc': 'Textos, botones, bordes e insignias',
+    'settings.font_scale_title': 'Tamaño de Fuente y Escalado (Zoom)',
+    'settings.font_scale_desc': 'Ajuste el tamaño global de fuente del sistema (90% a 130%).',
+    'settings.font_scale_reset': 'Restablecer 100%',
+    'settings.wallpaper_title': 'Fondo de Pantalla del Escritorio (Wallpaper)',
+    'settings.wallpaper_desc': 'Suba una imagen de fondo personalizada o use el degradado estándar.',
+    'settings.wallpaper_upload': 'Subir imagen',
+    'settings.wallpaper_remove': 'Quitar fondo',
+    'settings.wallpaper_default': 'Estándar',
+    'settings.save_now': 'Guardar configuración ahora',
+    'settings.save_success': '¡Configuración guardada con éxito!',
+
+    // General & Master Data
+    'settings.company_data_title': 'Datos de la Empresa & Contacto',
+    'settings.company_data_desc': 'Gestione el nombre comercial, dirección, NIF / CIF y datos de contacto para facturas.',
+    'settings.company_name': 'Nombre de la empresa',
+    'settings.owner_name': 'Director / Propietario',
+    'settings.street': 'Calle y número',
+    'settings.city_zip': 'Ciudad y código postal',
+    'settings.country': 'País',
+    'settings.tax_id': 'NIF / CIF / IVA',
+    'settings.bank_name': 'Entidad bancaria',
+    'settings.iban': 'IBAN',
+    'settings.bic': 'BIC / Swift',
+    'settings.email': 'Correo electrónico',
+    'settings.phone': 'Teléfono',
+    'settings.website': 'Sitio web',
+
+    // Language & Region
+    'settings.lang_region_title': 'Configuración de Idioma, Moneda y Formatos Regionales',
+    'settings.lang_region_desc': 'Elija el idioma de la interfaz, formatos de fecha y moneda.',
+    'settings.display_language': 'Idioma del sistema',
+    'settings.currency_symbol': 'Símbolo de moneda',
+    'settings.date_format_label': 'Formato de fecha',
+    'settings.timezone_label': 'Zona horaria',
+
     // System Status Card
     'status.system_title': 'Estado del sistema',
     'status.local_active': 'Activo local',
@@ -746,3 +998,27 @@ export function t(key: string, langOverride?: LanguageCode, fallback?: string): 
   }
   return fallback || key;
 }
+
+export function formatSystemDate(dateInput: Date | string | number = new Date(), format: string = 'DD.MM.YYYY'): string {
+  try {
+    const d = typeof dateInput === 'string' || typeof dateInput === 'number' ? new Date(dateInput) : dateInput;
+    if (!d || isNaN(d.getTime())) return String(dateInput);
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear());
+
+    switch (format) {
+      case 'YYYY-MM-DD':
+        return `${year}-${month}-${day}`;
+      case 'MM/DD/YYYY':
+        return `${month}/${day}/${year}`;
+      case 'DD.MM.YYYY':
+      default:
+        return `${day}.${month}.${year}`;
+    }
+  } catch {
+    return String(dateInput);
+  }
+}
+

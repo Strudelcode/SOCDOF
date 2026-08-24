@@ -3,66 +3,93 @@ import {
   Download, 
   X, 
   ShieldCheck, 
-  HardDrive, 
   Sparkles, 
   Monitor, 
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
-import { downloadWindowsExecutablePackage } from '../lib/windowsExeDownloader';
 
 interface WindowsExeNotificationToastProps {
   onOpenWindowsManager?: () => void;
+  disabled?: boolean;
 }
 
 export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastProps> = ({
-  onOpenWindowsManager
+  onOpenWindowsManager,
+  disabled = false
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // Schedule periodic pop-ups with random timing between 55s and 100s
-    let timeoutId: NodeJS.Timeout;
+    // 1. Never show if running inside the native Electron app
+    const isElectron = typeof window !== 'undefined' && (
+      navigator.userAgent.toLowerCase().includes('electron') ||
+      Boolean((window as any).process?.versions?.electron) ||
+      Boolean((window as any).isElectron) ||
+      Boolean((window as any).electron) ||
+      Boolean((window as any).__IS_ELECTRON__) ||
+      window.location.protocol === 'file:'
+    );
 
-    const scheduleNextPopup = (delayMs: number) => {
-      timeoutId = setTimeout(() => {
-        // Show notification if not currently visible
+    // 2. Never show if user dismissed it permanently, marked as installed, or closed this session
+    const isDismissed = typeof window !== 'undefined' && (
+      localStorage.getItem('socdof_dismiss_exe_reminder') === 'true' ||
+      localStorage.getItem('socdof_exe_installed') === 'true' ||
+      sessionStorage.getItem('socdof_toast_closed') === 'true'
+    );
+
+    if (isElectron || isDismissed || disabled) {
+      return;
+    }
+
+    // Schedule a single polite prompt after 60 seconds of use in the browser preview
+    const timer = setTimeout(() => {
+      // Re-verify in case user dismissed during session
+      const checkAgain = 
+        localStorage.getItem('socdof_dismiss_exe_reminder') === 'true' ||
+        sessionStorage.getItem('socdof_toast_closed') === 'true';
+      if (!checkAgain) {
         setIsVisible(true);
         sounds.playPop();
-      }, delayMs);
-    };
+      }
+    }, 60000);
 
-    // First popup appears between 45-65 seconds after app load
-    const initialDelay = 45000 + Math.floor(Math.random() * 20000);
-    scheduleNextPopup(initialDelay);
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
+    return () => clearTimeout(timer);
+  }, [disabled]);
 
   const handleClose = () => {
     sounds.playClick();
     setIsVisible(false);
-    setDownloadSuccess(false);
-
-    // Schedule next reminder in 75-120 seconds
-    const nextDelay = 75000 + Math.floor(Math.random() * 45000);
-    setTimeout(() => {
-      setIsVisible(true);
-      sounds.playPop();
-    }, nextDelay);
+    // Remember dismissal for this session
+    try {
+      sessionStorage.setItem('socdof_toast_closed', 'true');
+    } catch {}
   };
 
-  const handleDownload = () => {
-    downloadWindowsExecutablePackage();
+  const handleDismissForever = () => {
+    sounds.playSuccess();
+    try {
+      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
+      localStorage.setItem('socdof_exe_installed', 'true');
+    } catch {}
+    setIsVisible(false);
+  };
+
+  const handleDownloadExe = () => {
+    sounds.playSuccess();
     setDownloadSuccess(true);
+    // Direct link to the official Windows Setup .EXE release
+    window.open('https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe', '_blank');
+    try {
+      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
+    } catch {}
     setTimeout(() => {
       setIsVisible(false);
       setDownloadSuccess(false);
-    }, 4000);
+    }, 3000);
   };
 
   if (!isVisible) return null;
@@ -75,7 +102,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
       >
         {/* Subtle Top Accent line */}
         <div 
-          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-sky-400 to-indigo-600" 
+          className="absolute top-0 left-0 right-0 h-1" 
           style={{ background: 'var(--accent, #4f46e5)' }}
         />
 
@@ -94,11 +121,11 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
                   SOCDOF Windows Desktop
                 </h4>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                  .EXE
+                  .EXE v18.3.5
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                100% Offline • Kein Localhost nötig
+                100% Offline • Windows NSIS Installer
               </p>
             </div>
           </div>
@@ -106,7 +133,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
           <button
             onClick={handleClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            title="Schließen / Später erinnern"
+            title="Schließen"
           >
             <X className="w-4 h-4" />
           </button>
@@ -117,16 +144,16 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
           {downloadSuccess ? (
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-1">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Download gestartet! <strong>Setup_SOCDOF_Windows.cmd</strong> wird gespeichert.</span>
+              <span>Download gestartet: <strong>SOCDOF.Setup.18.3.5.exe</strong></span>
             </div>
           ) : (
             <div className="space-y-1">
               <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>Windows Setup &amp; Installations-Assistent bereit</span>
+                <span>Windows Installer &amp; Desktop-App bereit</span>
               </div>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Wählen Sie Ihren Installationspfad (z. B. <code>C:\SOCDOF</code>) und lassen Sie Ordner für Daten, Backups &amp; Exporte automatisch anlegen.
+                Installieren Sie SOCDOF direkt auf Ihrem Windows 10/11 PC für maximale Geschwindigkeit und vollständigen Offline-Betrieb.
               </p>
             </div>
           )}
@@ -136,12 +163,12 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={handleDownloadExe}
             className="flex-1 px-3 py-2 rounded-xl text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 active:scale-98 hover:opacity-95"
             style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Setup herunterladen (.cmd)</span>
+            <span>Setup .EXE herunterladen</span>
           </button>
 
           {onOpenWindowsManager && (
@@ -157,6 +184,18 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Dismiss forever option */}
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-[10px]">
+          <button
+            type="button"
+            onClick={handleDismissForever}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition underline underline-offset-2"
+          >
+            Nicht mehr anzeigen (Bereits installiert)
+          </button>
+          <span className="text-slate-400">v18.3.5</span>
         </div>
       </div>
     </div>

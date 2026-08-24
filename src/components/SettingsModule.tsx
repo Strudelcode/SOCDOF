@@ -46,7 +46,11 @@ import {
   Plus,
   Github,
   MessageSquare,
-  FolderTree
+  FolderTree,
+  LayoutGrid,
+  Save,
+  Type,
+  Wallpaper
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -54,7 +58,7 @@ import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, 
 import { sounds } from '../lib/sound';
 import { ACCENT_LIST, applyAccentColor, getAccentPreset } from '../lib/accent';
 import { SUPPORTED_LANGUAGES, setLanguage, useLanguage, t } from '../lib/i18n';
-import { APP_VERSION, APP_NAME } from '../lib/version';
+import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 
 interface SettingsModuleProps {
@@ -178,6 +182,27 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     reader.onload = (event) => {
       const result = event.target?.result as string;
       const updated = { ...profile, letterhead_photo_url: result, letterhead_show_bg: true };
+      setProfile(updated);
+      handleSaveProfile(updated);
+      sounds.playPhotoUpload();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleWallpaperUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Das Hintergrundbild ist zu groß. Bitte wählen Sie eine Bilddatei unter 5 MB.');
+      sounds.playError();
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      const updated = { ...profile, desktop_wallpaper_url: result };
       setProfile(updated);
       handleSaveProfile(updated);
       sounds.playPhotoUpload();
@@ -421,14 +446,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         )}
       </div>
 
-      {/* Save Success Banner */}
-      {savedSuccess && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300 animate-fade-in">
-          <Check className="w-4 h-4" />
-          <span>Einstellungen erfolgreich gespeichert!</span>
-        </div>
-      )}
-
       {/* 2. Main Two-Column Layout (Windows Settings Style Sidebar + Content) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -449,11 +466,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     isActive
                       ? item.danger
                         ? 'bg-rose-600 text-white shadow-xs font-bold'
-                        : 'bg-indigo-600 text-white shadow-xs font-bold'
+                        : 'text-white shadow-xs font-bold'
                       : item.danger
                       ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                   }`}
+                  style={isActive && !item.danger ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon className="w-4 h-4" />
@@ -481,8 +499,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </span>
             </div>
             <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 pb-1 border-b border-slate-200 dark:border-slate-700/60">
-              <div>{t('status.version_label', activeLang, 'Version:')} <span className="font-mono font-bold">{APP_NAME} {APP_VERSION}</span></div>
+              <div>{t('status.version_label', activeLang, 'Version:')} <span className="font-mono font-bold">{APP_NAME} v{APP_VERSION}</span></div>
               <div>{t('status.storage_label', activeLang, 'Speicher:')} <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} {t('status.records_label', activeLang, 'Datensätze')})</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                {APP_COPYRIGHT} • {APP_AUTHOR} ({APP_LOCATION})
+              </div>
             </div>
 
             {/* Open Source & Support Links */}
@@ -514,6 +535,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </a>
             </div>
           </div>
+
+          {/* Quick Manual Save Button at bottom left */}
+          <button
+            type="button"
+            onClick={() => handleSaveProfile()}
+            className="w-full py-3 px-4 rounded-2xl text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98 hover:brightness-110"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+          >
+            <Save className="w-4 h-4" />
+            <span>Einstellungen jetzt speichern</span>
+          </button>
         </div>
 
         {/* Right Content Area */}
@@ -848,10 +880,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Personalisierung & Farbschema (Windows-Stil)
+                    {t('settings.personalization_title', activeLang, 'Personalisierung & Farbschema (Windows-Stil)')}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Passen Sie das Erscheinungsbild, Akzentfarben und Fenstereffekte an.
+                    {t('settings.personalization_desc', activeLang, 'Passen Sie das Erscheinungsbild, Akzentfarben und Fenstereffekte an.')}
                   </p>
                 </div>
               </div>
@@ -859,7 +891,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               {/* 1. Theme Mode: Light / Dark */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-900 dark:text-white block">
-                  Design-Modus auswählen
+                  {t('settings.theme_mode', activeLang, 'Design-Modus auswählen')}
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
@@ -879,8 +911,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         <Sun className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">Hellmodus (Light)</div>
-                        <div className="text-[11px] text-slate-500">Klarer, kontrastreicher Hintergrund</div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.light_mode', activeLang, 'Hellmodus (Light)')}</div>
+                        <div className="text-[11px] text-slate-500">{t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund')}</div>
                       </div>
                     </div>
                     {!isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
@@ -903,8 +935,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         <Moon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">Dunkelmodus (Dark)</div>
-                        <div className="text-[11px] text-slate-500">Augenschonender Windows-Dark Look</div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)')}</div>
+                        <div className="text-[11px] text-slate-500">{t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look')}</div>
                       </div>
                     </div>
                     {isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
@@ -918,10 +950,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <div>
                     <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <Layers className="w-4 h-4 text-indigo-500" />
-                      <span>Windows Mica / Acryl Glas-Overlay</span>
+                      <span>{t('settings.mica_glass', activeLang, 'Windows Mica / Acryl Glas-Overlay')}</span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Subtiler Weichzeichner und transparente Titelleisten für ein natives Desktop-Gefühl.
+                      {t('settings.mica_glass_desc', activeLang, 'Subtiler Weichzeichner und transparente Titelleisten für ein natives Desktop-Gefühl.')}
                     </p>
                   </div>
                   <button
@@ -1033,24 +1065,232 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         key={c.id}
                         type="button"
                         onClick={() => handleSaveProfile({ accent_color: c.id })}
-                        className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition ${
+                        className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition group ${
                           isSelected 
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs ring-2' 
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750'
+                            ? 'border-2 text-slate-950 dark:text-white shadow-sm ring-2 ring-offset-1 dark:ring-offset-slate-900 font-extrabold' 
+                            : 'border-slate-200 dark:border-slate-700/90 hover:border-slate-400 dark:hover:border-slate-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-100/90 dark:hover:bg-slate-700/90'
                         }`}
-                        style={isSelected ? { borderColor: c.hex, '--tw-ring-color': c.ringRgba } as any : {}}
+                        style={isSelected ? { 
+                          borderColor: c.hex, 
+                          backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(241, 245, 249, 0.95)',
+                          '--tw-ring-color': c.ringRgba 
+                        } as any : {}}
                       >
                         <div className="flex items-center gap-2.5">
                           <span 
-                            className="w-4 h-4 rounded-full shadow-xs shrink-0" 
+                            className="w-4 h-4 rounded-full shadow-xs shrink-0 ring-1 ring-black/10 dark:ring-white/20 group-hover:scale-110 transition" 
                             style={{ backgroundColor: c.hex }}
                           />
-                          <span className="truncate">{c.label}</span>
+                          <span className="truncate text-slate-900 dark:text-slate-100 group-hover:text-black dark:group-hover:text-white font-semibold">
+                            {c.label}
+                          </span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: c.hex }} />}
+                        {isSelected && (
+                          <div 
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-white shrink-0 shadow-xs"
+                            style={{ backgroundColor: c.hex }}
+                          >
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        )}
                       </button>
                     );
                   })}
+                </div>
+
+                {/* 4. Taskbar / Bottom Bar Color Style */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4 text-indigo-500" style={{ color: 'var(--accent, #4f46e5)' }} />
+                      <span>Farbe &amp; Stil der unteren Leiste (Taskbar / Bottom Bar)</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Wählen Sie, wie die Leiste am unteren Bildschirmrand gestaltet wird.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { id: 'default', label: 'Standard Windows 11', desc: 'Neutrales Hell / Dunkel' },
+                      { id: 'accent', label: 'Akzentfarbe getönt', desc: 'Übernimmt die gewählte Farbe' },
+                      { id: 'glass', label: 'Acryl Glas', desc: 'Halbtransparent & Weichzeichner' },
+                      { id: 'dark', label: 'Tiefschwarz (Dark)', desc: 'Klassisch dunkle Leiste' },
+                    ].map(styleOpt => {
+                      const isSelected = (profile.taskbar_tint || 'default') === styleOpt.id;
+                      return (
+                        <button
+                          key={styleOpt.id}
+                          type="button"
+                          onClick={() => handleSaveProfile({ taskbar_tint: styleOpt.id as any })}
+                          className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-2 ${
+                            isSelected
+                              ? 'border-2 text-slate-900 dark:text-white shadow-sm ring-2 ring-offset-1 dark:ring-offset-slate-900 bg-indigo-50/50 dark:bg-indigo-950/30'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-slate-400 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                          style={isSelected ? { borderColor: 'var(--accent, #4f46e5)' } : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold">{styleOpt.label}</span>
+                            {isSelected && (
+                              <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">{styleOpt.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5. Live Accent Preview Box */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Live-Vorschau der Farbübernahme:
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      Texte, Buttons, Rahmen &amp; Badges
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Accent colored text */}
+                    <span className="text-xs font-extrabold" style={{ color: 'var(--accent, #4f46e5)' }}>
+                      Beispiel-Textfarbe (Akzent)
+                    </span>
+
+                    {/* Accent button */}
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-xs transition"
+                      style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                    >
+                      Aktions-Button
+                    </button>
+
+                    {/* Accent badge */}
+                    <span 
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold border"
+                      style={{ 
+                        backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.15))',
+                        color: 'var(--accent, #4f46e5)',
+                        borderColor: 'var(--accent-border, rgba(79, 70, 229, 0.4))'
+                      }}
+                    >
+                      Status-Badge
+                    </span>
+
+                    {/* Active Tab Simulation */}
+                    <div 
+                      className="px-3 py-1 rounded-xl text-xs font-bold border-b-2"
+                      style={{ 
+                        borderBottomColor: 'var(--accent, #4f46e5)',
+                        color: 'var(--accent, #4f46e5)'
+                      }}
+                    >
+                      Aktiver Reiter
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Global Font Size Scale Slider */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Type className="w-4 h-4 text-indigo-500" style={{ color: 'var(--accent, #4f46e5)' }} />
+                        <span>Schriftgröße & Skalierung (Zoom)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Passen Sie die Gesamt-Schriftgröße des Systems stufenlos an (90% bis 130%).
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold text-xs">
+                      {profile.font_scale || 100}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-1">
+                    <span className="text-xs text-slate-500">A</span>
+                    <input
+                      type="range"
+                      min="90"
+                      max="130"
+                      step="5"
+                      value={profile.font_scale || 100}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        handleSaveProfile({ font_scale: val });
+                      }}
+                      className="flex-1 accent-indigo-600 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
+                    />
+                    <span className="text-base font-bold text-slate-800 dark:text-slate-200">A</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveProfile({ font_scale: 100 })}
+                      className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      100% Reset
+                    </button>
+                  </div>
+                </div>
+
+                {/* 7. Custom Desktop Wallpaper Background */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Wallpaper className="w-4 h-4 text-indigo-500" style={{ color: 'var(--accent, #4f46e5)' }} />
+                        <span>Desktop-Hintergrundbild (Wallpaper)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Wählen Sie ein eigenes Hintergrundbild für Ihren Arbeitsbereich oder nutzen Sie den Standard-Verlauf.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
+                    {profile.desktop_wallpaper_url ? (
+                      <div className="relative w-28 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">
+                        <img 
+                          src={profile.desktop_wallpaper_url} 
+                          alt="Wallpaper Preview" 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-28 h-16 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-800/50 flex flex-col items-center justify-center text-[10px] text-slate-400 shrink-0">
+                        <Wallpaper className="w-4 h-4 mb-0.5 opacity-60" />
+                        <span>Standard</span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer px-3.5 py-2 rounded-xl text-white font-bold text-xs transition flex items-center gap-1.5 shadow-xs" style={{ backgroundColor: 'var(--accent, #4f46e5)' }}>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Bild hochladen</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleWallpaperUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {profile.desktop_wallpaper_url && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveProfile({ desktop_wallpaper_url: undefined })}
+                          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition flex items-center gap-1.5"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Hintergrund entfernen</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1642,7 +1882,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Windows Desktop-App & Lokaler Launcher
+                    Windows Desktop-App &amp; Lokaler Launcher
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Starten Sie SOCDOF direkt von Ihrem Windows-Desktop oder der Taskleiste.
@@ -1650,23 +1890,75 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                  <Sparkles className="w-4 h-4 text-indigo-500" />
-                  <span>Automatische Offline-Bereitschaft & PWA</span>
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span>Windows Installer (.EXE v18.3.5) &amp; Offline-Modus</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    100% Offline
+                  </span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  SOCDOF läuft 100% lokal im Browser oder als eigenständige Windows-Desktop App mit voller Unterstützung für Tastaturkürzel (F11, Win+D).
+                  SOCDOF läuft 100% lokal auf Ihrem PC als eigenständige Windows-Desktop App mit voller Unterstützung für Tastaturkürzel (F11, Win+D) und ohne Internetverbindung.
                 </p>
-                {onOpenWindowsModal && (
-                  <button
-                    onClick={onOpenWindowsModal}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5"
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <a
+                    href="https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2"
                   >
-                    <Terminal className="w-4 h-4" />
-                    <span>Windows Starter & Scripts anzeigen</span>
-                  </button>
-                )}
+                    <Download className="w-4 h-4" />
+                    <span>Setup .EXE herunterladen (v18.3.5)</span>
+                  </a>
+
+                  {onOpenWindowsModal && (
+                    <button
+                      onClick={onOpenWindowsModal}
+                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition border border-slate-300 dark:border-slate-700 flex items-center gap-1.5"
+                    >
+                      <Terminal className="w-4 h-4 text-indigo-500" />
+                      <span>Windows Starter &amp; Scripts</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Toggle to disable periodic reminders */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    Download-Hinweise / Installations-Erinnerungen
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Deaktiviert periodische Erinnerungen zum Herunterladen der Windows-App.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !profile.disable_exe_reminders;
+                    handleSaveProfile({ disable_exe_reminders: next });
+                    if (next) {
+                      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
+                      localStorage.setItem('socdof_exe_installed', 'true');
+                    } else {
+                      localStorage.removeItem('socdof_dismiss_exe_reminder');
+                      localStorage.removeItem('socdof_exe_installed');
+                    }
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
+                    profile.disable_exe_reminders ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                    profile.disable_exe_reminders ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </button>
               </div>
             </div>
           )}

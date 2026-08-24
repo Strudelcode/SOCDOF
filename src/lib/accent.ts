@@ -190,6 +190,10 @@ export function applyAccentColor(accentId?: string): AccentPreset {
     root.style.setProperty('--accent-ring', preset.ringRgba);
     root.style.setProperty('--accent-border', preset.borderHex);
     root.style.setProperty('--accent-dark-text', preset.darkTextHex);
+    root.style.setProperty('--accent-text', preset.hex);
+    root.style.setProperty('--accent-taskbar-bg', hexToRgba(preset.hex, 0.22));
+    root.style.setProperty('--accent-taskbar-border', hexToRgba(preset.hex, 0.45));
+    root.style.setProperty('--accent-glow', `0 0 20px ${hexToRgba(preset.hex, 0.35)}`);
     
     // Also save in localStorage for instant retrieval on next boot
     try {

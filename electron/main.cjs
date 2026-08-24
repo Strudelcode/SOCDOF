@@ -3,6 +3,9 @@ const path = require('path');
 
 let mainWindow;
 
+// Disable default top menu bar (File, Edit, View, Window)
+Menu.setApplicationMenu(null);
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -12,12 +15,16 @@ function createWindow() {
     title: 'SOCDOF - Strudel\'s Organization, Commerce & Documentation Offline Flow',
     icon: path.join(__dirname, '../public/socdof_icon.svg'),
     backgroundColor: '#0b0f19',
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
     }
   });
+
+  // Ensure menu bar remains hidden
+  mainWindow.setMenuBarVisibility(false);
 
   // Load the compiled Vite app
   const indexPath = path.join(__dirname, '../dist/index.html');

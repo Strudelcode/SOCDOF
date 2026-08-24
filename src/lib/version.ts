@@ -5,11 +5,27 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '18.3.5';
+export const APP_VERSION = '19.0.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
+export const APP_AUTHOR = 'Yuri';
+export const APP_LOCATION = 'South Tyrol, Italy';
+export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '19.0.0',
+    date: '2026-08-24',
+    title: 'Smart Desktop App Folders, App Store Harmony & Taskbar Streamline',
+    highlights: [
+      'Smart Desktop App Folders: Drag-and-Drop app grouping creating Android/iOS-style squircle folders with live 2x2 mini icon preview',
+      'Interactive Folder Modal: Clean popup view with inline rename, quick app launching, and dissolve folder actions',
+      'App Store Typography & Branding: Renamed all instances of "Odoo App Store" to "App Store" with uniform font weights',
+      'Taskbar Tray Streamline: Removed redundant local app reminder button for a clean, distraction-free native desktop status bar',
+      'Release Versioning & /versions/ documentation: Formally added V19.md, V18.md, V17.md and versioning guidelines',
+      'Copyright & Origin: Updated copyright to © Strudel (Yuri, South Tyrol, Italy)'
+    ]
+  },
   {
     version: '18.3.5',
     date: '2026-08-24',

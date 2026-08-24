@@ -186,38 +186,60 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                 </div>
               </div>
 
-              {/* Action Buttons for Download */}
+              {/* Primary Direct .EXE Download Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold">v18.3.5</span>
+                    <span className="font-bold text-xs">Windows Desktop Installer (.EXE)</span>
+                  </div>
+                  <p className="text-[11px] text-white/90">
+                    Vollständiger NSIS Windows-Installer für maximale Performance und Offline-Betrieb.
+                  </p>
+                </div>
+                <a
+                  href="https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-white text-indigo-700 hover:bg-slate-100 rounded-xl text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>.EXE Herunterladen</span>
+                </a>
+              </div>
+
+              {/* Action Buttons for Script Downloads */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <button
                   onClick={handleDownloadCmd}
-                  className="p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-md flex items-center justify-between group active:scale-98 text-left"
+                  className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold transition shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-between group active:scale-98 text-left"
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <Download className="w-4 h-4" />
-                      <span className="text-xs">Setup-Assistent (.cmd)</span>
+                      <Download className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs">Setup-Skript (.cmd)</span>
                     </div>
-                    <p className="text-[10px] text-indigo-100 font-normal">
-                      Empfohlen für alle Windows 10/11 PCs
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                      Interaktive Ordnerauswahl ohne Installation
                     </p>
                   </div>
-                  <FolderPlus className="w-5 h-5 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition" />
+                  <FolderPlus className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition text-indigo-500" />
                 </button>
 
                 <button
                   onClick={handleDownloadBat}
-                  className="p-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition shadow-md border border-slate-700 flex items-center justify-between group active:scale-98 text-left"
+                  className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold transition shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-between group active:scale-98 text-left"
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <Download className="w-4 h-4 text-emerald-400" />
+                      <Download className="w-4 h-4 text-emerald-500" />
                       <span className="text-xs">Setup-Datei (.bat)</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 font-normal">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                       Klassische Windows Batch-Datei
                     </p>
                   </div>
-                  <FolderDown className="w-5 h-5 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition text-emerald-400" />
+                  <FolderDown className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition text-emerald-500" />
                 </button>
               </div>
 

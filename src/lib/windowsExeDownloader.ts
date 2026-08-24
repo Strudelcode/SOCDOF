@@ -245,8 +245,12 @@ export function downloadPowerShellSetupWizard() {
   URL.revokeObjectURL(url);
 }
 
+export const OFFICIAL_RELEASE_EXE_URL = 'https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe';
+export const OFFICIAL_RELEASES_PAGE_URL = 'https://github.com/Strudelcode/SOCDOF/releases';
+
 export function downloadWindowsExecutablePackage() {
-  downloadWindowsInstallerCmd();
+  sounds.playSuccess();
+  window.open(OFFICIAL_RELEASE_EXE_URL, '_blank');
 }
 
 export function downloadWindowsInstallerPackage(config?: WindowsInstallerConfig) {
