@@ -1,11 +1,12 @@
 import { sounds } from './sound';
 import { db } from './db';
+import { APP_VERSION } from './version';
 
 export interface WindowsInstallerConfig {
-  installPath: string;
-  createDesktopShortcut: boolean;
-  createStartMenuShortcut: boolean;
-  createDataFolders: boolean;
+  installPath?: string;
+  createDesktopShortcut?: boolean;
+  createStartMenuShortcut?: boolean;
+  createDataFolders?: boolean;
 }
 
 export const DEFAULT_INSTALL_CONFIG: WindowsInstallerConfig = {
@@ -16,76 +17,60 @@ export const DEFAULT_INSTALL_CONFIG: WindowsInstallerConfig = {
 };
 
 /**
- * Downloads a complete Windows Setup & Installer package (.cmd / .ps1)
- * that allows the user to choose an installation path, automatically creates
- * the Data, Backups, Exports, and Config folders, writes the offline app bundle,
- * and sets up Windows Desktop shortcuts without any Google 403 cloud URLs!
+ * Builds the Windows Setup .cmd / .bat script content that dynamically opens
+ * a native Windows FolderBrowserDialog GUI popup when launched, letting the
+ * user interactively pick their installation directory on their PC.
  */
-export async function downloadWindowsInstallerPackage(config: WindowsInstallerConfig = DEFAULT_INSTALL_CONFIG) {
-  sounds.playSuccess();
-
-  const safePath = config.installPath.replace(/\//g, '\\');
-
-  // Export current local database dump so the installer can bootstrap initial data offline
-  let initialDbJson = '{}';
-  try {
-    const [contacts, products, stockMoves, invoices, purchases, posOrders, settings] = await Promise.all([
-      db.contacts.toArray(),
-      db.products.toArray(),
-      db.stock_moves.toArray(),
-      db.invoices.toArray(),
-      db.purchase_orders.toArray(),
-      db.pos_orders.toArray(),
-      db.settings.toArray()
-    ]);
-    initialDbJson = JSON.stringify({
-      version: '18.3.3',
-      exported_at: new Date().toISOString(),
-      contacts,
-      products,
-      stockMoves,
-      invoices,
-      purchases,
-      posOrders,
-      settings
-    }, null, 2);
-  } catch (e) {
-    console.warn('Database export for installer failed:', e);
-  }
-
-  // Windows Command-Line / Batch Setup Wizard with interactive Directory Choice & Folder creation
-  const setupCmdScript = `@echo off
+export function generateWindowsSetupScript(version: string = APP_VERSION): string {
+  return `@echo off
 chcp 65001 >nul
 :: ============================================================================
 :: SOCDOF - Windows Desktop Setup & Installation Wizard
 :: Strudel's Organization, Commerce & Documentation Offline Flow
-:: Version: 18.3.3 | 100%% Lokale Offline-Ausführung
+:: Version: ${version} | 100%% Lokale Offline-Ausfuehrung
 :: ============================================================================
-title SOCDOF Windows Setup & Installations-Assistent
+title SOCDOF Windows Setup & Installations-Assistent (v${version})
 color 1F
 cls
 
 echo ============================================================================
-echo   SOCDOF Windows Desktop Setup & Installations-Assistent (v18.3.3)
+echo   SOCDOF Windows Desktop Setup & Installations-Assistent (v${version})
 echo   Strudel's Organization, Commerce & Documentation Offline Flow
 echo ============================================================================
 echo.
 echo   Willkommen zur Installation von SOCDOF auf Ihrem Windows-PC.
 echo   Diese Software speichert ALLE Daten zu 100%% lokal auf Ihrer Festplatte.
-echo   (Keine Cloud, kein Google-Server, keine 403-Fehler, volle GoBD-Konformitaet)
+echo   (Keine Cloud, kein fremder Server, 100%% DSGVO- & GoBD-konform)
 echo.
 echo ============================================================================
-echo   1. SCHRITT: INSTALLATIONSPFAD AUSWAEHLEN
+echo   1. SCHRITT: INSTALLATIONSPFAD WAEHLEN
 echo ============================================================================
 echo.
-echo   Standard-Installationspfad ist: ${safePath}
+echo   [*] Oeffne Windows-Ordnerauswahl-Fenster...
+echo       Bitte waehlen Sie im Dialogfeld den gewuenschten Zielordner aus.
 echo.
-set "TARGET_DIR=${safePath}"
-set /p "USER_INPUT=Installationspfad eingeben [Enter fuer '${safePath}']: "
-if not "%USER_INPUT%"=="" set "TARGET_DIR=%USER_INPUT%"
+
+set "TARGET_DIR="
+for /f "usebackq delims=" %%I in (\`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'SOCDOF Installationsordner auswaehlen (z.B. C:\\SOCDOF oder D:\\Programme\\SOCDOF):'; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.SelectedPath } else { Write-Output '' }"\`) do set "TARGET_DIR=%%I"
+
+if "%TARGET_DIR%"=="" (
+  echo   [!] Kein Ordner ueber den grafischen Dialog gewaehlt.
+  echo.
+  set /p "USER_INPUT=Pfad manuell eingeben [Enter fuer 'C:\\SOCDOF', 'Q' zum Abbrechen]: "
+  if /i "%USER_INPUT%"=="Q" (
+    echo   Installation wurde abgebrochen.
+    pause
+    exit /b
+  )
+  if "%USER_INPUT%"=="" (
+    set "TARGET_DIR=C:\\SOCDOF"
+  ) else (
+    set "TARGET_DIR=%USER_INPUT%"
+  )
+)
 
 echo.
-echo   Installiere SOCDOF nach: "%TARGET_DIR%" ...
+echo   [OK] Gewaehlter Installationspfad: "%TARGET_DIR%"
 echo.
 
 :: 2. Ordnerstruktur erstellen
@@ -118,7 +103,7 @@ echo.
 (
   echo {
   echo   "appName": "SOCDOF",
-  echo   "version": "18.3.3",
+  echo   "version": "${version}",
   echo   "installPath": "%TARGET_DIR:\\=\\\\%",
   echo   "dataPath": "%TARGET_DIR:\\=\\\\%\\\\Data",
   echo   "backupPath": "%TARGET_DIR:\\=\\\\%\\\\Backups",
@@ -127,7 +112,7 @@ echo.
   echo }
 ) > "%TARGET_DIR%\\Config\\app_config.json"
 
-:: Schreibe den Start-Launcher (SOCDOF.bat)
+:: Schreibe den Start-Launcher (SOCDOF_Starten.bat)
 (
   echo @echo off
   echo title SOCDOF - Windows Desktop Suite
@@ -169,13 +154,14 @@ echo.
   echo ^</head^>
   echo ^<body^>
   echo   ^<div class="card"^>
-  echo     ^<div class="badge"^>SOCDOF v18.3.3 Desktop^</div^>
+  echo     ^<div class="badge"^>SOCDOF v${version} Desktop^</div^>
   echo     ^<h1^>SOCDOF Windows Installation^</h1^>
   echo     ^<p^>Ihre lokale Offline-ERP Umgebung wurde erfolgreich eingerichtet. Alle Daten werden in den folgenden lokalen Ordnern gesichert:^</p^>
   echo     ^<div class="paths"^>
   echo       ^<div^>^<strong^>Daten:^</strong^> %TARGET_DIR%\\Data^</div^>
   echo       ^<div^>^<strong^>Backups:^</strong^> %TARGET_DIR%\\Backups^</div^>
   echo       ^<div^>^<strong^>Exporte:^</strong^> %TARGET_DIR%\\Exports^</div^>
+  echo       ^<div^>^<strong^>Konfiguration:^</strong^> %TARGET_DIR%\\Config^</div^>
   echo     ^</div^>
   echo     ^<a href="https://github.com/Strudelcode/SOCDOF" target="_blank" class="btn"^>GitHub Repository & Releases öffnen^</a^>
   echo   ^</div^>
@@ -188,11 +174,11 @@ echo ===========================================================================
 echo   4. SCHRITT: DESKTOP-VERKNUEPFUNG ERSTELLEN
 echo ============================================================================
 echo.
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\\SOCDOF Desktop.lnk'); $Shortcut.TargetPath = '%TARGET_DIR%\\SOCDOF_Starten.bat'; $Shortcut.WorkingDirectory = '%TARGET_DIR%'; $Shortcut.Description = 'SOCDOF Windows Desktop Suite'; $Shortcut.Save()" 2>nul
+powershell -NoProfile -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\\SOCDOF Desktop.lnk'); $Shortcut.TargetPath = '%TARGET_DIR%\\SOCDOF_Starten.bat'; $Shortcut.WorkingDirectory = '%TARGET_DIR%'; $Shortcut.Description = 'SOCDOF Windows Desktop Suite'; $Shortcut.Save()" 2>nul
 if %ERRORLEVEL% EQU 0 (
-  echo   [+] Desktop-Verknuepfung 'SOCDOF Desktop' erfolgreich erstellt!
+  echo   [+] Desktop-Verknuepfung 'SOCDOF Desktop' erfolgreich auf Ihrem Desktop erstellt!
 ) else (
-  echo   [!] Hinweis: Konnte Desktop-Verknuepfung nicht automatisch schreiben. Starter liegt in %TARGET_DIR%
+  echo   [!] Hinweis: Desktop-Verknuepfung konnte nicht automatisch geschrieben werden. Starter liegt in %TARGET_DIR%
 )
 
 echo.
@@ -204,20 +190,44 @@ echo   Installationsort: "%TARGET_DIR%"
 echo   - Datenordner:    "%TARGET_DIR%\\Data"
 echo   - Backups:        "%TARGET_DIR%\\Backups"
 echo   - PDF-Exporte:    "%TARGET_DIR%\\Exports"
+echo   - Konfiguration:  "%TARGET_DIR%\\Config"
 echo.
-echo   Sie koennen die App jetzt ueber das Desktop-Icon oder '%TARGET_DIR%\\SOCDOF_Starten.bat' starten!
-echo.
-pause
+powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('SOCDOF v${version} wurde erfolgreich installiert in:\n\n%TARGET_DIR%\n\nOrdner eingerichtet:\n- Data\n- Backups\n- Exports\n- Config\n\nDesktop-Verknuepfung wurde erstellt!', 'SOCDOF Installation Abgeschlossen', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)" 2>nul
+
+echo   Starte SOCDOF...
 start "" "%TARGET_DIR%\\SOCDOF_Starten.bat"
 exit
 `;
+}
 
-  // Trigger download of Setup_SOCDOF_Windows.cmd
-  const blob = new Blob([setupCmdScript], { type: 'application/x-bat;charset=utf-8' });
+/**
+ * Downloads Setup_SOCDOF_Windows.cmd
+ */
+export async function downloadWindowsInstallerCmd() {
+  sounds.playSuccess();
+  const scriptContent = generateWindowsSetupScript(APP_VERSION);
+  const blob = new Blob([scriptContent], { type: 'application/x-bat;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = 'Setup_SOCDOF_Windows.cmd';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Downloads Setup_SOCDOF_Windows.bat
+ */
+export async function downloadWindowsInstallerBat() {
+  sounds.playSuccess();
+  const scriptContent = generateWindowsSetupScript(APP_VERSION);
+  const blob = new Blob([scriptContent], { type: 'application/x-bat;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'Setup_SOCDOF_Windows.bat';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -233,15 +243,15 @@ export function downloadPowerShellSetupWizard(defaultPath: string = 'C:\\SOCDOF'
   const psScript = `# ============================================================================
 # SOCDOF - Windows Desktop Graphical Setup & Installation Wizard
 # Strudel's Organization, Commerce & Documentation Offline Flow
-# Version: 18.3.3 | 100% Lokale Offline-Ausführung
+# Version: ${APP_VERSION} | 100% Lokale Offline-Ausführung
 # ============================================================================
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $Form = New-Object System.Windows.Forms.Form
-$Form.Text = "SOCDOF Setup & Installations-Assistent (v18.3.3)"
-$Form.Size = New-Object System.Drawing.Size(560, 420)
+$Form.Text = "SOCDOF Setup & Installations-Assistent (v${APP_VERSION})"
+$Form.Size = New-Object System.Drawing.Size(580, 440)
 $Form.StartPosition = "CenterScreen"
 $Form.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
 $Form.ForeColor = [System.Drawing.Color]::White
@@ -252,47 +262,48 @@ $Form.MaximizeBox = $False
 $TitleLabel = New-Object System.Windows.Forms.Label
 $TitleLabel.Text = "SOCDOF Windows Desktop Installation"
 $TitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-$TitleLabel.Location = New-Object System.Drawing.Point(20, 20)
-$TitleLabel.Size = New-Object System.Drawing.Size(500, 30)
+$TitleLabel.Location = New-Object System.Drawing.Point(24, 20)
+$TitleLabel.Size = New-Object System.Drawing.Size(520, 30)
 $TitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(99, 102, 241)
 $Form.Controls.Add($TitleLabel)
 
 # Description
 $DescLabel = New-Object System.Windows.Forms.Label
-$DescLabel.Text = "Wählen Sie den Installationsordner für SOCDOF. Die Ordner für Belege, lokale Datenbanken und automatische Backups werden automatisch angelegt."
-$DescLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-$DescLabel.Location = New-Object System.Drawing.Point(20, 55)
-$DescLabel.Size = New-Object System.Drawing.Size(500, 45)
+$DescLabel.Text = "Wählen Sie den gewünschten Installationsordner auf Ihrem PC. Alle Ordner für Daten, Backups und PDF-Exporte werden automatisch angelegt."
+$DescLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9.5)
+$DescLabel.Location = New-Object System.Drawing.Point(24, 55)
+$DescLabel.Size = New-Object System.Drawing.Size(520, 40)
 $DescLabel.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
 $Form.Controls.Add($DescLabel)
 
 # Path Input Box
 $PathLabel = New-Object System.Windows.Forms.Label
-$PathLabel.Text = "Ziel-Installationsverzeichnis:"
-$PathLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$PathLabel.Location = New-Object System.Drawing.Point(20, 110)
-$PathLabel.Size = New-Object System.Drawing.Size(300, 20)
+$PathLabel.Text = "Ziel-Installationsverzeichnis auf diesem PC:"
+$PathLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
+$PathLabel.Location = New-Object System.Drawing.Point(24, 105)
+$PathLabel.Size = New-Object System.Drawing.Size(400, 20)
 $Form.Controls.Add($PathLabel)
 
 $PathTextBox = New-Object System.Windows.Forms.TextBox
 $PathTextBox.Text = "${defaultPath.replace(/\\/g, '\\\\')}"
-$PathTextBox.Location = New-Object System.Drawing.Point(20, 135)
-$PathTextBox.Size = New-Object System.Drawing.Size(380, 25)
+$PathTextBox.Location = New-Object System.Drawing.Point(24, 130)
+$PathTextBox.Size = New-Object System.Drawing.Size(390, 26)
 $PathTextBox.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 $Form.Controls.Add($PathTextBox)
 
 # Browse Button
 $BrowseButton = New-Object System.Windows.Forms.Button
-$BrowseButton.Text = "Durchsuchen..."
-$BrowseButton.Location = New-Object System.Drawing.Point(410, 133)
-$BrowseButton.Size = New-Object System.Drawing.Size(110, 28)
+$BrowseButton.Text = "Ordner wählen..."
+$BrowseButton.Location = New-Object System.Drawing.Point(424, 128)
+$BrowseButton.Size = New-Object System.Drawing.Size(120, 30)
 $BrowseButton.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $BrowseButton.ForeColor = [System.Drawing.Color]::White
 $BrowseButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
 $BrowseButton.Add_Click({
     $FolderDialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $FolderDialog.Description = "Wählen Sie den Zielordner für SOCDOF:"
+    $FolderDialog.Description = "Wählen Sie den Installationsordner für SOCDOF:"
     $FolderDialog.SelectedPath = $PathTextBox.Text
+    $FolderDialog.ShowNewFolderButton = $True
     if ($FolderDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         $PathTextBox.Text = $FolderDialog.SelectedPath
     }
@@ -301,17 +312,17 @@ $Form.Controls.Add($BrowseButton)
 
 # Info Panel for folder structure
 $InfoPanel = New-Object System.Windows.Forms.Panel
-$InfoPanel.Location = New-Object System.Drawing.Point(20, 180)
-$InfoPanel.Size = New-Object System.Drawing.Size(500, 120)
+$InfoPanel.Location = New-Object System.Drawing.Point(24, 175)
+$InfoPanel.Size = New-Object System.Drawing.Size(520, 130)
 $InfoPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $InfoPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 
 $FoldersInfo = New-Object System.Windows.Forms.Label
-$FoldersInfo.Text = "Folgende Ordner werden automatisch eingerichtet:\n • \\Data       - Lokale IndexedDB-Dateien & Belege\n • \\Backups   - Automatische & manuelle JSON-Sicherungen\n • \\Exports   - DIN-5008 PDF-Rechnungen, BWA & Berichte\n • \\Config    - Firmeneinstellungen & Briefpapier"
-$FoldersInfo.Font = New-Object System.Drawing.Font("Consolas", 8.5)
+$FoldersInfo.Text = "Automatisch eingerichtete Ordnerstruktur:\n • \\Data       - Lokale Datenbank & Belege (100% offline)\n • \\Backups   - Automatische & manuelle JSON-Sicherungen\n • \\Exports   - DIN-5008 PDF-Rechnungen & Finanzberichte\n • \\Config    - Firmeneinstellungen & Briefpapier"
+$FoldersInfo.Font = New-Object System.Drawing.Font("Consolas", 9)
 $FoldersInfo.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248)
-$FoldersInfo.Location = New-Object System.Drawing.Point(10, 10)
-$FoldersInfo.Size = New-Object System.Drawing.Size(480, 100)
+$FoldersInfo.Location = New-Object System.Drawing.Point(12, 12)
+$FoldersInfo.Size = New-Object System.Drawing.Size(495, 105)
 $InfoPanel.Controls.Add($FoldersInfo)
 $Form.Controls.Add($InfoPanel)
 
@@ -319,8 +330,8 @@ $Form.Controls.Add($InfoPanel)
 $InstallButton = New-Object System.Windows.Forms.Button
 $InstallButton.Text = "Jetzt Installieren & Ordner anlegen"
 $InstallButton.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$InstallButton.Location = New-Object System.Drawing.Point(260, 320)
-$InstallButton.Size = New-Object System.Drawing.Size(260, 40)
+$InstallButton.Location = New-Object System.Drawing.Point(264, 325)
+$InstallButton.Size = New-Object System.Drawing.Size(280, 42)
 $InstallButton.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229)
 $InstallButton.ForeColor = [System.Drawing.Color]::White
 $InstallButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -361,8 +372,8 @@ $Form.Controls.Add($InstallButton)
 # Cancel Button
 $CancelButton = New-Object System.Windows.Forms.Button
 $CancelButton.Text = "Abbrechen"
-$CancelButton.Location = New-Object System.Drawing.Point(140, 320)
-$CancelButton.Size = New-Object System.Drawing.Size(110, 40)
+$CancelButton.Location = New-Object System.Drawing.Point(140, 325)
+$CancelButton.Size = New-Object System.Drawing.Size(110, 42)
 $CancelButton.BackColor = [System.Drawing.Color]::FromArgb(51, 65, 85)
 $CancelButton.ForeColor = [System.Drawing.Color]::White
 $CancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -387,5 +398,9 @@ $Form.ShowDialog() | Out-Null
  * Standard trigger wrapper used by toasts and buttons
  */
 export function downloadWindowsExecutablePackage() {
-  downloadWindowsInstallerPackage();
+  downloadWindowsInstallerCmd();
+}
+
+export function downloadWindowsInstallerPackage(config?: WindowsInstallerConfig) {
+  downloadWindowsInstallerCmd();
 }

@@ -11,25 +11,19 @@ import {
   ExternalLink,
   Laptop,
   Lock,
-  Cpu,
-  RefreshCw,
   Sparkles,
-  Info,
   FolderTree,
   FolderPlus,
-  Folder,
-  FolderArchive,
-  Settings,
-  FileSpreadsheet
+  Layers,
+  Check,
+  MousePointerClick
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
-import { db } from '../lib/db';
 import { SocdofLogo } from './SocdofLogo';
 import { 
-  downloadWindowsInstallerPackage, 
-  downloadPowerShellSetupWizard,
-  WindowsInstallerConfig,
-  DEFAULT_INSTALL_CONFIG
+  downloadWindowsInstallerCmd,
+  downloadWindowsInstallerBat,
+  downloadPowerShellSetupWizard
 } from '../lib/windowsExeDownloader';
 
 interface WindowsDesktopManagerModalProps {
@@ -44,7 +38,6 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'installer' | 'folders' | 'pwa' | 'storage'>('installer');
-  const [customPath, setCustomPath] = useState<string>('C:\\SOCDOF');
   const [storageInfo, setStorageInfo] = useState<{ usedMb: string; quotaMb: string; percent: number }>({
     usedMb: '0.00',
     quotaMb: '0.00',
@@ -102,17 +95,19 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
     }
   };
 
-  const handleDownloadSetup = () => {
+  const handleDownloadCmd = () => {
     sounds.playSuccess();
-    downloadWindowsInstallerPackage({
-      ...DEFAULT_INSTALL_CONFIG,
-      installPath: customPath || 'C:\\SOCDOF'
-    });
+    downloadWindowsInstallerCmd();
+  };
+
+  const handleDownloadBat = () => {
+    sounds.playSuccess();
+    downloadWindowsInstallerBat();
   };
 
   const handleDownloadPowerShell = () => {
     sounds.playSuccess();
-    downloadPowerShellSetupWizard(customPath || 'C:\\SOCDOF');
+    downloadPowerShellSetupWizard();
   };
 
   return (
@@ -144,8 +139,8 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-6 pt-3 gap-2 overflow-x-auto">
           {[
-            { id: 'installer', label: 'Setup & Installationspfad', icon: Laptop },
-            { id: 'folders', label: 'Ordner- & Backup-Struktur', icon: FolderTree },
+            { id: 'installer', label: 'Setup-Assistent (.cmd / .bat)', icon: Laptop },
+            { id: 'folders', label: 'Ordnerstruktur', icon: FolderTree },
             { id: 'pwa', label: 'PWA-Verknüpfung', icon: Monitor },
             { id: 'storage', label: 'Lokaler Speicher', icon: HardDrive }
           ].map(tab => {
@@ -171,64 +166,57 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
         {/* Tab Body */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
           
-          {/* TAB 1: INSTALLER & TARGET DIRECTORY */}
+          {/* TAB 1: INSTALLER */}
           {activeTab === 'installer' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 space-y-2">
                 <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold">
                   <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Echter Windows Desktop Setup-Assistent</span>
+                  <span>Interaktive Ordnerauswahl beim Ausführen</span>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                  Der Installer richtet SOCDOF direkt in Ihrem gewünschten Zielverzeichnis ein und erstellt automatisch alle Ordner für <strong>lokale Belegdaten, automatische Backups und PDF-Exporte</strong>.
+                  Sie müssen den Installationspfad <strong>nicht hier im Browser festlegen</strong>. Beim Starten der heruntergeladenen Datei öffnet sich direkt ein <strong>grafisches Windows-Ordnerauswahl-Fenster</strong>, in dem Sie den gewünschten Ordner auf Ihrer Festplatte auswählen können.
                 </p>
               </div>
 
-              {/* Path Input Box */}
+              {/* Step-by-Step Visual Workflow */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
-                <label className="block font-bold text-slate-900 dark:text-white">
-                  Gewünschter Installationspfad auf Ihrem PC:
-                </label>
-                
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customPath}
-                    onChange={(e) => setCustomPath(e.target.value)}
-                    placeholder="C:\SOCDOF"
-                    className="flex-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <MousePointerClick className="w-4 h-4 text-indigo-500" />
+                  <span>So funktioniert die Installation auf Ihrem PC:</span>
+                </h4>
 
-                {/* Quick Preset Buttons */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-[10px] text-slate-500 font-semibold">Schnellauswahl:</span>
-                  {[
-                    'C:\\SOCDOF',
-                    'D:\\SOCDOF',
-                    'C:\\Programme\\SOCDOF',
-                    '%USERPROFILE%\\SOCDOF'
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setCustomPath(preset)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition ${
-                        customPath === preset
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-1">
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-extrabold flex items-center justify-center text-[10px]">
+                      1
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">Setup herunterladen</p>
+                    <p className="text-slate-500 text-[10px]">Laden Sie unten die <code>.cmd</code> oder <code>.bat</code> Datei herunter.</p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-1">
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-extrabold flex items-center justify-center text-[10px]">
+                      2
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">Ordner am PC wählen</p>
+                    <p className="text-slate-500 text-[10px]">Beim Start öffnet sich ein Windows-Ordnerdialog zur freien Pfadauswahl.</p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-1">
+                    <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center justify-center text-[10px]">
+                      3
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">Fertig &amp; Starten</p>
+                    <p className="text-slate-500 text-[10px]">Erstellt alle Unterordner und legt ein Desktop-Icon an.</p>
+                  </div>
                 </div>
               </div>
 
               {/* Action Buttons for Download */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <button
-                  onClick={handleDownloadSetup}
+                  onClick={handleDownloadCmd}
                   className="p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-md flex items-center justify-between group active:scale-98 text-left"
                 >
                   <div className="space-y-0.5">
@@ -237,26 +225,41 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                       <span className="text-xs">Setup-Assistent (.cmd)</span>
                     </div>
                     <p className="text-[10px] text-indigo-100 font-normal">
-                      Erstellt {customPath} &amp; alle Unterordner
+                      Öffnet Windows-Ordnerauswahl beim Start
                     </p>
                   </div>
-                  <FolderPlus className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition" />
+                  <FolderPlus className="w-5 h-5 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition" />
                 </button>
 
                 <button
-                  onClick={handleDownloadPowerShell}
+                  onClick={handleDownloadBat}
                   className="p-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition shadow-md border border-slate-700 flex items-center justify-between group active:scale-98 text-left"
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <Terminal className="w-4 h-4 text-sky-400" />
-                      <span className="text-xs">PowerShell GUI (.ps1)</span>
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs">Setup-Datei (.bat)</span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-normal">
-                      Mit grafischem Windows-Ordnerdialog
+                      Klassische Windows Batch-Datei
                     </p>
                   </div>
-                  <FolderDown className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition text-sky-400" />
+                  <FolderDown className="w-5 h-5 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition text-emerald-400" />
+                </button>
+              </div>
+
+              {/* PowerShell GUI Option */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-[11px]">
+                  <Terminal className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span>Bevorzugen Sie ein reines grafisches PowerShell-Formular?</span>
+                </div>
+                <button
+                  onClick={handleDownloadPowerShell}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-xl text-[10px] font-bold transition shrink-0"
+                >
+                  <Download className="w-3 h-3 text-sky-400" />
+                  <span>PowerShell GUI (.ps1)</span>
                 </button>
               </div>
 
@@ -284,13 +287,13 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
               <div className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-[11px] space-y-2 border border-slate-800">
                 <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-2">
                   <span className="text-xs text-indigo-400 font-bold flex items-center gap-1.5">
-                    <FolderTree className="w-4 h-4" /> Lokale Ordnerstruktur
+                    <FolderTree className="w-4 h-4" /> Automatisch angelegte Ordnerstruktur
                   </span>
-                  <span>Ziel: {customPath}</span>
+                  <span>(Im gewählten Ordner)</span>
                 </div>
 
                 <div className="space-y-1.5 pt-2 text-slate-300">
-                  <div className="text-indigo-400 font-bold">📁 {customPath}\</div>
+                  <div className="text-indigo-400 font-bold">📁 [Ihr gewählter Installationsordner]\</div>
                   <div className="pl-4 text-emerald-400">├── 📁 Data\ <span className="text-slate-400 text-[10px]">— Lokale Datenbank &amp; Kontakte/Belege</span></div>
                   <div className="pl-4 text-amber-400">├── 📁 Backups\ <span className="text-slate-400 text-[10px]">— JSON-Sicherungen (automatisch &amp; manuell)</span></div>
                   <div className="pl-4 text-sky-400">├── 📁 Exports\ <span className="text-slate-400 text-[10px]">— DIN 5008 PDF-Rechnungen &amp; BWA</span></div>
@@ -305,7 +308,7 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                   <span>Automatische Datensicherung in diesen Ordner</span>
                 </div>
                 <p>
-                  Unter <em>Einstellungen &gt; Speicher &amp; Datensicherung</em> können Sie den Pfad <code>{customPath}\Backups</code> hinterlegen, damit Ihre Sicherungen jederzeit auffindbar sind.
+                  Unter <em>Einstellungen &gt; Speicher &amp; Datensicherung</em> können Sie den Pfad zu Ihrem <code>Backups</code> Ordner hinterlegen, damit Ihre Sicherungen jederzeit auffindbar sind.
                 </p>
               </div>
             </div>

@@ -5,11 +5,22 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '18.3.4';
+export const APP_VERSION = '18.3.5';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '18.3.5',
+    date: '2026-08-24',
+    title: 'Native Windows Folder Picker & GitHub Pages Base Fix',
+    highlights: [
+      'Nativer Windows-Ordnerdialog beim Starten: Installationsordner wird beim Ausführen der .cmd/.bat/.ps1 direkt über ein grafisches Windows-Auswahlfenster gewählt',
+      'GitHub Pages & Offline Index.html Fix: Relative Basispfade (base: ./) beheben weiße Bildschirme auf strudelcode.github.io/SOCDOF/ und lokalen HTML-Deployments',
+      'Vereinfachter Setup-Assistent im Web-Interface: Keine Vorabauswahl im Browser nötig, Direktdownload für .cmd, .bat und .ps1',
+      'Automatische Erstellung der Ordnerstruktur (\\Data, \\Backups, \\Exports, \\Config) und Desktop-Verknüpfung'
+    ]
+  },
   {
     version: '18.3.4',
     date: '2026-08-24',

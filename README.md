@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-Strudelcode%2FSOCDOF-blue?logo=github)](https://github.com/Strudelcode/SOCDOF)
 [![Discord](https://img.shields.io/badge/Support-Discord%20Server-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
 [![Offline First](https://img.shields.io/badge/Datenschutz-100%25%20Lokal%20%26%20Offline-emerald)](#)
-[![Version](https://img.shields.io/badge/Version-SOCDOF%20v18.3.4-indigo)](#)
+[![Version](https://img.shields.io/badge/Version-SOCDOF%20v18.3.5-indigo)](#)
 
 > **SOCDOF** ist eine modulare, 100% offline-fähige ERP- und Unternehmenssoftware mit moderner **Windows 11 Desktop-Fensterverwaltung**, Buchhaltung, DIN 5008 Fakturierung, Restaurant-/POS-Kasse, mehrsprachiger Lokalisierung und robuster lokaler Datenhaltung (IndexedDB).
 
@@ -12,6 +12,7 @@
 ## 📌 Wichtige Links & Community
 
 - 🐙 **Offizielles GitHub Repository (Open Source):** [https://github.com/Strudelcode/SOCDOF](https://github.com/Strudelcode/SOCDOF)
+- 🌐 **GitHub Pages Live Demo:** [https://strudelcode.github.io/SOCDOF/](https://strudelcode.github.io/SOCDOF/)
 - 💬 **Hilfe & Support (Ausschließlich auf Discord):** [https://discord.gg/QW85EaXTgB](https://discord.gg/QW85EaXTgB)
 
 ---
@@ -19,7 +20,7 @@
 ## 🚀 Kernfunktionen
 
 - 🪟 **Reine Windows 11 Desktop-Umgebung:** Echte verschiebbare, maximierbare und minimierbare Fenster, Taskleiste mit Live-Status, Aero-Snap-Andocken, Startmenü und paralleler Mehrfensterbetrieb.
-- 📦 **Windows Setup- & Installations-Assistent:** Direkte Auswahl des Ziel-Installationspfades (z. B. `C:\SOCDOF` oder eigenes Laufwerk) mit automatischer Erstellung der Ordnerstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`) und Desktop-Verknüpfung.
+- 📦 **Windows Setup-Assistent mit nativer Ordnerauswahl:** Beim Starten der `.cmd`, `.bat` oder `.ps1` öffnet sich direkt ein nativer Windows-Ordnerauswahldialog (`FolderBrowserDialog`). Ordnerstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Startskripte und Desktop-Verknüpfung werden automatisch am gewählten Ort angelegt.
 - 📄 **DIN 5008 Fakturierung:** Rechnungen, Angebote und Lieferscheine mit rechtssicherem Briefkopf, Faltmarken, Logo-Wasserzeichen und QR-Zahlcodes (GiroCode / EPC-QR).
 - 👥 **Kunden- & Kontaktverwaltung:** CRM-Adressbuch, Zahlungsbedingungen, Notizen und lückenlose Umsatzhistorie.
 - 📦 **Warenwirtschaft & Lager:** Artikelverwaltung, Bestandsüberwachung, Mindestbestände und doppische Lagerbuchungen.
@@ -32,10 +33,10 @@
 
 ## 📁 Windows Dateisystem & Ordnerstruktur
 
-Nach Ausführung des Installations-Assistenten (`Setup_SOCDOF_Windows.cmd` oder `Install_SOCDOF_Wizard.ps1`) wird folgende Ordnerhierarchie auf Ihrem PC angelegt:
+Nach Ausführung des Installations-Assistenten (`Setup_SOCDOF_Windows.cmd`, `Setup_SOCDOF_Windows.bat` oder `Install_SOCDOF_Wizard.ps1`) wird folgende Ordnerhierarchie auf Ihrem PC angelegt:
 
 ```text
-📁 C:\SOCDOF\                   (Installationshauptverzeichnis)
+📁 [Ihr gewählter Ordner, z.B. C:\SOCDOF]\ (Installationshauptverzeichnis)
 ├── 📁 Data\                   (Lokale Datenbank & Kontakt-/Belegdaten)
 ├── 📁 Backups\                (Automatische & manuelle JSON-Sicherungsdateien)
 ├── 📁 Exports\                (DIN 5008 PDF-Rechnungen, BWA & Berichte)
@@ -47,6 +48,18 @@ Nach Ausführung des Installations-Assistenten (`Setup_SOCDOF_Windows.cmd` oder 
 ---
 
 ## 📝 Update-Log / Versionshistorie
+
+### v18.3.5 (2026-08-24)
+- 🗂️ **Nativer Windows-Ordnerauswahldialog beim Start:**
+  - Der Installationspfad wird nicht mehr im Browserfenster vorkonfiguriert, sondern öffnet beim Ausführen der `.cmd` / `.bat` / `.ps1` Datei direkt ein grafisches Windows-Auswahlfenster (`FolderBrowserDialog`).
+  - Der Benutzer wählt seinen Wunschordner (z. B. auf `C:\`, `D:\` oder Wechseldatenträgern) interaktiv auf seinem PC aus.
+  - Automatische Erstellung der Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Desktop-Verknüpfung und Konfigurationsdateien mit Erfolgsmeldung per Windows MessageBox.
+- 🌐 **GitHub Pages & Standalone Offline Fix:**
+  - Konfiguration von `base: './'` in `vite.config.ts` und relative Pfade in `index.html`.
+  - Behebt den leeren/weißen Bildschirm auf `https://strudelcode.github.io/SOCDOF/` und ermöglicht direktes lokales Öffnen der erzeugten `index.html`.
+- 📦 **Vollständig überarbeiteter Windows Desktop Setup Manager:**
+  - Klares, schrittweises 3-Stufen-Layout im Setup-Modal.
+  - Direkte Download-Buttons für `.cmd`, `.bat` und `.ps1` sowie Verknüpfung zu GitHub Releases.
 
 ### v18.3.4 (2026-08-24)
 - 💻 **Echter Windows Desktop Setup-Assistent (`Setup_SOCDOF_Windows.cmd` & `Install_SOCDOF_Wizard.ps1`):**
