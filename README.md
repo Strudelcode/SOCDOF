@@ -59,4 +59,4 @@ npm run dev
 
 ---
 
-*Erstellt mit ❤️ für Strudel's Organization, Commerce & Documentation Offline Flow.*
+*Erstellt mit ❤️ *
