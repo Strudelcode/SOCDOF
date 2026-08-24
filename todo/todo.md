@@ -1,5 +1,6 @@
-# ToDo Liste
-### When an item on the todo list is completed, tick it off and DO NOT delete it. If features that have been made are not yet on it, add them and tick them accordingly. If you have any questions, just get in touch
+# ToDo Liste 
+When an item on the todo list is completed, tick it off and DO NOT delete it. If features that have been made are not yet on it, add them and tick them accordingly. If you have any questions, just get in touch
+---
 
 ## 🚀 Nächste Features & UX
 - [ ] erweiterung als App für Kunden support; man kann diensteleistungen eintragen (datum, von-bis), Kunde vom kontakt Buch auswählen können sodass die e-mail, telefonnummen und alle weiteren details verfügbar sind, wer es bearbeitet hat (falls mehrere Leute daran arbeiten), tags / stichwörter hinzufügen,  beschreibung , zeiterfassung, zeitaufwand (Beispielbild: todo/kunden_support-dienstleistungen-beispiel.png).
