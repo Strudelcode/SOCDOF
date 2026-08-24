@@ -6,6 +6,7 @@
 - [ ] Beim Dasboard sollte man auch einen benutzerdefinierten zeitraum auswählen können / auch bei abrechnungen...
 - [ ] die exe Datei soll im vollbild modus starten oder so etwas. wenn man nämlich eine App öffnet kennen sich manche User nicht mehr aus wie man daraus kommt und dann auf das "x" von der exe klicken anstatt auf das der ing app
 - [ ] Vor dem schließen der App soll nochmal eine aufforderung kommen ob man SOCDOF wirklich schließen will sodass vielleicht konflikte wie das vorher genannte Problem vermieden werden können?
+- [ ] Wir benutzen ja electron für unser Projekt. Und ich habe gehört dass es dafür eine Erweiterung gibt die automatisch immer von github schaut ob eine neueste Version verfügbar ist bei Releases und wenn eine neue Version verfügbar ist das ist eine Nutzer fragt ob es sie herunterladen kann und wenn es installiert ist ob die App neu gestartet werden kann können wir das vielleicht auch hin unsere App einfahren damit immer neue Situationen automatisch ich will nicht nur Lisa Stelle und das dann immer zwischen genau V19 V20 oder so heißen und ohne Punkt oder weit Erweiterungen oder v19.1.1 und so sind das immer nur die Haut Releases also nicht priori Release ist nur how to Releases dann immer sozusagen als Update für die App benutzt wird 
 
 ## 🐛 Bugfixes & Offene Punkte
 - [ ] Das die .exe App ein icon hat und nicht die Standard Electron textur.
