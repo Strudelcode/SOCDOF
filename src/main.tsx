@@ -2,6 +2,10 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { initPlatformEnvironment } from './lib/platform';
+
+// Initialize platform title and favicon
+initPlatformEnvironment();
 
 // Prevent unwanted touchpad pinch-to-zoom and Ctrl+wheel zoom on the web application
 if (typeof window !== 'undefined') {

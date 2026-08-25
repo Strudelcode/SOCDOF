@@ -91,6 +91,8 @@ import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
 import { SupportServicesModule } from './SupportServicesModule';
 import { SocdofLogo } from './SocdofLogo';
+import { isElectron, GITHUB_RELEASES_URL } from '../lib/platform';
+import { WebPreviewModal } from './WebPreviewModal';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -471,7 +473,25 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Detect whether running in native desktop electron or web browser preview
+  const isDesktopApp = useMemo(() => isElectron(), []);
+
+  // Web Preview beforeunload leave confirmation & reminder (strictly only in browser preview)
+  useEffect(() => {
+    if (isDesktopApp) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Dies ist die SOCDOF Web-Vorschau. Daten werden nur im Browserspeicher vorgehalten. Um SOCDOF dauerhaft offline zu nutzen, laden Sie die Windows Desktop-App herunter: https://github.com/Strudelcode/SOCDOF/releases';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDesktopApp]);
 
   // Windows 11 Calendar & Agenda Flyout State
   const [isCalendarFlyoutOpen, setIsCalendarFlyoutOpen] = useState(false);
@@ -1056,6 +1076,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   };
 
   const startDrag = (id: string, e: React.MouseEvent | React.PointerEvent) => {
+    // Prevent drag when clicking or pressing down on buttons or interactive elements
+    if ((e.target as HTMLElement)?.closest('button, a, input, select, textarea, [data-no-drag]')) {
+      return;
+    }
     focusWindow(id);
     const win = windows.find(w => w.id === id);
     if (!win || win.isMaximized) return;
@@ -1565,20 +1589,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </div>
 
               {/* Windows Window Buttons: Snap Assist, Minimize, Maximize, Close */}
-              <div className="flex items-center gap-1 -mr-1">
+              <div 
+                className="flex items-center gap-1 -mr-1 cursor-default"
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
                 {/* Snap Layout Quick Actions (Links / Rechts teilen) */}
                 <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'left'); }}
                   title="Fenster links andocken (50% Split-View)"
-                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   <PanelLeft className="w-3.5 h-3.5" />
                 </button>
 
                 <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'right'); }}
                   title="Fenster rechts andocken (50% Split-View)"
-                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   <PanelRight className="w-3.5 h-3.5" />
                 </button>
@@ -1586,17 +1619,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
 
                 <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => minimizeWindow(win.id, e)}
                   title="Minimieren"
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
 
                 <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => toggleMaximizeWindow(win.id, e)}
                   title={win.isMaximized ? 'Wiederherstellen' : 'Maximieren'}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   {win.isMaximized ? (
                     <Minimize2 className="w-3.5 h-3.5" />
@@ -1606,9 +1643,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 </button>
 
                 <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => closeWindow(win.id, e)}
                   title="Schließen"
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-rose-600 active:bg-rose-700 transition"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-rose-600 active:bg-rose-700 transition cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1962,7 +2001,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
                 {company.name.charAt(0)}
               </div>
-              <span className="text-xs font-bold truncate max-w-[120px]">{company.name}</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold truncate max-w-[120px]">{company.name}</span>
+                {!isDesktopApp && (
+                  <button
+                    onClick={() => { setIsStartMenuOpen(false); setIsWebPreviewModalOpen(true); }}
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline text-left"
+                  >
+                    Web-Vorschau (Info)
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-1">
@@ -1996,8 +2045,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <Power className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">SOCDOF beenden?</h3>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Desktop-Umgebung schließen</div>
+                  <h3 className="font-bold text-base">
+                    {!isDesktopApp ? 'Web-Vorschau beenden?' : 'SOCDOF beenden?'}
+                  </h3>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {!isDesktopApp ? 'Interaktive Online-Demo' : 'Desktop-Umgebung schließen'}
+                  </div>
                 </div>
               </div>
               <button
@@ -2008,29 +2061,61 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-              Möchten Sie die SOCDOF Arbeitsumgebung jetzt beenden? Alle Rechnungen, Buchungen, Lagerbewegungen und Einstellungen bleiben lokal sicher in Ihrer Datenbank gespeichert.
-            </p>
+            {!isDesktopApp ? (
+              <div className="mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200 space-y-1.5 leading-relaxed">
+                <div className="font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Hinweis zur Web-Vorschau:</span>
+                </div>
+                <p>
+                  Dies ist nur die Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Laden Sie sich die vollständige Windows Desktop-App (.exe) für 100% lokalen Betrieb herunter.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                Möchten Sie die SOCDOF Arbeitsumgebung jetzt beenden? Alle Rechnungen, Buchungen, Lagerbewegungen und Einstellungen bleiben lokal sicher in Ihrer Datenbank gespeichert.
+              </p>
+            )}
 
             <div className="space-y-2.5">
+              {!isDesktopApp && (
+                <a
+                  href={GITHUB_RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-left transition group shadow-md shadow-indigo-600/20"
+                >
+                  <Download className="w-5 h-5 flex-shrink-0 group-hover:-translate-y-0.5 transition-transform" />
+                  <div className="flex-1">
+                    <div className="text-xs font-bold flex items-center justify-between">
+                      <span>Vollversion herunterladen (.exe)</span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                    </div>
+                    <div className="text-[11px] text-indigo-100">Neueste Release auf GitHub öffnen</div>
+                  </div>
+                </a>
+              )}
+
               <button
                 onClick={handleShutdown}
                 className="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40 text-left transition group"
               >
                 <Power className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform" />
                 <div>
-                  <div className="text-xs font-bold">SOCDOF jetzt beenden</div>
+                  <div className="text-xs font-bold">
+                    {!isDesktopApp ? 'Vorschau-Sitzung sperren' : 'SOCDOF jetzt beenden'}
+                  </div>
                   <div className="text-[11px] opacity-80">Schließt alle offenen Arbeitsfenster und sperrt die Sitzung.</div>
                 </div>
               </button>
 
               <button
                 onClick={handleRestart}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 text-left transition group"
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-left transition group"
               >
                 <RotateCcw className="w-5 h-5 flex-shrink-0 group-hover:rotate-45 transition-transform" />
                 <div>
-                  <div className="text-xs font-bold">Arbeitsbereich neu starten</div>
+                  <div className="text-xs font-bold">Arbeitsbereich neu laden</div>
                   <div className="text-[11px] opacity-80">Startet die Desktop-Umgebung frisch und aufgeräumt neu.</div>
                 </div>
               </button>
@@ -2213,6 +2298,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         {/* Right: System Tray & Actions */}
         <div className="flex items-center gap-1.5">
+          {/* Web Preview Indicator (strictly only on browser preview, not Electron) */}
+          {!isDesktopApp && (
+            <button
+              onClick={() => { sounds.playPop(); setIsWebPreviewModalOpen(true); }}
+              title="Web-Vorschau aktiv – Klick für Download der vollen Windows Desktop App (.exe)"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-pink-500/15 hover:from-indigo-500/25 hover:to-pink-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition shadow-xs group"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+              </span>
+              <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform" />
+              <span className="hidden sm:inline font-extrabold tracking-tight">Web-Vorschau</span>
+            </button>
+          )}
+
           {/* Language Selector in Taskbar Tray */}
           <button
             onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
@@ -2494,6 +2595,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       <WindowsExeNotificationToast
         disabled={Boolean(company.disable_exe_reminders)}
         onOpenWindowsManager={() => setIsWindowsModalOpen(true)}
+      />
+
+      {/* Web Preview Info & Download Modal (Only when in Web Preview) */}
+      <WebPreviewModal
+        isOpen={isWebPreviewModalOpen}
+        onClose={() => setIsWebPreviewModalOpen(false)}
       />
     </div>
   );

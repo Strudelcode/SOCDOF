@@ -8,7 +8,12 @@
 
 ## Key Highlights & Feature Set
 
-### 1. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
+### 1. Window Control Buttons Drag Suppression & Event Isolation (v20.0.2)
+- **Titlebar Button Drag Rejection**: Prevented accidental window dragging when pressing down (`onMouseDown`, `onPointerDown`) on the close (`✕`), minimize (`—`), maximize (`▢`), or split-view snap buttons (`◧` / `◨`).
+- **Event Propagation Stopping**: Embedded explicit `e.stopPropagation()` handlers on mouse/pointer events and applied `cursor-pointer` fidelity.
+- **Defensive Drag Target Filter**: Added interactive element detection in `startDrag` to ensure window drag movements are exclusively initiated from neutral titlebar surfaces.
+
+### 2. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
 - **Direct Body Portaling**: Contact creation/edit modals and batch add dialogs are portaled directly to the viewport root via React `createPortal`.
 - **Zero Window Clipping**: Solved parent container transform constraints from window animations, ensuring backdrop covers the complete display and all form fields remain accessible and scrollable.
 - **Structured Address Fields**: Dedicated granular inputs for:
@@ -52,11 +57,12 @@
 | Component | Path | Description |
 |---|---|---|
 | **Instructions** | `INSTRUCTIONS.md` | Enforced release documentation protocol in `versions/releases/` |
+| **Desktop Workspace** | `src/components/DesktopWindowWorkspace.tsx` | Window titlebar button drag suppression and pointer event isolation |
 | **Contacts Module** | `src/components/ContactsModule.tsx` | Viewport portal modals, reactive `useLanguage` integration and structured form |
 | **Products Module** | `src/components/ProductsModule.tsx` | React Portal viewport overlays for customer allocation & product modal |
 | **Documentation App** | `src/components/DocumentationApp.tsx` | Bilingual English/German user manual and live localization |
 | **Localization Registry** | `src/lib/i18n.ts` | Complete translation dictionary for contacts, invoices, and system tools |
-| **App Version** | `src/lib/version.ts` | Synced to `20.0.1` with version history |
+| **App Version** | `src/lib/version.ts` | Synced to `20.0.2` with version history |
 
 ---
 

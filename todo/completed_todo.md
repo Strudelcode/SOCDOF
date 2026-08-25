@@ -6,7 +6,13 @@
 
 ## Completed Tasks Archive
 
-### 1. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
+### 1. Window Action Buttons Drag Suppression & Titlebar Interaction Fix (v20.0.2)
+- [x] **Titlebar Action Buttons Isolation**:
+  - [x] Prevented dragging when pressing or clicking down on close (`✕`), minimize (`—`), maximize (`▢`), and split-view snap buttons (`◧` / `◨`).
+  - [x] Added `e.stopPropagation()` on `onMouseDown`, `onPointerDown`, and `onDoubleClick` across the action buttons container and buttons.
+  - [x] Added defensive `.closest('button, ...')` check inside `startDrag` handler to ignore drag initiation from interactive controls.
+
+### 2. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
 - [x] **React Portal Integration**:
   - [x] Re-anchored the Single Contact Create/Edit modal, Batch Contacts modal, and CSV Import modal directly to `document.body` via `createPortal`.
   - [x] Eliminated dark rectangular clipping boxes and constrained overflow boundaries caused by parent window animation CSS transforms.

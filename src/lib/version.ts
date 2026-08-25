@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.1';
+export const APP_VERSION = '20.0.2';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.2',
+    date: '2026-08-25',
+    title: 'Window Action Buttons Drag Suppression & Titlebar Interaction Fix',
+    highlights: [
+      'Window Action Button Isolation: Completely prevented accidental window dragging when pressing down or clicking on close (✕), minimize (—), maximize (▢), or split-view snap buttons',
+      'Event Propagation Safeguards: Added strict onMouseDown, onPointerDown, and onDoubleClick event stopPropagation on titlebar action controls with pointer cursor fidelity',
+      'Defensive Drag Target Check: Added interactive element detection in startDrag handler to ensure smooth window repositioning exclusively from titlebar surface'
+    ]
+  },
   {
     version: '20.0.1',
     date: '2026-08-25',
