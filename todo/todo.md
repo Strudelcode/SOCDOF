@@ -74,9 +74,9 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 ### 🌐 Website / GitHub-Pages-Version
 
-- [ ] **Zoom auf der Website deaktivieren:** Auf der GitHub-Pages-Website (`https://strudelcode.github.io/SOCDOF/`) soll das Heranzoomen per Touchpad, beispielsweise mit einer Zwei-Finger-Geste, deaktiviert werden.
-  - [ ] Prüfen, ob das Deaktivieren des Zooms nur für die Website und nicht für die native Electron-App gilt.
-  - [ ] Sicherstellen, dass die Bedienbarkeit und Barrierefreiheit der Website dadurch nicht unnötig eingeschränkt werden.
+- [x] **Zoom auf der Website deaktivieren:** Auf der GitHub-Pages-Website (`https://strudelcode.github.io/SOCDOF/`) soll das Heranzoomen per Touchpad, beispielsweise mit einer Zwei-Finger-Geste, deaktiviert werden.
+  - [x] Prüfen, ob das Deaktivieren des Zooms nur für die Website und nicht für die native Electron-App gilt.
+  - [x] Sicherstellen, dass die Bedienbarkeit und Barrierefreiheit der Website dadurch nicht unnötig eingeschränkt werden.
 
 - [ ] **Keine dauerhafte Datenspeicherung auf der Website:** Auf der GitHub-Pages-Version sollen keine Benutzerdaten oder Änderungen dauerhaft gespeichert werden.
   - [ ] Website-Daten dürfen nur temporär während der aktuellen Sitzung verwendet werden.
@@ -85,10 +85,10 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
   - [ ] In der Website deutlich darauf hinweisen, dass die Web-Version keine dauerhafte Speicherung unterstützt und für das Speichern die `.exe`-App verwendet werden muss.
   - [ ] Prüfen, ob Demo-Daten oder Teständerungen beim Neuladen der Website vollständig zurückgesetzt werden.
 
-- [ ] **Seitentitel und Browser-Titel kürzen:** Die GitHub-Pages-Website soll nicht mehr den vollständigen Namen „SOCDOF - Strudel's Organization, Commerce & Documentation Offline Flow“ als Seitentitel anzeigen.
-  - [ ] Als sichtbaren Website- beziehungsweise Browser-Titel ausschließlich **„SOCDOF“** verwenden.
-  - [ ] Prüfen, ob der lange Name auch in Meta-Tags, PWA-Manifest, Favicon-Beschreibung, Open-Graph-Daten oder anderen Website-Bereichen verwendet wird.
-  - [ ] Die vollständige Bedeutung des Namens darf weiterhin in der Dokumentation stehen, soll aber nicht als primärer Seitentitel verwendet werden.
+- [x] **Seitentitel und Browser-Titel kürzen:** Die GitHub-Pages-Website soll nicht mehr den vollständigen Namen „SOCDOF - Strudel's Organization, Commerce & Documentation Offline Flow“ als Seitentitel anzeigen.
+  - [x] Als sichtbaren Website- beziehungsweise Browser-Titel ausschließlich **„SOCDOF“** verwenden.
+  - [x] Prüfen, ob der lange Name auch in Meta-Tags, PWA-Manifest, Favicon-Beschreibung, Open-Graph-Daten oder anderen Website-Bereichen verwendet wird.
+  - [x] Die vollständige Bedeutung des Namens darf weiterhin in der Dokumentation stehen, soll aber nicht als primärer Seitentitel verwendet werden.
 
 ---
 
@@ -134,9 +134,9 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 ### 3.2 Benutzerdefinierte Zeiträume
 
-- [ ] Benutzerdefinierte Zeiträume im Dashboard ermöglichen.
-- [ ] Dieselbe Zeitraumsauswahl bei Abrechnungen und Auswertungen anbieten.
-- [ ] Einheitliche Behandlung von Startdatum, Enddatum und Zeitzone sicherstellen.
+- [x] Benutzerdefinierte Zeiträume im Dashboard ermöglichen. (Filter für Gesamt, Heute, Monat, Quartal, Jahr und Benutzerdefiniert mit Start-/Enddatum)
+- [x] Dieselbe Zeitraumsauswahl bei Abrechnungen und Auswertungen anbieten. (BWA, UStVA und CSV-Export synchronisiert)
+- [x] Einheitliche Behandlung von Startdatum, Enddatum und Zeitzone sicherstellen.
 
 ### 3.3 Startverhalten und Schließen der Desktop-App
 
@@ -177,12 +177,12 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 ### 3.8 Regionale Einstellungen
 
-- [ ] Sprach-, Datums- und Zeiteinstellungen in den Einstellungen bündeln.
-- [ ] Datumsformate wie `DD.MM.YYYY`, `YYYY-MM-DD` und `MM/DD/YYYY` unterstützen.
-- [ ] Uhrzeit mit oder ohne Sekunden anzeigen können.
-- [ ] Standardmäßig die Systemzeitzone verwenden.
-- [ ] Eine manuelle Zeitzone optional auswählbar machen.
-- [ ] Einstellungen in Taskleiste, Dashboard, Kalendern und Abrechnungen konsistent anwenden.
+- [x] Sprach-, Datums- und Zeiteinstellungen in den Einstellungen bündeln. (Sprache, Währung, Datumsformate, Zeitzone und Sekunden-Schalter unter Einstellungen -> Sprache & Region)
+- [x] Datumsformate wie `DD.MM.YYYY`, `YYYY-MM-DD` und `MM/DD/YYYY` unterstützen.
+- [x] Uhrzeit mit oder ohne Sekunden anzeigen können. (Umschalter für Taskleistenuhr)
+- [x] Standardmäßig die Systemzeitzone verwenden.
+- [x] Eine manuelle Zeitzone optional auswählbar machen.
+- [x] Einstellungen in Taskleiste, Dashboard, Kalendern und Abrechnungen konsistent anwenden.
 
 ---
 

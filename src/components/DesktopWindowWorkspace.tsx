@@ -2230,7 +2230,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             }`}
           >
             <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {currentTime.toLocaleTimeString([], company.time_show_seconds !== false 
+                ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+                : { hour: '2-digit', minute: '2-digit' }
+              )}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY')}

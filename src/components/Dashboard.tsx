@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp, 
   Receipt, 
@@ -57,21 +57,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenStockTransfer,
   currency = '€'
 }) => {
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'month' | 'today'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'month' | 'quarter' | 'year' | 'today' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
-  // Filter invoices according to period if needed
-  const filteredInvoices = invoices.filter(inv => {
-    if (periodFilter === 'all') return true;
-    const invDate = new Date(inv.date);
-    const now = new Date();
-    if (periodFilter === 'today') {
-      return invDate.toDateString() === now.toDateString();
-    }
-    if (periodFilter === 'month') {
-      return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear();
-    }
-    return true;
-  });
+  // Filter invoices according to period or custom date range
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (!inv.date) return true;
+      if (periodFilter === 'all') return true;
+      const invDate = new Date(inv.date);
+      const now = new Date();
+
+      if (periodFilter === 'today') {
+        return invDate.toDateString() === now.toDateString();
+      }
+      if (periodFilter === 'month') {
+        return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear();
+      }
+      if (periodFilter === 'quarter') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const invQuarter = Math.floor(invDate.getMonth() / 3);
+        return invQuarter === currentQuarter && invDate.getFullYear() === now.getFullYear();
+      }
+      if (periodFilter === 'year') {
+        return invDate.getFullYear() === now.getFullYear();
+      }
+      if (periodFilter === 'custom') {
+        if (customStartDate && inv.date < customStartDate) return false;
+        if (customEndDate && inv.date > customEndDate) return false;
+        return true;
+      }
+      return true;
+    });
+  }, [invoices, periodFilter, customStartDate, customEndDate]);
 
   // Financial Calculations (100% computed purely from live operational state)
   const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + (inv.status !== 'cancelled' ? inv.total : 0), 0);
@@ -114,28 +133,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </p>
         </div>
 
-        {/* Period Filter Chips */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
-          {[
-            { id: 'all', label: 'Gesamt' },
-            { id: 'month', label: 'Dieser Monat' },
-            { id: 'today', label: 'Heute' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                sounds.playClick();
-                setPeriodFilter(tab.id as any);
-              }}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                periodFilter === tab.id
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Period Filter Chips & Custom Date Range */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+            {[
+              { id: 'all', label: 'Gesamt' },
+              { id: 'today', label: 'Heute' },
+              { id: 'month', label: 'Monat' },
+              { id: 'quarter', label: 'Quartal' },
+              { id: 'year', label: 'Jahr' },
+              { id: 'custom', label: 'Benutzerdefiniert' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  sounds.playClick();
+                  setPeriodFilter(tab.id as any);
+                }}
+                className={`px-2.5 py-1.5 rounded-lg font-medium transition ${
+                  periodFilter === tab.id
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Date Range Picker */}
+          {periodFilter === 'custom' && (
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono"
+                title="Startdatum"
+              />
+              <span className="text-slate-400 text-xs">bis</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono"
+                title="Enddatum"
+              />
+            </div>
+          )}
         </div>
       </div>
 

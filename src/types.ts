@@ -191,6 +191,7 @@ export interface CompanyProfile {
   disable_exe_reminders?: boolean;
   language?: 'de' | 'en' | 'fr' | 'es';
   date_format?: 'DD.MM.YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY';
+  time_show_seconds?: boolean;
   timezone?: string;
 
   // Calendar & External Connections

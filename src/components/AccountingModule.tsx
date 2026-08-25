@@ -33,18 +33,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   posOrders,
   company
 }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'current_month' | 'current_quarter' | 'current_year'>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'today' | 'current_month' | 'current_quarter' | 'current_year' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [activeTab, setActiveTab] = useState<'bwa' | 'ustva' | 'open_items' | 'z_bon'>('bwa');
 
   const cur = company.currency || 'EUR';
 
-  // Filter calculations based on period
+  // Filter calculations based on period or custom date range
   const filterDate = (dateStr: string) => {
+    if (!dateStr) return true;
     if (selectedPeriod === 'all') return true;
     const d = new Date(dateStr);
     const now = new Date();
     if (isNaN(d.getTime())) return true;
 
+    if (selectedPeriod === 'today') {
+      return d.toDateString() === now.toDateString();
+    }
     if (selectedPeriod === 'current_month') {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }
@@ -55,6 +61,11 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
     }
     if (selectedPeriod === 'current_year') {
       return d.getFullYear() === now.getFullYear();
+    }
+    if (selectedPeriod === 'custom') {
+      if (customStartDate && dateStr < customStartDate) return false;
+      if (customEndDate && dateStr > customEndDate) return false;
+      return true;
     }
     return true;
   };
@@ -161,29 +172,62 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700 text-xs">
             <button
               onClick={() => setSelectedPeriod('all')}
-              className={`px-2.5 py-1 rounded-md transition font-medium ${selectedPeriod === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
             >
               Gesamt
             </button>
             <button
-              onClick={() => setSelectedPeriod('current_month')}
-              className={`px-2.5 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_month' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+              onClick={() => setSelectedPeriod('today')}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'today' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Dieser Monat
+              Heute
+            </button>
+            <button
+              onClick={() => setSelectedPeriod('current_month')}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_month' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Monat
             </button>
             <button
               onClick={() => setSelectedPeriod('current_quarter')}
-              className={`px-2.5 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_quarter' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_quarter' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
             >
               Quartal
             </button>
             <button
               onClick={() => setSelectedPeriod('current_year')}
-              className={`px-2.5 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_year' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'current_year' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
             >
               Jahr
             </button>
+            <button
+              onClick={() => setSelectedPeriod('custom')}
+              className={`px-2 py-1 rounded-md transition font-medium ${selectedPeriod === 'custom' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400'}`}
+            >
+              Benutzerdefiniert
+            </button>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {selectedPeriod === 'custom' && (
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
+                title="Startdatum"
+              />
+              <span className="text-slate-400 text-xs">bis</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
+                title="Enddatum"
+              />
+            </div>
+          )}
 
           <button
             onClick={exportCsvReport}

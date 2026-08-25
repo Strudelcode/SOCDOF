@@ -1349,7 +1349,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Currency */}
+                {/* 2. Currency & Date Format */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1376,25 +1376,62 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       onChange={(e) => handleSaveProfile({ date_format: e.target.value as any })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-sky-500 focus:outline-none font-mono"
                     >
-                      <option value="DD.MM.YYYY">DD.MM.YYYY (z.B. 24.08.2026)</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD (ISO-Standard 2026-08-24)</option>
-                      <option value="MM/DD/YYYY">MM/DD/YYYY (US-Standard 08/24/2026)</option>
+                      <option value="DD.MM.YYYY">DD.MM.YYYY (z.B. 25.08.2026)</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD (ISO-Standard 2026-08-25)</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY (US-Standard 08/25/2026)</option>
                     </select>
                   </div>
                 </div>
 
-                {/* 3. Timezone */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-sky-500" />
-                    <span>Zeitzone</span>
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value="Europe/Berlin (UTC+2) • Automatisch synchronisiert"
-                    className="w-full px-3 py-2 text-xs bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 font-mono cursor-not-allowed"
-                  />
+                {/* 3. Time Display & Timezone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-sky-500" />
+                        <span>Sekunden in Uhrzeit anzeigen</span>
+                      </span>
+                    </label>
+                    <div className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                      <span className="text-xs text-slate-600 dark:text-slate-300">
+                        {profile.time_show_seconds !== false ? 'Live-Sekunden (HH:MM:SS)' : 'Kompakt (HH:MM)'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = profile.time_show_seconds === false ? true : false;
+                          handleSaveProfile({ time_show_seconds: next });
+                        }}
+                        className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
+                          profile.time_show_seconds !== false ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          profile.time_show_seconds !== false ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Zeitzone</span>
+                    </label>
+                    <select
+                      value={profile.timezone || 'Europe/Berlin'}
+                      onChange={(e) => handleSaveProfile({ timezone: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-sky-500 focus:outline-none font-mono"
+                    >
+                      <option value="Europe/Berlin">Europe/Berlin (UTC+1 / MESZ UTC+2) • Standard</option>
+                      <option value="Europe/Vienna">Europe/Vienna (Wien, Österreich)</option>
+                      <option value="Europe/Zurich">Europe/Zurich (Zürich, Schweiz)</option>
+                      <option value="Europe/London">Europe/London (GMT/BST UTC+0/+1)</option>
+                      <option value="America/New_York">America/New_York (US Eastern Time)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (US Pacific Time)</option>
+                      <option value="UTC">UTC (Universal Time Coordinated)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
