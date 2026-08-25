@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '19.1.0';
+export const APP_VERSION = '19.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,30 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '19.2.0',
+    date: '2026-08-25',
+    title: 'Support Teams Manager, Contact Auto-Fill, Clean Empty States & English Docs',
+    highlights: [
+      'Configurable Support Teams: Added full team management dialog allowing adding, renaming, and deleting custom service teams',
+      'Automatic Contact Synchronization: Selecting CRM customers automatically populates email, phone number, and company directly',
+      'Refined Time Tracking: Direct duration input with preset hour buttons and 1-click live working timer',
+      'Internal Logbook & Activity Stream: Replaced external messaging with internal notes and protocol logging',
+      'Strict No-Mock Rule: Module initializes with clean empty states without artificial placeholder data',
+      'English Documentation & Completed Tasks Archive: Synchronized INSTRUCTIONS.md, AGENTS.md, todo/todo.md, and created todo/completed_todo.md'
+    ]
+  },
+  {
+    version: '19.1.5',
+    date: '2026-08-25',
+    title: 'Customer Support Experience: Form & Chatter, Timesheets & Pipeline',
+    highlights: [
+      'Customer Support Form & Chatter: Implemented split layout featuring ticket metadata, team assignments, 3-star priority rating, and real-time activity stream',
+      'Timesheet Table & Live-Timer: Built integrated timesheet rows with duration calculations, hourly rates, and a 1-click live work timer directly on tickets',
+      'Status Workflow Ribbon: Interactive phase pipeline (New, In Progress, Queue, Resolved, Closed) with automatic activity logging',
+      'Unified Kanban & List Views: Seamless toggle between multi-column Kanban board and dense sortable table with multi-criteria filtering'
+    ]
+  },
   {
     version: '19.1.0',
     date: '2026-08-25',

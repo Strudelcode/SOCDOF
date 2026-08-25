@@ -239,28 +239,49 @@ export type ActiveModule =
   | 'ios_billing'
   | 'support_services';
 
+export interface SupportTimesheetEntry {
+  id: string;
+  date: string;
+  staff: string;
+  description: string;
+  hours: number;
+  hourlyRate?: number;
+  billable?: boolean;
+}
+
+export interface SupportActivityEntry {
+  id: string;
+  author: string;
+  type: 'message' | 'note' | 'activity' | 'system';
+  content: string;
+  createdAt: string;
+}
+
 export interface SupportServiceTicket {
   id: string;
+  ticketNumber: string;
   title: string;
+  team: string;
+  assignedStaff: string;
+  priority: 0 | 1 | 2 | 3;
+  tags: string[];
   contact_id?: number;
   contact_name: string;
   contact_email?: string;
   contact_phone?: string;
   contact_company?: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  assignedStaff: string;
+  status: 'new' | 'in_progress' | 'waiting' | 'resolved' | 'closed' | 'invoiced';
+  description: string;
+  timesheets: SupportTimesheetEntry[];
+  activities: SupportActivityEntry[];
   hourlyRate?: number;
   billable: boolean;
-  status: 'open' | 'in_progress' | 'completed' | 'invoiced';
-  tags: string[];
-  description: string;
-  internalNotes?: string;
+  isTimerRunning?: boolean;
+  timerStartedAt?: string;
   invoice_id?: number;
   invoice_number?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface DesktopFolder {

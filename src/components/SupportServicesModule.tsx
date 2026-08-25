@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Headphones, 
   Plus, 
@@ -21,10 +21,24 @@ import {
   Sparkles, 
   Check, 
   HelpCircle, 
-  MessageSquare,
-  Receipt
+  Receipt,
+  Play,
+  Square,
+  Star,
+  Layers,
+  Send,
+  StickyNote,
+  History,
+  Kanban,
+  List,
+  Filter,
+  Users,
+  ChevronRight,
+  MoreHorizontal,
+  Settings,
+  FolderPlus
 } from 'lucide-react';
-import { Contact, CompanyProfile, SupportServiceTicket } from '../types';
+import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
 import { sounds } from '../lib/sound';
 
 interface SupportServicesModuleProps {
@@ -33,13 +47,46 @@ interface SupportServicesModuleProps {
   onCreateInvoiceForService?: (ticket: SupportServiceTicket) => void;
 }
 
-const STORAGE_KEY = 'socdof_support_services_tickets';
+const STORAGE_KEY = 'socdof_support_services_tickets_v2';
+const TEAMS_STORAGE_KEY = 'socdof_support_teams_list_v2';
+
+const DEFAULT_TEAMS = [
+  'Kundendienst & Service',
+  'IT & Software-Support',
+  'Vor-Ort & Montage',
+  'Garantie & Reklamation',
+  'Kundenbetreuung'
+];
+
+const STAFF_LIST = [
+  'Robert Hölzl',
+  'Yuri',
+  'Kundendienst-Team',
+  'Technik-Support'
+];
 
 export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   contacts,
   companyProfile,
   onCreateInvoiceForService
 }) => {
+  // Support Teams state (customizable by user)
+  const [teams, setTeams] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(TEAMS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_TEAMS;
+  });
+
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null);
+  const [editingTeamValue, setEditingTeamValue] = useState('');
+
+  // Tickets state - strictly NO prefilled mock data
   const [tickets, setTickets] = useState<SupportServiceTicket[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -47,59 +94,29 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     } catch (e) {
       console.error(e);
     }
-    return [
-      {
-        id: 'SRV-1001',
-        title: 'IT-Netzwerk Einrichtung & Server-Wartung',
-        contact_id: contacts[0]?.id,
-        contact_name: contacts[0]?.name || 'Mustermann GmbH',
-        contact_email: contacts[0]?.email || 'it@mustermann.example',
-        contact_phone: contacts[0]?.phone || '+49 89 123456',
-        contact_company: contacts[0]?.company || 'Mustermann IT',
-        date: new Date().toISOString().split('T')[0],
-        startTime: '09:00',
-        endTime: '11:30',
-        durationMinutes: 150,
-        assignedStaff: 'Yuri / IT-Support',
-        hourlyRate: 95,
-        billable: true,
-        status: 'completed',
-        tags: ['Vor-Ort', 'Netzwerk', 'Server'],
-        description: 'Konfiguration des neuen Routers, Einrichtung der Firewall-Regeln und Offline-Backup-Prüfung.',
-        internalNotes: 'Kunde war sehr zufrieden. Folge-Wartung für nächsten Monat vereinbart.',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'SRV-1002',
-        title: 'Software-Schulung & Beleg-Workflow',
-        contact_id: contacts[1]?.id,
-        contact_name: contacts[1]?.name || 'Dr. Schmidt & Partner',
-        contact_email: contacts[1]?.email || 'kanzlei@schmidt.example',
-        contact_phone: contacts[1]?.phone || '+49 30 987654',
-        contact_company: contacts[1]?.company || 'Kanzlei Schmidt',
-        date: new Date().toISOString().split('T')[0],
-        startTime: '14:00',
-        endTime: '15:00',
-        durationMinutes: 60,
-        assignedStaff: 'Support Team',
-        hourlyRate: 95,
-        billable: true,
-        status: 'in_progress',
-        tags: ['Remote', 'Schulung', 'Rechnungswesen'],
-        description: 'Einweisung des Teams in die neue DIN 5008 Rechnungsstellung und BWA-Exporte.',
-        internalNotes: 'Remote via Screen-Share.',
-        createdAt: new Date().toISOString()
-      }
-    ];
+    return [];
   });
 
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'detail'>('list');
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'completed' | 'invoiced'>('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTicket, setEditingTicket] = useState<Partial<SupportServiceTicket> | null>(null);
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+
+  // Detail / Edit Form state
+  const [activeTab, setActiveTab] = useState<'description' | 'timesheets'>('description');
+  const [chatterTab, setChatterTab] = useState<'note' | 'activity'>('note');
+  const [chatterInput, setChatterInput] = useState('');
+  
+  // Quick Timesheet Row Form
+  const [isAddingTimesheet, setIsAddingTimesheet] = useState(false);
+  const [newTsDate, setNewTsDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newTsStaff, setNewTsStaff] = useState(STAFF_LIST[0]);
+  const [newTsDesc, setNewTsDesc] = useState('');
+  const [newTsHours, setNewTsHours] = useState('1.0');
   const [tagInput, setTagInput] = useState('');
 
-  // Persist tickets
+  // Save to LocalStorage
   const saveTickets = (updated: SupportServiceTicket[]) => {
     setTickets(updated);
     try {
@@ -109,508 +126,1342 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     }
   };
 
+  const saveTeams = (updatedTeams: string[]) => {
+    setTeams(updatedTeams);
+    try {
+      localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(updatedTeams));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const selectedTicket = useMemo(() => {
+    return tickets.find(t => t.id === selectedTicketId) || null;
+  }, [tickets, selectedTicketId]);
+
+  // Filtered tickets
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
-      const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
+      const matchesTeam = selectedTeamFilter === 'all' || t.team === selectedTeamFilter;
+      const matchesStatus = selectedStatusFilter === 'all' || t.status === selectedStatusFilter;
       const q = searchQuery.toLowerCase();
       const matchesSearch = 
         t.title.toLowerCase().includes(q) ||
-        t.contact_name.toLowerCase().includes(q) ||
+        t.ticketNumber.toLowerCase().includes(q) ||
+        (t.contact_name && t.contact_name.toLowerCase().includes(q)) ||
         (t.contact_company && t.contact_company.toLowerCase().includes(q)) ||
-        t.tags.some(tag => tag.toLowerCase().includes(q)) ||
-        t.description.toLowerCase().includes(q);
-      return matchesStatus && matchesSearch;
+        t.assignedStaff.toLowerCase().includes(q) ||
+        t.tags.some(tag => tag.toLowerCase().includes(q));
+      return matchesTeam && matchesStatus && matchesSearch;
     });
-  }, [tickets, statusFilter, searchQuery]);
+  }, [tickets, selectedTeamFilter, selectedStatusFilter, searchQuery]);
 
-  const handleOpenCreate = () => {
+  // Create new Ticket
+  const handleCreateNewTicket = () => {
     sounds.playClick();
-    const now = new Date();
-    const startStr = `${String(now.getHours()).padStart(2, '0')}:00`;
-    const endStr = `${String(now.getHours() + 1).padStart(2, '0')}:00`;
+    const newId = `sup_${Date.now()}`;
+    const newTicketNumber = `SUP-${1000 + tickets.length + 1}`;
+    
+    // Auto-select first contact if available
+    const initialContact = contacts.length > 0 ? contacts[0] : null;
 
-    const defaultContact = contacts[0];
-
-    setEditingTicket({
-      id: `SRV-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: '',
-      contact_id: defaultContact?.id,
-      contact_name: defaultContact?.name || '',
-      contact_email: defaultContact?.email || '',
-      contact_phone: defaultContact?.phone || '',
-      contact_company: defaultContact?.company || '',
-      date: new Date().toISOString().split('T')[0],
-      startTime: startStr,
-      endTime: endStr,
-      durationMinutes: 60,
-      assignedStaff: 'Mitarbeiter / Support',
-      hourlyRate: 90,
-      billable: true,
-      status: 'open',
-      tags: ['Support', 'Dienstleistung'],
+    const newTicket: SupportServiceTicket = {
+      id: newId,
+      ticketNumber: newTicketNumber,
+      title: 'Neues Support-Ticket / Auftrag',
+      team: teams[0] || 'Kundendienst & Service',
+      assignedStaff: STAFF_LIST[0],
+      priority: 1,
+      tags: ['Support'],
+      contact_id: initialContact?.id,
+      contact_name: initialContact?.name || '',
+      contact_email: initialContact?.email || '',
+      contact_phone: initialContact?.phone || '',
+      contact_company: initialContact?.company || '',
+      status: 'new',
       description: '',
-      internalNotes: ''
+      hourlyRate: 95,
+      billable: true,
+      timesheets: [],
+      activities: [
+        {
+          id: `act_${Date.now()}`,
+          author: STAFF_LIST[0],
+          type: 'system',
+          content: 'Ticket neu angelegt.',
+          createdAt: new Date().toISOString()
+        }
+      ],
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [newTicket, ...tickets];
+    saveTickets(updated);
+    setSelectedTicketId(newId);
+    setViewMode('detail');
+  };
+
+  // Update selected ticket helper
+  const updateCurrentTicket = (updates: Partial<SupportServiceTicket>) => {
+    if (!selectedTicketId) return;
+    const updated = tickets.map(t => {
+      if (t.id === selectedTicketId) {
+        return { ...t, ...updates, updatedAt: new Date().toISOString() };
+      }
+      return t;
     });
-    setTagInput('');
-    setIsModalOpen(true);
+    saveTickets(updated);
   };
 
-  const handleOpenEdit = (ticket: SupportServiceTicket) => {
+  // Delete ticket
+  const handleDeleteTicket = (ticketId: string) => {
+    if (!confirm('Möchten Sie dieses Support-Ticket wirklich löschen?')) return;
     sounds.playClick();
-    setEditingTicket({ ...ticket });
-    setTagInput('');
-    setIsModalOpen(true);
+    const updated = tickets.filter(t => t.id !== ticketId);
+    saveTickets(updated);
+    if (selectedTicketId === ticketId) {
+      setSelectedTicketId(null);
+      setViewMode('list');
+    }
   };
 
-  const handleSelectContact = (contactIdStr: string) => {
-    const cid = parseInt(contactIdStr);
-    const found = contacts.find(c => c.id === cid);
-    if (found && editingTicket) {
-      setEditingTicket({
-        ...editingTicket,
-        contact_id: found.id,
-        contact_name: found.name,
-        contact_email: found.email || '',
-        contact_phone: found.phone || '',
-        contact_company: found.company || ''
+  // Status Change
+  const handleStatusChange = (newStatus: SupportServiceTicket['status']) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const statusLabels: Record<string, string> = {
+      new: 'Neu',
+      in_progress: 'In Bearbeitung',
+      waiting: 'In Warteschlange',
+      resolved: 'Gelöst',
+      closed: 'Abgeschlossen',
+      invoiced: 'Abgerechnet'
+    };
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || 'System',
+      type: 'system',
+      content: `Status geändert auf: "${statusLabels[newStatus] || newStatus}"`,
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      status: newStatus,
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+  };
+
+  // Toggle Live Timer
+  const handleToggleTimer = () => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    if (selectedTicket.isTimerRunning) {
+      // Stop timer and add timesheet
+      const start = selectedTicket.timerStartedAt ? new Date(selectedTicket.timerStartedAt).getTime() : Date.now();
+      const elapsedMs = Math.max(Date.now() - start, 60000); // min 1 min
+      const hours = Number((elapsedMs / (1000 * 60 * 60)).toFixed(2));
+
+      const newEntry: SupportTimesheetEntry = {
+        id: `ts_${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        staff: selectedTicket.assignedStaff,
+        description: 'Live-Zeiterfassung Support & Bearbeitung',
+        hours: Math.max(hours, 0.25),
+        hourlyRate: selectedTicket.hourlyRate || 95,
+        billable: selectedTicket.billable
+      };
+
+      const newActivity: SupportActivityEntry = {
+        id: `act_${Date.now()}`,
+        author: selectedTicket.assignedStaff,
+        type: 'activity',
+        content: `Live-Timer gestoppt: ${newEntry.hours} Std. für "${newEntry.description}" verbucht.`,
+        createdAt: new Date().toISOString()
+      };
+
+      updateCurrentTicket({
+        isTimerRunning: false,
+        timerStartedAt: undefined,
+        timesheets: [...selectedTicket.timesheets, newEntry],
+        activities: [newActivity, ...selectedTicket.activities]
+      });
+    } else {
+      // Start timer
+      updateCurrentTicket({
+        isTimerRunning: true,
+        timerStartedAt: new Date().toISOString(),
+        status: selectedTicket.status === 'new' ? 'in_progress' : selectedTicket.status
       });
     }
   };
 
-  const calculateDuration = (start: string, end: string) => {
-    if (!start || !end) return 60;
-    const [h1, m1] = start.split(':').map(Number);
-    const [h2, m2] = end.split(':').map(Number);
-    const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-    return diff > 0 ? diff : 60;
+  // Add Timesheet Entry
+  const handleAddTimesheetEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicket || !newTsDesc) return;
+    sounds.playClick();
+
+    const hours = parseFloat(newTsHours) || 1.0;
+    const entry: SupportTimesheetEntry = {
+      id: `ts_${Date.now()}`,
+      date: newTsDate,
+      staff: newTsStaff,
+      description: newTsDesc,
+      hours,
+      hourlyRate: selectedTicket.hourlyRate || 95,
+      billable: selectedTicket.billable
+    };
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: newTsStaff,
+      type: 'activity',
+      content: `Zeiterfassung erfasst: ${hours} Std. für "${newTsDesc}"`,
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      timesheets: [...selectedTicket.timesheets, entry],
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+
+    setNewTsDesc('');
+    setIsAddingTimesheet(false);
   };
 
-  const handleSaveTicket = (e: React.FormEvent) => {
+  // Delete Timesheet
+  const handleDeleteTimesheet = (tsId: string) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    updateCurrentTicket({
+      timesheets: selectedTicket.timesheets.filter(t => t.id !== tsId)
+    });
+  };
+
+  // Add Chatter Note or Activity
+  const handleAddChatter = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTicket || !editingTicket.title || !editingTicket.contact_name) {
-      sounds.playError();
+    if (!selectedTicket || !chatterInput.trim()) return;
+    sounds.playClick();
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || 'Mitarbeiter',
+      type: chatterTab,
+      content: chatterInput.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+
+    setChatterInput('');
+  };
+
+  // Tag helper
+  const handleAddTag = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && tagInput.trim() && selectedTicket) {
+      e.preventDefault();
+      if (!selectedTicket.tags.includes(tagInput.trim())) {
+        updateCurrentTicket({
+          tags: [...selectedTicket.tags, tagInput.trim()]
+        });
+      }
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    if (!selectedTicket) return;
+    updateCurrentTicket({
+      tags: selectedTicket.tags.filter(t => t !== tagToRemove)
+    });
+  };
+
+  // Contact Selection Handler (Auto-fill phone, email, company)
+  const handleSelectContact = (contactIdStr: string) => {
+    if (!contactIdStr) {
+      updateCurrentTicket({
+        contact_id: undefined,
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
+        contact_company: ''
+      });
       return;
     }
 
-    const duration = calculateDuration(editingTicket.startTime || '09:00', editingTicket.endTime || '10:00');
-    const fullTicket: SupportServiceTicket = {
-      id: editingTicket.id || `SRV-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: editingTicket.title,
-      contact_id: editingTicket.contact_id,
-      contact_name: editingTicket.contact_name,
-      contact_email: editingTicket.contact_email,
-      contact_phone: editingTicket.contact_phone,
-      contact_company: editingTicket.contact_company,
-      date: editingTicket.date || new Date().toISOString().split('T')[0],
-      startTime: editingTicket.startTime || '09:00',
-      endTime: editingTicket.endTime || '10:00',
-      durationMinutes: duration,
-      assignedStaff: editingTicket.assignedStaff || 'Support',
-      hourlyRate: Number(editingTicket.hourlyRate) || 0,
-      billable: editingTicket.billable !== false,
-      status: editingTicket.status || 'open',
-      tags: editingTicket.tags || ['Dienstleistung'],
-      description: editingTicket.description || '',
-      internalNotes: editingTicket.internalNotes || '',
-      createdAt: editingTicket.createdAt || new Date().toISOString()
-    };
-
-    const exists = tickets.some(t => t.id === fullTicket.id);
-    let nextList: SupportServiceTicket[];
-    if (exists) {
-      nextList = tickets.map(t => t.id === fullTicket.id ? fullTicket : t);
-    } else {
-      nextList = [fullTicket, ...tickets];
+    const contact = contacts.find(c => c.id === parseInt(contactIdStr));
+    if (contact) {
+      updateCurrentTicket({
+        contact_id: contact.id,
+        contact_name: contact.name || '',
+        contact_email: contact.email || '',
+        contact_phone: contact.phone || '',
+        contact_company: contact.company || ''
+      });
     }
-
-    saveTickets(nextList);
-    sounds.playSuccess();
-    setIsModalOpen(false);
-    setEditingTicket(null);
   };
 
-  const handleDeleteTicket = (id: string) => {
-    if (!confirm('Diesen Support-Einsatz wirklich löschen?')) return;
-    const nextList = tickets.filter(t => t.id !== id);
-    saveTickets(nextList);
-    sounds.playSuccess();
+  // Total Hours calculation
+  const totalHours = useMemo(() => {
+    if (!selectedTicket) return 0;
+    return selectedTicket.timesheets.reduce((sum, ts) => sum + (Number(ts.hours) || 0), 0);
+  }, [selectedTicket]);
+
+  const totalCalculatedAmount = useMemo(() => {
+    if (!selectedTicket) return 0;
+    return selectedTicket.timesheets.reduce((sum, ts) => {
+      const rate = ts.hourlyRate || selectedTicket.hourlyRate || 0;
+      return sum + (Number(ts.hours) || 0) * rate;
+    }, 0);
+  }, [selectedTicket]);
+
+  // Team Management Handlers
+  const handleAddTeam = () => {
+    if (!newTeamName.trim()) return;
+    const trimmed = newTeamName.trim();
+    if (!teams.includes(trimmed)) {
+      sounds.playClick();
+      const updated = [...teams, trimmed];
+      saveTeams(updated);
+      setNewTeamName('');
+    }
   };
 
-  const formatCurrency = (val: number) => {
-    return `${val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${companyProfile.currency || '€'}`;
+  const handleDeleteTeam = (teamToDelete: string) => {
+    if (teams.length <= 1) {
+      alert('Mindestens ein Support-Team muss erhalten bleiben.');
+      return;
+    }
+    if (!confirm(`Möchten Sie das Team "${teamToDelete}" wirklich entfernen?`)) return;
+    sounds.playClick();
+    const updated = teams.filter(t => t !== teamToDelete);
+    saveTeams(updated);
+  };
+
+  const handleSaveTeamEdit = (index: number) => {
+    if (!editingTeamValue.trim()) return;
+    const updated = [...teams];
+    const oldName = updated[index];
+    updated[index] = editingTeamValue.trim();
+    saveTeams(updated);
+    
+    // Also update tickets with this team
+    const updatedTickets = tickets.map(t => t.team === oldName ? { ...t, team: editingTeamValue.trim() } : t);
+    saveTickets(updatedTickets);
+
+    setEditingTeamIndex(null);
+    setEditingTeamValue('');
+  };
+
+  // Format Helper
+  const formatTimeAgo = (isoString: string) => {
+    try {
+      const diff = Date.now() - new Date(isoString).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Gerade eben';
+      if (mins < 60) return `Vor ${mins} Min.`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `Vor ${hours} Std.`;
+      return new Date(isoString).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+    } catch {
+      return '';
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header & Overview */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Headphones className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <span>Kunden-Support & Dienstleistungen</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Erfassung, Zeiterfassung und Dokumentation von Support-Einsätzen und Serviceleistungen für Kunden.
-          </p>
+    <div className="h-full flex flex-col bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none overflow-hidden font-sans">
+      
+      {/* Top Navbar */}
+      <div className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 flex items-center justify-between shrink-0 shadow-xs z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-cyan-600/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-bold">
+            <Headphones className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm sm:text-base text-slate-900 dark:text-slate-100">Kundendienst & Support</span>
+              {viewMode === 'detail' && selectedTicket && (
+                <>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold text-cyan-600 dark:text-cyan-400">
+                    {selectedTicket.ticketNumber}
+                  </span>
+                </>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+              Tickets, Einsätze, Zeiterfassung & Aktivitäten nach SOCDOF-Standard
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Neuer Support-Einsatz</span>
-        </button>
-      </div>
+        <div className="flex items-center gap-2">
+          {/* Teams Manager Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsTeamModalOpen(true);
+            }}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition flex items-center gap-1.5"
+            title="Teams verwalten"
+          >
+            <Users className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span className="hidden sm:inline">Teams</span>
+          </button>
 
-      {/* Filter Chips & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-1 overflow-x-auto p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl text-xs">
-          {[
-            { id: 'all', label: 'Alle Einsätze' },
-            { id: 'open', label: 'Offen' },
-            { id: 'in_progress', label: 'In Bearbeitung' },
-            { id: 'completed', label: 'Erledigt' },
-            { id: 'invoiced', label: 'Abgerechnet' }
-          ].map((tab) => (
+          {viewMode === 'detail' ? (
             <button
-              key={tab.id}
               onClick={() => {
                 sounds.playClick();
-                setStatusFilter(tab.id as any);
+                setViewMode('list');
               }}
-              className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition ${
-                statusFilter === tab.id
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
             >
-              {tab.label}
+              <List className="w-3.5 h-3.5" />
+              Zurück zur Liste
             </button>
-          ))}
-        </div>
-
-        <div className="relative sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Kunde, Titel oder Tag suchen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* Tickets List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredTickets.length === 0 ? (
-          <div className="col-span-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center text-slate-400 text-xs">
-            Keine Support-Einsätze gefunden.
-          </div>
-        ) : (
-          filteredTickets.map((t) => {
-            const hours = (t.durationMinutes / 60).toFixed(1);
-            const totalEstimated = ((t.durationMinutes / 60) * (t.hourlyRate || 0));
-
-            return (
-              <div 
-                key={t.id}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700 transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {t.id}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        t.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300' :
-                        t.status === 'in_progress' ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300' :
-                        t.status === 'invoiced' ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300' :
-                        'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                      }`}>
-                        {t.status === 'completed' ? 'Erledigt' :
-                         t.status === 'in_progress' ? 'In Bearbeitung' :
-                         t.status === 'invoiced' ? 'Abgerechnet' : 'Offen'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenEdit(t)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        title="Bearbeiten"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTicket(t.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        title="Löschen"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1.5">
-                    {t.title}
-                  </h3>
-
-                  {/* Customer Information Card */}
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1 mb-3 text-xs">
-                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>{t.contact_name}</span>
-                      {t.contact_company && (
-                        <span className="text-[11px] text-slate-400 font-normal">({t.contact_company})</span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      {t.contact_email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-slate-400" />
-                          <span>{t.contact_email}</span>
-                        </span>
-                      )}
-                      {t.contact_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          <span>{t.contact_phone}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {t.description && (
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
-                      {t.description}
-                    </p>
-                  )}
-
-                  {/* Tags */}
-                  {t.tags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 mb-3">
-                      {t.tags.map((tag, idx) => (
-                        <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Stats & Duration */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1 font-mono">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{t.date}</span>
-                    </span>
-                    <span className="flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{t.startTime} - {t.endTime} ({hours} Std.)</span>
-                    </span>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="font-bold text-indigo-600 dark:text-indigo-400 font-mono-num">
-                      {formatCurrency(totalEstimated)}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {t.billable ? `${formatCurrency(t.hourlyRate || 0)}/Std.` : 'Kulanz / Nicht abrechenbar'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Create / Edit Modal */}
-      {isModalOpen && editingTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                <Headphones className="w-4 h-4 text-indigo-500" />
-                <span>{editingTicket.id ? 'Support-Einsatz bearbeiten' : 'Neuen Support-Einsatz erfassen'}</span>
-              </h3>
+          ) : (
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700">
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => {
+                  sounds.playClick();
+                  setViewMode('list');
+                }}
+                className={`p-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition ${
+                  viewMode === 'list' 
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' 
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+                title="Listenansicht"
               >
-                <X className="w-5 h-5" />
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setViewMode('kanban');
+                }}
+                className={`p-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition ${
+                  viewMode === 'kanban' 
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' 
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+                title="Kanban-Board"
+              >
+                <Kanban className="w-4 h-4" />
               </button>
             </div>
+          )}
 
-            <form onSubmit={handleSaveTicket} className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-              {/* Title */}
+          <button
+            onClick={handleCreateNewTicket}
+            className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-medium shadow-xs hover:shadow-sm transition flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Neues Ticket</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {viewMode !== 'detail' ? (
+        <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-4">
+          
+          {/* Filter Bar */}
+          <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tickets, Kunden, Mitarbeiter, Tags suchen..."
+                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <select
+                value={selectedTeamFilter}
+                onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+              >
+                <option value="all">Alle Teams</option>
+                {teams.map(team => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
+
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+              >
+                <option value="all">Alle Status</option>
+                <option value="new">Neu</option>
+                <option value="in_progress">In Bearbeitung</option>
+                <option value="waiting">In Warteschlange</option>
+                <option value="resolved">Gelöst</option>
+                <option value="closed">Abgeschlossen</option>
+                <option value="invoiced">Abgerechnet</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Empty State when no tickets exist */}
+          {tickets.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-12 text-center flex flex-col items-center justify-center max-w-lg mx-auto mt-8 shadow-xs">
+              <div className="w-16 h-16 rounded-2xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-4">
+                <Headphones className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                Noch keine Support-Tickets vorhanden
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mb-6 leading-relaxed">
+                Erfassen Sie Kundenanfragen, Störungsbehebungen und Dienstleistungseinsätze inklusive Zeiterfassung und Aktivitätenprotokoll.
+              </p>
+              <button
+                onClick={handleCreateNewTicket}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Erstes Ticket anlegen</span>
+              </button>
+            </div>
+          ) : viewMode === 'list' ? (
+            /* List View */
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 font-semibold">
+                    <tr>
+                      <th className="py-3 px-4">Ticket</th>
+                      <th className="py-3 px-4">Titel & Betreff</th>
+                      <th className="py-3 px-4">Kunde</th>
+                      <th className="py-3 px-4">Team & Bearbeiter</th>
+                      <th className="py-3 px-4">Priorität</th>
+                      <th className="py-3 px-4">Zeitaufwand</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredTickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          <Headphones className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                          Keine Support-Tickets für die aktuellen Filter gefunden.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTickets.map(ticket => {
+                        const totalSpent = ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0);
+                        return (
+                          <tr 
+                            key={ticket.id} 
+                            onClick={() => {
+                              sounds.playClick();
+                              setSelectedTicketId(ticket.id);
+                              setViewMode('detail');
+                            }}
+                            className="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 cursor-pointer transition"
+                          >
+                            <td className="py-3.5 px-4 font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                              {ticket.ticketNumber}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {ticket.tags.map(t => (
+                                  <span key={t} className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+                                    #{t}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-medium text-slate-800 dark:text-slate-200">
+                                {ticket.contact_name || '–'}
+                              </div>
+                              {ticket.contact_company && (
+                                <div className="text-[11px] text-slate-400">{ticket.contact_company}</div>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="text-slate-700 dark:text-slate-300 font-medium">{ticket.team}</div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {ticket.assignedStaff}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center text-amber-400">
+                                {[1, 2, 3].map(star => (
+                                  <Star 
+                                    key={star} 
+                                    className={`w-3.5 h-3.5 ${star <= ticket.priority ? 'fill-amber-400 text-amber-400' : 'text-slate-200 dark:text-slate-700'}`} 
+                                  />
+                                ))}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">{totalSpent.toFixed(1)} Std.</span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                                ticket.status === 'new' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800' :
+                                ticket.status === 'in_progress' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800' :
+                                ticket.status === 'waiting' ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800' :
+                                ticket.status === 'resolved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
+                                ticket.status === 'closed' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' :
+                                'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-400'
+                              }`}>
+                                {ticket.status === 'new' && 'Neu'}
+                                {ticket.status === 'in_progress' && 'In Bearbeitung'}
+                                {ticket.status === 'waiting' && 'In Warteschlange'}
+                                {ticket.status === 'resolved' && 'Gelöst'}
+                                {ticket.status === 'closed' && 'Abgeschlossen'}
+                                {ticket.status === 'invoiced' && 'Abgerechnet'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <ArrowUpRight className="w-4 h-4 text-slate-400 hover:text-cyan-600 inline" />
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* Kanban View */
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-6 items-start">
+              {[
+                { key: 'new', label: 'Neu', color: 'border-t-blue-500' },
+                { key: 'in_progress', label: 'In Bearbeitung', color: 'border-t-amber-500' },
+                { key: 'waiting', label: 'In Warteschlange', color: 'border-t-purple-500' },
+                { key: 'resolved', label: 'Gelöst / Abgeschlossen', color: 'border-t-emerald-500' }
+              ].map(column => {
+                const columnTickets = filteredTickets.filter(t => {
+                  if (column.key === 'resolved') {
+                    return t.status === 'resolved' || t.status === 'closed' || t.status === 'invoiced';
+                  }
+                  return t.status === column.key;
+                });
+
+                return (
+                  <div key={column.key} className={`bg-slate-100/70 dark:bg-slate-900/60 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 border-t-4 ${column.color} flex flex-col gap-2.5 min-h-[350px]`}>
+                    <div className="flex items-center justify-between font-semibold text-xs text-slate-700 dark:text-slate-300 px-1">
+                      <span>{column.label}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[11px] font-mono">
+                        {columnTickets.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 flex-1">
+                      {columnTickets.map(ticket => (
+                        <div
+                          key={ticket.id}
+                          onClick={() => {
+                            sounds.playClick();
+                            setSelectedTicketId(ticket.id);
+                            setViewMode('detail');
+                          }}
+                          className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:border-cyan-500 dark:hover:border-cyan-400 cursor-pointer transition flex flex-col gap-2 group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                              {ticket.ticketNumber}
+                            </span>
+                            <div className="flex items-center text-amber-400">
+                              {[1, 2, 3].map(star => (
+                                <Star 
+                                  key={star} 
+                                  className={`w-3 h-3 ${star <= ticket.priority ? 'fill-amber-400 text-amber-400' : 'text-slate-200 dark:text-slate-700'}`} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 line-clamp-2">
+                            {ticket.title}
+                          </h4>
+
+                          <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1">
+                            <span className="truncate max-w-[140px] font-medium text-slate-700 dark:text-slate-300">
+                              {ticket.contact_name || '–'}
+                            </span>
+                            <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                              {ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0).toFixed(1)} h
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : selectedTicket ? (
+        /* DETAIL VIEW: Modern Support / CRM Form with 2-Column Split (Form & Internal Logbook) */
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          
+          {/* Left Column: Ticket Main Form */}
+          <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800">
+            
+            {/* Top Action & Status Pipeline Ribbon */}
+            <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40 shrink-0">
+              
+              {/* Left Action Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleToggleTimer}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition ${
+                    selectedTicket.isTimerRunning
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {selectedTicket.isTimerRunning ? (
+                    <>
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      <span>Stoppen</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Start (Live-Timer)</span>
+                    </>
+                  )}
+                </button>
+
+                {onCreateInvoiceForService && (
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      onCreateInvoiceForService(selectedTicket);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>In Rechnung stellen</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => handleDeleteTicket(selectedTicket.id)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                  title="Ticket löschen"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Right Status Workflow Ribbon (Phasen-Schritte) */}
+              <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 rounded-xl p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700">
+                {[
+                  { key: 'new', label: 'Neu' },
+                  { key: 'in_progress', label: 'In Bearbeitung' },
+                  { key: 'waiting', label: 'In Warteschlange' },
+                  { key: 'resolved', label: 'Gelöst' },
+                  { key: 'closed', label: 'Abgeschlossen' }
+                ].map((phase) => (
+                  <button
+                    key={phase.key}
+                    onClick={() => handleStatusChange(phase.key as any)}
+                    className={`px-3 py-1 rounded-lg transition text-[11px] ${
+                      selectedTicket.status === phase.key
+                        ? 'bg-cyan-600 text-white font-semibold shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {phase.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Main Form Fields */}
+            <div className="p-6 space-y-6 flex-1">
+              
+              {/* Ticket Title Input */}
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Bezeichnung / Einsatz-Titel *
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                  Betreff / Auftragstitel
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="z.B. IT-Support Server-Update oder Vor-Ort-Wartung"
-                  value={editingTicket.title || ''}
-                  onChange={(e) => setEditingTicket({ ...editingTicket, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                  value={selectedTicket.title}
+                  onChange={(e) => updateCurrentTicket({ title: e.target.value })}
+                  placeholder="z. B. Störung Drucker oder Wartung Telefonanlage..."
+                  className="w-full text-lg sm:text-xl font-bold bg-transparent border-b-2 border-slate-200 hover:border-slate-300 focus:border-cyan-500 dark:border-slate-700 dark:hover:border-slate-600 focus:outline-hidden py-1 text-slate-900 dark:text-slate-100 transition"
                 />
               </div>
 
-              {/* Customer Selector from Contact Book */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Kunde aus Kontakten wählen *
-                  </label>
-                  <select
-                    value={editingTicket.contact_id || ''}
-                    onChange={(e) => handleSelectContact(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+              {/* Metadata 2-Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-xs">
+                
+                {/* Left Column Metas */}
+                <div className="space-y-3.5">
+                  <div className="flex items-center">
+                    <span className="w-32 text-slate-500 dark:text-slate-400 font-medium">Kundendienstteam</span>
+                    <div className="flex-1 flex items-center gap-1.5">
+                      <select
+                        value={selectedTicket.team}
+                        onChange={(e) => updateCurrentTicket({ team: e.target.value })}
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                      >
+                        {teams.map(team => (
+                          <option key={team} value={team}>{team}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsTeamModalOpen(true)}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                        title="Teams verwalten / hinzufügen"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className="w-32 text-slate-500 dark:text-slate-400 font-medium">Zugewiesen an</span>
+                    <select
+                      value={selectedTicket.assignedStaff}
+                      onChange={(e) => updateCurrentTicket({ assignedStaff: e.target.value })}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                    >
+                      {STAFF_LIST.map(staff => (
+                        <option key={staff} value={staff}>{staff}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className="w-32 text-slate-500 dark:text-slate-400 font-medium">Priorität</span>
+                    <div className="flex items-center gap-1 text-amber-400">
+                      {[1, 2, 3].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            updateCurrentTicket({ priority: (selectedTicket.priority === star ? 0 : star) as any });
+                          }}
+                          className="p-1 hover:scale-125 transition"
+                          title={`${star} Stern(e)`}
+                        >
+                          <Star 
+                            className={`w-4 h-4 ${star <= selectedTicket.priority ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start">
+                    <span className="w-32 text-slate-500 dark:text-slate-400 font-medium pt-1.5">Stichwörter / Tags</span>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {selectedTicket.tags.map(tag => (
+                          <span 
+                            key={tag} 
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 text-[11px] font-medium border border-cyan-200 dark:border-cyan-800"
+                          >
+                            #{tag}
+                            <button 
+                              onClick={() => handleRemoveTag(tag)}
+                              className="hover:text-rose-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleAddTag}
+                        placeholder="Tag eingeben & Enter drücken..."
+                        className="w-full px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column Metas (Customer Contact Info Autofilled) */}
+                <div className="space-y-3.5">
+                  <div className="flex items-center">
+                    <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">Kunde (CRM)</span>
+                    <select
+                      value={selectedTicket.contact_id || ''}
+                      onChange={(e) => handleSelectContact(e.target.value)}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value="">-- Kunden auswählen --</option>
+                      {contacts.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.company ? `(${c.company})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">E-Mail</span>
+                    <input
+                      type="email"
+                      value={selectedTicket.contact_email || ''}
+                      onChange={(e) => updateCurrentTicket({ contact_email: e.target.value })}
+                      placeholder="wird automatisch vom Kontakt übernommen"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">Telefon</span>
+                    <input
+                      type="tel"
+                      value={selectedTicket.contact_phone || ''}
+                      onChange={(e) => updateCurrentTicket({ contact_phone: e.target.value })}
+                      placeholder="wird automatisch vom Kontakt übernommen"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">Stundensatz</span>
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="number"
+                        value={selectedTicket.hourlyRate || 95}
+                        onChange={(e) => updateCurrentTicket({ hourlyRate: parseFloat(e.target.value) || 0 })}
+                        className="w-24 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
+                      />
+                      <span className="text-slate-500">€ / Std.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lower Tabbed Section: Beschreibung & Zeiterfassung */}
+              <div className="pt-4">
+                <div className="flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 mb-4">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setActiveTab('description');
+                    }}
+                    className={`pb-1.5 text-xs font-semibold border-b-2 transition ${
+                      activeTab === 'description'
+                        ? 'border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
                   >
-                    {contacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.company ? `(${c.company})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    Beschreibung & Problemstellung
+                  </button>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Zuständiger Bearbeiter
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Mitarbeiter / Team"
-                    value={editingTicket.assignedStaff || ''}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, assignedStaff: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Time Tracking: Date, Start, End */}
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Einsatz-Datum
-                  </label>
-                  <input
-                    type="date"
-                    value={editingTicket.date || ''}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, date: e.target.value })}
-                    className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Startzeit
-                  </label>
-                  <input
-                    type="time"
-                    value={editingTicket.startTime || '09:00'}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, startTime: e.target.value })}
-                    className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Endzeit
-                  </label>
-                  <input
-                    type="time"
-                    value={editingTicket.endTime || '10:00'}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, endTime: e.target.value })}
-                    className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Billing Rate & Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Stundensatz in {companyProfile.currency || '€'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5"
-                    value={editingTicket.hourlyRate ?? 90}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, hourlyRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={editingTicket.status || 'open'}
-                    onChange={(e) => setEditingTicket({ ...editingTicket, status: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setActiveTab('timesheets');
+                    }}
+                    className={`pb-1.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition ${
+                      activeTab === 'timesheets'
+                        ? 'border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
                   >
-                    <option value="open">Offen</option>
-                    <option value="in_progress">In Bearbeitung</option>
-                    <option value="completed">Erledigt / Abgeschlossen</option>
-                    <option value="invoiced">Abgerechnet</option>
-                  </select>
+                    <span>Zeiterfassung (Arbeitszeiten)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-mono">
+                      {totalHours.toFixed(1)} h
+                    </span>
+                  </button>
                 </div>
-              </div>
 
-              {/* Description & Work Log */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Beschreibung der durchgeführten Arbeiten
-                </label>
+                {/* Tab 1: Beschreibung */}
+                {activeTab === 'description' && (
+                  <div>
+                    <textarea
+                      rows={6}
+                      value={selectedTicket.description}
+                      onChange={(e) => updateCurrentTicket({ description: e.target.value })}
+                      placeholder="Genaue Beschreibung des Problems, durchzuführende Arbeiten oder Kundennotizen..."
+                      className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 focus:outline-hidden leading-relaxed"
+                    />
+                  </div>
+                )}
+
+                {/* Tab 2: Zeiterfassung (Timesheets Table) */}
+                {activeTab === 'timesheets' && (
+                  <div className="space-y-4">
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2.5 px-3">Datum</th>
+                            <th className="py-2.5 px-3">Mitarbeiter</th>
+                            <th className="py-2.5 px-3">Geleistete Arbeit / Tätigkeit</th>
+                            <th className="py-2.5 px-3 text-right">Dauer (Std.)</th>
+                            <th className="py-2.5 px-3 text-right">Aktion</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {selectedTicket.timesheets.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-6 text-center text-slate-400">
+                                Bisher noch keine Arbeitszeiten für dieses Ticket erfasst.
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedTicket.timesheets.map(ts => (
+                              <tr key={ts.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td className="py-2.5 px-3 font-mono">{ts.date}</td>
+                                <td className="py-2.5 px-3 font-medium">{ts.staff}</td>
+                                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{ts.description}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">
+                                  {Number(ts.hours).toFixed(2)} h
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <button
+                                    onClick={() => handleDeleteTimesheet(ts.id)}
+                                    className="p-1 hover:text-rose-600 text-slate-400"
+                                    title="Zeile löschen"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        <tfoot className="bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 font-semibold">
+                          <tr>
+                            <td colSpan={3} className="py-2.5 px-3 text-right text-slate-600 dark:text-slate-400">
+                              Gesamte Arbeitszeit:
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-sm text-cyan-600 dark:text-cyan-400 font-bold">
+                              {totalHours.toFixed(2)} h
+                            </td>
+                            <td className="py-2.5 px-3"></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* Add Timesheet Row */}
+                    {!isAddingTimesheet ? (
+                      <button
+                        onClick={() => setIsAddingTimesheet(true)}
+                        className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Arbeitszeit manuell erfassen
+                      </button>
+                    ) : (
+                      <form onSubmit={handleAddTimesheetEntry} className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                        <div className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                          Arbeitszeit hinzufügen
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                          <input
+                            type="date"
+                            value={newTsDate}
+                            onChange={(e) => setNewTsDate(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                          />
+                          <select
+                            value={newTsStaff}
+                            onChange={(e) => setNewTsStaff(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                          >
+                            {STAFF_LIST.map(staff => (
+                              <option key={staff} value={staff}>{staff}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={newTsDesc}
+                            onChange={(e) => setNewTsDesc(e.target.value)}
+                            placeholder="Geleistete Arbeit / Tätigkeit beschreiben..."
+                            required
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 sm:col-span-2"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-500">Dauer (in Stunden):</span>
+                            <input
+                              type="number"
+                              step="0.25"
+                              min="0.1"
+                              value={newTsHours}
+                              onChange={(e) => setNewTsHours(e.target.value)}
+                              className="w-20 px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono"
+                            />
+                            {/* Preset Buttons */}
+                            <div className="hidden sm:flex items-center gap-1">
+                              {[0.5, 1.0, 1.5, 2.0].map(h => (
+                                <button
+                                  key={h}
+                                  type="button"
+                                  onClick={() => setNewTsHours(h.toString())}
+                                  className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] text-slate-700 dark:text-slate-300 hover:bg-slate-300"
+                                >
+                                  {h} h
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsAddingTimesheet(false)}
+                              className="px-3 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600"
+                            >
+                              Abbrechen
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-3 py-1 text-xs rounded-lg bg-cyan-600 text-white font-medium hover:bg-cyan-700"
+                            >
+                              Speichern
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: SOCDOF Internal Logbook & Activity Chatter */}
+          <div className="w-full lg:w-[380px] xl:w-[420px] bg-slate-50 dark:bg-slate-950 flex flex-col border-t lg:border-t-0 border-slate-200/80 dark:border-slate-800">
+            
+            {/* Chatter Action Tabs */}
+            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setChatterTab('note');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  chatterTab === 'note'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                Interne Notiz
+              </button>
+
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setChatterTab('activity');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  chatterTab === 'activity'
+                    ? 'bg-cyan-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                Aktivität & Protokoll
+              </button>
+            </div>
+
+            {/* Chatter Input Box */}
+            <div className="p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800">
+              <form onSubmit={handleAddChatter} className="space-y-2">
                 <textarea
-                  rows={2}
-                  placeholder="Detaillierte Tätigkeitsbeschreibung für den Kunden..."
-                  value={editingTicket.description || ''}
-                  onChange={(e) => setEditingTicket({ ...editingTicket, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                  rows={3}
+                  value={chatterInput}
+                  onChange={(e) => setChatterInput(e.target.value)}
+                  placeholder={
+                    chatterTab === 'note' 
+                      ? 'Interne Notiz für Mitarbeiter hinterlassen (z. B. Absprache, Übergabe)...' 
+                      : 'Aktivität dokumentieren (z. B. Telefonat mit Kunden, Vor-Ort Diagnose)...'
+                  }
+                  className="w-full p-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
                 />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={!chatterInput.trim()}
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Eintrag speichern</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Chatter Feed / Timeline */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="text-[11px] font-semibold text-slate-400 text-center uppercase tracking-wider">
+                Verlauf & Aktivitäten
               </div>
 
-              {/* Internal Notes */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Interne Notizen (nicht auf Rechnung sichtbar)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Interne Vermerke, Passwörter, Folge-Absprachen..."
-                  value={editingTicket.internalNotes || ''}
-                  onChange={(e) => setEditingTicket({ ...editingTicket, internalNotes: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
+              {selectedTicket.activities.length === 0 ? (
+                <div className="text-center text-slate-400 text-xs py-8">
+                  Noch keine Aktivitäten vorhanden.
+                </div>
+              ) : (
+                selectedTicket.activities.map((act) => (
+                  <div key={act.id} className="flex gap-3 items-start text-xs">
+                    {/* Avatar Badge */}
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 text-white ${
+                      act.type === 'note' ? 'bg-amber-600' :
+                      act.type === 'activity' ? 'bg-cyan-600' :
+                      'bg-slate-600'
+                    }`}>
+                      {act.author ? act.author[0].toUpperCase() : 'S'}
+                    </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
-                >
-                  Einsatz speichern
-                </button>
+                    <div className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{act.author}</span>
+                        <span className="text-slate-400">{formatTimeAgo(act.createdAt)}</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {act.content}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Teams Management Modal */}
+      {isTeamModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Kundendienst-Teams verwalten
+                </h3>
               </div>
-            </form>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsTeamModalOpen(false);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Add Team Input */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddTeam()}
+                placeholder="Neues Team (z. B. Vor-Ort Service)..."
+                className="flex-1 px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddTeam}
+                disabled={!newTeamName.trim()}
+                className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Hinzufügen</span>
+              </button>
+            </div>
+
+            {/* Existing Teams List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {teams.map((team, idx) => (
+                <div
+                  key={team}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs"
+                >
+                  {editingTeamIndex === idx ? (
+                    <div className="flex-1 flex items-center gap-2 mr-2">
+                      <input
+                        type="text"
+                        value={editingTeamValue}
+                        onChange={(e) => setEditingTeamValue(e.target.value)}
+                        className="flex-1 px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 text-xs"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSaveTeamEdit(idx)}
+                        className="p-1 text-emerald-600 hover:text-emerald-700"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setEditingTeamIndex(null)}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{team}</span>
+                  )}
+
+                  {editingTeamIndex !== idx && (
+                    <div className="flex items-center gap-1 text-slate-400">
+                      <button
+                        onClick={() => {
+                          setEditingTeamIndex(idx);
+                          setEditingTeamValue(team);
+                        }}
+                        className="p-1 hover:text-slate-700 dark:hover:text-slate-200"
+                        title="Umbenennen"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTeam(team)}
+                        className="p-1 hover:text-rose-600"
+                        title="Team löschen"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsTeamModalOpen(false);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-semibold transition"
+              >
+                Schließen
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,0 +1,59 @@
+# SOCDOF – Completed Tasks & Milestones Archive
+
+> This file archives all successfully completed, verified, and released roadmap tasks and user requirements for SOCDOF.
+
+---
+
+## Completed Tasks Archive
+
+### 1. Customer Support & Service Operations Module
+- [x] **Standalone Support App & Ticket Management (`SupportServicesModule`)**:
+  - [x] Clear 2-column layout (Ticket Details & Internal Logbook/Timeline).
+  - [x] Configurable Support Teams management with direct inline creation, editing, and deletion.
+  - [x] Automatic contact metadata synchronization (auto-populates customer email, phone, and company upon selection).
+  - [x] Structured time tracking with manual duration input (decimal hours / preset buttons) and 1-click live timer.
+  - [x] Interactive status workflow pipeline (`Neu` ➔ `In Bearbeitung` ➔ `In Warteschlange` ➔ `Gelöst` ➔ `Abgeschlossen`).
+  - [x] Internal activity stream & notes protocol (internal staff notes and action logging without external email confusion).
+  - [x] 1-click invoice conversion for billable support hours.
+  - [x] Dual-view support: Multi-column Kanban board and dense sortable data table.
+  - [x] Initialized with clean empty states (strictly no mock/dummy data).
+
+### 2. Custom Date Range Filters & Accounting Synchronization
+- [x] Enabled custom date range selectors in Dashboard (Total, Today, Month, Quarter, Year, and Custom Start/End).
+- [x] Synchronized date range filters across Accounting (BWA, UStVA, CSV Export).
+- [x] Consistent handling of start date, end date, and local timezone conversions.
+
+### 3. Smart Inventory & Product Management with Link Import
+- [x] **Extended Inventory Tracking (Double-Entry Stock Accounting)**:
+  - [x] Overview of all items with stock on hand, minimum threshold, reservations, and customer delivery allocations.
+- [x] **Smart Product Web Link Extractor**:
+  - [x] Optional URL input when creating and editing products (Amazon, supplier shop, manufacturer URL).
+  - [x] Automatic extraction of title, price, currency, category, preview image, and merchant favicon.
+  - [x] Editable fields prior to saving.
+- [x] **Product Image Preview & Local Upload**:
+  - [x] Base64 image storage and preview in IndexedDB.
+- [x] **Customer Allocation & Delivery Tracking**:
+  - [x] Trace product allocations directly to invoices, delivery notes, and orders.
+
+### 4. Inter-App Navigation & Harmonized App Registry
+- [x] **Unified App Names**:
+  - [x] Clean naming (`Dashboard`, `Rechnungen`, `Abrechnung`, `Kontakte`, `Produkte`, `Lager`, `Einkauf`, `POS Kasse`, `Restaurant`, `Support`, `Schnellkasse`, `App Store`, `Handbuch`, `Einstellungen`).
+  - [x] Multilingual localization across all 4 languages (DE, EN, FR, ES).
+- [x] **Interactive Dashboard Metric Navigation**:
+  - [x] Clickable metric cards with direct navigation to corresponding modules (Revenue -> Accounting, Receivables -> Invoices, Stock Value -> Stock, Products -> Products).
+  - [x] Acoustic feedback and hover cues.
+
+### 5. Regional Settings & Windows 11 Desktop Experience
+- [x] Consolidated language, date, and time settings under Settings -> Language & Region.
+- [x] Support for `DD.MM.YYYY`, `YYYY-MM-DD`, and `MM/DD/YYYY` formats.
+- [x] Taskbar clock toggle for seconds display.
+- [x] Windows 11 interactive Calendar & Agenda flyout with live seconds and 1-click event navigation.
+- [x] Close confirmation modal ("SOCDOF wirklich schließen?" with Exit, Restart, and Cancel).
+
+### 6. Platform & Website Polish
+- [x] Disabled touchpad pinch-to-zoom on GitHub Pages website.
+- [x] Shortened website and browser titles strictly to **"SOCDOF"**.
+- [x] Native Electron icon applied to `.exe` builds; removed default Electron icon.
+- [x] App start screen displays clean desktop workspace without forced auto-opening of sub-apps.
+- [x] Fixed start menu search focus auto-close glitch.
+- [x] Replaced "odoo Prinzip" label with "SOCDOF-Prinzip: Doppelte Lagerbuchführung".
