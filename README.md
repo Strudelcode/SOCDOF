@@ -1,105 +1,61 @@
-# SOCDOF (Strudel's Organization, Commerce & Documentation Offline Flow)
+# SOCDOF
+
+**Strudel's Organization, Commerce & Documentation Offline Flow** ist eine modulare ERP- und Unternehmenssoftware für Windows und den Browser. SOCDOF kombiniert eine Windows-11-ähnliche Desktop-Oberfläche, Buchhaltung, Fakturierung, Warenwirtschaft, POS-Funktionen, Mehrsprachigkeit und lokale Datenspeicherung.
+
+> Die Anwendung ist offline-first. Daten werden lokal in IndexedDB gespeichert. Funktionen mit externen Diensten werden nur nach ausdrücklicher Verbindung aktiviert.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Strudelcode%2FSOCDOF-blue?logo=github)](https://github.com/Strudelcode/SOCDOF)
-[![Discord](https://img.shields.io/badge/Support-Discord%20Server-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
-[![Offline First](https://img.shields.io/badge/Datenschutz-100%25%20Lokal%20%26%20Offline-emerald)](#)
-[![Version](https://img.shields.io/badge/Version-SOCDOF%20v18.3.5-indigo)](#)
+[![Discord](https://img.shields.io/badge/Support-Discord-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
+[![Offline First](https://img.shields.io/badge/Offline--first-Local%20data-emerald)](#datenschutz-und-datenhaltung)
 
-> **SOCDOF** ist eine modulare, 100% offline-fähige ERP- und Unternehmenssoftware mit moderner **Windows 11 Desktop-Fensterverwaltung**, Buchhaltung, DIN 5008 Fakturierung, Restaurant-/POS-Kasse, mehrsprachiger Lokalisierung und robuster lokaler Datenhaltung (IndexedDB).
+## Links
 
----
+- **Repository:** <https://github.com/Strudelcode/SOCDOF>
+- **Live-Demo:** <https://strudelcode.github.io/SOCDOF/>
+- **Support:** <https://discord.gg/QW85EaXTgB>
+- **Versionshistorie:** [`versions/`](./versions/)
+- **Arbeitsaufgaben:** [`todo/todo.md`](./todo/todo.md)
 
-## 📌 Wichtige Links & Community
+## Funktionen
 
-- 🐙 **Offizielles GitHub Repository (Open Source):** [https://github.com/Strudelcode/SOCDOF](https://github.com/Strudelcode/SOCDOF)
-- 🌐 **GitHub Pages Live Demo:** [https://strudelcode.github.io/SOCDOF/](https://strudelcode.github.io/SOCDOF/)
-- 💬 **Hilfe & Support (Ausschließlich auf Discord):** [https://discord.gg/QW85EaXTgB](https://discord.gg/QW85EaXTgB)
+- Windows-11-Desktop mit verschiebbaren, minimierbaren, maximierbaren und andockbaren Fenstern
+- Startmenü, Taskleiste, System-Tray und paralleler Mehrfensterbetrieb
+- DIN-5008-Rechnungen, Angebote, Lieferscheine und QR-Zahlcodes
+- Kunden-, Lieferanten- und Kontaktverwaltung
+- Artikelverwaltung, Lagerbestände und Lagerbewegungen
+- Einkauf, Bestellungen und Lieferantenrechnungen
+- POS-, Restaurant-, Tischplan- und Küchenanzeige-Funktionen
+- Dashboard mit Kennzahlen sowie Finanz- und Buchhaltungsauswertungen
+- Mehrsprachigkeit mit Englisch, Deutsch, Französisch und Spanisch
+- Lokale Backups sowie JSON-Import und -Export
+- Kalender- und Feed-Funktionen, die erst nach bewusster Verknüpfung aktiv werden
 
----
+## Windows-Installation
 
-## 🚀 Kernfunktionen
+Der Setup-Assistent kann über `Setup_SOCDOF_Windows.cmd`, `Setup_SOCDOF_Windows.bat` oder `Install_SOCDOF_Wizard.ps1` gestartet werden. Der Zielordner wird über einen nativen Windows-Dialog ausgewählt.
 
-- 🪟 **Reine Windows 11 Desktop-Umgebung:** Echte verschiebbare, maximierbare und minimierbare Fenster, Taskleiste mit Live-Status, Aero-Snap-Andocken, Startmenü und paralleler Mehrfensterbetrieb.
-- 📦 **Windows Setup-Assistent mit nativer Ordnerauswahl:** Beim Starten der `.cmd`, `.bat` oder `.ps1` öffnet sich direkt ein nativer Windows-Ordnerauswahldialog (`FolderBrowserDialog`). Ordnerstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Startskripte und Desktop-Verknüpfung werden automatisch am gewählten Ort angelegt.
-- 📄 **DIN 5008 Fakturierung:** Rechnungen, Angebote und Lieferscheine mit rechtssicherem Briefkopf, Faltmarken, Logo-Wasserzeichen und QR-Zahlcodes (GiroCode / EPC-QR).
-- 👥 **Kunden- & Kontaktverwaltung:** CRM-Adressbuch, Zahlungsbedingungen, Notizen und lückenlose Umsatzhistorie.
-- 📦 **Warenwirtschaft & Lager:** Artikelverwaltung, Bestandsüberwachung, Mindestbestände und doppische Lagerbuchungen.
-- 🍽️ **Restaurant- & POS-Kassenmodul:** Grafischer Tischplan mit Live-Status, Rechnungs-Split, Rabatte, Tagesabschlüsse (Z-Bon) und Küchen-Display (KDS).
-- 🌐 **Mehrsprachigkeit (i18n):** Volle Unterstützung für Englisch (Standard), Deutsch, Französisch und Spanisch mit Vektor-Flaggen und reaktiver Sprachumschaltung.
-- 📅 **Kalender & Schnittstellen:** Export von Fälligkeitsterminen als `.ics` oder Live-Feed (Google Kalender, iCal, Outlook) — wird erst nach expliziter Verknüpfung aktiv geschaltet.
-- 🔒 **100% Datenschutz & Offline First:** Keine fremde Cloud. Alle Daten verbleiben sicher in der lokalen Browserdatenbank (IndexedDB) mit 1-Klick JSON-Backup und Demo-Reset.
-
----
-
-## 📁 Windows Dateisystem & Ordnerstruktur
-
-Nach Ausführung des Installations-Assistenten (`Setup_SOCDOF_Windows.cmd`, `Setup_SOCDOF_Windows.bat` oder `Install_SOCDOF_Wizard.ps1`) wird folgende Ordnerhierarchie auf Ihrem PC angelegt:
+Dabei können folgende Elemente angelegt werden:
 
 ```text
-📁 [Ihr gewählter Ordner, z.B. C:\SOCDOF]\ (Installationshauptverzeichnis)
-├── 📁 Data\                   (Lokale Datenbank & Kontakt-/Belegdaten)
-├── 📁 Backups\                (Automatische & manuelle JSON-Sicherungsdateien)
-├── 📁 Exports\                (DIN 5008 PDF-Rechnungen, BWA & Berichte)
-├── 📁 Config\                 (Firmeneinstellungen & Briefpapier)
-├── 🚀 SOCDOF_Starten.bat      (Lokaler Desktop-Starter)
-└── 🖥️ SOCDOF Desktop.lnk      (Verknüpfung auf Ihrem Windows-Desktop)
+[Gewählter Ordner, z. B. C:\SOCDOF]
+├── Data\                   Lokale Daten und Belegdaten
+├── Backups\                Manuelle und automatische Sicherungen
+├── Exports\                Rechnungen, Berichte und andere Exporte
+├── Config\                 Firmen- und Anwendungseinstellungen
+├── SOCDOF_Starten.bat      Lokaler Starter
+└── SOCDOF Desktop.lnk      Desktop-Verknüpfung
 ```
 
----
+## Datenschutz und Datenhaltung
 
-## 📝 Update-Log / Versionshistorie
+- Daten werden standardmäßig lokal über IndexedDB mit Dexie.js gespeichert.
+- Es ist kein eigener Remote-Backend-Dienst für den Grundbetrieb erforderlich.
+- Backups können lokal als JSON exportiert und wieder importiert werden.
+- Externe Kalender oder andere Integrationen benötigen eine separate Verbindung und sollten vor der Aktivierung hinsichtlich Datenschutz und Berechtigungen geprüft werden.
 
-### v18.3.5 (2026-08-24)
-- 🗂️ **Nativer Windows-Ordnerauswahldialog beim Start:**
-  - Der Installationspfad wird nicht mehr im Browserfenster vorkonfiguriert, sondern öffnet beim Ausführen der `.cmd` / `.bat` / `.ps1` Datei direkt ein grafisches Windows-Auswahlfenster (`FolderBrowserDialog`).
-  - Der Benutzer wählt seinen Wunschordner (z. B. auf `C:\`, `D:\` oder Wechseldatenträgern) interaktiv auf seinem PC aus.
-  - Automatische Erstellung der Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Desktop-Verknüpfung und Konfigurationsdateien mit Erfolgsmeldung per Windows MessageBox.
-- 🌐 **GitHub Pages & Standalone Offline Fix:**
-  - Konfiguration von `base: './'` in `vite.config.ts` und relative Pfade in `index.html`.
-  - Behebt den leeren/weißen Bildschirm auf `https://strudelcode.github.io/SOCDOF/` und ermöglicht direktes lokales Öffnen der erzeugten `index.html`.
-- 📦 **Vollständig überarbeiteter Windows Desktop Setup Manager:**
-  - Klares, schrittweises 3-Stufen-Layout im Setup-Modal.
-  - Direkte Download-Buttons für `.cmd`, `.bat` und `.ps1` sowie Verknüpfung zu GitHub Releases.
+## Entwicklung
 
-### v18.3.4 (2026-08-24)
-- 💻 **Echter Windows Desktop Setup-Assistent (`Setup_SOCDOF_Windows.cmd` & `Install_SOCDOF_Wizard.ps1`):**
-  - Interaktive Auswahl des Zielinstallationspfads auf dem PC (z. B. `C:\SOCDOF`, `D:\SOCDOF`, `%USERPROFILE%\SOCDOF`).
-  - Automatische Erstellung der vollständigen Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`).
-  - Automatische Erstellung einer Desktop-Verknüpfung (`SOCDOF Desktop.lnk`) und Startskript.
-  - Vollständige Behebung von Google 403 Forbidden Fehlern: App läuft 100% lokal ohne Abhängigkeit zu Sandbox-Cloud-URLs.
-- ⚙️ **Windows-Pfadverwaltung in den Einstellungen:** Unter *Speicher & Datensicherung* kann der Speicherort für Backups und lokale Daten direkt hinterlegt und angepasst werden.
-- 🐙 **GitHub Releases Verlinkung:** Direkter Absprung zu vorkompilierten Electron / NSIS `.exe` Binärpaketen.
-
-### v18.3.3 (2026-08-24)
-- 🪟 **Fokus auf Windows OS Desktop-Modus:** Der überflüssige Web-Vollbildmodus sowie die oberen Umschalt-Banner wurden komplett entfernt. Die Anwendung startet und agiert nun ausschließlich als nativer Multi-Window-Desktop.
-- 🌐 **Optimierter Sprachauswahl-Dialog:** 
-  - Einheitliches, übersichtliches Auswahlmenü mit hohem Kontrast im Light- und Dark-Mode.
-  - Entfernung von doppelten Dropdown-Verschachtelungen und redundanten Schnellwahl-Leisten.
-  - Vektor-SVG-Flaggen für pixelgenaue Darstellung auf allen Betriebssystemen.
-  - Standard-Vorauswahl: **English (`en`)** mit deutlichem *"Default"* und *"Skip (Default: English)"*-Hinweis.
-- ⚙️ **Zentralisierte Versionsverwaltung:** Systemstatus-Widget in den Einstellungen und im Handbuch liest die Version dynamisch aus `src/lib/version.ts`.
-- 📖 **Handbuch erweitert:** Neues Kapitel *Versionshistorie & Updates* direkt im Dokumentationsmodul integriert.
-
-### v18.3.2 (2026-08-24)
-- 🔄 **Kalender-Status korrigiert:** Der Status-Badge unter *Einstellungen > Verbindungen* zeigt standardmäßig **"Nicht verbunden (Inaktiv)"** und schaltet erst bei tatsächlicher Verknüpfung/Feed-Kopieren auf **"Verbunden / Aktiv"**.
-- 🐙 **Open Source GitHub Integration:** Verlinkung des offiziellen Repositories `https://github.com/Strudelcode/SOCDOF` in Startmenü, Handbuch und Einstellungsübersicht.
-- 💬 **Discord Support Integration:** Klarer Hinweis und Direktlinks für Support ausschließlich über den offiziellen Discord-Server `https://discord.gg/QW85EaXTgB`.
-- 🎨 **SOCDOF Branding & Logo:** Einbindung des offiziellen SOCDOF-Logos (weißes S mit Windows-Farbrahmen) als Favicon, PWA-Icon, Taskleisten-Startbutton und Dashboard-Header.
-- 🏢 **Firmenprofil-Standard:** Standard-Firmenname auf *Strudel's Test GmbH* aktualisiert.
-
-### v18.3.1 (2026-08-24)
-- 🚀 **Windows Launcher:** Automatische Generierung von `.bat` und `.ps1` Starterskripten für den nativen Windows Desktop-Betrieb.
-- 🔊 **Sound-Feedback:** Akustisches Feedback für Klicks, Popups und Fehler (mit Stummschalt-Funktion).
-- 🌓 **Windows Dark / Light Mode:** Nahtloser Wechsel zwischen Dark Mode und DIN-konformem Light Mode.
-
-### v18.3.0 (2026-08-20)
-- 🖥️ **Windows 11 Desktop Core:** Multi-Window-Manager mit Taskleiste, Startmenü und Fenster-Snapping.
-- 💶 **Finanz- & Fakturamodule:** Vollständige BWA, EÜR, UStVA Voranmeldung und DIN 5008 Rechnungsgenerator.
-- 💾 **IndexedDB Engine:** 100% Offline-Datenhaltung über Dexie.js mit JSON-Import/Export.
-
----
-
-## 💻 Lokale Installation & Entwicklung
+Voraussetzungen: Node.js und npm.
 
 ```bash
 # Repository klonen
@@ -109,34 +65,49 @@ cd SOCDOF
 # Abhängigkeiten installieren
 npm install
 
-# Entwicklungsserver starten (Port 3000)
+# Entwicklungsserver starten
 npm run dev
 
-# Lokales Web-Build erstellen
+# Typprüfung ausführen
+npm run lint
+
+# Produktions-Build erstellen
 npm run build
 ```
 
----
+Der Entwicklungsserver verwendet standardmäßig Port `3000`.
 
-## 🔨 Wie erstelle ich ein .exe Release auf GitHub?
+## Windows-EXE erstellen
 
-Wir haben eine fertige **GitHub Actions CI/CD Pipeline** (`.github/workflows/build-windows-exe.yml`) eingerichtet. Sie können `.exe` Releases auf 2 Wegen erstellen:
+Der Windows-Build wird über Electron Builder erzeugt:
 
-### Methode 1: Automatisch über Git Tags (Empfohlen)
-Erstellen und pushen Sie einen Versionstag. GitHub baut die `.exe` automatisch und erstellt einen Release:
 ```bash
-git tag v18.3.5
-git push origin v18.3.5
+npm run build:exe
 ```
-GitHub Actions startet automatisch auf einem Windows-Server, erzeugt den NSIS-Installer `SOCDOF Setup 18.3.5.exe` sowie die Portable `.exe` und hängt sie an den GitHub Release an!
 
-### Methode 2: Manuell im GitHub Webinterface
-1. Gehen Sie auf GitHub zu Ihrem Repository `https://github.com/Strudelcode/SOCDOF`.
-2. Klicken Sie auf den Tab **Actions**.
-3. Wählen Sie links den Workflow **"Build Windows .EXE Release"**.
-4. Klicken Sie rechts auf **"Run workflow"** > Branch `main` auswählen > **"Run workflow"** bestätigen.
-5. Nach ca. 2–3 Minuten können Sie die fertige `.exe` unter den Artefakten herunterladen.
+Für GitHub-Releases steht zusätzlich der Workflow `.github/workflows/build-windows-exe.yml` zur Verfügung. Release-Tags und die Veröffentlichung von Build-Artefakten erst nach erfolgreicher Prüfung und bewusster Freigabe verwenden.
+
+## Versionierung
+
+- Innerhalb einer Hauptversion dürfen Feature- und Fix-Versionen selbstständig erhöht werden, zum Beispiel `v19.3.1`.
+- Eine neue Hauptversion wie `v20` darf nur nach vorheriger Rückfrage und bewusster Entscheidung begonnen werden.
+- Die vollständige Versionshistorie befindet sich in [`versions/`](./versions/).
+- Vor einem Release müssen `package.json`, zentrale Versionsquelle, README und Versionsdatei dieselbe Version ausweisen.
+
+## Projektstruktur
+
+| Pfad | Zweck |
+|---|---|
+| `src/` | React-Anwendung und UI-Module |
+| `src/lib/db.ts` | Dexie-/IndexedDB-Datenbank |
+| `src/lib/i18n.ts` | Übersetzungen und Sprachumschaltung |
+| `src/lib/version.ts` | Zentrale Versionsdaten |
+| `electron/` | Electron-Hauptprozess |
+| `public/` | Statische Assets und Manifest |
+| `versions/` | Release- und Versionshistorie |
+| `todo/todo.md` | Geplante Aufgaben und Arbeitsregeln |
+| `.github/workflows/` | Automatisierte Builds und Deployments |
 
 ---
 
-*SOCDOF — Strudel's Organization, Commerce & Documentation Offline Flow*
+*SOCDOF – Strudel's Organization, Commerce & Documentation Offline Flow*
