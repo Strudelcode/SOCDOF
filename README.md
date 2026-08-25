@@ -14,6 +14,7 @@ SOCDOF läuft als Electron-Anwendung mit React und Vite. Die Daten werden standa
 - **Live-Demo:** <https://strudelcode.github.io/SOCDOF/>
 - **Support:** <https://discord.gg/QW85EaXTgB>
 - **Versionshistorie:** [`versions/`](./versions/)
+- **Entwicklungsanleitungen & Richtlinien:** [`INSTRUCTIONS.md`](./INSTRUCTIONS.md)
 - **Arbeitsaufgaben:** [`todo/todo.md`](./todo/todo.md)
 
 ## Was SOCDOF aktuell bietet
