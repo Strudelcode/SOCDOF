@@ -332,7 +332,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
           <span>100% Lokale Datenspeicherung (IndexedDB) • Keine Cloud-Übertragung • DSGVO-konform</span>
         </div>
         <div className="flex items-center gap-4 text-slate-500">
-          <span>Drücken Sie jederzeit auf das Odoo-Logo oben links, um zum Launcher zurückzukehren</span>
+          <span>Drücken Sie jederzeit auf das SOCDOF-Logo oben links, um zum Launcher zurückzukehren</span>
         </div>
       </div>
     </div>

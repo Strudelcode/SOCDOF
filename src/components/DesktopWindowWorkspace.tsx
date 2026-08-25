@@ -454,27 +454,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return { width, height, x, y };
   };
 
-  // Windows State with spacious, comfortable starting size
-  const [windows, setWindows] = useState<AppWindow[]>(() => {
-    const { width, height, x, y } = getInitialWindowDimensions();
-    return [
-      {
-        id: 'win_dashboard',
-        module: 'dashboard',
-        title: 'SOCDOF Übersicht & Kennzahlen',
-        iconName: 'Boxes',
-        isMinimized: false,
-        isMaximized: false,
-        zIndex: 10,
-        x,
-        y,
-        width,
-        height
-      }
-    ];
-  });
-
-  const [activeWindowId, setActiveWindowId] = useState<string>('win_dashboard');
+  // Windows State: Clean Desktop without auto-opened windows on initial boot
+  const [windows, setWindows] = useState<AppWindow[]>(() => []);
+  const [activeWindowId, setActiveWindowId] = useState<string>('');
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
   const [isPowerMenuOpen, setIsPowerMenuOpen] = useState(false);
   const [isLockedStandby, setIsLockedStandby] = useState(false);
@@ -482,6 +464,39 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Desktop App Name Tooltip State with ~0.6s hover delay for truncated or full titles
+  const [desktopTooltip, setDesktopTooltip] = useState<{
+    text: string;
+    subtext?: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const tooltipTimeoutRef = useRef<number | null>(null);
+
+  const handleIconMouseEnter = (e: React.MouseEvent, title: string, subtext?: string) => {
+    if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const targetX = rect.left + rect.width / 2;
+    const targetY = rect.bottom + 8;
+
+    tooltipTimeoutRef.current = window.setTimeout(() => {
+      setDesktopTooltip({
+        text: title,
+        subtext,
+        x: targetX,
+        y: targetY
+      });
+    }, 600);
+  };
+
+  const handleIconMouseLeave = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+    setDesktopTooltip(null);
+  };
 
   useEffect(() => {
     if (company?.accent_color) {
@@ -1181,8 +1196,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               }`}
             >
               <button
-                onClick={() => openWindow(modId, meta.title)}
-                onDoubleClick={() => openWindow(modId, meta.title)}
+                onClick={() => {
+                  handleIconMouseLeave();
+                  openWindow(modId, meta.title);
+                }}
+                onDoubleClick={() => {
+                  handleIconMouseLeave();
+                  openWindow(modId, meta.title);
+                }}
+                onMouseEnter={(e) => handleIconMouseEnter(e, meta.title, meta.subtitle)}
+                onMouseLeave={handleIconMouseLeave}
+                title={meta.title}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
@@ -1271,9 +1295,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             >
               <button
                 onClick={() => {
+                  handleIconMouseLeave();
                   sounds.playClick();
                   setActiveFolderModal(folder);
                 }}
+                onMouseEnter={(e) => handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
+                onMouseLeave={handleIconMouseLeave}
+                title={folder.name}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
@@ -1349,6 +1377,23 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <Settings className="w-4 h-4 text-slate-500" />
               <span>System-Einstellungen</span>
             </button>
+          </div>
+        )}
+
+        {/* 0.6s Hover Tooltip for Desktop App & Folder Names */}
+        {desktopTooltip && (
+          <div
+            style={{
+              left: `${desktopTooltip.x}px`,
+              top: `${desktopTooltip.y}px`,
+              transform: 'translateX(-50%)'
+            }}
+            className="fixed z-50 pointer-events-none px-2.5 py-1 rounded-lg bg-slate-900/95 dark:bg-slate-800/95 text-white text-xs font-semibold shadow-2xl border border-slate-700/80 backdrop-blur-xl animate-fade-in flex flex-col items-center max-w-xs text-center select-none"
+          >
+            <span>{desktopTooltip.text}</span>
+            {desktopTooltip.subtext && (
+              <span className="text-[10px] text-slate-300 font-normal mt-0.5">{desktopTooltip.subtext}</span>
+            )}
           </div>
         )}
       </div>
@@ -1656,18 +1701,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         );
       })}
 
-      {/* Outside click detector for Start Menu */}
-      {isStartMenuOpen && (
-        <div
-          className="fixed inset-0 z-45 bg-transparent"
-          onClick={() => setIsStartMenuOpen(false)}
-        />
-      )}
-
       {/* 5. Windows 11 Start Menu Overlay */}
       {isStartMenuOpen && (
         <div 
           ref={startMenuRef}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           className={`absolute bottom-14 left-4 z-50 w-96 max-w-[92vw] ${
           isDark 
             ? 'bg-slate-900/95 border-slate-700/80 text-white' 
@@ -1706,7 +1745,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </div>
 
           {/* Search bar inside Start Menu */}
-          <div className="py-2.5">
+          <div className="py-2.5" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1714,6 +1753,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 placeholder="App oder Beleg suchen..."
                 value={startSearch}
                 onChange={(e) => setStartSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onFocus={(e) => e.stopPropagation()}
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -1756,15 +1798,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Quick Tutorials, Docs, Language & Windows App info */}
-          <div className="py-2 grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-            <button
-              onClick={() => { sounds.playClick(); setIsWindowsModalOpen(true); }}
-              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition border border-indigo-200 dark:border-indigo-800/40"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              <span>Windows App</span>
-            </button>
+          {/* Quick Links: Language, Docs, GitHub & Discord */}
+          <div className="py-2 grid grid-cols-4 gap-1.5">
             <button
               onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
               className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40"
@@ -1779,14 +1814,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Handbuch</span>
-            </button>
-            <button
-              onClick={() => { downloadWindowsExecutablePackage(); }}
-              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/40 transition border border-purple-200 dark:border-purple-800/40"
-              title="Standalone .EXE Desktop App herunterladen"
-            >
-              <Download className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>.EXE Download</span>
             </button>
             <a
               href="https://github.com/Strudelcode/SOCDOF"

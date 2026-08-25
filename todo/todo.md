@@ -72,6 +72,24 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 - die Dokumentation aktualisiert wurde,
 - die relevanten Prüfungen erfolgreich waren oder deren Fehlen begründet ist.
 
+### 🌐 Website / GitHub-Pages-Version
+
+- [ ] **Zoom auf der Website deaktivieren:** Auf der GitHub-Pages-Website (`https://strudelcode.github.io/SOCDOF/`) soll das Heranzoomen per Touchpad, beispielsweise mit einer Zwei-Finger-Geste, deaktiviert werden.
+  - [ ] Prüfen, ob das Deaktivieren des Zooms nur für die Website und nicht für die native Electron-App gilt.
+  - [ ] Sicherstellen, dass die Bedienbarkeit und Barrierefreiheit der Website dadurch nicht unnötig eingeschränkt werden.
+
+- [ ] **Keine dauerhafte Datenspeicherung auf der Website:** Auf der GitHub-Pages-Version sollen keine Benutzerdaten oder Änderungen dauerhaft gespeichert werden.
+  - [ ] Website-Daten dürfen nur temporär während der aktuellen Sitzung verwendet werden.
+  - [ ] Änderungen sollen ausschließlich in der installierten beziehungsweise portablen `.exe`-App dauerhaft gespeichert werden.
+  - [ ] Prüfen, ob bestehende Speicherung über `localStorage`, IndexedDB, Cookies oder andere Browser-Speicher deaktiviert oder verhindert werden muss.
+  - [ ] In der Website deutlich darauf hinweisen, dass die Web-Version keine dauerhafte Speicherung unterstützt und für das Speichern die `.exe`-App verwendet werden muss.
+  - [ ] Prüfen, ob Demo-Daten oder Teständerungen beim Neuladen der Website vollständig zurückgesetzt werden.
+
+- [ ] **Seitentitel und Browser-Titel kürzen:** Die GitHub-Pages-Website soll nicht mehr den vollständigen Namen „SOCDOF - Strudel's Organization, Commerce & Documentation Offline Flow“ als Seitentitel anzeigen.
+  - [ ] Als sichtbaren Website- beziehungsweise Browser-Titel ausschließlich **„SOCDOF“** verwenden.
+  - [ ] Prüfen, ob der lange Name auch in Meta-Tags, PWA-Manifest, Favicon-Beschreibung, Open-Graph-Daten oder anderen Website-Bereichen verwendet wird.
+  - [ ] Die vollständige Bedeutung des Namens darf weiterhin in der Dokumentation stehen, soll aber nicht als primärer Seitentitel verwendet werden.
+
 ---
 
 ## 2. Dokumentationsvorlage für neue Versionen
@@ -170,14 +188,14 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 ## 4. Fehlerbehebungen & offene Punkte
 
-- [ ] Der `.exe` ein eigenes SOCDOF-Icon geben; das Standard-Electron-Icon entfernen.
-- [ ] Beim Start nur den SOCDOF-Startbildschirm anzeigen; nicht automatisch Dashboard oder Übersicht öffnen.
-- [ ] Bei abgeschnittenen App-Namen nach etwa 0,5–1 Sekunde einen Tooltip mit dem vollständigen Namen anzeigen.
+- [x] Der `.exe` ein eigenes SOCDOF-Icon geben; das Standard-Electron-Icon entfernen. (Konfiguriert in `electron-builder.json` und `electron/main.cjs`)
+- [x] Beim Start nur den SOCDOF-Startbildschirm anzeigen; nicht automatisch Dashboard oder Übersicht öffnen.
+- [x] Bei abgeschnittenen App-Namen nach etwa 0,5–1 Sekunde einen Tooltip mit dem vollständigen Namen anzeigen.
 - [ ] Alle Apps und Buttons auf korrekte Funktion, Zustände, Fehlermeldungen und Tastaturbedienung prüfen.
 - [ ] Module miteinander verknüpfen, damit Bestellungen, Leistungen und andere Vorgänge korrekt in Abrechnungen und Monatsauswertungen erscheinen.
-- [ ] Fehler beheben: Beim Klick auf das Suchfeld im Startmenü darf sich das Startmenü nicht unerwartet schließen.
-- [ ] Nicht benötigte Schnelloptionen im Startmenü der bereits geöffneten Desktop-App entfernen, zum Beispiel „EXE downloaden“ oder „Windows App“. Referenzbild: `todo/socdof_start_menu_auswahl.png`
-- [ ] Den Text „odoo Prinzip“ in der Lagerverwaltung entfernen oder durch eine passende SOCDOF-Bezeichnung ersetzen.
+- [x] Fehler beheben: Beim Klick auf das Suchfeld im Startmenü darf sich das Startmenü nicht unerwartet schließen.
+- [x] Nicht benötigte Schnelloptionen im Startmenü der bereits geöffneten Desktop-App entfernen, zum Beispiel „EXE downloaden“ oder „Windows App“. Referenzbild: `todo/socdof_start_menu_auswahl.png`
+- [x] Den Text „odoo Prinzip“ in der Lagerverwaltung entfernen oder durch eine passende SOCDOF-Bezeichnung ersetzen. (Auf `SOCDOF-Prinzip: Doppelte Lagerbuchführung` umgestellt)
 
 ---
 

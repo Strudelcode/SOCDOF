@@ -153,13 +153,13 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Concept Explanation Card (Double-Entry Odoo Principle) */}
+      {/* Concept Explanation Card (Double-Entry SOCDOF Principle) */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-sm border border-indigo-900/50">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
               <Boxes className="w-4 h-4" />
-              <span>Odoo-Prinzip: Doppelte Lagerbuchführung</span>
+              <span>SOCDOF-Prinzip: Doppelte Lagerbuchführung</span>
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
               Bestände entstehen nicht aus dem Nichts – jede Bewegung hat Herkunft & Ziel.

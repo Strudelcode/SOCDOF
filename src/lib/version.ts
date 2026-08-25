@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '19.0.0';
+export const APP_VERSION = '19.0.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,19 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '19.0.1',
+    date: '2026-08-25',
+    title: 'Desktop Startup Polish, Start Menu Search Fix & Icon Tooltips',
+    highlights: [
+      'Clean Desktop Launch: Application boots directly into the SOCDOF workspace without auto-opening unnecessary windows',
+      'App Name Tooltips: Desktop icons and app folders reveal full titles via smooth ~0.6s hover tooltips',
+      'Start Menu Search Fix: Interacting with the start menu search field no longer closes the start menu unexpectedly',
+      'Streamlined Start Menu: Removed redundant ".EXE Download" and "Windows App" quick options for a clean 4-button quick bar',
+      'Terminology Polish: Replaced legacy "Odoo-Prinzip" references with native "SOCDOF-Prinzip: Doppelte Lagerbuchführung"',
+      'Dedicated Application Icon: Explicit SOCDOF app icon branding for Windows .exe package builds'
+    ]
+  },
   {
     version: '19.0.0',
     date: '2026-08-24',
