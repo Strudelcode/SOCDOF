@@ -1,10 +1,10 @@
 # ToDo Liste 
--
 * **Anweisungen ToDo**
    * When an item on the todo list is completed, tick it off and DO NOT delete it.
    * If features that have been made are not yet on it, add them and tick them accordingly.
    * If a task is not feasible, ~cross it out.~
    * If you have any questions, just get in touch.
+       * lol
 
 * **General instructions**
    * Any changes to the project must be written down in the "Versions" folder in the corresponding version's file.
