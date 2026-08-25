@@ -42,4 +42,5 @@
 - [ ] Optional global customer search across Support, Invoices, and CRM.
 
 ## WIndows desktop App
-- [ ] Wenn ich die .exe Datei öffne steht das das System von Windows geschützt wurde und der herausgeber unbekannt ist. Herausgeber bin ich: Yuri / Strudel 
+- [ ] Wenn ich die .exe Datei öffne steht das das System von Windows geschützt wurde und der herausgeber unbekannt ist. Herausgeber bin ich: Yuri / Strudel
+- [ ] Die APP hat das electron-app-symbol und nicht mein eigenes
