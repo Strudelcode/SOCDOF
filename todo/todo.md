@@ -7,7 +7,7 @@
 
 
 * **General instructions**
-   * Any changes to the project must be written down in the "Versions" folder in the corresponding version's file.
+   * Any changes to the project must be written down in the "Versions" folder in the corresponding version's file. Everything must also be written in the Status.md file. The versions file should be structured like the status file. Once you understand that, change it so that it's here as a guide. 
       * For each major version (v1, v2... v20), a new file should be created. For small changes to the project, everything still needs to be recorded in the versions file, and the version changes to 'small versions' (19.4.1, 19.3.4...).
    * Each change must be adapted to all languages. 
 
