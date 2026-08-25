@@ -1,5 +1,14 @@
 # ToDo Liste 
-When an item on the todo list is completed, tick it off and DO NOT delete it. If features that have been made are not yet on it, add them and tick them accordingly. If you have any questions, just get in touch
+-
+* **Anweisungen ToDo**
+   * When an item on the todo list is completed, tick it off and DO NOT delete it.
+   * If features that have been made are not yet on it, add them and tick them accordingly.
+   * If a task is not feasible, ~cross it out.~
+   * If you have any questions, just get in touch.
+
+* **General instructions**
+   * Any changes to the project must be written down in the "Versions" folder in the corresponding version's file.
+   * For each major version (v1, v2... v20), a new file should be created. For small changes to the project, everything still needs to be recorded in the versions file, and the version changes to 'small versions' (19.4.1, 19.3.4...).
 
 ---
 
@@ -11,6 +20,7 @@ When an item on the todo list is completed, tick it off and DO NOT delete it. If
 - [ ] Wir benutzen ja electron für unser Projekt. Und ich habe gehört dass es dafür eine Erweiterung gibt die automatisch immer von github schaut ob eine neueste Version verfügbar ist bei Releases und wenn eine neue Version verfügbar ist das ist eine Nutzer fragt ob es sie herunterladen kann und wenn es installiert ist ob die App neu gestartet werden kann können wir das vielleicht auch hin unsere App einfahren damit immer neue Situationen automatisch ich will nicht nur Lisa Stelle und das dann immer zwischen genau V19 V20 oder so heißen und ohne Punkt oder weit Erweiterungen oder v19.1.1 und so sind das immer nur die Haut Releases also nicht priori Release ist nur how to Releases dann immer sozusagen als Update für die App benutzt wird. 
 - [ ] wenn es kostenlos möglich ist z b über firebase oder einen anderen Dienst das man z b sein Microsoft / Google Konto verbinden kann um den Terminkalender zu synchronisieren oder später villeicht auch für andere Features nutzen kannt. 
 - [ ] Einen Explorer hinzufügen der so wie der Windows Explorer funktioniert. Dabei wird einfach der standart genutzt bzw über einer Verknüpfung die Ordner Struktur angezeigt ohne den Ordner zu duplizieren. Wie gesagt. Die app soll so schnell, flüssig wie möglich funktionieren und so wenig CPU, gpu, RAM und MB beanspruchen wie möglich
+
 
 ## 🐛 Bugfixes & Offene Punkte
 - [ ] Das die .exe App ein icon hat und nicht die Standard Electron textur.
