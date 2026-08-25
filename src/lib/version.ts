@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '19.0.1';
+export const APP_VERSION = '19.0.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,26 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '19.0.3',
+    date: '2026-08-25',
+    title: 'Windows 11 Calendar & Agenda Flyout, Exit Confirmation & Standby Polish',
+    highlights: [
+      'Interactive Calendar & Agenda Flyout: Clicking the taskbar clock opens an authentic Windows 11 calendar popup with live seconds, weekday/date header, interactive month navigation, and quick "Heute" reset',
+      'Termine & Fälligkeiten: Agenda section inside the calendar flyout displays upcoming due dates and open invoices with 1-click navigation to invoices',
+      'App Exit Confirmation: Clicking "Beenden" in the Start Menu presents a clean dialog ("SOCDOF beenden?") with explicit options to shutdown, restart or cancel',
+      'SOCDOF Standby & Lockscreen: Updated shutdown and restart overlays to native SOCDOF branding'
+    ]
+  },
+  {
+    version: '19.0.2',
+    date: '2026-08-25',
+    title: 'Duplicate Tooltip Bugfix & Desktop Hover Polish',
+    highlights: [
+      'Duplicate Tooltip Fix: Removed native HTML title attributes from desktop app icons and folders to prevent duplicate browser/OS tooltips appearing over the custom SOCDOF design tooltip',
+      'Unified Desktop UX: Tooltip rendering is now consistent and clean across both Web Preview and native Electron .exe Desktop app'
+    ]
+  },
   {
     version: '19.0.1',
     date: '2026-08-25',

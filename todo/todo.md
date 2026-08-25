@@ -141,7 +141,7 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 ### 3.3 Startverhalten und Schließen der Desktop-App
 
 - [ ] Prüfen, ob die `.exe` standardmäßig maximiert oder im echten Vollbildmodus starten soll.
-- [ ] Beim Schließen der App eine Bestätigung anzeigen: „SOCDOF wirklich schließen?“
+- [x] Beim Schließen der App eine Bestätigung anzeigen: „SOCDOF wirklich schließen?“ (Modal mit Beenden, Neustart und Abbrechen)
 - [ ] Prüfen, ob die Bestätigung optional in den Einstellungen deaktivierbar sein soll.
 
 ### 3.4 Automatische Updates
@@ -156,8 +156,8 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 - [ ] Prüfen, ob eine kostenlose Synchronisierung mit Google Kalender und/oder Microsoft Outlook möglich ist.
 - [ ] Datenschutz, Offline-Anforderung, OAuth und notwendige API-Berechtigungen klären.
-- [ ] Optional einen Kalender beim Klick auf die Uhr unten rechts anzeigen.
-- [ ] Termine, Erinnerungen und Synchronisationsstatus übersichtlich darstellen.
+- [x] Optional einen Kalender beim Klick auf die Uhr unten rechts anzeigen. (Windows 11 Kalender & Agenda Flyout mit Live-Sekunden, Monatsübersicht und Termine/Fälligkeiten)
+- [x] Termine, Erinnerungen und Synchronisationsstatus übersichtlich darstellen. (Anzeige von offenen Posten und Fälligkeitsdaten mit 1-Klick-Rechnungsabsprung)
 
 ### 3.6 Explorer-Verknüpfung
 
@@ -190,7 +190,7 @@ Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
 
 - [x] Der `.exe` ein eigenes SOCDOF-Icon geben; das Standard-Electron-Icon entfernen. (Konfiguriert in `electron-builder.json` und `electron/main.cjs`)
 - [x] Beim Start nur den SOCDOF-Startbildschirm anzeigen; nicht automatisch Dashboard oder Übersicht öffnen.
-- [x] Bei abgeschnittenen App-Namen nach etwa 0,5–1 Sekunde einen Tooltip mit dem vollständigen Namen anzeigen.
+- [x] Bei abgeschnittenen App-Namen nach etwa 0,5–1 Sekunde einen Tooltip mit dem vollständigen Namen anzeigen. (Doppelter nativer OS-Tooltip behoben durch Entfernen der HTML `title`-Attribute)
 - [ ] Alle Apps und Buttons auf korrekte Funktion, Zustände, Fehlermeldungen und Tastaturbedienung prüfen.
 - [ ] Module miteinander verknüpfen, damit Bestellungen, Leistungen und andere Vorgänge korrekt in Abrechnungen und Monatsauswertungen erscheinen.
 - [x] Fehler beheben: Beim Klick auf das Suchfeld im Startmenü darf sich das Startmenü nicht unerwartet schließen.

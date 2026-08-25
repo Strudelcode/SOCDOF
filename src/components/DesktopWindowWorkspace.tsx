@@ -45,7 +45,13 @@ import {
   Github,
   MessageSquare,
   Globe,
-  Download
+  Download,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  AlertCircle,
+  Check
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -465,6 +471,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Windows 11 Calendar & Agenda Flyout State
+  const [isCalendarFlyoutOpen, setIsCalendarFlyoutOpen] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
+
   // Desktop App Name Tooltip State with ~0.6s hover delay for truncated or full titles
   const [desktopTooltip, setDesktopTooltip] = useState<{
     text: string;
@@ -522,8 +533,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   const startMenuRef = useRef<HTMLDivElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
+  const calendarFlyoutRef = useRef<HTMLDivElement>(null);
+  const clockTrayButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Global Outside Click Listener for Menus (Start Menu, Power Menu, Account popups)
+  // Global Outside Click Listener for Menus (Start Menu, Calendar Flyout, etc.)
   useEffect(() => {
     const handleGlobalPointerDown = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
@@ -535,13 +548,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           setIsStartMenuOpen(false);
         }
       }
+      if (isCalendarFlyoutOpen) {
+        if (
+          calendarFlyoutRef.current && !calendarFlyoutRef.current.contains(target) &&
+          clockTrayButtonRef.current && !clockTrayButtonRef.current.contains(target)
+        ) {
+          setIsCalendarFlyoutOpen(false);
+        }
+      }
     };
 
     document.addEventListener('pointerdown', handleGlobalPointerDown);
     return () => {
       document.removeEventListener('pointerdown', handleGlobalPointerDown);
     };
-  }, [isStartMenuOpen]);
+  }, [isStartMenuOpen, isCalendarFlyoutOpen]);
 
   // Clock
   useEffect(() => {
@@ -807,6 +828,92 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     launcher: { title: t('module.launcher', currentLang, 'Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-indigo-600' }
   }), [currentLang]);
 
+  // Calendar calculations for Windows 11 Calendar & Agenda Flyout
+  const calendarDays = useMemo(() => {
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const totalDays = lastDay.getDate();
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    
+    const isSameDate = (d1: Date, d2: Date) => (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+
+    const result: Array<{
+      date: Date;
+      dayNum: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      isSelected: boolean;
+      hasEvent: boolean;
+    }> = [];
+
+    // Prev month days
+    for (let i = startDay - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonthLastDay - i);
+      result.push({
+        date: d,
+        dayNum: prevMonthLastDay - i,
+        isCurrentMonth: false,
+        isToday: isSameDate(d, currentTime),
+        isSelected: isSameDate(d, selectedCalendarDate),
+        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+      });
+    }
+
+    // Current month days
+    for (let i = 1; i <= totalDays; i++) {
+      const d = new Date(year, month, i);
+      result.push({
+        date: d,
+        dayNum: i,
+        isCurrentMonth: true,
+        isToday: isSameDate(d, currentTime),
+        isSelected: isSameDate(d, selectedCalendarDate),
+        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+      });
+    }
+
+    // Next month days to reach 35 or 42 grid cells
+    const remaining = (7 - (result.length % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      const d = new Date(year, month + 1, i);
+      result.push({
+        date: d,
+        dayNum: i,
+        isCurrentMonth: false,
+        isToday: isSameDate(d, currentTime),
+        isSelected: isSameDate(d, selectedCalendarDate),
+        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+      });
+    }
+
+    return result;
+  }, [calendarViewDate, currentTime, selectedCalendarDate, invoices]);
+
+  const selectedDateInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (!inv.due_date) return false;
+      const d = new Date(inv.due_date);
+      return (
+        d.getFullYear() === selectedCalendarDate.getFullYear() &&
+        d.getMonth() === selectedCalendarDate.getMonth() &&
+        d.getDate() === selectedCalendarDate.getDate()
+      );
+    });
+  }, [invoices, selectedCalendarDate]);
+
+  const openInvoicesUpcoming = useMemo(() => {
+    return invoices
+      .filter(inv => inv.status === 'posted' || inv.status === 'draft')
+      .slice(0, 3);
+  }, [invoices]);
+
   // Only real, actionable notifications (Red dot / count), no fake 'Live' badge
   const getBadgeForModule = (mod: ActiveModule) => {
     if (mod === 'invoices') {
@@ -1023,7 +1130,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setWindows([]);
     setTimeout(() => {
       sounds.playStartup();
-      openWindow('dashboard', 'Odoo Übersicht & Kennzahlen');
     }, 600);
   };
 
@@ -1070,7 +1176,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className="w-20 h-20 rounded-3xl bg-indigo-600 flex items-center justify-center mb-6 shadow-2xl">
             <Lock className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Odoo ERP Beendet</h2>
+          <h2 className="text-2xl font-bold mb-2">SOCDOF Beendet</h2>
           <p className="text-sm text-slate-400 max-w-sm text-center mb-8">
             Ihre Sitzung wurde sicher beendet. Alle Daten sind lokal in Ihrer Datenbank gespeichert.
           </p>
@@ -1078,12 +1184,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             onClick={() => {
               sounds.playStartup();
               setIsLockedStandby(false);
-              openWindow('dashboard', 'Odoo Übersicht & Kennzahlen');
             }}
             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-xl transition active:scale-95"
           >
             <RotateCcw className="w-5 h-5" />
-            <span>ERP Desktop starten</span>
+            <span>SOCDOF Desktop starten</span>
           </button>
         </div>
       )}
@@ -1206,7 +1311,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, meta.title, meta.subtitle)}
                 onMouseLeave={handleIconMouseLeave}
-                title={meta.title}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
@@ -1301,7 +1405,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
                 onMouseLeave={handleIconMouseLeave}
-                title={folder.name}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
@@ -1865,38 +1968,41 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 6. Power / Beenden Modal Dialog */}
+      {/* 6. Power / Beenden Modal Dialog (SOCDOF wirklich schließen?) */}
       {isPowerMenuOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-900 dark:text-slate-100 animate-scale-in">
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md">
                   <Power className="w-5 h-5" />
                 </div>
-                <h3 className="font-bold text-base">SOCDOF Beenden</h3>
+                <div>
+                  <h3 className="font-bold text-base">SOCDOF beenden?</h3>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Desktop-Umgebung schließen</div>
+                </div>
               </div>
               <button
                 onClick={() => setIsPowerMenuOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
-              Wählen Sie aus, wie Sie die SOCDOF Arbeitsumgebung (Strudel's Organization, Commerce & Documentation Offline Flow) beenden möchten. Alle Daten bleiben lokal sicher gespeichert.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+              Möchten Sie die SOCDOF Arbeitsumgebung jetzt beenden? Alle Rechnungen, Buchungen, Lagerbewegungen und Einstellungen bleiben lokal sicher in Ihrer Datenbank gespeichert.
             </p>
 
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <button
                 onClick={handleShutdown}
                 className="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40 text-left transition group"
               >
                 <Power className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform" />
                 <div>
-                  <div className="text-xs font-bold">Herunterfahren & Beenden</div>
-                  <div className="text-[11px] opacity-80">Schließt alle offenen Fenster und sperrt die Sitzung.</div>
+                  <div className="text-xs font-bold">SOCDOF jetzt beenden</div>
+                  <div className="text-[11px] opacity-80">Schließt alle offenen Arbeitsfenster und sperrt die Sitzung.</div>
                 </div>
               </button>
 
@@ -1906,9 +2012,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               >
                 <RotateCcw className="w-5 h-5 flex-shrink-0 group-hover:rotate-45 transition-transform" />
                 <div>
-                  <div className="text-xs font-bold">Neu starten</div>
-                  <div className="text-[11px] opacity-80">Startet die SOCDOF Desktop-Umgebung frisch neu.</div>
+                  <div className="text-xs font-bold">Arbeitsbereich neu starten</div>
+                  <div className="text-[11px] opacity-80">Startet die Desktop-Umgebung frisch und aufgeräumt neu.</div>
                 </div>
+              </button>
+
+              <button
+                onClick={() => setIsPowerMenuOpen(false)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Abbrechen
               </button>
             </div>
           </div>
@@ -2102,17 +2215,200 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
 
-          {/* Live Digital Clock */}
-          <div className="text-right px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-default select-none">
+          {/* Live Digital Clock & Calendar Trigger */}
+          <button
+            ref={clockTrayButtonRef}
+            onClick={() => {
+              sounds.playClick();
+              setIsCalendarFlyoutOpen(!isCalendarFlyoutOpen);
+            }}
+            title="Datum, Uhrzeit & Kalender öffnen"
+            className={`text-right px-2.5 py-1 rounded-xl transition cursor-pointer select-none active:scale-95 ${
+              isCalendarFlyoutOpen
+                ? 'bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/40 shadow-xs'
+                : 'hover:bg-black/5 dark:hover:bg-white/10'
+            }`}
+          >
             <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY')}
             </div>
-          </div>
+          </button>
         </div>
       </div>
+
+      {/* Windows 11 Style Calendar & Agenda Flyout Popup */}
+      {isCalendarFlyoutOpen && (
+        <div
+          ref={calendarFlyoutRef}
+          className="fixed bottom-14 right-3 z-50 w-84 max-w-[94vw] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800/90 rounded-3xl shadow-2xl p-4 text-slate-900 dark:text-slate-100 animate-scale-in"
+          style={{ transformOrigin: 'bottom right' }}
+        >
+          {/* Header with full time and date */}
+          <div className="pb-3 mb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize">
+                {currentTime.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const now = new Date();
+                setCalendarViewDate(now);
+                setSelectedCalendarDate(now);
+                sounds.playClick();
+              }}
+              title="Auf Heute zurücksetzen"
+              className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 transition"
+            >
+              Heute
+            </button>
+          </div>
+
+          {/* Month Navigation */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="font-extrabold text-sm capitalize text-slate-800 dark:text-slate-200">
+              {calendarViewDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
+                }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition"
+                title="Vorheriger Monat"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
+                }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition"
+                title="Nächster Monat"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+            <span>Mo</span>
+            <span>Di</span>
+            <span>Mi</span>
+            <span>Do</span>
+            <span>Fr</span>
+            <span>Sa</span>
+            <span>So</span>
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-3">
+            {calendarDays.map((item, idx) => {
+              return (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    sounds.playClick();
+                    setSelectedCalendarDate(item.date);
+                  }}
+                  className={`h-8 rounded-xl text-xs font-semibold relative flex items-center justify-center transition ${
+                    item.isSelected
+                      ? 'bg-indigo-600 text-white font-bold shadow-md scale-105'
+                      : item.isToday
+                      ? 'ring-2 ring-indigo-500 font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40'
+                      : item.isCurrentMonth
+                      ? 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                      : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'
+                  }`}
+                >
+                  <span>{item.dayNum}</span>
+                  {item.hasEvent && !item.isSelected && (
+                    <span className="absolute bottom-1 w-1 h-1 rounded-full bg-rose-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Agenda / Upcoming Due Invoices & Deadlines */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Termine & Fälligkeiten</span>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsCalendarFlyoutOpen(false);
+                  openWindow('invoices', 'Rechnungen');
+                }}
+                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Alle Rechnungen
+              </button>
+            </div>
+
+            {selectedDateInvoices.length > 0 ? (
+              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                {selectedDateInvoices.map((inv) => (
+                  <div
+                    key={inv.id}
+                    onClick={() => {
+                      setIsCalendarFlyoutOpen(false);
+                      openWindow('invoices', 'Rechnungen');
+                    }}
+                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                  >
+                    <div className="truncate mr-2">
+                      <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
+                      <div className="text-[10px] text-slate-500">{inv.status === 'paid' ? 'Bezahlt' : 'Fällig'} am {inv.due_date}</div>
+                    </div>
+                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+                      {inv.total_gross.toFixed(2)} €
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : openInvoicesUpcoming.length > 0 ? (
+              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                <div className="text-[10px] text-slate-400 italic mb-1">Nächste offene Posten:</div>
+                {openInvoicesUpcoming.map((inv) => (
+                  <div
+                    key={inv.id}
+                    onClick={() => {
+                      setIsCalendarFlyoutOpen(false);
+                      openWindow('invoices', 'Rechnungen');
+                    }}
+                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs"
+                  >
+                    <div className="truncate mr-2">
+                      <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
+                      <div className="text-[10px] text-slate-500">Fällig: {inv.due_date || 'Kein Datum'}</div>
+                    </div>
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">
+                      {inv.total_gross.toFixed(2)} €
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-2 text-xs text-slate-400">
+                Keine anstehenden Fälligkeiten
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Desktop App Folder Modal (Android / iOS Style Overlay) */}
       <DesktopFolderModal
