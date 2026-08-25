@@ -1,7 +1,7 @@
 {
   "name": "socdof",
   "private": true,
-  "version": "19.2.1",
+  "version": "19.2.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

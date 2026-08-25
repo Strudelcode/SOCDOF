@@ -17,6 +17,7 @@ import {
 import { PurchaseOrder, PurchaseOrderItem, Contact, Product, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
 import { db, getNextPONumber, receivePurchaseOrder } from '../lib/db';
+import { t, formatSystemDate } from '../lib/i18n';
 
 interface PurchasesModuleProps {
   purchases: PurchaseOrder[];
@@ -138,7 +139,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
   const handleSavePO = async (status: 'draft' | 'ordered') => {
     if (!selectedVendorId || items.length === 0) {
       sounds.playError();
-      alert('Bitte wählen Sie einen Lieferanten und mindestens einen Artikel aus.');
+      alert(t('purchases.select_vendor_error', undefined, 'Please select a supplier and at least one item.'));
       return;
     }
 
@@ -170,7 +171,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
 
   const handleReceiveGoods = async (poId: number) => {
     sounds.playClick();
-    if (!confirm('Möchten Sie den Wareneingang jetzt buchen? Die Artikel werden sofort dem Hauptlager gutgeschrieben.')) {
+    if (!confirm(t('purchases.receive_confirm', undefined, 'Do you want to book the goods receipt now? Items will be credited immediately to the warehouse inventory.'))) {
       return;
     }
 
@@ -184,7 +185,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
       }
     } catch (err) {
       sounds.playError();
-      alert('Fehler beim Buchen des Wareneingangs: ' + String(err));
+      alert('Error booking goods receipt: ' + String(err));
     }
   };
 
@@ -195,10 +196,10 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
             <ShoppingCart className="w-7 h-7 text-cyan-400" />
-            Einkauf & Beschaffung
+            {t('purchases.title', undefined, 'Purchases & Procurement')}
           </h1>
           <p className="text-sm text-slate-400">
-            Lieferantenbestellungen, Preisanfragen (RFQ) & automatische Wareneingangsbuchung
+            {t('purchases.subtitle', undefined, 'Supplier purchase orders, RFQs & automatic warehouse receipt booking')}
           </p>
         </div>
 
@@ -209,7 +210,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
           className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-cyan-950/30 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          Neue Bestellung anlegen
+          {t('purchases.new_po', undefined, 'New Purchase Order')}
         </button>
       </div>
 
@@ -219,7 +220,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Bestellungen durchsuchen (z.B. PO/2026/0001, Lieferant)..."
+            placeholder={t('purchases.search_placeholder', undefined, 'Search purchase orders (e.g. PO/2026/0001, vendor)...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-slate-900 border border-slate-700 text-white pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -241,10 +242,10 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              {st === 'all' && 'Alle'}
-              {st === 'draft' && 'Entwurf'}
-              {st === 'ordered' && 'Bestellt'}
-              {st === 'received' && 'Eingegangen'}
+              {st === 'all' && t('purchases.filter_all', undefined, 'All')}
+              {st === 'draft' && t('purchases.filter_draft', undefined, 'Draft')}
+              {st === 'ordered' && t('purchases.filter_ordered', undefined, 'Ordered')}
+              {st === 'received' && t('purchases.filter_received', undefined, 'Goods Received')}
             </button>
           ))}
         </div>
@@ -256,13 +257,13 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-700 uppercase tracking-wider font-semibold text-[11px]">
               <tr>
-                <th className="px-5 py-3.5">Referenz</th>
-                <th className="px-5 py-3.5">Lieferant</th>
-                <th className="px-5 py-3.5">Bestelldatum</th>
-                <th className="px-5 py-3.5">Liefertermin</th>
-                <th className="px-5 py-3.5 text-right">Gesamt</th>
-                <th className="px-5 py-3.5 text-center">Status</th>
-                <th className="px-5 py-3.5 text-right">Aktionen</th>
+                <th className="px-5 py-3.5">{t('purchases.th_number', undefined, 'Order No.')}</th>
+                <th className="px-5 py-3.5">{t('purchases.th_vendor', undefined, 'Vendor / Supplier')}</th>
+                <th className="px-5 py-3.5">{t('purchases.th_order_date', undefined, 'Order Date')}</th>
+                <th className="px-5 py-3.5">{t('purchases.th_delivery_date', undefined, 'Expected Delivery')}</th>
+                <th className="px-5 py-3.5 text-right">{t('purchases.th_total', undefined, 'Total (Gross)')}</th>
+                <th className="px-5 py-3.5 text-center">{t('purchases.th_status', undefined, 'Status')}</th>
+                <th className="px-5 py-3.5 text-right">{t('purchases.th_actions', undefined, 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60">
@@ -285,8 +286,8 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                       <div className="text-[11px] text-slate-400">{po.vendor_company}</div>
                     )}
                   </td>
-                  <td className="px-5 py-3.5">{po.order_date}</td>
-                  <td className="px-5 py-3.5">{po.expected_delivery}</td>
+                  <td className="px-5 py-3.5">{formatSystemDate(po.order_date)}</td>
+                  <td className="px-5 py-3.5">{formatSystemDate(po.expected_delivery)}</td>
                   <td className="px-5 py-3.5 text-right font-bold text-white">
                     {po.total.toFixed(2)} {companyProfile.currency}
                   </td>
@@ -301,9 +302,9 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                       {po.status === 'received' && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
                       {po.status === 'ordered' && <Truck className="w-3 h-3 text-cyan-400" />}
                       {po.status === 'draft' && <Clock className="w-3 h-3 text-slate-400" />}
-                      {po.status === 'draft' && 'Entwurf'}
-                      {po.status === 'ordered' && 'Bestellt'}
-                      {po.status === 'received' && 'Wareneingang gebucht'}
+                      {po.status === 'draft' && t('purchases.filter_draft', undefined, 'Draft')}
+                      {po.status === 'ordered' && t('purchases.filter_ordered', undefined, 'Ordered')}
+                      {po.status === 'received' && t('purchases.filter_received', undefined, 'Goods Received')}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -313,11 +314,11 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                         onClick={() => handleReceiveGoods(po.id!)}
                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-medium shadow-sm transition-colors"
                       >
-                        Wareneingang buchen
+                        {t('purchases.btn_receive_goods', undefined, 'Book Goods Receipt')}
                       </button>
                     )}
                     {po.status === 'received' && (
-                      <span className="text-[11px] text-emerald-400 font-medium">Im Lager</span>
+                      <span className="text-[11px] text-emerald-400 font-medium">{t('stock.qty_available', undefined, 'In Stock')}</span>
                     )}
                   </td>
                 </tr>
@@ -326,7 +327,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-500">
                     <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    Keine Einkaufsbestellungen vorhanden.
+                    {t('purchases.empty_list', undefined, 'No purchase orders found for this filter.')}
                   </td>
                 </tr>
               )}
@@ -342,7 +343,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-cyan-400" />
-                Neue Lieferantenbestellung (Einkauf)
+                {t('purchases.modal_title', undefined, 'Create New Purchase Order')}
               </h3>
               <button
                 type="button"
@@ -356,13 +357,13 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             {/* Vendor & Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Lieferant *</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('purchases.modal_vendor_select', undefined, 'Select Supplier *')}</label>
                 <select
                   value={selectedVendorId}
                   onChange={(e) => setSelectedVendorId(e.target.value ? Number(e.target.value) : '')}
                   className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
-                  <option value="">Lieferant auswählen...</option>
+                  <option value="">{t('purchases.modal_vendor_select', undefined, 'Select Supplier *')}</option>
                   {vendors.map(v => (
                     <option key={v.id} value={v.id}>
                       {v.company ? `${v.company} (${v.name})` : v.name}
@@ -371,7 +372,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Bestelldatum</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('purchases.modal_order_date', undefined, 'Order Date *')}</label>
                 <input
                   type="date"
                   value={orderDate}
@@ -380,7 +381,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Erwartete Lieferung</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('purchases.modal_delivery_date', undefined, 'Expected Delivery')}</label>
                 <input
                   type="date"
                   value={expectedDelivery}
@@ -393,14 +394,14 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             {/* Items Table */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-300">Bestellpositionen</span>
+                <span className="text-xs font-bold text-slate-300">{t('purchases.modal_items_title', undefined, 'Ordered Line Items')}</span>
                 <button
                   type="button"
                   onClick={addItem}
                   className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-700"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Artikel hinzufügen
+                  {t('purchases.modal_add_item', undefined, 'Add Item')}
                 </button>
               </div>
 
@@ -408,10 +409,10 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 <table className="w-full text-left text-xs text-slate-300">
                   <thead className="bg-slate-800 text-slate-400 border-b border-slate-700 text-[11px]">
                     <tr>
-                      <th className="p-2.5">Artikel</th>
-                      <th className="p-2.5 w-24">Menge</th>
-                      <th className="p-2.5 w-28 text-right">Einkaufspreis</th>
-                      <th className="p-2.5 w-28 text-right">Zwischensumme</th>
+                      <th className="p-2.5">{t('product.category', undefined, 'Product')}</th>
+                      <th className="p-2.5 w-24">{t('stock.th_qty', undefined, 'Quantity')}</th>
+                      <th className="p-2.5 w-28 text-right">{t('product.cost_price', undefined, 'Cost Price')}</th>
+                      <th className="p-2.5 w-28 text-right">{t('pos.subtotal', undefined, 'Subtotal')}</th>
                       <th className="p-2.5 w-10"></th>
                     </tr>
                   </thead>
@@ -426,7 +427,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                           >
                             {products.map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({p.sku}) - Bestand: {p.qty_available}
+                                {p.name} ({p.sku}) - {t('product.qty_available', undefined, 'In Stock')}: {p.qty_available}
                               </option>
                             ))}
                           </select>
@@ -471,11 +472,11 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             {/* Notes & Totals */}
             <div className="flex flex-col sm:flex-row items-start justify-between gap-4 pt-2">
               <div className="w-full sm:w-1/2">
-                <label className="block text-xs text-slate-400 mb-1">Notizen / Zahlungskonditionen</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('purchases.modal_notes', undefined, 'Supplier Notes & Delivery Instructions')}</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="z.B. Lieferung frei Haus, Zahlungsziel 14 Tage..."
+                  placeholder="e.g. Net 14 days, deliver to dock A..."
                   rows={2}
                   className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-2 text-xs resize-none"
                 />
@@ -483,15 +484,15 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
 
               <div className="w-full sm:w-64 bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-xs space-y-1">
                 <div className="flex justify-between text-slate-400">
-                  <span>Netto:</span>
+                  <span>{t('pos.subtotal', undefined, 'Net:')}</span>
                   <span>{subtotal.toFixed(2)} {companyProfile.currency}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>MwSt. ({companyProfile.default_tax_rate || 19}%):</span>
+                  <span>{t('pos.tax', undefined, 'VAT')} ({companyProfile.default_tax_rate || 19}%):</span>
                   <span>{taxTotal.toFixed(2)} {companyProfile.currency}</span>
                 </div>
                 <div className="flex justify-between font-bold text-sm text-white pt-1 border-t border-slate-700">
-                  <span>Gesamt:</span>
+                  <span>{t('pos.total', undefined, 'Total:')}</span>
                   <span className="text-cyan-400">{total.toFixed(2)} {companyProfile.currency}</span>
                 </div>
               </div>
@@ -504,14 +505,14 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 onClick={() => setIsNewPOModalOpen(false)}
                 className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-xs font-semibold hover:bg-slate-800"
               >
-                Abbrechen
+                {t('action.cancel', undefined, 'Cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => handleSavePO('draft')}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold"
               >
-                Als Entwurf speichern
+                {t('purchases.modal_btn_draft', undefined, 'Save as Draft')}
               </button>
               <button
                 type="button"
@@ -519,7 +520,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 onClick={() => handleSavePO('ordered')}
                 className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-950/40"
               >
-                Bestellung auslösen
+                {t('purchases.modal_btn_order', undefined, 'Order Directly')}
               </button>
             </div>
           </div>
@@ -536,7 +537,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                   <FileText className="w-5 h-5 text-cyan-400" />
                   {selectedPO.number}
                 </h3>
-                <span className="text-xs text-slate-400">Lieferant: {selectedPO.vendor_name} ({selectedPO.vendor_company})</span>
+                <span className="text-xs text-slate-400">{t('purchases.th_vendor', undefined, 'Vendor')}: {selectedPO.vendor_name} ({selectedPO.vendor_company})</span>
               </div>
               <button
                 type="button"
@@ -548,7 +549,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-400">Artikelpositionen:</div>
+              <div className="text-xs font-semibold text-slate-400">{t('purchases.modal_items_title', undefined, 'Line Items')}:</div>
               <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-3 space-y-2">
                 {selectedPO.items.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs">
@@ -566,10 +567,10 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
 
             <div className="flex justify-between items-center pt-2">
               <div className="text-xs text-slate-400">
-                Erwartet am: <span className="text-white font-medium">{selectedPO.expected_delivery}</span>
+                {t('purchases.th_delivery_date', undefined, 'Expected Delivery')}: <span className="text-white font-medium">{formatSystemDate(selectedPO.expected_delivery)}</span>
               </div>
               <div className="text-base font-bold text-white">
-                Gesamtbetrag: <span className="text-cyan-400">{selectedPO.total.toFixed(2)} {companyProfile.currency}</span>
+                {t('purchases.th_total', undefined, 'Total')}: <span className="text-cyan-400">{selectedPO.total.toFixed(2)} {companyProfile.currency}</span>
               </div>
             </div>
 
@@ -581,7 +582,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
                 >
                   <PackageCheck className="w-4 h-4" />
-                  Wareneingang buchen (Lagerzugang)
+                  {t('purchases.btn_receive_goods', undefined, 'Book Goods Receipt')}
                 </button>
               )}
               <button
@@ -589,7 +590,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 onClick={() => setSelectedPO(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
               >
-                Schließen
+                {t('action.close', undefined, 'Close')}
               </button>
             </div>
           </div>

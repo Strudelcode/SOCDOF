@@ -7,6 +7,17 @@
 ## Completed Tasks Archive
 
 ### 1. Customer Support & Service Operations Module
+- [x] **Comprehensive Localization & Multilingual Engine (v19.2.2)**:
+  - [x] Converted all UI text elements, form labels, tooltips, dialogs, status badges, and settings in `SupportServicesModule.tsx` to use `t('support.*')` dynamic localization with English base fallbacks.
+  - [x] Fully expanded `src/lib/i18n.ts` dictionary with comprehensive English, German, French, and Spanish translations for all Support & Service Operations keys.
+- [x] **Support App & Ticket Engine Enhancements (v19.2.2)**:
+  - [x] **Dynamic GitHub Release Detection**: Web preview notification toast dynamically fetches latest GitHub release via GitHub API (`/repos/Strudelcode/SOCDOF/releases/latest`) with tag name and direct download links.
+  - [x] **Removal of Personal Mock Names**: Cleaned all default staff rosters; set default team strictly to `"Standard"` and default assignee to `"Support Agent"`.
+  - [x] **Flexible Assignee (Dropdown & Custom Free-Text)**: Instant toggle between staff selection dropdown and free-text custom name input with 1-click roster saving.
+  - [x] **Support Settings & Staff Manager**: Comprehensive settings modal with tabs for General (Prefix, number sequence, rates), Teams Manager, and Staff / Assignees Manager.
+  - [x] **Form Layout & Overlap Resolution**: Restructured form into a responsive 2-column grid with vertically stacked labels, eliminating any menu or dropdown overlap.
+  - [x] **Timer Relocation**: Relocated live working timer into the "Zeiterfassung (Arbeitszeiten)" tab with elapsed seconds counter and automatic duration booking.
+  - [x] **High-Contrast Chatter Tabs**: Corrected contrast for "Interne Notiz" and "Aktivität & Protokoll" buttons in both light and dark modes.
 - [x] **Standalone Support App & Ticket Management (`SupportServicesModule`)**:
   - [x] Clear 2-column layout (Ticket Details & Internal Logbook/Timeline).
   - [x] **Support Settings & Ticket Prefix**: Configuration modal for custom ticket prefix (e.g. `SUP-`, `TICK-`, `IT-`), next sequence number, default hourly rate, default team, and default staff.

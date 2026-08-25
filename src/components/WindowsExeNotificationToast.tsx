@@ -10,6 +10,7 @@ import {
   Check
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
+import { APP_VERSION } from '../lib/version';
 
 interface WindowsExeNotificationToastProps {
   onOpenWindowsManager?: () => void;
@@ -22,6 +23,44 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const [latestVersion, setLatestVersion] = useState<string>(APP_VERSION);
+  const [downloadUrl, setDownloadUrl] = useState<string>(
+    `https://github.com/Strudelcode/SOCDOF/releases`
+  );
+
+  useEffect(() => {
+    // Dynamic GitHub API Release Check
+    let isMounted = true;
+    fetch('https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest', {
+      headers: { Accept: 'application/vnd.github.v3+json' }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('GitHub API error');
+        return res.json();
+      })
+      .then(data => {
+        if (!isMounted || !data) return;
+        const tag = data.tag_name ? data.tag_name.replace(/^v/, '') : APP_VERSION;
+        setLatestVersion(tag || APP_VERSION);
+        
+        const exeAsset = data.assets?.find((a: any) => typeof a.name === 'string' && a.name.toLowerCase().endsWith('.exe'));
+        if (exeAsset?.browser_download_url) {
+          setDownloadUrl(exeAsset.browser_download_url);
+        } else if (data.html_url) {
+          setDownloadUrl(data.html_url);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setLatestVersion(APP_VERSION);
+          setDownloadUrl(`https://github.com/Strudelcode/SOCDOF/releases/tag/v${APP_VERSION}`);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     // 1. Never show if running inside the native Electron app
@@ -45,9 +84,8 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
       return;
     }
 
-    // Schedule a single polite prompt after 60 seconds of use in the browser preview
+    // Schedule prompt after 40 seconds of use in the browser preview
     const timer = setTimeout(() => {
-      // Re-verify in case user dismissed during session
       const checkAgain = 
         localStorage.getItem('socdof_dismiss_exe_reminder') === 'true' ||
         sessionStorage.getItem('socdof_toast_closed') === 'true';
@@ -55,7 +93,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
         setIsVisible(true);
         sounds.playPop();
       }
-    }, 60000);
+    }, 40000);
 
     return () => clearTimeout(timer);
   }, [disabled]);
@@ -63,7 +101,6 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
   const handleClose = () => {
     sounds.playClick();
     setIsVisible(false);
-    // Remember dismissal for this session
     try {
       sessionStorage.setItem('socdof_toast_closed', 'true');
     } catch {}
@@ -81,8 +118,8 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
   const handleDownloadExe = () => {
     sounds.playSuccess();
     setDownloadSuccess(true);
-    // Direct link to the official Windows Setup .EXE release
-    window.open('https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe', '_blank');
+    // Direct link to the latest detected release
+    window.open(downloadUrl, '_blank');
     try {
       localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
     } catch {}
@@ -100,7 +137,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
         className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-indigo-500/10"
         style={{ borderColor: 'var(--accent-border, rgba(79, 70, 229, 0.4))' }}
       >
-        {/* Subtle Top Accent line */}
+        {/* Top Accent line */}
         <div 
           className="absolute top-0 left-0 right-0 h-1" 
           style={{ background: 'var(--accent, #4f46e5)' }}
@@ -116,12 +153,12 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
               <Monitor className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
                   SOCDOF Windows Desktop
                 </h4>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                  .EXE v18.3.5
+                  .EXE v{latestVersion}
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -144,7 +181,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
           {downloadSuccess ? (
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-1">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Download gestartet: <strong>SOCDOF.Setup.18.3.5.exe</strong></span>
+              <span>Download &amp; Release geöffnet: <strong>v{latestVersion}</strong></span>
             </div>
           ) : (
             <div className="space-y-1">
@@ -168,7 +205,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
             style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Setup .EXE herunterladen</span>
+            <span>Setup .EXE (v{latestVersion})</span>
           </button>
 
           {onOpenWindowsManager && (
@@ -195,7 +232,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
           >
             Nicht mehr anzeigen (Bereits installiert)
           </button>
-          <span className="text-slate-400">v18.3.5</span>
+          <span className="text-slate-400 font-mono">v{latestVersion}</span>
         </div>
       </div>
     </div>

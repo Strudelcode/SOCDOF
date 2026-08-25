@@ -30,6 +30,7 @@ import { Product, Invoice, StockMove } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { extractProductFromUrl } from '../lib/productLinkExtractor';
+import { t } from '../lib/i18n';
 
 interface ProductsModuleProps {
   products: Product[];
@@ -253,7 +254,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              {cat === 'all' ? 'Alle Kategorien' : cat}
+              {cat === 'all' ? t('products.all_categories', undefined, 'Alle Kategorien') : cat}
             </button>
           ))}
         </div>
@@ -264,7 +265,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Produkt, SKU oder Link suchen..."
+              placeholder={t('products.search_placeholder', undefined, 'Produkt, SKU oder Link suchen...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -276,7 +277,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition"
           >
             <PackagePlus className="w-4 h-4" />
-            <span>Neues Produkt</span>
+            <span>{t('products.btn_new_product', undefined, 'Neues Produkt')}</span>
           </button>
         </div>
       </div>
@@ -286,7 +287,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Boxes className="w-4 h-4 text-indigo-500" />
-            <span>Produktkatalog & Bestandsübersicht ({filteredProducts.length} Artikel)</span>
+            <span>{t('products.catalog_title', undefined, 'Produktkatalog & Bestandsübersicht')} ({filteredProducts.length} {t('invoice.entries', undefined, 'Artikel')})</span>
           </h2>
         </div>
 
@@ -294,22 +295,22 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
-                <th className="p-4 w-12 text-center">Bild</th>
-                <th className="p-4">Artikel / Bezeichnung</th>
-                <th className="p-4">SKU / Code</th>
-                <th className="p-4">Kategorie</th>
-                <th className="p-4 text-right">Einkaufspreis (EK)</th>
-                <th className="p-4 text-right">Verkaufspreis (VK)</th>
-                <th className="p-4 text-center">Auf Lager</th>
-                <th className="p-4 text-center">An Kunden vergeben</th>
-                <th className="p-4 text-right">Aktionen</th>
+                <th className="p-4 w-12 text-center">{t('products.th_image', undefined, 'Bild')}</th>
+                <th className="p-4">{t('products.th_name', undefined, 'Artikel / Bezeichnung')}</th>
+                <th className="p-4">{t('products.th_sku', undefined, 'SKU / Code')}</th>
+                <th className="p-4">{t('products.th_category', undefined, 'Kategorie')}</th>
+                <th className="p-4 text-right">{t('products.th_cost_price', undefined, 'Einkaufspreis (EK)')}</th>
+                <th className="p-4 text-right">{t('products.th_sale_price', undefined, 'Verkaufspreis (VK)')}</th>
+                <th className="p-4 text-center">{t('products.th_stock', undefined, 'Auf Lager')}</th>
+                <th className="p-4 text-center">{t('products.th_allocated', undefined, 'An Kunden vergeben')}</th>
+                <th className="p-4 text-right">{t('products.th_actions', undefined, 'Aktionen')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-slate-400">
-                    Keine Produkte gefunden.
+                    {t('products.empty_list', undefined, 'Keine Produkte gefunden.')}
                   </td>
                 </tr>
               ) : (
@@ -401,7 +402,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                           </span>
                           {isLowStock && (
                             <span className="text-[10px] text-rose-500 font-semibold mt-0.5">
-                              Niedrig (&lt; {p.min_qty ?? 5})
+                              {t('products.low_stock', undefined, 'Niedrig')} (&lt; {p.min_qty ?? 5})
                             </span>
                           )}
                         </div>
@@ -434,7 +435,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-semibold transition"
                           >
                             <ArrowDownToLine className="w-3 h-3" />
-                            <span>Buchen</span>
+                            <span>{t('products.btn_book_stock', undefined, 'Buchen')}</span>
                           </button>
 
                           <button
@@ -474,7 +475,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Kunden- & Auftragsvergabe
+                    {t('products.alloc_modal_title', undefined, 'Kunden- & Auftragsvergabe')}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {selectedProductDetail.name} ({selectedProductDetail.sku})
@@ -495,7 +496,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 if (!alloc || alloc.customers.length === 0) {
                   return (
                     <div className="p-6 text-center text-slate-400 text-xs">
-                      Noch keine Kundenaufträge für diesen Artikel vorhanden.
+                      {t('products.alloc_empty', undefined, 'Noch keine Kundenaufträge für diesen Artikel vorhanden.')}
                     </div>
                   );
                 }
@@ -503,8 +504,8 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 return (
                   <div className="space-y-2">
                     <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 pb-1 flex justify-between">
-                      <span>Kunde & Rechnungs-Nr.</span>
-                      <span>Vergebene Menge / Summe</span>
+                      <span>{t('products.alloc_customer_header', undefined, 'Kunde & Rechnungs-Nr.')}</span>
+                      <span>{t('products.alloc_qty_header', undefined, 'Vergebene Menge / Summe')}</span>
                     </div>
                     {alloc.customers.map((c, idx) => (
                       <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
@@ -513,7 +514,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                             {c.customerName}
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                            Rechnung {c.invoiceNumber} • {c.date}
+                            {t('invoice.title', undefined, 'Rechnung')} {c.invoiceNumber} • {c.date}
                           </div>
                         </div>
                         <div className="text-right">
@@ -536,7 +537,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 onClick={() => setSelectedProductDetail(null)}
                 className="px-4 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 rounded-xl transition"
               >
-                Schließen
+                {t('common.close', undefined, 'Schließen')}
               </button>
             </div>
           </div>
@@ -550,7 +551,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                 <Boxes className="w-4 h-4 text-indigo-500" />
-                <span>{editingProduct.id ? 'Produkt bearbeiten' : 'Neues Produkt erfassen'}</span>
+                <span>{editingProduct.id ? t('products.edit_title', undefined, 'Produkt bearbeiten') : t('products.create_title', undefined, 'Neues Produkt erfassen')}</span>
               </h3>
               <button
                 onClick={() => setIsEditModalOpen(false)}
@@ -566,10 +567,10 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <div className="p-3.5 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-2xl space-y-2">
                 <label className="block text-xs font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
                   <Link className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Optional: Produkt-Weblink eintragen (z. B. Amazon, Lieferanten-Shop)</span>
+                  <span>{t('products.modal_weblink_label', undefined, 'Optional: Produkt-Weblink eintragen (z. B. Amazon, Lieferanten-Shop)')}</span>
                 </label>
                 <p className="text-[11px] text-sky-700 dark:text-sky-300">
-                  Füge einen Weblink ein, um Titel, Kategorie, Bild und Daten automatisch vorzubelegen. Du kannst alle Werte danach beliebig anpassen.
+                  {t('products.modal_weblink_desc', undefined, 'Füge einen Weblink ein, um Titel, Kategorie, Bild und Daten automatisch vorzubelegen. Du kannst alle Werte danach beliebig anpassen.')}
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -586,7 +587,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                     className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1 shrink-0"
                   >
                     <Sparkles className="w-3 h-3" />
-                    <span>{isExtracting ? 'Analysiere...' : 'Daten übernehmen'}</span>
+                    <span>{isExtracting ? t('common.loading', undefined, 'Analysiere...') : t('products.btn_import_link', undefined, 'Daten übernehmen')}</span>
                   </button>
                 </div>
                 {extractSuccessMsg && (
@@ -614,12 +615,12 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 <div className="flex-1 space-y-1.5">
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Produktbild / Icon</span>
+                    <span>{t('products.modal_image_label', undefined, 'Produktbild / Icon')}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="cursor-pointer px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-indigo-500 transition flex items-center gap-1">
                       <Upload className="w-3 h-3 text-indigo-500" />
-                      <span>Eigenes Bild hochladen</span>
+                      <span>{t('products.modal_upload_image', undefined, 'Eigenes Bild hochladen')}</span>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -633,7 +634,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                         onClick={() => setEditingProduct({ ...editingProduct, image_url: undefined })}
                         className="text-[11px] text-rose-500 hover:underline"
                       >
-                        Bild entfernen
+                        {t('products.modal_remove_image', undefined, 'Bild entfernen')}
                       </button>
                     )}
                   </div>
@@ -643,12 +644,12 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               {/* Product Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Produktname / Bezeichnung *
+                  {t('products.modal_name_label', undefined, 'Produktname / Bezeichnung *')}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="z.B. IoT Gateway 5G Ultra"
+                  placeholder="z. B. IoT Gateway 5G Ultra"
                   value={editingProduct.name || ''}
                   onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -659,7 +660,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Artikelnummer (SKU) *
+                    {t('products.modal_sku_label', undefined, 'Artikelnummer (SKU) *')}
                   </label>
                   <input
                     type="text"
@@ -673,7 +674,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Kategorie
+                    {t('products.modal_category_label', undefined, 'Kategorie')}
                   </label>
                   <input
                     type="text"
@@ -689,7 +690,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Einkaufspreis (EK) in {currency}
+                    {t('products.modal_cost_price_label', undefined, 'Einkaufspreis (EK)')} in {currency}
                   </label>
                   <input
                     type="number"
@@ -704,7 +705,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Verkaufspreis (VK) in {currency} *
+                    {t('products.modal_sale_price_label', undefined, 'Verkaufspreis (VK)')} in {currency} *
                   </label>
                   <input
                     type="number"
@@ -723,7 +724,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Lagerbestand
+                    {t('products.modal_stock_qty_label', undefined, 'Lagerbestand')}
                   </label>
                   <input
                     type="number"
@@ -736,7 +737,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Mindestbestand
+                    {t('products.modal_min_qty_label', undefined, 'Mindestbestand')}
                   </label>
                   <input
                     type="number"
@@ -749,7 +750,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Einheit
+                    {t('products.modal_unit_label', undefined, 'Einheit')}
                   </label>
                   <input
                     type="text"
@@ -764,7 +765,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               {/* Description */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Beschreibung
+                  {t('products.modal_desc_label', undefined, 'Beschreibung')}
                 </label>
                 <textarea
                   rows={2}
@@ -781,13 +782,13 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                   onClick={() => setIsEditModalOpen(false)}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                 >
-                  Abbrechen
+                  {t('common.cancel', undefined, 'Abbrechen')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
                 >
-                  {editingProduct.id ? 'Änderungen speichern' : 'Produkt erstellen'}
+                  {editingProduct.id ? t('products.btn_save_changes', undefined, 'Änderungen speichern') : t('products.btn_create', undefined, 'Produkt erstellen')}
                 </button>
               </div>
             </form>

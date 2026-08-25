@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { SocdofLogo } from './SocdofLogo';
+import { APP_VERSION } from '../lib/version';
 import { 
   downloadWindowsInstallerCmd,
   downloadWindowsInstallerBat,
@@ -190,7 +191,7 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
               <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold">v18.3.5</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold">v{APP_VERSION}</span>
                     <span className="font-bold text-xs">Windows Desktop Installer (.EXE)</span>
                   </div>
                   <p className="text-[11px] text-white/90">
@@ -198,13 +199,13 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                   </p>
                 </div>
                 <a
-                  href="https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe"
+                  href={`https://github.com/Strudelcode/SOCDOF/releases`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-4 py-2 bg-white text-indigo-700 hover:bg-slate-100 rounded-xl text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
                 >
                   <Download className="w-4 h-4" />
-                  <span>.EXE Herunterladen</span>
+                  <span>.EXE Releases</span>
                 </a>
               </div>
 

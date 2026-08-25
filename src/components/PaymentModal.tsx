@@ -19,6 +19,7 @@ import {
 import { Invoice, CompanyProfile } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
+import { t } from '../lib/i18n';
 
 interface PaymentModalProps {
   invoice: Invoice;
@@ -92,16 +93,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     try {
       if (method === 'card') {
-        setProcessStep('1/3: Verbinde mit Bank-Terminal (TLS 1.3 / ZVT)...');
+        setProcessStep(t('payment.step_1', undefined, '1/3: Connecting to payment terminal (TLS 1.3 / ZVT)...'));
         await new Promise(r => setTimeout(r, 600));
 
-        setProcessStep('2/3: Autorisierung & GoBD/TSE-2026 Signatur generieren...');
+        setProcessStep(t('payment.step_2', undefined, '2/3: Authorizing & generating GoBD/TSE signature...'));
         await new Promise(r => setTimeout(r, 700));
 
         const sig = `TSE-SIG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
         setTseSignature(sig);
 
-        setProcessStep('3/3: Zahlung gebucht & Beleg signiert!');
+        setProcessStep(t('payment.step_3', undefined, '3/3: Payment booked & receipt signed!'));
         await new Promise(r => setTimeout(r, 400));
       } else {
         const sig = `CASH-TSE-${Date.now().toString(36).toUpperCase()}`;
@@ -155,10 +156,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Zahlung für Rechnung {invoice.number}
+                {t('payment.title', undefined, 'Payment for Invoice')} {invoice.number}
               </h3>
               <p className="text-xs text-slate-400">
-                Empfänger: <span className="font-semibold text-slate-700 dark:text-slate-200">{invoice.contact_company || invoice.contact_name}</span>
+                {t('payment.recipient', undefined, 'Recipient:')} <span className="font-semibold text-slate-700 dark:text-slate-200">{invoice.contact_company || invoice.contact_name}</span>
               </p>
             </div>
           </div>
@@ -179,16 +180,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           {/* Amount Due Banner */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shadow-lg">
             <div>
-              <span className="text-xs uppercase tracking-wider text-emerald-100 font-bold">Zu zahlender Rechnungsbetrag</span>
+              <span className="text-xs uppercase tracking-wider text-emerald-100 font-bold">{t('payment.amount_due', undefined, 'Total invoice amount due')}</span>
               <div className="text-2xl sm:text-3xl font-black font-mono-num mt-0.5">
                 {formatCurrency(invoice.total)}
               </div>
             </div>
             <div className="text-right text-xs text-emerald-100">
-              <div>inkl. {formatCurrency(invoice.tax_total)} MwSt.</div>
+              <div>{t('payment.incl', undefined, 'incl.')} {formatCurrency(invoice.tax_total)} {t('payment.vat', undefined, 'VAT')}</div>
               <div className="flex items-center gap-1 mt-1 justify-end font-semibold">
                 <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                <span>GoBD & TSE 2026 Konform</span>
+                <span>{t('payment.compliance_badge', undefined, 'GoBD & TSE 2026 Compliant')}</span>
               </div>
             </div>
           </div>
@@ -207,7 +208,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   }`}
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>Kartenzahlung (EC / Kredit)</span>
+                  <span>{t('payment.method_card', undefined, 'Card Payment (EC / Credit)')}</span>
                 </button>
 
                 <button
@@ -220,7 +221,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   }`}
                 >
                   <DollarSign className="w-4 h-4" />
-                  <span>Barzahlung & Kasse</span>
+                  <span>{t('payment.method_cash', undefined, 'Cash Payment & Register')}</span>
                 </button>
 
                 <button
@@ -233,7 +234,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   }`}
                 >
                   <Building className="w-4 h-4" />
-                  <span>Banküberweisung</span>
+                  <span>{t('payment.method_transfer', undefined, 'Bank Transfer')}</span>
                 </button>
               </div>
 
@@ -251,7 +252,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           CHIP
                         </div>
                         <Smartphone className="w-4 h-4 text-slate-300" />
-                        <span className="text-[11px] text-slate-300 font-medium">NFC Kontaktlos</span>
+                        <span className="text-[11px] text-slate-300 font-medium">{t('payment.nfc_contactless', undefined, 'NFC Contactless')}</span>
                       </div>
                       <span className="font-bold text-sm tracking-wider uppercase text-indigo-300">
                         {cardType.toUpperCase()}
@@ -264,15 +265,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                     <div className="flex items-center justify-between text-xs text-slate-300">
                       <div>
-                        <div className="text-[9px] uppercase tracking-wider text-slate-400">Karteninhaber</div>
+                        <div className="text-[9px] uppercase tracking-wider text-slate-400">{t('payment.card_holder', undefined, 'Cardholder')}</div>
                         <div className="font-semibold">{cardHolder}</div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-wider text-slate-400">Gültig bis</div>
+                        <div className="text-[9px] uppercase tracking-wider text-slate-400">{t('payment.valid_thru', undefined, 'Valid thru')}</div>
                         <div className="font-semibold font-mono">{cardExpiry}</div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-wider text-slate-400">CVC / CVV</div>
+                        <div className="text-[9px] uppercase tracking-wider text-slate-400">{t('payment.cvc', undefined, 'CVC / CVV')}</div>
                         <div className="font-semibold font-mono">{cardCvc}</div>
                       </div>
                     </div>
@@ -281,7 +282,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   {/* Preset Test Cards / Terminal Presets */}
                   <div>
                     <span className="text-xs font-semibold text-slate-500 mb-2 block">
-                      Zahlungsart & Terminal-Modus wählen:
+                      {t('payment.choose_terminal_mode', undefined, 'Select payment & terminal mode:')}
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <button
@@ -293,7 +294,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        💳 Visa Karte
+                        💳 Visa
                       </button>
 
                       <button
@@ -337,7 +338,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   {/* Manual Inputs for Custom Card Details */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Kartennummer</label>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">{t('payment.card_number', undefined, 'Card Number')}</label>
                       <input
                         type="text"
                         value={cardNumber}
@@ -346,7 +347,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Gültig / CVC</label>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">{t('payment.card_valid_cvc', undefined, 'Expiry / CVC')}</label>
                       <div className="flex gap-1.5">
                         <input
                           type="text"
@@ -374,7 +375,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
-                        Erhaltenes Bargeld (€)
+                        {t('payment.cash_received', undefined, 'Cash Received (€)')}
                       </label>
                       <input
                         type="number"
@@ -408,14 +409,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex flex-col justify-between">
                       <div>
                         <span className="text-xs uppercase font-bold text-emerald-800 dark:text-emerald-300">
-                          Rückgeld an Kunden
+                          {t('payment.change_due', undefined, 'Change Due to Customer')}
                         </span>
                         <div className="text-3xl font-black font-mono-num text-emerald-700 dark:text-emerald-300 mt-1">
                           {formatCurrency(calculateChange())}
                         </div>
                       </div>
                       <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                        Automatische Registrierung im Kassenbuch & TSE-Protokoll.
+                        {t('payment.cash_auto_reg', undefined, 'Automatic registration in cash journal & TSE log.')}
                       </div>
                     </div>
                   </div>
@@ -426,15 +427,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               {method === 'transfer' && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 animate-fade-in text-xs">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500">Bankverbindung / IBAN:</span>
+                    <span className="text-slate-500">{t('payment.bank_details', undefined, 'Bank Account / IBAN:')}</span>
                     <span className="font-mono font-bold">{company.iban || 'DE89 3704 0044 0532 0130 00'}</span>
                   </div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500">BIC / SWIFT:</span>
+                    <span className="text-slate-500">{t('payment.bic_swift', undefined, 'BIC / SWIFT:')}</span>
                     <span className="font-mono font-bold">{company.bic || 'DBBDEFF100'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Verwendungszweck:</span>
+                    <span className="text-slate-500">{t('payment.purpose', undefined, 'Payment Reference:')}</span>
                     <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">Rechnung {invoice.number}</span>
                   </div>
                 </div>
@@ -459,25 +460,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               <div>
                 <h4 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-                  Zahlung erfolgreich verbucht!
+                  {t('payment.success_title', undefined, 'Payment successfully recorded!')}
                 </h4>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
-                  Der Betrag von <span className="font-bold">{formatCurrency(invoice.total)}</span> wurde für Rechnung <span className="font-bold">{invoice.number}</span> vollständig beglichen.
+                  {t('payment.success_desc', undefined, 'The amount of {amount} was fully paid for invoice {number}.').replace('{amount}', formatCurrency(invoice.total)).replace('{number}', invoice.number)}
                 </p>
               </div>
 
               {/* TSE Receipt Snippet */}
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 text-left font-mono text-[11px] space-y-1">
                 <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200 border-b pb-1">
-                  <span>GoBD TSE Beleg-Nr:</span>
+                  <span>{t('payment.receipt_no', undefined, 'GoBD TSE Receipt No:')}</span>
                   <span>{tseSignature || 'TSE-2026-OK'}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-500 pt-1">
-                  <span>Zahlart:</span>
+                  <span>{t('payment.payment_method_label', undefined, 'Payment Method:')}</span>
                   <span className="font-bold uppercase">{method === 'card' ? `Karte (${cardType})` : method === 'cash' ? 'Bargeld' : 'Überweisung'}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-500">
-                  <span>Transaktionszeit:</span>
+                  <span>{t('payment.trans_time', undefined, 'Transaction Time:')}</span>
                   <span>{new Date().toLocaleTimeString('de-DE')}</span>
                 </div>
               </div>
@@ -495,7 +496,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 disabled={isProcessing}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
               >
-                Abbrechen
+                {t('payment.btn_cancel', undefined, 'Cancel')}
               </button>
 
               <button
@@ -507,12 +508,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {isProcessing ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Wird verarbeitet...</span>
+                    <span>{t('payment.processing', undefined, 'Processing...')}</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-current" />
-                    <span>Jetzt mit {method === 'card' ? 'Karte' : method === 'cash' ? 'Bargeld' : 'SEPA'} abrechnen ({formatCurrency(invoice.total)})</span>
+                    <span>{t('payment.btn_pay_now', undefined, 'Charge now with {method} ({amount})').replace('{method}', method === 'card' ? 'Karte' : method === 'cash' ? 'Bargeld' : 'SEPA').replace('{amount}', formatCurrency(invoice.total))}</span>
                   </>
                 )}
               </button>
@@ -524,7 +525,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Fertigstellen & Schließen</span>
+              <span>{t('payment.btn_finish', undefined, 'Finish & Close')}</span>
             </button>
           )}
         </div>

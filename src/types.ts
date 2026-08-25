@@ -192,6 +192,9 @@ export interface CompanyProfile {
   font_scale?: number; // 90 to 130 (%)
   desktop_wallpaper_url?: string;
   disable_exe_reminders?: boolean;
+  disable_exit_prompt?: boolean;
+  launch_maximized?: boolean;
+  github_auto_check_updates?: boolean;
   language?: 'de' | 'en' | 'fr' | 'es';
   date_format?: 'DD.MM.YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY';
   time_show_seconds?: boolean;
@@ -241,12 +244,15 @@ export type ActiveModule =
 
 export interface SupportTimesheetEntry {
   id: string;
+  ticket_id?: string;
   date: string;
   staff: string;
   description: string;
   hours: number;
   hourlyRate?: number;
   billable?: boolean;
+  startedAt?: string;
+  endedAt?: string;
 }
 
 export interface SupportActivityEntry {

@@ -27,6 +27,7 @@ import { sounds } from '../lib/sound';
 import { InvoicePrintModal } from './InvoicePrintModal';
 import { FakeSmtpModal } from './FakeSmtpModal';
 import { PaymentModal } from './PaymentModal';
+import { t, formatSystemDate } from '../lib/i18n';
 
 interface InvoicesModuleProps {
   invoices: Invoice[];
@@ -320,7 +321,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
   const handleDeleteInvoice = async (id: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!confirm('Rechnung wirklich löschen?')) return;
+    if (!confirm(t('invoice.delete_confirm', undefined, 'Rechnung wirklich löschen?'))) return;
     try {
       await db.invoices.delete(id);
       sounds.playSuccess();
@@ -362,7 +363,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Alle ({invoices.length})
+            {t('invoice.filter_all', undefined, 'Alle')} ({invoices.length})
           </button>
           <button
             onClick={() => {
@@ -375,7 +376,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Entwurf ({invoices.filter(i => i.status === 'draft').length})
+            {t('invoice.filter_draft', undefined, 'Entwurf')} ({invoices.filter(i => i.status === 'draft').length})
           </button>
           <button
             onClick={() => {
@@ -388,7 +389,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Offen ({invoices.filter(i => i.status === 'posted').length})
+            {t('invoice.filter_posted', undefined, 'Offen')} ({invoices.filter(i => i.status === 'posted').length})
           </button>
           <button
             onClick={() => {
@@ -401,7 +402,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Bezahlt ({invoices.filter(i => i.status === 'paid').length})
+            {t('invoice.filter_paid', undefined, 'Bezahlt')} ({invoices.filter(i => i.status === 'paid').length})
           </button>
         </div>
 
@@ -411,7 +412,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechnung oder Kunde suchen..."
+              placeholder={t('invoice.search_placeholder', undefined, 'Rechnung oder Kunde suchen...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -426,7 +427,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition"
           >
             <Plus className="w-4 h-4" />
-            <span>Neue Rechnung</span>
+            <span>{t('invoice.new_invoice', undefined, 'Neue Rechnung')}</span>
           </button>
         </div>
       </div>
@@ -435,7 +436,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Rechnungsjournal ({filteredInvoices.length} Einträge)
+            {t('invoice.journal', undefined, 'Rechnungsjournal')} ({filteredInvoices.length} {t('invoice.entries', undefined, 'Einträge')})
           </h2>
         </div>
 
@@ -443,20 +444,20 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
-                <th className="p-4">Rechnungs-Nr.</th>
-                <th className="p-4">Kunde / Empfänger</th>
-                <th className="p-4">Datum</th>
-                <th className="p-4">Fälligkeit</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-right">Gesamtbetrag (Brutto)</th>
-                <th className="p-4 text-right">Aktionen</th>
+                <th className="p-4">{t('invoice.th_number', undefined, 'Rechnungs-Nr.')}</th>
+                <th className="p-4">{t('invoice.th_contact', undefined, 'Kunde / Empfänger')}</th>
+                <th className="p-4">{t('invoice.th_date', undefined, 'Datum')}</th>
+                <th className="p-4">{t('invoice.th_due_date', undefined, 'Fälligkeit')}</th>
+                <th className="p-4 text-center">{t('invoice.th_status', undefined, 'Status')}</th>
+                <th className="p-4 text-right">{t('invoice.th_total', undefined, 'Gesamtbetrag (Brutto)')}</th>
+                <th className="p-4 text-right">{t('invoice.th_actions', undefined, 'Aktionen')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">
-                    Keine Rechnungen in diesem Filter vorhanden.
+                    {t('invoice.empty_list', undefined, 'Keine Rechnungen in diesem Filter vorhanden.')}
                   </td>
                 </tr>
               ) : (
@@ -478,11 +479,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                     </td>
 
                     <td className="p-4 font-mono-num text-slate-600 dark:text-slate-400">
-                      {new Date(inv.date).toLocaleDateString('de-DE')}
+                      {formatSystemDate(inv.date)}
                     </td>
 
                     <td className="p-4 font-mono-num text-slate-600 dark:text-slate-400">
-                      {new Date(inv.due_date).toLocaleDateString('de-DE')}
+                      {formatSystemDate(inv.due_date)}
                     </td>
 
                     <td className="p-4 text-center">
@@ -490,23 +491,23 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-xs">
                             <Check className="w-3 h-3 text-emerald-600" />
-                            <span>Bezahlt</span>
+                            <span>{t('invoice.filter_paid', undefined, 'Bezahlt')}</span>
                           </span>
                           {inv.payment_method && (
                             <span className="text-[10px] text-slate-400 font-medium">
-                              {inv.payment_method === 'card' ? '💳 Kartenzahlung' : inv.payment_method === 'cash' ? '💵 Barzahlung' : '🏦 SEPA'}
+                              {inv.payment_method === 'card' ? `💳 ${t('invoice.payment_card', undefined, 'Kartenzahlung')}` : inv.payment_method === 'cash' ? `💵 ${t('invoice.payment_cash', undefined, 'Barzahlung')}` : `🏦 ${t('invoice.payment_sepa', undefined, 'SEPA')}`}
                             </span>
                           )}
                         </div>
                       )}
                       {inv.status === 'posted' && (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                          Offen
+                          {t('invoice.filter_posted', undefined, 'Offen')}
                         </span>
                       )}
                       {inv.status === 'draft' && (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          Entwurf
+                          {t('invoice.filter_draft', undefined, 'Entwurf')}
                         </span>
                       )}
                     </td>
@@ -526,7 +527,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             sounds.playClick();
                             setPrintInvoice(inv);
                           }}
-                          title="PDF Druckansicht (DIN-A4)"
+                          title={t('invoice.btn_print_tooltip', undefined, 'PDF Druckansicht (DIN-A4)')}
                           className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Printer className="w-4 h-4" />
@@ -538,7 +539,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             sounds.playClick();
                             setMailInvoice(inv);
                           }}
-                          title="Per E-Mail versenden (Fake-SMTP)"
+                          title={t('invoice.btn_mail_tooltip', undefined, 'Per E-Mail versenden (Fake-SMTP)')}
                           className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Mail className="w-4 h-4" />
@@ -548,10 +549,10 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                         {inv.status === 'draft' && (
                           <button
                             onClick={() => handlePostInvoice(inv)}
-                            title="Rechnung buchen / freigeben (Post)"
+                            title={t('invoice.btn_post_tooltip', undefined, 'Rechnung buchen / freigeben (Post)')}
                             className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-[11px] transition shadow-xs"
                           >
-                            Buchen
+                            {t('invoice.btn_post', undefined, 'Buchen')}
                           </button>
                         )}
 
@@ -563,11 +564,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                               sounds.playClick();
                               setPayingInvoice(inv);
                             }}
-                            title="Kartenzahlung / Barzahlung abrechnen"
+                            title={t('invoice.btn_pay_tooltip', undefined, 'Kartenzahlung / Barzahlung abrechnen')}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-bold text-xs shadow-sm transition"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
-                            <span>Zahlen</span>
+                            <span>{t('invoice.btn_pay', undefined, 'Zahlen')}</span>
                           </button>
                         )}
 
@@ -577,7 +578,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             sounds.playClick();
                             setEditingInvoice(inv);
                           }}
-                          title="Bearbeiten"
+                          title={t('action.edit', undefined, 'Bearbeiten')}
                           className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -586,7 +587,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                         {/* Delete */}
                         <button
                           onClick={(e) => inv.id && handleDeleteInvoice(inv.id, e)}
-                          title="Löschen"
+                          title={t('action.delete', undefined, 'Löschen')}
                           className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -610,7 +611,9 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               <div className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                  {editingInvoice.id ? `Rechnung bearbeiten (${editingInvoice.number})` : `Neue Ausgangsrechnung erstellen (${editingInvoice.number})`}
+                  {editingInvoice.id 
+                    ? `${t('invoice.edit_invoice', undefined, 'Rechnung bearbeiten')} (${editingInvoice.number})` 
+                    : `${t('invoice.new_outgoing', undefined, 'Neue Ausgangsrechnung erstellen')} (${editingInvoice.number})`}
                 </h3>
               </div>
 
@@ -631,7 +634,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Kunde / Empfänger auswählen *
+                    {t('invoice.modal_customer_select', undefined, 'Kunde / Empfänger auswählen *')}
                   </label>
                   <select
                     value={editingInvoice.contact_id}
@@ -648,7 +651,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Rechnungsdatum *
+                    {t('invoice.modal_date', undefined, 'Rechnungsdatum *')}
                   </label>
                   <input
                     type="date"
@@ -661,7 +664,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Fälligkeitsdatum *
+                    {t('invoice.modal_due_date', undefined, 'Fälligkeitsdatum *')}
                   </label>
                   <input
                     type="date"
@@ -676,11 +679,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               {/* Subject (Betreff) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Betreffzeile (Subject) für Beleg & Briefpapier
+                  {t('invoice.modal_subject', undefined, 'Betreffzeile (Subject) für Beleg & Briefpapier')}
                 </label>
                 <input
                   type="text"
-                  placeholder="z.B. Rechnung für Beratungsleistungen und Software-Entwicklung"
+                  placeholder={t('invoice.modal_subject_placeholder', undefined, 'z. B. Rechnung für Beratungsleistungen und Software-Entwicklung')}
                   value={editingInvoice.subject || ''}
                   onChange={(e) => setEditingInvoice({ ...editingInvoice, subject: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -691,7 +694,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Rechnungspositionen
+                    {t('invoice.modal_items_title', undefined, 'Rechnungspositionen')}
                   </h4>
                   <button
                     type="button"
@@ -699,7 +702,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                     className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Position hinzufügen</span>
+                    <span>{t('invoice.modal_add_item', undefined, 'Position hinzufügen')}</span>
                   </button>
                 </div>
 
@@ -707,12 +710,12 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
-                        <th className="p-3">Produkt</th>
-                        <th className="p-3 w-20 text-center">Menge</th>
-                        <th className="p-3 w-28 text-right">Einzelpreis ({company.currency})</th>
-                        <th className="p-3 w-20 text-center">Rabatt (%)</th>
-                        <th className="p-3 w-20 text-center">MwSt (%)</th>
-                        <th className="p-3 w-28 text-right">Summe</th>
+                        <th className="p-3">{t('invoice.modal_col_product', undefined, 'Produkt')}</th>
+                        <th className="p-3 w-20 text-center">{t('invoice.modal_col_qty', undefined, 'Menge')}</th>
+                        <th className="p-3 w-28 text-right">{t('invoice.modal_col_unit_price', undefined, 'Einzelpreis')} ({company.currency})</th>
+                        <th className="p-3 w-20 text-center">{t('invoice.modal_col_discount', undefined, 'Rabatt (%)')}</th>
+                        <th className="p-3 w-20 text-center">{t('invoice.modal_col_tax', undefined, 'MwSt (%)')}</th>
+                        <th className="p-3 w-28 text-right">{t('invoice.modal_col_subtotal', undefined, 'Summe')}</th>
                         <th className="p-3 w-12 text-center"></th>
                       </tr>
                     </thead>
@@ -802,7 +805,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Rechnungshinweise & Zahlungsbedingungen
+                    {t('invoice.modal_notes_label', undefined, 'Rechnungshinweise & Zahlungsbedingungen')}
                   </label>
                   <textarea
                     rows={3}
@@ -814,15 +817,15 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>Nettobetrag (Zwischensumme):</span>
+                    <span>{t('invoice.modal_subtotal_label', undefined, 'Nettobetrag (Zwischensumme):')}</span>
                     <span className="font-mono">{formatCurrency(editingInvoice.subtotal || 0)}</span>
                   </div>
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>MwSt. (Umsatzsteuer):</span>
+                    <span>{t('invoice.modal_tax_label', undefined, 'MwSt. (Umsatzsteuer):')}</span>
                     <span className="font-mono">{formatCurrency(editingInvoice.tax_total || 0)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <span>Gesamtbetrag (Brutto):</span>
+                    <span>{t('invoice.modal_total_label', undefined, 'Gesamtbetrag (Brutto):')}</span>
                     <span className="font-mono text-indigo-600 dark:text-indigo-400 text-base">
                       {formatCurrency(editingInvoice.total || 0)}
                     </span>
@@ -841,7 +844,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition"
               >
-                Abbrechen
+                {t('invoice.modal_btn_cancel', undefined, 'Abbrechen')}
               </button>
 
               <div className="flex items-center gap-2">
@@ -850,7 +853,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                   onClick={handleSaveDraft}
                   className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition"
                 >
-                  Als Entwurf speichern
+                  {t('invoice.modal_btn_save_draft', undefined, 'Als Entwurf speichern')}
                 </button>
 
                 <button
@@ -858,7 +861,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                   onClick={() => handlePostInvoice()}
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
                 >
-                  Rechnung freigeben & Buchen (Post)
+                  {t('invoice.modal_btn_post', undefined, 'Rechnung freigeben & Buchen (Post)')}
                 </button>
               </div>
             </div>
