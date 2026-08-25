@@ -6,7 +6,27 @@
 
 ## Completed Tasks Archive
 
-### 1. Customer Support & Service Operations Module
+### 1. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
+- [x] **React Portal Integration**:
+  - [x] Re-anchored the Single Contact Create/Edit modal, Batch Contacts modal, and CSV Import modal directly to `document.body` via `createPortal`.
+  - [x] Eliminated dark rectangular clipping boxes and constrained overflow boundaries caused by parent window animation CSS transforms.
+  - [x] Added clean internal scroll containment (`max-h-[92vh] overflow-y-auto`) and optical padding for all contact address inputs.
+- [x] **Products Module Portal Overlays**:
+  - [x] Wrapped customer allocation modal and product creation dialog in `createPortal` for uniform viewport handling.
+- [x] **Documentation Manual Localization (Full Parity)**:
+  - [x] Refactored `DocumentationApp.tsx` with dynamic `useLanguage()` integration, providing full German and English parity across all chapters and workflows.
+- [x] **Release Documentation Protocol**:
+  - [x] Added `versions/releases/v20-release.md` and updated `INSTRUCTIONS.md` with release logging requirements in English.
+
+### 2. Desktop Workspace Polish, App Store Scrolling & Dynamic Timezone (v20.0.0)
+- [x] **App Store Vertical Scrolling**: Replaced fixed height constraints with `h-full overflow-y-auto` across all app categories and install cards.
+- [x] **Desktop Icon Interaction & Cursor Fix**: Restored default pointer cursors on desktop icons and added grayscale visual feedback during dragging.
+- [x] **Taskbar Drag Insertion Indicator**: Added pulsed vertical guide line indicator during taskbar icon reordering.
+- [x] **Timezone Persistence & Dynamic System Clock**: Taskbar digital clock, system date string, and calendar flyout format according to configured company timezone.
+- [x] **Settings Storage Metric Explanation**: Renamed section to "Sprache, Region & Zeit" and added tooltip explaining local IndexedDB database storage.
+- [x] **Structured Contacts Form**: Refactored contact creation modal with dedicated inputs for ZIP, City, Country, Tax ID, and internal notes.
+
+### 3. Customer Support & Service Operations Module
 - [x] **Comprehensive Localization & Multilingual Engine (v19.2.2)**:
   - [x] Converted all UI text elements, form labels, tooltips, dialogs, status badges, and settings in `SupportServicesModule.tsx` to use `t('support.*')` dynamic localization with English base fallbacks.
   - [x] Fully expanded `src/lib/i18n.ts` dictionary with comprehensive English, German, French, and Spanish translations for all Support & Service Operations keys.

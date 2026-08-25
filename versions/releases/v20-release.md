@@ -1,14 +1,25 @@
-# SOCDOF Version 20.0.0 Release Overview
+# SOCDOF Version 20 Release Overview
 
 ## Executive Summary
 
-**SOCDOF Version 20.0.0** introduces major usability, interaction, layout resilience, and localization enhancements across the desktop environment and enterprise modules. This release completes the transition to synchronized multilingual interfaces, structured contact master data forms, custom letterhead background rendering, and high-precision taskbar drag-and-drop feedback.
+**SOCDOF Version 20** introduces major usability, interaction, layout resilience, and localization enhancements across the desktop environment and enterprise modules. This release series completes the transition to synchronized multilingual interfaces, structured contact master data forms, React Portal-based global viewport dialogs, custom letterhead background rendering, and high-precision taskbar drag-and-drop feedback.
 
 ---
 
 ## Key Highlights & Feature Set
 
-### 1. Multilingual Documentation & Real-time Language Switch
+### 1. Contacts Modal Viewport Portal & Window Decoupling (v20.0.1)
+- **Direct Body Portaling**: Contact creation/edit modals and batch add dialogs are portaled directly to the viewport root via React `createPortal`.
+- **Zero Window Clipping**: Solved parent container transform constraints from window animations, ensuring backdrop covers the complete display and all form fields remain accessible and scrollable.
+- **Structured Address Fields**: Dedicated granular inputs for:
+  - Street & House Number
+  - Postal Code (ZIP / PLZ)
+  - City / Town
+  - Country
+  - Tax ID / VAT Number (`USt-IdNr.`)
+  - Internal Notes & Remarks
+
+### 2. Multilingual Documentation & Real-time Language Switch
 - **Bilingual Documentation Engine**: Refactored `DocumentationApp.tsx` with dynamic `useLanguage()` integration.
 - **English & German Full Parity**:
   - Fundamentals & Multi-window Desktop Workspace
@@ -21,17 +32,6 @@
   - Offline-first IndexedDB Privacy & Data Backups
   - Official Discord Community Support & Open Source GitHub Repository
   - Version History & Changelog Explorer
-
-### 2. Contacts Module UI Redesign & Clean Localization
-- **Structured Address Fields**: Replaced single-line address inputs with dedicated fields for:
-  - Street & House Number
-  - Postal Code (ZIP / PLZ)
-  - City / Town
-  - Country
-  - Tax ID / VAT Number (`USt-IdNr.`)
-  - Internal Notes & Payment Terms
-- **Multilingual Support**: All toolbar actions, customer/vendor filter badges, detail panels, and batch import modals now strictly respect the active user language selection (`de`, `en`, `fr`, `es`).
-- **Responsive Layout**: Designed with responsive modal grids, optical spacing, and high-contrast badges for Customers, Suppliers, and Partners.
 
 ### 3. App Store Vertical Scrolling & Resilience
 - **Full-Height Scroll Container**: Restructured the root container with `h-full overflow-y-auto` and adaptive padding to ensure effortless navigation across all app categories, promotional banners, and custom modules on any display resolution.
@@ -52,10 +52,11 @@
 | Component | Path | Description |
 |---|---|---|
 | **Instructions** | `INSTRUCTIONS.md` | Enforced release documentation protocol in `versions/releases/` |
-| **Contacts Module** | `src/components/ContactsModule.tsx` | Reactive `useLanguage` integration and structured modal form |
+| **Contacts Module** | `src/components/ContactsModule.tsx` | Viewport portal modals, reactive `useLanguage` integration and structured form |
+| **Products Module** | `src/components/ProductsModule.tsx` | React Portal viewport overlays for customer allocation & product modal |
 | **Documentation App** | `src/components/DocumentationApp.tsx` | Bilingual English/German user manual and live localization |
 | **Localization Registry** | `src/lib/i18n.ts` | Complete translation dictionary for contacts, invoices, and system tools |
-| **App Version** | `src/lib/version.ts` | Synced to `20.0.0` with version history |
+| **App Version** | `src/lib/version.ts` | Synced to `20.0.1` with version history |
 
 ---
 

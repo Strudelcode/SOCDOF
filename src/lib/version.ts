@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.0';
+export const APP_VERSION = '20.0.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.1',
+    date: '2026-08-25',
+    title: 'Contacts Modal Viewport Portal, Complete Multilingual Docs & Release Documentation Sync',
+    highlights: [
+      'Contacts Modal UI Fix: Re-anchored contact creation, batch edit, and CSV import dialogs directly to the document root via React Portal, completely resolving window clipping and backdrop bounds',
+      'Documentation App Localization: Refactored the entire user documentation manual with real-time multilingual switching (full German & English chapter parity)',
+      'Products Modal Portal Integration: Portaled customer allocation details and product creation forms for consistent edge-to-edge modal display',
+      'Release Documentation Protocol: Synchronized documentation standards across versions/releases/ and developer instructions'
+    ]
+  },
   {
     version: '20.0.0',
     date: '2026-08-25',

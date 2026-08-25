@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Package, 
   PackagePlus, 
@@ -465,8 +466,8 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
       </div>
 
       {/* Customer Allocation Detail Modal */}
-      {selectedProductDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      {selectedProductDetail && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -541,12 +542,13 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Create / Edit Product Modal with Web Link & Image Upload */}
-      {isEditModalOpen && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      {isEditModalOpen && editingProduct && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
