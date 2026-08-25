@@ -30,6 +30,9 @@
 
 - [ ] Vielleicht einen Ordner, der beim Erstellen der .exe-Datei angelegt wird, mit dem Namen "Languages". Darin befindet sich die Hauptdatei english.dateityp, in der alle Wörter/Sätze stehen, die im Projekt vorkommen. Für andere Sprachen sind die englischen Wörter und daneben die in der jeweiligen Sprache übersetzten. Sobald man eine neue Datei erstellt, z. B. dänisch.datatype, scheint diese Sprache in der App auf. Natürlich kann man dann Flagge und so in der config-Datei festlegen. Aber so ist es möglich, jede Sprache einfach zu ändern.
 
+* [ ] in den Einstellungen gibt es ja einmal das mit Sprache und vielleicht auch ein Datum oder Zeitformat und so und doch dafür dann einfach Zeit wo man hinzufügen ach doch tun das mit der Sprache und dem Datum ist und doch können einstellen dass bei der Zeit mit Sekunden oder ohne Sekunde kann ja zu hören Stromverbrauch kommen oder weil sonst nur Karten minimalen Unterschied macht deswegen macht trotzdem mal her und dass man auch vielleicht trotzdem noch eine Zeitzone ändern kann standardmäßig ist es von der Systemzeit aber sonst ändern kann. 
+
+
 ## 🐛 Bugfixes & Offene Punkte
 - [ ] Das die .exe App ein icon hat und nicht die Standard Electron textur.
 - [ ] Beim öffnen der App soll nur der startbildschirm kommen ohne das sich direkt eine App (Dashboard/übersicht) öffnet.
