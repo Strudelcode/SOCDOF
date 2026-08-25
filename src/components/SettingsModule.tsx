@@ -354,7 +354,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     { id: 'home', label: t('settings.home', activeLang, 'Startseite'), icon: Settings },
     { id: 'general', label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2 },
     { id: 'personalization', label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette },
-    { id: 'language', label: t('settings.language', activeLang, 'Spracheinstellungen & Region'), icon: Globe },
+    { id: 'language', label: t('settings.language', activeLang, 'Sprache, Region & Zeit'), icon: Globe },
     { id: 'connections', label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, badge: 'Google Sync' },
     { id: 'letterhead', label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText },
     { id: 'storage', label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive },
@@ -500,7 +500,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
             <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 pb-1 border-b border-slate-200 dark:border-slate-700/60">
               <div>{t('status.version_label', activeLang, 'Version:')} <span className="font-mono font-bold">{APP_NAME} v{APP_VERSION}</span></div>
-              <div>{t('status.storage_label', activeLang, 'Speicher:')} <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} {t('status.records_label', activeLang, 'Datensätze')})</div>
+              <div title="Belegter Speicherplatz der lokalen Browser-Datenbank (IndexedDB) für Rechnungen, Produkte, Kontakte, Kassenbons, Einstellungen und Logos.">
+                {t('status.storage_label', activeLang, 'Speicher:')} <span className="font-mono font-bold">{storageStats.sizeKB} KB</span> ({storageStats.totalRecords} {t('status.records_label', activeLang, 'Datensätze')})
+              </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
                 {APP_COPYRIGHT} • {APP_AUTHOR} ({APP_LOCATION})
               </div>

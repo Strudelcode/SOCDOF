@@ -72,3 +72,14 @@
 - [x] App start screen displays clean desktop workspace without forced auto-opening of sub-apps.
 - [x] Fixed start menu search focus auto-close glitch.
 - [x] Replaced "odoo Prinzip" label with "SOCDOF-Prinzip: Doppelte Lagerbuchführung".
+
+### 7. Desktop Workspace, App Store & Settings Polish (v20.0.0)
+- [x] **App Store Scrolling & Layout**: Restructured root container with `h-full overflow-y-auto` to allow full vertical scrolling through all apps and categories.
+- [x] **Desktop Icon Interaction & Cursor Fix**: Replaced grab-cursor on icon corners with default cursor and pointer on icon click, adding visual grayscale/opacity feedback during drag.
+- [x] **Taskbar Drag-and-Drop Visual Indicator**: Added pulsed vertical insertion guide line (`dragOverTaskbarIdx`) showing exactly where an app will be positioned when reordering pinned apps.
+- [x] **Timezone Persistence & Dynamic System Time**: Updated taskbar clock, calendar flyout, and system date formatters to respect configured company timezone dynamically.
+- [x] **Settings Storage Explanation**: Added descriptive guidance explaining that the storage metric measures total local IndexedDB database usage in the browser.
+- [x] **Settings Section Naming**: Renamed sidebar navigation item to "Sprache, Region & Zeit" to accurately reflect timezone, date format, seconds, and localization settings.
+- [x] **Version Update Guidelines**: Documented system version update checklist in `INSTRUCTIONS.md` and release history in `versions/V20.md`.
+- [x] **Contacts Form Verification & Refactoring**: Clean dedicated fields for ZIP, City, Country, TaxID, and Notes.
+

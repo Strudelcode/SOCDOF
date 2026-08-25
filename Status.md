@@ -4,14 +4,14 @@
 > **Repository:** Strudelcode/SOCDOF (`https://github.com/Strudelcode/SOCDOF`)  
 > **Target platforms:** Windows Electron desktop application and browser/PWA build  
 > **Default language:** English (`en`)  
-> **Current project version:** **v19.0.0**  
+> **Current project version:** **v20.0.0**  
 > **Last updated:** 2026-08-25  
 
 ---
 
 ## 1. Executive summary and architecture
 
-SOCDOF is a local-first business organization application with a Windows 11-inspired desktop workspace. It brings contacts, products, inventory, purchasing, sales, invoicing, POS workflows, settings, and documentation together in one application.
+SOCDOF is a local-first business organization application with a Windows 11-inspired desktop workspace. It brings contacts, products, inventory, purchasing, sales, invoicing, POS workflows, customer support, settings, and documentation together in one application.
 
 The primary desktop target is an Electron application. A browser and GitHub Pages build is also supported. Application data is stored locally in IndexedDB through Dexie.js; no remote backend is required for the core workflows.
 
@@ -29,9 +29,10 @@ The desktop workspace provides:
 
 ## 2. Current release and recent history
 
-The current project version is **v19.0.0**. Detailed release notes are maintained in [`versions/`](./versions/).
+The current project version is **v20.0.0**. Detailed release notes are maintained in [`versions/`](./versions/).
 
-- **v19:** Language synchronization, accent-color contrast, configurable date formats, native-app download reminder handling, and save confirmations.
+- **v20.0.0:** App Store vertical scrolling, desktop icon interaction polish, taskbar drag-and-drop insertion indicator, dynamic timezone system clock, settings section & storage metric polish, structured contacts form.
+- **v19 (v19.0.0 - v19.2.2):** Customer support & services engine, smart app folders, inter-app KPI navigation, product web-link importer, custom date ranges in BWA accounting, dynamic GitHub release detection, multilingual synchronization.
 - **v18.3.5:** Robust Windows setup scripts, native folder picker, simplified setup modal, relative build paths, and automated Windows release workflow.
 - **v18.3.4:** Windows installation assistant, local directory management, configurable storage paths, and GitHub Releases links.
 - **v18.3.3:** Windows desktop focus, simplified language selection, centralized version model, and integrated changelog.

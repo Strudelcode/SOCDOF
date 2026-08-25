@@ -4,7 +4,8 @@ This directory contains the completed changes for each major version.
 
 ## Version index
 
-- [Version 19 – current](./V19.md)
+- [Version 20 – current](./V20.md)
+- [Version 19](./V19.md) • [Full V19 Release Overview](./releases/v19-release.md)
 - [Version 18](./V18.md)
 - [Version 17](./V17.md)
 

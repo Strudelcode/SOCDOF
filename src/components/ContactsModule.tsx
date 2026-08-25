@@ -28,7 +28,7 @@ import {
 import { Contact, ContactType, Invoice } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
-import { t } from '../lib/i18n';
+import { t, useLanguage } from '../lib/i18n';
 
 interface ContactsModuleProps {
   contacts: Contact[];
@@ -45,6 +45,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   onCreateInvoiceForContact,
   currency = '€'
 }) => {
+  const currentLang = useLanguage();
   const [filterType, setFilterType] = useState<'all' | 'customer' | 'vendor'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -350,10 +351,10 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              {t('contacts.title', undefined, 'Kontakte & Adressbuch')}
+              {t('contact.title', currentLang, 'Contacts & Address Book')}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {contacts.length} {t('invoice.entries', undefined, 'Einträge')} ({t('contacts.filter_customers', undefined, 'Kunden')} &amp; {t('contacts.filter_vendors', undefined, 'Lieferanten')})
+              {contacts.length} {t('invoice.entries', currentLang, 'entries')} ({t('contacts.filter_customers', currentLang, 'Customers')} &amp; {t('contacts.filter_vendors', currentLang, 'Suppliers')})
             </p>
           </div>
         </div>
@@ -365,7 +366,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition"
           >
             <UserPlus className="w-4 h-4" />
-            <span>{t('contacts.btn_new', undefined, 'Neuer Kontakt')}</span>
+            <span>{t('contact.btn_new', currentLang, 'New Contact')}</span>
           </button>
 
           <button
@@ -373,12 +374,12 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition"
           >
             <Layers className="w-4 h-4 text-emerald-600" />
-            <span>{t('contacts.btn_batch', undefined, '+ Mehrere anlegen')}</span>
+            <span>{t('contacts.btn_batch', currentLang, '+ Batch Add')}</span>
           </button>
 
           <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition">
             <Upload className="w-4 h-4 text-indigo-600" />
-            <span>{t('contacts.btn_import', undefined, 'CSV / Outlook Import')}</span>
+            <span>{t('contacts.btn_import', currentLang, 'CSV / Outlook Import')}</span>
             <input
               type="file"
               accept=".csv,.vcf,.vcard,text/csv"
@@ -389,7 +390,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
 
           <button
             onClick={handleExportCsv}
-            title={t('contacts.btn_export_csv', undefined, 'Alle Kontakte als CSV exportieren')}
+            title={t('contacts.btn_export_csv', currentLang, 'Export all contacts as CSV')}
             className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition"
           >
             <Download className="w-4 h-4" />
@@ -404,19 +405,19 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             onClick={() => { sounds.playClick(); setFilterType('all'); }}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
-            {t('contacts.filter_all', undefined, 'Alle')} ({contacts.length})
+            {t('contacts.filter_all', currentLang, 'All')} ({contacts.length})
           </button>
           <button
             onClick={() => { sounds.playClick(); setFilterType('customer'); }}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'customer' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
-            {t('contacts.filter_customers', undefined, 'Kunden')}
+            {t('contacts.filter_customers', currentLang, 'Customers')}
           </button>
           <button
             onClick={() => { sounds.playClick(); setFilterType('vendor'); }}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'vendor' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
-            {t('contacts.filter_vendors', undefined, 'Lieferanten')}
+            {t('contacts.filter_vendors', currentLang, 'Suppliers')}
           </button>
         </div>
 
@@ -424,7 +425,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={t('contacts.search_placeholder', undefined, 'Kontakt oder Firma suchen...')}
+            placeholder={t('contacts.search_placeholder', currentLang, 'Search contact or company...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-emerald-500 focus:outline-none"
@@ -439,12 +440,12 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
           {filteredContacts.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400">
               <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
-              <p className="text-xs font-medium">{t('contacts.empty_list', undefined, 'Keine Kontakte gefunden.')}</p>
+              <p className="text-xs font-medium">{t('contacts.empty_list', currentLang, 'No contacts found.')}</p>
               <button
                 onClick={handleOpenCreateModal}
                 className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
               >
-                {t('contacts.btn_create_first', undefined, '+ Jetzt ersten Kontakt anlegen')}
+                {t('contacts.btn_create_first', currentLang, '+ Create First Contact Now')}
               </button>
             </div>
           ) : (
@@ -475,7 +476,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                       </div>
 
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${c.type === 'customer' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' : c.type === 'vendor' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' : 'bg-amber-100 text-amber-800'}`}>
-                        {c.type === 'customer' ? t('contacts.type_customer', undefined, 'Kunde') : c.type === 'vendor' ? t('contacts.type_vendor', undefined, 'Lieferant') : t('contacts.type_partner', undefined, 'Partner')}
+                        {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
                       </span>
                     </div>
 
@@ -519,7 +520,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     {selectedContact.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {selectedContact.company || t('contacts.individual_customer', undefined, 'Privatkunde / Einzelperson')}
+                    {selectedContact.company || t('contacts.individual_customer', currentLang, 'Individual Customer')}
                   </p>
                 </div>
               </div>
@@ -553,20 +554,20 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>{t('contacts.btn_create_invoice', undefined, 'Rechnung erstellen')}</span>
+                <span>{t('contacts.btn_create_invoice', currentLang, 'Create Invoice')}</span>
               </button>
             </div>
 
             {/* Financial KPIs for this contact */}
             <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_paid_total', undefined, 'Bezahlt Gesamt')}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_paid_total', currentLang, 'Total Paid')}</span>
                 <div className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
                   {contactTotalRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
                 </div>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_open_receivables', undefined, 'Offene Forderungen')}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_open_receivables', currentLang, 'Open Receivables')}</span>
                 <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
                   {contactOpenReceivables.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
                 </div>
@@ -576,7 +577,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             {/* Contact Details List */}
             <div className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
               <div>
-                <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_email', undefined, 'E-Mail')}</span>
+                <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_email', currentLang, 'Email Address')}</span>
                 <a href={`mailto:${selectedContact.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
                   {selectedContact.email}
                 </a>
@@ -584,28 +585,28 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
 
               {selectedContact.phone && (
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_phone', undefined, 'Telefon')}</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_phone', currentLang, 'Phone Number')}</span>
                   <span>{selectedContact.phone}</span>
                 </div>
               )}
 
               {selectedContact.street && (
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_address', undefined, 'Anschrift')}</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_address', currentLang, 'Address')}</span>
                   <span>{selectedContact.street}, {selectedContact.zip} {selectedContact.city}</span>
                 </div>
               )}
 
               {selectedContact.taxId && (
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_tax_id', undefined, 'USt-IdNr')}</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}</span>
                   <span className="font-mono">{selectedContact.taxId}</span>
                 </div>
               )}
 
               {selectedContact.notes && (
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_notes', undefined, 'Notizen')}</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_notes', currentLang, 'Internal Notes')}</span>
                   <p className="text-slate-600 dark:text-slate-400 text-[11px] bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
                     {selectedContact.notes}
                   </p>
@@ -618,156 +619,202 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
 
       {/* 4. Single Edit / Create Contact Modal */}
       {isEditModalOpen && editingContact && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 shadow-2xl space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                {editingContact.id ? t('contacts.modal_edit_title', undefined, 'Kontakt bearbeiten') : t('contacts.modal_create_title', undefined, 'Neuen Kontakt anlegen')}
-              </h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto animate-fade-in max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                  {editingContact.id ? <Edit2 className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {editingContact.id 
+                      ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
+                      : t('contact.modal_create_title', currentLang, 'Create New Contact')}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {t('contact.title', currentLang, 'Contacts & Address Book')}
+                  </p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsEditModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveContact} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveContact} className="space-y-3.5 overflow-y-auto pr-1 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_name_label', undefined, 'Vollständiger Name *')}
+                    {t('contact.modal_name', currentLang, 'Full Name *')}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="z. B. Dr. Alex Weber"
+                    placeholder={t('contact.modal_name_placeholder', currentLang, 'e.g. Dr. Alex Weber')}
                     value={editingContact.name || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_company_label', undefined, 'Firma / Unternehmen')}
+                    {t('contact.modal_company', currentLang, 'Company / Business')}
                   </label>
                   <input
                     type="text"
-                    placeholder="z. B. Tech Solutions AG"
+                    placeholder={t('contact.modal_company_placeholder', currentLang, 'e.g. Tech Solutions AG')}
                     value={editingContact.company || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, company: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_email_label', undefined, 'E-Mail *')}
+                    {t('contact.modal_email', currentLang, 'Email Address *')}
                   </label>
                   <input
                     type="email"
                     required
-                    placeholder="kontakt@domain.de"
+                    placeholder={t('contact.modal_email_placeholder', currentLang, 'contact@domain.com')}
                     value={editingContact.email || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_phone_label', undefined, 'Telefonnummer')}
+                    {t('contact.modal_phone', currentLang, 'Phone Number')}
                   </label>
                   <input
                     type="text"
-                    placeholder="+49 (0) ..."
+                    placeholder={t('contact.modal_phone_placeholder', currentLang, '+1 (555) 000-0000')}
                     value={editingContact.phone || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_street_label', undefined, 'Straße & Nr.')}
+                    {t('contact.modal_street', currentLang, 'Street & House No.')}
                   </label>
                   <input
                     type="text"
                     value={editingContact.street || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, street: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_type_label', undefined, 'Typ')}
+                    {t('contact.modal_type', currentLang, 'Contact Type')}
                   </label>
                   <select
                     value={editingContact.type || 'customer'}
                     onChange={(e) => setEditingContact({ ...editingContact, type: e.target.value as ContactType })}
-                    className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                    className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   >
-                    <option value="customer">{t('contacts.type_customer', undefined, 'Kunde')}</option>
-                    <option value="vendor">{t('contacts.type_vendor', undefined, 'Lieferant')}</option>
-                    <option value="both">{t('contacts.type_both', undefined, 'Beides')}</option>
+                    <option value="customer">{t('contact.type_customer', currentLang, 'Customer')}</option>
+                    <option value="vendor">{t('contact.type_vendor', currentLang, 'Supplier / Vendor')}</option>
+                    <option value="both">{t('contact.type_both', currentLang, 'Both')}</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_city_label', undefined, 'PLZ & Stadt')}
+                    {t('contact.modal_zip', currentLang, 'Postal Code / ZIP')}
                   </label>
                   <input
                     type="text"
-                    placeholder="10115 Berlin"
-                    value={editingContact.city ? `${editingContact.zip || ''} ${editingContact.city}` : ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const parts = val.split(' ');
-                      setEditingContact({
-                        ...editingContact,
-                        zip: parts[0] || '',
-                        city: parts.slice(1).join(' ') || ''
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                    placeholder="10115"
+                    value={editingContact.zip || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, zip: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('contact.modal_city', currentLang, 'City / Town')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Berlin"
+                    value={editingContact.city || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, city: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('contact.modal_country', currentLang, 'Country')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Deutschland"
+                    value={editingContact.country || ''}
+                    onChange={(e) => setEditingContact({ ...editingContact, country: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contacts.modal_tax_id_label', undefined, 'USt-IdNr')}
+                    {t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}
                   </label>
                   <input
                     type="text"
                     placeholder="DE 000000000"
                     value={editingContact.taxId || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, taxId: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('contact.modal_notes', currentLang, 'Internal Notes & Remarks')}
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder={t('contact.notes_placeholder', currentLang, 'Optional customer notes, terms or contact person...')}
+                  value={editingContact.notes || ''}
+                  onChange={(e) => setEditingContact({ ...editingContact, notes: e.target.value })}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                 >
-                  {t('common.cancel', undefined, 'Abbrechen')}
+                  {t('contact.btn_cancel', currentLang, 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition"
                 >
-                  {t('contacts.btn_save', undefined, 'Kontakt speichern')}
+                  {t('contact.btn_save', currentLang, 'Save Contact')}
                 </button>
               </div>
             </form>
@@ -783,12 +830,13 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {t('contacts.batch_modal_title', undefined, 'Mehrere Kontakte gleichzeitig anlegen')}
+                  {t('contacts.batch_modal_title', currentLang, 'Create Multiple Contacts at Once')}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsBatchModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -803,7 +851,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     </span>
                     <input
                       type="text"
-                      placeholder={t('contacts.modal_name_label', undefined, 'Name') + ' *'}
+                      placeholder={t('contact.modal_name', currentLang, 'Full Name') + ' *'}
                       value={row.name}
                       onChange={(e) => {
                         const updated = [...batchRows];
@@ -814,7 +862,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     />
                     <input
                       type="email"
-                      placeholder={t('contacts.modal_email_label', undefined, 'E-Mail') + ' *'}
+                      placeholder={t('contact.modal_email', currentLang, 'Email Address') + ' *'}
                       value={row.email}
                       onChange={(e) => {
                         const updated = [...batchRows];
@@ -825,7 +873,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     />
                     <input
                       type="text"
-                      placeholder={t('contacts.modal_company_label', undefined, 'Firma')}
+                      placeholder={t('contact.modal_company', currentLang, 'Company')}
                       value={row.company}
                       onChange={(e) => {
                         const updated = [...batchRows];
@@ -843,8 +891,8 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                       }}
                       className="col-span-2 px-1.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none"
                     >
-                      <option value="customer">{t('contacts.type_customer', undefined, 'Kunde')}</option>
-                      <option value="vendor">{t('contacts.type_vendor', undefined, 'Lieferant')}</option>
+                      <option value="customer">{t('contact.type_customer', currentLang, 'Customer')}</option>
+                      <option value="vendor">{t('contact.type_vendor', currentLang, 'Supplier')}</option>
                     </select>
                   </div>
                 ))}
@@ -859,7 +907,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                   }}
                   className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
                 >
-                  {t('contacts.btn_add_batch_row', undefined, '+ Weitere Zeile hinzufügen')}
+                  {t('contacts.btn_add_batch_row', currentLang, '+ Add Another Row')}
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -868,13 +916,13 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     onClick={() => setIsBatchModalOpen(false)}
                     className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 rounded-xl"
                   >
-                    {t('common.cancel', undefined, 'Abbrechen')}
+                    {t('contact.btn_cancel', currentLang, 'Cancel')}
                   </button>
                   <button
                     type="submit"
                     className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition"
                   >
-                    {t('contacts.btn_save_batch', undefined, 'Alle Zeilen speichern')}
+                    {t('contacts.btn_save_batch', currentLang, 'Save All Rows')}
                   </button>
                 </div>
               </div>
@@ -890,13 +938,14 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {t('contacts.import_modal_title', undefined, 'Kontakte importieren')}: {importFileName}
+                  {t('contacts.import_modal_title', currentLang, 'Import Contacts')}: {importFileName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {importedPreview.length} {t('contacts.import_valid_count', undefined, 'gültige Kontakte erkannt')}
+                  {importedPreview.length} {t('contacts.import_valid_count', currentLang, 'valid contacts detected')}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsImportModalOpen(false)}
                 className="p-1 text-slate-400 hover:text-slate-600"
               >
@@ -908,10 +957,10 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="p-2.5 font-bold">{t('contacts.modal_name_label', undefined, 'Name')}</th>
-                    <th className="p-2.5 font-bold">{t('contacts.modal_company_label', undefined, 'Firma')}</th>
-                    <th className="p-2.5 font-bold">{t('contacts.field_email', undefined, 'E-Mail')}</th>
-                    <th className="p-2.5 font-bold">{t('contacts.field_phone', undefined, 'Telefon')}</th>
+                    <th className="p-2.5 font-bold">{t('contact.modal_name', currentLang, 'Name')}</th>
+                    <th className="p-2.5 font-bold">{t('contact.modal_company', currentLang, 'Company')}</th>
+                    <th className="p-2.5 font-bold">{t('contact.modal_email', currentLang, 'Email')}</th>
+                    <th className="p-2.5 font-bold">{t('contact.modal_phone', currentLang, 'Phone')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -927,7 +976,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
               </table>
               {importedPreview.length > 10 && (
                 <div className="p-2 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/30">
-                  ... {t('contacts.import_more_count', undefined, 'und weitere')} {importedPreview.length - 10} {t('contacts.title', undefined, 'Kontakte')}
+                  ... {t('contacts.import_more_count', currentLang, 'and')} {importedPreview.length - 10} {t('contact.title', currentLang, 'more contacts')}
                 </div>
               )}
             </div>
@@ -938,14 +987,14 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                 onClick={() => setIsImportModalOpen(false)}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 rounded-xl"
               >
-                {t('common.cancel', undefined, 'Abbrechen')}
+                {t('contact.btn_cancel', currentLang, 'Cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmImport}
                 className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-xs transition"
               >
-                {importedPreview.length} {t('contacts.btn_confirm_import', undefined, 'Kontakte in Datenbank übernehmen')}
+                {importedPreview.length} {t('contacts.btn_confirm_import', currentLang, 'Import into Database')}
               </button>
             </div>
           </div>

@@ -68,7 +68,7 @@ import {
 } from '../types';
 import { sounds } from '../lib/sound';
 import { applyAccentColor } from '../lib/accent';
-import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, LanguageCode } from '../lib/i18n';
+import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, formatSystemTime, LanguageCode } from '../lib/i18n';
 import { FlagIcon } from './FlagIcon';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { WindowsExeNotificationToast } from './WindowsExeNotificationToast';
@@ -532,6 +532,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [startSearch, setStartSearch] = useState('');
   const [draggedDesktopIdx, setDraggedDesktopIdx] = useState<number | null>(null);
   const [draggedTaskbarIdx, setDraggedTaskbarIdx] = useState<number | null>(null);
+  const [dragOverTaskbarIdx, setDragOverTaskbarIdx] = useState<number | null>(null);
 
   const startMenuRef = useRef<HTMLDivElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
@@ -1297,8 +1298,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 top: `${pos.y}px`,
                 zIndex: isBeingDragged ? 40 : 2
               }}
-              className={`cursor-grab active:cursor-grabbing rounded-2xl select-none transition-all duration-150 ${
-                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed' : 'hover:scale-102'
+              className={`rounded-2xl select-none transition-all duration-150 ${
+                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : 'hover:scale-102'
               } ${
                 isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20' : ''
               }`}
@@ -1314,7 +1315,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, meta.title, meta.subtitle)}
                 onMouseLeave={handleIconMouseLeave}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
+                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent cursor-pointer ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
                     : 'hover:bg-black/5 active:bg-black/10 hover:border-black/10'
@@ -2131,22 +2132,40 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                         e.dataTransfer.setData('text/plain', `${index}`);
                       }
                     }}
+                    onDragEnd={() => {
+                      setDraggedTaskbarIdx(null);
+                      setDragOverTaskbarIdx(null);
+                    }}
                     onDragOver={(e) => {
-                      if (isPinned) e.preventDefault();
+                      if (isPinned) {
+                        e.preventDefault();
+                        setDragOverTaskbarIdx(index);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverTaskbarIdx === index) {
+                        setDragOverTaskbarIdx(null);
+                      }
                     }}
                     onDrop={(e) => {
                       if (isPinned) {
                         e.preventDefault();
                         handleTaskbarReorder(index);
+                        setDragOverTaskbarIdx(null);
                       }
                     }}
                     className={`relative ${isPinned ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   >
+                    {/* Visual Insertion Line / Strick for Taskbar Drag & Drop */}
+                    {dragOverTaskbarIdx === index && draggedTaskbarIdx !== null && draggedTaskbarIdx !== index && (
+                      <div className="absolute -left-1 top-1 bottom-1 w-1 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/50 z-30 animate-pulse pointer-events-none" />
+                    )}
+
                     <button
                       onClick={handleTaskbarClick}
                       title={`${meta.title}${isOpen ? (isActive ? ' (Aktiv)' : isMinimized ? ' (Minimiert)' : ' (Geöffnet)') : ''}`}
                       className={`group h-9 min-w-[38px] px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition relative active:scale-95 ${
-                        draggedTaskbarIdx === index ? 'opacity-40 scale-90' : ''
+                        draggedTaskbarIdx === index ? 'opacity-30 scale-90 filter grayscale' : ''
                       } ${
                         isActive 
                           ? isDark 
@@ -2247,13 +2266,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             }`}
           >
             <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-              {currentTime.toLocaleTimeString([], company.time_show_seconds !== false 
-                ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
-                : { hour: '2-digit', minute: '2-digit' }
-              )}
+              {formatSystemTime(currentTime, company.time_show_seconds !== false, company.timezone)}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY')}
+              {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY', company.timezone)}
             </div>
           </button>
         </div>
@@ -2270,10 +2286,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className="pb-3 mb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {formatSystemTime(currentTime, true, company.timezone)}
               </div>
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize">
-                {currentTime.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {currentTime.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  timeZone: company.timezone || undefined
+                })}
               </div>
             </div>
             <button

@@ -357,7 +357,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   const desktopPinnedCount = pinnedDesktopModules.length;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       {/* Top Banner & Quick Info */}
       <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-indigo-900/40">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

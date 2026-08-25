@@ -19,16 +19,20 @@ This document defines the core operational standards, versioning protocols, and 
 
 ---
 
-## 3. Versioning Rules
+## 3. Versioning & Release Documentation Rules
 
-- **SemVer Format**: `v<Major>.<Minor>.<Patch>` (e.g., `v19.1.5`, `v19.2.0`).
-- **Flexible Minor & Patch Updates**: When adding new features, major UX improvements, or module integrations, increment to a clean minor version (e.g. `v19.1.0`, `v19.2.0`). For smaller enhancements and bug fixes, increment patch versions (e.g. `v19.1.1`, `v19.1.5`).
-- **Major Version Constraint**: A new major version (e.g., `v20.0.0`) **must never** be initiated automatically. It requires explicit user discussion and consent.
+- **SemVer Format**: `v<Major>.<Minor>.<Patch>` (e.g., `v20.0.0`, `v20.1.0`).
+- **Flexible Minor & Patch Updates**: When adding new features, major UX improvements, or module integrations, increment to a clean minor version (e.g. `v20.1.0`, `v20.2.0`). For smaller enhancements and bug fixes, increment patch versions (e.g. `v20.0.1`, `v20.0.5`).
+- **Major Version Constraint**: A new major version (e.g., `v21.0.0`) **must never** be initiated automatically. It requires explicit user discussion and consent.
 - **Synchronized Version Declarations**: Every version increment must be updated across all designated locations simultaneously:
-  1. `package.json` (`"version": "19.x.x"`)
-  2. `src/lib/version.ts` (`APP_VERSION = '19.x.x'` and add entry to `VERSION_HISTORY`)
-  3. `versions/V<Major>.md` (e.g. `versions/V19.md` - detailed release notes in English)
-  4. `todo/todo.md` and `todo/completed_todo.md`
+  1. `package.json` (`"version": "20.x.x"`)
+  2. `src/lib/version.ts` (`APP_VERSION = '20.x.x'` and add entry to `VERSION_HISTORY`)
+  3. `versions/V<Major>.md` (e.g. `versions/V20.md` - detailed changelog notes in English)
+  4. `versions/releases/v<Major>-release.md` (e.g. `versions/releases/v20-release.md` - comprehensive release documentation and feature overview in English)
+  5. `todo/todo.md` and `todo/completed_todo.md`
+- **Release Documentation in `versions/releases/`**:
+  - Whenever new features or major capabilities are added, update the corresponding release document in `versions/releases/` (e.g., `versions/releases/v20-release.md`).
+  - This file serves as the official, comprehensive release overview detailing all functional capabilities, architecture updates, and user-facing features in English.
 
 ---
 
