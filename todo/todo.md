@@ -1,47 +1,204 @@
-# ToDo Liste 
-* **Anweisungen ToDo**
-   * When an item on the todo list is completed, tick it off and DO NOT delete it.
-   * If features that have been made are not yet on it, add them and tick them accordingly.
-   * If a task is not feasible, ~cross it out.~
-   * If you have any questions, just get in touch.
+# SOCDOF – TODO-Liste & Arbeitsanweisung
 
+> Diese Datei ist die zentrale Liste für geplante Arbeiten. Erledigte Aufgaben bleiben erhalten und werden abgehakt.
 
-* **General instructions**
-   * Any changes to the project must be written down in the "Versions" folder in the corresponding version's file. Everything must also be written in the Status.md file. The versions file should be structured like the status file. Once you understand that, change it so that it's here as a guide. 
-      * For each major version (v1, v2... v20), a new file should be created. For small changes to the project, everything still needs to be recorded in the versions file, and the version changes to 'small versions' (19.4.1, 19.3.4...).
-   * Each change must be adapted to all languages. 
+## 1. Arbeitsregeln
+
+### 1.1 Vor jeder Änderung
+
+- Bestehende Architektur und betroffene Module prüfen.
+- Relevante Einträge in `versions/` und die zentrale Versionsquelle prüfen.
+- Vorhandene i18n-Struktur und alle unterstützten Sprachen berücksichtigen.
+- Bei fachlichen, technischen oder sicherheitsrelevanten Unklarheiten zuerst nachfragen.
+
+### 1.2 Aufgabenstatus
+
+- `[ ]` **Offen** – noch nicht umgesetzt.
+- `[-]` **Blockiert** – aktuell nicht umsetzbar; darunter den Grund notieren.
+- `[x]` **Erledigt** – umgesetzt und geprüft.
+
+Erledigte Aufgaben niemals löschen. Wenn sich eine Lösung ändert, die bestehende Aufgabe ergänzen und die Änderung dokumentieren.
+
+### 1.3 Dokumentation nach Änderungen
+
+Nach jeder abgeschlossenen Änderung:
+
+1. Die passende Versionsdatei unter `versions/` aktualisieren.
+2. Bei einer neuen Major-Version eine Datei `versions/V{Major}.md` anlegen.
+3. Feature-, Fix- und Patch-Änderungen derselben Major-Version in derselben Datei als eigene Abschnitte ergänzen.
+4. Betroffene Bereiche, bekannte Einschränkungen und die Verifizierung dokumentieren.
+5. README und zentrale Versionsangaben nur dann ändern, wenn die Änderung tatsächlich release-relevant ist.
+
+`Status.md` beziehungsweise eine vergleichbare Handover-Datei darf den aktuellen Projektzustand beschreiben, ist aber kein Ersatz für die Versionshistorie.
+
+### 1.4 Versionierung
+
+- Die Hauptversion bleibt während einer Entwicklungsreihe fest, zum Beispiel `v19`.
+- Feature- und Fix-Versionen dürfen selbstständig erhöht werden, zum Beispiel `v19.1.4`, `v19.3.1` oder `v19.4.0`.
+- Eine neue Hauptversion wie `v20` darf nur bei einem bewusst geplanten Major-Release begonnen werden. Sie darf nicht eigenständig aus `v19` abgeleitet werden.
+- Wenn ich der Meinung bin, dass aufgrund des Umfangs oder der Bedeutung der Änderungen eine neue Hauptversion sinnvoll wäre, muss ich vorher nachfragen und darf die Hauptversion nicht selbstständig erhöhen.
+- Als Versionsschema gilt `Major.Feature.Fix`:
+  - **Major** (`19`): Hauptversion der Entwicklungsreihe.
+  - **Feature** (`3`): neue Funktionen oder größere Änderungen innerhalb der Hauptversion.
+  - **Fix** (`1`): Fehlerbehebungen, kleine Verbesserungen oder Dokumentationskorrekturen.
+- Wenn nicht klar ist, ob eine Änderung eine neue Hauptversion rechtfertigt, bei `v19` bleiben und nachfragen.
+- `package.json`, zentrale Versionsquelle, README und Release-Dokumentation müssen vor einem Release übereinstimmen.
+- Pre-Releases und stabile Releases klar voneinander unterscheiden.
+
+### 1.5 Mehrsprachigkeit
+
+- Neue sichtbare Texte ausschließlich über das vorhandene i18n-System hinzufügen.
+- Alle aktuell unterstützten Sprachen berücksichtigen.
+- Fehlende Übersetzungen als offen dokumentieren; keine scheinbar fertige Übersetzung vortäuschen.
+- Sprachänderungen auf langen Texten, Fehlermeldungen, Tooltips und Dialogen prüfen.
+
+### 1.6 Qualitätssicherung
+
+- Bestehende Projektkonventionen und bereits verwendete Bibliotheken bevorzugen.
+- Änderungen möglichst klein und fokussiert halten.
+- Nach Codeänderungen mindestens ausführen:
+  - `npm run lint`
+  - `npm run build`
+  - relevante Tests oder manuelle Prüfungen
+- Prüfergebnisse und nicht ausführbare Prüfungen in der Versionsdokumentation festhalten.
+- Keine Änderungen an Produktionssystemen, externen Konten oder Releases ohne ausdrückliche Freigabe.
+
+### 1.7 Abschluss einer Aufgabe
+
+Eine Aufgabe darf erst als `[x]` markiert werden, wenn:
+
+- die Umsetzung abgeschlossen ist,
+- die betroffenen Sprachen berücksichtigt wurden,
+- die Dokumentation aktualisiert wurde,
+- die relevanten Prüfungen erfolgreich waren oder deren Fehlen begründet ist.
 
 ---
 
-## 🚀 Nächste Features & UX
-- [ ] erweiterung als App für Kunden support; man kann diensteleistungen eintragen (datum, von-bis), Kunde vom kontakt Buch auswählen können sodass die e-mail, telefonnummen und alle weiteren details verfügbar sind, wer es bearbeitet hat (falls mehrere Leute daran arbeiten), tags / stichwörter hinzufügen,  beschreibung , zeiterfassung, zeitaufwand (Beispielbild: todo/kunden_support-dienstleistungen-beispiel.png).
+## 2. Dokumentationsvorlage für neue Versionen
 
-- [ ] Beim Dasboard sollte man auch einen benutzerdefinierten zeitraum auswählen können / auch bei abrechnungen...
+```md
+# SOCDOF – Version v19.x.y
 
-- [ ] die exe Datei soll im vollbild modus starten oder so etwas. wenn man nämlich eine App öffnet kennen sich manche User nicht mehr aus wie man daraus kommt und dann auf das "x" von der exe klicken anstatt auf das der ing app
-   * [ ] Vor dem schließen der App soll nochmal eine aufforderung kommen ob man SOCDOF wirklich schließen will sodass vielleicht konflikte wie das vorher genannte Problem vermieden werden können?
+- **Datum:** YYYY-MM-DD
+- **Status:** geplant | in Arbeit | veröffentlicht
 
-- [ ] Wir benutzen ja electron für unser Projekt. Und ich habe gehört dass es dafür eine Erweiterung gibt die automatisch immer von github schaut ob eine neueste Version verfügbar ist bei Releases und wenn eine neue Version verfügbar ist das ist eine Nutzer fragt ob es sie herunterladen kann und wenn es installiert ist ob die App neu gestartet werden kann können wir das vielleicht auch hin unsere App einfahren damit immer neue Situationen automatisch ich will nicht nur Lisa Stelle und das dann immer zwischen genau V19 V20 oder so heißen und ohne Punkt oder weit Erweiterungen oder v19.1.1 und so sind das immer nur die Haut Releases also nicht priori Release ist nur how to Releases dann immer sozusagen als Update für die App benutzt wird.
- 
-- [ ] wenn es kostenlos möglich ist z b über firebase oder einen anderen Dienst das man z b sein Microsoft / Google Konto verbinden kann um den Terminkalender zu synchronisieren oder später villeicht auch für andere Features nutzen kannt.
-   * [ ] falls das Haupt Feature möglich ist könnte man unten rechts auf die Uhr drauf klicken und es kommt ein Kalender wie bei Windows wo man auch die Termine und so sieht
+## Änderungen
+- [ ] …
 
-- [ ] Einen Explorer hinzufügen der so wie der Windows Explorer funktioniert. Dabei wird einfach der standart genutzt bzw über einer Verknüpfung die Ordner Struktur angezeigt ohne den Ordner zu duplizieren. Wie gesagt. Die app soll so schnell, flüssig wie möglich funktionieren und so wenig CPU, gpu, RAM und MB beanspruchen wie möglich
+## Betroffene Bereiche
+- …
 
-- [ ] Vielleicht einen Ordner, der beim Erstellen der .exe-Datei angelegt wird, mit dem Namen "Languages". Darin befindet sich die Hauptdatei english.dateityp, in der alle Wörter/Sätze stehen, die im Projekt vorkommen. Für andere Sprachen sind die englischen Wörter und daneben die in der jeweiligen Sprache übersetzten. Sobald man eine neue Datei erstellt, z. B. dänisch.datatype, scheint diese Sprache in der App auf. Natürlich kann man dann Flagge und so in der config-Datei festlegen. Aber so ist es möglich, jede Sprache einfach zu ändern.
+## Bekannte Einschränkungen und Entscheidungen
+- …
 
-* [ ] in den Einstellungen gibt es ja einmal das mit Sprache und vielleicht auch ein Datum oder Zeitformat und so und doch dafür dann einfach Zeit wo man hinzufügen ach doch tun das mit der Sprache und dem Datum ist und doch können einstellen dass bei der Zeit mit Sekunden oder ohne Sekunde kann ja zu hören Stromverbrauch kommen oder weil sonst nur Karten minimalen Unterschied macht deswegen macht trotzdem mal her und dass man auch vielleicht trotzdem noch eine Zeitzone ändern kann standardmäßig ist es von der Systemzeit aber sonst ändern kann. 
+## Verifizierung
+- [ ] `npm run lint`
+- [ ] `npm run build`
+- [ ] Relevante Tests oder manuelle Prüfung
+```
 
+---
 
-## 🐛 Bugfixes & Offene Punkte
-- [ ] Das die .exe App ein icon hat und nicht die Standard Electron textur.
-- [ ] Beim öffnen der App soll nur der startbildschirm kommen ohne das sich direkt eine App (Dashboard/übersicht) öffnet.
-- [ ] Wenn ein App name zu lang ist wird ja "..." angezeigt. Wenn ich über die App mit der Maus fahre und dort 0.5 oder 1 sekunde darüber bin wird der ganze name angezeigt so als kleines Fenster darüber wie man es bei Windows & Co. kennt.
-- [ ] Alle Apps sollen einwandfrei funktionieren. Alle Buttons sollen anklickbar, ausführbar... sein.
-- [ ] Bestimmte Apps müssen verknüpft werden damit z. B. bestellungen oder solche Sachen direkt bei abrechnungen vom Monat oder was eingetragen wird übernommen wird.
-- [ ] Wenn man unten links auf das SOCDOF Icon klickt geht ja das klein menu mit übersicht / suche und so wie bei Windows auf. Wenn man dort auf das Suchfeld klickt schlißt sich das klein menu.
-- [ ] Wenn man auf das SOCDOF icon klickt damit das startmenu mit den optionen erscheint sieht man dort einige Button für schnell optionen. Dort stehen Sachen wie "exe downloaden", "Windows App"..., jedoch sind wir bereits in einer App sodass wir diese optionen nicht mehr benötigen (siehe todo/socdof_start_menu_auswahl.png)
-- [ ] In der App "lagerverwaltung.." steht "odoo Prinzip". Das können wir mal schön entfernen
+## 3. Nächste Features & UX
 
-## 🛠️ GitHub & Workflow
-/
+### 3.1 Kunden-Support und Dienstleistungen
+
+- [ ] Eine eigene App für Kunden-Support-Leistungen ergänzen.
+  - Leistungen mit Datum sowie Start- und Endzeit erfassen.
+  - Kunden aus dem Kontaktbuch auswählen.
+  - Verknüpfte Kontaktdaten wie E-Mail, Telefonnummer und weitere Details anzeigen.
+  - Bearbeiter dokumentieren, wenn mehrere Personen beteiligt sind.
+  - Tags oder Stichwörter hinzufügen.
+  - Beschreibung und interne Notizen ermöglichen.
+  - Arbeitszeit und Zeitaufwand erfassen.
+  - Bestehende Kontaktdaten und Abrechnungen sinnvoll verknüpfen.
+  - Referenzbild: `todo/kunden_support-dienstleistungen-beispiel.png`
+
+### 3.2 Benutzerdefinierte Zeiträume
+
+- [ ] Benutzerdefinierte Zeiträume im Dashboard ermöglichen.
+- [ ] Dieselbe Zeitraumsauswahl bei Abrechnungen und Auswertungen anbieten.
+- [ ] Einheitliche Behandlung von Startdatum, Enddatum und Zeitzone sicherstellen.
+
+### 3.3 Startverhalten und Schließen der Desktop-App
+
+- [ ] Prüfen, ob die `.exe` standardmäßig maximiert oder im echten Vollbildmodus starten soll.
+- [ ] Beim Schließen der App eine Bestätigung anzeigen: „SOCDOF wirklich schließen?“
+- [ ] Prüfen, ob die Bestätigung optional in den Einstellungen deaktivierbar sein soll.
+
+### 3.4 Automatische Updates
+
+- [ ] Automatische Suche nach neuen stabilen GitHub-Releases für Electron ergänzen.
+- [ ] Pre-Releases standardmäßig ignorieren.
+- [ ] Update nur nach ausdrücklicher Zustimmung herunterladen.
+- [ ] Nach erfolgreicher Installation einen Neustart anbieten.
+- [ ] Festlegen, ob nur Major-Releases wie `v19`/`v20` oder auch stabile Minor-/Patch-Releases angeboten werden.
+
+### 3.5 Kalender-Integration
+
+- [ ] Prüfen, ob eine kostenlose Synchronisierung mit Google Kalender und/oder Microsoft Outlook möglich ist.
+- [ ] Datenschutz, Offline-Anforderung, OAuth und notwendige API-Berechtigungen klären.
+- [ ] Optional einen Kalender beim Klick auf die Uhr unten rechts anzeigen.
+- [ ] Termine, Erinnerungen und Synchronisationsstatus übersichtlich darstellen.
+
+### 3.6 Explorer-Verknüpfung
+
+- [ ] Einen schnellen Zugriff auf den Windows-Explorer ergänzen.
+- [ ] Die vorhandene Windows-Ordnerstruktur öffnen, ohne Dateien zu duplizieren.
+- [ ] CPU-, GPU-, RAM- und Speicherverbrauch möglichst gering halten.
+- [ ] Eine integrierte Dateiansicht nur nach gesonderter Prüfung von Sicherheit und Wartungsaufwand umsetzen.
+
+### 3.7 Erweiterbares Sprachsystem
+
+- [ ] Prüfen, ob beim Erstellen der `.exe` ein Ordner `Languages` mitgeliefert werden soll.
+- [ ] Ein einheitliches Sprachdateiformat definieren.
+- [ ] Englische Ausgangstexte und Übersetzungen strukturiert ablegen.
+- [ ] Neue Sprachdateien automatisch erkennen und in der App anbieten.
+- [ ] Flagge, Sprachname und regionale Einstellungen konfigurierbar machen.
+- [ ] Fehlende oder ungültige Übersetzungsschlüssel melden.
+
+### 3.8 Regionale Einstellungen
+
+- [ ] Sprach-, Datums- und Zeiteinstellungen in den Einstellungen bündeln.
+- [ ] Datumsformate wie `DD.MM.YYYY`, `YYYY-MM-DD` und `MM/DD/YYYY` unterstützen.
+- [ ] Uhrzeit mit oder ohne Sekunden anzeigen können.
+- [ ] Standardmäßig die Systemzeitzone verwenden.
+- [ ] Eine manuelle Zeitzone optional auswählbar machen.
+- [ ] Einstellungen in Taskleiste, Dashboard, Kalendern und Abrechnungen konsistent anwenden.
+
+---
+
+## 4. Fehlerbehebungen & offene Punkte
+
+- [ ] Der `.exe` ein eigenes SOCDOF-Icon geben; das Standard-Electron-Icon entfernen.
+- [ ] Beim Start nur den SOCDOF-Startbildschirm anzeigen; nicht automatisch Dashboard oder Übersicht öffnen.
+- [ ] Bei abgeschnittenen App-Namen nach etwa 0,5–1 Sekunde einen Tooltip mit dem vollständigen Namen anzeigen.
+- [ ] Alle Apps und Buttons auf korrekte Funktion, Zustände, Fehlermeldungen und Tastaturbedienung prüfen.
+- [ ] Module miteinander verknüpfen, damit Bestellungen, Leistungen und andere Vorgänge korrekt in Abrechnungen und Monatsauswertungen erscheinen.
+- [ ] Fehler beheben: Beim Klick auf das Suchfeld im Startmenü darf sich das Startmenü nicht unerwartet schließen.
+- [ ] Nicht benötigte Schnelloptionen im Startmenü der bereits geöffneten Desktop-App entfernen, zum Beispiel „EXE downloaden“ oder „Windows App“. Referenzbild: `todo/socdof_start_menu_auswahl.png`
+- [ ] Den Text „odoo Prinzip“ in der Lagerverwaltung entfernen oder durch eine passende SOCDOF-Bezeichnung ersetzen.
+
+---
+
+## 5. Offene Entscheidungen vor der Umsetzung
+
+- [ ] **Kunden-Support:** Nur lokale Erfassung oder zusätzlich E-Mails und Benachrichtigungen? Werden Rollen und Rechte benötigt?
+- [ ] **Zeiträume:** Soll die Auswahl gespeichert oder nur temporär verwendet werden?
+- [ ] **Startmodus:** Maximiertes Fenster oder echter Vollbildmodus?
+- [ ] **Schließen:** Ist eine deaktivierbare Schließen-Bestätigung gewünscht?
+- [ ] **Updates:** Nur stabile Major-Releases oder auch stabile Minor-/Patch-Releases? Automatischer Download oder immer vorher fragen?
+- [ ] **Kalender:** Google, Microsoft oder beide? Ist eine externe Anmeldung trotz Offline-Grundprinzip akzeptabel?
+- [ ] **Explorer:** Nur den Windows-Explorer öffnen oder eine integrierte Dateiansicht entwickeln?
+- [ ] **Sprachdateien:** Nur beim Build mitliefern oder auch während der Laufzeit editierbar machen?
+- [ ] **Zeit/Region:** Welche zusätzlichen Formate und Zeitzonen werden benötigt?
+
+---
+
+## 6. GitHub & Release-Workflow
+
+- [ ] Vor einem Release fachliche Freigabe und erfolgreiche lokale Prüfungen einholen.
+- [ ] Versionsnummern in `package.json`, zentraler Versionsquelle, README und `versions/` abgleichen.
+- [ ] GitHub-Actions erst nach erfolgreichem Build und bewusster Release-Entscheidung verwenden.
+- [ ] Pre-Release-Tags nicht versehentlich als stabile Version veröffentlichen.
+- [ ] Release-Assets und Installationshinweise nach dem Build prüfen.
