@@ -40,3 +40,6 @@
 ### 2.4 System Audit & Polishing
 - [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
 - [ ] Optional global customer search across Support, Invoices, and CRM.
+
+## WIndows desktop App
+- [ ] Wenn ich die .exe Datei öffne steht das das System von Windows geschützt wurde und der herausgeber unbekannt ist. Herausgeber bin ich: Yuri / Strudel 
