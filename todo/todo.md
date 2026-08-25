@@ -15,14 +15,20 @@
 
 ## 🚀 Nächste Features & UX
 - [ ] erweiterung als App für Kunden support; man kann diensteleistungen eintragen (datum, von-bis), Kunde vom kontakt Buch auswählen können sodass die e-mail, telefonnummen und alle weiteren details verfügbar sind, wer es bearbeitet hat (falls mehrere Leute daran arbeiten), tags / stichwörter hinzufügen,  beschreibung , zeiterfassung, zeitaufwand (Beispielbild: todo/kunden_support-dienstleistungen-beispiel.png).
-- [ ] Beim Dasboard sollte man auch einen benutzerdefinierten zeitraum auswählen können / auch bei abrechnungen...
-- [ ] die exe Datei soll im vollbild modus starten oder so etwas. wenn man nämlich eine App öffnet kennen sich manche User nicht mehr aus wie man daraus kommt und dann auf das "x" von der exe klicken anstatt auf das der ing app
-- [ ] Vor dem schließen der App soll nochmal eine aufforderung kommen ob man SOCDOF wirklich schließen will sodass vielleicht konflikte wie das vorher genannte Problem vermieden werden können?
-- [ ] Wir benutzen ja electron für unser Projekt. Und ich habe gehört dass es dafür eine Erweiterung gibt die automatisch immer von github schaut ob eine neueste Version verfügbar ist bei Releases und wenn eine neue Version verfügbar ist das ist eine Nutzer fragt ob es sie herunterladen kann und wenn es installiert ist ob die App neu gestartet werden kann können wir das vielleicht auch hin unsere App einfahren damit immer neue Situationen automatisch ich will nicht nur Lisa Stelle und das dann immer zwischen genau V19 V20 oder so heißen und ohne Punkt oder weit Erweiterungen oder v19.1.1 und so sind das immer nur die Haut Releases also nicht priori Release ist nur how to Releases dann immer sozusagen als Update für die App benutzt wird. 
-- [ ] wenn es kostenlos möglich ist z b über firebase oder einen anderen Dienst das man z b sein Microsoft / Google Konto verbinden kann um den Terminkalender zu synchronisieren oder später villeicht auch für andere Features nutzen kannt. 
-- [ ] Einen Explorer hinzufügen der so wie der Windows Explorer funktioniert. Dabei wird einfach der standart genutzt bzw über einer Verknüpfung die Ordner Struktur angezeigt ohne den Ordner zu duplizieren. Wie gesagt. Die app soll so schnell, flüssig wie möglich funktionieren und so wenig CPU, gpu, RAM und MB beanspruchen wie möglich
-- [ ] vielleicht einen Ordner der beim Erstellen der .exe Datei angelegt wird mit dem Namen "Languages". Darin befindet sich die Haupt Datei english.dateityp und da stehen alle Wörter/Sätze die im Projekt vorkommen. Für andere Sprachen sind die englischen Wörter und daneben die in der jeweiligen Sprache übersetzten. Sobald man eine neue Datei erstellt z. B dänisch.dataytyp scheint diese Sprache in der App auf. Natürlich kann man dan Flagge und so in der confug Datei festlegen. Aber so ist es möglich jede Sprache einfach zu ändern 
 
+- [ ] Beim Dasboard sollte man auch einen benutzerdefinierten zeitraum auswählen können / auch bei abrechnungen...
+
+- [ ] die exe Datei soll im vollbild modus starten oder so etwas. wenn man nämlich eine App öffnet kennen sich manche User nicht mehr aus wie man daraus kommt und dann auf das "x" von der exe klicken anstatt auf das der ing app
+   * [ ] Vor dem schließen der App soll nochmal eine aufforderung kommen ob man SOCDOF wirklich schließen will sodass vielleicht konflikte wie das vorher genannte Problem vermieden werden können?
+
+- [ ] Wir benutzen ja electron für unser Projekt. Und ich habe gehört dass es dafür eine Erweiterung gibt die automatisch immer von github schaut ob eine neueste Version verfügbar ist bei Releases und wenn eine neue Version verfügbar ist das ist eine Nutzer fragt ob es sie herunterladen kann und wenn es installiert ist ob die App neu gestartet werden kann können wir das vielleicht auch hin unsere App einfahren damit immer neue Situationen automatisch ich will nicht nur Lisa Stelle und das dann immer zwischen genau V19 V20 oder so heißen und ohne Punkt oder weit Erweiterungen oder v19.1.1 und so sind das immer nur die Haut Releases also nicht priori Release ist nur how to Releases dann immer sozusagen als Update für die App benutzt wird.
+ 
+- [ ] wenn es kostenlos möglich ist z b über firebase oder einen anderen Dienst das man z b sein Microsoft / Google Konto verbinden kann um den Terminkalender zu synchronisieren oder später villeicht auch für andere Features nutzen kannt.
+   * [ ] falls das Haupt Feature möglich ist könnte man unten rechts auf die Uhr drauf klicken und es kommt ein Kalender wie bei Windows wo man auch die Termine und so sieht
+
+- [ ] Einen Explorer hinzufügen der so wie der Windows Explorer funktioniert. Dabei wird einfach der standart genutzt bzw über einer Verknüpfung die Ordner Struktur angezeigt ohne den Ordner zu duplizieren. Wie gesagt. Die app soll so schnell, flüssig wie möglich funktionieren und so wenig CPU, gpu, RAM und MB beanspruchen wie möglich
+
+- [ ] Vielleicht einen Ordner, der beim Erstellen der .exe-Datei angelegt wird, mit dem Namen "Languages". Darin befindet sich die Hauptdatei english.dateityp, in der alle Wörter/Sätze stehen, die im Projekt vorkommen. Für andere Sprachen sind die englischen Wörter und daneben die in der jeweiligen Sprache übersetzten. Sobald man eine neue Datei erstellt, z. B. dänisch.datatype, scheint diese Sprache in der App auf. Natürlich kann man dann Flagge und so in der config-Datei festlegen. Aber so ist es möglich, jede Sprache einfach zu ändern.
 
 ## 🐛 Bugfixes & Offene Punkte
 - [ ] Das die .exe App ein icon hat und nicht die Standard Electron textur.
