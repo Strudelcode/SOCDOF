@@ -9,6 +9,10 @@
 ### 1. Customer Support & Service Operations Module
 - [x] **Standalone Support App & Ticket Management (`SupportServicesModule`)**:
   - [x] Clear 2-column layout (Ticket Details & Internal Logbook/Timeline).
+  - [x] **Support Settings & Ticket Prefix**: Configuration modal for custom ticket prefix (e.g. `SUP-`, `TICK-`, `IT-`), next sequence number, default hourly rate, default team, and default staff.
+  - [x] **Ticket Lifecycle Operations**: Dedicated 1-click status actions to Complete (`Ticket abschließen`), Reopen (`Wiedereröffnen`), Edit, and Delete with custom confirmation modal.
+  - [x] **Dark Mode & UI Fixes**: Eliminated contrast and hover glitches on the "In Rechnung stellen" button and action ribbon in dark mode.
+  - [x] **Responsive GUI & Window Adaptivity**: Responsive multi-window adaptivity, non-clipping action ribbons, horizontal scrolling prevention, and edge-to-edge window embedding.
   - [x] Configurable Support Teams management with direct inline creation, editing, and deletion.
   - [x] Automatic contact metadata synchronization (auto-populates customer email, phone, and company upon selection).
   - [x] Structured time tracking with manual duration input (decimal hours / preset buttons) and 1-click live timer.

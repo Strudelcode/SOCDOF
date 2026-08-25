@@ -36,7 +36,11 @@ import {
   ChevronRight,
   MoreHorizontal,
   Settings,
-  FolderPlus
+  FolderPlus,
+  RotateCcw,
+  Sliders,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
 import { sounds } from '../lib/sound';
@@ -47,8 +51,17 @@ interface SupportServicesModuleProps {
   onCreateInvoiceForService?: (ticket: SupportServiceTicket) => void;
 }
 
+interface SupportSettings {
+  ticketPrefix: string;
+  nextNumber: number;
+  defaultHourlyRate: number;
+  defaultTeam: string;
+  defaultStaff: string;
+}
+
 const STORAGE_KEY = 'socdof_support_services_tickets_v2';
 const TEAMS_STORAGE_KEY = 'socdof_support_teams_list_v2';
+const SETTINGS_STORAGE_KEY = 'socdof_support_settings_v3';
 
 const DEFAULT_TEAMS = [
   'Kundendienst & Service',
@@ -65,11 +78,33 @@ const STAFF_LIST = [
   'Technik-Support'
 ];
 
+const DEFAULT_SETTINGS: SupportSettings = {
+  ticketPrefix: 'SUP-',
+  nextNumber: 1001,
+  defaultHourlyRate: 95,
+  defaultTeam: 'Kundendienst & Service',
+  defaultStaff: 'Robert Hölzl'
+};
+
 export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   contacts,
   companyProfile,
   onCreateInvoiceForService
 }) => {
+  // Support Settings (e.g. ticket prefix, default rate)
+  const [settings, setSettings] = useState<SupportSettings>(() => {
+    try {
+      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [tempSettings, setTempSettings] = useState<SupportSettings>(settings);
+
   // Support Teams state (customizable by user)
   const [teams, setTeams] = useState<string[]>(() => {
     try {
@@ -85,6 +120,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [newTeamName, setNewTeamName] = useState('');
   const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null);
   const [editingTeamValue, setEditingTeamValue] = useState('');
+
+  // Delete Confirmation Modal State
+  const [ticketToDelete, setTicketToDelete] = useState<SupportServiceTicket | null>(null);
 
   // Tickets state - strictly NO prefilled mock data
   const [tickets, setTickets] = useState<SupportServiceTicket[]>(() => {
@@ -135,6 +173,15 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     }
   };
 
+  const saveSettings = (newSet: SupportSettings) => {
+    setSettings(newSet);
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSet));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const selectedTicket = useMemo(() => {
     return tickets.find(t => t.id === selectedTicketId) || null;
   }, [tickets, selectedTicketId]);
@@ -156,11 +203,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     });
   }, [tickets, selectedTeamFilter, selectedStatusFilter, searchQuery]);
 
-  // Create new Ticket
+  // Create new Ticket using configured Prefix & Sequence
   const handleCreateNewTicket = () => {
     sounds.playClick();
     const newId = `sup_${Date.now()}`;
-    const newTicketNumber = `SUP-${1000 + tickets.length + 1}`;
+    const prefix = settings.ticketPrefix || 'SUP-';
+    const num = (settings.nextNumber || 1001) + tickets.length;
+    const newTicketNumber = `${prefix}${num}`;
     
     // Auto-select first contact if available
     const initialContact = contacts.length > 0 ? contacts[0] : null;
@@ -169,8 +218,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       id: newId,
       ticketNumber: newTicketNumber,
       title: 'Neues Support-Ticket / Auftrag',
-      team: teams[0] || 'Kundendienst & Service',
-      assignedStaff: STAFF_LIST[0],
+      team: settings.defaultTeam || teams[0] || 'Kundendienst & Service',
+      assignedStaff: settings.defaultStaff || STAFF_LIST[0],
       priority: 1,
       tags: ['Support'],
       contact_id: initialContact?.id,
@@ -180,13 +229,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       contact_company: initialContact?.company || '',
       status: 'new',
       description: '',
-      hourlyRate: 95,
+      hourlyRate: settings.defaultHourlyRate || 95,
       billable: true,
       timesheets: [],
       activities: [
         {
           id: `act_${Date.now()}`,
-          author: STAFF_LIST[0],
+          author: settings.defaultStaff || STAFF_LIST[0],
           type: 'system',
           content: 'Ticket neu angelegt.',
           createdAt: new Date().toISOString()
@@ -213,19 +262,20 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     saveTickets(updated);
   };
 
-  // Delete ticket
-  const handleDeleteTicket = (ticketId: string) => {
-    if (!confirm('Möchten Sie dieses Support-Ticket wirklich löschen?')) return;
+  // Delete ticket with verification
+  const confirmDeleteTicket = () => {
+    if (!ticketToDelete) return;
     sounds.playClick();
-    const updated = tickets.filter(t => t.id !== ticketId);
+    const updated = tickets.filter(t => t.id !== ticketToDelete.id);
     saveTickets(updated);
-    if (selectedTicketId === ticketId) {
+    if (selectedTicketId === ticketToDelete.id) {
       setSelectedTicketId(null);
       setViewMode('list');
     }
+    setTicketToDelete(null);
   };
 
-  // Status Change
+  // Status Change helper with activity logging
   const handleStatusChange = (newStatus: SupportServiceTicket['status']) => {
     if (!selectedTicket) return;
     sounds.playClick();
@@ -500,13 +550,27 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Settings Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setTempSettings(settings);
+              setIsSettingsModalOpen(true);
+            }}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
+            title="Support-Einstellungen & Präfix konfigurieren"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <span className="hidden sm:inline">Einstellungen</span>
+          </button>
+
           {/* Teams Manager Button */}
           <button
             onClick={() => {
               sounds.playClick();
               setIsTeamModalOpen(true);
             }}
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition flex items-center gap-1.5"
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
             title="Teams verwalten"
           >
             <Users className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -519,7 +583,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 sounds.playClick();
                 setViewMode('list');
               }}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1.5"
             >
               <List className="w-3.5 h-3.5" />
               Zurück zur Liste
@@ -731,7 +795,27 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               </span>
                             </td>
                             <td className="py-3.5 px-4 text-right">
-                              <ArrowUpRight className="w-4 h-4 text-slate-400 hover:text-cyan-600 inline" />
+                              <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => {
+                                    sounds.playClick();
+                                    setSelectedTicketId(ticket.id);
+                                    setViewMode('detail');
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition"
+                                  title="Ticket öffnen & bearbeiten"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setTicketToDelete(ticket)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                  title="Ticket löschen"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+                              </div>
                             </td>
                           </tr>
                         );
@@ -795,13 +879,25 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                             {ticket.title}
                           </h4>
 
-                          <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1">
-                            <span className="truncate max-w-[140px] font-medium text-slate-700 dark:text-slate-300">
+                          <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                            <span className="truncate max-w-[130px] font-medium text-slate-700 dark:text-slate-300">
                               {ticket.contact_name || '–'}
                             </span>
-                            <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                              {ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0).toFixed(1)} h
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                                {ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0).toFixed(1)} h
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTicketToDelete(ticket);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition"
+                                title="Ticket löschen"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -820,13 +916,14 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800">
             
             {/* Top Action & Status Pipeline Ribbon */}
-            <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40 shrink-0">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/60 shrink-0 sticky top-0 z-10 backdrop-blur-md">
               
               {/* Left Action Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Live Timer */}
                 <button
                   onClick={handleToggleTimer}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition ${
                     selectedTicket.isTimerRunning
                       ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -835,7 +932,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   {selectedTicket.isTimerRunning ? (
                     <>
                       <Square className="w-3.5 h-3.5 fill-current" />
-                      <span>Stoppen</span>
+                      <span>Timer stoppen</span>
                     </>
                   ) : (
                     <>
@@ -845,22 +942,46 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   )}
                 </button>
 
+                {/* In Rechnung stellen (Fixed Dark Mode Contrast & Hover) */}
                 {onCreateInvoiceForService && (
                   <button
                     onClick={() => {
                       sounds.playClick();
                       onCreateInvoiceForService(selectedTicket);
                     }}
-                    className="px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition"
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-xs"
+                    title="Zeiten und Auftrag als Rechnung erstellen"
                   >
-                    <Receipt className="w-3.5 h-3.5 text-indigo-500" />
+                    <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>In Rechnung stellen</span>
                   </button>
                 )}
 
+                {/* Ticket abschließen / Wiedereröffnen */}
+                {selectedTicket.status !== 'closed' ? (
+                  <button
+                    onClick={() => handleStatusChange('closed')}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition shadow-xs"
+                    title="Ticket als abgeschlossen archivieren"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Abschließen</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStatusChange('in_progress')}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center gap-1.5 transition shadow-xs"
+                    title="Ticket wiedereröffnen"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Wiedereröffnen</span>
+                  </button>
+                )}
+
+                {/* Ticket löschen */}
                 <button
-                  onClick={() => handleDeleteTicket(selectedTicket.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                  onClick={() => setTicketToDelete(selectedTicket)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
                   title="Ticket löschen"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -868,7 +989,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               </div>
 
               {/* Right Status Workflow Ribbon (Phasen-Schritte) */}
-              <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 rounded-xl p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700">
+              <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 rounded-xl p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700 max-w-full overflow-x-auto no-scrollbar">
                 {[
                   { key: 'new', label: 'Neu' },
                   { key: 'in_progress', label: 'In Bearbeitung' },
@@ -879,7 +1000,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   <button
                     key={phase.key}
                     onClick={() => handleStatusChange(phase.key as any)}
-                    className={`px-3 py-1 rounded-lg transition text-[11px] ${
+                    className={`px-2.5 sm:px-3 py-1 rounded-lg transition text-[11px] whitespace-nowrap ${
                       selectedTicket.status === phase.key
                         ? 'bg-cyan-600 text-white font-semibold shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -918,18 +1039,25 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     <div className="flex-1 flex items-center gap-1.5">
                       <select
                         value={selectedTicket.team}
-                        onChange={(e) => updateCurrentTicket({ team: e.target.value })}
+                        onChange={(e) => {
+                          if (e.target.value === '__add_new__') {
+                            setIsTeamModalOpen(true);
+                          } else {
+                            updateCurrentTicket({ team: e.target.value });
+                          }
+                        }}
                         className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
                       >
                         {teams.map(team => (
                           <option key={team} value={team}>{team}</option>
                         ))}
+                        <option value="__add_new__">+ Neues Team anlegen / bearbeiten...</option>
                       </select>
                       <button
                         type="button"
                         onClick={() => setIsTeamModalOpen(true)}
                         className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
-                        title="Teams verwalten / hinzufügen"
+                        title="Teams verwalten (Hinzufügen / Bearbeiten / Löschen)"
                       >
                         <Settings className="w-3.5 h-3.5" />
                       </button>
@@ -1022,25 +1150,54 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                   <div className="flex items-center">
                     <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">E-Mail</span>
-                    <input
-                      type="email"
-                      value={selectedTicket.contact_email || ''}
-                      onChange={(e) => updateCurrentTicket({ contact_email: e.target.value })}
-                      placeholder="wird automatisch vom Kontakt übernommen"
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                    />
+                    <div className="flex-1 flex items-center gap-1.5">
+                      <input
+                        type="email"
+                        value={selectedTicket.contact_email || ''}
+                        onChange={(e) => updateCurrentTicket({ contact_email: e.target.value })}
+                        placeholder="Automatisch aus Kontakt übernommen"
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                      />
+                      {selectedTicket.contact_email && (
+                        <a
+                          href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition"
+                          title="E-Mail in Standard-Mailprogramm öffnen"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center">
                     <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">Telefon</span>
-                    <input
-                      type="tel"
-                      value={selectedTicket.contact_phone || ''}
-                      onChange={(e) => updateCurrentTicket({ contact_phone: e.target.value })}
-                      placeholder="wird automatisch vom Kontakt übernommen"
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                    />
+                    <div className="flex-1 flex items-center gap-1.5">
+                      <input
+                        type="tel"
+                        value={selectedTicket.contact_phone || ''}
+                        onChange={(e) => updateCurrentTicket({ contact_phone: e.target.value })}
+                        placeholder="Automatisch aus Kontakt übernommen"
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                      />
+                      {selectedTicket.contact_phone && (
+                        <a
+                          href={`tel:${selectedTicket.contact_phone}`}
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+                          title="Telefonnummer anrufen"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
+
+                  {selectedTicket.contact_company && (
+                    <div className="flex items-center text-[11px] text-slate-500 dark:text-slate-400 pl-24 gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">Firma: {selectedTicket.contact_company}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center">
                     <span className="w-24 text-slate-500 dark:text-slate-400 font-medium">Stundensatz</span>
@@ -1253,35 +1410,58 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           {/* Right Column: SOCDOF Internal Logbook & Activity Chatter */}
           <div className="w-full lg:w-[380px] xl:w-[420px] bg-slate-50 dark:bg-slate-950 flex flex-col border-t lg:border-t-0 border-slate-200/80 dark:border-slate-800">
             
-            {/* Chatter Action Tabs */}
-            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setChatterTab('note');
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  chatterTab === 'note'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                Interne Notiz
-              </button>
+            {/* Customer Quick Mail Action Bar */}
+            {selectedTicket.contact_email && (
+              <div className="p-2.5 bg-cyan-50/80 dark:bg-cyan-950/40 border-b border-cyan-100 dark:border-cyan-900/50 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-cyan-800 dark:text-cyan-200 truncate">
+                  <Mail className="w-3.5 h-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                  <span className="truncate">{selectedTicket.contact_email}</span>
+                </div>
+                <a
+                  href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
+                  className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition shrink-0"
+                >
+                  <span>Mail öffnen</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </a>
+              </div>
+            )}
 
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setChatterTab('activity');
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  chatterTab === 'activity'
-                    ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                Aktivität & Protokoll
-              </button>
+            {/* Chatter Action Tabs */}
+            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setChatterTab('note');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    chatterTab === 'note'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Interne Notiz
+                </button>
+
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setChatterTab('activity');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    chatterTab === 'activity'
+                      ? 'bg-cyan-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Aktivität & Protokoll
+                </button>
+              </div>
+
+              <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">
+                Intern
+              </span>
             </div>
 
             {/* Chatter Input Box */}
@@ -1460,6 +1640,185 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-semibold transition"
               >
                 Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Support Settings Modal (Ticket Prefix, Default Rate, Sequence) */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    Support- & Kundendienst-Einstellungen
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Nummernkreis, Ticket-Präfix und Standardwerte konfigurieren
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsSettingsModalOpen(false);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Ticket Prefix */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Ticket-Präfix / Kürzel
+                </label>
+                <input
+                  type="text"
+                  value={tempSettings.ticketPrefix}
+                  onChange={(e) => setTempSettings({ ...tempSettings, ticketPrefix: e.target.value.toUpperCase() })}
+                  placeholder="z. B. SUP-, TICK-, IT-, AUFTRAG-"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-cyan-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Vorschau: <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">{tempSettings.ticketPrefix || 'SUP-'}{tempSettings.nextNumber || 1001}</span>
+                </p>
+              </div>
+
+              {/* Start Sequence Number */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Start-/Folgenummer
+                </label>
+                <input
+                  type="number"
+                  value={tempSettings.nextNumber}
+                  onChange={(e) => setTempSettings({ ...tempSettings, nextNumber: parseInt(e.target.value) || 1001 })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+
+              {/* Default Hourly Rate */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Standard-Stundensatz (€ / Std.)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="5"
+                    value={tempSettings.defaultHourlyRate}
+                    onChange={(e) => setTempSettings({ ...tempSettings, defaultHourlyRate: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="absolute right-3 top-2 text-slate-400 font-mono">€</span>
+                </div>
+              </div>
+
+              {/* Default Team */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Standard-Kundendienstteam
+                </label>
+                <select
+                  value={tempSettings.defaultTeam}
+                  onChange={(e) => setTempSettings({ ...tempSettings, defaultTeam: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                >
+                  {teams.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Default Staff */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Standard-Bearbeiter
+                </label>
+                <select
+                  value={tempSettings.defaultStaff}
+                  onChange={(e) => setTempSettings({ ...tempSettings, defaultStaff: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                >
+                  {STAFF_LIST.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsSettingsModalOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  saveSettings(tempSettings);
+                  setIsSettingsModalOpen(false);
+                }}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Einstellungen speichern</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Ticket Confirmation Modal */}
+      {ticketToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-900/60 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="p-2.5 rounded-full bg-rose-100 dark:bg-rose-950/60">
+                <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Ticket endgültig löschen?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  {ticketToDelete.ticketNumber} – {ticketToDelete.title}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Möchten Sie dieses Ticket inklusive aller erfassten Zeiten ({ticketToDelete.timesheets.length} Einträge) und Chatter-Aktivitäten wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteTicket}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ticket löschen</span>
               </button>
             </div>
           </div>

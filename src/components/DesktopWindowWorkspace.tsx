@@ -1615,7 +1615,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
 
             {/* Window Content Body with sleek inner scroll */}
-            <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 text-slate-900 dark:text-slate-100">
+            <div className={`flex-1 min-h-0 ${
+              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore'].includes(win.module)
+                ? 'overflow-hidden flex flex-col p-0'
+                : 'overflow-y-auto p-4 sm:p-6'
+            } bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}>
               {win.module === 'dashboard' && (
                 <Dashboard
                   invoices={invoices}
