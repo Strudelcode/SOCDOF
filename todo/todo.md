@@ -1,21 +1,22 @@
+
 # SOCDOF – Active Roadmap & Task List
 
 > This file contains all currently open, in-progress, and planned roadmap items. Completed tasks are archived in [completed_todo.md](./completed_todo.md).
 
 ---
 
-## 1. Operating Rules & Guidelines
-
-### 1.1 Language & Documentation
-- All development notes, release history files (`versions/V*.md`), code comments, and technical guides MUST strictly be written in **English**.
-- Multilingual user-facing UI texts are maintained via `src/lib/i18n.ts` (DE, EN, FR, ES).
-
-### 1.2 No Mock / Example Data Rule
-- Modules must initialize with clean empty states (e.g. `[]`). Never inject artificial demo/sample records unless explicitly requested.
-
-### 1.3 Two-File Todo Management & Archiving Rule
-- **Active Tasks**: `todo/todo.md` is strictly reserved for open (`[ ]`) and in-progress items.
-- **Completed Tasks**: As soon as an item is finished and verified, move it directly to `todo/completed_todo.md` with `[x]` and archive details to keep the active list concise and actionable.
+> ## 1. Operating Rules & Guidelines
+> 
+> ### 1.1 Language & Documentation
+> - All development notes, release history files (`versions/V*.md`), code comments, and technical guides MUST strictly be written in **English**.
+> - Multilingual user-facing UI texts are maintained via `src/lib/i18n.ts` (DE, EN, FR, ES).
+> 
+> ### 1.2 No Mock / Example Data Rule
+> - Modules must initialize with clean empty states (e.g. `[]`). Never inject artificial demo/sample records unless explicitly requested.
+> 
+> ### 1.3 Two-File Todo Management & Archiving Rule
+> - **Active Tasks**: `todo/todo.md` is strictly reserved for open (`[ ]`) and in-progress items.
+> - **Completed Tasks**: As soon as an item is finished and verified, move it directly to `todo/completed_todo.md` with `[x]` and archive details to keep the active list concise and actionable.
 
 ---
 
@@ -41,6 +42,14 @@
 - [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
 - [ ] Optional global customer search across Support, Invoices, and CRM.
 
-## WIndows desktop App
-- [ ] Wenn ich die .exe Datei öffne steht das das System von Windows geschützt wurde und der herausgeber unbekannt ist. Herausgeber bin ich: Yuri / Strudel
-- [ ] Die APP hat das electron-app-symbol und nicht mein eigenes
+### 2.5 Invoicing & E-Invoicing (FatturaPA / Italy)
+- [ ] **FatturaPA 1.2.x XML Generator**: Implement local generator for Italian e-invoices compliant with standard schemas.
+- [ ] **XML Validation**: Add built-in XSD validation before export to prevent SdI portal rejection.
+- [ ] **Portal Export**: Add export option for ready-to-upload XML files compatible with *Fatture e Corrispettivi*.
+- [ ] **XML Parser & Import**: Build drag-and-drop importer for incoming invoices and SdI status receipts.
+
+## Windows Desktop App Issues
+- [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
+- [ ] Executable Icon: Fix build config so the packaged `.exe` uses the custom SOCDOF icon instead of default Electron logo.
+
+
