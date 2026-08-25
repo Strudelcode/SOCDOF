@@ -1,156 +1,122 @@
-# SOCDOF Project Status & AI Handover Guide
+# SOCDOF Project Status and Handover Guide
 
-> **Project Name:** SOCDOF (Strudel's Organization, Commerce & Documentation Offline Flow)  
-> **Repository Origin:** Strudelcode/SOCDOF (`https://github.com/Strudelcode/SOCDOF`)  
-> **Target Platform:** 100% Local Offline ERP & Windows Desktop Suite (React 19 + Vite + Dexie.js + Tailwind CSS)  
-> **Default Language:** English (`en`)  
-> **Current Version:** **v18.3.5**  
-> **Last Updated:** 2026-08-24  
-
----
-
-## 1. Executive Summary & Architecture
-
-SOCDOF is an offline-first enterprise management system running in the browser and as a packaged desktop client with a dedicated **Windows 11 Desktop Experience (`DesktopWindowWorkspace.tsx`)**:
-- Draggable, resizable, minimizable, and maximizable multi-window workspace.
-- Windows Aero snap detection (left/right half-screen, top full-screen).
-- Centered Windows 11 taskbar with running app indicators, active underlines, notification count badges, drag-and-drop pinned icons, and system tray.
-- Windows 11 Start Menu with pinned apps, fast search, quick tool shortcuts, user profile, and power options (shutdown/restart simulation).
-- Dedicated desktop app lifecycle with all modules rendered in native floating window instances.
-- **Pure Desktop OS Focus:** Legacy web-fullscreen view mode and top banners have been completely removed.
-- **Windows Setup-Assistent mit nativer Ordnerauswahl:** Beim Starten der `.cmd`, `.bat` oder `.ps1` öffnet sich direkt ein nativer grafischer Windows-Ordnerauswahldialog (`FolderBrowserDialog`). Die Ordnerstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Startskripte und Desktop-Verknüpfung werden automatisch am gewählten Ort angelegt.
-- **GitHub Pages & Offline Index.html Support:** Durch `base: './'` in `vite.config.ts` und relative Asset-Links funktioniert das gebaute Projekt nahtlos auf `https://strudelcode.github.io/SOCDOF/`, in Subverzeichnissen sowie direkt als lokale HTML-Datei ohne weiße Bildschirme.
-
-All data is stored purely on the client side inside **IndexedDB via Dexie.js** (`src/lib/db.ts`). No remote backend is required.
+> **Project:** SOCDOF (Strudel's Organization, Commerce & Documentation Offline Flow)  
+> **Repository:** Strudelcode/SOCDOF (`https://github.com/Strudelcode/SOCDOF`)  
+> **Target platforms:** Windows Electron desktop application and browser/PWA build  
+> **Default language:** English (`en`)  
+> **Current project version:** **v19.0.0**  
+> **Last updated:** 2026-08-25  
 
 ---
 
-## 2. Version History & Recent Updates
+## 1. Executive summary and architecture
 
-### v18.3.5 (Current Release — 2026-08-24)
-- 🗂️ **Nativer Windows-Ordnerauswahldialog & 100% robuster Script-Launcher:**
-  - **Batch & CMD Fix (PowerShell EncodedCommand):** Die `.cmd` und `.bat` Setup-Skripte nutzen jetzt eine atomare, Base64-codierte UTF-16LE PowerShell-Ausführung. Dadurch werden alle klassischen Windows-Batch-Syntaxfehler (Klammern `()`, Pipes `|`, Anführungszeichen, vorzeitiges Schließen des Fensters) zu 100% eliminiert.
-  - Der Installationsassistent öffnet zuverlässig den grafischen Windows `FolderBrowserDialog`.
-  - Der Benutzer wählt seinen Wunschordner (z. B. `C:\SOCDOF` oder `D:\Programme\SOCDOF`) interaktiv auf seinem PC aus.
-  - Automatische Erstellung der Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`), Startskripte und Desktop-Verknüpfung (`SOCDOF Desktop.lnk`) mit Windows MessageBox-Erfolgsmeldung.
-- 🧹 **Bereinigtes Download-Modal:**
-  - Überflüssige Tabs (*Ordnerstruktur* und *Lokaler Speicher*) wurden vollständig aus dem Setup-Fenster entfernt.
-  - Fokussiertes Interface mit klarem 3-Schritte-Ablauf, Direktdownload für `.cmd`, `.bat` und `.ps1` sowie PWA-Verknüpfung.
-- 🌐 **GitHub Pages & Standalone Offline Fix:**
-  - Konfiguration von `base: './'` in `vite.config.ts` und relative Pfade in `index.html`.
-  - Behebt den leeren/weißen Bildschirm auf `https://strudelcode.github.io/SOCDOF/` und ermöglicht direktes lokales Öffnen der erzeugten `index.html`.
-- ⚙️ **Automatisierter GitHub Actions Release Workflow:** `.github/workflows/build-windows-exe.yml` zur Erzeugung von NSIS-Installern und Portable `.exe` Dateien bei Git-Tags.
+SOCDOF is a local-first business organization application with a Windows 11-inspired desktop workspace. It brings contacts, products, inventory, purchasing, sales, invoicing, POS workflows, settings, and documentation together in one application.
 
-### v18.3.4 (2026-08-24)
-- 💻 **Echter Windows Desktop Setup-Assistent (`Setup_SOCDOF_Windows.cmd` & `Install_SOCDOF_Wizard.ps1`):**
-  - Interaktive Auswahl des Zielinstallationspfads auf dem PC.
-  - Automatische Erstellung der vollständigen Verzeichnisstruktur (`\Data`, `\Backups`, `\Exports`, `\Config`).
-  - Automatische Erstellung einer Desktop-Verknüpfung (`SOCDOF Desktop.lnk`) und Startskript.
-  - Vollständige Behebung von Google 403 Forbidden Fehlern: App läuft 100% lokal ohne Abhängigkeit zu Sandbox-Cloud-URLs.
-- ⚙️ **Windows-Pfadverwaltung in den Einstellungen:** Unter *Speicher & Datensicherung* kann der Speicherort für Backups und lokale Daten direkt hinterlegt und angepasst werden.
-- 🐙 **GitHub Releases Verlinkung:** Direkter Absprung zu vorkompilierten Electron / NSIS `.exe` Binärpaketen.
+The primary desktop target is an Electron application. A browser and GitHub Pages build is also supported. Application data is stored locally in IndexedDB through Dexie.js; no remote backend is required for the core workflows.
 
-### v18.3.3 (2026-08-24)
-- 🪟 **Pure Windows OS Focus:** The legacy web-fullscreen view mode and top switch banners were completely removed. SOCDOF now boots directly and exclusively into the windowed desktop environment.
-- 🌐 **Simplified Language Selection Dialog:**
-  - Standard, clean vertical list layout replacing redundant nested dropdowns and bottom quick-select grids.
-  - High contrast in both light and dark modes.
-  - Default badge on English with clear `Skip (Default: English)` footer.
-  - Pixel-perfect vector SVG flags (`FlagIcon.tsx`).
-- ⚙️ **Centralized Version Model (`src/lib/version.ts`):** 
-  - Dynamic version display (`SOCDOF 18.3.5`) synchronized across `SettingsModule.tsx` (bottom-left system status card), `DocumentationApp.tsx`, `README.md`, and `Status.md`.
-- 📖 **Changelog Section in Documentation App:** Interactive release history added to the integrated user manual.
+The desktop workspace provides:
 
-### v18.3.2 (2026-08-24)
-- 🔄 **Calendar Sync Indicator:** Corrected Google/iCal status badge to "Nicht verbunden (Inaktiv)" until explicit feed copy/connection.
-- 🐙 **Open Source GitHub Integration:** Verlinkung des offiziellen Repositories `https://github.com/Strudelcode/SOCDOF` in Startmenü, Handbuch und Einstellungsübersicht.
-- 💬 **Discord Support Integration:** Support ausschließlich über den offiziellen Discord-Server `https://discord.gg/QW85EaXTgB`.
-- 🎨 **SOCDOF Branding:** Offizielles Logo (weißes S mit Windows-Farbrahmen) als Favicon, PWA-Icon, Taskleisten-Startbutton und Dashboard-Header.
-- 🏢 **Firmenprofil-Standard:** Standard-Firmenname auf *Strudel's Test GmbH* aktualisiert.
-
-### v18.3.1 (2026-08-24)
-- 🚀 **Windows Desktop Launcher:** Automatischer Generator für Windows `.bat` und `.ps1` Starterskripte.
-- 🔊 **Sound-Feedback:** Akustisches Feedback-System mit Stummschalt-Funktion.
-- 🌓 **Theme Switching:** Dark Mode und DIN-konformer Light Mode mit dynamischen Akzentfarben.
-
-### v18.3.0 (2026-08-20)
-- 🖥️ **Windows 11 Desktop Core:** Multi-Window-Manager mit Taskleiste, Startmenü und Fenster-Snapping.
-- 💶 **Finanz- & Fakturamodule:** Vollständige BWA, EÜR, UStVA Voranmeldung und DIN 5008 Rechnungsgenerator.
-- 💾 **IndexedDB Engine:** 100% Offline-Datenhaltung über Dexie.js mit JSON-Import/Export.
+- Draggable, resizable, minimizable, and maximizable application windows.
+- Windows-style snap behavior for left, right, and full-screen layouts.
+- A centered taskbar with running-app indicators, active states, notification badges, pinned icons, and a system tray.
+- A Start menu with pinned applications, search, quick tools, user profile, and simulated power options.
+- Native desktop lifecycle behavior with application modules rendered in floating windows.
+- A Windows setup assistant with a native folder picker for `.cmd`, `.bat`, and `.ps1` launchers.
+- Relative asset paths for GitHub Pages subdirectories and locally opened builds.
 
 ---
 
-## 3. Implemented Features & Modules
+## 2. Current release and recent history
 
-### A. Windows Installation & Setup Wizard (`src/lib/windowsExeDownloader.ts`)
-- **Native GUI Folder Dialog:** Öffnet beim Ausführen der `.cmd` / `.bat` / `.ps1` einen Windows `FolderBrowserDialog` zur freien Ordnerauswahl auf dem Rechner.
-- **Automatische Verzeichnisstruktur:** Erstellt `%TARGET_DIR%`, `\Data`, `\Backups`, `\Exports` und `\Config`.
-- **Offline Self-Contained Launcher:** Schreibt die autarke `index.html` und `SOCDOF_Starten.bat` lokal.
-- **Desktop Shortcut:** Erstellt `SOCDOF Desktop.lnk` auf dem Windows-Desktop via WScript Shell.
+The current project version is **v19.0.0**. Detailed release notes are maintained in [`versions/`](./versions/).
 
-### B. System Accent Colors (100% Functional & Live)
-- **Engine:** `src/lib/accent.ts` + `src/index.css`
-- **Presets Available:** `indigo`, `purple`, `blue`, `emerald`, `sky`, `amber`, `rose`, `teal`, `violet`, plus custom hex picker.
-
-### C. Startup Language Selection & Multi-Language i18n
-- **Engine:** `src/lib/i18n.ts` + `src/components/LanguageSelectionModal.tsx` + `src/components/FlagIcon.tsx`
-- **Default Language:** English (`en`).
-- **Supported Languages:** 🇺🇸 English (`en`), 🇩🇪 German (`de`), 🇫🇷 French (`fr`), 🇪🇸 Spanish (`es`).
-
-### D. Core Offline ERP Modules
-1. **Dashboard & KPIs (`Dashboard.tsx`):** Real-time analytics, open invoices, low stock indicators.
-2. **Invoices & Sales (`InvoicesModule.tsx`):** DIN 5008 invoices, fold marks, QR-code payment data (GiroCode / EPC-QR), PDF printing.
-3. **Accounting & Financial Reports (`AccountingModule.tsx`):** BWA, EÜR, UStVA Voranmeldung, Z-Report (Z-Bon).
-4. **CRM & Contacts (`ContactsModule.tsx`):** Customer & supplier directory.
-5. **Products & Master Data (`ProductsModule.tsx`):** Article catalog, prices, taxes, stock thresholds.
-6. **Inventory & Stock Moves (`StockMovesModule.tsx`):** Double-entry stock transfers.
-7. **Purchasing & RFQs (`PurchasesModule.tsx`):** Purchase orders & supplier bills.
-8. **Point of Sale & Restaurant (`POSModule.tsx` + `IOSBillingModule.tsx` + `RestaurantModule.tsx`):** Table maps, order splitting, KDS.
-9. **Settings & Backup (`SettingsModule.tsx`):** Master data, DIN 5008 letterhead, accents, dynamic version status widget, local backup paths.
-10. **Documentation & Help (`DocumentationApp.tsx` + `TutorialModal.tsx`):** Complete user manual with integrated changelog.
+- **v19:** Language synchronization, accent-color contrast, configurable date formats, native-app download reminder handling, and save confirmations.
+- **v18.3.5:** Robust Windows setup scripts, native folder picker, simplified setup modal, relative build paths, and automated Windows release workflow.
+- **v18.3.4:** Windows installation assistant, local directory management, configurable storage paths, and GitHub Releases links.
+- **v18.3.3:** Windows desktop focus, simplified language selection, centralized version model, and integrated changelog.
+- **v18.3.2:** Calendar status correction, GitHub and Discord links, branding, and default company profile.
+- **v18.3.1:** Windows launchers, sound feedback, and theme switching.
+- **v18.3.0:** Windows desktop core, finance/invoicing modules, and Dexie/IndexedDB persistence.
 
 ---
 
-## 4. GitHub Actions & Automated Windows .EXE Releases
+## 3. Implemented areas
 
-We have established two automated CI/CD workflows:
+### Desktop and system experience
 
-### A. Automatic Windows `.exe` Installer & Portable Builder (`.github/workflows/build-windows-exe.yml`)
-- **Triggered by:** Pushing any Git Tag (e.g. `v18.3.5`, `git tag v18.3.5 && git push origin v18.3.5`) or manually via the GitHub Actions tab (`workflow_dispatch`).
-- **Build runner:** `windows-latest`
-- **Output:**
-  1. `SOCDOF Setup 18.3.5.exe` (NSIS Installer with custom directory selector, start menu & desktop shortcuts)
-  2. `SOCDOF 18.3.5.exe` (Standalone Portable Executable)
-- **Automatic GitHub Release:** The workflow automatically publishes a new GitHub Release with download links for the `.exe` files attached!
+- Windows-style desktop workspace and multi-window management.
+- Start menu, taskbar, system tray, snapping, and window state handling.
+- Light mode, dark mode, accent colors, and optional sound feedback.
+- Startup language selection and responsive translation handling.
 
-### B. Automatic GitHub Pages Deployment (`.github/workflows/deploy-pages.yml`)
-- **Triggered by:** Any commit push to the `main` branch.
-- **Output:** Builds `dist/` and deploys directly to `https://strudelcode.github.io/SOCDOF/`.
+### Business modules
+
+- Dashboard and KPIs.
+- Contacts for customers and suppliers.
+- Products and master data.
+- Inventory and stock movements.
+- Purchasing and supplier bills.
+- Invoices, offers, delivery notes, PDF printing, and QR payment data.
+- Accounting reports including BWA, EÜR, UStVA, and Z-reports.
+- POS and restaurant workflows, table maps, order splitting, and kitchen display.
+- Settings, company profile, local storage, backups, and import/export.
+- Documentation and integrated help.
+
+### Supported languages
+
+- English (`en`) – default
+- German (`de`)
+- French (`fr`)
+- Spanish (`es`)
 
 ---
 
-## 5. Key Files Reference
+## 4. Windows packaging and deployment
+
+### Electron build
+
+The Electron entry point is `electron/main.cjs`. Packaging is configured in `electron-builder.json` and supports:
+
+- NSIS installer with selectable installation directory.
+- Portable Windows executable.
+- Desktop and Start menu shortcuts.
+
+### GitHub Actions
+
+- `.github/workflows/build-windows-exe.yml` builds Windows packages for tags or manual workflow runs.
+- `.github/workflows/deploy-pages.yml` builds and deploys the browser version to GitHub Pages.
+
+Release publication requires an intentional version decision and successful verification.
+
+---
+
+## 5. Key files
 
 | Path | Purpose |
-|------|---------|
-| `/.github/workflows/build-windows-exe.yml` | GitHub Actions workflow to build and attach NSIS + Portable `.exe` to GitHub Releases |
-| `/.github/workflows/deploy-pages.yml` | GitHub Actions workflow for automatic deployment to GitHub Pages |
-| `/electron/main.cjs` | Electron main process entry point for packaged desktop builds |
-| `/electron-builder.json` | Packaging configuration for NSIS installer and portable Windows `.exe` |
-| `/src/lib/version.ts` | Single source of truth for version number (`v18.3.5`) and changelog |
-| `/src/lib/windowsExeDownloader.ts` | Windows Setup Wizard (`.cmd`, `.bat`, `.ps1`) with native GUI folder picker & structure generator |
-| `/src/components/WindowsDesktopManagerModal.tsx` | Windows installation wizard dialog with 3-step guide & direct download actions |
-| `/vite.config.ts` | Vite configuration with `base: './'` for GitHub Pages (`strudelcode.github.io/SOCDOF/`) and offline builds |
-| `/README.md` | Comprehensive project readme with updated version history & directory guide |
-| `/Status.md` | AI handover and state documentation (ALWAYS updated) |
-| `/src/components/DesktopWindowWorkspace.tsx` | Windows 11 desktop workspace, taskbar, start menu, system tray |
-| `/src/components/SettingsModule.tsx` | System settings and dynamic version/storage status card with local paths |
-| `/src/components/DocumentationApp.tsx` | User manual with integrated changelog chapter |
-| `/src/lib/i18n.ts` | Reactive translation engine with full English default fallback |
-| `/src/lib/db.ts` | Dexie IndexedDB schemas, default company profile, and backup engine |
+|---|---|
+| `electron/main.cjs` | Electron main process |
+| `electron-builder.json` | Windows packaging configuration |
+| `src/lib/version.ts` | Central version and release data |
+| `src/lib/db.ts` | Dexie/IndexedDB database and backup engine |
+| `src/lib/i18n.ts` | Translation engine |
+| `src/lib/windowsExeDownloader.ts` | Windows launcher and setup-script generation |
+| `src/components/DesktopWindowWorkspace.tsx` | Desktop, taskbar, Start menu, and window workspace |
+| `src/components/SettingsModule.tsx` | Settings, company profile, and storage controls |
+| `src/components/DocumentationApp.tsx` | Integrated documentation and changelog |
+| `versions/` | Release history by major version |
+| `todo/todo.md` | Planned work and working instructions |
+| `README.md` | Public project overview and user instructions |
 
 ---
 
-## 6. Verification & Validation
-- Run `npm run lint` or `compile_applet` to ensure 0 TypeScript errors.
-- Version is consistently displayed as `SOCDOF 18.3.5` across the app.
+## 6. Verification
+
+Run the following checks after relevant code changes:
+
+```bash
+npm run lint
+npm run build
+```
+
+Also perform relevant manual checks in the browser build and, where applicable, in the packaged Electron application. Record failed or unavailable checks in the corresponding version notes.

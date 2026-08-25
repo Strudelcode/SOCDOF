@@ -1,8 +1,8 @@
 # SOCDOF
 
-**Strudel's Organization, Commerce & Documentation Offline Flow** ist eine modulare ERP- und Unternehmenssoftware für Windows und den Browser. SOCDOF kombiniert eine Windows-11-ähnliche Desktop-Oberfläche, Buchhaltung, Fakturierung, Warenwirtschaft, POS-Funktionen, Mehrsprachigkeit und lokale Datenspeicherung.
+**SOCDOF** ist eine lokale Windows-Desktop-Anwendung für die Organisation von Unternehmensdaten, Kontakten, Artikeln, Lagerbewegungen, Einkäufen, Verkäufen, Rechnungen und POS-Vorgängen. Die Anwendung bündelt diese Bereiche in einer Windows-11-inspirierten Arbeitsumgebung mit verschiebbaren Fenstern, Startmenü und Taskleiste.
 
-> Die Anwendung ist offline-first. Daten werden lokal in IndexedDB gespeichert. Funktionen mit externen Diensten werden nur nach ausdrücklicher Verbindung aktiviert.
+SOCDOF läuft als Electron-Anwendung mit React und Vite. Die Daten werden standardmäßig lokal im Browser-Speicher (IndexedDB über Dexie.js) verwaltet. Ein zentraler Online-Server ist für den normalen Betrieb nicht erforderlich. Zusätzlich kann die Anwendung als Web-Build beziehungsweise über GitHub Pages ausgeführt werden.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Strudelcode%2FSOCDOF-blue?logo=github)](https://github.com/Strudelcode/SOCDOF)
 [![Discord](https://img.shields.io/badge/Support-Discord-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
@@ -16,44 +16,46 @@
 - **Versionshistorie:** [`versions/`](./versions/)
 - **Arbeitsaufgaben:** [`todo/todo.md`](./todo/todo.md)
 
-## Funktionen
+## Was SOCDOF aktuell bietet
 
-- Windows-11-Desktop mit verschiebbaren, minimierbaren, maximierbaren und andockbaren Fenstern
-- Startmenü, Taskleiste, System-Tray und paralleler Mehrfensterbetrieb
-- DIN-5008-Rechnungen, Angebote, Lieferscheine und QR-Zahlcodes
-- Kunden-, Lieferanten- und Kontaktverwaltung
-- Artikelverwaltung, Lagerbestände und Lagerbewegungen
-- Einkauf, Bestellungen und Lieferantenrechnungen
-- POS-, Restaurant-, Tischplan- und Küchenanzeige-Funktionen
-- Dashboard mit Kennzahlen sowie Finanz- und Buchhaltungsauswertungen
-- Mehrsprachigkeit mit Englisch, Deutsch, Französisch und Spanisch
-- Lokale Backups sowie JSON-Import und -Export
-- Kalender- und Feed-Funktionen, die erst nach bewusster Verknüpfung aktiv werden
-
-## Windows-Installation
-
-Der Setup-Assistent kann über `Setup_SOCDOF_Windows.cmd`, `Setup_SOCDOF_Windows.bat` oder `Install_SOCDOF_Wizard.ps1` gestartet werden. Der Zielordner wird über einen nativen Windows-Dialog ausgewählt.
-
-Dabei können folgende Elemente angelegt werden:
-
-```text
-[Gewählter Ordner, z. B. C:\SOCDOF]
-├── Data\                   Lokale Daten und Belegdaten
-├── Backups\                Manuelle und automatische Sicherungen
-├── Exports\                Rechnungen, Berichte und andere Exporte
-├── Config\                 Firmen- und Anwendungseinstellungen
-├── SOCDOF_Starten.bat      Lokaler Starter
-└── SOCDOF Desktop.lnk      Desktop-Verknüpfung
-```
+- Windows-Desktop-Arbeitsbereich mit mehreren verschiebbaren, skalierbaren und minimierbaren Fenstern
+- Startmenü, Taskleiste, System-Tray und Fenster-Andocken
+- Dashboard und Übersichten für betriebliche Kennzahlen
+- Kontaktverwaltung für Kunden und Lieferanten
+- Artikelverwaltung und Bestandsgrenzen
+- Lagerbewegungen und Bestandsverwaltung
+- Einkäufe, Bestellungen und Lieferantenrechnungen
+- Rechnungen, Angebote und Lieferscheine mit DIN-5008-orientiertem Layout
+- QR-Zahlcodes für geeignete Rechnungsdaten
+- POS- und Restaurantfunktionen mit Tischplan, Bestellverwaltung und Küchenanzeige
+- Finanz- und Buchhaltungsauswertungen wie BWA, EÜR, UStVA und Z-Berichte
+- Mehrsprachige Benutzeroberfläche mit Englisch, Deutsch, Französisch und Spanisch
+- Dark Mode, Light Mode, Akzentfarben und Sound-Einstellungen
+- Lokale JSON-Backups sowie Import und Export
+- Optionale Kalender-/Feed-Funktionen, die erst nach einer bewussten Verbindung aktiviert werden
+- Integrierte Dokumentation und Hilfe
 
 ## Datenschutz und Datenhaltung
 
-- Daten werden standardmäßig lokal über IndexedDB mit Dexie.js gespeichert.
-- Es ist kein eigener Remote-Backend-Dienst für den Grundbetrieb erforderlich.
+- Die Anwendungsdaten werden standardmäßig lokal über IndexedDB mit Dexie.js gespeichert.
+- Für die grundlegenden ERP-Funktionen ist kein eigener Remote-Backend-Dienst erforderlich.
 - Backups können lokal als JSON exportiert und wieder importiert werden.
-- Externe Kalender oder andere Integrationen benötigen eine separate Verbindung und sollten vor der Aktivierung hinsichtlich Datenschutz und Berechtigungen geprüft werden.
+- Externe Dienste wie Kalenderintegrationen sind nicht Bestandteil des zwingenden Offline-Kernbetriebs und benötigen eine separate Aktivierung.
 
-## Entwicklung
+## Installation über GitHub Releases
+
+Für normale Benutzer ist keine Installation aus dem Quellcode notwendig. Die fertigen Windows-Versionen werden im Bereich **Releases** des GitHub-Repositories veröffentlicht:
+
+<https://github.com/Strudelcode/SOCDOF/releases>
+
+Dort können – sofern für die jeweilige Version veröffentlicht – folgende Dateien verfügbar sein:
+
+- **Setup-Installer (`SOCDOF Setup … .exe`):** normale Windows-Installation mit auswählbarem Installationsordner sowie Startmenü- und Desktop-Verknüpfung.
+- **Portable-Version (`SOCDOF … .exe`):** direkt startbare Version ohne klassische Installation.
+
+Die passende Datei herunterladen, unter Windows ausführen und den Anweisungen des Installers folgen. Nur Releases aus dem offiziellen Repository verwenden.
+
+## Lokale Entwicklung
 
 Voraussetzungen: Node.js und npm.
 
@@ -77,15 +79,15 @@ npm run build
 
 Der Entwicklungsserver verwendet standardmäßig Port `3000`.
 
-## Windows-EXE erstellen
+## Windows-Build für Maintainer
 
-Der Windows-Build wird über Electron Builder erzeugt:
+Maintainer können den Electron-Build lokal erstellen:
 
 ```bash
 npm run build:exe
 ```
 
-Für GitHub-Releases steht zusätzlich der Workflow `.github/workflows/build-windows-exe.yml` zur Verfügung. Release-Tags und die Veröffentlichung von Build-Artefakten erst nach erfolgreicher Prüfung und bewusster Freigabe verwenden.
+Der Build erzeugt einen NSIS-Installer und eine portable Windows-Version. Zusätzlich kann der GitHub-Actions-Workflow `.github/workflows/build-windows-exe.yml` für veröffentlichte Releases verwendet werden. Release-Tags und die Veröffentlichung von Build-Artefakten erst nach erfolgreicher Prüfung und bewusster Freigabe verwenden.
 
 ## Versionierung
 
@@ -110,4 +112,4 @@ Für GitHub-Releases steht zusätzlich der Workflow `.github/workflows/build-win
 
 ---
 
-*SOCDOF – Strudel's Organization, Commerce & Documentation Offline Flow*
+*SOCDOF – lokale Unternehmensorganisation in einer Windows-Desktop-Arbeitsumgebung*
