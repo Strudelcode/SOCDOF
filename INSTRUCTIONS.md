@@ -6,8 +6,8 @@ This document defines the core operational standards, versioning protocols, and 
 
 ## 1. Versioning Rules
 
-- **SemVer Format**: `v<Major>.<Minor>.<Patch>` (e.g., `v19.0.3`).
-- **Minor & Patch Updates**: When adding features, polishing UI, or fixing bugs within the current generation, increment minor or patch versions autonomously (e.g. `v19.0.3` -> `v19.0.4` or `v19.1.0`).
+- **SemVer Format**: `v<Major>.<Minor>.<Patch>` (e.g., `v19.0.5`, `v19.1.0`, `v19.1.5`).
+- **Flexible Minor & Patch Updates**: When adding new features, major UX improvements, or module integrations, increment to a clean minor version (e.g. `v19.1.0`, `v19.2.0`). For smaller enhancements and bug fixes, increment patch versions (e.g. `v19.1.1`, `v19.1.5`).
 - **Major Version Constraint**: A new major version (e.g., `v20.0.0`) **must never** be initiated automatically. It requires explicit user discussion and consent.
 - **Synchronized Version Declarations**: Every version increment must be updated across all designated locations simultaneously:
   1. `package.json` (`"version": "19.x.x"`)

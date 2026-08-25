@@ -51,7 +51,8 @@ import {
   ChevronRight,
   Clock,
   AlertCircle,
-  Check
+  Check,
+  Headphones
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -88,6 +89,7 @@ import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
 import { DesktopFolderModal } from './DesktopFolderModal';
 import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
+import { SupportServicesModule } from './SupportServicesModule';
 import { SocdofLogo } from './SocdofLogo';
 
 interface DesktopWindowWorkspaceProps {
@@ -812,20 +814,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   // Shortcut registry
   const shortcutMeta: Record<ActiveModule, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }>; color: string }> = useMemo(() => ({
-    dashboard: { title: t('module.dashboard', currentLang, 'Übersicht'), subtitle: t('desc.dashboard', currentLang, 'ERP Dashboard'), icon: Boxes, color: 'bg-purple-600' },
+    dashboard: { title: t('module.dashboard', currentLang, 'Dashboard'), subtitle: t('desc.dashboard', currentLang, 'ERP Dashboard'), icon: Boxes, color: 'bg-purple-600' },
     invoices: { title: t('module.invoices', currentLang, 'Rechnungen'), subtitle: t('desc.invoices', currentLang, 'Fakturierung & DIN-A4'), icon: Receipt, color: 'bg-indigo-600' },
-    ios_billing: { title: t('module.ios_billing', currentLang, 'iOS Kasse & Menü'), subtitle: t('desc.ios_billing', currentLang, 'Speisen, Beilagen & Billing'), icon: Utensils, color: 'bg-indigo-600' },
-    restaurant: { title: t('module.restaurant', currentLang, 'Gastro & Speisen'), subtitle: t('desc.restaurant', currentLang, 'Speisekarte & Tische'), icon: Utensils, color: 'bg-amber-600' },
+    ios_billing: { title: t('module.ios_billing', currentLang, 'Schnellkasse'), subtitle: t('desc.ios_billing', currentLang, 'Speisen, Beilagen & Billing'), icon: Utensils, color: 'bg-indigo-600' },
+    restaurant: { title: t('module.restaurant', currentLang, 'Restaurant'), subtitle: t('desc.restaurant', currentLang, 'Speisekarte & Tische'), icon: Utensils, color: 'bg-amber-600' },
     accounting: { title: t('module.accounting', currentLang, 'Abrechnung'), subtitle: t('desc.accounting', currentLang, 'BWA, EÜR & Finanzen'), icon: Calculator, color: 'bg-emerald-600' },
     contacts: { title: t('module.contacts', currentLang, 'Kontakte'), subtitle: t('desc.contacts', currentLang, 'Kunden & Lieferanten'), icon: Users, color: 'bg-teal-600' },
-    products: { title: t('module.products', currentLang, 'Artikel'), subtitle: t('desc.products', currentLang, 'Produkte & Preise'), icon: Package, color: 'bg-blue-600' },
+    support_services: { title: t('module.support_services', currentLang, 'Support'), subtitle: t('desc.support_services', currentLang, 'Dienstleistungen & Zeiterfassung'), icon: Headphones, color: 'bg-cyan-600' },
+    products: { title: t('module.products', currentLang, 'Produkte'), subtitle: t('desc.products', currentLang, 'Produkte & Preise'), icon: Package, color: 'bg-blue-600' },
     stock: { title: t('module.stock', currentLang, 'Lager'), subtitle: t('desc.stock', currentLang, 'Warenbewegungen'), icon: Layers, color: 'bg-amber-600' },
     pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
     settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-slate-700' },
-    launcher: { title: t('module.launcher', currentLang, 'Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-indigo-600' }
+    launcher: { title: t('module.launcher', currentLang, 'App Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-indigo-600' }
   }), [currentLang]);
 
   // Calendar calculations for Windows 11 Calendar & Agenda Flyout
@@ -1665,6 +1668,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               {win.module === 'products' && (
                 <ProductsModule
                   products={products}
+                  invoices={invoices}
+                  stockMoves={stockMoves}
                   onRefresh={onRefreshData}
                   onOpenStockTransfer={() => openWindow('stock', 'Lagerbuchung')}
                   currency={company.currency}
@@ -1711,6 +1716,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               {win.module === 'ios_billing' && (
                 <IOSBillingModule
                   companyProfile={company}
+                />
+              )}
+
+              {win.module === 'support_services' && (
+                <SupportServicesModule
+                  contacts={contacts}
+                  companyProfile={company}
+                  onCreateInvoiceForService={(ticket) => openWindow('invoices', `Rechnung für ${ticket.contact_name}`)}
                 />
               )}
 

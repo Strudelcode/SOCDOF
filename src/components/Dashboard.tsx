@@ -184,14 +184,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Top Welcome / Metric Highlights */}
+      {/* Top Welcome / Metric Highlights with direct inter-app links */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
-        {/* Metric 1: Gesamtumsatz */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-[#714B67]/50 transition flex flex-col justify-between">
+        {/* Metric 1: Gesamtumsatz -> Opens Accounting (Abrechnung & BWA) */}
+        <div 
+          onClick={() => {
+            sounds.playClick();
+            onNavigate('accounting');
+          }}
+          className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-[#714B67] dark:hover:border-purple-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+          title="Klicken, um Abrechnung & BWA zu öffnen"
+        >
           <div>
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium gap-2">
-              <span className="truncate">Gesamtumsatz</span>
-              <div className="p-1.5 sm:p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#714B67] dark:text-purple-400 shrink-0">
+              <span className="truncate">Gesamtumsatz (Abrechnung)</span>
+              <div className="p-1.5 sm:p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#714B67] dark:text-purple-400 shrink-0 group-hover:scale-110 transition">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
@@ -199,18 +206,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {formatCurrency(totalInvoiced)}
             </div>
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate">
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{formatCurrency(totalPaid)} bezahlt</span>
+          <div className="mt-2 flex items-center justify-between gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate">
+            <span className="flex items-center gap-1.5 truncate">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{formatCurrency(totalPaid)} bezahlt</span>
+            </span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 transition shrink-0" />
           </div>
         </div>
 
-        {/* Metric 2: Offene Forderungen */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-amber-500/50 transition flex flex-col justify-between">
+        {/* Metric 2: Offene Forderungen -> Opens Invoices */}
+        <div 
+          onClick={() => {
+            sounds.playClick();
+            onNavigate('invoices');
+          }}
+          className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-amber-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+          title="Klicken, um offene Rechnungen anzuzeigen"
+        >
           <div>
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium gap-2">
               <span className="truncate">Offene Forderungen</span>
-              <div className="p-1.5 sm:p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 shrink-0">
+              <div className="p-1.5 sm:p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 shrink-0 group-hover:scale-110 transition">
                 <Receipt className="w-4 h-4" />
               </div>
             </div>
@@ -220,16 +237,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1 truncate">
             <span className="truncate">{invoices.filter(i => i.status === 'posted').length} offen</span>
-            {totalDraft > 0 && <span className="text-slate-400 font-mono-num truncate">({formatCurrency(totalDraft)} Entwurf)</span>}
+            <div className="flex items-center gap-1">
+              {totalDraft > 0 && <span className="text-slate-400 font-mono-num truncate">({formatCurrency(totalDraft)} Entwurf)</span>}
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition shrink-0" />
+            </div>
           </div>
         </div>
 
-        {/* Metric 3: Aktueller Lagerwert */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-emerald-500/50 transition flex flex-col justify-between">
+        {/* Metric 3: Aktueller Lagerwert -> Opens Stock/Lager */}
+        <div 
+          onClick={() => {
+            sounds.playClick();
+            onNavigate('stock');
+          }}
+          className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-emerald-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+          title="Klicken, um Lagerbuchungen & Bestand anzuzeigen"
+        >
           <div>
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium gap-2">
               <span className="truncate">Lagerwert (EK)</span>
-              <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition">
                 <Boxes className="w-4 h-4" />
               </div>
             </div>
@@ -237,17 +264,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {formatCurrency(totalInventoryValue)}
             </div>
           </div>
-          <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">
-            VK-Potenzial: <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono-num">{formatCurrency(totalInventoryRetailValue)}</span>
+          <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between gap-1 truncate">
+            <span className="truncate">VK: <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono-num">{formatCurrency(totalInventoryRetailValue)}</span></span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition shrink-0" />
           </div>
         </div>
 
-        {/* Metric 4: Lagerstatus & Produkte */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-indigo-500/50 transition flex flex-col justify-between">
+        {/* Metric 4: Lagerstatus & Produkte -> Opens Products */}
+        <div 
+          onClick={() => {
+            sounds.playClick();
+            onNavigate('products');
+          }}
+          className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-indigo-500 hover:shadow-md cursor-pointer transition flex flex-col justify-between"
+          title="Klicken, um Produkte & Preise anzuzeigen"
+        >
           <div>
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium gap-2">
-              <span className="truncate">Lager & Produkte</span>
-              <div className={`p-1.5 sm:p-2 rounded-xl shrink-0 ${lowStockProducts.length > 0 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
+              <span className="truncate">Produkte & Katalog</span>
+              <div className={`p-1.5 sm:p-2 rounded-xl shrink-0 group-hover:scale-110 transition ${lowStockProducts.length > 0 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </div>
@@ -258,11 +293,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">aktive Artikel</span>
             </div>
           </div>
-          <div className="mt-2 text-xs truncate">
+          <div className="mt-2 text-xs flex items-center justify-between gap-1 truncate">
             {lowStockProducts.length > 0 ? (
               <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1 truncate">
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
-                <span className="truncate">{lowStockProducts.length} unter Mindestbestand</span>
+                <span className="truncate">{lowStockProducts.length} unter Minimum</span>
               </span>
             ) : (
               <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 truncate">
@@ -270,6 +305,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span className="truncate">Bestände optimal</span>
               </span>
             )}
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition shrink-0" />
           </div>
         </div>
       </div>

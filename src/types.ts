@@ -29,6 +29,9 @@ export interface Product {
   min_qty?: number;
   barcode?: string;
   image_emoji?: string;
+  image_url?: string;
+  web_link?: string;
+  source_domain?: string;
   description?: string;
   createdAt?: string;
 }
@@ -233,7 +236,32 @@ export type ActiveModule =
   | 'appstore' 
   | 'docs'
   | 'restaurant'
-  | 'ios_billing';
+  | 'ios_billing'
+  | 'support_services';
+
+export interface SupportServiceTicket {
+  id: string;
+  title: string;
+  contact_id?: number;
+  contact_name: string;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_company?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  assignedStaff: string;
+  hourlyRate?: number;
+  billable: boolean;
+  status: 'open' | 'in_progress' | 'completed' | 'invoiced';
+  tags: string[];
+  description: string;
+  internalNotes?: string;
+  invoice_id?: number;
+  invoice_number?: string;
+  createdAt: string;
+}
 
 export interface DesktopFolder {
   id: string;

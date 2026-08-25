@@ -38,7 +38,8 @@ import {
   Zap,
   ArrowRight,
   Shield,
-  FileCheck
+  FileCheck,
+  Headphones
 } from 'lucide-react';
 import { ActiveModule, StoreApp } from '../types';
 import { sounds } from '../lib/sound';
@@ -206,6 +207,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Einkauf', 'Bestellungen', 'Lieferanten', 'Finanzen']
     },
     {
+      id: 'support_services',
+      title: 'Kunden-Support & Dienstleistungen',
+      category: 'productivity',
+      description: 'Erfassung, Zeiterfassung und Dokumentation von Kunden-Support-Einsätzen, Servicezeiten und Tag-Verwaltung.',
+      iconName: 'Headphones',
+      badge: 'Dienstleistungen',
+      author: 'Odoo Productivity',
+      version: '19.0.5',
+      isInstalled: installedModules.includes('support_services'),
+      isFinancial: true,
+      isSystem: false,
+      tags: ['Support', 'Service', 'Kunden', 'Zeiterfassung', 'Dienstleistung']
+    },
+    {
       id: 'ios_billing',
       title: 'iOS Gastro & Speisen-Kasse',
       category: 'gastro',
@@ -271,6 +286,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'restaurant': return Utensils;
       case 'accounting': return Calculator;
       case 'contacts': return Users;
+      case 'support_services': return Headphones;
       case 'pos': return CreditCard;
       case 'products': return Package;
       case 'stock': return Layers;
@@ -285,17 +301,18 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     switch (id) {
       case 'dashboard': return 'bg-purple-600';
       case 'invoices': return 'bg-indigo-600';
-      case 'ios_billing':
+      case 'ios_billing': return 'bg-indigo-600';
       case 'restaurant': return 'bg-amber-600';
       case 'accounting': return 'bg-emerald-600';
       case 'contacts': return 'bg-teal-600';
+      case 'support_services': return 'bg-cyan-600';
       case 'pos': return 'bg-violet-600';
       case 'products': return 'bg-blue-600';
       case 'stock': return 'bg-amber-600';
       case 'purchases': return 'bg-orange-600';
       case 'docs': return 'bg-sky-600';
       case 'settings': return 'bg-slate-700';
-      default: return 'bg-indigo-600';
+      default: return 'bg-slate-800';
     }
   };
 
