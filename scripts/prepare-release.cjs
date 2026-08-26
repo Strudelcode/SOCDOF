@@ -14,10 +14,8 @@ function main() {
   const majorTag = `v${major}`;
   const versionTag = `v${version}`;
 
-  // If it's a major root version (e.g. 20.0.0 or 19.0.0), it is a full Release.
-  // If it's a sub-version / patch / minor (e.g. 20.0.4, 20.0.5, 20.1.0), it is marked as Prerelease.
+  const isPrerelease = version.includes('-') || Boolean(pkg.prerelease);
   const isMajorRelease = (minor === 0 && patch === 0);
-  const isPrerelease = !isMajorRelease;
 
   // Search for version notes in versions/V<major>.md
   const versionDocPath = path.join(process.cwd(), 'versions', `V${major}.md`);

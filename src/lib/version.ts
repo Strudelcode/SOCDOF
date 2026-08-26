@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.8';
+export const APP_VERSION = '20.0.9';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.9',
+    date: '2026-08-26',
+    title: 'Dynamic Semantic Release Tagging, Multi-Major Scalability & CI/CD Integrity',
+    highlights: [
+      'Dynamic Semantic Release Tagging: Replaced static single-tag overwriting with unique, standard semantic version tags (e.g. v20.0.9, v21.0.0, v33.0.0) generated dynamically on each build',
+      'Multi-Major Scalability: GitHub Actions release workflow dynamically adapts to any current or future major version without manual pipeline modifications or hardcoded tags',
+      'GitHub Releases & API Harmonization: Native release publishing with `make_latest: true` ensures clean git history, prevents tag collision, and allows in-app update checker to resolve latest releases immediately'
+    ]
+  },
   {
     version: '20.0.8',
     date: '2026-08-26',

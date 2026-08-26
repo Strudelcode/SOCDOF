@@ -6,7 +6,15 @@
 
 ## Completed Tasks Archive
 
-### 1. Streamlined Backup Settings, Setup Wizard & Snapshot Hygiene (v20.0.8)
+### 1. Dynamic Semantic Release Tagging & CI/CD Scalability (v20.0.9)
+- [x] **Dynamic Semantic Version Tags**:
+  - [x] Replaced single-tag overwriting (`git tag -f v20`) with dedicated semantic version tags (e.g. `v20.0.9`, `v21.0.0`, `v33.0.0`) dynamically extracted from `package.json`.
+  - [x] Preserved git history immutability and eliminated release cache conflicts.
+- [x] **Universal Multi-Major Pipeline**:
+  - [x] Configured GitHub Actions workflow `.github/workflows/build-windows-exe.yml` and `scripts/prepare-release.cjs` to scale dynamically across all future major releases (`v20`, `v21`, `v33`...) without hardcoding.
+  - [x] Automated release publication with `make_latest: true` to guarantee immediate in-app update detection.
+
+### 2. Streamlined Backup Settings, Setup Wizard & Snapshot Hygiene (v20.0.8)
 - [x] **Backup Settings Decluttering**:
   - [x] Removed outdated setup .cmd button, quick preset pills, notes field, target structure info box, and duplicate header action.
   - [x] Streamlined the backup destination into a clean input with a single, dedicated "Ordner wählen" button.

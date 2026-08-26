@@ -31,21 +31,19 @@ jobs:
         id: prep
         run: node scripts/prepare-release.cjs
 
-      - name: Ensure Main Major Tag Exists (e.g. v20)
+      - name: Tag Release Commit
         shell: bash
         run: |
-          MAJOR_TAG="${{ steps.prep.outputs.major_tag }}"
-          echo "Main Major Tag is: $MAJOR_TAG"
+          VERSION_TAG="${{ steps.prep.outputs.version_tag }}"
+          echo "Target Version Tag: $VERSION_TAG"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git rev-parse "$MAJOR_TAG" >/dev/null 2>&1 && ! git ls-remote --tags origin "$MAJOR_TAG" | grep -q "refs/tags/$MAJOR_TAG"; then
-            echo "Major tag $MAJOR_TAG does not exist yet on remote. Creating and pushing tag $MAJOR_TAG..."
-            git tag "$MAJOR_TAG"
-            git push origin "$MAJOR_TAG" || echo "Tag push warning, continuing..."
+          if ! git rev-parse "$VERSION_TAG" >/dev/null 2>&1 && ! git ls-remote --tags origin "$VERSION_TAG" | grep -q "refs/tags/$VERSION_TAG"; then
+            echo "Tag $VERSION_TAG does not exist yet. Creating and pushing tag $VERSION_TAG..."
+            git tag "$VERSION_TAG"
+            git push origin "$VERSION_TAG" || echo "Tag push notice: continuing to release step..."
           else
-            echo "Major tag $MAJOR_TAG already exists. Updating tag $MAJOR_TAG to latest commit..."
-            git tag -f "$MAJOR_TAG"
-            git push -f origin "$MAJOR_TAG" || echo "Force tag push warning, continuing..."
+            echo "Tag $VERSION_TAG already exists."
           fi
 
       - name: Install dependencies
@@ -67,14 +65,14 @@ jobs:
           name: SOCDOF-Windows-Installer
           path: release/*.exe
 
-      - name: Publish GitHub Release (Always to Major Tag)
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.prep.outputs.major_tag }}
-          name: SOCDOF ${{ steps.prep.outputs.major_tag }} (${{ steps.prep.outputs.version_tag }})
+          tag_name: ${{ steps.prep.outputs.version_tag }}
+          name: SOCDOF ${{ steps.prep.outputs.version_tag }}
           body_path: release_notes.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.prep.outputs.is_prerelease == 'true' }}
           make_latest: true
           files: release/*.exe
         env:
