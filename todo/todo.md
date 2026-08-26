@@ -53,3 +53,8 @@
 - [ ] Executable Icon: Fix build config so the packaged `.exe` uses the custom SOCDOF icon instead of default Electron logo.
 
 
+## Other
+- [ ] Villeicht im haupt Ordner bei der index.html eine webseite mit der dokumetation, features... beschreiben. Es soll KEINE one page sein. dann kann man auch das GitHub Projekt sehen. die releases runterladen. die vorschau Seite sehen und so
+- [ ] vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere sSachen?
+
+
