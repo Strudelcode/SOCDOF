@@ -19,6 +19,7 @@ import { sounds } from './lib/sound';
 import { StudioDrawer } from './components/StudioDrawer';
 import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
+import { BackupSetupModal } from './components/BackupSetupModal';
 import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
@@ -31,6 +32,15 @@ export default function App() {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(() => {
     try {
       return localStorage.getItem('socdof_language_initialized') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  // Backup Setup Modal on Startup (appears after language is set or if not yet completed)
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('socdof_backup_setup_initialized') !== 'true';
     } catch {
       return true;
     }
@@ -238,6 +248,14 @@ export default function App() {
           setLanguage(lang);
           setCompany(prev => ({ ...prev, language: lang }));
         }}
+      />
+
+      {/* First-Run Backup Setup Modal */}
+      <BackupSetupModal
+        isOpen={isBackupModalOpen && !isLanguageModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        company={company}
+        onUpdateCompany={(updated) => setCompany(updated)}
       />
     </div>
   );

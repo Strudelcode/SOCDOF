@@ -63,18 +63,18 @@
 - **Live Regional Formatting**: The taskbar clock, calendar flyout, and system timestamps format dynamically using the company profile timezone (`company.timezone`, e.g., `Europe/Berlin`, `Europe/London`, `America/New_York`, `UTC`).
 - **Storage Footprint Clarity**: Settings provides clear explanations of local IndexedDB database utilization across invoices, products, contacts, and journal entries.
 
-### 6. Zero Dummy Data Policy, Folder Selection & Automated CI/CD (v20.0.7)
+### 6. Zero Dummy Data Policy, Folder Selection, CI/CD & Setup Wizard (v20.0.8)
 - **Zero Mock / Dummy Data Enforcement**:
   - Removed all placeholder demo companies, fake bank credentials, and test addresses from default database records and initial seeders.
-  - Automatically sanitizes legacy demo profile data on startup to ensure a clean slate.
-- **Accessible Backup Folder Selection**:
-  - Direct folder selection via File System Access API (`showDirectoryPicker`) and directory upload input fallback.
-  - 1-click Quick Preset location pills (`Documents`, `Downloads`, `Desktop`, `USB Drive`) enabling non-technical users to set backup destinations easily.
-  - Dedicated "Verlauf leeren" (Clear Snapshot History) action with confirmation dialog.
+  - Automatically sanitizes legacy demo profile data and empty test snapshots on startup.
+- **Streamlined Backup Settings & Folder Selection**:
+  - Clean, distraction-free backup destination input with direct folder picker button.
+  - Removed obsolete .cmd setup button, notes field, quick presets, and duplicate actions.
+- **First-Run Backup Setup Wizard**:
+  - Guided onboarding dialog on first launch to configure backup activation, select destination folder, keep default, or disable.
 - **GitHub Actions CI/CD Pipeline**:
   - Automated verification and creation of root major tags (e.g. `v20`) on GitHub.
   - Automatic builds of Windows Setup installer `.exe` on every push/tag.
-  - Automatic differentiation between full Releases (major tags) and Pre-releases (sub-versions).
   - In-app update checker strictly filtered to official full releases only.
 
 ---
@@ -84,11 +84,12 @@
 | Component | Path | Description |
 |---|---|---|
 | **Instructions** | `INSTRUCTIONS.md` | Codified zero mock/dummy data rule & accessible folder picker standards |
-| **Settings Module** | `src/components/SettingsModule.tsx` | Folder picker dialog, quick location presets, clear snapshots action & clean placeholders |
+| **Settings Module** | `src/components/SettingsModule.tsx` | Decluttered backup settings, clean placeholders & unified folder button |
+| **Backup Wizard** | `src/components/BackupSetupModal.tsx` | First-run setup modal for activation, custom folder selection or skip/disable |
 | **Database Engine** | `src/lib/db.ts` | Clean default profile and legacy dummy data auto-purging on boot |
-| **Backup Engine** | `src/lib/backupManager.ts` | Snapshot history reset, timer grace period & direct JSON export |
+| **Backup Engine** | `src/lib/backupManager.ts` | Empty snapshot filter, snapshot history reset & timer grace period |
 | **CI/CD Workflow** | `.github/workflows/release.yml` | Automated build, major tag verification & GitHub release pipeline |
-| **App Version** | `src/lib/version.ts` | Synced to `20.0.7` with updated version history |
+| **App Version** | `src/lib/version.ts` | Synced to `20.0.8` with updated version history |
 
 ---
 

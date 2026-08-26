@@ -6,7 +6,18 @@
 
 ## Completed Tasks Archive
 
-### 1. Zero Dummy Data Enforcement, Accessible Backup Folder Picker & Snapshot History (v20.0.7)
+### 1. Streamlined Backup Settings, Setup Wizard & Snapshot Hygiene (v20.0.8)
+- [x] **Backup Settings Decluttering**:
+  - [x] Removed outdated setup .cmd button, quick preset pills, notes field, target structure info box, and duplicate header action.
+  - [x] Streamlined the backup destination into a clean input with a single, dedicated "Ordner wählen" button.
+- [x] **First-Run Backup Setup Wizard**:
+  - [x] Created `src/components/BackupSetupModal.tsx` for initial launch onboarding.
+  - [x] Provided 3 intuitive options: "Backups aktivieren & Ordner wählen", "Überspringen (Standardverzeichnis beibehalten)", and "Backups deaktivieren".
+- [x] **Snapshot Hygiene & Legacy Cleanup**:
+  - [x] Automated purging of empty test snapshots from pre-release testing.
+  - [x] Prevented automatic background snapshots when database contains zero records.
+
+### 2. Zero Dummy Data Enforcement, Accessible Backup Folder Picker & Snapshot History (v20.0.7)
 - [x] **Zero Mock / Example Data Policy**:
   - [x] Removed all dummy company names, fake addresses, placeholder bank accounts, and arbitrary test values from `defaultCompanyProfile` in `src/lib/db.ts`.
   - [x] Added self-healing database seeder logic in `seedInitialDataIfNeeded` to clean legacy dummy data on application boot.

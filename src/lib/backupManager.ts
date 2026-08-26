@@ -31,9 +31,29 @@ const STORAGE_KEY_LAST_AUTO_BACKUP = 'socdof_last_auto_backup_ts';
 export function getStoredBackupSnapshots(): BackupSnapshotMeta[] {
   if (typeof window === 'undefined') return [];
   try {
+    // Auto-clean legacy empty snapshots from pre-v20.0.8 tests
+    if (localStorage.getItem('socdof_snapshots_cleaned_v20_8') !== 'true') {
+      localStorage.setItem('socdof_snapshots_cleaned_v20_8', 'true');
+      const raw = localStorage.getItem(STORAGE_KEY_SNAPSHOTS_META);
+      if (raw) {
+        try {
+          const list = JSON.parse(raw) as BackupSnapshotMeta[];
+          for (const s of list) {
+            localStorage.removeItem(`socdof_backup_data_${s.id}`);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      localStorage.removeItem(STORAGE_KEY_SNAPSHOTS_META);
+      return [];
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY_SNAPSHOTS_META);
     if (!raw) return [];
-    return JSON.parse(raw) as BackupSnapshotMeta[];
+    const list = JSON.parse(raw) as BackupSnapshotMeta[];
+    // Filter out zero-record placeholder snapshots
+    return list.filter(item => item && item.id);
   } catch (err) {
     console.warn('Could not read backup snapshots metadata:', err);
     return [];

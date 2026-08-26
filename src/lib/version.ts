@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.7';
+export const APP_VERSION = '20.0.8';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.8',
+    date: '2026-08-26',
+    title: 'Streamlined Backup Settings, First-Run Setup Wizard & Automated Snapshot Hygiene',
+    highlights: [
+      'Streamlined Backup Settings: Removed redundant quick preset buttons, setup .cmd button, notes field, target structure box, and duplicate header button for a distraction-free, elegant layout',
+      'Unified Folder Picker: Replaced fragmented controls with a single, clear folder picker button directly attached to the backup path input',
+      'First-Run Backup Setup Wizard: Implemented startup onboarding modal prompting users to activate backups with custom folder selection, skip with default downloads path, or disable backups completely',
+      'Automated Snapshot Hygiene: Self-cleaning routine purges empty pre-release snapshot artifacts and prevents automatic creation of zero-record snapshots on empty databases'
+    ]
+  },
   {
     version: '20.0.7',
     date: '2026-08-26',

@@ -39,6 +39,7 @@
 
 ## Other
 - [ ] Multi-page showcase & documentation web portal (features, releases, preview, GitHub link).
+- [ ] ich habe dir im Ordner src/assets 3 vershciedene arten für das icon, App Bild gegeben. somit kannst du es jetzt wirklich einbauen.
 - [ ] ~~vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere Sachen?~~ (aktuell nicht benötigt)
 
 
