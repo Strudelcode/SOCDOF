@@ -12,6 +12,10 @@ export interface Contact {
   city?: string;
   country?: string;
   taxId?: string;
+  fiscal_code?: string;
+  sdi_recipient_code?: string;
+  pec?: string;
+  is_public_admin?: boolean;
   notes?: string;
   avatar_color?: string;
   createdAt: string;
@@ -71,6 +75,17 @@ export interface InvoiceItem {
 export type InvoiceStatus = 'draft' | 'posted' | 'paid' | 'cancelled';
 export type InvoiceType = 'out_invoice' | 'in_invoice'; // out = customer invoice, in = vendor bill
 
+export type SdIStatus = 
+  | 'not_sent'        // Non inviata / Nicht versendet
+  | 'sent'            // Inviata a SdI / An SdI übermittelt
+  | 'delivered'       // Consegnata (RC) / Zugestellt
+  | 'rejected'        // Scartata (NS) / Abgelehnt
+  | 'failed_delivery' // Mancata Consegna (MC) / Steuerfach (nicht zugestellt)
+  | 'accepted'        // Accettata da PA (NE) / Von Behörde akzeptiert
+  | 'refused';        // Rifiutata da PA (NE) / Von Behörde abgelehnt
+
+export type SdIReceiptType = 'RC' | 'NS' | 'MC' | 'NE' | 'DT' | 'AT';
+
 export interface Invoice {
   id?: number;
   contact_id: number;
@@ -96,6 +111,35 @@ export interface Invoice {
   payment_reference?: string;
   tse_signature?: string;
   stock_moved?: boolean;
+
+  // Italian E-Invoicing (FatturaPA & SdI)
+  document_type?: string; // e.g. TD01 (Fattura), TD02 (Acconto), TD04 (Nota di Credito), TD24 (Fattura Differita)
+  sdi_status?: SdIStatus;
+  sdi_format?: 'FPR12' | 'FPA12' | string;
+  sdi_identifier?: string; // IdentificativoSdI (e.g. 982347101)
+  sdi_date?: string; // Timestamp of delivery / rejection / outcome
+  sdi_recipient_code?: string; // 7 chars (e.g. 0000000, SUBM70N) or 6 chars for PA
+  sdi_pec?: string; // PEC destination
+  sdi_error_code?: string; // Error code from NS (e.g. 00404, 00200)
+  sdi_error_message?: string; // Error description from NS
+  sdi_receipt_type?: SdIReceiptType;
+  sdi_filename?: string; // e.g. IT01234567890_00001.xml
+  sdi_bollo_virtuale?: boolean; // Imposta di bollo (2,00 €)
+  bollo_virtuale?: boolean; // Imposta di bollo (2,00 €)
+  bollo_amount?: number;
+  pa_cup?: string; // Codice Unitario Progetto (PA)
+  sdi_cup?: string;
+  pa_cig?: string; // Codice Identificativo Gara (PA)
+  sdi_cig?: string;
+  regime_fiscale?: string; // RF01, RF19 Forfettario, etc.
+  sdi_last_update?: string;
+  sdi_receipts?: Array<{
+    type: string;
+    date: string;
+    messageId?: string;
+    description?: string;
+    rawXml?: string;
+  }>;
 }
 
 export type PurchaseOrderStatus = 'draft' | 'rfq_sent' | 'ordered' | 'received' | 'billed';
@@ -204,6 +248,15 @@ export interface CompanyProfile {
   google_cal_sync_enabled?: boolean;
   google_cal_feed_url?: string;
   ical_export_enabled?: boolean;
+
+  // Italian E-Invoicing (FatturaPA & SdI)
+  sdi_transmitter_country?: string; // Default 'IT'
+  sdi_transmitter_vat?: string;
+  sdi_regime_fiscale?: string; // e.g. RF01 (Ordinario), RF19 (Forfettario), RF02 (Minimi)
+  sdi_default_recipient_code?: string; // e.g. 0000000
+  sdi_pec?: string;
+  sdi_tax_id?: string;
+  sdi_fiscal_code?: string;
 
   // Letterhead & Briefpapier Settings
   letterhead_photo_url?: string;

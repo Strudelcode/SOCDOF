@@ -605,6 +605,38 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                 </div>
               )}
 
+              {selectedContact.fiscal_code && (
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Codice Fiscale</span>
+                  <span className="font-mono">{selectedContact.fiscal_code}</span>
+                </div>
+              )}
+
+              {(selectedContact.sdi_recipient_code || selectedContact.pec) && (
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase block mb-1">
+                    Italienische E-Rechnung (SdI)
+                  </span>
+                  {selectedContact.sdi_recipient_code && (
+                    <div className="text-[11px] flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Codice Destinatario:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">{selectedContact.sdi_recipient_code}</span>
+                    </div>
+                  )}
+                  {selectedContact.pec && (
+                    <div className="text-[11px] flex items-center justify-between mt-0.5">
+                      <span className="text-slate-500 dark:text-slate-400">PEC-Adresse:</span>
+                      <span className="font-mono text-indigo-600 dark:text-indigo-400">{selectedContact.pec}</span>
+                    </div>
+                  )}
+                  {selectedContact.is_public_admin && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded">
+                      🏛️ Pubblica Amministrazione (FPA12)
+                    </span>
+                  )}
+                </div>
+              )}
+
               {selectedContact.notes && (
                 <div>
                   <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_notes', currentLang, 'Internal Notes')}</span>
@@ -782,11 +814,71 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="DE 000000000"
+                    placeholder="DE 000000000 / IT01234567890"
                     value={editingContact.taxId || ''}
                     onChange={(e) => setEditingContact({ ...editingContact, taxId: e.target.value })}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
+                </div>
+              </div>
+
+              {/* Italian E-Invoicing / SdI Fields */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                    🇮🇹 Italienische E-Rechnung (FatturaPA / SdI)
+                  </span>
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingContact.is_public_admin || false}
+                      onChange={(e) => setEditingContact({ ...editingContact, is_public_admin: e.target.checked })}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Öffentliche Verwaltung (PA)</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      Codice Fiscale
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z.B. RSSMRA80A01H501U"
+                      value={editingContact.fiscal_code || ''}
+                      onChange={(e) => setEditingContact({ ...editingContact, fiscal_code: e.target.value.toUpperCase() })}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      Codice Destinatario
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={7}
+                      placeholder={editingContact.is_public_admin ? 'z.B. UF6Z01 (6 Zeichen)' : '0000000 (7 Zeichen)'}
+                      value={editingContact.sdi_recipient_code || ''}
+                      onChange={(e) => setEditingContact({ ...editingContact, sdi_recipient_code: e.target.value.toUpperCase() })}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      PEC E-Mail
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="kunde@pec.it"
+                      value={editingContact.pec || ''}
+                      onChange={(e) => setEditingContact({ ...editingContact, pec: e.target.value })}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
               </div>
 

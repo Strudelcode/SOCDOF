@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.2.0';
+export const APP_VERSION = '20.3.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.3.0',
+    date: '2026-08-26',
+    title: 'Italian E-Invoicing (FatturaPA 1.2.2 & SdI Full Lifecycle) & Global Search Expansion',
+    highlights: [
+      'Full Italian E-Invoicing (FatturaPA 1.2.2): Complete XML generation and compliance for B2B/B2C (FPR12) and Public Administration (FPA12) transmission formats with Codice Destinatario, PEC, CIG, CUP, Bollo Virtuale, and valid Natura/Regime Fiscale codes',
+      'Agenzia delle Entrate (SdI) Notification Parser: Comprehensive parser for official SdI XML receipts (RC, NS, MC, NE, DT, AT) with integrated error catalog and solution hints in 4 languages (DE, EN, FR, ES)',
+      'Interactive FatturaPA & SdI Inspector: Dedicated inspection modal featuring live syntax-colored XML inspection, one-click clipboard copying, SdI status transition controls, and receipt attachment workflow',
+      'Global Entity Search in Command Palette: Instant fuzzy search across CRM Contacts, Products, Invoices, and Actions with harmonized SOCDOF branding'
+    ]
+  },
   {
     version: '20.2.0',
     date: '2026-08-26',

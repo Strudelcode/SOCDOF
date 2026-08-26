@@ -1,19 +1,23 @@
 import { Invoice, InvoiceItem, Contact } from '../types';
 
 export interface ParsedFatturaPa {
-  documentType: string; // e.g. TD01 (Fattura), TD04 (Nota di credito)
+  documentType: string; // e.g. TD01 (Fattura), TD04 (Nota di credito), TD24 (Differita)
+  transmissionFormat?: string; // FPR12 or FPA12
   currency: string;
   invoiceNumber: string;
   invoiceDate: string;
   totalAmount: number;
   subtotal: number;
   taxTotal: number;
+  subject?: string;
   
   // Seller / Supplier
   seller: {
     name: string;
     taxId: string;
+    fiscalCode?: string;
     vatCountry: string;
+    regimeFiscale?: string;
     street?: string;
     zip?: string;
     city?: string;
@@ -25,6 +29,7 @@ export interface ParsedFatturaPa {
   buyer: {
     name: string;
     taxId: string;
+    fiscalCode?: string;
     vatCountry: string;
     street?: string;
     zip?: string;
@@ -32,10 +37,17 @@ export interface ParsedFatturaPa {
     country?: string;
     pec?: string;
     recipientCode?: string;
+    isPublicAdmin?: boolean;
   };
 
   // Line items
   items: InvoiceItem[];
+
+  // PA & Tax Extras
+  bolloVirtuale?: boolean;
+  bolloAmount?: number;
+  paCup?: string;
+  paCig?: string;
 
   // Payment details
   payment?: {
@@ -96,17 +108,21 @@ export function parseFatturaPaXml(xmlString: string): ParsedFatturaPa {
 
   // 1. Document general data
   const docType = getText('TipoDocumento') || 'TD01';
+  const formatTransmission = getText('FormatoTrasmissione') || 'FPR12';
   const currency = getText('Divisa') || 'EUR';
   const invoiceNumber = getText('Numero') || `PA-${Date.now().toString().slice(-6)}`;
   const rawDate = getText('Data') || new Date().toISOString().slice(0, 10);
   const invoiceDate = rawDate.slice(0, 10);
   const totalAmount = getNum('ImportoTotaleDocumento');
+  const subject = getText('Causale');
 
   // 2. Seller (CedentePrestatore)
   const sellerEl = doc.querySelector('CedentePrestatore') || doc.getElementsByTagName('CedentePrestatore')[0];
   const sellerDenom = getText('Denominazione', sellerEl) || 
     `${getText('Nome', sellerEl)} ${getText('Cognome', sellerEl)}`.trim();
   const sellerVat = getText('IdCodice', sellerEl) || getText('CodiceFiscale', sellerEl);
+  const sellerFiscalCode = getText('CodiceFiscale', sellerEl);
+  const sellerRegime = getText('RegimeFiscale', sellerEl) || 'RF01';
   const sellerCountry = getText('IdPaese', sellerEl) || 'IT';
   const sellerStreet = getText('Indirizzo', sellerEl);
   const sellerZip = getText('CAP', sellerEl);
@@ -117,14 +133,24 @@ export function parseFatturaPaXml(xmlString: string): ParsedFatturaPa {
   const buyerDenom = getText('Denominazione', buyerEl) || 
     `${getText('Nome', buyerEl)} ${getText('Cognome', buyerEl)}`.trim();
   const buyerVat = getText('IdCodice', buyerEl) || getText('CodiceFiscale', buyerEl);
+  const buyerFiscalCode = getText('CodiceFiscale', buyerEl);
   const buyerCountry = getText('IdPaese', buyerEl) || 'IT';
   const buyerStreet = getText('Indirizzo', buyerEl);
   const buyerZip = getText('CAP', buyerEl);
   const buyerCity = getText('Comune', buyerEl);
   const recipientCode = getText('CodiceDestinatario');
   const pecDestinatario = getText('PECDestinatario');
+  const isPA = formatTransmission === 'FPA12' || (recipientCode && recipientCode.length === 6);
 
-  // 4. Line items (DettaglioLinee)
+  // 4. Bollo Virtuale & PA Tenders (CUP/CIG)
+  const bolloEl = doc.querySelector('DatiBollo') || doc.getElementsByTagName('DatiBollo')[0];
+  const bolloVirtuale = bolloEl ? (getText('BolloVirtuale', bolloEl).toUpperCase() === 'SI' || true) : false;
+  const bolloAmount = bolloEl ? (getNum('ImportoBollo', bolloEl) || 2.00) : undefined;
+
+  const paCup = getText('CodiceCUP') || undefined;
+  const paCig = getText('CodiceCIG') || undefined;
+
+  // 5. Line items (DettaglioLinee)
   const lineNodes = doc.getElementsByTagName('DettaglioLinee');
   const items: InvoiceItem[] = [];
 
@@ -174,7 +200,7 @@ export function parseFatturaPaXml(xmlString: string): ParsedFatturaPa {
     calcTaxTotal = totalAmount - calcSubtotal;
   }
 
-  // 5. Payment details (DatiPagamento)
+  // 6. Payment details (DatiPagamento)
   const paymentMethod = getText('ModalitaPagamento') || undefined;
   const paymentDueDate = getText('DataScadenzaPagamento') || undefined;
   const paymentAmount = getNum('ImportoPagamento') || totalAmount;
@@ -183,15 +209,19 @@ export function parseFatturaPaXml(xmlString: string): ParsedFatturaPa {
 
   const parsed: ParsedFatturaPa = {
     documentType: docType,
+    transmissionFormat: formatTransmission,
     currency,
     invoiceNumber,
     invoiceDate,
     totalAmount: totalAmount > 0 ? totalAmount : (calcSubtotal + calcTaxTotal),
     subtotal: calcSubtotal,
     taxTotal: calcTaxTotal,
+    subject,
     seller: {
       name: sellerDenom || 'Fornitore sconosciuto',
       taxId: sellerVat,
+      fiscalCode: sellerFiscalCode,
+      regimeFiscale: sellerRegime,
       vatCountry: sellerCountry,
       street: sellerStreet,
       zip: sellerZip,
@@ -200,14 +230,20 @@ export function parseFatturaPaXml(xmlString: string): ParsedFatturaPa {
     buyer: {
       name: buyerDenom || 'Cliente sconosciuto',
       taxId: buyerVat,
+      fiscalCode: buyerFiscalCode,
       vatCountry: buyerCountry,
       street: buyerStreet,
       zip: buyerZip,
       city: buyerCity,
       pec: pecDestinatario || undefined,
-      recipientCode: recipientCode || undefined
+      recipientCode: recipientCode || undefined,
+      isPublicAdmin: isPA
     },
     items,
+    bolloVirtuale,
+    bolloAmount,
+    paCup,
+    paCig,
     payment: {
       method: paymentMethod,
       dueDate: paymentDueDate,
@@ -235,6 +271,10 @@ export function convertFatturaPaToInvoice(
     name: partner.name,
     company: partner.name,
     taxId: partner.taxId,
+    fiscal_code: partner.fiscalCode,
+    sdi_recipient_code: (!isIncoming && 'recipientCode' in partner) ? partner.recipientCode : undefined,
+    pec: partner.pec || '',
+    is_public_admin: (!isIncoming && 'isPublicAdmin' in partner) ? partner.isPublicAdmin : false,
     street: partner.street || '',
     zip: partner.zip || '',
     city: partner.city || '',
@@ -251,10 +291,20 @@ export function convertFatturaPaToInvoice(
     type: isIncoming ? 'in_invoice' : 'out_invoice',
     contact_name: partner.name,
     contact_company: partner.name,
+    document_type: parsed.documentType,
+    subject: parsed.subject || `Fattura ${parsed.invoiceNumber}`,
     subtotal: parsed.subtotal,
     tax_total: parsed.taxTotal,
     total: parsed.totalAmount,
     status: 'draft',
+    sdi_status: 'not_sent',
+    sdi_recipient_code: (!isIncoming && 'recipientCode' in partner) ? partner.recipientCode : undefined,
+    sdi_pec: partner.pec,
+    bollo_virtuale: parsed.bolloVirtuale,
+    bollo_amount: parsed.bolloAmount,
+    pa_cup: parsed.paCup,
+    pa_cig: parsed.paCig,
+    regime_fiscale: isIncoming ? parsed.seller.regimeFiscale : undefined,
     payment_terms: parsed.payment?.iban ? `IBAN: ${parsed.payment.iban}${parsed.payment.bankName ? ` (${parsed.payment.bankName})` : ''}` : undefined,
     items: parsed.items,
     notes: `Importiert aus FatturaPA XML (${parsed.documentType}) - SDI-Format`

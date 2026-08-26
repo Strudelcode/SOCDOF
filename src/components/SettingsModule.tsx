@@ -22,6 +22,7 @@ import {
   AlertTriangle, 
   FileCheck, 
   HelpCircle, 
+  FileCode,
   Eye, 
   Trash2, 
   Monitor, 
@@ -1005,6 +1006,90 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         value={profile.bic}
                         onChange={(e) => setProfile({ ...profile, bic: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Italian E-Invoicing & SdI (FatturaPA) Section */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <FileCode className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Italienische E-Rechnung (FatturaPA &amp; SdI)</span>
+                    </h4>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      SdI 1.2.2 Konform
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Partita IVA / Übermittler-ID (IdTrasmittente)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z.B. 01234567890"
+                        value={profile.sdi_transmitter_vat || ''}
+                        onChange={(e) => setProfile({ ...profile, sdi_transmitter_vat: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Codice Fiscale des Unternehmens
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z.B. RSSMRA80A01H501U"
+                        value={profile.sdi_fiscal_code || ''}
+                        onChange={(e) => setProfile({ ...profile, sdi_fiscal_code: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Steuerregime (Regime Fiscale)
+                      </label>
+                      <select
+                        value={profile.sdi_regime_fiscale || 'RF01'}
+                        onChange={(e) => setProfile({ ...profile, sdi_regime_fiscale: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="RF01">RF01 - Regime Ordinario (Standard)</option>
+                        <option value="RF19">RF19 - Regime Forfettario</option>
+                        <option value="RF02">RF02 - Contribuenti minimi</option>
+                        <option value="RF18">RF18 - Altro</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Standard Empfängercode (Codice Destinatario)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={7}
+                        placeholder="0000000"
+                        value={profile.sdi_default_recipient_code || '0000000'}
+                        onChange={(e) => setProfile({ ...profile, sdi_default_recipient_code: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono font-bold"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Unternehmens-PEC für SdI-Mitteilungen
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="firma@pec.it"
+                        value={profile.sdi_pec || ''}
+                        onChange={(e) => setProfile({ ...profile, sdi_pec: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>

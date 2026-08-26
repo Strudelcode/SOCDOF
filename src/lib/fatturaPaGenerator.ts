@@ -2,6 +2,16 @@ import { Invoice, CompanyProfile, Contact } from '../types';
 import { sounds } from './sound';
 
 /**
+ * Returns standard Italian SdI XML filename for a given invoice and company.
+ * Schema: IT<VAT_CODE>_<PROGRESSIVE_5_CHARS>.xml
+ */
+export function getFatturaPaFileName(invoice: Invoice, company: CompanyProfile): string {
+  const transmitterVat = (company.sdi_transmitter_vat || company.tax_id || '00000000000').replace(/[^a-zA-Z0-9]/g, '');
+  const progressive = (invoice.number || '1').replace(/[^0-9a-zA-Z]/g, '').slice(-5).padStart(5, '0');
+  return `IT${transmitterVat}_${progressive}.xml`;
+}
+
+/**
  * Generates an official FatturaPA 1.2.1 / 1.2.2 compliant XML string for an invoice.
  * Adheres strictly to the Agenzia delle Entrate (SdI - Sistema di Interscambio) schema.
  */
@@ -13,18 +23,27 @@ export function generateFatturaPaXml(
   // Format numbers to Italian standard 2 decimals
   const fmtNum = (num: number) => num.toFixed(2);
 
-  const transmitterCountry = (company.country && company.country.length === 2 ? company.country.toUpperCase() : 'IT');
-  const transmitterVat = (company.tax_id || '00000000000').replace(/[^a-zA-Z0-9]/g, '');
+  const transmitterCountry = (company.sdi_transmitter_country || (company.country && company.country.length === 2 ? company.country.toUpperCase() : 'IT'));
+  const transmitterVat = (company.sdi_transmitter_vat || company.tax_id || '00000000000').replace(/[^a-zA-Z0-9]/g, '');
+  const regimeFiscale = invoice.regime_fiscale || company.sdi_regime_fiscale || 'RF01';
 
   const customerCountry = (customer?.country && customer.country.length === 2 ? customer.country.toUpperCase() : 'IT');
-  const customerVat = (customer?.taxId || '00000000000').replace(/[^a-zA-Z0-9]/g, '');
+  const customerVat = (customer?.taxId || '').replace(/[^a-zA-Z0-9]/g, '');
+  const customerFiscalCode = customer?.fiscal_code || (customerVat.length === 16 ? customerVat : undefined);
   const customerName = (customer?.company || customer?.name || invoice.contact_company || invoice.contact_name || 'Cliente').trim();
 
-  // FatturaPA standard recipient code (7 chars) or PEC
-  const recipientCode = '0000000'; // Default standard B2B/B2C code
+  // Determine Formato Trasmissione: FPA12 for Pubblica Amministrazione (6 char code), FPR12 for B2B/B2C (7 char code)
+  const isPA = customer?.is_public_admin || (customer?.sdi_recipient_code && customer.sdi_recipient_code.length === 6);
+  const transmissionFormat = isPA ? 'FPA12' : 'FPR12';
+  
+  // FatturaPA standard recipient code (7 chars or 6 chars for PA) or PEC
+  const rawRecipient = (customer?.sdi_recipient_code || invoice.sdi_recipient_code || company.sdi_default_recipient_code || '0000000').trim().toUpperCase();
+  const recipientCode = rawRecipient || (isPA ? '999999' : '0000000');
+  const pecDestinatario = customer?.pec || invoice.sdi_pec || (customer?.email && customer.email.includes('@') ? customer.email : undefined);
 
   // Transmission progressive number (e.g. 00001)
   const progressive = (invoice.number || '1').replace(/[^0-9a-zA-Z]/g, '').slice(-5).padStart(5, '0');
+  const documentType = invoice.document_type || 'TD01'; // TD01 (Fattura), TD04 (Nota di Credito), TD24 (Fattura Differita)
 
   // Split lines into XML Line elements
   const linesXml = (invoice.items || []).map((item, index) => {
@@ -53,8 +72,23 @@ export function generateFatturaPaXml(
         <EsigibilitaIVA>I</EsigibilitaIVA>
       </DatiRiepilogo>`;
 
+  // Bollo virtuale XML (Imposta di Bollo 2,00 €)
+  const bolloXml = invoice.bollo_virtuale ? `
+        <DatiBollo>
+          <BolloVirtuale>SI</BolloVirtuale>
+          <ImportoBollo>${fmtNum(invoice.bollo_amount || 2.00)}</ImportoBollo>
+        </DatiBollo>` : '';
+
+  // Order reference with CUP/CIG if present (PA tender compliance)
+  const orderRefXml = (invoice.pa_cup || invoice.pa_cig) ? `
+      <DatiOrdineAcquisto>
+        <RiferimentoNumeroLinea>1</RiferimentoNumeroLinea>
+        ${invoice.pa_cup ? `<CodiceCUP>${escapeXml(invoice.pa_cup)}</CodiceCUP>` : ''}
+        ${invoice.pa_cig ? `<CodiceCIG>${escapeXml(invoice.pa_cig)}</CodiceCIG>` : ''}
+      </DatiOrdineAcquisto>` : '';
+
   const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<p:FatturaElettronica versione="FPR12" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" 
+<p:FatturaElettronica versione="${transmissionFormat}" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" 
   xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" 
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
   xsi:schemaLocation="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2 http://www.fatturapa.gov.it/export/fatturazione/sdi/fatturapa/v1.2/Schema_del_flusso_FatturaPA_v1.2.xsd">
@@ -65,8 +99,9 @@ export function generateFatturaPaXml(
         <IdCodice>${transmitterVat}</IdCodice>
       </IdTrasmittente>
       <ProgressivoInvio>${progressive}</ProgressivoInvio>
-      <FormatoTrasmissione>FPR12</FormatoTrasmissione>
+      <FormatoTrasmissione>${transmissionFormat}</FormatoTrasmissione>
       <CodiceDestinatario>${recipientCode}</CodiceDestinatario>
+      ${pecDestinatario && recipientCode === '0000000' ? `<PECDestinatario>${escapeXml(pecDestinatario)}</PECDestinatario>` : ''}
     </DatiTrasmissione>
     <CedentePrestatore>
       <DatiAnagrafici>
@@ -77,7 +112,7 @@ export function generateFatturaPaXml(
         <Anagrafica>
           <Denominazione>${escapeXml(company.name || 'Azienda')}</Denominazione>
         </Anagrafica>
-        <RegimeFiscale>RF01</RegimeFiscale>
+        <RegimeFiscale>${regimeFiscale}</RegimeFiscale>
       </DatiAnagrafici>
       <Sede>
         <Indirizzo>${escapeXml(company.street || 'Via Roma')}</Indirizzo>
@@ -88,10 +123,12 @@ export function generateFatturaPaXml(
     </CedentePrestatore>
     <CessionarioCommittente>
       <DatiAnagrafici>
+        ${customerVat.length > 0 ? `
         <IdFiscaleIVA>
           <IdPaese>${customerCountry}</IdPaese>
           <IdCodice>${customerVat}</IdCodice>
-        </IdFiscaleIVA>
+        </IdFiscaleIVA>` : ''}
+        ${customerFiscalCode ? `<CodiceFiscale>${customerFiscalCode}</CodiceFiscale>` : ''}
         <Anagrafica>
           <Denominazione>${escapeXml(customerName)}</Denominazione>
         </Anagrafica>
@@ -107,13 +144,13 @@ export function generateFatturaPaXml(
   <FatturaElettronicaBody>
     <DatiGenerali>
       <DatiGeneraliDocumento>
-        <TipoDocumento>TD01</TipoDocumento>
+        <TipoDocumento>${documentType}</TipoDocumento>
         <Divisa>${company.currency || 'EUR'}</Divisa>
         <Data>${invoice.date || new Date().toISOString().split('T')[0]}</Data>
         <Numero>${escapeXml(invoice.number)}</Numero>
         <ImportoTotaleDocumento>${fmtNum(invoice.total || 0)}</ImportoTotaleDocumento>
-        <Causale>${escapeXml(invoice.subject || 'Vendita beni e servizi')}</Causale>
-      </DatiGeneraliDocumento>
+        <Causale>${escapeXml(invoice.subject || 'Vendita beni e servizi')}</Causale>${bolloXml}
+      </DatiGeneraliDocumento>${orderRefXml}
     </DatiGenerali>
     <DatiBeniServizi>
 ${linesXml}
@@ -168,8 +205,7 @@ export function validateFatturaPaXml(xmlString: string): { isValid: boolean; err
 export function downloadFatturaPaXml(invoice: Invoice, company: CompanyProfile, customer?: Contact) {
   sounds.playSuccess();
   const xml = generateFatturaPaXml(invoice, company, customer);
-  const cleanNumber = (invoice.number || 'Fattura').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const fileName = `IT${(company.tax_id || '00000000000').replace(/[^a-zA-Z0-9]/g, '')}_${cleanNumber}.xml`;
+  const fileName = getFatturaPaFileName(invoice, company);
 
   const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);

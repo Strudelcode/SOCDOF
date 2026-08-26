@@ -23,7 +23,8 @@ import {
   FileCode,
   Download,
   Upload,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle
 } from 'lucide-react';
 import { Invoice, InvoiceItem, InvoiceStatus, Contact, Product, CompanyProfile } from '../types';
 import { db, executeStockMove, getNextInvoiceNumber } from '../lib/db';
@@ -34,6 +35,8 @@ import { PaymentModal } from './PaymentModal';
 import { t, formatSystemDate } from '../lib/i18n';
 import { downloadFatturaPaXml } from '../lib/fatturaPaGenerator';
 import { parseFatturaPaXml, convertFatturaPaToInvoice, ParsedFatturaPa } from '../lib/fatturaPaParser';
+import { isSdIReceiptXml, parseSdIReceiptXml, ParsedSdIReceipt, SDI_ERROR_CATALOG } from '../lib/sdiReceiptParser';
+import { FatturaPaInspectorModal } from './FatturaPaInspectorModal';
 
 interface InvoicesModuleProps {
   invoices: Invoice[];
@@ -65,6 +68,12 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
   const [mailInvoice, setMailInvoice] = useState<Invoice | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
+  const [sdiInspectorInvoice, setSdiInspectorInvoice] = useState<Invoice | null>(null);
+  const [incomingReceiptModal, setIncomingReceiptModal] = useState<{
+    receipt: ParsedSdIReceipt;
+    invoiceId?: number;
+    rawXml: string;
+  } | null>(null);
 
   // FatturaPA XML Importer State
   const [parsedFattura, setParsedFattura] = useState<ParsedFatturaPa | null>(null);
@@ -83,6 +92,28 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
       setXmlError(null);
       sounds.playClick();
       const text = await file.text();
+
+      // 1. Check if uploaded XML is an SdI notification / receipt (RC, NS, MC, NE, DT, AT)
+      if (isSdIReceiptXml(text)) {
+        const parsedReceipt = parseSdIReceiptXml(text);
+        
+        // Find matching invoice by SdI Identifier or filename
+        const matched = invoices.find(inv => 
+          (inv.sdi_identifier && parsedReceipt.identifierSdI && inv.sdi_identifier === parsedReceipt.identifierSdI) ||
+          (inv.sdi_filename && parsedReceipt.fileName && inv.sdi_filename.toLowerCase() === parsedReceipt.fileName.toLowerCase()) ||
+          (inv.number && parsedReceipt.fileName && parsedReceipt.fileName.toLowerCase().includes(inv.number.toLowerCase().replace(/[^a-z0-9]/g, '')))
+        );
+
+        setIncomingReceiptModal({
+          receipt: parsedReceipt,
+          invoiceId: matched?.id,
+          rawXml: text
+        });
+        sounds.playPop();
+        return;
+      }
+
+      // 2. Otherwise parse as standard FatturaPA 1.2.x XML invoice
       const parsed = parseFatturaPaXml(text);
       setParsedFattura(parsed);
       sounds.playPop();
@@ -93,6 +124,44 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     } finally {
       setIsProcessingXml(false);
       e.target.value = '';
+    }
+  };
+
+  const handleApplySdIReceipt = async (invoiceId: number, receipt: ParsedSdIReceipt, rawXml: string) => {
+    try {
+      const inv = invoices.find(i => i.id === invoiceId);
+      if (!inv) return;
+
+      const currentReceipts = inv.sdi_receipts || [];
+      const updatedReceipts = [
+        ...currentReceipts,
+        {
+          type: receipt.receiptType,
+          date: receipt.receiptDate || new Date().toISOString(),
+          messageId: receipt.identifierSdI,
+          description: receipt.errors?.map(e => `[${e.code}] ${e.description}`).join('; ') || receipt.notes || receipt.receiptTypeName,
+          rawXml
+        }
+      ];
+
+      await db.invoices.update(invoiceId, {
+        sdi_status: receipt.sdiStatus,
+        sdi_identifier: receipt.identifierSdI || inv.sdi_identifier,
+        sdi_date: receipt.deliveryDate || receipt.receiptDate || new Date().toISOString(),
+        sdi_receipt_type: receipt.receiptType,
+        sdi_error_code: receipt.errors.length > 0 ? receipt.errors[0].code : undefined,
+        sdi_error_message: receipt.errors.length > 0 ? receipt.errors[0].description : undefined,
+        sdi_last_update: new Date().toISOString(),
+        sdi_receipts: updatedReceipts
+      } as any);
+
+      sounds.playSuccess();
+      setIncomingReceiptModal(null);
+      onRefresh();
+    } catch (err: any) {
+      console.error(err);
+      sounds.playError();
+      alert('Fehler beim Anwenden der SdI-Mitteilung: ' + (err?.message || err));
     }
   };
 
@@ -115,6 +184,9 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
           name: contact.name,
           company: contact.company || contact.name,
           taxId: contact.taxId,
+          fiscal_code: contact.fiscal_code,
+          sdi_recipient_code: contact.sdi_recipient_code,
+          pec: contact.pec,
           street: contact.street,
           zip: contact.zip,
           city: contact.city,
@@ -143,7 +215,14 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
         status: 'posted',
         payment_terms: invoice.payment_terms,
         items: invoice.items || [],
-        notes: invoice.notes
+        notes: invoice.notes,
+        sdi_status: 'delivered',
+        sdi_format: invoice.sdi_format || 'FPR12',
+        sdi_recipient_code: invoice.sdi_recipient_code,
+        sdi_pec: invoice.sdi_pec,
+        sdi_bollo_virtuale: invoice.sdi_bollo_virtuale,
+        sdi_cig: invoice.sdi_cig,
+        sdi_cup: invoice.sdi_cup
       };
 
       await db.invoices.add(invoiceToSave);
@@ -256,7 +335,10 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
       contact_name: contact.name,
       contact_email: contact.email,
       contact_company: contact.company || '',
-      contact_address: contact.street ? `${contact.street}, ${contact.zip} ${contact.city}` : ''
+      contact_address: contact.street ? `${contact.street}, ${contact.zip} ${contact.city}` : '',
+      sdi_format: contact.is_public_admin ? 'FPA12' : (prev.sdi_format || 'FPR12'),
+      sdi_recipient_code: contact.sdi_recipient_code || (contact.is_public_admin ? '000000' : (prev.sdi_recipient_code || company.sdi_default_recipient_code || '0000000')),
+      sdi_pec: contact.pec || prev.sdi_pec || ''
     }) : null);
   };
 
@@ -629,6 +711,43 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                           {t('invoice.filter_draft', undefined, 'Entwurf')}
                         </span>
                       )}
+
+                      {/* SdI E-Invoicing Status Badge */}
+                      {inv.sdi_status && (
+                        <div className="mt-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sounds.playClick();
+                              setSdiInspectorInvoice(inv);
+                            }}
+                            title="SdI / FatturaPA Status inspizieren"
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition ${
+                              inv.sdi_status === 'delivered' || inv.sdi_status === 'accepted_by_pa'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : inv.sdi_status === 'rejected' || inv.sdi_status === 'rejected_by_pa'
+                                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                : inv.sdi_status === 'failed_delivery'
+                                ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                : inv.sdi_status === 'sent'
+                                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <FileCode className="w-2.5 h-2.5" />
+                            <span>
+                              {inv.sdi_status === 'delivered' ? 'SdI: Zugestellt'
+                                : inv.sdi_status === 'accepted_by_pa' ? 'SdI: PA Akzeptiert'
+                                : inv.sdi_status === 'rejected' ? 'SdI: Abgelehnt'
+                                : inv.sdi_status === 'rejected_by_pa' ? 'SdI: PA Abgelehnt'
+                                : inv.sdi_status === 'failed_delivery' ? 'SdI: Nicht zugest.'
+                                : inv.sdi_status === 'sent' ? 'SdI: Gesendet'
+                                : inv.sdi_status === 'deadline_passed' ? 'SdI: Fristablauf'
+                                : 'SdI: Entwurf'}
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </td>
 
                     <td className="p-4 text-right font-mono-num font-bold text-slate-900 dark:text-white">
@@ -652,13 +771,13 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                           <Printer className="w-4 h-4" />
                         </button>
 
-                        {/* FatturaPA 1.2.x XML Export for Italian E-Invoicing / SdI */}
+                        {/* FatturaPA & SdI Inspector Modal */}
                         <button
                           onClick={() => {
-                            const customer = contacts.find(c => c.id === inv.contact_id);
-                            downloadFatturaPaXml(inv, company, customer);
+                            sounds.playClick();
+                            setSdiInspectorInvoice(inv);
                           }}
-                          title="FatturaPA XML exportieren (Italienisches E-Invoicing / SdI)"
+                          title="FatturaPA 1.2.x Inspektor & SdI Status (XML, Validierung, Übertragung)"
                           className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-emerald-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <FileCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -932,6 +1051,104 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 </div>
               </div>
 
+              {/* Italian E-Invoicing (SdI / FatturaPA 1.2.2) Configuration */}
+              <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-850/60 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      🇮🇹 Italienische E-Rechnung (FatturaPA 1.2.2 &amp; SdI)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                    Agenzia delle Entrate
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Übertragungsformat
+                    </label>
+                    <select
+                      value={editingInvoice.sdi_format || 'FPR12'}
+                      onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_format: e.target.value as 'FPR12' | 'FPA12' })}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                    >
+                      <option value="FPR12">FPR12 (B2B / B2C Privatwirtschaft)</option>
+                      <option value="FPA12">FPA12 (Pubblica Amministrazione)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Codice Destinatario (SdI)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={7}
+                      placeholder={editingInvoice.sdi_format === 'FPA12' ? '6-stelliger PA-Code' : '7-stellig (z. B. 0000000)'}
+                      value={editingInvoice.sdi_recipient_code || ''}
+                      onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_recipient_code: e.target.value.toUpperCase() })}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      PEC E-Mail (Zustellung)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="kunde@pec.it"
+                      value={editingInvoice.sdi_pec || ''}
+                      onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_pec: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      CIG (Codice Gara)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z. B. 9876543210"
+                      value={editingInvoice.sdi_cig || ''}
+                      onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_cig: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      CUP (Codice Progetto)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z. B. J1234567890001"
+                      value={editingInvoice.sdi_cup || ''}
+                      onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_cup: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                    />
+                  </div>
+
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editingInvoice.sdi_bollo_virtuale || false}
+                        onChange={(e) => setEditingInvoice({ ...editingInvoice, sdi_bollo_virtuale: e.target.checked })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                      />
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Bollo Virtuale (2,00 € Stempelsteuer)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {/* Summary and Notes Block */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                 <div>
@@ -1189,6 +1406,178 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               >
                 <Check className="w-4 h-4" />
                 <span>Rechnung jetzt in SOCDOF übernehmen</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FatturaPA 1.2.x & SdI Inspector Modal */}
+      {sdiInspectorInvoice && (
+        <FatturaPaInspectorModal
+          invoice={sdiInspectorInvoice}
+          company={company}
+          customer={contacts.find(c => c.id === sdiInspectorInvoice.contact_id)}
+          onClose={() => setSdiInspectorInvoice(null)}
+          onUpdateInvoice={async (updated) => {
+            if (updated.id) {
+              await db.invoices.update(updated.id, updated);
+              setSdiInspectorInvoice(updated);
+              onRefresh();
+            }
+          }}
+        />
+      )}
+
+      {/* SdI Incoming Receipt Notification Modal (RC, NS, MC, NE, DT, AT) */}
+      {incomingReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${
+                  incomingReceiptModal.receipt.mappedStatus === 'delivered' || incomingReceiptModal.receipt.mappedStatus === 'accepted_by_pa'
+                    ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
+                    : incomingReceiptModal.receipt.mappedStatus === 'rejected' || incomingReceiptModal.receipt.mappedStatus === 'rejected_by_pa'
+                    ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400'
+                    : 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+                }`}>
+                  <FileCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    SdI-Mitteilung empfangen: {incomingReceiptModal.receipt.receiptName} ({incomingReceiptModal.receipt.receiptType})
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Italienische Steuerbehörde (Agenzia delle Entrate / SdI)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIncomingReceiptModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Notification Details Card */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-medium">Neuer SdI-Status:</span>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                  incomingReceiptModal.receipt.sdiStatus === 'delivered' || incomingReceiptModal.receipt.sdiStatus === 'accepted'
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                    : incomingReceiptModal.receipt.sdiStatus === 'rejected' || incomingReceiptModal.receipt.sdiStatus === 'refused'
+                    ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                    : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                }`}>
+                  {incomingReceiptModal.receipt.sdiStatus === 'delivered' ? 'Zugestellt (Consegnata)'
+                    : incomingReceiptModal.receipt.sdiStatus === 'accepted' ? 'PA Akzeptiert (Accettata)'
+                    : incomingReceiptModal.receipt.sdiStatus === 'rejected' ? 'Abgelehnt (Scartata)'
+                    : incomingReceiptModal.receipt.sdiStatus === 'refused' ? 'PA Abgelehnt (Rifiutata)'
+                    : incomingReceiptModal.receipt.sdiStatus === 'failed_delivery' ? 'Nicht zugestellt (Mancata Consegna)'
+                    : incomingReceiptModal.receipt.sdiStatus}
+                </span>
+              </div>
+
+              {incomingReceiptModal.receipt.identifierSdI && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">SdI Identifikator:</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {incomingReceiptModal.receipt.identifierSdI}
+                  </span>
+                </div>
+              )}
+
+              {incomingReceiptModal.receipt.fileName && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Dateiname der Rechnung:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[260px]">
+                    {incomingReceiptModal.receipt.fileName}
+                  </span>
+                </div>
+              )}
+
+              {incomingReceiptModal.receipt.receiptDate && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Zeitstempel:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    {incomingReceiptModal.receipt.receiptDate}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Error List if any */}
+            {incomingReceiptModal.receipt.errors && incomingReceiptModal.receipt.errors.length > 0 && (
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl space-y-2">
+                <h4 className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>Beanstandete Fehler (SdI Fehlerkatalog):</span>
+                </h4>
+                <div className="space-y-1.5">
+                  {incomingReceiptModal.receipt.errors.map((err, idx) => (
+                    <div key={idx} className="text-xs bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-rose-100 dark:border-rose-900/60">
+                      <div className="font-mono font-bold text-rose-700 dark:text-rose-400">
+                        Fehlercode {err.code}
+                      </div>
+                      <div className="text-slate-700 dark:text-slate-300 text-[11px] mt-0.5">
+                        {err.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Invoice Matching Selector */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Rechnung zuordnen:
+              </label>
+              <select
+                value={incomingReceiptModal.invoiceId || ''}
+                onChange={(e) => setIncomingReceiptModal({
+                  ...incomingReceiptModal,
+                  invoiceId: e.target.value ? parseInt(e.target.value) : undefined
+                })}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="">-- Keine Zuordnung / Manuell auswählen --</option>
+                {invoices.map(inv => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.number} - {inv.contact_company || inv.contact_name} ({formatCurrency(inv.total)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIncomingReceiptModal(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={!incomingReceiptModal.invoiceId}
+                onClick={() => {
+                  if (incomingReceiptModal.invoiceId) {
+                    handleApplySdIReceipt(
+                      incomingReceiptModal.invoiceId,
+                      incomingReceiptModal.receipt,
+                      incomingReceiptModal.rawXml
+                    );
+                  }
+                }}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>SdI-Status jetzt auf Rechnung anwenden</span>
               </button>
             </div>
           </div>

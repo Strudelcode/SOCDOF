@@ -182,7 +182,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {filteredApps.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Odoo Apps
+                SOCDOF Module
               </div>
               <div className="grid grid-cols-2 gap-1 mt-1">
                 {filteredApps.map((app, idx) => {
@@ -197,11 +197,71 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       }}
                       className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2.5 transition text-left"
                     >
-                      <Icon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                       <span className="font-medium truncate">{app.label}</span>
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Matching Contacts / CRM */}
+          {matchingContacts.length > 0 && (
+            <div>
+              <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Kontakte &amp; Kunden ({matchingContacts.length})
+              </div>
+              <div className="space-y-1 mt-1">
+                {matchingContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    onClick={() => {
+                      sounds.playClick();
+                      onSelectModule('contacts');
+                      onClose();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between text-left transition"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white">{contact.name}</span>
+                      {contact.company && <span className="text-slate-500 ml-2">({contact.company})</span>}
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {contact.city || contact.email || 'Kunde'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Matching Products */}
+          {matchingProducts.length > 0 && (
+            <div>
+              <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Artikel &amp; Produkte ({matchingProducts.length})
+              </div>
+              <div className="space-y-1 mt-1">
+                {matchingProducts.map((prod) => (
+                  <button
+                    key={prod.id}
+                    onClick={() => {
+                      sounds.playClick();
+                      onSelectModule('products');
+                      onClose();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between text-left transition"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white">{prod.name}</span>
+                      <span className="text-slate-400 font-mono text-[11px] ml-2">SKU: {prod.sku}</span>
+                    </div>
+                    <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                      {prod.sale_price.toFixed(2)} €
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -227,7 +287,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white">{inv.number}</span>
                       <span className="text-slate-500 ml-2">{inv.contact_name}</span>
                     </div>
-                    <span className="font-mono font-semibold text-purple-600 dark:text-purple-400">
+                    <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
                       {inv.total.toFixed(2)} €
                     </span>
                   </button>
@@ -239,7 +299,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Studio & System */}
           <div>
             <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              System & Ansicht
+              System &amp; Ansicht
             </div>
             <div className="grid grid-cols-2 gap-1 mt-1">
               <button
@@ -251,7 +311,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2.5 transition"
               >
                 <Sliders className="w-4 h-4 text-indigo-500" />
-                <span className="font-medium">Odoo Studio öffnen</span>
+                <span className="font-medium">SOCDOF Studio öffnen</span>
               </button>
               <button
                 onClick={() => {
@@ -261,7 +321,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 }}
                 className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2.5 transition"
               >
-                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-purple-500" />}
+                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
                 <span className="font-medium">{isDark ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}</span>
               </button>
             </div>
@@ -271,7 +331,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         {/* Footer */}
         <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between px-4">
           <span>Tipp: Drücken Sie <kbd className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Ctrl+K</kbd> oder <kbd className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">⌘K</kbd></span>
-          <span>Odoo Enterprise Edition</span>
+          <span>SOCDOF Windows ERP Suite</span>
         </div>
       </div>
     </div>

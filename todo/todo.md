@@ -23,22 +23,16 @@
 ## 2. Active Roadmap & Pending Tasks
 
 ### 2.1 Native Desktop App & Windows Features
-- [ ] Quick shortcut/action to open local file explorer / Windows directory.
 - [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
 
-### 2.2 Invoicing & E-Invoicing (FatturaPA / Italy)
-- [ ] SdI status receipts and notification XML parsing support.
-
-### 2.3 Calendar & External Integrations
+### 2.2 Calendar & External Integrations
 - [ ] Investigate optional two-way / one-way iCal and Google Calendar / Outlook feed synchronization.
 
-### 2.4 System Audit & Polishing
+### 2.3 System Audit & Polishing
 - [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
-- [ ] Optional global customer search across Support, Invoices, and CRM.
 
 ## Other
 - [ ] Multi-page showcase & documentation web portal (features, releases, preview, GitHub link).
-- [ ] ~~vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere Sachen?~~ (aktuell nicht benötigt)
 
 
 

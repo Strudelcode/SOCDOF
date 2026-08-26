@@ -223,3 +223,21 @@
 - [x] **Version Update Guidelines**: Documented system version update checklist in `INSTRUCTIONS.md` and release history in `versions/V20.md`.
 - [x] **Contacts Form Verification & Refactoring**: Clean dedicated fields for ZIP, City, Country, TaxID, and Notes.
 
+### 8. Italian E-Invoicing (FatturaPA 1.2.2 & SdI Full Lifecycle) & Global Search Polish (v20.3.0)
+- [x] **FatturaPA 1.2.2 XML Generator & Schema Compliance**:
+  - [x] Support for Italian transmission formats `FPR12` (B2B/B2C) and `FPA12` (Pubblica Amministrazione).
+  - [x] Codice Destinatario (7-character for private entities, 6-character for PA), PEC delivery, CIG, CUP, and Bollo Virtuale (2,00 €).
+  - [x] Valid tax codes (Codice Fiscale / P.IVA), Natura codes (N1-N7), and Regime Fiscale (RF01-RF19).
+- [x] **SdI Receipt & Notification XML Parsing**:
+  - [x] Comprehensive parser for Agenzia delle Entrate notification files: `RC` (Ricevuta di Consegna), `NS` (Notifica di Scarto), `MC` (Mancata Consegna), `NE` (Notifica Esito Committente PA), `DT` (Decorrenza Termini), `AT` (Attestazione Trasmissione).
+  - [x] Integrated SdI Error Code Catalog (00200, 00201, 00311, 00400, 00404, etc.) with actionable hints in German, English, French, and Spanish.
+  - [x] Auto-detection of incoming XML files upon drag-and-drop / upload (distinguishing between invoice XML and SdI notification receipts).
+- [x] **FatturaPA & SdI Inspector Modal**:
+  - [x] Live XML preview with syntax-colored blocks, copy-to-clipboard, and validation checklist.
+  - [x] SdI status management (Not Sent, Sent, Delivered, Rejected, Failed Delivery, PA Accepted, PA Refused).
+  - [x] Manual upload and automatic binding of SdI receipts to invoice records.
+- [x] **Global Entity Search in Command Palette (`Ctrl+K`)**:
+  - [x] Real-time search across CRM Contacts (name, company, email, city), Products (name, SKU, price), Invoices (number, contact, amount), and Navigation actions.
+  - [x] Harmonized branding across all search modules.
+
+
