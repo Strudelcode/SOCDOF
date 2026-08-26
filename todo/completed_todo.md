@@ -6,7 +6,19 @@
 
 ## Completed Tasks Archive
 
-### 1. Custom Brand Icon Assets Integration & Windows Packaging (v20.2.0)
+### 1. Language Persistence, Reactive Language Switcher & Start Menu Icon Geometry (v20.3.1)
+- [x] **Language Persistence Across App Restarts**:
+  - [x] Fixed initialization sequence in `i18n.ts` and `App.tsx` to read the stored language directly from `localStorage` and `IndexedDB` (`company_profile.language`).
+  - [x] Prevented startup routines and modal close handlers from resetting the language to English.
+- [x] **Reactive Taskbar & Modal Language Selector**:
+  - [x] Bound Taskbar and Start Menu language triggers to the reactive `useLanguage()` state.
+  - [x] Added synchronization hook in `LanguageSelectionModal` so the currently active language is pre-selected and highlighted when opened.
+  - [x] Fixed close button behavior to preserve current settings without overriding.
+- [x] **Crisp Start Menu Icon Geometry**:
+  - [x] Updated `SocdofLogo.tsx` with bundled asset imports and mathematically proportioned corner radii (`rounded-lg` for 28px taskbar icon, `rounded-xl` for 36-48px dialogs, `rounded-2xl` for 64px hero).
+  - [x] Eliminated distortion, clipping, and blurry fallback rendering.
+
+### 2. Italian E-Invoicing (FatturaPA 1.2.2 & SdI Lifecycle) (v20.3.0)
 - [x] **Official Custom Brand Icons**:
   - [x] Extracted and integrated the 3 official icon formats (`.ico`, `.png`, `.svg`) provided in `src/assets/`.
   - [x] Updated `public/socdof_icon.ico`, `public/socdof_icon.png`, `public/socdof_icon.svg`, and `public/favicon.svg`.

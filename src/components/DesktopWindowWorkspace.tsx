@@ -2022,10 +2022,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <button
               onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
               className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40"
-              title="Sprache ändern / Change Language (Standard: English)"
+              title="Sprache ändern / Change Language"
             >
-              <FlagIcon code={getLanguage()} size="sm" />
-              <span className="uppercase font-bold tracking-wider">{getLanguage()}</span>
+              <FlagIcon code={currentLang} size="sm" />
+              <span className="uppercase font-bold tracking-wider">{currentLang}</span>
             </button>
             <button
               onClick={() => openWindow('docs', 'Dokumentation & Handbuch')}
@@ -2388,11 +2388,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Language Selector in Taskbar Tray */}
           <button
             onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
-            title="Sprache ändern / Change Language (Standard: English)"
+            title="Sprache ändern / Change Language"
             className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold transition border border-slate-300/80 dark:border-slate-700"
           >
-            <FlagIcon code={getLanguage()} size="sm" />
-            <span className="uppercase tracking-wider">{getLanguage()}</span>
+            <FlagIcon code={currentLang} size="sm" />
+            <span className="uppercase tracking-wider">{currentLang}</span>
           </button>
 
           {/* Tutorial Button in Taskbar */}
@@ -2660,7 +2660,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       <LanguageSelectionModal
         isOpen={isLanguageModalOpen}
         onClose={() => setIsLanguageModalOpen(false)}
-        currentLanguage={getLanguage()}
+        currentLanguage={currentLang}
         onSelectLanguage={(lang) => {
           setLanguage(lang);
           onUpdateCompany({ ...company, language: lang });

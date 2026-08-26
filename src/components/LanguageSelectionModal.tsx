@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Globe, 
   Check, 
@@ -11,7 +11,8 @@ import {
   SUPPORTED_LANGUAGES, 
   LanguageCode, 
   t, 
-  setLanguage 
+  setLanguage,
+  getLanguage 
 } from '../lib/i18n';
 import { FlagIcon } from './FlagIcon';
 
@@ -28,7 +29,13 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
   currentLanguage,
   onSelectLanguage
 }) => {
-  const [selected, setSelected] = useState<LanguageCode>(currentLanguage || 'en');
+  const [selected, setSelected] = useState<LanguageCode>(() => currentLanguage || getLanguage());
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelected(currentLanguage || getLanguage());
+    }
+  }, [isOpen, currentLanguage]);
 
   if (!isOpen) return null;
 
@@ -47,11 +54,11 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
     onClose();
   };
 
-  const handleSkip = () => {
+  const handleCloseOrSkip = () => {
     sounds.playPop();
-    // Default is explicitly English
-    setLanguage('en');
-    onSelectLanguage('en');
+    const active = selected || currentLanguage || getLanguage();
+    setLanguage(active);
+    onSelectLanguage(active);
     try {
       localStorage.setItem('socdof_language_initialized', 'true');
     } catch {}
@@ -99,9 +106,9 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
           </div>
 
           <button
-            onClick={handleSkip}
+            onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            title={t('action.skip', selected, 'Skip')}
+            title={t('action.close', selected, 'Close')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -184,19 +191,15 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
           </div>
         </div>
 
-        {/* Footer with Skip (Default: English) and Apply/Continue */}
+        {/* Footer with Skip / Dismiss and Apply/Continue */}
         <div className="p-6 pt-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-3">
           
-          {/* Skip Button with Subtitle "(Default: English)" */}
           <button
             type="button"
-            onClick={handleSkip}
-            className="w-full sm:w-auto px-4 py-2 text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition flex flex-col items-center sm:items-start"
+            onClick={handleCloseOrSkip}
+            className="w-full sm:w-auto px-4 py-2 text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-xs font-bold"
           >
-            <span className="text-xs font-bold">{t('action.skip', selected, 'Skip')}</span>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-              ({t('action.default_english', selected, 'Default: English')})
-            </span>
+            {t('action.cancel', selected, 'Cancel')}
           </button>
 
           {/* Continue Button */}

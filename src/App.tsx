@@ -139,13 +139,19 @@ export default function App() {
         }
         if (comp.language) {
           setLanguage(comp.language);
+        } else {
+          const current = getLanguage();
+          setLanguage(current);
+          comp.language = current;
+          await db.settings.put({ key: 'company_profile', value: comp });
         }
         if (comp.font_scale) {
           document.documentElement.style.fontSize = `${comp.font_scale}%`;
         }
       } else {
         applyAccentColor('indigo');
-        setLanguage('en');
+        const current = getLanguage();
+        setLanguage(current);
         document.documentElement.style.fontSize = '100%';
       }
     } catch (err) {

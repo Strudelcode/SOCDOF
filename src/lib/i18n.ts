@@ -2987,7 +2987,18 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
   }
 };
 
-let currentLang: LanguageCode = 'en';
+let currentLang: LanguageCode = (() => {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('socdof_language');
+      if (saved === 'en' || saved === 'de' || saved === 'fr' || saved === 'es') {
+        return saved as LanguageCode;
+      }
+    } catch {}
+  }
+  return 'en';
+})();
+
 const listeners = new Set<(lang: LanguageCode) => void>();
 
 export function subscribeLanguageChange(listener: (lang: LanguageCode) => void) {
@@ -2998,11 +3009,15 @@ export function subscribeLanguageChange(listener: (lang: LanguageCode) => void) 
 }
 
 export function setLanguage(lang: LanguageCode) {
+  if (lang !== 'en' && lang !== 'de' && lang !== 'fr' && lang !== 'es') return;
   currentLang = lang;
   if (typeof document !== 'undefined') {
     document.documentElement.lang = lang;
+  }
+  if (typeof localStorage !== 'undefined') {
     try {
       localStorage.setItem('socdof_language', lang);
+      localStorage.setItem('socdof_language_initialized', 'true');
     } catch {}
   }
   listeners.forEach(cb => {
@@ -3014,10 +3029,13 @@ export function setLanguage(lang: LanguageCode) {
 
 export function getLanguage(): LanguageCode {
   if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('socdof_language');
-    if (saved && (saved === 'en' || saved === 'de' || saved === 'fr' || saved === 'es')) {
-      return saved as LanguageCode;
-    }
+    try {
+      const saved = localStorage.getItem('socdof_language');
+      if (saved === 'en' || saved === 'de' || saved === 'fr' || saved === 'es') {
+        currentLang = saved as LanguageCode;
+        return saved as LanguageCode;
+      }
+    } catch {}
   }
   return currentLang;
 }

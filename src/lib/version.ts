@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.3.0';
+export const APP_VERSION = '20.3.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.3.1',
+    date: '2026-08-26',
+    title: 'Language Persistence Fix, Reactive Language Switcher UI & Start Menu Icon Geometry',
+    highlights: [
+      'Language Persistence Across Restarts: Fixed language initialization in IndexedDB and localStorage so user-selected languages (German, English, French, Spanish) persist seamlessly across app restarts and closures without reverting to English',
+      'Reactive Taskbar Language Switcher: Synchronized the taskbar tray and start menu language indicators to reactively reflect the active language in real time and pre-select the current language in the selection modal',
+      'Crisp Start Menu Icon Geometry: Refined SocdofLogo rendering with bundled high-resolution asset imports, proportional corner radius curves, and clean scaling across all sizes'
+    ]
+  },
   {
     version: '20.3.0',
     date: '2026-08-26',
