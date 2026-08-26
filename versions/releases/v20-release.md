@@ -8,7 +8,20 @@
 
 ## Key Highlights & Feature Set
 
-### 1. Window Control Buttons Drag Suppression & Event Isolation (v20.0.2)
+### 1. Web Preview Modal, Storage Notices & Leave Protection (v20.0.3)
+- **Web Demo Notice & Session-Only Persistence Clarity**:
+  - Implemented `WebPreviewModal.tsx` and interactive taskbar indicator for web environments clarifying transient browser storage.
+  - Added `beforeunload` warning event listener in preview mode preventing accidental loss of unsaved input.
+  - Direct download links to the official Windows Desktop `.exe` release on GitHub (`https://github.com/Strudelcode/SOCDOF/releases`).
+- **Dynamic Browser Title & Data URI Favicon Pipeline**:
+  - Automatically identifies web preview mode and sets browser document title to `"SOCDOF - Preview"`.
+  - Injected resilient SVG data URI favicon fallback rendering reliably across GitHub Pages and custom deployments.
+- **GitHub Release Update Checker Engine**:
+  - Integrated `src/lib/updateChecker.ts` with the official GitHub Releases API (`Strudelcode/SOCDOF`), allowing instant version comparison, update notifications, and direct downloads from within Settings.
+- **Exit Prompt & Startup Preferences**:
+  - Added `disable_exit_prompt` and `launch_maximized` toggles in Settings.
+
+### 2. Window Control Buttons Drag Suppression & Event Isolation (v20.0.2)
 - **Titlebar Button Drag Rejection**: Prevented accidental window dragging when pressing down (`onMouseDown`, `onPointerDown`) on the close (`✕`), minimize (`—`), maximize (`▢`), or split-view snap buttons (`◧` / `◨`).
 - **Event Propagation Stopping**: Embedded explicit `e.stopPropagation()` handlers on mouse/pointer events and applied `cursor-pointer` fidelity.
 - **Defensive Drag Target Filter**: Added interactive element detection in `startDrag` to ensure window drag movements are exclusively initiated from neutral titlebar surfaces.

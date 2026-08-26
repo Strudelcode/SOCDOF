@@ -60,6 +60,8 @@ import { ACCENT_LIST, applyAccentColor, getAccentPreset } from '../lib/accent';
 import { SUPPORTED_LANGUAGES, setLanguage, useLanguage, t } from '../lib/i18n';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
+import { GITHUB_RELEASES_URL, GITHUB_REPO_URL } from '../lib/platform';
+import { checkForAppUpdates, UpdateInfo } from '../lib/updateChecker';
 
 interface SettingsModuleProps {
   company: CompanyProfile;
@@ -120,6 +122,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   // Small file export preference
   const [exportCompact, setExportCompact] = useState(true);
+
+  // GitHub Release Update Checker State
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateInfo | null>(null);
+
+  const handleManualCheckUpdates = async () => {
+    try {
+      setIsCheckingUpdate(true);
+      sounds.playClick();
+      const res = await checkForAppUpdates();
+      setUpdateResult(res);
+      if (res?.hasUpdate) {
+        sounds.playSuccess();
+      } else {
+        sounds.playPop();
+      }
+    } catch {
+      sounds.playError();
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   // Recent Searches / Quick Links list
   const recentSearches = [
@@ -1921,37 +1945,44 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Windows Desktop-App &amp; Lokaler Launcher
+                    Windows Desktop-App &amp; Release-Updates
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Starten Sie SOCDOF direkt von Ihrem Windows-Desktop oder der Taskleiste.
+                    Verwalten Sie die lokale Windows Desktop-Umgebung, automatische Updates und Beenden-Bestätigungen.
                   </p>
                 </div>
               </div>
 
+              {/* Card 1: App Info & Releases */}
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                     <Sparkles className="w-4 h-4 text-indigo-500" />
-                    <span>Windows Installer (.EXE v18.3.5) &amp; Offline-Modus</span>
+                    <span>Windows Installer (.EXE) &amp; Offline-Modus</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    100% Offline
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      v{APP_VERSION}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      100% Offline
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  SOCDOF läuft 100% lokal auf Ihrem PC als eigenständige Windows-Desktop App mit voller Unterstützung für Tastaturkürzel (F11, Win+D) und ohne Internetverbindung.
+                  SOCDOF läuft 100% lokal auf Ihrem PC als eigenständige Windows-Desktop App mit voller Unterstützung für Tastaturkürzel (F11, Win+D), lokaler SQLite/IndexedDB-Persistenz und ohne Internetverbindung.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <a
-                    href="https://github.com/Strudelcode/SOCDOF/releases/download/v18/SOCDOF.Setup.18.3.5.exe"
+                    href={GITHUB_RELEASES_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Setup .EXE herunterladen (v18.3.5)</span>
+                    <span>Neueste Releases auf GitHub öffnen (.exe)</span>
+                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                   </a>
 
                   {onOpenWindowsModal && (
@@ -1966,7 +1997,129 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              {/* Toggle to disable periodic reminders */}
+              {/* Card 2: Live GitHub Release Update Checker */}
+              <div className="p-5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Github className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                      GitHub Release-Aktualisierungsprüfung
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleManualCheckUpdates}
+                    disabled={isCheckingUpdate}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                    <span>{isCheckingUpdate ? 'Prüfe...' : 'Nach Updates suchen'}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Prüft das offizielle GitHub-Repository (<code className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">Strudelcode/SOCDOF</code>) auf neue stabile Release-Builds.
+                </div>
+
+                {updateResult && (
+                  <div className={`p-4 rounded-xl border ${
+                    updateResult.hasUpdate 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="font-bold flex items-center gap-2 text-xs">
+                          {updateResult.hasUpdate ? (
+                            <>
+                              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span>Neues Update verfügbar: v{updateResult.latestVersion}</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              <span>SOCDOF ist auf dem neuesten Stand (v{updateResult.currentVersion})</span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-[11px] opacity-80">
+                          {updateResult.hasUpdate
+                            ? `Ihre Version: v${updateResult.currentVersion} → Neue Version: v${updateResult.latestVersion}`
+                            : 'Es sind keine neueren Versionen auf GitHub verfügbar.'}
+                        </p>
+                      </div>
+
+                      {updateResult.hasUpdate && (
+                        <a
+                          href={updateResult.downloadUrl || updateResult.releaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs shrink-0"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Update laden</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Toggle: Exit Confirmation Prompt ("SOCDOF beenden?" Dialog) */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    Sicherheitsabfrage vor dem Beenden
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Zeigt beim Klick auf "Beenden" im Startmenü das Bestätigungsfenster an.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !profile.disable_exit_prompt;
+                    handleSaveProfile({ disable_exit_prompt: next });
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
+                    !profile.disable_exit_prompt ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                  title={!profile.disable_exit_prompt ? 'Aktiviert (Abfrage wird angezeigt)' : 'Deaktiviert (Direktes Beenden)'}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                    !profile.disable_exit_prompt ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Toggle: Launch Maximized by Default */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    Desktop-Fenster beim Start maximieren
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Öffnet SOCDOF beim Starten der Windows .EXE automatisch im Vollbild-/Maximier-Modus.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !profile.launch_maximized;
+                    handleSaveProfile({ launch_maximized: next });
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
+                    profile.launch_maximized ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                    profile.launch_maximized ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Toggle: Disable periodic reminders */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-bold text-slate-900 dark:text-white">

@@ -6,7 +6,22 @@
 
 ## Completed Tasks Archive
 
-### 1. Window Action Buttons Drag Suppression & Titlebar Interaction Fix (v20.0.2)
+### 1. Web Preview Modal, Update Checker & Exit Confirmation Customization (v20.0.3)
+- [x] **Web Preview Guard & Transient Storage Notice**:
+  - [x] Implemented `WebPreviewModal.tsx` clarifying in-browser session storage and offering direct GitHub release `.exe` download links.
+  - [x] Added `beforeunload` warning event listener in web mode to prevent accidental tab closing without saving.
+  - [x] Browser document title dynamically updates to `"SOCDOF - Preview"` in web mode.
+  - [x] Integrated colorful SVG data URI favicon fallback for GitHub Pages and web preview environments.
+- [x] **Live GitHub Release Update Checker**:
+  - [x] Implemented `src/lib/updateChecker.ts` communicating with GitHub API (`Strudelcode/SOCDOF/releases/latest`).
+  - [x] Added "Nach Updates suchen" button in Settings with live semver comparison, update status badge, and direct download links.
+- [x] **Exit Confirmation Prompt Customization**:
+  - [x] Added `disable_exit_prompt` toggle in Settings (Windows section) allowing users to choose between immediate shutdown and modal confirmation.
+  - [x] Added `launch_maximized` toggle in Settings.
+- [x] **Build & Packaging Configuration**:
+  - [x] Configured `electron-builder.json` icon path and launch maximization settings.
+
+### 2. Window Action Buttons Drag Suppression & Titlebar Interaction Fix (v20.0.2)
 - [x] **Titlebar Action Buttons Isolation**:
   - [x] Prevented dragging when pressing or clicking down on close (`✕`), minimize (`—`), maximize (`▢`), and split-view snap buttons (`◧` / `◨`).
   - [x] Added `e.stopPropagation()` on `onMouseDown`, `onPointerDown`, and `onDoubleClick` across the action buttons container and buttons.

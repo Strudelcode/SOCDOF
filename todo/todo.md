@@ -23,26 +23,17 @@
 ## 2. Active Roadmap & Pending Tasks
 
 ### 2.1 Native Desktop App & Electron Execution
-- [ ] Investigate if `.exe` should launch maximized by default or in true fullscreen.
-- [ ] Add an optional toggle in Settings to enable/disable the exit confirmation dialogue.
-- [ ] Add automatic search for new stable GitHub releases in Electron mode.
-- [ ] Ensure updates are downloaded only after explicit user consent.
 - [ ] Quick shortcut/action to open local file explorer / Windows directory.
 - [ ] Provide optional standalone `Languages` folder bundled alongside portable `.exe` builds.
 
-### 2.2 Platform & Web Storage Strategy
-- [ ] **GitHub Pages Session-Only Storage Check**:
-  - [ ] Ensure web demo operates purely in-session without persistent state when intended.
-  - [ ] Display clear notice that permanent offline data persistence is reserved for the standalone `.exe` / desktop app.
-
-### 2.3 Calendar & External Integrations
+### 2.2 Calendar & External Integrations
 - [ ] Investigate optional two-way / one-way iCal and Google Calendar / Outlook feed synchronization.
 
-### 2.4 System Audit & Polishing
+### 2.3 System Audit & Polishing
 - [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
 - [ ] Optional global customer search across Support, Invoices, and CRM.
 
-### 2.5 Invoicing & E-Invoicing (FatturaPA / Italy)
+### 2.4 Invoicing & E-Invoicing (FatturaPA / Italy)
 - [ ] **FatturaPA 1.2.x XML Generator**: Implement local generator for Italian e-invoices compliant with standard schemas.
 - [ ] **XML Validation**: Add built-in XSD validation before export to prevent SdI portal rejection.
 - [ ] **Portal Export**: Add export option for ready-to-upload XML files compatible with *Fatture e Corrispettivi*.
@@ -51,7 +42,6 @@
 ## Windows Desktop App Issues
 - [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
 - [ ] Executable Icon: Fix build config so the packaged `.exe` uses the custom SOCDOF icon instead of default Electron logo.
-
 
 ## Other
 - [ ] Villeicht im haupt Ordner bei der index.html eine webseite mit der dokumetation, features... beschreiben. Es soll KEINE one page sein. dann kann man auch das GitHub Projekt sehen. die releases runterladen. die vorschau Seite sehen und so

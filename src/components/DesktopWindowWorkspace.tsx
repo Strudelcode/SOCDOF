@@ -2024,7 +2024,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </button>
 
               <button
-                onClick={() => setIsPowerMenuOpen(!isPowerMenuOpen)}
+                onClick={() => {
+                  if (company.disable_exit_prompt) {
+                    handleShutdown();
+                  } else {
+                    setIsPowerMenuOpen(!isPowerMenuOpen);
+                  }
+                }}
                 title="Beenden & Energieoptionen"
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300 transition"
               >

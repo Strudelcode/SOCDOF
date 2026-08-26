@@ -26,7 +26,7 @@ export const WebPreviewModal: React.FC<WebPreviewModalProps> = ({
   onClose,
   isExitPrompt = false
 }) => {
-  const { lang } = useLanguage();
+  const lang = useLanguage();
 
   if (!isOpen) return null;
 

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.2';
+export const APP_VERSION = '20.0.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.3',
+    date: '2026-08-26',
+    title: 'Web Preview Modal, GitHub Release Update Checker, Exit Prompt Customization & Favicon Pipeline',
+    highlights: [
+      'Web Preview Notification & Info Modal: Informative dialog clarifying browser-based transient storage, beforeunload leave protection, and direct links to download the standalone Windows Desktop .exe release on GitHub',
+      'Live GitHub Release Update Checker: Integrated automatic and on-demand check against the official Strudelcode/SOCDOF GitHub Releases API with visual status badges, update notifications, and one-click download',
+      'Exit Confirmation Toggle: Added customizable security toggle in Settings to allow instant shutdown or modal confirmation',
+      'Windows & Launcher Settings: Added options for launch maximization, periodic reminder suppression, and build icon configuration'
+    ]
+  },
   {
     version: '20.0.2',
     date: '2026-08-25',
