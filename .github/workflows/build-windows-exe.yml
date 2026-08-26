@@ -73,7 +73,7 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: ${{ steps.prep.outputs.is_prerelease == 'true' }}
-          make_latest: true
+          make_latest: ${{ steps.prep.outputs.make_latest }}
           files: release/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -961,8 +961,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       });
     }
 
-    // Next month days to reach 35 or 42 grid cells
-    const remaining = (7 - (result.length % 7)) % 7;
+    // Next month days to reach a fixed 6-row grid (exactly 42 cells) so the calendar window size never jumps
+    const totalRequiredCells = 42;
+    const remaining = totalRequiredCells - result.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
       result.push({
@@ -2476,17 +2477,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 setSelectedCalendarDate(now);
                 sounds.playClick();
               }}
-              title="Auf Heute zurücksetzen"
+              title={t('calendar.reset_today_title', currentLang, 'Auf Heute zurücksetzen')}
               className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 transition"
             >
-              Heute
+              {t('calendar.today_btn', currentLang, 'Heute')}
             </button>
           </div>
 
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-3 px-1">
             <span className="font-extrabold text-sm capitalize text-slate-800 dark:text-slate-200">
-              {calendarViewDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
+              {calendarViewDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'long', year: 'numeric' })}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -2495,7 +2496,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
                 }}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition"
-                title="Vorheriger Monat"
+                title={t('calendar.prev_month', currentLang, 'Vorheriger Monat')}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -2505,7 +2506,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
                 }}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition"
-                title="Nächster Monat"
+                title={t('calendar.next_month', currentLang, 'Nächster Monat')}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -2514,16 +2515,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
           {/* Weekday headers */}
           <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">
-            <span>Mo</span>
-            <span>Di</span>
-            <span>Mi</span>
-            <span>Do</span>
-            <span>Fr</span>
-            <span>Sa</span>
-            <span>So</span>
+            {(currentLang === 'de'
+              ? ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+              : currentLang === 'fr'
+              ? ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
+              : currentLang === 'es'
+              ? ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
+              : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+            ).map((wd, i) => (
+              <span key={i}>{wd}</span>
+            ))}
           </div>
 
-          {/* Days Grid */}
+          {/* Days Grid (Strictly 6 rows of 7 days = 42 cells, constant height) */}
           <div className="grid grid-cols-7 gap-1 text-center mb-3">
             {calendarDays.map((item, idx) => {
               return (
@@ -2552,73 +2556,75 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             })}
           </div>
 
-          {/* Agenda / Upcoming Due Invoices & Deadlines */}
+          {/* Agenda / Upcoming Due Invoices & Deadlines (Constant fixed-height scroll container) */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Termine & Fälligkeiten</span>
+                <span>{t('calendar.upcoming_events', currentLang, 'Termine & Fälligkeiten')}</span>
               </div>
               <button
                 onClick={() => {
                   sounds.playClick();
                   setIsCalendarFlyoutOpen(false);
-                  openWindow('invoices', 'Rechnungen');
+                  openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
                 }}
                 className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
               >
-                Alle Rechnungen
+                {t('calendar.all_invoices', currentLang, 'Alle Rechnungen')}
               </button>
             </div>
 
-            {selectedDateInvoices.length > 0 ? (
-              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                {selectedDateInvoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    onClick={() => {
-                      setIsCalendarFlyoutOpen(false);
-                      openWindow('invoices', 'Rechnungen');
-                    }}
-                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs"
-                  >
-                    <div className="truncate mr-2">
-                      <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
-                      <div className="text-[10px] text-slate-500">{inv.status === 'paid' ? 'Bezahlt' : 'Fällig'} am {inv.due_date}</div>
+            <div className="h-28 overflow-y-auto pr-0.5">
+              {selectedDateInvoices.length > 0 ? (
+                <div className="space-y-1.5 pr-0.5">
+                  {selectedDateInvoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      onClick={() => {
+                        setIsCalendarFlyoutOpen(false);
+                        openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
+                      }}
+                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs"
+                    >
+                      <div className="truncate mr-2">
+                        <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
+                        <div className="text-[10px] text-slate-500">{inv.status === 'paid' ? 'Bezahlt' : 'Fällig'} am {inv.due_date}</div>
+                      </div>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+                        {inv.total_gross.toFixed(2)} €
+                      </span>
                     </div>
-                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
-                      {inv.total_gross.toFixed(2)} €
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : openInvoicesUpcoming.length > 0 ? (
-              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                <div className="text-[10px] text-slate-400 italic mb-1">Nächste offene Posten:</div>
-                {openInvoicesUpcoming.map((inv) => (
-                  <div
-                    key={inv.id}
-                    onClick={() => {
-                      setIsCalendarFlyoutOpen(false);
-                      openWindow('invoices', 'Rechnungen');
-                    }}
-                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs"
-                  >
-                    <div className="truncate mr-2">
-                      <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
-                      <div className="text-[10px] text-slate-500">Fällig: {inv.due_date || 'Kein Datum'}</div>
+                  ))}
+                </div>
+              ) : openInvoicesUpcoming.length > 0 ? (
+                <div className="space-y-1.5 pr-0.5">
+                  <div className="text-[10px] text-slate-400 italic mb-1">{t('calendar.next_open_items', currentLang, 'Nächste offene Posten:')}</div>
+                  {openInvoicesUpcoming.map((inv) => (
+                    <div
+                      key={inv.id}
+                      onClick={() => {
+                        setIsCalendarFlyoutOpen(false);
+                        openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
+                      }}
+                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs"
+                    >
+                      <div className="truncate mr-2">
+                        <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
+                        <div className="text-[10px] text-slate-500">Fällig: {inv.due_date || '—'}</div>
+                      </div>
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">
+                        {inv.total_gross.toFixed(2)} €
+                      </span>
                     </div>
-                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">
-                      {inv.total_gross.toFixed(2)} €
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-2 text-xs text-slate-400">
-                Keine anstehenden Fälligkeiten
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-center py-2 text-xs text-slate-400">
+                  {t('calendar.no_events', currentLang, 'Keine anstehenden Fälligkeiten')}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

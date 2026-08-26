@@ -748,7 +748,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'preview.feature_storage': 'Permanent Local Storage',
     'preview.feature_backups': 'Automated Daily Backups',
     'preview.feature_fast': 'Fast Native Windows App',
-    'preview.repo_link': 'View on GitHub'
+    'preview.repo_link': 'View on GitHub',
+
+    // Windows 11 Calendar & Agenda Flyout
+    'calendar.today_btn': 'Today',
+    'calendar.reset_today_title': 'Reset to today',
+    'calendar.prev_month': 'Previous month',
+    'calendar.next_month': 'Next month',
+    'calendar.upcoming_events': 'Due Dates & Agenda',
+    'calendar.all_invoices': 'All Invoices',
+    'calendar.no_events': 'No upcoming due dates',
+    'calendar.next_open_items': 'Upcoming open items:'
   },
 
   de: {
@@ -1481,7 +1491,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'preview.feature_storage': 'Dauerhafte Datenspeicherung',
     'preview.feature_backups': 'Automatische Backups',
     'preview.feature_fast': 'Schnelle Windows .exe App',
-    'preview.repo_link': 'Auf GitHub ansehen'
+    'preview.repo_link': 'Auf GitHub ansehen',
+
+    // Windows 11 Calendar & Agenda Flyout
+    'calendar.today_btn': 'Heute',
+    'calendar.reset_today_title': 'Auf Heute zurücksetzen',
+    'calendar.prev_month': 'Vorheriger Monat',
+    'calendar.next_month': 'Nächster Monat',
+    'calendar.upcoming_events': 'Termine & Fälligkeiten',
+    'calendar.all_invoices': 'Alle Rechnungen',
+    'calendar.no_events': 'Keine anstehenden Fälligkeiten',
+    'calendar.next_open_items': 'Nächste offene Posten:'
   },
 
   fr: {
@@ -2212,7 +2232,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'preview.feature_storage': 'Stockage permanent local',
     'preview.feature_backups': 'Sauvegardes automatiques',
     'preview.feature_fast': 'Application Windows native rapide',
-    'preview.repo_link': 'Voir sur GitHub'
+    'preview.repo_link': 'Voir sur GitHub',
+
+    // Windows 11 Calendar & Agenda Flyout
+    'calendar.today_btn': "Aujourd'hui",
+    'calendar.reset_today_title': "Revenir à aujourd'hui",
+    'calendar.prev_month': 'Mois précédent',
+    'calendar.next_month': 'Mois suivant',
+    'calendar.upcoming_events': 'Échéances & Agenda',
+    'calendar.all_invoices': 'Toutes les factures',
+    'calendar.no_events': 'Aucune échéance à venir',
+    'calendar.next_open_items': 'Prochains postes ouverts :'
   },
 
   es: {
@@ -2943,7 +2973,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'preview.feature_storage': 'Almacenamiento local permanente',
     'preview.feature_backups': 'Copias de seguridad automáticas',
     'preview.feature_fast': 'Aplicación rápida para Windows',
-    'preview.repo_link': 'Ver en GitHub'
+    'preview.repo_link': 'Ver en GitHub',
+
+    // Windows 11 Calendar & Agenda Flyout
+    'calendar.today_btn': 'Hoy',
+    'calendar.reset_today_title': 'Restablecer a hoy',
+    'calendar.prev_month': 'Mes anterior',
+    'calendar.next_month': 'Mes siguiente',
+    'calendar.upcoming_events': 'Vencimientos y Agenda',
+    'calendar.all_invoices': 'Todas las facturas',
+    'calendar.no_events': 'No hay vencimientos pendientes',
+    'calendar.next_open_items': 'Próximos elementos pendientes:'
   }
 };
 

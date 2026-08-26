@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.1.0';
+export const APP_VERSION = '20.1.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.1.1',
+    date: '2026-08-26',
+    title: 'Fixed Calendar Flyout Dimensions, Pre-release CI/CD Categorization & Multilingual Date Formatting',
+    highlights: [
+      'Constant-Height Calendar Flyout: Enforced a strict 6-row (42-day) matrix and fixed agenda container so the calendar popup window maintains an exact, stable height across all months without layout jumping',
+      'Pre-Release vs Full Release GitHub Tagging: Updated automated release pipeline so minor and patch builds (e.g. v20.0.9, v20.1.0, v20.1.1) are published strictly as Pre-releases with `make_latest: false`, reserving Full Releases for major milestone versions (e.g. v20.0.0, v21.0.0)',
+      'Multilingual Calendar Localization: Added localized month names, weekday acronyms, and agenda labels across German, English, French, and Spanish'
+    ]
+  },
   {
     version: '20.1.0',
     date: '2026-08-26',

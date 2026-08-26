@@ -6,7 +6,17 @@
 
 ## Completed Tasks Archive
 
-### 1. In-App Web Preview Exit Modal & Data Loss Warning (v20.1.0)
+### 1. Fixed Calendar Flyout Dimensions & Pre-Release CI/CD Tagging (v20.1.1)
+- [x] **Constant-Height Calendar Flyout**:
+  - [x] Fixed `calendarDays` logic in `DesktopWindowWorkspace.tsx` to strictly generate 42 cells (6 full rows × 7 days) for every month.
+  - [x] Fixed agenda container height to `h-28` with smooth overflow scroll, completely eliminating window height jumping when switching months.
+  - [x] Added multilingual support for weekday headers, month titles, and agenda notices across DE, EN, FR, ES in `src/lib/i18n.ts`.
+- [x] **GitHub Release vs. Pre-Release Classification**:
+  - [x] Updated `scripts/prepare-release.cjs` to enforce that only root major versions (e.g. `v20.0.0`, `v21.0.0` where `minor === 0 && patch === 0`) are published as full Latest releases.
+  - [x] Automatically sets `prerelease: true` and `make_latest: false` for all minor and patch iterations (e.g. `v20.0.9`, `v20.1.0`, `v20.1.1`).
+  - [x] Updated `.github/workflows/build-windows-exe.yml` to consume `make_latest` dynamically from release preparation.
+
+### 2. In-App Web Preview Exit Modal & Data Loss Warning (v20.1.0)
 - [x] **Interactive In-Page Exit Dialog**:
   - [x] Implemented dedicated in-app modal `WebPreviewModal.tsx` replacing browser-native alerts with a polished user experience.
   - [x] Clearly warns users that data created during web preview is kept only in temporary browser cache and will not be saved permanently upon leaving.

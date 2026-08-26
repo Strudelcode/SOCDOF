@@ -14,8 +14,11 @@ function main() {
   const majorTag = `v${major}`;
   const versionTag = `v${version}`;
 
-  const isPrerelease = version.includes('-') || Boolean(pkg.prerelease);
-  const isMajorRelease = (minor === 0 && patch === 0);
+  // Major root releases are v19.0.0, v20.0.0, v21.0.0 (minor === 0 && patch === 0, no pre-tag)
+  const isMajorRelease = (minor === 0 && patch === 0) && !version.includes('-');
+  // Minor changes / patches (e.g. v20.0.9, v20.1.0, v20.1.1) or tagged builds are published as Prerelease
+  const isPrerelease = !isMajorRelease || version.includes('-') || Boolean(pkg.prerelease);
+  const makeLatest = isMajorRelease ? 'true' : 'false';
 
   // Search for version notes in versions/V<major>.md
   const versionDocPath = path.join(process.cwd(), 'versions', `V${major}.md`);
@@ -64,6 +67,7 @@ function main() {
   console.log(`[prepare-release] Version Tag: ${versionTag}`);
   console.log(`[prepare-release] Is Major Release: ${isMajorRelease}`);
   console.log(`[prepare-release] Is Prerelease: ${isPrerelease}`);
+  console.log(`[prepare-release] Make Latest: ${makeLatest}`);
   console.log(`[prepare-release] Notes extracted (${releaseBody.length} chars) to release_notes.md`);
 
   // Write GitHub Actions step output if running in GHA
@@ -75,6 +79,7 @@ function main() {
       `version_tag=${versionTag}`,
       `is_major_release=${isMajorRelease}`,
       `is_prerelease=${isPrerelease}`,
+      `make_latest=${makeLatest}`,
       `notes_file=${releaseNotesPath}`
     ].join('\n') + '\n';
 
