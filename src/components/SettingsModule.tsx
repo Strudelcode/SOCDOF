@@ -73,6 +73,15 @@ import {
   downloadSnapshotById,
   BackupSnapshotMeta
 } from '../lib/backupManager';
+import {
+  downloadIcsCalendar,
+  parseIcsText,
+  getStoredCalendarEvents,
+  saveStoredCalendarEvents,
+  clearStoredCalendarEvents,
+  getCalendarSubscribeUrls,
+  type SocdofCalendarEvent
+} from '../lib/ical';
 
 interface SettingsModuleProps {
   company: CompanyProfile;
@@ -145,6 +154,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [isRestoringSnapshotId, setIsRestoringSnapshotId] = useState<string | null>(null);
   const [backupSuccessMsg, setBackupSuccessMsg] = useState<string | null>(null);
   const folderPickerInputRef = useRef<HTMLInputElement>(null);
+
+  // Calendar Sync & External Feeds State
+  const [customCalendarEvents, setCustomCalendarEvents] = useState<SocdofCalendarEvent[]>([]);
+  const [calendarToast, setCalendarToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const icsFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadStoredSnapshots = () => {
     try {
@@ -284,6 +298,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   useEffect(() => {
     loadStorageInfo();
     loadStoredSnapshots();
+    setCustomCalendarEvents(getStoredCalendarEvents());
   }, [company]);
 
   const loadStorageInfo = async () => {
@@ -406,51 +421,106 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   const handleExportCalendarIcs = () => {
     sounds.playClick();
-    const calendarEntries: string[] = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//SOCDOF//DE//Calendar 1.0//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'X-WR-CALNAME:SOCDOF Rechnungen & Fristen'
-    ];
-
-    // Generate iCal events from active invoices with due dates
-    invoices.forEach(inv => {
-      const dueDate = inv.due_date ? new Date(inv.due_date) : new Date(inv.date);
-      const dtFormatted = dueDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-      
-      calendarEntries.push('BEGIN:VEVENT');
-      calendarEntries.push(`UID:socdof-inv-${inv.id}-${inv.number}@socdof.local`);
-      calendarEntries.push(`DTSTAMP:${dtFormatted}`);
-      calendarEntries.push(`DTSTART;VALUE=DATE:${dueDate.toISOString().slice(0, 10).replace(/-/g, '')}`);
-      calendarEntries.push(`SUMMARY:Fälligkeit ${inv.number} - ${inv.contact_name || 'Kunde'} (${inv.total.toFixed(2)} €)`);
-      calendarEntries.push(`DESCRIPTION:SOCDOF Rechnung ${inv.number} fällig am ${inv.due_date || inv.date}. Status: ${inv.status}`);
-      calendarEntries.push('STATUS:CONFIRMED');
-      calendarEntries.push('END:VEVENT');
-    });
-
-    calendarEntries.push('END:VCALENDAR');
-
-    const icsContent = calendarEntries.join('\r\n');
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `socdof_kalender_${new Date().toISOString().split('T')[0]}.ics`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadIcsCalendar(invoices, profile);
     sounds.playSuccess();
+    setCalendarToast({
+      type: 'success',
+      text: t('connections.import_success', currentLang) || 'Kalender-Datei (.ics) exportiert!'
+    });
+    setTimeout(() => setCalendarToast(null), 3500);
   };
 
   const handleCopyGoogleCalUrl = () => {
     sounds.playClick();
-    const fakeCalUrl = `webcal://${window.location.host}/api/calendar/socdof-feed.ics`;
-    navigator.clipboard.writeText(fakeCalUrl);
+    const urls = getCalendarSubscribeUrls();
+    navigator.clipboard.writeText(urls.webcalUrl);
     setCopiedLink(true);
+    sounds.playSuccess();
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleOpenGoogleCalendar = () => {
+    sounds.playClick();
+    const urls = getCalendarSubscribeUrls();
+    window.open(urls.googleCalendarAddUrl, '_blank');
+  };
+
+  const handleOpenOutlook = () => {
+    sounds.playClick();
+    const urls = getCalendarSubscribeUrls();
+    window.open(urls.outlookAddUrl, '_blank');
+  };
+
+  const handleImportIcsClick = () => {
+    sounds.playClick();
+    icsFileInputRef.current?.click();
+  };
+
+  const handleIcsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      sounds.playClick();
+      const text = await file.text();
+      const parsedEvents = parseIcsText(text);
+
+      if (parsedEvents.length === 0) {
+        sounds.playError();
+        setCalendarToast({
+          type: 'error',
+          text: t('connections.import_empty', currentLang)
+        });
+        setTimeout(() => setCalendarToast(null), 4000);
+        return;
+      }
+
+      const existing = getStoredCalendarEvents();
+      // Deduplicate by UID or title+startDate
+      const merged = [...existing];
+      parsedEvents.forEach((newEvent) => {
+        const exists = merged.some(
+          m => (m.uid && newEvent.uid && m.uid === newEvent.uid) ||
+               (m.title === newEvent.title && m.startDate === newEvent.startDate)
+        );
+        if (!exists) {
+          merged.push(newEvent);
+        }
+      });
+
+      saveStoredCalendarEvents(merged);
+      setCustomCalendarEvents(merged);
+      sounds.playSuccess();
+      setCalendarToast({
+        type: 'success',
+        text: `${parsedEvents.length} ${t('connections.imported_events_count', currentLang)}: ${t('connections.import_success', currentLang)}`
+      });
+      setTimeout(() => setCalendarToast(null), 4000);
+    } catch (err) {
+      console.error(err);
+      sounds.playError();
+      setCalendarToast({
+        type: 'error',
+        text: 'Fehler beim Lesen der .ics Datei.'
+      });
+      setTimeout(() => setCalendarToast(null), 4000);
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleClearImportedCalendarEvents = () => {
+    if (!window.confirm('Möchten Sie alle importierten externen Kalender-Termine wirklich löschen?')) {
+      return;
+    }
+    sounds.playPop();
+    clearStoredCalendarEvents();
+    setCustomCalendarEvents([]);
+    setCalendarToast({
+      type: 'success',
+      text: 'Importierte Termine gelöscht.'
+    });
+    setTimeout(() => setCalendarToast(null), 3000);
   };
 
   const handleExecuteFullDelete = async () => {
@@ -1677,22 +1747,45 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* SECTION: CONNECTIONS & GOOGLE CALENDAR */}
           {activeSection === 'connections' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-xl">
-                  <Link2 className="w-5 h-5" />
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-xl">
+                    <Link2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      {t('connections.title', currentLang)}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('connections.desc', currentLang)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Verbindungen, Google Kalender & Schnittstellen
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Koppeln Sie SOCDOF bei Bedarf mit Google Kalender, Apple iCal oder Microsoft Outlook.
-                  </p>
-                </div>
+
+                {/* Hidden File Input for .ics Import */}
+                <input
+                  type="file"
+                  ref={icsFileInputRef}
+                  onChange={handleIcsFileChange}
+                  accept=".ics,text/calendar"
+                  className="hidden"
+                />
               </div>
 
-              {/* 1. Google Calendar 1-Click Card */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-950/40 dark:to-slate-800/60 border border-blue-200/80 dark:border-blue-900/60 space-y-4">
+              {/* Toast message if active */}
+              {calendarToast && (
+                <div className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between border ${
+                  calendarToast.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+                }`}>
+                  <span>{calendarToast.text}</span>
+                  <button onClick={() => setCalendarToast(null)} className="text-xs opacity-70 hover:opacity-100">✕</button>
+                </div>
+              )}
+
+              {/* 1. Google Calendar & Outlook 1-Click Card */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-slate-900 border border-blue-200/80 dark:border-blue-900/60 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
@@ -1700,67 +1793,152 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                     <div>
                       <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                        Google Kalender & iCal Synchronisation
+                        {t('connections.gcal_title', currentLang)}
                       </h4>
                       <p className="text-xs text-slate-600 dark:text-slate-300">
-                        Exportiert Fälligkeitstermine aller {invoices.length} Rechnungen und Kundentermine.
+                        {t('connections.gcal_desc', currentLang)} ({invoices.length} Rechnungen + {customCalendarEvents.length} Termine)
                       </p>
                     </div>
                   </div>
 
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border self-start sm:self-auto ${
-                    copiedLink 
+                    copiedLink || customCalendarEvents.length > 0
                       ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   }`}>
-                    {copiedLink ? 'Verbunden / Aktiv' : 'Nicht verbunden (Inaktiv)'}
+                    {copiedLink || customCalendarEvents.length > 0 ? t('connections.status_connected', currentLang) : t('connections.status_inactive', currentLang)}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                   {/* Action 1: Download .ics */}
                   <button
                     onClick={handleExportCalendarIcs}
-                    className="p-3 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 hover:border-blue-500 rounded-xl text-left transition group shadow-xs"
+                    className="p-3 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 hover:border-blue-500 rounded-xl text-left transition group shadow-xs flex flex-col justify-between"
                   >
-                    <div className="flex items-center gap-2 font-bold text-xs text-blue-600 dark:text-blue-400 group-hover:underline">
-                      <Download className="w-4 h-4" />
-                      <span>Kalender-Datei (.ics) herunterladen</span>
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-xs text-blue-600 dark:text-blue-400 group-hover:underline">
+                        <Download className="w-4 h-4 shrink-0" />
+                        <span>{t('connections.download_ics', currentLang)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {t('connections.download_ics_desc', currentLang)}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      Öffnet sich direkt in Google Calendar, Outlook, Thunderbird oder Apple Kalender.
-                    </p>
                   </button>
 
-                  {/* Action 2: Copy Live Feed */}
+                  {/* Action 2: Import .ics */}
+                  <button
+                    onClick={handleImportIcsClick}
+                    className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-500 rounded-xl text-left transition group shadow-xs flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-xs text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <span>{t('connections.import_ics', currentLang)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {t('connections.import_ics_desc', currentLang)}
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Action 3: Open in Google Calendar */}
+                  <button
+                    onClick={handleOpenGoogleCalendar}
+                    className="p-3 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 rounded-xl text-left transition group shadow-xs flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-xs text-indigo-600 dark:text-indigo-400 group-hover:underline">
+                        <ExternalLink className="w-4 h-4 shrink-0" />
+                        <span>{t('connections.open_gcal', currentLang)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Webcal-Abonnement direkt in Google Calendar hinzufügen.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Action 4: Open in Outlook */}
+                  <button
+                    onClick={handleOpenOutlook}
+                    className="p-3 bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-800 hover:border-sky-500 rounded-xl text-left transition group shadow-xs flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-xs text-sky-600 dark:text-sky-400 group-hover:underline">
+                        <ExternalLink className="w-4 h-4 shrink-0" />
+                        <span>{t('connections.open_outlook', currentLang)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Microsoft Outlook Kalenderverbindung öffnen.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Feed Link Copy row */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 p-3 bg-white/70 dark:bg-slate-900/70 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 truncate w-full">
+                    <span className="font-semibold shrink-0">Webcal URL:</span>
+                    <code className="font-mono text-[11px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300 truncate select-all">
+                      {getCalendarSubscribeUrls().webcalUrl}
+                    </code>
+                  </div>
                   <button
                     onClick={handleCopyGoogleCalUrl}
-                    className="p-3 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 hover:border-blue-500 rounded-xl text-left transition group shadow-xs"
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs"
                   >
-                    <div className="flex items-center gap-2 font-bold text-xs text-indigo-600 dark:text-indigo-400 group-hover:underline">
-                      {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                      <span>{copiedLink ? 'Link kopiert!' : 'Google Kalender Feed-Link kopieren'}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      In Google Kalender unter "Anderer Kalender per URL hinzufügen" einfügen.
-                    </p>
+                    {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? t('connections.feed_copied', currentLang) : t('connections.copy_feed', currentLang)}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Imported Events List Card (if any) */}
+              {customCalendarEvents.length > 0 && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                      <CalendarIcon className="w-4 h-4 text-emerald-500" />
+                      <span>{t('connections.imported_events_count', currentLang)} ({customCalendarEvents.length})</span>
+                    </div>
+                    <button
+                      onClick={handleClearImportedCalendarEvents}
+                      className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t('connections.clear_imported', currentLang)}</span>
+                    </button>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 text-xs">
+                    {customCalendarEvents.map((evt, idx) => (
+                      <div key={evt.id || idx} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-2">
+                        <div className="truncate">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{evt.title}</span>
+                          {evt.description && <span className="text-slate-400 text-[11px] ml-2 truncate">({evt.description})</span>}
+                        </div>
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded shrink-0">
+                          {evt.startDate}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 2. Free Offline REST API / Webhook Integration */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                     <Terminal className="w-4 h-4 text-indigo-500" />
-                    <span>Lokale REST & Webhook Schnittstelle</span>
+                    <span>{t('connections.rest_api_title', currentLang)}</span>
                   </div>
                   <span className="text-[10px] font-mono bg-indigo-100 dark:bg-indigo-950 text-indigo-600 px-2 py-0.5 rounded-md">
                     Port 3000 / localhost
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Ermöglicht den lokalen Datenaustausch mit externen Buchhaltungs- oder Lagerprogrammen ohne Cloud-Zwang.
+                  {t('connections.rest_api_desc', currentLang)}
                 </p>
               </div>
             </div>

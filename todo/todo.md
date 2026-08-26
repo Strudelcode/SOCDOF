@@ -22,13 +22,7 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
-### 2.1 Native Desktop App & Windows Features
-- [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
-
-### 2.2 Calendar & External Integrations
-- [ ] Investigate optional two-way / one-way iCal and Google Calendar / Outlook feed synchronization.
-
-### 2.3 System Audit & Polishing
+### 2.1 System Audit & Polishing
 - [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
 
 ## Other

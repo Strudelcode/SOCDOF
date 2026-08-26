@@ -69,6 +69,7 @@ import {
 import { sounds } from '../lib/sound';
 import { applyAccentColor } from '../lib/accent';
 import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, formatSystemTime, LanguageCode } from '../lib/i18n';
+import { getStoredCalendarEvents, CustomCalendarEvent } from '../lib/ical';
 import { FlagIcon } from './FlagIcon';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { WindowsExeNotificationToast } from './WindowsExeNotificationToast';
@@ -935,6 +936,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       hasEvent: boolean;
     }> = [];
 
+    const customEvents = getStoredCalendarEvents();
+
+    const checkEventOnDate = (d: Date) => {
+      const hasInvoice = invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d));
+      if (hasInvoice) return true;
+      return customEvents.some(evt => evt.startDate && isSameDate(new Date(evt.startDate), d));
+    };
+
     // Prev month days
     for (let i = startDay - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDay - i);
@@ -944,7 +953,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         isCurrentMonth: false,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+        hasEvent: checkEventOnDate(d)
       });
     }
 
@@ -957,7 +966,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         isCurrentMonth: true,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+        hasEvent: checkEventOnDate(d)
       });
     }
 
@@ -972,7 +981,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         isCurrentMonth: false,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d))
+        hasEvent: checkEventOnDate(d)
       });
     }
 
@@ -990,6 +999,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       );
     });
   }, [invoices, selectedCalendarDate]);
+
+  const selectedDateCustomEvents = useMemo(() => {
+    const customEvents = getStoredCalendarEvents();
+    return customEvents.filter(evt => {
+      if (!evt.startDate) return false;
+      const d = new Date(evt.startDate);
+      return (
+        d.getFullYear() === selectedCalendarDate.getFullYear() &&
+        d.getMonth() === selectedCalendarDate.getMonth() &&
+        d.getDate() === selectedCalendarDate.getDate()
+      );
+    });
+  }, [selectedCalendarDate]);
 
   const openInvoicesUpcoming = useMemo(() => {
     return invoices
@@ -2576,7 +2598,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
 
             <div className="h-28 overflow-y-auto pr-0.5">
-              {selectedDateInvoices.length > 0 ? (
+              {(selectedDateInvoices.length > 0 || selectedDateCustomEvents.length > 0) ? (
                 <div className="space-y-1.5 pr-0.5">
                   {selectedDateInvoices.map((inv) => (
                     <div
@@ -2593,6 +2615,25 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                       </div>
                       <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
                         {inv.total_gross.toFixed(2)} €
+                      </span>
+                    </div>
+                  ))}
+
+                  {selectedDateCustomEvents.map((evt, idx) => (
+                    <div
+                      key={evt.id || idx}
+                      onClick={() => {
+                        setIsCalendarFlyoutOpen(false);
+                        openWindow('settings', t('module.settings', currentLang, 'Einstellungen'));
+                      }}
+                      className="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100/60 dark:hover:bg-blue-900/50 cursor-pointer transition border border-blue-200/80 dark:border-blue-800/60 flex items-center justify-between text-xs"
+                    >
+                      <div className="truncate mr-2">
+                        <div className="font-bold truncate text-blue-900 dark:text-blue-200">{evt.title}</div>
+                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate">{evt.description || 'iCal Kalendertermin'}</div>
+                      </div>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shrink-0">
+                        {evt.startDate}
                       </span>
                     </div>
                   ))}

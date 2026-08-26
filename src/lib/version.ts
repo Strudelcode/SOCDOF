@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.3.1';
+export const APP_VERSION = '20.4.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.4.0',
+    date: '2026-08-26',
+    title: 'Code Signing Infrastructure & 2-Way Calendar Integration (iCal, Google Calendar, Outlook)',
+    highlights: [
+      'Code Signing & SmartScreen Resolution: Created developer certificate creation and Authenticode signing scripts (`create-dev-cert.ps1`, `sign-windows-exe.ps1`) for Yuri / Strudel (Strudelcode) to eliminate Windows SmartScreen warnings on .exe setup binaries',
+      '2-Way iCal Calendar Sync: Implemented RFC 5545 calendar export (`.ics`) and import parser for invoice due dates and external calendar schedules with local persistence and deduping',
+      'Google Calendar & Outlook 1-Click Integration: Direct calendar subscription links (webcal://) and instant browser launch buttons for Google Calendar and Microsoft Outlook',
+      'Windows 11 Agenda Integration: Taskbar calendar popup now aggregates and displays both invoice deadlines and imported custom calendar entries seamlessly',
+      'Settings & Desktop Modal UI Polish: Added dedicated Code-Signing guidance in WindowsDesktopManagerModal and full 4-language i18n support (DE, EN, FR, ES)'
+    ]
+  },
   {
     version: '20.3.1',
     date: '2026-08-26',

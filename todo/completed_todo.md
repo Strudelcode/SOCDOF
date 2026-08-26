@@ -6,7 +6,20 @@
 
 ## Completed Tasks Archive
 
-### 1. Language Persistence, Reactive Language Switcher & Start Menu Icon Geometry (v20.3.1)
+### 1. Code Signing & 2-Way Calendar Integration (v20.4.0)
+- [x] **Windows Code Signing & SmartScreen Warning Resolution**:
+  - [x] Created `scripts/create-dev-cert.ps1` to generate a 5-year Authenticode certificate for developer identity `CN=Yuri / Strudel, O=Strudelcode, C=DE` and install it in the local Trusted Root store.
+  - [x] Created `scripts/sign-windows-exe.ps1` to apply SHA256 Authenticode signatures and DigiCert RFC-3161 timestamps to all `.exe` setup installers.
+  - [x] Updated `electron-builder.json` with developer publisher configuration (`publisherName: "Yuri / Strudel"`) and standardized artifact naming.
+  - [x] Added dedicated "Code-Signing & SmartScreen" tab to `WindowsDesktopManagerModal` with interactive PowerShell commands and setup guidance.
+- [x] **2-Way Calendar & External Integrations (iCal, Google Calendar, Outlook)**:
+  - [x] Created `src/lib/ical.ts` implementing RFC 5545 `.ics` calendar generation for active invoices, payment due dates, and company milestones.
+  - [x] Implemented client-side `.ics` import parser with UID-based deduplication and persistent event storage.
+  - [x] Built Google Calendar (`webcal://` & web URL template) and Microsoft Outlook 1-click subscription and open actions.
+  - [x] Connected custom calendar events to the Windows 11 Taskbar Agenda flyout in `DesktopWindowWorkspace.tsx` alongside invoice due dates.
+  - [x] Updated Settings "Verbindungen" UI with 4-language i18n support (DE, EN, FR, ES) in `src/lib/i18n.ts`.
+
+### 2. Language Persistence, Reactive Language Switcher & Start Menu Icon Geometry (v20.3.1)
 - [x] **Language Persistence Across App Restarts**:
   - [x] Fixed initialization sequence in `i18n.ts` and `App.tsx` to read the stored language directly from `localStorage` and `IndexedDB` (`company_profile.language`).
   - [x] Prevented startup routines and modal close handlers from resetting the language to English.

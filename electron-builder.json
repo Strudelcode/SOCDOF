@@ -1,7 +1,7 @@
 {
   "appId": "de.strudelcode.socdof",
   "productName": "SOCDOF",
-  "copyright": "Copyright © 2026 Strudelcode",
+  "copyright": "Copyright © 2026 Strudelcode - Yuri / Strudel",
   "directories": {
     "output": "release"
   },
@@ -13,6 +13,8 @@
   ],
   "win": {
     "icon": "public/socdof_icon.ico",
+    "publisherName": ["Strudelcode", "Yuri / Strudel"],
+    "verifyUpdateCodeSignature": false,
     "target": [
       {
         "target": "nsis",
@@ -25,6 +27,7 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "SOCDOF Desktop"
+    "shortcutName": "SOCDOF Desktop",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   }
 }

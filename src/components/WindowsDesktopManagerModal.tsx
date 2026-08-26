@@ -33,7 +33,7 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
 }) => {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'installer' | 'pwa'>('installer');
+  const [activeTab, setActiveTab] = useState<'installer' | 'codesign' | 'pwa'>('installer');
 
   useEffect(() => {
     // Check if running in standalone Windows app mode
@@ -112,10 +112,11 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
           </button>
         </div>
 
-        {/* Navigation Tabs (Nur die 2 relevanten Tabs) */}
+        {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-6 pt-3 gap-2 overflow-x-auto">
           {[
             { id: 'installer', label: 'Setup-Assistent (.cmd / .bat)', icon: Laptop },
+            { id: 'codesign', label: 'Code-Signing & SmartScreen', icon: ShieldCheck },
             { id: 'pwa', label: 'PWA-Verknüpfung (Browser App)', icon: Monitor }
           ].map(tab => {
             const Icon = tab.icon;
@@ -277,7 +278,82 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
             </div>
           )}
 
-          {/* TAB 2: PWA / BROWSER NATIVE APP */}
+          {/* TAB 2: CODE SIGNING & SMARTSCREEN */}
+          {activeTab === 'codesign' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Entwickler-Zertifikat &amp; SmartScreen Beseitigung</span>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                  Windows Defender SmartScreen zeigt bei neu erstellten .exe-Installern standardmäßig einen Warnhinweis (<em>"Der Computer wurde durch Windows geschützt"</em>), da noch keine weltweite Reputation vorliegt. Durch Signieren der Binärdateien mit dem Entwickler-Zertifikat <strong>Yuri / Strudel (Strudelcode)</strong> und Hinzufügen zu den vertrauenswürdigen Stammzertifikaten startet SOCDOF ohne jegliche Warnmeldung.
+                </p>
+              </div>
+
+              {/* Step by step guide */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <Terminal className="w-4 h-4 text-emerald-500" />
+                  <span>In 2 Schritten zum signierten &amp; vertrauenswürdigen Installer:</span>
+                </h4>
+
+                <div className="space-y-2.5 text-[11px]">
+                  {/* Step 1 */}
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                        <span className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center justify-center text-[10px]">1</span>
+                        <span>Entwickler-Zertifikat am PC einrichten</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">PowerShell (Admin)</span>
+                    </div>
+                    <p className="text-slate-500 text-[10px]">
+                      Führen Sie das mitgelieferte Skript aus, um das Authenticode-Zertifikat für <code>CN=Yuri / Strudel, O=Strudelcode</code> zu erstellen:
+                    </p>
+                    <code className="block p-2 bg-slate-950 text-emerald-400 font-mono text-[10px] rounded-lg select-all overflow-x-auto">
+                      powershell -ExecutionPolicy Bypass -File .\scripts\create-dev-cert.ps1
+                    </code>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                        <span className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center justify-center text-[10px]">2</span>
+                        <span>Executable digital signieren &amp; mit Zeitstempel versehen</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">Authenticode &amp; RFC-3161</span>
+                    </div>
+                    <p className="text-slate-500 text-[10px]">
+                      Signiert alle in <code>release/</code> erstellten Setup-Dateien mit SHA256 und DigiCert Zeitstempel:
+                    </p>
+                    <code className="block p-2 bg-slate-950 text-emerald-400 font-mono text-[10px] rounded-lg select-all overflow-x-auto">
+                      powershell -ExecutionPolicy Bypass -File .\scripts\sign-windows-exe.ps1
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Publisher Badge */}
+              <div className="p-3 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    Signatur-Identität:
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    Yuri / Strudel &bull; Strudelcode &bull; Deutschland (DE)
+                  </div>
+                </div>
+                <div className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-[10px] rounded-lg shadow-xs flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Authenticode SHA256</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PWA / BROWSER NATIVE APP */}
           {activeTab === 'pwa' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
