@@ -6,7 +6,20 @@
 
 ## Completed Tasks Archive
 
-### 1. Automated GitHub CI/CD Pipeline & In-App Release-Only Update Detection (v20.0.6)
+### 1. Zero Dummy Data Enforcement, Accessible Backup Folder Picker & Snapshot History (v20.0.7)
+- [x] **Zero Mock / Example Data Policy**:
+  - [x] Removed all dummy company names, fake addresses, placeholder bank accounts, and arbitrary test values from `defaultCompanyProfile` in `src/lib/db.ts`.
+  - [x] Added self-healing database seeder logic in `seedInitialDataIfNeeded` to clean legacy dummy data on application boot.
+  - [x] Cleaned all misleading placeholder texts across `SettingsModule.tsx` to ensure clean empty states.
+  - [x] Formally documented the strict Zero-Mock/Zero-Example-Data rule and User-Friendly Input standard in `INSTRUCTIONS.md`.
+- [x] **Accessible Backup Folder Picker & Quick Presets**:
+  - [x] Replaced rigid manual text input with modern Directory Picker (`showDirectoryPicker`) and native directory input fallback.
+  - [x] Added 1-click Quick Preset location pills (`📁 Documents`, `📁 Downloads`, `📁 Desktop`, `💾 USB Drive`) for non-technical users.
+- [x] **Snapshot History Management & Timer Grace Period**:
+  - [x] Added "Verlauf leeren" (Clear Snapshot History) action with confirmation dialog.
+  - [x] Fixed auto-backup interval timer baseline initialization to prevent redundant empty snapshots on startup.
+
+### 2. Automated GitHub CI/CD Pipeline & In-App Release-Only Update Detection (v20.0.6)
 - [x] **Push & Tag Automation Workflow**:
   - [x] Implemented GitHub Actions workflow `.github/workflows/build-windows-exe.yml` triggered on every push (`main`, `master`, `v*`).
   - [x] Automatic check & creation of major root tag (e.g. `v20`, `v19`) if not already present on repository.

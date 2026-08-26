@@ -40,35 +40,35 @@ export class LocalOdooDB extends Dexie {
 export const db = new LocalOdooDB();
 
 export const defaultCompanyProfile: CompanyProfile = {
-  name: "Strudel's Test GmbH",
-  legal_form: 'GmbH',
-  street: 'Strudelstreet 99',
-  zip_city: '12345 Strudelstadt',
-  country: 'Deutschland',
-  email: 'buchhaltung@strudels-test.example',
-  phone: '+00 12 3456 789',
-  tax_id: 'AB 123 456 789',
-  iban: 'DE00 1234 5678 9012 3456 78',
-  bic: 'STRUDELXXX',
-  bank_name: 'StrudelBank DE',
+  name: '',
+  legal_form: '',
+  street: '',
+  zip_city: '',
+  country: '',
+  email: '',
+  phone: '',
+  tax_id: '',
+  iban: '',
+  bic: '',
+  bank_name: '',
   currency: '€',
   default_tax_rate: 19,
   invoice_template: 'din5008',
-  language: 'en',
+  language: 'de',
   accent_color: 'indigo',
   theme_mode: 'light',
   glass_overlay: true,
   letterhead_show_bg: false,
   letterhead_show_fold_marks: true,
   letterhead_default_subject: 'Rechnung für Lieferungen und Leistungen',
-  letterhead_managing_director: 'Geschäftsführer: Yuri Strudel',
-  letterhead_commercial_register: 'Amtsgericht Strudelstadt HRB 123456',
-  letterhead_footer_line1: "Strudel's Test GmbH • Strudelstreet 99 • 12345 Strudelstadt",
-  letterhead_footer_line2: 'Geschäftsführer: Yuri Strudel • AG Strudelstadt HRB 123456',
-  letterhead_footer_line3: 'StrudelBank DE • IBAN: DE00 1234 5678 9012 3456 78 • BIC: STRUDELXXX',
-  letterhead_footer_line4: 'USt-IdNr: AB 123 456 789 • Steuer-Nr: 000/123/45678',
-  backup_owner: 'Hauptadministrator / IT-Leitung',
-  backup_folder_path: 'C:\\ERP-Daten\\SOCDOF_Backups',
+  letterhead_managing_director: '',
+  letterhead_commercial_register: '',
+  letterhead_footer_line1: '',
+  letterhead_footer_line2: '',
+  letterhead_footer_line3: '',
+  letterhead_footer_line4: '',
+  backup_owner: '',
+  backup_folder_path: '',
   max_storage_warning_kb: 5000, // 5 MB threshold warning
   auto_backup_enabled: true,
   backup_interval_minutes: 120, // 2 hours default
@@ -83,27 +83,38 @@ export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
     await db.settings.put({ key: 'company_profile', value: defaultCompanyProfile });
   } else {
     const existing = companyProfileRecord.value as CompanyProfile;
-    // Auto-migrate legacy demo data to full fake test example data
-    if (existing?.name === 'Nexus Technologies GmbH' || existing?.street === 'Innovationsring 42' || existing?.tax_id === 'DE 304 882 109') {
-      const updated: CompanyProfile = {
+    // Auto-clean any legacy dummy data
+    if (
+      existing?.name === 'Nexus Technologies GmbH' ||
+      existing?.name === "Strudel's Test GmbH" ||
+      existing?.street === 'Innovationsring 42' ||
+      existing?.street === 'Strudelstreet 99' ||
+      existing?.tax_id === 'DE 304 882 109' ||
+      existing?.tax_id === 'AB 123 456 789'
+    ) {
+      const cleaned: CompanyProfile = {
         ...existing,
-        name: "Strudel's Test GmbH",
-        street: 'Strudelstreet 99',
-        zip_city: '12345 Strudelstadt',
-        email: 'buchhaltung@strudels-test.example',
-        phone: '+00 12 3456 789',
-        tax_id: 'AB 123 456 789',
-        iban: 'DE00 1234 5678 9012 3456 78',
-        bic: 'STRUDELXXX',
-        bank_name: 'StrudelBank DE',
-        letterhead_managing_director: 'Geschäftsführer: Yuri Strudel',
-        letterhead_commercial_register: 'Amtsgericht Strudelstadt HRB 123456',
-        letterhead_footer_line1: "Strudel's Test GmbH • Strudelstreet 99 • 12345 Strudelstadt",
-        letterhead_footer_line2: 'Geschäftsführer: Yuri Strudel • AG Strudelstadt HRB 123456',
-        letterhead_footer_line3: 'StrudelBank DE • IBAN: DE00 1234 5678 9012 3456 78 • BIC: STRUDELXXX',
-        letterhead_footer_line4: 'USt-IdNr: AB 123 456 789 • Steuer-Nr: 000/123/45678'
+        name: existing.name.includes('Test') || existing.name.includes('Nexus') ? '' : existing.name,
+        legal_form: '',
+        street: '',
+        zip_city: '',
+        country: '',
+        email: '',
+        phone: '',
+        tax_id: '',
+        iban: '',
+        bic: '',
+        bank_name: '',
+        letterhead_managing_director: '',
+        letterhead_commercial_register: '',
+        letterhead_footer_line1: '',
+        letterhead_footer_line2: '',
+        letterhead_footer_line3: '',
+        letterhead_footer_line4: '',
+        backup_owner: '',
+        backup_folder_path: ''
       };
-      await db.settings.put({ key: 'company_profile', value: updated });
+      await db.settings.put({ key: 'company_profile', value: cleaned });
     }
   }
 

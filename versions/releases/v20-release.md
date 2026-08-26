@@ -63,19 +63,32 @@
 - **Live Regional Formatting**: The taskbar clock, calendar flyout, and system timestamps format dynamically using the company profile timezone (`company.timezone`, e.g., `Europe/Berlin`, `Europe/London`, `America/New_York`, `UTC`).
 - **Storage Footprint Clarity**: Settings provides clear explanations of local IndexedDB database utilization across invoices, products, contacts, and journal entries.
 
+### 6. Zero Dummy Data Policy, Folder Selection & Automated CI/CD (v20.0.7)
+- **Zero Mock / Dummy Data Enforcement**:
+  - Removed all placeholder demo companies, fake bank credentials, and test addresses from default database records and initial seeders.
+  - Automatically sanitizes legacy demo profile data on startup to ensure a clean slate.
+- **Accessible Backup Folder Selection**:
+  - Direct folder selection via File System Access API (`showDirectoryPicker`) and directory upload input fallback.
+  - 1-click Quick Preset location pills (`Documents`, `Downloads`, `Desktop`, `USB Drive`) enabling non-technical users to set backup destinations easily.
+  - Dedicated "Verlauf leeren" (Clear Snapshot History) action with confirmation dialog.
+- **GitHub Actions CI/CD Pipeline**:
+  - Automated verification and creation of root major tags (e.g. `v20`) on GitHub.
+  - Automatic builds of Windows Setup installer `.exe` on every push/tag.
+  - Automatic differentiation between full Releases (major tags) and Pre-releases (sub-versions).
+  - In-app update checker strictly filtered to official full releases only.
+
 ---
 
 ## Technical & Architecture Updates
 
 | Component | Path | Description |
 |---|---|---|
-| **Instructions** | `INSTRUCTIONS.md` | Enforced release documentation protocol in `versions/releases/` |
-| **Desktop Workspace** | `src/components/DesktopWindowWorkspace.tsx` | Window titlebar button drag suppression and pointer event isolation |
-| **Contacts Module** | `src/components/ContactsModule.tsx` | Viewport portal modals, reactive `useLanguage` integration and structured form |
-| **Products Module** | `src/components/ProductsModule.tsx` | React Portal viewport overlays for customer allocation & product modal |
-| **Documentation App** | `src/components/DocumentationApp.tsx` | Bilingual English/German user manual and live localization |
-| **Localization Registry** | `src/lib/i18n.ts` | Complete translation dictionary for contacts, invoices, and system tools |
-| **App Version** | `src/lib/version.ts` | Synced to `20.0.2` with version history |
+| **Instructions** | `INSTRUCTIONS.md` | Codified zero mock/dummy data rule & accessible folder picker standards |
+| **Settings Module** | `src/components/SettingsModule.tsx` | Folder picker dialog, quick location presets, clear snapshots action & clean placeholders |
+| **Database Engine** | `src/lib/db.ts` | Clean default profile and legacy dummy data auto-purging on boot |
+| **Backup Engine** | `src/lib/backupManager.ts` | Snapshot history reset, timer grace period & direct JSON export |
+| **CI/CD Workflow** | `.github/workflows/release.yml` | Automated build, major tag verification & GitHub release pipeline |
+| **App Version** | `src/lib/version.ts` | Synced to `20.0.7` with updated version history |
 
 ---
 

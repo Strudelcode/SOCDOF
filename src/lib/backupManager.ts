@@ -63,7 +63,7 @@ export async function createDatabaseBackup(
   const jsonStr = await exportDatabaseToJson({
     pretty: true,
     owner: company.backup_owner || company.name || 'Administrator',
-    folder: company.backup_folder_path || 'C:\\ERP-Daten\\SOCDOF_Backups'
+    folder: company.backup_folder_path || ''
   });
 
   const parsed = JSON.parse(jsonStr);
@@ -87,7 +87,7 @@ export async function createDatabaseBackup(
     sizeBytes,
     totalRecords,
     isAuto,
-    folderPath: company.backup_folder_path || 'C:\\ERP-Daten\\SOCDOF_Backups',
+    folderPath: company.backup_folder_path || '',
     summary
   };
 
@@ -196,6 +196,24 @@ export function deleteSnapshotById(id: string): BackupSnapshotMeta[] {
 }
 
 /**
+ * Deletes all stored snapshots and cleans localStorage
+ */
+export function clearAllSnapshots(): BackupSnapshotMeta[] {
+  try {
+    const existing = getStoredBackupSnapshots();
+    for (const snap of existing) {
+      localStorage.removeItem(`socdof_backup_data_${snap.id}`);
+    }
+    localStorage.removeItem(STORAGE_KEY_SNAPSHOTS_META);
+    sounds.playPop();
+    return [];
+  } catch (err) {
+    console.warn('Could not clear snapshots:', err);
+    return [];
+  }
+}
+
+/**
  * Automatically checks whether an automatic backup is due based on CompanyProfile settings
  */
 export async function checkAndRunAutoBackup(
@@ -210,9 +228,16 @@ export async function checkAndRunAutoBackup(
   const intervalMinutes = company.backup_interval_minutes || 120; // default 2 hours
   const intervalMs = intervalMinutes * 60 * 1000;
 
-  const lastBackupStr = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_LAST_AUTO_BACKUP) : null;
-  const lastBackupTs = lastBackupStr ? parseInt(lastBackupStr, 10) : 0;
   const now = Date.now();
+  const lastBackupStr = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_LAST_AUTO_BACKUP) : null;
+
+  // On first startup without a timestamp, initialize it so it waits for the full interval
+  if (!lastBackupStr) {
+    localStorage.setItem(STORAGE_KEY_LAST_AUTO_BACKUP, now.toString());
+    return null;
+  }
+
+  const lastBackupTs = parseInt(lastBackupStr, 10) || 0;
 
   if (now - lastBackupTs >= intervalMs) {
     try {

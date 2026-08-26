@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.6';
+export const APP_VERSION = '20.0.7';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.7',
+    date: '2026-08-26',
+    title: 'Zero Dummy Data Enforcement, Accessible Backup Folder Picker & Snapshot Management',
+    highlights: [
+      'Zero Example/Dummy Data Enforcement: Purged all legacy dummy company names, test addresses, and dummy bank accounts from default profiles and database seeders to ensure pristine initial state',
+      'Accessible Backup Folder Picker: Replaced rigid manual text paths with interactive native Directory Picker API (`showDirectoryPicker`), folder browser dialog, and 1-click location presets (Documents, Downloads, Desktop, USB Drive)',
+      'Backup Snapshot History Cleaner: Added dedicated action to clear and reset local snapshot history with confirmation',
+      'Auto-Backup Timer Grace Period: Fixed auto-backup scheduler to prevent redundant empty snapshot creation on initial launch',
+      'Updated Development Guidelines: Formally codified the strict Zero-Mock/Zero-Example-Data rule and User-Friendly Input standard in INSTRUCTIONS.md'
+    ]
+  },
   {
     version: '20.0.6',
     date: '2026-08-26',

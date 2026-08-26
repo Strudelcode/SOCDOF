@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Settings, 
   Building2, 
@@ -50,7 +50,9 @@ import {
   LayoutGrid,
   Save,
   Type,
-  Wallpaper
+  Wallpaper,
+  FolderSearch,
+  Folder
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -68,6 +70,7 @@ import {
   createDatabaseBackup,
   restoreSnapshotById,
   deleteSnapshotById,
+  clearAllSnapshots,
   downloadSnapshotById,
   BackupSnapshotMeta
 } from '../lib/backupManager';
@@ -142,6 +145,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringSnapshotId, setIsRestoringSnapshotId] = useState<string | null>(null);
   const [backupSuccessMsg, setBackupSuccessMsg] = useState<string | null>(null);
+  const folderPickerInputRef = useRef<HTMLInputElement>(null);
 
   const loadStoredSnapshots = () => {
     try {
@@ -150,6 +154,59 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     } catch {
       // ignore
     }
+  };
+
+  const handlePickBackupFolder = async () => {
+    sounds.playClick();
+    try {
+      // 1. Modern File System Access API (supported in Chromium / Windows Desktop / Edge)
+      if ('showDirectoryPicker' in window) {
+        const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+        if (dirHandle && dirHandle.name) {
+          const pickedName = dirHandle.name;
+          const fullPath = `C:\\${pickedName}\\SOCDOF_Backups`;
+          setProfile(prev => ({ ...prev, backup_folder_path: fullPath }));
+          await handleSaveProfile({ backup_folder_path: fullPath });
+          sounds.playSuccess();
+          return;
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return; // user cancelled dialog
+      }
+      console.warn('showDirectoryPicker unavailable or error:', err);
+    }
+
+    // Fallback: Click directory picker file input
+    folderPickerInputRef.current?.click();
+  };
+
+  const handleFolderInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const relPath = files[0].webkitRelativePath || '';
+      const dirName = relPath.split('/')[0] || files[0].name || 'Sicherungen';
+      const pickedPath = `C:\\${dirName}\\SOCDOF_Backups`;
+      setProfile(prev => ({ ...prev, backup_folder_path: pickedPath }));
+      await handleSaveProfile({ backup_folder_path: pickedPath });
+      sounds.playSuccess();
+    }
+  };
+
+  const handleSetQuickPresetFolder = async (folderPath: string) => {
+    sounds.playClick();
+    setProfile(prev => ({ ...prev, backup_folder_path: folderPath }));
+    await handleSaveProfile({ backup_folder_path: folderPath });
+  };
+
+  const handleClearAllStoredSnapshots = () => {
+    if (!window.confirm('Möchten Sie wirklich alle bisherigen Wiederherstellungspunkte / Snapshots aus dem Verlauf löschen?')) {
+      return;
+    }
+    const updated = clearAllSnapshots();
+    setStoredSnapshots(updated);
+    sounds.playPop();
   };
 
   const handleCreateInstantBackup = async (downloadDirect: boolean = false) => {
@@ -809,7 +866,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="z.B. Strudel's Test GmbH"
+                      placeholder="Firmenname (z. B. Ihr Unternehmensname)"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -822,7 +879,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. GmbH"
+                      placeholder="Rechtsform (z. B. GmbH, Einzelunternehmen, e.K.)"
                       value={profile.legal_form}
                       onChange={(e) => setProfile({ ...profile, legal_form: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -837,7 +894,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. Strudelstreet 99"
+                      placeholder="Straße und Hausnummer"
                       value={profile.street}
                       onChange={(e) => setProfile({ ...profile, street: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -850,7 +907,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. 12345 Strudelstadt"
+                      placeholder="PLZ und Ort"
                       value={profile.zip_city}
                       onChange={(e) => setProfile({ ...profile, zip_city: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -863,7 +920,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. Deutschland"
+                      placeholder="Land (z. B. Deutschland)"
                       value={profile.country}
                       onChange={(e) => setProfile({ ...profile, country: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -878,7 +935,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="email"
-                      placeholder="buchhaltung@strudels-test.example"
+                      placeholder="E-Mail-Adresse für Schriftverkehr"
                       value={profile.email}
                       onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -891,7 +948,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="+00 12 3456 789"
+                      placeholder="Telefonnummer"
                       value={profile.phone}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -913,7 +970,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="AB 123 456 789"
+                        placeholder="USt-IdNr. oder Steuernummer"
                         value={profile.tax_id}
                         onChange={(e) => setProfile({ ...profile, tax_id: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -926,7 +983,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="z.B. StrudelBank DE"
+                        placeholder="Name der Bank oder Sparkasse"
                         value={profile.bank_name}
                         onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -939,7 +996,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="DE00 1234 5678 9012 3456 78"
+                        placeholder="IBAN eingeben"
                         value={profile.iban}
                         onChange={(e) => setProfile({ ...profile, iban: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -952,7 +1009,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="STRUDELXXX"
+                        placeholder="BIC / SWIFT Code"
                         value={profile.bic}
                         onChange={(e) => setProfile({ ...profile, bic: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
@@ -1928,46 +1985,111 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
               {/* 2. Local Windows Directory & Backup Path Management */}
               <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <FolderTree className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <FolderTree className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                     <div>
                       <h4 className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
                         Ziel-Backup-Ordner &amp; Verzeichnispfad
                       </h4>
                       <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                        Geben Sie Ihren gewünschten Zielpfad auf der lokalen Festplatte, USB-Stick oder Netzlaufwerk an.
+                        Wählen Sie einen Zielordner auf Ihrer Festplatte, einem USB-Stick oder Netzlaufwerk aus.
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => downloadWindowsInstallerPackage({
-                      installPath: profile.backup_folder_path?.replace(/\\Backups\\?$/, '') || 'C:\\SOCDOF',
-                      createDesktopShortcut: true,
-                      createStartMenuShortcut: true,
-                      createDataFolders: true
-                    })}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Setup-Assistent (.cmd)</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePickBackupFolder}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center gap-1.5 shrink-0"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>Ordner auswählen...</span>
+                    </button>
+
+                    <button
+                      onClick={() => downloadWindowsInstallerPackage({
+                        installPath: profile.backup_folder_path?.replace(/\\Backups\\?$/, '') || 'C:\\SOCDOF',
+                        createDesktopShortcut: true,
+                        createStartMenuShortcut: true,
+                        createDataFolders: true
+                      })}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition flex items-center gap-1.5 shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Setup-Assistent (.cmd)</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Hidden input for folder picking fallback */}
+                <input
+                  ref={folderPickerInputRef}
+                  type="file"
+                  /* @ts-ignore */
+                  webkitdirectory=""
+                  directory=""
+                  onChange={handleFolderInputChange}
+                  className="hidden"
+                />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Backup-Verzeichnis (z. B. auf externer Festplatte / Netzlaufwerk):
+                      Backup-Verzeichnis (Pfad oder ausgewählter Ordner):
                     </label>
-                    <input
-                      type="text"
-                      placeholder="C:\SOCDOF\Backups"
-                      value={profile.backup_folder_path || 'C:\\SOCDOF\\Backups'}
-                      onChange={(e) => setProfile({ ...profile, backup_folder_path: e.target.value })}
-                      onBlur={() => handleSaveProfile()}
-                      className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Ordner auswählen oder Pfad eingeben..."
+                        value={profile.backup_folder_path || ''}
+                        onChange={(e) => setProfile({ ...profile, backup_folder_path: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickBackupFolder}
+                        title="Ordner über Windows-Explorer / Dateidialog auswählen"
+                        className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-300 dark:border-slate-700 transition flex items-center justify-center shrink-0"
+                      >
+                        <FolderSearch className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Quick folder presets for users who don't know file paths */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 self-center mr-1">Schnellwahl:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSetQuickPresetFolder('C:\\Users\\Benutzer\\Documents\\SOCDOF_Backups')}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-medium transition"
+                      >
+                        📁 Dokumente
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetQuickPresetFolder('C:\\Users\\Benutzer\\Downloads\\SOCDOF_Backups')}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-medium transition"
+                      >
+                        📁 Downloads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetQuickPresetFolder('C:\\Users\\Benutzer\\Desktop\\SOCDOF_Sicherungen')}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-medium transition"
+                      >
+                        📁 Desktop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetQuickPresetFolder('D:\\SOCDOF_Backups')}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-medium transition"
+                      >
+                        💾 USB-Laufwerk (D:\)
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -1976,7 +2098,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="Administrator / IT-Verantwortlicher"
+                      placeholder="Name der zuständigen Person / Notiz"
                       value={profile.backup_owner || ''}
                       onChange={(e) => setProfile({ ...profile, backup_owner: e.target.value })}
                       onBlur={() => handleSaveProfile()}
@@ -1989,7 +2111,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <div className="space-y-0.5">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">Zielstruktur:</span>
                     <div className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
-                      {profile.backup_folder_path || 'C:\\SOCDOF\\Backups'} • \Data • \Exports • \Config
+                      {profile.backup_folder_path ? `${profile.backup_folder_path} • \\Data • \\Exports • \\Config` : 'Lokaler Browser-Download-Ordner (Downloads)'}
                     </div>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -2041,9 +2163,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <RotateCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     <span>Lokale Wiederherstellungspunkte &amp; Snapshot-Verlauf</span>
                   </h4>
-                  <span className="text-[11px] text-slate-500">
-                    {storedSnapshots.length} von max. {profile.backup_max_keep_count || 10} Snapshots
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500">
+                      {storedSnapshots.length} von max. {profile.backup_max_keep_count || 10} Snapshots
+                    </span>
+                    {storedSnapshots.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllStoredSnapshots}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 transition flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Verlauf leeren</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {storedSnapshots.length === 0 ? (

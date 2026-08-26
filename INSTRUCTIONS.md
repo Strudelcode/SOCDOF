@@ -11,11 +11,13 @@ This document defines the core operational standards, versioning protocols, and 
 
 ---
 
-## 2. No Mock / Placeholder Example Data Rule
+## 2. No Mock / Placeholder Example Data Rule & User-Friendly Inputs
 
-- **Clean Real-World Apps**: Do NOT pre-fill or inject artificial demo records, dummy contacts, fake support tickets, or sample items into new or existing modules.
+- **Clean Real-World Apps & Pristine Defaults**: Do NOT pre-fill or inject artificial demo records, dummy contacts, fake support tickets, sample invoices, or dummy settings/company values (e.g. fake test companies like "Strudel's Test GmbH", dummy IBANs, fake bank names, or arbitrary default paths).
+- **Empty Settings & Profile Defaults**: All company profiles, letterhead configs, bank fields, tax numbers, and backup configurations must initialize with clean, empty strings (`''`) or neutral descriptive input placeholders (e.g. `placeholder="Firmenname eingeben"`).
 - **Empty States**: Every module must initialize with clean empty states (e.g. `[]`), clear onboarding guides, and intuitive creation action buttons.
-- Users input their own genuine data.
+- **User-Friendly UI (No Path-Typing Barriers)**: Many end-users do not know technical file paths (e.g., `C:\SOCDOF\Backups`). Technical inputs such as directory paths must always be paired with intuitive folder/file pickers (`showDirectoryPicker` / native folder dialogs) and convenient 1-click location presets (e.g., `Documents`, `Downloads`, `Desktop`, `USB Drive`).
+- Users input their own genuine data in a clean, unpolluted workspace.
 
 ---
 
