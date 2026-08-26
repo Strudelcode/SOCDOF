@@ -731,7 +731,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desktop.open_appstore': 'Open App Store',
     'desktop.system_settings': 'System Settings',
     'desktop.standard_apps': 'Standard Apps',
-    'desktop.restore_apps_title': 'Restore standard apps on desktop & taskbar'
+    'desktop.restore_apps_title': 'Restore standard apps on desktop & taskbar',
+
+    // Web Preview & Exit Modal
+    'preview.modal_title': 'Leave Web Preview?',
+    'preview.modal_subtitle': 'Interactive In-Browser Demonstration',
+    'preview.badge': 'Web Preview Demo',
+    'preview.warning_title': 'Notice: Data is not permanently saved here!',
+    'preview.warning_desc': 'This is an interactive browser preview. All test invoices, contacts, and transactions are stored only in temporary browser cache and will be reset upon leaving.',
+    'preview.desktop_prompt': 'For permanent local storage & real-world use:',
+    'preview.download_latest_btn': 'Download Latest Windows Release (.exe)',
+    'preview.download_latest_sub': '100% offline, permanent local database & automated backups',
+    'preview.leave_site_btn': 'Leave Website',
+    'preview.stay_btn': 'Stay & Continue Testing',
+    'preview.feature_offline': '100% Offline & Local',
+    'preview.feature_storage': 'Permanent Local Storage',
+    'preview.feature_backups': 'Automated Daily Backups',
+    'preview.feature_fast': 'Fast Native Windows App',
+    'preview.repo_link': 'View on GitHub'
   },
 
   de: {
@@ -1447,7 +1464,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desktop.open_appstore': 'App Store öffnen',
     'desktop.system_settings': 'System-Einstellungen',
     'desktop.standard_apps': 'Standard-Apps',
-    'desktop.restore_apps_title': 'Standard-Apps auf dem Desktop & Taskleiste wiederherstellen'
+    'desktop.restore_apps_title': 'Standard-Apps auf dem Desktop & Taskleiste wiederherstellen',
+
+    // Web Preview & Exit Modal
+    'preview.modal_title': 'Web-Vorschau verlassen?',
+    'preview.modal_subtitle': 'Interaktive Browser-Demonstration',
+    'preview.badge': 'Web-Vorschau Demo',
+    'preview.warning_title': 'Achtung: Daten werden hier nicht gespeichert!',
+    'preview.warning_desc': 'Dies ist eine interaktive Web-Vorschau. Alle erstellten Testdaten (Rechnungen, Kontakte, Kassenbelege) werden nur im flüchtigen Browser-Cache gehalten und gehen beim Verlassen der Seite verloren.',
+    'preview.desktop_prompt': 'Für dauerhafte Speicherung & echten Produktivbetrieb:',
+    'preview.download_latest_btn': 'Neueste Windows-Version herunterladen (.exe)',
+    'preview.download_latest_sub': '100% offline, dauerhafte lokale Datenbank & automatische Backups',
+    'preview.leave_site_btn': 'Website wirklich verlassen',
+    'preview.stay_btn': 'Hier bleiben & weiter testen',
+    'preview.feature_offline': '100% Offline & Lokal',
+    'preview.feature_storage': 'Dauerhafte Datenspeicherung',
+    'preview.feature_backups': 'Automatische Backups',
+    'preview.feature_fast': 'Schnelle Windows .exe App',
+    'preview.repo_link': 'Auf GitHub ansehen'
   },
 
   fr: {
@@ -2161,7 +2195,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desktop.open_appstore': 'Ouvrir l’App Store',
     'desktop.system_settings': 'Paramètres système',
     'desktop.standard_apps': 'Applications standard',
-    'desktop.restore_apps_title': 'Restaurer les applications standard sur le bureau et la barre des tâches'
+    'desktop.restore_apps_title': 'Restaurer les applications standard sur le bureau et la barre des tâches',
+
+    // Web Preview & Exit Modal
+    'preview.modal_title': 'Quitter l’aperçu Web ?',
+    'preview.modal_subtitle': 'Démonstration interactive dans le navigateur',
+    'preview.badge': 'Démo Web',
+    'preview.warning_title': 'Attention : Les données ne sont pas enregistrées ici !',
+    'preview.warning_desc': 'Il s’agit d’une démonstration en ligne. Toutes les données de test (factures, contacts, caisse) sont conservées uniquement dans la mémoire temporaire du navigateur et seront perdues en quittant la page.',
+    'preview.desktop_prompt': 'Pour un enregistrement permanent et une utilisation réelle :',
+    'preview.download_latest_btn': 'Télécharger la dernière version Windows (.exe)',
+    'preview.download_latest_sub': '100% hors-ligne, base de données locale permanente & sauvegardes automatiques',
+    'preview.leave_site_btn': 'Quitter le site',
+    'preview.stay_btn': 'Rester et continuer le test',
+    'preview.feature_offline': '100% Hors-ligne & Local',
+    'preview.feature_storage': 'Stockage permanent local',
+    'preview.feature_backups': 'Sauvegardes automatiques',
+    'preview.feature_fast': 'Application Windows native rapide',
+    'preview.repo_link': 'Voir sur GitHub'
   },
 
   es: {
@@ -2875,7 +2926,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desktop.open_appstore': 'Abrir App Store',
     'desktop.system_settings': 'Ajustes del sistema',
     'desktop.standard_apps': 'Aplicaciones estándar',
-    'desktop.restore_apps_title': 'Restaurar aplicaciones estándar en el escritorio y barra de tareas'
+    'desktop.restore_apps_title': 'Restaurar aplicaciones estándar en el escritorio y barra de tareas',
+
+    // Web Preview & Exit Modal
+    'preview.modal_title': '¿Salir de la vista previa web?',
+    'preview.modal_subtitle': 'Demostración interactiva en el navegador',
+    'preview.badge': 'Demo Web',
+    'preview.warning_title': '¡Atención: Los datos no se guardan de forma permanente aquí!',
+    'preview.warning_desc': 'Esta es una vista previa interactiva. Todos los datos de prueba (facturas, contactos, recibos de caja) se guardan únicamente en la memoria temporal del navegador y se perderán al salir de la página.',
+    'preview.desktop_prompt': 'Para almacenamiento permanente y uso en producción:',
+    'preview.download_latest_btn': 'Descargar la última versión para Windows (.exe)',
+    'preview.download_latest_sub': '100% sin conexión, base de datos local permanente y copias automáticas',
+    'preview.leave_site_btn': 'Salir del sitio web',
+    'preview.stay_btn': 'Quedarse y seguir probando',
+    'preview.feature_offline': '100% Local y Offline',
+    'preview.feature_storage': 'Almacenamiento local permanente',
+    'preview.feature_backups': 'Copias de seguridad automáticas',
+    'preview.feature_fast': 'Aplicación rápida para Windows',
+    'preview.repo_link': 'Ver en GitHub'
   }
 };
 

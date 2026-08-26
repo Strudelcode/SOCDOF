@@ -6,7 +6,19 @@
 
 ## Completed Tasks Archive
 
-### 1. Dynamic Semantic Release Tagging & CI/CD Scalability (v20.0.9)
+### 1. In-App Web Preview Exit Modal & Data Loss Warning (v20.1.0)
+- [x] **Interactive In-Page Exit Dialog**:
+  - [x] Implemented dedicated in-app modal `WebPreviewModal.tsx` replacing browser-native alerts with a polished user experience.
+  - [x] Clearly warns users that data created during web preview is kept only in temporary browser cache and will not be saved permanently upon leaving.
+  - [x] Directly highlights the full Windows desktop application with prominent download CTA (`.exe`) linked to GitHub releases.
+  - [x] Provides clear dual actions: "Website wirklich verlassen" (bypasses browser dialog and leaves) and "Hier bleiben & weiter testen" (continues preview).
+- [x] **Exit Intent & Power Menu Triggers**:
+  - [x] Added viewport exit-intent mouse detection (`mouseleave` with `clientY <= 0`) to proactively present options before page close.
+  - [x] Integrated seamlessly with the desktop environment Start Menu power/exit action.
+- [x] **Quad-Language Translations**:
+  - [x] Added full translation keys in German (`de`), English (`en`), French (`fr`), and Spanish (`es`) in `src/lib/i18n.ts`.
+
+### 2. Dynamic Semantic Release Tagging & CI/CD Scalability (v20.0.9)
 - [x] **Dynamic Semantic Version Tags**:
   - [x] Replaced single-tag overwriting (`git tag -f v20`) with dedicated semantic version tags (e.g. `v20.0.9`, `v21.0.0`, `v33.0.0`) dynamically extracted from `package.json`.
   - [x] Preserved git history immutability and eliminated release cache conflicts.

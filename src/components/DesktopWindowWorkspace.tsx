@@ -476,6 +476,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
+  const [isWebPreviewExitMode, setIsWebPreviewExitMode] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Automatic GitHub Release Update Notification state
@@ -504,20 +505,51 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   // Detect whether running in native desktop electron or web browser preview
   const isDesktopApp = useMemo(() => isElectron(), []);
+  const allowExitRef = useRef(false);
 
-  // Web Preview beforeunload leave confirmation & reminder (strictly only in browser preview)
+  // Web Preview Exit-Intent & beforeunload confirmation (strictly only in browser preview)
   useEffect(() => {
     if (isDesktopApp) return;
 
+    let exitIntentPrompted = false;
+    try {
+      exitIntentPrompted = sessionStorage.getItem('socdof_exit_intent_prompted') === 'true';
+    } catch {}
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0 && !exitIntentPrompted && !allowExitRef.current) {
+        exitIntentPrompted = true;
+        try {
+          sessionStorage.setItem('socdof_exit_intent_prompted', 'true');
+        } catch {}
+        setIsWebPreviewExitMode(true);
+        setIsWebPreviewModalOpen(true);
+      }
+    };
+
+    document.addEventListener('mouseleave', handleMouseLeave);
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (allowExitRef.current) return;
       e.preventDefault();
-      e.returnValue = 'Dies ist die SOCDOF Web-Vorschau. Daten werden nur im Browserspeicher vorgehalten. Um SOCDOF dauerhaft offline zu nutzen, laden Sie die Windows Desktop-App herunter: https://github.com/Strudelcode/SOCDOF/releases';
+      e.returnValue = 'Dies ist die SOCDOF Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Um SOCDOF dauerhaft offline zu nutzen, laden Sie die Windows Desktop-App herunter: https://github.com/Strudelcode/SOCDOF/releases';
       return e.returnValue;
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [isDesktopApp]);
+
+  const handleConfirmLeaveWeb = () => {
+    allowExitRef.current = true;
+    window.onbeforeunload = null;
+    setIsWebPreviewModalOpen(false);
+    setIsWebPreviewExitMode(false);
+    window.location.href = GITHUB_RELEASES_URL;
+  };
 
   // Windows 11 Calendar & Agenda Flyout State
   const [isCalendarFlyoutOpen, setIsCalendarFlyoutOpen] = useState(false);
@@ -2051,13 +2083,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
               <button
                 onClick={() => {
-                  if (company.disable_exit_prompt) {
+                  if (!isDesktopApp) {
+                    setIsStartMenuOpen(false);
+                    setIsWebPreviewExitMode(true);
+                    setIsWebPreviewModalOpen(true);
+                  } else if (company.disable_exit_prompt) {
                     handleShutdown();
                   } else {
                     setIsPowerMenuOpen(!isPowerMenuOpen);
                   }
                 }}
-                title="Beenden & Energieoptionen"
+                title={!isDesktopApp ? "Web-Vorschau verlassen & Vollversion herunterladen" : "Beenden & Energieoptionen"}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300 transition"
               >
                 <Power className="w-4 h-4" />
@@ -2129,15 +2165,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               )}
 
               <button
-                onClick={handleShutdown}
+                onClick={!isDesktopApp ? handleConfirmLeaveWeb : handleShutdown}
                 className="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40 text-left transition group"
               >
                 <Power className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform" />
                 <div>
                   <div className="text-xs font-bold">
-                    {!isDesktopApp ? 'Vorschau-Sitzung sperren' : 'SOCDOF jetzt beenden'}
+                    {!isDesktopApp ? 'Website wirklich verlassen' : 'SOCDOF jetzt beenden'}
                   </div>
-                  <div className="text-[11px] opacity-80">Schließt alle offenen Arbeitsfenster und sperrt die Sitzung.</div>
+                  <div className="text-[11px] opacity-80">
+                    {!isDesktopApp ? 'Beendet die Demo und leitet zur Download-Seite weiter.' : 'Schließt alle offenen Arbeitsfenster und sperrt die Sitzung.'}
+                  </div>
                 </div>
               </button>
 
@@ -2632,7 +2670,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       {/* Web Preview Info & Download Modal (Only when in Web Preview) */}
       <WebPreviewModal
         isOpen={isWebPreviewModalOpen}
-        onClose={() => setIsWebPreviewModalOpen(false)}
+        isExitPrompt={isWebPreviewExitMode}
+        onClose={() => {
+          setIsWebPreviewModalOpen(false);
+          setIsWebPreviewExitMode(false);
+        }}
+        onConfirmLeave={handleConfirmLeaveWeb}
       />
 
       {/* GitHub Release Update Notification Prompt & Download Progress */}

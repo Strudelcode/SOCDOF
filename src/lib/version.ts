@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.9';
+export const APP_VERSION = '20.1.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.1.0',
+    date: '2026-08-26',
+    title: 'In-App Web Preview Exit Modal, Data Loss Prevention Warning & Instant Windows Download',
+    highlights: [
+      'Interactive In-App Exit Modal: Replaced raw browser dialogs with a custom, in-page exit modal featuring clear data persistence warnings, direct download links, and smooth navigation options',
+      'Data Loss Notice: Clear warning explains that browser-demo data is temporary and provides instant download for the full 100% offline Windows app',
+      'Exit Intent Detection & Start Menu Integration: Triggers seamlessly when leaving the viewport or clicking power/logout actions in web demo mode',
+      'Multilingual Support: Fully translated into German, English, French, and Spanish across all dialog states'
+    ]
+  },
   {
     version: '20.0.9',
     date: '2026-08-26',
