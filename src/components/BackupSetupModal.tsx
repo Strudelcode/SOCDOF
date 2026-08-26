@@ -3,6 +3,7 @@ import { Shield, FolderOpen, Check, X, ArrowRight, HardDrive } from 'lucide-reac
 import { CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
 import { db } from '../lib/db';
+import { t } from '../lib/i18n';
 
 interface BackupSetupModalProps {
   isOpen: boolean;
@@ -117,10 +118,10 @@ export function BackupSetupModal({
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              Datensicherung &amp; Speicherort einrichten
+              {t('backup.wizard_title')}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Möchten Sie automatische Backups aktivieren, um Ihre Rechnungen, Kontakte und Buchungen regelmäßig lokal abzusichern?
+              {t('backup.wizard_desc')}
             </p>
           </div>
         </div>
@@ -128,10 +129,10 @@ export function BackupSetupModal({
         <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
             <HardDrive className="w-4 h-4 text-indigo-500" />
-            <span>Standardeinstellung:</span>
+            <span>{t('backup.default_label')}</span>
           </div>
           <p className="text-[11px] leading-relaxed">
-            Backups werden standardmäßig lokal in Ihrem Browser-Download-Ordner abgelegt oder können direkt in ein Verzeichnis Ihrer Wahl (z.&nbsp;B. Festplatte, USB-Laufwerk) gespeichert werden.
+            {t('backup.default_desc')}
           </p>
         </div>
 
@@ -144,7 +145,7 @@ export function BackupSetupModal({
           >
             <div className="flex items-center gap-2.5">
               <FolderOpen className="w-4 h-4" />
-              <span>Backups aktivieren &amp; Ordner wählen</span>
+              <span>{t('backup.btn_enable_and_pick')}</span>
             </div>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </button>
@@ -156,7 +157,7 @@ export function BackupSetupModal({
             className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4 text-emerald-600" />
-            <span>Überspringen (Standardverzeichnis beibehalten)</span>
+            <span>{t('backup.btn_skip_default')}</span>
           </button>
 
           {/* 3. Tertiary: Disable backups */}
@@ -166,12 +167,12 @@ export function BackupSetupModal({
             className="w-full py-2 px-4 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-medium text-[11px] transition flex items-center justify-center gap-1.5"
           >
             <X className="w-3.5 h-3.5" />
-            <span>Backups deaktivieren</span>
+            <span>{t('backup.btn_disable')}</span>
           </button>
         </div>
 
         <p className="text-[10px] text-center text-slate-400 dark:text-slate-500">
-          Sie können diese Einstellung jederzeit im Modul <strong>Einstellungen &gt; Backup &amp; Speicher</strong> anpassen.
+          {t('backup.note_change_later')}
         </p>
       </div>
     </div>

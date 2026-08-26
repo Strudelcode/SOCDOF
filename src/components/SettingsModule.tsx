@@ -1981,10 +1981,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <FolderTree className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   <div>
                     <h4 className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
-                      Backup-Speicherort
+                      {t('backup.section_title')}
                     </h4>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                      Wählen Sie den Zielordner für Ihre automatischen und manuellen Datensicherungen.
+                      {t('backup.section_desc')}
                     </p>
                   </div>
                 </div>
@@ -2002,12 +2002,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Speicherpfad / Ordner:
+                    {t('backup.path_label')}
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Standard: Lokaler Downloads-Ordner (oder Ordner über Button wählen)"
+                      placeholder={t('backup.path_placeholder')}
                       value={profile.backup_folder_path || ''}
                       onChange={(e) => setProfile({ ...profile, backup_folder_path: e.target.value })}
                       onBlur={() => handleSaveProfile()}
@@ -2016,11 +2016,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <button
                       type="button"
                       onClick={handlePickBackupFolder}
-                      title="Ordner auswählen"
+                      title={t('backup.btn_choose_folder')}
                       className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs"
                     >
                       <FolderOpen className="w-4 h-4" />
-                      <span>Ordner wählen</span>
+                      <span>{t('backup.btn_choose_folder')}</span>
                     </button>
                   </div>
                 </div>

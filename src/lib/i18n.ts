@@ -203,6 +203,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.date_format_label': 'Date Format',
     'settings.timezone_label': 'Timezone',
 
+    // Backup & Storage Wizard & Settings
+    'backup.wizard_title': 'Configure Data Backup & Storage Location',
+    'backup.wizard_desc': 'Would you like to enable automatic local backups to protect your invoices, contacts, and accounting records regularly?',
+    'backup.default_label': 'Default Setting:',
+    'backup.default_desc': 'Backups are stored by default in your local browser Downloads directory or can be pointed to any directory of your choice (e.g. hard drive, USB stick).',
+    'backup.btn_enable_and_pick': 'Enable Backups & Choose Folder',
+    'backup.btn_skip_default': 'Skip (Keep Default Downloads Folder)',
+    'backup.btn_disable': 'Disable Automatic Backups',
+    'backup.note_change_later': 'You can change this anytime in Settings > Backup & Storage.',
+    'backup.section_title': 'Backup Storage Location',
+    'backup.section_desc': 'Choose the target folder for your automatic and manual data backups.',
+    'backup.path_label': 'Storage Path / Directory:',
+    'backup.path_placeholder': 'Default: Local Downloads directory (or click Choose Folder)',
+    'backup.btn_choose_folder': 'Choose Folder',
+
     // System Status Card
     'status.system_title': 'System Status',
     'status.local_active': 'Local Active',
@@ -904,6 +919,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.date_format_label': 'Datumsformat',
     'settings.timezone_label': 'Zeitzone',
 
+    // Backup & Storage Wizard & Settings
+    'backup.wizard_title': 'Datensicherung & Speicherort einrichten',
+    'backup.wizard_desc': 'Möchten Sie automatische Backups aktivieren, um Ihre Rechnungen, Kontakte und Buchungen regelmäßig lokal abzusichern?',
+    'backup.default_label': 'Standardeinstellung:',
+    'backup.default_desc': 'Backups werden standardmäßig lokal in Ihrem Browser-Download-Ordner abgelegt oder können direkt in ein Verzeichnis Ihrer Wahl (z. B. Festplatte, USB-Laufwerk) gespeichert werden.',
+    'backup.btn_enable_and_pick': 'Backups aktivieren & Ordner wählen',
+    'backup.btn_skip_default': 'Überspringen (Standardverzeichnis beibehalten)',
+    'backup.btn_disable': 'Backups deaktivieren',
+    'backup.note_change_later': 'Sie können diese Einstellung jederzeit im Modul Einstellungen > Backup & Speicher anpassen.',
+    'backup.section_title': 'Backup-Speicherort',
+    'backup.section_desc': 'Wählen Sie den Zielordner für Ihre automatischen und manuellen Datensicherungen.',
+    'backup.path_label': 'Speicherpfad / Ordner:',
+    'backup.path_placeholder': 'Standard: Lokaler Downloads-Ordner (oder Ordner über Button wählen)',
+    'backup.btn_choose_folder': 'Ordner wählen',
+
     // System Status Card
     'status.system_title': 'System-Status',
     'status.local_active': 'Lokal aktiv',
@@ -1604,6 +1634,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.date_format_label': 'Format de date',
     'settings.timezone_label': 'Fuseau horaire',
 
+    // Backup & Storage Wizard & Settings
+    'backup.wizard_title': 'Configurer la sauvegarde et l’emplacement',
+    'backup.wizard_desc': 'Souhaitez-vous activer les sauvegardes automatiques locales pour protéger régulièrement vos factures, contacts et écritures comptables ?',
+    'backup.default_label': 'Paramètre par défaut :',
+    'backup.default_desc': 'Les sauvegardes sont enregistrées par défaut dans votre dossier Téléchargements ou peuvent être stockées dans un dossier de votre choix (ex. disque dur, clé USB).',
+    'backup.btn_enable_and_pick': 'Activer les sauvegardes et choisir un dossier',
+    'backup.btn_skip_default': 'Passer (Conserver le dossier Téléchargements par défaut)',
+    'backup.btn_disable': 'Désactiver les sauvegardes automatiques',
+    'backup.note_change_later': 'Vous pouvez modifier ce paramètre à tout moment dans Paramètres > Sauvegarde & Stockage.',
+    'backup.section_title': 'Emplacement de sauvegarde',
+    'backup.section_desc': 'Choisissez le dossier de destination pour vos sauvegardes automatiques et manuelles.',
+    'backup.path_label': 'Chemin de stockage / Dossier :',
+    'backup.path_placeholder': 'Par défaut : Dossier Téléchargements local (ou cliquer sur Choisir un dossier)',
+    'backup.btn_choose_folder': 'Choisir un dossier',
+
     // System Status Card
     'status.system_title': 'État du système',
     'status.local_active': 'Actif localement',
@@ -2302,6 +2347,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.currency_symbol': 'Símbolo de moneda',
     'settings.date_format_label': 'Formato de fecha',
     'settings.timezone_label': 'Zona horaria',
+
+    // Backup & Storage Wizard & Settings
+    'backup.wizard_title': 'Configurar Copia de Seguridad y Ubicación',
+    'backup.wizard_desc': '¿Desea activar copias de seguridad locales automáticas para proteger periódicamente sus facturas, contactos y asientos contables?',
+    'backup.default_label': 'Ajuste predeterminado:',
+    'backup.default_desc': 'Las copias de seguridad se guardan de forma predeterminada en su carpeta Descargas o pueden guardarse directamente en la carpeta que elija (ej. disco duro, memoria USB).',
+    'backup.btn_enable_and_pick': 'Activar copias y elegir carpeta',
+    'backup.btn_skip_default': 'Omitir (Conservar carpeta Descargas predeterminada)',
+    'backup.btn_disable': 'Desactivar copias automáticas',
+    'backup.note_change_later': 'Puede cambiar esta configuración en cualquier momento en Configuración > Copia de seguridad y almacenamiento.',
+    'backup.section_title': 'Ubicación de copia de seguridad',
+    'backup.section_desc': 'Elija la carpeta de destino para sus copias de seguridad automáticas y manuales.',
+    'backup.path_label': 'Ruta de almacenamiento / Carpeta:',
+    'backup.path_placeholder': 'Predeterminado: Carpeta Descargas local (o use el botón Elegir carpeta)',
+    'backup.btn_choose_folder': 'Elegir carpeta',
 
     // System Status Card
     'status.system_title': 'Estado del sistema',

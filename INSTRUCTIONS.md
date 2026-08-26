@@ -6,8 +6,11 @@ This document defines the core operational standards, versioning protocols, and 
 
 ## 1. Language & Documentation Standards
 
-- **English by Default**: All development documentation, release notes under `versions/`, code comments, commit messages, and internal guides MUST be written in **English**.
-- **Multilingual UI**: End-user facing UI strings, labels, and dialogues must be integrated through the centralized i18n system (`src/lib/i18n.ts`) supporting all 4 languages (German, English, French, Spanish).
+- **English by Default for Code & Documentation**: All development documentation, release notes under `versions/`, code comments, commit messages, and internal developer guides MUST be written in **English**.
+- **Mandatory 4-Language UI (German, English, French, Spanish)**:
+  - Whenever any UI feature, screen, label, text, button, dialog, modal, placeholder, setting, toast, or notification is added or modified, it **MUST ALWAYS** be defined and translated across **ALL 4 supported languages** in `src/lib/i18n.ts` (`en` = English, `de` = German, `fr` = French, `es` = Spanish).
+  - Never leave untranslated, single-language, or hardcoded strings in newly modified user-facing interfaces.
+  - All components must reference translations using `t('key')` or `useTranslation()` from `src/lib/i18n.ts`.
 
 ---
 
