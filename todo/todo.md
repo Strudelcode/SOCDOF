@@ -22,29 +22,24 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
-### 2.1 Native Desktop App & Electron Execution
+### 2.1 Native Desktop App & Windows Features
 - [ ] Quick shortcut/action to open local file explorer / Windows directory.
-- [ ] Provide optional standalone `Languages` folder bundled alongside portable `.exe` builds.
-
-### 2.2 Calendar & External Integrations
-- [ ] Investigate optional two-way / one-way iCal and Google Calendar / Outlook feed synchronization.
-
-### 2.3 System Audit & Polishing
-- [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
-- [ ] Optional global customer search across Support, Invoices, and CRM.
-
-### 2.4 Invoicing & E-Invoicing (FatturaPA / Italy)
-- [ ] **FatturaPA 1.2.x XML Generator**: Implement local generator for Italian e-invoices compliant with standard schemas.
-- [ ] **XML Validation**: Add built-in XSD validation before export to prevent SdI portal rejection.
-- [ ] **Portal Export**: Add export option for ready-to-upload XML files compatible with *Fatture e Corrispettivi*.
-- [ ] **XML Parser & Import**: Build drag-and-drop importer for incoming invoices and SdI status receipts.
-
-## Windows Desktop App Issues
 - [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
 - [ ] Executable Icon: Fix build config so the packaged `.exe` uses the custom SOCDOF icon instead of default Electron logo.
 
+### 2.2 Invoicing & E-Invoicing (FatturaPA / Italy)
+- [ ] SdI status receipts and notification XML parsing support.
+
+### 2.3 Calendar & External Integrations
+- [ ] Investigate optional two-way / one-way iCal and Google Calendar / Outlook feed synchronization.
+
+### 2.4 System Audit & Polishing
+- [ ] Audit all apps, buttons, modal dialogs, error states, and keyboard accessibility for fluid operation.
+- [ ] Optional global customer search across Support, Invoices, and CRM.
+
 ## Other
-- [ ] Villeicht im haupt Ordner bei der index.html eine webseite mit der dokumetation, features... beschreiben. Es soll KEINE one page sein. dann kann man auch das GitHub Projekt sehen. die releases runterladen. die vorschau Seite sehen und so
-- [ ] vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere sSachen?
+- [ ] Multi-page showcase & documentation web portal (features, releases, preview, GitHub link).
+- [ ] ~~vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere Sachen?~~ (aktuell nicht benötigt)
+
 
 

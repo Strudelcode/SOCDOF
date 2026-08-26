@@ -93,6 +93,8 @@ import { SupportServicesModule } from './SupportServicesModule';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL } from '../lib/platform';
 import { WebPreviewModal } from './WebPreviewModal';
+import { UpdatePromptModal } from './UpdatePromptModal';
+import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -475,6 +477,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Automatic GitHub Release Update Notification state
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isUpdatePromptOpen, setIsUpdatePromptOpen] = useState(false);
+
+  // Background update check on startup (respecting snooze and skipped versions)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const info = await checkForAppUpdates();
+        if (info && info.hasUpdate) {
+          if (!isVersionSkipped(info.latestVersion) && !isUpdateSnoozed()) {
+            setUpdateInfo(info);
+            setIsUpdatePromptOpen(true);
+            sounds.playPop();
+          }
+        }
+      } catch (err) {
+        console.warn('Background update check skipped:', err);
+      }
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Detect whether running in native desktop electron or web browser preview
   const isDesktopApp = useMemo(() => isElectron(), []);
@@ -2607,6 +2633,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       <WebPreviewModal
         isOpen={isWebPreviewModalOpen}
         onClose={() => setIsWebPreviewModalOpen(false)}
+      />
+
+      {/* GitHub Release Update Notification Prompt & Download Progress */}
+      <UpdatePromptModal
+        isOpen={isUpdatePromptOpen}
+        updateInfo={updateInfo}
+        onClose={() => setIsUpdatePromptOpen(false)}
+        onShutdownApp={handleShutdown}
       />
     </div>
   );

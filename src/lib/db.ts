@@ -69,7 +69,11 @@ export const defaultCompanyProfile: CompanyProfile = {
   letterhead_footer_line4: 'USt-IdNr: AB 123 456 789 • Steuer-Nr: 000/123/45678',
   backup_owner: 'Hauptadministrator / IT-Leitung',
   backup_folder_path: 'C:\\ERP-Daten\\SOCDOF_Backups',
-  max_storage_warning_kb: 5000 // 5 MB threshold warning
+  max_storage_warning_kb: 5000, // 5 MB threshold warning
+  auto_backup_enabled: true,
+  backup_interval_minutes: 120, // 2 hours default
+  backup_max_keep_count: 10,
+  backup_notify_on_success: true
 };
 
 // Initial Database Setup (Starts clean without dummy data by default)

@@ -17,6 +17,61 @@ export interface UpdateInfo {
   downloadUrl?: string;
 }
 
+const STORAGE_KEY_SKIPPED_VERSION = 'socdof_skipped_update_version';
+const STORAGE_KEY_SNOOZE_UNTIL = 'socdof_update_snooze_until';
+
+/**
+ * Checks if a specific version has been explicitly skipped by the user
+ */
+export function isVersionSkipped(version: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const skipped = localStorage.getItem(STORAGE_KEY_SKIPPED_VERSION);
+    return skipped === version;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Marks a version as permanently skipped
+ */
+export function setVersionSkipped(version: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_SKIPPED_VERSION, version);
+  } catch (err) {
+    console.warn('Could not save skipped update version:', err);
+  }
+}
+
+/**
+ * Checks if update notifications are currently snoozed
+ */
+export function isUpdateSnoozed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const snoozeUntil = sessionStorage.getItem(STORAGE_KEY_SNOOZE_UNTIL);
+    if (!snoozeUntil) return false;
+    return Date.now() < parseInt(snoozeUntil, 10);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Snoozes update notifications for a specified duration (default: 4 hours / current session)
+ */
+export function snoozeUpdateNotification(durationHours: number = 4) {
+  if (typeof window === 'undefined') return;
+  try {
+    const until = Date.now() + durationHours * 3600 * 1000;
+    sessionStorage.setItem(STORAGE_KEY_SNOOZE_UNTIL, until.toString());
+  } catch (err) {
+    console.warn('Could not set update snooze:', err);
+  }
+}
+
 /**
  * Normalizes semver string for clean comparison (e.g. "v20.0.1" -> [20, 0, 1])
  */
@@ -44,35 +99,58 @@ export function compareSemver(v1: string, v2: string): number {
 }
 
 /**
- * Queries GitHub API for the latest published release of SOCDOF
+ * Queries GitHub API for the latest published official release of SOCDOF (strictly ignoring prereleases)
  */
 export async function checkForAppUpdates(): Promise<UpdateInfo | null> {
   try {
-    const response = await fetch('https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest', {
+    // Primary check: /releases/latest endpoint natively excludes drafts and prereleases
+    let response = await fetch('https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest', {
       headers: {
         'Accept': 'application/vnd.github.v3+json'
       }
     });
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        // No releases published yet on repository
-        return {
-          hasUpdate: false,
-          currentVersion: APP_VERSION,
-          latestVersion: APP_VERSION,
-          releaseName: 'Aktuelle Version',
-          releaseUrl: GITHUB_RELEASES_URL,
-          publishedAt: new Date().toISOString(),
-          body: 'Sie verwenden die aktuellste Version von SOCDOF.'
-        };
+    let data: any = null;
+
+    if (response.ok) {
+      data = await response.json();
+      // Double check: strictly ignore if marked as prerelease or draft
+      if (data.prerelease || data.draft) {
+        data = null;
       }
-      throw new Error(`GitHub API HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    // Fallback: If /latest returned 404 or a prerelease, inspect release list for the latest stable non-prerelease
+    if (!data) {
+      const listResp = await fetch('https://api.github.com/repos/Strudelcode/SOCDOF/releases?per_page=20', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      if (listResp.ok) {
+        const listData = await listResp.json();
+        if (Array.isArray(listData)) {
+          // Find first stable release that is neither a prerelease nor a draft
+          data = listData.find((r: any) => !r.prerelease && !r.draft) || null;
+        }
+      }
+    }
+
+    if (!data) {
+      // No official stable releases published yet on repository
+      return {
+        hasUpdate: false,
+        currentVersion: APP_VERSION,
+        latestVersion: APP_VERSION,
+        releaseName: 'Aktuelle Version',
+        releaseUrl: GITHUB_RELEASES_URL,
+        publishedAt: new Date().toISOString(),
+        body: 'Sie verwenden die aktuellste Version von SOCDOF (keine neuen Haupt-Releases verfügbar).'
+      };
+    }
+
     const tagName = data.tag_name || data.name || APP_VERSION;
-    const cleanTag = tagName.replace(/^v/i, '');
+    const cleanTag = tagName.replace(/^v/i, '').trim();
     const hasUpdate = compareSemver(cleanTag, APP_VERSION) > 0;
 
     // Find any .exe attachment asset if present

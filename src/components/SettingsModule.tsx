@@ -62,6 +62,15 @@ import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL } from '../lib/platform';
 import { checkForAppUpdates, UpdateInfo } from '../lib/updateChecker';
+import { UpdatePromptModal } from './UpdatePromptModal';
+import {
+  getStoredBackupSnapshots,
+  createDatabaseBackup,
+  restoreSnapshotById,
+  deleteSnapshotById,
+  downloadSnapshotById,
+  BackupSnapshotMeta
+} from '../lib/backupManager';
 
 interface SettingsModuleProps {
   company: CompanyProfile;
@@ -126,6 +135,73 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   // GitHub Release Update Checker State
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateInfo | null>(null);
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+
+  // Automated Backup Engine State
+  const [storedSnapshots, setStoredSnapshots] = useState<BackupSnapshotMeta[]>([]);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isRestoringSnapshotId, setIsRestoringSnapshotId] = useState<string | null>(null);
+  const [backupSuccessMsg, setBackupSuccessMsg] = useState<string | null>(null);
+
+  const loadStoredSnapshots = () => {
+    try {
+      const list = getStoredBackupSnapshots();
+      setStoredSnapshots(list);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateInstantBackup = async (downloadDirect: boolean = false) => {
+    try {
+      setIsCreatingBackup(true);
+      sounds.playClick();
+      const meta = await createDatabaseBackup(false, profile, downloadDirect);
+      sounds.playSuccess();
+      loadStoredSnapshots();
+      loadStorageInfo();
+      setBackupSuccessMsg(`Backup erfolgreich erstellt! (${meta.totalRecords} Datensätze, ${(meta.sizeBytes / 1024).toFixed(1)} KB)`);
+      setTimeout(() => setBackupSuccessMsg(null), 4000);
+    } catch (err) {
+      console.error(err);
+      sounds.playError();
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleRestoreStoredSnapshot = async (snapshotId: string) => {
+    if (!window.confirm('Möchten Sie diesen Datensicherungs-Stand wirklich wiederherstellen? Alle aktuellen Daten werden mit diesem Stand überschrieben.')) {
+      return;
+    }
+    try {
+      setIsRestoringSnapshotId(snapshotId);
+      await restoreSnapshotById(snapshotId);
+      sounds.playImport();
+      alert('Der gewählte Backup-Stand wurde erfolgreich wiederhergestellt!');
+      onFullReset();
+      loadStorageInfo();
+      loadStoredSnapshots();
+    } catch (err) {
+      console.error(err);
+      sounds.playError();
+      alert('Fehler beim Wiederherstellen des Backups.');
+    } finally {
+      setIsRestoringSnapshotId(null);
+    }
+  };
+
+  const handleDeleteStoredSnapshot = (snapshotId: string) => {
+    if (!window.confirm('Möchten Sie diesen Snapshot wirklich aus dem Verlauf löschen?')) {
+      return;
+    }
+    const updated = deleteSnapshotById(snapshotId);
+    setStoredSnapshots(updated);
+  };
+
+  const handleDownloadStoredSnapshot = (snapshotId: string) => {
+    downloadSnapshotById(snapshotId, profile);
+  };
 
   const handleManualCheckUpdates = async () => {
     try {
@@ -157,6 +233,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   useEffect(() => {
     loadStorageInfo();
+    loadStoredSnapshots();
   }, [company]);
 
   const loadStorageInfo = async () => {
@@ -1711,19 +1788,37 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* SECTION: STORAGE & BACKUP */}
           {activeSection === 'storage' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <HardDrive className="w-5 h-5" />
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <HardDrive className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      Speicher, Automatische Backups &amp; Datensicherung
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Konfigurieren Sie automatische Zeitplan-Backups, Zielordner und stellen Sie Sicherungspunkte wieder her.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Speicher & Datensicherung (JSON Backup)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Sichern Sie Ihre gesamte ERP-Datenbank als handliche JSON-Datei oder stellen Sie ein Backup wieder her.
-                  </p>
-                </div>
+
+                <button
+                  onClick={() => handleCreateInstantBackup(false)}
+                  disabled={isCreatingBackup}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isCreatingBackup ? 'Sichere...' : 'Snapshot jetzt anlegen'}</span>
+                </button>
               </div>
+
+              {backupSuccessMsg && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{backupSuccessMsg}</span>
+                </div>
+              )}
 
               {/* Storage Stats Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
@@ -1736,61 +1831,112 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <span className="text-base font-bold text-slate-900 dark:text-white">{storageStats.totalRecords}</span>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                  <span className="text-[11px] text-slate-500 block">Format</span>
-                  <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">IndexedDB</span>
+                  <span className="text-[11px] text-slate-500 block">Gespeicherte Snapshots</span>
+                  <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">{storedSnapshots.length}</span>
                 </div>
                 <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60">
-                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block">Status</span>
-                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">Gesund</span>
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block">Auto-Backup Status</span>
+                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                    {profile.auto_backup_enabled !== false ? 'Aktiviert' : 'Deaktiviert'}
+                  </span>
                 </div>
               </div>
 
-              {/* Export & Import Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+              {/* 1. Automated Backup Configuration Card */}
+              <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 space-y-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Backup exportieren</h4>
+                    <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <h4 className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
+                        Automatische Zeitplan-Backups (Intervall &amp; Steuerung)
+                      </h4>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Sichert Ihre Daten im laufenden Betrieb in festgelegten Abständen automatisch im Hintergrund.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Erstellt eine vollständige Sicherungskopie aller Kunden, Rechnungen, Produkte und Buchungen.
-                  </p>
-                  <button
-                    onClick={handleExportJson}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>JSON Backup herunterladen</span>
-                  </button>
-                </div>
 
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Backup wiederherstellen</h4>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Liest eine zuvor exportierte .json Sicherungsdatei ein und stellt den Zustand wieder her.
-                  </p>
-                  <label className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    <span>Backup-Datei einlesen</span>
-                    <input type="file" accept=".json" onChange={handleImportJson} className="hidden" />
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={profile.auto_backup_enabled !== false}
+                      onChange={(e) => handleSaveProfile({ auto_backup_enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
+
+                {profile.auto_backup_enabled !== false && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Sicherungs-Intervall:
+                      </label>
+                      <select
+                        value={profile.backup_interval_minutes || 120}
+                        onChange={(e) => handleSaveProfile({ backup_interval_minutes: parseInt(e.target.value, 10) })}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value={15}>Alle 15 Minuten</option>
+                        <option value={30}>Alle 30 Minuten</option>
+                        <option value={60}>Jede Stunde (60 Min)</option>
+                        <option value={120}>Alle 2 Stunden (Standard)</option>
+                        <option value={360}>Alle 6 Stunden</option>
+                        <option value={720}>Alle 12 Stunden</option>
+                        <option value={1440}>Einmal täglich (24 Stunden)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Aufbewahrung (Max. Versionen):
+                      </label>
+                      <select
+                        value={profile.backup_max_keep_count || 10}
+                        onChange={(e) => handleSaveProfile({ backup_max_keep_count: parseInt(e.target.value, 10) })}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value={5}>Letzte 5 Snapshots</option>
+                        <option value={10}>Letzte 10 Snapshots (Standard)</option>
+                        <option value={20}>Letzte 20 Snapshots</option>
+                        <option value={50}>Letzte 50 Snapshots</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Erfolgsmeldung einblenden:
+                      </label>
+                      <div className="flex items-center gap-2 h-9 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl">
+                        <input
+                          type="checkbox"
+                          id="backup_notify_on_success"
+                          checked={profile.backup_notify_on_success !== false}
+                          onChange={(e) => handleSaveProfile({ backup_notify_on_success: e.target.checked })}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label htmlFor="backup_notify_on_success" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                          Nach Sicherung benachrichtigen
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Local Windows Directory & Backup Path Management */}
+              {/* 2. Local Windows Directory & Backup Path Management */}
               <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FolderTree className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     <div>
                       <h4 className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
-                        Lokaler Windows Installations- &amp; Sicherungspfad
+                        Ziel-Backup-Ordner &amp; Verzeichnispfad
                       </h4>
                       <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                        Definieren Sie das Zielverzeichnis für automatische Backups und lokale Datendateien.
+                        Geben Sie Ihren gewünschten Zielpfad auf der lokalen Festplatte, USB-Stick oder Netzlaufwerk an.
                       </p>
                     </div>
                   </div>
@@ -1841,7 +1987,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">Automatische Ordnerstruktur:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">Zielstruktur:</span>
                     <div className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
                       {profile.backup_folder_path || 'C:\\SOCDOF\\Backups'} • \Data • \Exports • \Config
                     </div>
@@ -1850,6 +1996,129 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     Lokal &amp; Offline
                   </span>
                 </div>
+              </div>
+
+              {/* 3. Export & Import Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Manuelle JSON-Sicherung herunterladen</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Erstellt eine vollständige Sicherungskopie aller Kunden, Rechnungen, Produkte und Buchungen als .json Datei.
+                  </p>
+                  <button
+                    onClick={() => handleCreateInstantBackup(true)}
+                    disabled={isCreatingBackup}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>JSON Backup jetzt herunterladen</span>
+                  </button>
+                </div>
+
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Backup-Datei wiederherstellen</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Liest eine zuvor exportierte .json Sicherungsdatei von Ihrem Computer ein und stellt den Zustand wieder her.
+                  </p>
+                  <label className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    <span>Backup-Datei auswählen &amp; einlesen</span>
+                    <input type="file" accept=".json" onChange={handleImportJson} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              {/* 4. Stored Backup Snapshots Timeline Table */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>Lokale Wiederherstellungspunkte &amp; Snapshot-Verlauf</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    {storedSnapshots.length} von max. {profile.backup_max_keep_count || 10} Snapshots
+                  </span>
+                </div>
+
+                {storedSnapshots.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center space-y-2">
+                    <HardDrive className="w-8 h-8 text-slate-400 mx-auto" />
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Noch keine Snapshots im Verlauf
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Klicken Sie oben auf „Snapshot jetzt anlegen“ oder aktivieren Sie das automatische Zeitplan-Backup.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-semibold">
+                        <tr>
+                          <th className="p-3">Zeitpunkt</th>
+                          <th className="p-3">Typ</th>
+                          <th className="p-3">Größe</th>
+                          <th className="p-3">Inhalt (Datensätze)</th>
+                          <th className="p-3 text-right">Aktionen</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {storedSnapshots.map((snap) => (
+                          <tr key={snap.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
+                            <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">
+                              {new Date(snap.timestamp).toLocaleString('de-DE')}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                snap.isAuto 
+                                  ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
+                                  : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                              }`}>
+                                {snap.isAuto ? 'Automatisch' : 'Manuell'}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono text-slate-600 dark:text-slate-300">
+                              {(snap.sizeBytes / 1024).toFixed(1)} KB
+                            </td>
+                            <td className="p-3 text-slate-600 dark:text-slate-300 text-[11px]">
+                              {snap.summary.invoices} Rechnungen • {snap.summary.contacts} Kontakte • {snap.summary.products} Produkte
+                            </td>
+                            <td className="p-3 text-right space-x-1.5">
+                              <button
+                                onClick={() => handleRestoreStoredSnapshot(snap.id)}
+                                disabled={isRestoringSnapshotId === snap.id}
+                                title="Diesen Snapshot wiederherstellen"
+                                className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-bold transition"
+                              >
+                                {isRestoringSnapshotId === snap.id ? 'Wiederherstellen...' : 'Wiederherstellen'}
+                              </button>
+                              <button
+                                onClick={() => handleDownloadStoredSnapshot(snap.id)}
+                                title="Backup-Datei als .json herunterladen"
+                                className="p-1 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-block align-middle"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStoredSnapshot(snap.id)}
+                                title="Diesen Snapshot löschen"
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-block align-middle"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {importError && (
@@ -2049,15 +2318,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </div>
 
                       {updateResult.hasUpdate && (
-                        <a
-                          href={updateResult.downloadUrl || updateResult.releaseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs shrink-0"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Update laden</span>
-                        </a>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              setIsPromptModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Update installieren</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2303,6 +2576,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* GitHub Release Update Interactive Wizard */}
+      <UpdatePromptModal
+        isOpen={isPromptModalOpen}
+        updateInfo={updateResult}
+        onClose={() => setIsPromptModalOpen(false)}
+      />
 
     </div>
   );

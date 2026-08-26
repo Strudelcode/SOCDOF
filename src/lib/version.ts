@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.0.3';
+export const APP_VERSION = '20.0.6';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,39 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.0.6',
+    date: '2026-08-26',
+    title: 'Automated CI/CD Release Pipeline, Major Tag Validation & Prerelease Isolation',
+    highlights: [
+      'Automated GitHub Actions CI/CD: On every push/tag, workflow automatically verifies/creates major root tags (e.g. v20), builds Windows Setup .EXE, and publishes GitHub releases',
+      'Smart Release vs. Prerelease Separation: Major milestones (e.g. v20.0.0) are published as full Releases, while intermediate increments (e.g. v20.0.6) are published as Prereleases',
+      'Automated Documentation Body Extraction: Automatically extracts detailed release notes directly from versions/V*.md into the GitHub release description',
+      'Strict In-App Release Filter: In-app update checker specifically targets official full releases, completely ignoring intermediate pre-releases'
+    ]
+  },
+  {
+    version: '20.0.5',
+    date: '2026-08-26',
+    title: 'Automated Database Backups, Web Preview Badge Isolation & FatturaPA XML Importer',
+    highlights: [
+      'Automated Background Backups: Periodic auto-backup engine with customizable intervals (minutes to hours), custom backup folder path, on/off toggle, and snapshot history with 1-click restore',
+      'Web-Vorschau Badge Isolation: Restricted the Web Preview badge in the taskbar exclusively to browser environments, keeping the Desktop Electron app clean and native',
+      'FatturaPA XML Importer & SdI Parser: Complete XML parser for Italian electronic invoices (TD01, TD04...) with interactive preview modal, line items extraction, tax verification, and automatic partner & invoice generation',
+      'Enhanced Invoices Journal: XML import action button with direct file selection and instant validation'
+    ]
+  },
+  {
+    version: '20.0.4',
+    date: '2026-08-26',
+    title: 'Automated Update Wizard, Setup-Only Installer Pipeline & Italian FatturaPA E-Invoicing Generator',
+    highlights: [
+      'Automated In-App Update Wizard: Background GitHub release monitoring with interactive UpdatePromptModal (Install Now, Ask Later, Skip Version) and animated download progress simulation',
+      'Setup-Only Packaging Pipeline: Streamlined electron-builder to strictly produce standalone Windows NSIS Setup installers (.exe) without portable packages',
+      'Italian FatturaPA 1.2.x XML Generator: Built-in generation, validation and direct download of Italian electronic invoices compliant with Agenzia delle Entrate (SdI) standards',
+      'Invoices Table SdI Action: One-click FatturaPA XML export directly from the customer invoice journal'
+    ]
+  },
   {
     version: '20.0.3',
     date: '2026-08-26',

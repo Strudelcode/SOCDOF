@@ -221,6 +221,11 @@ export interface CompanyProfile {
   backup_owner?: string;
   backup_folder_path?: string;
   max_storage_warning_kb?: number;
+  auto_backup_enabled?: boolean;
+  backup_interval_minutes?: number; // e.g. 15, 30, 60, 120 (2h), 360 (6h), 720 (12h), 1440 (24h)
+  backup_max_keep_count?: number; // default 10
+  last_backup_timestamp?: string;
+  backup_notify_on_success?: boolean;
 }
 
 export type ViewMode = 'kanban' | 'list' | 'pivot' | 'form';

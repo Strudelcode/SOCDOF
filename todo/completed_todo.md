@@ -6,7 +6,43 @@
 
 ## Completed Tasks Archive
 
-### 1. Web Preview Modal, Update Checker & Exit Confirmation Customization (v20.0.3)
+### 1. Automated GitHub CI/CD Pipeline & In-App Release-Only Update Detection (v20.0.6)
+- [x] **Push & Tag Automation Workflow**:
+  - [x] Implemented GitHub Actions workflow `.github/workflows/build-windows-exe.yml` triggered on every push (`main`, `master`, `v*`).
+  - [x] Automatic check & creation of major root tag (e.g. `v20`, `v19`) if not already present on repository.
+  - [x] Automated compilation of Windows Setup installer `.exe` with Electron Builder.
+- [x] **Intelligent Release vs. Pre-release Segregation**:
+  - [x] Major milestone versions (e.g. `20.0.0`) are published as full GitHub Releases.
+  - [x] Intermediate sub-versions and patches (e.g. `20.0.6`, `20.0.5`) are published as GitHub Pre-releases.
+- [x] **Release Notes Extraction**:
+  - [x] Implemented `scripts/prepare-release.cjs` to extract matching version changelog from `versions/V*.md` directly into the release body.
+- [x] **Strict In-App Release Filter**:
+  - [x] Hardened `src/lib/updateChecker.ts` to strictly ignore all pre-releases so in-app update prompts are exclusively triggered by full stable releases.
+
+### 2. Automated Database Backups, Web-Vorschau Isolation & FatturaPA XML Importer (v20.0.5)
+- [x] **Automated Background Database Backups**:
+  - [x] Background scheduler loop in `App.tsx` running `checkAndRunAutoBackup` at user-defined intervals (10m, 30m, 1h, 2h, 6h, 12h, 24h).
+  - [x] Full backup UI in Settings (Storage section) with on/off switch, interval selector, custom folder path, manual snapshot trigger, JSON download, and snapshot history with 1-click restore.
+- [x] **Web-Vorschau Badge Isolation**:
+  - [x] Restricted taskbar "Web-Vorschau" button display strictly to web browser mode (`!isDesktopApp` using `isElectron()` check), ensuring clean desktop native appearance.
+- [x] **Italian FatturaPA XML Importer & SdI Parser**:
+  - [x] Implemented `src/lib/fatturaPaParser.ts` for parsing XML electronic invoices into SOCDOF Invoice and Contact models.
+  - [x] Added XML import button with file dialog in `InvoicesModule.tsx`.
+  - [x] Interactive preview modal displaying partner information, tax details, invoice rows, and payment terms before saving to database.
+
+### 2. Automated Update Wizard, Setup-Only Installer Pipeline & Italian FatturaPA (v20.0.4)
+- [x] **In-App Automated Update Wizard**:
+  - [x] Background GitHub release monitoring on app start with `UpdatePromptModal`.
+  - [x] Three action paths: "Jetzt installieren", "Später fragen (Snooze)", "Version überspringen".
+  - [x] Download progress bar simulation (MB and percent) and 1-click app close and setup trigger.
+- [x] **Setup-Only Packaging Pipeline (No Portable)**:
+  - [x] Configured `electron-builder.json` to exclusively build NSIS Windows Setup installer (`SOCDOF.Setup.{version}.exe`).
+  - [x] Removed portable build target and portable references from distribution.
+- [x] **FatturaPA 1.2.x XML Generator & E-Invoicing**:
+  - [x] Implemented `src/lib/fatturaPaGenerator.ts` for Italian electronic invoice generation compliant with Agenzia delle Entrate (SdI) standards.
+  - [x] Added XML schema validation check and one-click XML download action in `InvoicesModule` table.
+
+### 2. Web Preview Modal, Update Checker & Exit Confirmation Customization (v20.0.3)
 - [x] **Web Preview Guard & Transient Storage Notice**:
   - [x] Implemented `WebPreviewModal.tsx` clarifying in-browser session storage and offering direct GitHub release `.exe` download links.
   - [x] Added `beforeunload` warning event listener in web mode to prevent accidental tab closing without saving.

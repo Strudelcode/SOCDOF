@@ -1,0 +1,87 @@
+const fs = require('fs');
+const path = require('path');
+
+function main() {
+  const pkgPath = path.join(process.cwd(), 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  const version = pkg.version || '1.0.0';
+
+  const parts = version.split('.').map(p => parseInt(p, 10) || 0);
+  const major = parts[0] || 1;
+  const minor = parts[1] || 0;
+  const patch = parts[2] || 0;
+
+  const majorTag = `v${major}`;
+  const versionTag = `v${version}`;
+
+  // If it's a major root version (e.g. 20.0.0 or 19.0.0), it is a full Release.
+  // If it's a sub-version / patch / minor (e.g. 20.0.4, 20.0.5, 20.1.0), it is marked as Prerelease.
+  const isMajorRelease = (minor === 0 && patch === 0);
+  const isPrerelease = !isMajorRelease;
+
+  // Search for version notes in versions/V<major>.md
+  const versionDocPath = path.join(process.cwd(), 'versions', `V${major}.md`);
+  let releaseBody = '';
+
+  if (fs.existsSync(versionDocPath)) {
+    const content = fs.readFileSync(versionDocPath, 'utf-8');
+    const lines = content.split('\n');
+
+    let capturing = false;
+    const capturedLines = [];
+
+    // Match "## Version v20.0.5" or "## Version 20.0.5"
+    const startRegex = new RegExp(`^##\\s+Version\\s+v?${version.replace(/\./g, '\\.')}\\b`, 'i');
+
+    for (const line of lines) {
+      if (!capturing) {
+        if (startRegex.test(line)) {
+          capturing = true;
+          capturedLines.push(line);
+        }
+      } else {
+        // Stop capturing if we hit the next version header or separator
+        if (/^##\s+Version\s+/i.test(line)) {
+          break;
+        }
+        capturedLines.push(line);
+      }
+    }
+
+    if (capturedLines.length > 0) {
+      releaseBody = capturedLines.join('\n').trim();
+    }
+  }
+
+  if (!releaseBody) {
+    releaseBody = `## SOCDOF ${versionTag}\n\nAutomated build for SOCDOF ${versionTag}.`;
+  }
+
+  // Write release notes to file for GitHub Actions to use
+  const releaseNotesPath = path.join(process.cwd(), 'release_notes.md');
+  fs.writeFileSync(releaseNotesPath, releaseBody, 'utf-8');
+
+  console.log(`[prepare-release] Version: ${version}`);
+  console.log(`[prepare-release] Major Tag: ${majorTag}`);
+  console.log(`[prepare-release] Version Tag: ${versionTag}`);
+  console.log(`[prepare-release] Is Major Release: ${isMajorRelease}`);
+  console.log(`[prepare-release] Is Prerelease: ${isPrerelease}`);
+  console.log(`[prepare-release] Notes extracted (${releaseBody.length} chars) to release_notes.md`);
+
+  // Write GitHub Actions step output if running in GHA
+  if (process.env.GITHUB_OUTPUT) {
+    const ghaOutput = [
+      `version=${version}`,
+      `major=${major}`,
+      `major_tag=${majorTag}`,
+      `version_tag=${versionTag}`,
+      `is_major_release=${isMajorRelease}`,
+      `is_prerelease=${isPrerelease}`,
+      `notes_file=${releaseNotesPath}`
+    ].join('\n') + '\n';
+
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, ghaOutput, 'utf-8');
+  }
+}
+
+main();

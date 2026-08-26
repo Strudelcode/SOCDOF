@@ -21,6 +21,7 @@ import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage } from './lib/i18n';
+import { checkAndRunAutoBackup } from './lib/backupManager';
 
 export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -154,6 +155,18 @@ export default function App() {
       document.documentElement.style.fontSize = `${company.font_scale}%`;
     }
   }, [company?.accent_color, company?.font_scale]);
+
+  // Automated Backup scheduler loop (runs every 60 seconds)
+  useEffect(() => {
+    // Initial check on mount
+    checkAndRunAutoBackup(company);
+
+    const intervalId = window.setInterval(() => {
+      checkAndRunAutoBackup(company);
+    }, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [company]);
 
   // Clean Mode Toggle Handler for Studio Drawer
   const handleToggleCleanMode = async (enableClean: boolean) => {

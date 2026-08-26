@@ -1,7 +1,10 @@
-name: Build Windows .EXE Release
+name: Build & Publish Windows .EXE Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -10,17 +13,38 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
+  build-and-release:
     runs-on: windows-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Prepare Release Metadata & Notes
+        id: prep
+        run: node scripts/prepare-release.cjs
+
+      - name: Ensure Main Major Tag Exists (e.g. v20)
+        shell: bash
+        run: |
+          MAJOR_TAG="${{ steps.prep.outputs.major_tag }}"
+          echo "Checking if major tag $MAJOR_TAG exists on remote..."
+          if ! git rev-parse "$MAJOR_TAG" >/dev/null 2>&1 && ! git ls-remote --tags origin "$MAJOR_TAG" | grep -q "$MAJOR_TAG"; then
+            echo "Major tag $MAJOR_TAG does not exist yet. Creating and pushing tag $MAJOR_TAG..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$MAJOR_TAG"
+            git push origin "$MAJOR_TAG" || echo "Tag push warning, continuing..."
+          else
+            echo "Major tag $MAJOR_TAG already exists."
+          fi
 
       - name: Install dependencies
         run: |
@@ -41,11 +65,15 @@ jobs:
           name: SOCDOF-Windows-Installer
           path: release/*.exe
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/*.exe
+          tag_name: ${{ steps.prep.outputs.version_tag }}
+          name: SOCDOF ${{ steps.prep.outputs.version_tag }}
+          body_path: release_notes.md
           draft: false
-          prerelease: false
-          generate_release_notes: true
+          prerelease: ${{ steps.prep.outputs.is_prerelease == 'true' }}
+          files: release/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
