@@ -25,7 +25,6 @@
 ### 2.1 Native Desktop App & Windows Features
 - [ ] Quick shortcut/action to open local file explorer / Windows directory.
 - [ ] Code signing: Resolve "Windows Protected Your PC" (SmartScreen) warning by signing the `.exe` with developer identity (`Yuri / Strudel`).
-- [ ] Executable Icon: Fix build config so the packaged `.exe` uses the custom SOCDOF icon instead of default Electron logo.
 
 ### 2.2 Invoicing & E-Invoicing (FatturaPA / Italy)
 - [ ] SdI status receipts and notification XML parsing support.
@@ -39,7 +38,6 @@
 
 ## Other
 - [ ] Multi-page showcase & documentation web portal (features, releases, preview, GitHub link).
-- [ ] ich habe dir im Ordner src/assets 3 vershciedene arten für das icon, App Bild gegeben. somit kannst du es jetzt wirklich einbauen.
 - [ ] ~~vielleicht wenn es umsetztbar und nützlich ist das wir in der App einen api key einbauen den man nutzen kann für andere Sachen?~~ (aktuell nicht benötigt)
 
 

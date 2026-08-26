@@ -13,7 +13,9 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'SOCDOF - Strudel\'s Organization, Commerce & Documentation Offline Flow',
-    icon: path.join(__dirname, '../public/socdof_icon.svg'),
+    icon: process.platform === 'win32'
+      ? path.join(__dirname, '../public/socdof_icon.ico')
+      : path.join(__dirname, '../public/socdof_icon.png'),
     backgroundColor: '#0b0f19',
     autoHideMenuBar: true,
     webPreferences: {

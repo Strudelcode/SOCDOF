@@ -12,7 +12,7 @@
     "package.json"
   ],
   "win": {
-    "icon": "public/socdof_icon.svg",
+    "icon": "public/socdof_icon.ico",
     "target": [
       {
         "target": "nsis",

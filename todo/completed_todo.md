@@ -6,7 +6,16 @@
 
 ## Completed Tasks Archive
 
-### 1. Fixed Calendar Flyout Dimensions & Pre-Release CI/CD Tagging (v20.1.1)
+### 1. Custom Brand Icon Assets Integration & Windows Packaging (v20.2.0)
+- [x] **Official Custom Brand Icons**:
+  - [x] Extracted and integrated the 3 official icon formats (`.ico`, `.png`, `.svg`) provided in `src/assets/`.
+  - [x] Updated `public/socdof_icon.ico`, `public/socdof_icon.png`, `public/socdof_icon.svg`, and `public/favicon.svg`.
+  - [x] Updated `SocdofLogo.tsx` to render high-resolution brand asset dynamically with fallback.
+- [x] **Windows Executable (.exe) Packaging**:
+  - [x] Configured `electron-builder.json` with `"win.icon": "public/socdof_icon.ico"` for native Windows installer & executable icons.
+  - [x] Configured `electron/main.cjs` to load native `.ico` / `.png` on runtime window startup.
+
+### 2. Fixed Calendar Flyout Dimensions & Pre-Release CI/CD Tagging (v20.1.1)
 - [x] **Constant-Height Calendar Flyout**:
   - [x] Fixed `calendarDays` logic in `DesktopWindowWorkspace.tsx` to strictly generate 42 cells (6 full rows × 7 days) for every month.
   - [x] Fixed agenda container height to `h-28` with smooth overflow scroll, completely eliminating window height jumping when switching months.

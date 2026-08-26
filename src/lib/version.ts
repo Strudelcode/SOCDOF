@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.1.1';
+export const APP_VERSION = '20.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '20.2.0',
+    date: '2026-08-26',
+    title: 'Custom Brand Icon Assets Integration & Windows Executable Packaging',
+    highlights: [
+      'Authentic Brand Icon Assets: Replaced mock badge icons with the official custom SOCDOF brand icons (.svg, .png, .ico) provided in `src/assets`',
+      'Windows Executable (.exe) Icon Configuration: Configured electron-builder and electron runtime window shell to bundle and display `public/socdof_icon.ico` natively for packaged Windows executables and desktop shortcuts',
+      'Unified Web & Desktop Visual Identity: Integrated the authentic icon asset across the Start Menu button, PWA manifest, and browser tab favicons'
+    ]
+  },
   {
     version: '20.1.1',
     date: '2026-08-26',

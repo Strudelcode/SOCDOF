@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface SocdofLogoProps {
   className?: string;
@@ -11,6 +11,8 @@ export const SocdofLogo: React.FC<SocdofLogoProps> = ({
   size = 'md',
   showBorder = true
 }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+
   const sizeMap: Record<string, string> = {
     xs: 'w-5 h-5 text-xs',
     sm: 'w-7 h-7 text-sm',
@@ -20,6 +22,17 @@ export const SocdofLogo: React.FC<SocdofLogoProps> = ({
   };
 
   const dimensionClass = typeof size === 'number' ? `w-[${size}px] h-[${size}px]` : sizeMap[size] || sizeMap.md;
+
+  if (!imgFailed) {
+    return (
+      <img
+        src="./socdof_icon.svg"
+        alt="SOCDOF Logo"
+        onError={() => setImgFailed(true)}
+        className={`inline-block select-none rounded-2xl object-contain shadow-xs shrink-0 ${dimensionClass} ${className}`}
+      />
+    );
+  }
 
   return (
     <div 
@@ -44,3 +57,4 @@ export const SocdofLogo: React.FC<SocdofLogoProps> = ({
     </div>
   );
 };
+
