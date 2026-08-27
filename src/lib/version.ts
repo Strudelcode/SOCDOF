@@ -5,14 +5,27 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '20.4.0';
+export const APP_VERSION = '21.0.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
-export const APP_AUTHOR = 'Yuri';
+export const APP_AUTHOR = 'Yuri / Strudel';
 export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.0.0',
+    date: '2026-08-27',
+    title: 'Google Calendar 2-Way Live Sync, Dedicated Calendar Desktop App & Windows Taskbar Agenda Integration',
+    highlights: [
+      'Dedicated Calendar Desktop App: Full-screen interactive calendar module with Month, Week, Day, and Agenda views, category filtering (Invoices, Google Calendar, Custom), date range picker, and quick appointment creation',
+      'Dynamic Taskbar & Desktop Calendar Icon: Self-updating dynamic calendar icon showing the live month abbreviation and current day number across desktop shortcuts, taskbar buttons, and window titlebars',
+      '2-Way Google Calendar Live Sync: Instant bidirectional synchronization with Google Calendar API (OAuth 2.0 / Firebase Auth token handling), posting invoice payment due dates directly to selected Google Calendars and pulling external appointments seamlessly into SOCDOF with auto-sync interval options',
+      'Unified Windows 11 Taskbar Agenda: Taskbar clock flyout aggregates and displays unified Google Calendar appointments, custom events, and invoice due dates with category badges and instant 1-click app navigation',
+      'Full 4-Language Localization (DE, EN, FR, ES): Complete UI translations across all calendar views, event forms, sync configuration dialogs, and App Store metadata',
+      '100% Free & Offline-First Compliance: Clean local IndexedDB event storage with no telemetry or paywalls, honoring the Feasibility Principle'
+    ]
+  },
   {
     version: '20.4.0',
     date: '2026-08-26',

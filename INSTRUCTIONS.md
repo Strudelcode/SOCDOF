@@ -7,6 +7,10 @@ This document defines the core operational standards, versioning protocols, and 
 ## 1. Language & Documentation Standards
 
 - **English by Default for Code & Documentation**: All development documentation, release notes under `versions/`, code comments, commit messages, and internal developer guides MUST be written in **English**.
+- **Mandatory User Documentation Updates (`DocumentationApp.tsx` & Docs)**:
+  - Whenever a new application/module is introduced or existing applications undergo significant functional modifications, a dedicated chapter **MUST ALWAYS** be added or updated in the in-app User Manual / Documentation module (`src/components/DocumentationApp.tsx`).
+  - The documentation chapter must clearly describe the module's core purpose, key workflows, button functions, integration options, and keyboard/UI shortcuts in both **German** and **English**.
+  - All documentation files (such as `versions/` notes and release overviews) must be kept synchronized with all active application features.
 - **Mandatory 4-Language UI (German, English, French, Spanish)**:
   - Whenever any UI feature, screen, label, text, button, dialog, modal, placeholder, setting, toast, or notification is added or modified, it **MUST ALWAYS** be defined and translated across **ALL 4 supported languages** in `src/lib/i18n.ts` (`en` = English, `de` = German, `fr` = French, `es` = Spanish).
   - Never leave untranslated, single-language, or hardcoded strings in newly modified user-facing interfaces.
@@ -45,11 +49,22 @@ This document defines the core operational standards, versioning protocols, and 
 
 - **Active Tasks**: `todo/todo.md` is strictly reserved for open, in-progress, and planned roadmap items.
 - **Completed Archive**: As soon as a task is completed, move it to `todo/completed_todo.md` with `[x]` and relevant implementation notes to keep the active todo list clean and manageable.
-- Never delete tasks permanently; always archive completed tasks in `todo/completed_todo.md`.
+- **100% Free, Offline & Feasibility Principle**:
+  - All features in SOCDOF must be 100% free, privacy-first, and work offline without requiring paid cloud subscriptions, proprietary API keys, or monthly infrastructure charges.
+  - If a task on the roadmap is identified as not relevant, infeasible, or requiring paid/cloud dependencies, it can be cancelled by moving it to `todo/completed_todo.md` marked with a strike-through (e.g. `~~[ ] Task name (Cancelled: reason)~~`) or removed from `todo/todo.md`.
+- Never delete completed tasks permanently; always archive them in `todo/completed_todo.md`.
 
 ---
 
-## 5. Architecture & Offline-First Principles
+## 5. Publisher & Desktop Branding Identity
+
+- **Publisher / Author**: The official publisher and author name for Windows binaries, packages, and certificates is strictly **`Yuri / Strudel`** (Organization: `Strudelcode`).
+- **Code Signing**: Binaries in `release/` are signed with the developer Authenticode certificate for `CN=Yuri / Strudel, O=Strudelcode` so that Windows SmartScreen and installer dialogs accurately present the publisher as **Yuri / Strudel**.
+- **No Intrusive Web Popups**: The web preview must remain clean and unobtrusive. Never attach aggressive auto-triggering mouseleave/exit-intent popups.
+
+---
+
+## 6. Architecture & Offline-First Principles
 
 - **Offline-First Storage**: Local database persistence via IndexedDB (`Dexie.js` in `src/lib/db.ts`) and `localStorage`.
 - **Privacy & GDPR Compliance**: No unsolicited remote tracking, no external database dependencies for core operations.

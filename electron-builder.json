@@ -13,7 +13,8 @@
   ],
   "win": {
     "icon": "public/socdof_icon.ico",
-    "publisherName": ["Strudelcode", "Yuri / Strudel"],
+    "publisherName": "Yuri / Strudel",
+    "legalTrademarks": "Yuri / Strudel",
     "verifyUpdateCodeSignature": false,
     "target": [
       {

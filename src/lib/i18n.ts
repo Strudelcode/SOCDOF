@@ -61,6 +61,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.support_services': 'Support',
     'module.ios_billing': 'Fast POS',
     'module.appstore': 'App Store',
+    'module.calendar': 'Calendar',
     'module.docs': 'Documentation',
     'module.settings': 'Settings',
 
@@ -77,6 +78,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.support_services': 'Log customer support tasks, track time, and assign tickets',
     'desc.ios_billing': 'Quick order & cash register flow',
     'desc.appstore': 'Activate, pin, and configure system modules',
+    'desc.calendar': 'Google Calendar live 2-way sync, appointments & invoice due dates',
     'desc.docs': 'Complete user guide and workflow documentation',
     'desc.settings': 'Company data, letterhead, colors, and JSON backups',
 
@@ -831,6 +833,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.support_services': 'Support',
     'module.ios_billing': 'Schnellkasse',
     'module.appstore': 'App Store',
+    'module.calendar': 'Kalender',
     'module.docs': 'Handbuch',
     'module.settings': 'Einstellungen',
 
@@ -847,6 +850,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.support_services': 'Kunden-Support-Einsätze erfassen, Zeiterfassung & Dokumentation',
     'desc.ios_billing': 'Schnelle Touch-Bestellung und Abrechnung',
     'desc.appstore': 'Module aktivieren, anheften und konfigurieren',
+    'desc.calendar': 'Google Kalender Live-Sync, Termine & Rechnungsfälligkeiten',
     'desc.docs': 'Vollständiges Benutzerhandbuch und Abläufe',
     'desc.settings': 'Firmendaten, Briefkopf, Farben und JSON-Backups',
 
@@ -1601,6 +1605,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.support_services': 'Support',
     'module.ios_billing': 'Caisse Rapide',
     'module.appstore': 'App Store',
+    'module.calendar': 'Calendrier',
     'module.docs': 'Documentation',
     'module.settings': 'Paramètres',
 
@@ -1616,6 +1621,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.restaurant': 'Menu numérique, gestion des tables et écran cuisine',
     'desc.ios_billing': 'Prise de commande rapide et encaissement',
     'desc.appstore': 'Activer, épingler et configurer les modules',
+    'desc.calendar': 'Synchronisation Google Agenda en direct, rendez-vous et échéances',
     'desc.docs': 'Guide d’utilisation complet et processus',
     'desc.settings': 'Données d’entreprise, en-tête, couleurs et sauvegardes JSON',
 
@@ -2369,6 +2375,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.support_services': 'Soporte',
     'module.ios_billing': 'Caja Rápida',
     'module.appstore': 'App Store',
+    'module.calendar': 'Calendario',
     'module.docs': 'Manual',
     'module.settings': 'Configuración',
 
@@ -2384,6 +2391,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.restaurant': 'Menú digital, gestión de mesas y monitor de cocina',
     'desc.ios_billing': 'Pedidos rápidos y cobro táctil',
     'desc.appstore': 'Activar, anclar y configurar módulos del sistema',
+    'desc.calendar': 'Sincronización en vivo con Google Calendar, citas y vencimientos',
     'desc.docs': 'Guía de usuario completa y flujos de trabajo',
     'desc.settings': 'Datos de empresa, membrete, colores y copias de seguridad',
 

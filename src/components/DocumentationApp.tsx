@@ -24,7 +24,10 @@ import {
   ExternalLink,
   MessageSquare,
   Github,
-  History
+  History,
+  Calendar,
+  UtensilsCrossed,
+  Headphones
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
@@ -305,6 +308,143 @@ export const DocumentationApp: React.FC = () => {
               </p>
             </div>
           </div>
+        </div>
+      )
+    },
+    {
+      id: 'calendar',
+      title: isGerman ? 'Google Kalender, Live-Sync & Termine' : 'Google Calendar, Live Sync & Events',
+      category: isGerman ? 'Produktivität & Zeit' : 'Productivity & Time',
+      icon: Calendar,
+      summary: isGerman 
+        ? 'Zwei-Wege Google Kalender Live-Sync, Rechnungsfälligkeiten, Monats-/Wochen-/Tagesansicht & Terminerstellung.' 
+        : 'Two-way Google Calendar live sync, invoice due dates, month/week/day views & event management.',
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800/60">
+            <h5 className="font-bold text-sm text-blue-900 dark:text-blue-200 mb-1">
+              {isGerman ? 'Zwei-Wege Google Kalender Live-Synchronisation' : 'Two-Way Google Calendar Live Synchronization'}
+            </h5>
+            <p className="text-slate-700 dark:text-slate-300">
+              {isGerman 
+                ? 'SOCDOF bietet eine vollständige, bidirektionale Google Kalender Synchronisierung. Offene Kundenrechnungen werden mit Zahlungsziel automatisch in Ihren Google Kalender eingetragen, während externe Termine live in SOCDOF importiert werden.' 
+                : 'SOCDOF provides comprehensive, bidirectional Google Calendar synchronization. Customer invoice due dates are automatically published as calendar events, while your Google Calendar appointments are streamed into SOCDOF in real time.'}
+            </p>
+          </div>
+
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {isGerman ? 'Hauptfunktionen des Kalendermoduls' : 'Key Calendar Module Features'}
+          </h5>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-blue-600 dark:text-blue-400">
+                {isGerman ? '1. Flexible Ansichten' : '1. Flexible View Modes'}
+              </span>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">
+                {isGerman 
+                  ? 'Wechseln Sie nahtlos zwischen Monatsgitter (42-Tage-Matrix), Wochenansicht, detailliertem Tagesplan und chronologischer Agenda.' 
+                  : 'Switch seamlessly between full Month matrix (uniform 42-day layout), Week view, detailed Day view, and chronological Agenda.'}
+              </p>
+            </div>
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-blue-600 dark:text-blue-400">
+                {isGerman ? '2. Automatische Fälligkeiten' : '2. Automatic Invoice Deadlines'}
+              </span>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">
+                {isGerman 
+                  ? 'Alle gebuchten Ausgangsrechnungen erscheinen automatisch als Fälligkeitstermine inklusive Rechnungsnummer, Kunde und Bruttobetrag.' 
+                  : 'All posted customer invoices automatically appear on their payment due date with invoice number, customer name, and total amount.'}
+              </p>
+            </div>
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-blue-600 dark:text-blue-400">
+                {isGerman ? '3. Google Live-Verbindung' : '3. Google Live Connection'}
+              </span>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">
+                {isGerman 
+                  ? 'Verbinden Sie Ihren Google Account mit 1 Klick. Wählen Sie den Zielkalender und optional automatische Synchronisierungsintervalle (1m, 2m, 5m).' 
+                  : 'Connect your Google account in 1 click. Select your target calendar and configure background auto-sync intervals (1m, 2m, 5m).'}
+              </p>
+            </div>
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-blue-600 dark:text-blue-400">
+                {isGerman ? '4. Schnelle Terminerstellung' : '4. Fast Appointment Creation'}
+              </span>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">
+                {isGerman 
+                  ? 'Erstellen Sie Kundentermine, Besprechungen oder Fristen mit Start-/Endzeit, Ganztags-Option, Farbkategorien und Ortsangaben.' 
+                  : 'Create custom meetings, deadlines, and customer consultations with start/end time, all-day toggle, color tags, and locations.'}
+              </p>
+            </div>
+          </div>
+
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {isGerman ? 'Dynamisches Taskleisten-Icon & Windows 11 Agenda' : 'Dynamic Taskbar Icon & Windows 11 Agenda'}
+          </h5>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>
+              <strong>{isGerman ? 'Dynamisches Datum-Icon: ' : 'Live Dynamic Date Icon: '}</strong>
+              {isGerman 
+                ? 'Das Kalender-Icon auf dem Desktop und in der Taskleiste zeigt immer aktuell den aktuellen Monat und den Tag (z. B. 27. Aug) an.' 
+                : 'The desktop and taskbar calendar icons dynamically display the current month and live day number (e.g. Aug 27).'}
+            </li>
+            <li>
+              <strong>{isGerman ? 'Taskleisten-Uhr Flyout: ' : 'Taskbar Clock Flyout: '}</strong>
+              {isGerman 
+                ? 'Beim Klick auf die Systemuhr unten rechts öffnet sich die Windows-11-Kalender-Agenda mit Direktzugriff auf anstehende Termine und Rechnungsfälligkeiten.' 
+                : 'Clicking the system clock in the bottom taskbar opens the integrated Windows 11 Agenda flyout with upcoming appointments and invoices.'}
+            </li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      id: 'restaurant',
+      title: isGerman ? 'Gastronomie, Tische & Küchenmonitor (KDS)' : 'Restaurant, Tables & Kitchen Display (KDS)',
+      category: isGerman ? 'Branchenlösungen' : 'Industry Solutions',
+      icon: UtensilsCrossed,
+      summary: isGerman 
+        ? 'Tischplan-Verwaltung, Gang-Bestellungen, Küchenmonitor und Touch-Abrechnung.' 
+        : 'Table management, course ordering, live kitchen display system (KDS), and split billing.',
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300">
+            {isGerman 
+              ? 'Das Gastronomie-Modul verwandelt SOCDOF in ein vollwertiges Restaurant-Kassensystem mit Tischplan und Küchenbildschirm:' 
+              : 'The Restaurant module provides full food-and-beverage workflows with interactive table layouts and kitchen display system:'}
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>
+              <strong>{isGerman ? 'Interaktiver Tischplan: ' : 'Interactive Table Layout: '}</strong>
+              {isGerman 
+                ? 'Tische nach Bereichen (Gastraum, Terrasse, Bar) mit Statusfarben (Frei, Belegt, Bestellt).' 
+                : 'Manage dining rooms, outdoor patio, and bar tables with real-time status indicators.'}
+            </li>
+            <li>
+              <strong>{isGerman ? 'Küchenmonitor (KDS): ' : 'Kitchen Display System (KDS): '}</strong>
+              {isGerman 
+                ? 'Bestellungen werden in Echtzeit an die Küche übertragen und können als zubereitet markiert werden.' 
+                : 'Orders are sent live to kitchen screens with order timers and course progress management.'}
+            </li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      id: 'support_services',
+      title: isGerman ? 'Kunden-Support & Zeiterfassung' : 'Customer Support & Time Tracking',
+      category: isGerman ? 'Dienstleistung' : 'Services & Tickets',
+      icon: Headphones,
+      summary: isGerman 
+        ? 'Support-Tickets erfassen, Stundensätze hinterlegen und direkt in Rechnungen abrechnen.' 
+        : 'Log support tickets, record billable time, and convert hours directly to customer invoices.',
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300">
+            {isGerman 
+              ? 'Erfassen Sie Kunden-Tickets, dokumentieren Sie geleistete Arbeitsstunden und rechnen Sie diese mit 1 Klick als Rechnungspositionen ab.' 
+              : 'Log customer support requests, track billable project time with timer controls, and convert tickets into invoice line items in 1 click.'}
+          </p>
         </div>
       )
     },

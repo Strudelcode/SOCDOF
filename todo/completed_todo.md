@@ -6,7 +6,29 @@
 
 ## Completed Tasks Archive
 
-### 1. Code Signing & 2-Way Calendar Integration (v20.4.0)
+### 1. Google Calendar 2-Way Live Sync, Dedicated Calendar App & Documentation (v21.0.0)
+- [x] **Dedicated Calendar Desktop App (`CalendarModule.tsx`)**:
+  - [x] Implemented multi-view calendar (Month, Week, Day, Agenda) with fluid view transitions.
+  - [x] Built unified event display combining Google Calendar items, customer invoice due dates, and local custom appointments.
+  - [x] Implemented interactive appointment creation dialog with start/end time, all-day toggle, category styling, location, and description.
+- [x] **Google Calendar 2-Way Live Sync (`googleCalendar.ts`)**:
+  - [x] Implemented Google Calendar REST API integration with OAuth 2.0 / Firebase client token flow.
+  - [x] Automatic posting of invoice payment due dates directly to the user's selected Google Calendar.
+  - [x] Live fetching of Google Calendar appointments with configurable background sync interval (1 min, 2 min, 5 min) and on-demand sync button.
+  - [x] Calendar selection selector (choose which Google Calendar receives invoice postings).
+- [x] **Dynamic Self-Updating Calendar Icon (`DynamicCalendarIcon.tsx`)**:
+  - [x] Reactive calendar icon showing current live month abbreviation and day number across desktop shortcuts, taskbar buttons, and window headers.
+- [x] **Taskbar Flyout & App Store Integration**:
+  - [x] Upgraded taskbar clock flyout to render unified events (Google Calendar + Invoices) with direct launch button.
+  - [x] Added Calendar app to App Store catalog with 1-click install/uninstall and pinning controls.
+- [x] **Documentation & Guidelines Updates**:
+  - [x] Added user manual chapters for Calendar, Restaurant, and Support Services in `DocumentationApp.tsx`.
+  - [x] Updated `INSTRUCTIONS.md` with mandatory requirement to document all new apps and app changes.
+- [x] **Localization & Compliance**:
+  - [x] Added full German, English, French, and Spanish translations across all calendar views in `src/lib/i18n.ts`.
+  - [x] Compliant with 100% Free, Offline-First, and Feasibility Principles.
+
+### 2. Code Signing & 2-Way Calendar Integration (v20.4.0)
 - [x] **Windows Code Signing & SmartScreen Warning Resolution**:
   - [x] Created `scripts/create-dev-cert.ps1` to generate a 5-year Authenticode certificate for developer identity `CN=Yuri / Strudel, O=Strudelcode, C=DE` and install it in the local Trusted Root store.
   - [x] Created `scripts/sign-windows-exe.ps1` to apply SHA256 Authenticode signatures and DigiCert RFC-3161 timestamps to all `.exe` setup installers.

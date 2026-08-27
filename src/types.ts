@@ -247,6 +247,10 @@ export interface CompanyProfile {
   // Calendar & External Connections
   google_cal_sync_enabled?: boolean;
   google_cal_feed_url?: string;
+  google_cal_target_calendar_id?: string;
+  google_cal_sync_interval_mins?: number;
+  google_cal_auto_sync_invoices?: boolean;
+  google_cal_last_sync_time?: string;
   ical_export_enabled?: boolean;
 
   // Italian E-Invoicing (FatturaPA & SdI)
@@ -286,6 +290,7 @@ export type ViewMode = 'kanban' | 'list' | 'pivot' | 'form';
 export type ActiveModule = 
   | 'launcher' 
   | 'dashboard' 
+  | 'calendar'
   | 'contacts' 
   | 'products' 
   | 'stock' 
@@ -485,4 +490,39 @@ export interface AppWindow {
   width: number;
   height: number;
 }
+
+export interface GoogleCalendarItem {
+  id: string;
+  summary: string;
+  description?: string;
+  primary?: boolean;
+  backgroundColor?: string;
+  foregroundColor?: string;
+  accessRole?: string;
+  selected?: boolean;
+}
+
+export interface CalendarAppEvent {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  startDate: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm
+  endDate?: string; // YYYY-MM-DD
+  endTime?: string; // HH:mm
+  isAllDay?: boolean;
+  category?: 'invoice' | 'customer' | 'meeting' | 'deadline' | 'personal' | 'general';
+  color?: string;
+  source: 'google' | 'invoice' | 'local';
+  googleCalendarId?: string;
+  googleEventId?: string;
+  htmlLink?: string;
+  syncedAt?: string;
+  invoiceId?: number;
+  invoiceNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 

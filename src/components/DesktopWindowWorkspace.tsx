@@ -91,6 +91,9 @@ import { DesktopFolderModal } from './DesktopFolderModal';
 import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
 import { SupportServicesModule } from './SupportServicesModule';
+import { CalendarModule } from './CalendarModule';
+import { DynamicCalendarIcon } from './DynamicCalendarIcon';
+import { buildUnifiedCalendarEvents } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL } from '../lib/platform';
 import { WebPreviewModal } from './WebPreviewModal';
@@ -126,16 +129,16 @@ interface DesktopShortcutItem {
 
 export const DEFAULT_STANDARD_MODULES: ActiveModule[] = [
   'dashboard', 'invoices', 'accounting', 'contacts', 
-  'products', 'stock', 'purchases', 'docs', 'settings', 'appstore'
+  'products', 'stock', 'purchases', 'calendar', 'docs', 'settings', 'appstore'
 ];
 
 export const DEFAULT_PINNED_DESKTOP: ActiveModule[] = [
   'dashboard', 'invoices', 'accounting', 'contacts', 
-  'products', 'stock', 'purchases', 'appstore', 'docs', 'settings'
+  'products', 'stock', 'purchases', 'calendar', 'appstore', 'docs', 'settings'
 ];
 
 export const DEFAULT_PINNED_TASKBAR: ActiveModule[] = [
-  'dashboard', 'invoices', 'accounting', 'contacts', 'settings'
+  'dashboard', 'invoices', 'accounting', 'contacts', 'calendar', 'settings'
 ];
 
 export const SYSTEM_CORE_MODULES: ActiveModule[] = [
@@ -508,42 +511,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const isDesktopApp = useMemo(() => isElectron(), []);
   const allowExitRef = useRef(false);
 
-  // Web Preview Exit-Intent & beforeunload confirmation (strictly only in browser preview)
-  useEffect(() => {
-    if (isDesktopApp) return;
-
-    let exitIntentPrompted = false;
-    try {
-      exitIntentPrompted = sessionStorage.getItem('socdof_exit_intent_prompted') === 'true';
-    } catch {}
-
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 && !exitIntentPrompted && !allowExitRef.current) {
-        exitIntentPrompted = true;
-        try {
-          sessionStorage.setItem('socdof_exit_intent_prompted', 'true');
-        } catch {}
-        setIsWebPreviewExitMode(true);
-        setIsWebPreviewModalOpen(true);
-      }
-    };
-
-    document.addEventListener('mouseleave', handleMouseLeave);
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (allowExitRef.current) return;
-      e.preventDefault();
-      e.returnValue = 'Dies ist die SOCDOF Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Um SOCDOF dauerhaft offline zu nutzen, laden Sie die Windows Desktop-App herunter: https://github.com/Strudelcode/SOCDOF/releases';
-      return e.returnValue;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      document.removeEventListener('mouseleave', handleMouseLeave);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isDesktopApp]);
-
   const handleConfirmLeaveWeb = () => {
     allowExitRef.current = true;
     window.onbeforeunload = null;
@@ -905,6 +872,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     stock: { title: t('module.stock', currentLang, 'Lager'), subtitle: t('desc.stock', currentLang, 'Warenbewegungen'), icon: Layers, color: 'bg-amber-600' },
     pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
+    calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-blue-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
     settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-slate-700' },
@@ -936,12 +904,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       hasEvent: boolean;
     }> = [];
 
-    const customEvents = getStoredCalendarEvents();
+    const unifiedEvents = buildUnifiedCalendarEvents(invoices, company.currency);
 
     const checkEventOnDate = (d: Date) => {
-      const hasInvoice = invoices.some(inv => inv.due_date && isSameDate(new Date(inv.due_date), d));
-      if (hasInvoice) return true;
-      return customEvents.some(evt => evt.startDate && isSameDate(new Date(evt.startDate), d));
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dStr = `${year}-${month}-${day}`;
+      return unifiedEvents.some(evt => evt.startDate === dStr);
     };
 
     // Prev month days
@@ -986,32 +956,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     }
 
     return result;
-  }, [calendarViewDate, currentTime, selectedCalendarDate, invoices]);
+  }, [calendarViewDate, currentTime, selectedCalendarDate, invoices, company.currency]);
 
-  const selectedDateInvoices = useMemo(() => {
-    return invoices.filter(inv => {
-      if (!inv.due_date) return false;
-      const d = new Date(inv.due_date);
-      return (
-        d.getFullYear() === selectedCalendarDate.getFullYear() &&
-        d.getMonth() === selectedCalendarDate.getMonth() &&
-        d.getDate() === selectedCalendarDate.getDate()
-      );
-    });
-  }, [invoices, selectedCalendarDate]);
-
-  const selectedDateCustomEvents = useMemo(() => {
-    const customEvents = getStoredCalendarEvents();
-    return customEvents.filter(evt => {
-      if (!evt.startDate) return false;
-      const d = new Date(evt.startDate);
-      return (
-        d.getFullYear() === selectedCalendarDate.getFullYear() &&
-        d.getMonth() === selectedCalendarDate.getMonth() &&
-        d.getDate() === selectedCalendarDate.getDate()
-      );
-    });
-  }, [selectedCalendarDate]);
+  const selectedDateUnifiedEvents = useMemo(() => {
+    const year = selectedCalendarDate.getFullYear();
+    const month = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedCalendarDate.getDate()).padStart(2, '0');
+    const dStr = `${year}-${month}-${day}`;
+    const unified = buildUnifiedCalendarEvents(invoices, company.currency);
+    return unified.filter(evt => evt.startDate === dStr);
+  }, [invoices, selectedCalendarDate, company.currency]);
 
   const openInvoicesUpcoming = useMemo(() => {
     return invoices
@@ -1427,9 +1381,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }`}
               >
                 <div className="relative">
-                  <div className={`w-12 h-12 rounded-2xl ${meta.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
+                  {modId === 'calendar' ? (
+                    <div className="group-hover:scale-105 transition-transform duration-200">
+                      <DynamicCalendarIcon size="lg" />
+                    </div>
+                  ) : (
+                    <div className={`w-12 h-12 rounded-2xl ${meta.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                  )}
                   
                   {/* Clean Red Notification Badge for Actionable Items */}
                   {badge !== undefined && typeof badge === 'number' && badge > 0 && (
@@ -1861,6 +1821,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onTogglePinDesktop={handleTogglePinDesktop}
                   onTogglePinTaskbar={handleTogglePinTaskbar}
                   onLaunchModule={(mod) => openWindow(mod)}
+                />
+              )}
+
+              {win.module === 'calendar' && (
+                <CalendarModule
+                  invoices={invoices}
+                  company={company}
+                  onOpenInvoice={(invId) => openWindow('invoices', `Rechnung #${invId}`)}
+                  onUpdateCompany={(patch) => onUpdateCompany({ ...company, ...patch })}
                 />
               )}
 
@@ -2358,10 +2327,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                               : 'hover:bg-black/5 text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Icon 
-                        className="w-4 h-4 flex-shrink-0" 
-                        style={isActive ? { color: 'var(--accent, #4f46e5)' } : undefined}
-                      />
+                      {modId === 'calendar' ? (
+                        <DynamicCalendarIcon size="sm" />
+                      ) : (
+                        <Icon 
+                          className="w-4 h-4 flex-shrink-0" 
+                          style={isActive ? { color: 'var(--accent, #4f46e5)' } : undefined}
+                        />
+                      )}
                       
                       {/* Actionable Notification Dot / Count Badge */}
                       {badge !== undefined && (
@@ -2578,68 +2551,83 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             })}
           </div>
 
-          {/* Agenda / Upcoming Due Invoices & Deadlines (Constant fixed-height scroll container) */}
+          {/* Agenda / Upcoming Due Invoices, Deadlines & Google Calendar Events (Constant fixed-height scroll container) */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                <Calendar className="w-3.5 h-3.5 text-blue-500" />
                 <span>{t('calendar.upcoming_events', currentLang, 'Termine & Fälligkeiten')}</span>
               </div>
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setIsCalendarFlyoutOpen(false);
-                  openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
-                }}
-                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                {t('calendar.all_invoices', currentLang, 'Alle Rechnungen')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setIsCalendarFlyoutOpen(false);
+                    openWindow('calendar', t('module.calendar', currentLang, 'Kalender'));
+                  }}
+                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  {t('module.calendar', currentLang, 'Kalender öffnen')}
+                </button>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setIsCalendarFlyoutOpen(false);
+                    openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
+                  }}
+                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  {t('calendar.all_invoices', currentLang, 'Rechnungen')}
+                </button>
+              </div>
             </div>
 
-            <div className="h-28 overflow-y-auto pr-0.5">
-              {(selectedDateInvoices.length > 0 || selectedDateCustomEvents.length > 0) ? (
-                <div className="space-y-1.5 pr-0.5">
-                  {selectedDateInvoices.map((inv) => (
-                    <div
-                      key={inv.id}
-                      onClick={() => {
-                        setIsCalendarFlyoutOpen(false);
+            <div className="h-28 overflow-y-auto pr-0.5 space-y-1.5">
+              {selectedDateUnifiedEvents.length > 0 ? (
+                selectedDateUnifiedEvents.map((evt) => (
+                  <div
+                    key={evt.id}
+                    onClick={() => {
+                      setIsCalendarFlyoutOpen(false);
+                      if (evt.invoiceId) {
                         openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
-                      }}
-                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs"
-                    >
-                      <div className="truncate mr-2">
-                        <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
-                        <div className="text-[10px] text-slate-500">{inv.status === 'paid' ? 'Bezahlt' : 'Fällig'} am {inv.due_date}</div>
+                      } else {
+                        openWindow('calendar', t('module.calendar', currentLang, 'Kalender'));
+                      }
+                    }}
+                    className={`p-2 rounded-xl cursor-pointer transition border flex items-center justify-between text-xs ${
+                      evt.category === 'invoice'
+                        ? 'bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/40 border-indigo-200/80 dark:border-indigo-800/60'
+                        : evt.category === 'google'
+                        ? 'bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100/60 dark:hover:bg-blue-900/50 border-blue-200/80 dark:border-blue-800/60'
+                        : 'bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 border-slate-200/80 dark:border-slate-700/60'
+                    }`}
+                  >
+                    <div className="truncate mr-2 min-w-0">
+                      <div className="font-bold truncate text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          evt.category === 'google' ? 'bg-blue-500' : evt.category === 'invoice' ? 'bg-indigo-500' : 'bg-emerald-500'
+                        }`} />
+                        <span className="truncate">{evt.title}</span>
                       </div>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
-                        {inv.total_gross.toFixed(2)} €
-                      </span>
-                    </div>
-                  ))}
-
-                  {selectedDateCustomEvents.map((evt, idx) => (
-                    <div
-                      key={evt.id || idx}
-                      onClick={() => {
-                        setIsCalendarFlyoutOpen(false);
-                        openWindow('settings', t('module.settings', currentLang, 'Einstellungen'));
-                      }}
-                      className="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100/60 dark:hover:bg-blue-900/50 cursor-pointer transition border border-blue-200/80 dark:border-blue-800/60 flex items-center justify-between text-xs"
-                    >
-                      <div className="truncate mr-2">
-                        <div className="font-bold truncate text-blue-900 dark:text-blue-200">{evt.title}</div>
-                        <div className="text-[10px] text-blue-600 dark:text-blue-400 truncate">{evt.description || 'iCal Kalendertermin'}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate pl-3">
+                        {evt.startTime ? `${evt.startTime} ${evt.endTime ? `- ${evt.endTime}` : ''}` : evt.description || evt.startDate}
                       </div>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shrink-0">
-                        {evt.startDate}
-                      </span>
                     </div>
-                  ))}
-                </div>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                      evt.category === 'google'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : evt.category === 'invoice'
+                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-mono'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      {evt.category === 'google' ? 'Google' : evt.category === 'invoice' ? 'Rechnung' : 'Termin'}
+                    </span>
+                  </div>
+                ))
               ) : openInvoicesUpcoming.length > 0 ? (
-                <div className="space-y-1.5 pr-0.5">
+                <div className="space-y-1.5">
                   <div className="text-[10px] text-slate-400 italic mb-1">{t('calendar.next_open_items', currentLang, 'Nächste offene Posten:')}</div>
                   {openInvoicesUpcoming.map((inv) => (
                     <div
@@ -2662,7 +2650,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-center py-2 text-xs text-slate-400">
-                  {t('calendar.no_events', currentLang, 'Keine anstehenden Fälligkeiten')}
+                  {t('calendar.no_events', currentLang, 'Keine anstehenden Termine')}
                 </div>
               )}
             </div>

@@ -1,13 +1,17 @@
 {
   "name": "socdof",
   "private": true,
-  "version": "20.4.0",
+  "version": "21.0.0",
+  "author": "Yuri / Strudel",
+  "publisher": "Yuri / Strudel",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "build:exe": "vite build && npx electron-builder --win --x64 --config electron-builder.json",
+    "sign:exe": "powershell -ExecutionPolicy Bypass -File ./scripts/sign-windows-exe.ps1",
+    "build:signed": "npm run build:exe && npm run sign:exe",
     "preview": "vite preview",
     "clean": "rm -rf dist release server.js",
     "lint": "tsc --noEmit"
@@ -20,6 +24,7 @@
     "dexie": "^4.4.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "firebase": "^12.18.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",

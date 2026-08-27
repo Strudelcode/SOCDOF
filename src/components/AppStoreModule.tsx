@@ -39,7 +39,8 @@ import {
   ArrowRight,
   Shield,
   FileCheck,
-  Headphones
+  Headphones,
+  Calendar
 } from 'lucide-react';
 import { ActiveModule, StoreApp } from '../types';
 import { sounds } from '../lib/sound';
@@ -249,6 +250,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Restaurant', 'Tische', 'Speisekarte', 'Küche', 'KDS', 'Gastro']
     },
     {
+      id: 'calendar',
+      title: 'Google Kalender & Termine',
+      category: 'productivity',
+      description: 'Zwei-Wege Live-Synchronisierung mit Google Kalender, Fälligkeiten von Rechnungen und flexibler Monats-, Wochen- & Tagesansicht.',
+      iconName: 'Calendar',
+      badge: 'Live-Sync & Termine',
+      author: 'Yuri / Strudel',
+      version: '21.0.0',
+      isInstalled: installedModules.includes('calendar'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Fälligkeiten', 'Produktivität']
+    },
+    {
       id: 'docs',
       title: 'Handbuch & Dokumentation',
       category: 'productivity',
@@ -291,6 +306,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'products': return Package;
       case 'stock': return Layers;
       case 'purchases': return ShoppingCart;
+      case 'calendar': return Calendar;
       case 'docs': return BookOpen;
       case 'settings': return Settings;
       default: return Package;
@@ -310,6 +326,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'products': return 'bg-blue-600';
       case 'stock': return 'bg-amber-600';
       case 'purchases': return 'bg-orange-600';
+      case 'calendar': return 'bg-blue-600';
       case 'docs': return 'bg-sky-600';
       case 'settings': return 'bg-slate-700';
       default: return 'bg-slate-800';
