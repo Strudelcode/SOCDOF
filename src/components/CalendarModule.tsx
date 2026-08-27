@@ -69,6 +69,16 @@ export type CalendarViewMode = 'month' | 'workweek' | 'week' | 'day' | 'agenda';
 
 const HOURS_RANGE = Array.from({ length: 16 }, (_, i) => i + 7); // 07:00 to 22:00
 
+// Helper to get formatted current time and +1 hour
+function getCurrentTimeFormatted(): { start: string; end: string } {
+  const now = new Date();
+  const currentH = now.getHours();
+  const currentM = String(now.getMinutes()).padStart(2, '0');
+  const start = `${String(currentH).padStart(2, '0')}:${currentM}`;
+  const end = addMinutesToTime(start, 60);
+  return { start, end };
+}
+
 // Helper to calculate human readable duration
 function getEventDurationString(
   startDate: string,
@@ -178,9 +188,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
   const [newEventStartDate, setNewEventStartDate] = useState(formatLocalDate(new Date()));
-  const [newEventStartTime, setNewEventStartTime] = useState('10:00');
+  const [newEventStartTime, setNewEventStartTime] = useState(() => getCurrentTimeFormatted().start);
   const [newEventEndDate, setNewEventEndDate] = useState(formatLocalDate(new Date()));
-  const [newEventEndTime, setNewEventEndTime] = useState('11:00');
+  const [newEventEndTime, setNewEventEndTime] = useState(() => getCurrentTimeFormatted().end);
   const [newEventIsAllDay, setNewEventIsAllDay] = useState(false);
   const [newEventCategory, setNewEventCategory] = useState<'invoice' | 'customer' | 'meeting' | 'deadline' | 'personal' | 'general'>('general');
   const [newEventTarget, setNewEventTarget] = useState<'google' | 'local'>('google');
@@ -633,15 +643,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     let endH = '';
 
     if (startH) {
-      const hourNum = parseInt(startH.split(':')[0], 10);
-      const minStr = startH.split(':')[1] || '00';
-      endH = `${String((hourNum + 1) % 24).padStart(2, '0')}:${minStr}`;
+      endH = addMinutesToTime(startH, 60);
     } else {
-      const now = new Date();
-      const currentH = now.getHours();
-      const currentM = now.getMinutes() >= 30 ? '30' : '00';
-      startH = `${String(currentH).padStart(2, '0')}:${currentM}`;
-      endH = `${String((currentH + 1) % 24).padStart(2, '0')}:${currentM}`;
+      const { start, end } = getCurrentTimeFormatted();
+      startH = start;
+      endH = end;
     }
 
     setNewEventTitle('');
@@ -1700,7 +1706,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   type="button"
                   onClick={() => {
                     sounds.playClick();
-                    setNewEventIsAllDay(prev => !prev);
+                    setNewEventIsAllDay(prev => {
+                      const next = !prev;
+                      if (!next && (!newEventStartTime || !newEventEndTime)) {
+                        const { start, end } = getCurrentTimeFormatted();
+                        setNewEventStartTime(start);
+                        setNewEventEndTime(end);
+                      }
+                      return next;
+                    });
                   }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                     newEventIsAllDay

@@ -20,7 +20,7 @@ googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar');
 googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
 googleCalendarProvider.setCustomParameters({
-  prompt: 'consent',
+  prompt: 'select_account',
   access_type: 'offline'
 });
 
@@ -147,8 +147,18 @@ export const signInWithGoogleCalendar = async (): Promise<{ user: User; accessTo
     return { user: result.user, accessToken: token };
   } catch (error: any) {
     console.error('Google Sign-In failed:', error);
-    updateSyncStatus({ error: error.message || 'Google Sign-In failed' });
-    throw error;
+    let friendlyMessage = error.message || 'Google Sign-In failed';
+    if (error.code === 'auth/popup-closed-by-user') {
+      friendlyMessage = 'Das Anmeldefenster wurde geschlossen.';
+    } else if (error.code === 'auth/popup-blocked') {
+      friendlyMessage = 'Popup wurde vom Browser blockiert. Bitte Popups für diese Seite erlauben.';
+    } else if (error.code === 'auth/cancelled-popup-request') {
+      friendlyMessage = 'Anmeldung abgebrochen.';
+    } else if (error.code === 'auth/network-request-failed') {
+      friendlyMessage = 'Netzwerkfehler beim Anmelden. Bitte Internetverbindung prüfen.';
+    }
+    updateSyncStatus({ error: friendlyMessage });
+    throw new Error(friendlyMessage);
   }
 };
 

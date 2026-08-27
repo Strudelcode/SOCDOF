@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.3.0';
+export const APP_VERSION = '21.3.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,16 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.3.1',
+    date: '2026-08-27',
+    title: 'Google OAuth Multi-Account Selector & Firebase Auth Resilience',
+    highlights: [
+      'Multi-Account Google Login (prompt: select_account): Users can now freely choose, switch, or connect any Google account directly with zero cross-session lock-in',
+      'Firebase Auth Error Resilience: Localized and graceful handling of popup closures, browser popup blockers, and network interruptions',
+      'Seamless Calendar & OAuth Scopes Provisioning: Integrated Google Calendar readonly and events synchronization permissions'
+    ]
+  },
   {
     version: '21.3.0',
     date: '2026-08-27',

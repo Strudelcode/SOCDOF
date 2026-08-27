@@ -6,7 +6,17 @@
 
 ## Completed Tasks Archive
 
-### 1. Spotlight Command Palette, Showcase & Documentation Hub Portal & Global Shortcuts (v21.3.0)
+### 1. Google OAuth Multi-Account Selection & Firebase Auth Resilience (v21.3.1)
+- [x] **Multi-Account Account Chooser (`googleCalendarProvider.setCustomParameters({ prompt: 'select_account' })`)**:
+  - [x] Updated Google OAuth configuration to ensure the Google account selection prompt is always displayed, allowing users to choose or switch between any Google account freely.
+- [x] **Firebase Auth Error Handling & Resilience**:
+  - [x] Implemented graceful handling for user popup closures (`auth/popup-closed-by-user`), browser popup blocking, cancelled requests, and network errors.
+- [x] **Calendar Scopes & Bidirectional Sync**:
+  - [x] Verified full Google Calendar OAuth scopes (`calendar.events`, `calendar.readonly`) and automated 2-way sync with local events and invoice due dates.
+- [x] **Versioning & Documentation**:
+  - [x] Bumped version to `21.3.1` in `package.json`, `src/lib/version.ts`, and updated `versions/V21.md`.
+
+### 2. Spotlight Command Palette, Showcase & Documentation Hub Portal & Global Shortcuts (v21.3.0)
 - [x] **Spotlight Command Palette (`CommandPaletteModal.tsx` & `DesktopWindowWorkspace.tsx`)**:
   - [x] Implemented global `Ctrl + K` / `Cmd + K` search dialog with module launchers, fast database search (invoices, contacts, products), and quick system action toggles (Theme, Sound, Language).
   - [x] Integrated Windows 11 Taskbar Search Pill button next to the Start Menu.
