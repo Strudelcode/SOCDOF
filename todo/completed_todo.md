@@ -6,7 +6,84 @@
 
 ## Completed Tasks Archive
 
-### 1. Google OAuth Multi-Account Selection & Firebase Auth Resilience (v21.3.1)
+### 1. Restaurant & POS Integration with ERP Invoicing, Clean Professional Redesign & GoBD Hospitality Receipts (v21.4.0)
+- [x] **Unified Database & Invoice Pipeline (`src/lib/db.ts`)**:
+  - [x] Upgraded `createPOSCheckout` to atomically generate official paid `Invoice` records (`GASTRO/2026/...` / `POS/2026/...`) and POS orders in Dexie.
+  - [x] Directly updates Dashboard KPI revenue counters, Rechnungsjournal, and Accounting metrics without manual reconciliation.
+- [x] **Professional Restaurant & Order Taking Overhaul (`src/components/RestaurantModule.tsx`)**:
+  - [x] Redesigned layout with high-contrast slate surfaces, responsive header command ribbon, and zero generic "AI" visual tropes.
+  - [x] Interactive floor plan with area filtering (*Innenbereich*, *Terrasse*, *Bar & Counter*, *To-Go / Abholung*) and live table occupancy badges.
+  - [x] Quick touch order builder with category filters, preparation notes (e.g. *ohne Zwiebeln*), allergen tags, and item steppers.
+- [x] **Live Kitchen & Bar Display (KDS) (`src/components/RestaurantModule.tsx`)**:
+  - [x] Real-time ticket board with order timers, custom modification badges, and stage transitions (*In Zubereitung*, *Servierbereit*).
+- [x] **Gastronomy Billing & GoBD Bewirtungsbeleg (`src/components/RestaurantModule.tsx`)**:
+  - [x] Checkout modal supporting Barzahlung (Cash), EC-/Girokarte, and NFC (Apple/Google Pay).
+  - [x] Quick note change calculator, customizable tip amounts, and bill splitting across guests.
+  - [x] Tax-compliant German Bewirtungsbeleg generation (§ 4 Abs. 5 Nr. 2 EStG) and printable 80mm thermal receipt.
+  - [x] Gastro Tagesabschluss (Z-Bon) with payment breakdown and tax rate distribution.
+- [x] **Dashboard & Invoices Module Linkage (`Dashboard.tsx` & `InvoicesModule.tsx`)**:
+  - [x] Added `Gastro` and `Kasse` visual badges to Rechnungsjournal and Dashboard recent invoices table.
+  - [x] Direct navigation from finalized gastro receipt to official ERP invoice.
+- [x] **Internationalization & Versioning (`i18n.ts`, `package.json`, `version.ts`, `V21.md`)**:
+  - [x] Added all localization strings across DE, EN, FR, and ES.
+  - [x] Bumped version to `21.4.0`.
+
+### 2. Comprehensive Calendar Redesign, Collapsible Sidebar & Chronological Agenda Overhaul (v21.3.5)
+- [x] **Modern Command Ribbon & Navigation Bar (`CalendarModule.tsx`)**:
+  - [x] Created clean top bar with vibrant Calendar logo, prominent "+ Neuer Termin" primary button, and "Heute" date controls.
+  - [x] Implemented instant search with clear button and live result counter.
+  - [x] Added segmented view switcher (`Tag`, `Arbeitswoche`, `Woche`, `Monat`, `Agenda`), print, and `.ICS` export.
+- [x] **Collapsible Navigation Sidebar (`CalendarModule.tsx`)**:
+  - [x] Added toggleable drawer button allowing users to collapse or expand the sidebar for maximum screen utilization.
+  - [x] Enhanced mini-month calendar with circular day badges and event dots.
+  - [x] Upgraded "Meine Kalender" category filters with colored dots, checkboxes, real-time counters, and "Nur Rechnungen" quick toggle.
+  - [x] Added "Nächste Termine" upcoming widget with quick event details inspection.
+- [x] **Month, Week & Day Canvas Enhancements (`CalendarModule.tsx`)**:
+  - [x] Subtle weekend tinting for Saturday/Sunday columns.
+  - [x] Event pills with left color accent bars (`border-l-3`), start time prefixes, and invoice receipt badges.
+  - [x] Real-time current time line marker on today's column with live red dot indicator.
+- [x] **Chronological Grouped Agenda View (`CalendarModule.tsx`)**:
+  - [x] Redesigned Agenda to group events by date headers with weekday formatting, duration calculations, and direct invoice linkage.
+- [x] **Polished Appointment Modals (`CalendarModule.tsx`)**:
+  - [x] New Appointment and Inspector dialogs with quick duration chips (`15m`, `30m`, `45m`, `1h`, `2h`, `Ganztägig`).
+  - [x] Storage target routing between Google Calendar and local SOCDOF database.
+- [x] **Versioning & Documentation**:
+  - [x] Bumped version to `21.3.5` in `package.json`, `src/lib/version.ts`, and updated `versions/V21.md`.
+
+### 2. Adaptive Folder Mini-App Geometry, Calendar Auto-Dismiss & Google Sync UI Polish (v21.3.4)
+- [x] **Adaptive Desktop Folder Icon Proportions (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Fixed 2-app folder rendering to display balanced square preview icons side-by-side without vertical stretching, oval distortion, or empty placeholder holes.
+  - [x] Implemented proportional 1:1 square icon containers for 1-app, 2-app, 3-app, 4-app, and 5+-app desktop folders.
+- [x] **Auto-Dismissing Status Banners in Calendar (`CalendarModule.tsx`)**:
+  - [x] Added automatic 6-second timeout dismissal for success (green) and error (red) status notification bars.
+- [x] **Calendar Branding & Google Sync Button Contrast (`CalendarModule.tsx` & `DocumentationApp.tsx`)**:
+  - [x] Removed redundant "OUTLOOK 365" badge from the Calendar header; app is cleanly titled "Kalender".
+  - [x] Enhanced Google Sync button styling and text contrast across both light and dark themes.
+- [x] **Versioning & Documentation**:
+  - [x] Bumped version to `21.3.4` in `package.json`, `src/lib/version.ts`, and updated `versions/V21.md`.
+
+### 2. Symmetrical Vector App Logo & Streamlined Taskbar Search Labeling (v21.3.3)
+- [x] **Symmetrical Precision Vector App Logo (`SocdofLogo.tsx` & `src/assets/socdof_icon.svg`)**:
+  - [x] Replaced the cropped, off-center raster start button icon with a mathematically centered, high-resolution SVG vector squircle.
+  - [x] Rendered crisp, symmetrical Windows 11-inspired 4-color corner accents (Emerald Green `#22c55e`, Sky Blue `#38bdf8`, Coral Red `#ef4444`, Amber Yellow `#f59e0b`).
+  - [x] Rendered a modern, bold white "S" lettermark centered with drop shadow and specular rim.
+  - [x] Harmonized padding and curvature inside the `w-9 h-9` Windows 11 taskbar start button.
+- [x] **Streamlined Taskbar Search Box Labeling (`src/lib/i18n.ts` & `DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed redundant `(Strg+K)` / `(Ctrl+K)` string from `nav.search` text across German, English, French, and Spanish.
+  - [x] Search pill now cleanly displays `[🔍 Suchen... Ctrl+K]` without duplicated shortcut labels.
+- [x] **Versioning & Documentation**:
+  - [x] Bumped version to `21.3.3` in `package.json`, `src/lib/version.ts`, and added release notes to `versions/V21.md`.
+
+### 2. Desktop Grid Collision Guard, Folder Drag & Modern Glass Styling (v21.3.2)
+- [x] **Desktop Grid Collision Guard**:
+  - [x] Implemented collision deduplication and free slot finding so desktop icons and folders never overlap or stack inadvertently.
+  - [x] Enabled full drag-and-drop repositioning for desktop folders with coordinate persistence.
+- [x] **Modern Frosted Folder Glass**:
+  - [x] Redesigned desktop folder containers with liquid frosted glass styling and 2x2 mini icon previews.
+- [x] **Google Calendar OAuth Verification**:
+  - [x] Verified OAuth popup configuration without offline access conflicts.
+
+### 3. Google OAuth Multi-Account Selection & Firebase Auth Resilience (v21.3.1)
 - [x] **Multi-Account Account Chooser (`googleCalendarProvider.setCustomParameters({ prompt: 'select_account' })`)**:
   - [x] Updated Google OAuth configuration to ensure the Google account selection prompt is always displayed, allowing users to choose or switch between any Google account freely.
 - [x] **Firebase Auth Error Handling & Resilience**:

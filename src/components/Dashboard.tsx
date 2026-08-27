@@ -506,6 +506,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div>
                       <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
                         <span>{inv.number}</span>
+                        {inv.number.startsWith('GASTRO') ? (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                            Gastro
+                          </span>
+                        ) : inv.number.startsWith('POS') ? (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                            Kasse
+                          </span>
+                        ) : null}
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           inv.status === 'paid' 
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 

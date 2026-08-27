@@ -16,16 +16,14 @@ export const auth = getAuth(app);
 
 // 2. Configure Google Provider with required Calendar scopes
 export const googleCalendarProvider = new GoogleAuthProvider();
-googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar');
 googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleCalendarProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
 googleCalendarProvider.setCustomParameters({
-  prompt: 'select_account',
-  access_type: 'offline'
+  prompt: 'select_account'
 });
 
-// 3. In-memory access token cache
-let cachedAccessToken: string | null = null;
+// 3. Access token and user cache with localStorage persistence
+let cachedAccessToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('odoo_gcal_access_token') : null;
 let currentGoogleUser: {
   uid: string;
   email: string | null;
@@ -101,6 +99,7 @@ onAuthStateChanged(auth, async (user) => {
     cachedAccessToken = null;
     try {
       localStorage.removeItem('odoo_gcal_user_meta');
+      localStorage.removeItem('odoo_gcal_access_token');
     } catch {}
   }
   notifyAuthListeners();
@@ -118,6 +117,9 @@ export const getCachedGoogleUserMeta = () => {
 
 // Get current Access Token
 export const getGoogleAccessToken = (): string | null => {
+  if (!cachedAccessToken && typeof localStorage !== 'undefined') {
+    cachedAccessToken = localStorage.getItem('odoo_gcal_access_token');
+  }
   return cachedAccessToken;
 };
 
@@ -131,6 +133,9 @@ export const signInWithGoogleCalendar = async (): Promise<{ user: User; accessTo
     
     if (token) {
       cachedAccessToken = token;
+      try {
+        localStorage.setItem('odoo_gcal_access_token', token);
+      } catch {}
     }
     
     currentGoogleUser = {
@@ -762,14 +767,18 @@ export const performFullGoogleCalendarSync = async (
     };
   } catch (err: any) {
     console.error('Full Google Calendar sync error:', err);
+    let errorMessage = err.message || 'Sync failed';
+    if (errorMessage.includes('Google Calendar API has not been used') || errorMessage.includes('is disabled')) {
+      errorMessage = 'Google Calendar API wird aktiviert. Bitte 1-2 Minuten warten und erneut auf "Google Sync" klicken.';
+    }
     updateSyncStatus({
       isSyncing: false,
-      error: err.message || 'Sync failed'
+      error: errorMessage
     });
     return {
       success: false,
       eventCount: 0,
-      message: err.message || 'Sync failed'
+      message: errorMessage
     };
   }
 };

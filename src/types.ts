@@ -429,24 +429,28 @@ export interface MenuItem {
 }
 
 export interface TableOrderItem {
-  menuItemId: string;
+  id?: string;
+  menuItemId?: string;
   name: string;
   qty: number;
   price: number;
   taxRate: number;
   notes?: string;
+  emoji?: string;
+  category?: string;
 }
 
 export interface TableOrder {
   id: string;
   tableNumber: string; // e.g. "Tisch 1", "Tisch 4", "Bar 2", "Terrasse 1", "To-Go"
-  serverName: string;
+  serverName?: string;
   status: 'ordered' | 'preparing' | 'ready' | 'served' | 'paid';
   items: TableOrderItem[];
   subtotal: number;
   taxTotal: number;
   total: number;
-  createdAt: string;
+  createdAt?: string;
+  openedAt?: string;
   paidAt?: string;
   paymentMethod?: 'cash' | 'card' | 'nfc';
 }

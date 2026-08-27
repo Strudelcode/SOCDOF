@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.3.1';
+export const APP_VERSION = '21.4.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,62 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.4.0',
+    date: '2026-08-27',
+    title: 'Restaurant & POS Integration with ERP Invoicing, Clean Professional Redesign & GoBD Hospitality Receipts',
+    highlights: [
+      'Seamless ERP Invoicing Integration: Every finalized restaurant order and POS sale is automatically recorded as an official paid Invoice (GASTRO/2026/...) and POSOrder in the Dexie database, directly updating Dashboard metrics and revenue journals',
+      'Professional Non-AI Aesthetic Overhaul: Completely redesigned the RestaurantModule layout with high-contrast slate command ribbons, table floor maps with area filters (Innenbereich, Terrasse, Bar, To-Go), and real-time status indicators',
+      'Live Kitchen Display Monitor (KDS): Interactive ticket stream with stage controls (In Zubereitung, Servierbereit), order timers, and special dish preparation notes (e.g. allergens, custom modifications)',
+      'Gastronomy Billing & Cash Register: Multi-method checkout supporting Cash, EC/Credit Card, and NFC (Apple/Google Pay) with quick note helpers, live change calculations, customizable tip buttons, and bill splitting',
+      'GoBD Hospitality Receipts & Z-Report: Full support for official German tax-compliant Bewirtungsbelege (§ 4 Abs. 5 Nr. 2 EStG) with host, occasion, and guest details, plus 1-click printable thermal receipts and daily Z-reports'
+    ]
+  },
+  {
+    version: '21.3.5',
+    date: '2026-08-27',
+    title: 'Comprehensive Calendar Redesign, Collapsible Sidebar & Chronological Agenda Overhaul',
+    highlights: [
+      'Modern Streamlined Command Bar: Unified responsive top bar with bold Kalender identity, + Neuer Termin primary action, Heute date navigators, instant search filter, segmented view modes, and print / .ICS export',
+      'Collapsible Smart Sidebar: Toggleable navigation drawer with interactive mini-month calendar picker, category filters with real-time counters, Nur Rechnungen quick switch, and upcoming highlights widget',
+      'Refined Month & Week Canvas: High-precision grid layout featuring weekend background tones, circular date markers, live current time indicator, and category accent borders',
+      'Chronological Grouped Agenda View: Enhanced agenda view with clean date group headers, day-of-week badges, duration calculations, and direct invoice linkage',
+      'Polished Appointment Modals: Sleek New Event and Event Inspector dialogs with quick duration chips (15m, 30m, 45m, 1h, 2h, all-day), Google vs Local storage targets, and duplicate/delete actions'
+    ]
+  },
+  {
+    version: '21.3.4',
+    date: '2026-08-27',
+    title: 'Adaptive Folder Mini-App Geometry, Calendar Auto-Dismiss & Google Sync UI Polish',
+    highlights: [
+      'Adaptive Folder Icon Proportions: Fixed 2-app folder layout to render balanced square preview icons side-by-side with zero vertical stretching or empty placeholder holes',
+      'Auto-Dismissing Calendar Banners: Green and red appointment / sync status alerts automatically disappear after 6 seconds without requiring manual close button clicks',
+      'Clean Calendar App Header: Removed Outlook 365 branding badge, keeping the header clean and exclusively named "Kalender"',
+      'High-Contrast Google Sync Action: Enhanced Google Calendar synchronization button styling with high-contrast text and crisp Google icon in both light and dark modes'
+    ]
+  },
+  {
+    version: '21.3.3',
+    date: '2026-08-27',
+    title: 'Symmetrical Vector App Logo & Streamlined Taskbar Search Labeling',
+    highlights: [
+      'Symmetrical Precision Vector Logo: Replaced cropped raster start button asset with a crisp, mathematically centered vector squircle featuring Windows-inspired 4-corner accents and bold S lettermark',
+      'Harmonious Start Button Alignment: Logo fits the Windows 11 taskbar button with even padding and seamless corner curvature',
+      'Streamlined Taskbar Search Box: Removed redundant hotkey strings from search text labels in all 4 languages (de, en, fr, es) for a clean UI next to the dedicated Ctrl+K badge'
+    ]
+  },
+  {
+    version: '21.3.2',
+    date: '2026-08-27',
+    title: 'Desktop Grid Collision Guard, Folder Drag & Modern Glass Styling',
+    highlights: [
+      'Desktop Grid Collision Guard: Automated grid deduplication ensuring apps and folders never overlap or stack inadvertently',
+      'Modern Frosted Folder Glass: Redesigned desktop folder containers with iOS/Windows 11 liquid glass aesthetic and 2x2 mini icon previews',
+      'Universal Desktop Drag & Drop: Full support for dragging folders and apps with smooth grid snapping and automatic conflict resolution',
+      'Google Calendar Sync Stability: Verified OAuth popup configuration without offline access parameter conflicts'
+    ]
+  },
   {
     version: '21.3.1',
     date: '2026-08-27',

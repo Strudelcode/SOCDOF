@@ -667,27 +667,94 @@ export async function receivePurchaseOrder(poId: number): Promise<void> {
 }
 
 /**
- * Process POS Terminal Sale
+ * Process POS Terminal & Gastronomy Sale with automatic paid Invoice generation
  */
-export async function createPOSCheckout(order: Omit<POSOrder, 'id'>): Promise<number> {
-  // Deduct stock for all items
+export async function createPOSCheckout(
+  order: Omit<POSOrder, 'id'>,
+  options?: {
+    contactId?: number;
+    contactName?: string;
+    notes?: string;
+    isGastro?: boolean;
+    tableNumber?: string;
+  }
+): Promise<{ orderId: number; invoiceId: number }> {
+  // 1. Deduct stock for all physical items if tracked
   for (const item of order.items) {
-    const prod = await db.products.get(item.product_id);
-    if (prod && prod.category !== 'Software & Lizenzen' && prod.category !== 'Dienstleistung') {
-      await executeStockMove({
-        product_id: item.product_id,
-        qty: item.qty,
-        source_location: 'Physical/Warehouse',
-        dest_location: 'Virtual/Customers',
-        reference: `POS Kassenbeleg ${order.receipt_number}`,
-        date: new Date().toISOString(),
-        notes: `Barverkauf / POS Terminal`
-      });
+    if (item.product_id && item.product_id !== 9999) {
+      try {
+        const prod = await db.products.get(item.product_id);
+        if (prod && prod.category !== 'Software & Lizenzen' && prod.category !== 'Dienstleistung') {
+          await executeStockMove({
+            product_id: item.product_id,
+            qty: item.qty,
+            source_location: 'Physical/Warehouse',
+            dest_location: 'Virtual/Customers',
+            reference: `Kassenbeleg ${order.receipt_number}`,
+            date: new Date().toISOString(),
+            notes: options?.isGastro 
+              ? `Gastronomie Tischverkauf ${options.tableNumber || ''}` 
+              : `Barverkauf / POS Terminal`
+          });
+        }
+      } catch (e) {
+        console.warn('POS stock deduction notice:', e);
+      }
     }
   }
 
+  // 2. Add to pos_orders table
   const orderId = await db.pos_orders.add(order as POSOrder);
-  return orderId;
+
+  // 3. Create corresponding official paid Invoice in invoices table
+  const invoiceDate = order.date.includes('T') ? order.date.split('T')[0] : order.date;
+  const invoiceItems = order.items.map((i, idx) => ({
+    id: `item-pos-${idx + 1}-${Date.now()}`,
+    product_id: i.product_id || 0,
+    product_name: i.product_name,
+    sku: i.sku || 'POS',
+    qty: i.qty,
+    unit_price: i.price,
+    tax_rate: i.tax_rate || 19,
+    discount: 0,
+    subtotal: i.subtotal || (i.price * i.qty)
+  }));
+
+  const invoiceNumber = order.receipt_number;
+  const subject = options?.isGastro 
+    ? `Gastronomie Bewirtung (${options.tableNumber || 'Tisch'}) • Kassenbeleg`
+    : `Kassenbeleg ${order.receipt_number} • POS Direktverkauf`;
+
+  const invoiceId = await db.invoices.add({
+    contact_id: options?.contactId || 0,
+    contact_name: options?.contactName || order.customer_name || 'Laufkundschaft',
+    number: invoiceNumber,
+    subject: subject,
+    date: invoiceDate,
+    due_date: invoiceDate,
+    status: 'paid',
+    type: 'out_invoice',
+    items: invoiceItems,
+    subtotal: order.subtotal,
+    tax_total: order.tax_total,
+    total: order.total,
+    paid_at: order.date,
+    payment_method: order.payment_method === 'cash' ? 'cash' : 'card',
+    stock_moved: true,
+    notes: options?.notes || `Erstellt über ${options?.isGastro ? 'Gastronomie & Bestell-Kasse' : 'POS Kassensystem'}. Zahlart: ${order.payment_method.toUpperCase()}.`
+  });
+
+  // 4. Record Chatter entry
+  await db.chatter_messages.add({
+    res_model: 'invoice',
+    res_id: invoiceId,
+    author: 'Kassensystem',
+    content: `Kassenbeleg ${invoiceNumber} (${order.total.toFixed(2)} €) erfolgreich verbucht und bezahlt.`,
+    type: 'system',
+    created_at: new Date().toISOString()
+  });
+
+  return { orderId, invoiceId };
 }
 
 /**

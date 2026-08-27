@@ -146,6 +146,71 @@ export const SYSTEM_CORE_MODULES: ActiveModule[] = [
   'settings', 'dashboard', 'appstore', 'docs'
 ];
 
+// Windows Desktop Grid Configuration (104px horizontal, 96px vertical)
+const DESKTOP_GRID_ORIGIN_X = 24;
+const DESKTOP_GRID_ORIGIN_Y = 24;
+const DESKTOP_GRID_STEP_X = 104;
+const DESKTOP_GRID_STEP_Y = 96;
+const DESKTOP_GRID_MAX_ROWS = 6;
+
+// Helper to find the next free grid slot without collisions
+function findNextFreeDesktopSlot(occupiedKeys: Set<string>): { x: number; y: number } {
+  let col = 0;
+  let row = 0;
+  for (let i = 0; i < 300; i++) {
+    const key = `${col},${row}`;
+    if (!occupiedKeys.has(key)) {
+      occupiedKeys.add(key);
+      return {
+        x: DESKTOP_GRID_ORIGIN_X + col * DESKTOP_GRID_STEP_X,
+        y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y
+      };
+    }
+    row++;
+    if (row >= DESKTOP_GRID_MAX_ROWS) {
+      row = 0;
+      col++;
+    }
+  }
+  return {
+    x: DESKTOP_GRID_ORIGIN_X + col * DESKTOP_GRID_STEP_X,
+    y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y
+  };
+}
+
+// Function to resolve collisions and guarantee unique non-overlapping coordinates for all items
+function resolveAllDesktopPositions(
+  pinned: ActiveModule[],
+  folders: DesktopFolder[],
+  currentPositions: Record<string, { x: number; y: number }>
+): Record<string, { x: number; y: number }> {
+  const result: Record<string, { x: number; y: number }> = {};
+  const occupiedSlots = new Set<string>();
+
+  const allItemIds = [...pinned, ...folders.map(f => f.id)];
+
+  allItemIds.forEach(id => {
+    const saved = currentPositions[id];
+    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+      const snapCol = Math.max(0, Math.round((saved.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
+      const snapRow = Math.max(0, Math.round((saved.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y));
+      const key = `${snapCol},${snapRow}`;
+      if (!occupiedSlots.has(key)) {
+        occupiedSlots.add(key);
+        result[id] = {
+          x: DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X,
+          y: DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y
+        };
+        return;
+      }
+    }
+    // Slot collision or unassigned: allocate next available free grid position
+    result[id] = findNextFreeDesktopSlot(occupiedSlots);
+  });
+
+  return result;
+}
+
 export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   contacts,
   products,
@@ -371,8 +436,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return {};
   });
 
+  // Automatically validate and resolve any coordinate collisions on desktop
+  useEffect(() => {
+    setDesktopPositions(prev => {
+      const resolved = resolveAllDesktopPositions(pinnedDesktop, desktopFolders, prev);
+      const isDifferent = Object.keys(resolved).some(k => !prev[k] || prev[k].x !== resolved[k].x || prev[k].y !== resolved[k].y);
+      if (isDifferent) {
+        try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(resolved)); } catch {}
+        return resolved;
+      }
+      return prev;
+    });
+  }, [pinnedDesktop, desktopFolders]);
+
   const [draggedDesktopItem, setDraggedDesktopItem] = useState<{
-    modId: ActiveModule;
+    id: string;
+    type: 'app' | 'folder';
     offsetX: number;
     offsetY: number;
   } | null>(null);
@@ -380,30 +459,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null);
   const desktopCanvasRef = useRef<HTMLDivElement>(null);
 
-  const getDesktopPosition = (modId: ActiveModule, index: number) => {
-    if (desktopPositions[modId]) {
-      return desktopPositions[modId];
+  const getDesktopPosition = (id: string, index: number) => {
+    if (desktopPositions[id]) {
+      return desktopPositions[id];
     }
-    // Windows standard column grid calculation (6 items per column)
-    const maxRows = 6;
-    const col = Math.floor(index / maxRows);
-    const row = index % maxRows;
+    const col = Math.floor(index / DESKTOP_GRID_MAX_ROWS);
+    const row = index % DESKTOP_GRID_MAX_ROWS;
     return {
-      x: 24 + col * 104,
-      y: 24 + row * 96
+      x: DESKTOP_GRID_ORIGIN_X + col * DESKTOP_GRID_STEP_X,
+      y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y
     };
   };
 
   const handleAutoArrangeDesktop = () => {
     sounds.playClick();
     const nextPositions: Record<string, { x: number; y: number }> = {};
-    pinnedDesktop.forEach((modId, index) => {
-      const maxRows = 6;
-      const col = Math.floor(index / maxRows);
-      const row = index % maxRows;
-      nextPositions[modId] = {
-        x: 24 + col * 104,
-        y: 24 + row * 96
+    const allItemIds = [...pinnedDesktop, ...desktopFolders.map(f => f.id)];
+    allItemIds.forEach((id, index) => {
+      const col = Math.floor(index / DESKTOP_GRID_MAX_ROWS);
+      const row = index % DESKTOP_GRID_MAX_ROWS;
+      nextPositions[id] = {
+        x: DESKTOP_GRID_ORIGIN_X + col * DESKTOP_GRID_STEP_X,
+        y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y
       };
     });
     setDesktopPositions(nextPositions);
@@ -414,15 +491,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const handleSnapDesktopToGrid = () => {
     sounds.playClick();
     setDesktopPositions(prev => {
-      const next: Record<string, { x: number; y: number }> = {};
-      pinnedDesktop.forEach((modId, index) => {
-        const current = prev[modId] || getDesktopPosition(modId, index);
-        const snapX = Math.round((current.x - 24) / 104) * 104 + 24;
-        const snapY = Math.round((current.y - 24) / 96) * 96 + 24;
-        next[modId] = { x: Math.max(16, snapX), y: Math.max(16, snapY) };
-      });
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
-      return next;
+      const resolved = resolveAllDesktopPositions(pinnedDesktop, desktopFolders, prev);
+      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(resolved)); } catch {}
+      return resolved;
     });
     setDesktopContextMenu(null);
   };
@@ -432,9 +503,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const rect = desktopCanvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const rawModId = e.dataTransfer.getData('text/plain') as ActiveModule;
-    const modId = rawModId || draggedDesktopItem?.modId;
-    if (!modId) return;
+    const rawData = e.dataTransfer.getData('text/plain');
+    const itemId = rawData || draggedDesktopItem?.id;
+    if (!itemId) return;
 
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -445,14 +516,41 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const targetX = mouseX - offsetX;
     const targetY = mouseY - offsetY;
 
-    // Snap to Windows Grid (104px horizontal, 96px vertical)
-    const snapGridX = 104;
-    const snapGridY = 96;
-    const snappedX = Math.max(16, Math.min(rect.width - 110, Math.round((targetX - 24) / snapGridX) * snapGridX + 24));
-    const snappedY = Math.max(16, Math.min(rect.height - 110, Math.round((targetY - 24) / snapGridY) * snapGridY + 24));
+    // Snap to Grid coordinates
+    const snapCol = Math.max(0, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
+    const snapRow = Math.max(0, Math.min(DESKTOP_GRID_MAX_ROWS - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
+    const targetSlotKey = `${snapCol},${snapRow}`;
 
     setDesktopPositions(prev => {
-      const next = { ...prev, [modId]: { x: snappedX, y: snappedY } };
+      // Check if slot is occupied by ANOTHER item
+      const occupiedByOther = Object.entries(prev).find(([id, rawPos]) => {
+        if (id === itemId) return false;
+        const pos = rawPos as { x: number; y: number };
+        const col = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
+        const row = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
+        return `${col},${row}` === targetSlotKey;
+      });
+
+      let nextX = DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X;
+      let nextY = DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y;
+
+      // If slot is taken, find the nearest unoccupied slot so items NEVER overlap
+      if (occupiedByOther) {
+        const occupiedSet = new Set<string>();
+        Object.entries(prev).forEach(([id, rawPos]) => {
+          if (id !== itemId) {
+            const pos = rawPos as { x: number; y: number };
+            const c = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
+            const r = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
+            occupiedSet.add(`${c},${r}`);
+          }
+        });
+        const freeSlot = findNextFreeDesktopSlot(occupiedSet);
+        nextX = freeSlot.x;
+        nextY = freeSlot.y;
+      }
+
+      const next = { ...prev, [itemId]: { x: nextX, y: nextY } };
       try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
       return next;
     });
@@ -1383,7 +1481,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           const isCurrentActive = openWin ? activeWindowId === openWin.id : false;
           const badge = getBadgeForModule(modId);
           const pos = getDesktopPosition(modId, index);
-          const isBeingDragged = draggedDesktopItem?.modId === modId;
+          const isBeingDragged = draggedDesktopItem?.id === modId;
           const isDragOver = dragOverIconId === modId;
 
           return (
@@ -1394,7 +1492,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 const rect = e.currentTarget.getBoundingClientRect();
                 const offsetX = e.clientX - rect.left;
                 const offsetY = e.clientY - rect.top;
-                setDraggedDesktopItem({ modId, offsetX, offsetY });
+                setDraggedDesktopItem({ id: modId, type: 'app', offsetX, offsetY });
                 e.dataTransfer.setData('text/plain', modId);
                 e.dataTransfer.effectAllowed = 'move';
               }}
@@ -1405,7 +1503,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (draggedDesktopItem && draggedDesktopItem.modId !== modId) {
+                if (draggedDesktopItem && draggedDesktopItem.id !== modId && draggedDesktopItem.type === 'app') {
                   setDragOverIconId(modId);
                 }
               }}
@@ -1419,8 +1517,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || draggedDesktopItem?.modId;
-                if (droppedModId && droppedModId !== modId) {
+                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || (draggedDesktopItem?.id as ActiveModule);
+                if (droppedModId && droppedModId !== modId && draggedDesktopItem?.type === 'app') {
                   handleMergeAppsIntoFolder(modId, droppedModId);
                 }
                 setDragOverIconId(null);
@@ -1434,7 +1532,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               className={`rounded-2xl select-none transition-all duration-150 ${
                 isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : 'hover:scale-102'
               } ${
-                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20' : ''
+                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20 shadow-xl' : ''
               }`}
             >
               <button
@@ -1496,21 +1594,32 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           );
         })}
 
-        {/* Render Desktop Folders (Android / iOS Style Container with 2x2 Mini Preview) */}
+        {/* Render Desktop Folders (Modern Frosted Glass iOS/Windows 11 Style Container) */}
         {desktopFolders.map((folder, fIndex) => {
-          const pos = desktopPositions[folder.id] || { 
-            x: 24 + Math.floor((pinnedDesktop.length + fIndex) / 6) * 104, 
-            y: 24 + ((pinnedDesktop.length + fIndex) % 6) * 96 
-          };
+          const pos = getDesktopPosition(folder.id, pinnedDesktop.length + fIndex);
+          const isBeingDragged = draggedDesktopItem?.id === folder.id;
           const isDragOver = dragOverIconId === folder.id;
 
           return (
             <div
               key={folder.id}
+              draggable
+              onDragStart={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+                setDraggedDesktopItem({ id: folder.id, type: 'folder', offsetX, offsetY });
+                e.dataTransfer.setData('text/plain', folder.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnd={() => {
+                setDraggedDesktopItem(null);
+                setDragOverIconId(null);
+              }}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (draggedDesktopItem) {
+                if (draggedDesktopItem && draggedDesktopItem.id !== folder.id && draggedDesktopItem.type === 'app') {
                   setDragOverIconId(folder.id);
                 }
               }}
@@ -1524,8 +1633,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || draggedDesktopItem?.modId;
-                if (droppedModId) {
+                const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || (draggedDesktopItem?.id as ActiveModule);
+                if (droppedModId && draggedDesktopItem?.type === 'app') {
                   handleAddAppToExistingFolder(folder.id, droppedModId);
                 }
                 setDragOverIconId(null);
@@ -1534,10 +1643,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 position: 'absolute',
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
-                zIndex: 3
+                zIndex: isBeingDragged ? 40 : 3
               }}
               className={`rounded-2xl select-none transition-all duration-150 ${
-                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20' : 'hover:scale-102'
+                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : 'hover:scale-102'
+              } ${
+                isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20 shadow-xl' : ''
               }`}
             >
               <button
@@ -1548,27 +1659,82 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
                 onMouseLeave={handleIconMouseLeave}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent ${
+                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent cursor-pointer ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
                     : 'hover:bg-black/5 active:bg-black/10 hover:border-black/10'
                 }`}
               >
-                {/* 2x2 Mini Apps Grid Squircle (Android Style) */}
-                <div className="relative w-12 h-12 rounded-2xl bg-slate-800/40 dark:bg-slate-700/50 backdrop-blur-md p-1.5 grid grid-cols-2 gap-1 border border-white/20 shadow-md group-hover:scale-105 transition-transform duration-200">
-                  {folder.modules.slice(0, 4).map((mod) => {
-                    const mMeta = shortcutMeta[mod];
-                    if (!mMeta) return null;
-                    const MIcon = mMeta.icon;
-                    return (
-                      <div key={mod} className={`rounded-[4px] ${mMeta.color} text-white flex items-center justify-center`}>
-                        <MIcon className="w-2.5 h-2.5" />
+                {/* Mini Apps Preview Squircle (iOS/macOS Liquid Glass Style) */}
+                <div className="relative w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800/90 backdrop-blur-md p-1.5 flex items-center justify-center border border-white/60 dark:border-white/20 shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-transform duration-200">
+                  {folder.modules.length === 1 ? (
+                    // Single App: Centered large icon
+                    (() => {
+                      const mod = folder.modules[0];
+                      const mMeta = shortcutMeta[mod];
+                      if (!mMeta) return null;
+                      const MIcon = mMeta.icon;
+                      return (
+                        <div className={`w-8 h-8 rounded-xl ${mMeta.color} text-white flex items-center justify-center shadow-xs`}>
+                          <MIcon className="w-4 h-4" />
+                        </div>
+                      );
+                    })()
+                  ) : folder.modules.length === 2 ? (
+                    // 2 Apps: Perfectly proportioned side-by-side squares (no empty blobs, no stretching)
+                    <div className="flex items-center justify-center gap-1.5 w-full h-full">
+                      {folder.modules.map((mod) => {
+                        const mMeta = shortcutMeta[mod];
+                        if (!mMeta) return null;
+                        const MIcon = mMeta.icon;
+                        return (
+                          <div 
+                            key={mod} 
+                            className={`w-4.5 h-4.5 aspect-square rounded-lg ${mMeta.color} text-white flex items-center justify-center shadow-2xs shrink-0`}
+                          >
+                            <MIcon className="w-2.5 h-2.5" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : folder.modules.length <= 4 ? (
+                    // 3 or 4 Apps: Balanced 2x2 grid of square icons
+                    <div className="grid grid-cols-2 grid-rows-2 gap-1 w-full h-full place-items-center">
+                      {folder.modules.map((mod) => {
+                        const mMeta = shortcutMeta[mod];
+                        if (!mMeta) return null;
+                        const MIcon = mMeta.icon;
+                        return (
+                          <div 
+                            key={mod} 
+                            className={`w-4 h-4 aspect-square rounded-md ${mMeta.color} text-white flex items-center justify-center shadow-2xs`}
+                          >
+                            <MIcon className="w-2.5 h-2.5" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // 5+ Apps: 3 mini icons + '+N' counter badge
+                    <div className="grid grid-cols-2 grid-rows-2 gap-1 w-full h-full place-items-center">
+                      {folder.modules.slice(0, 3).map((mod) => {
+                        const mMeta = shortcutMeta[mod];
+                        if (!mMeta) return null;
+                        const MIcon = mMeta.icon;
+                        return (
+                          <div 
+                            key={mod} 
+                            className={`w-4 h-4 aspect-square rounded-md ${mMeta.color} text-white flex items-center justify-center shadow-2xs`}
+                          >
+                            <MIcon className="w-2.5 h-2.5" />
+                          </div>
+                        );
+                      })}
+                      <div className="w-4 h-4 aspect-square rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] font-black shadow-2xs">
+                        +{folder.modules.length - 3}
                       </div>
-                    );
-                  })}
-                  {folder.modules.length < 4 && Array.from({ length: 4 - folder.modules.length }).map((_, i) => (
-                    <div key={i} className="rounded-[4px] bg-white/10" />
-                  ))}
+                    </div>
+                  )}
                 </div>
 
                 <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center truncate max-w-[85px] ${
@@ -1869,6 +2035,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <RestaurantModule
                   companyProfile={company}
                   onRefreshData={onRefreshData}
+                  onNavigateToInvoice={(invId) => openWindow('invoices', invId ? `Rechnung #${invId}` : undefined)}
                 />
               )}
 
@@ -2315,7 +2482,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsCommandPaletteOpen(true);
             }}
-            title={t('nav.search', currentLang, 'Suche (Ctrl+K)...')}
+            title={t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen...')}
             className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-2xs group cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />

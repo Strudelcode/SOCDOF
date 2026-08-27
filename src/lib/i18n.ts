@@ -28,7 +28,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Navigation & Windows
     'nav.start': 'Start',
-    'nav.search': 'Search (Ctrl+K)...',
+    'nav.search': 'Search...',
     'nav.search_placeholder': 'Type to search apps, contacts, invoices...',
     'nav.all_apps': 'All Modules',
     'nav.pinned': 'Pinned Apps',
@@ -745,6 +745,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.bill_table': 'Settle Table',
     'restaurant.kitchen_monitor_title': 'Live Kitchen & Prep Monitor',
     'restaurant.kitchen_monitor_sub': 'Real-time updates for kitchen and bar staff',
+    'restaurant.z_report': 'Z-Report / Daily Closing',
+    'restaurant.open_in_invoices': 'Open in Invoices',
+    'restaurant.tip_label': 'Tip',
+    'restaurant.bewirtungsbeleg': 'Hospitality Receipt',
+    'restaurant.all_tables': 'All Areas',
+    'restaurant.area_indoor': 'Indoor',
+    'restaurant.area_terrace': 'Terrace',
+    'restaurant.area_bar': 'Bar',
+    'restaurant.area_togo': 'To-Go',
 
     // Power & Desktop Overlay
     'power.title': 'Exit SOCDOF?',
@@ -832,7 +841,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Navigation & Windows
     'nav.start': 'Start',
-    'nav.search': 'Suchen (Strg+K)...',
+    'nav.search': 'Suchen...',
     'nav.search_placeholder': 'Apps, Kontakte, Rechnungen suchen...',
     'nav.all_apps': 'Alle Module',
     'nav.pinned': 'Angeheftete Apps',
@@ -1549,6 +1558,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.bill_table': 'Tisch abrechnen',
     'restaurant.kitchen_monitor_title': 'Live Küchen- & Zubereitungs-Monitor',
     'restaurant.kitchen_monitor_sub': 'Echtzeit-Übersicht für Küche und Barpersonal',
+    'restaurant.z_report': 'Z-Bon / Tagesabschluss',
+    'restaurant.open_in_invoices': 'In Rechnungsverwaltung öffnen',
+    'restaurant.tip_label': 'Trinkgeld',
+    'restaurant.bewirtungsbeleg': 'GoBD Bewirtungsbeleg',
+    'restaurant.all_tables': 'Alle Bereiche',
+    'restaurant.area_indoor': 'Innenbereich',
+    'restaurant.area_terrace': 'Terrasse',
+    'restaurant.area_bar': 'Bar & Counter',
+    'restaurant.area_togo': 'To-Go / Abholung',
 
     // Power & Desktop Overlay
     'power.title': 'SOCDOF beenden?',
@@ -1636,7 +1654,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Navigation & Windows
     'nav.start': 'Démarrer',
-    'nav.search': 'Rechercher (Ctrl+K)...',
+    'nav.search': 'Rechercher...',
     'nav.search_placeholder': 'Rechercher des applications, contacts, factures...',
     'nav.all_apps': 'Tous les modules',
     'nav.pinned': 'Applications épinglées',
@@ -2351,6 +2369,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.bill_table': 'Encaisser la table',
     'restaurant.kitchen_monitor_title': 'Moniteur Cuisine & Bar en Direct',
     'restaurant.kitchen_monitor_sub': 'Mises à jour en direct pour l’équipe de cuisine et du bar',
+    'restaurant.z_report': 'Rapport Z / Clôture de caisse',
+    'restaurant.open_in_invoices': 'Ouvrir dans la facturation',
+    'restaurant.tip_label': 'Pourboire',
+    'restaurant.bewirtungsbeleg': 'Reçu de frais de réception',
+    'restaurant.all_tables': 'Toutes les zones',
+    'restaurant.area_indoor': 'Salle intérieure',
+    'restaurant.area_terrace': 'Terrasse',
+    'restaurant.area_bar': 'Bar & Comptoir',
+    'restaurant.area_togo': 'À emporter / Vente à emporter',
 
     // Power & Desktop Overlay
     'power.title': 'Quitter SOCDOF ?',
@@ -2438,7 +2465,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Navigation & Windows
     'nav.start': 'Inicio',
-    'nav.search': 'Buscar (Ctrl+K)...',
+    'nav.search': 'Buscar...',
     'nav.search_placeholder': 'Escriba para buscar apps, contactos, facturas...',
     'nav.all_apps': 'Todos los módulos',
     'nav.pinned': 'Apps fijadas',
@@ -3153,6 +3180,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.bill_table': 'Cobrar mesa',
     'restaurant.kitchen_monitor_title': 'Monitor de Cocina y Barra en Vivo',
     'restaurant.kitchen_monitor_sub': 'Actualizaciones en tiempo real para cocina y barra',
+    'restaurant.z_report': 'Informe Z / Cierre de caja diario',
+    'restaurant.open_in_invoices': 'Abrir en facturación',
+    'restaurant.tip_label': 'Propina',
+    'restaurant.bewirtungsbeleg': 'Recibo de gastos de representación',
+    'restaurant.all_tables': 'Todas las zonas',
+    'restaurant.area_indoor': 'Interior',
+    'restaurant.area_terrace': 'Terraza',
+    'restaurant.area_bar': 'Barra',
+    'restaurant.area_togo': 'Para llevar',
 
     // Power & Desktop Overlay
     'power.title': '¿Salir de SOCDOF?',

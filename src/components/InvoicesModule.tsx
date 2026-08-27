@@ -665,7 +665,19 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 [...filteredInvoices].reverse().map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
                     <td className="p-4 font-mono-num font-bold text-slate-900 dark:text-white">
-                      {inv.number}
+                      <div className="flex items-center gap-1.5">
+                        <span>{inv.number}</span>
+                        {inv.number.startsWith('GASTRO') && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                            Gastro
+                          </span>
+                        )}
+                        {inv.number.startsWith('POS') && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                            Kasse
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="p-4">

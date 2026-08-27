@@ -262,7 +262,7 @@ export const DocumentationApp: React.FC = () => {
       category: isGerman ? 'Planung & Termine' : 'Planning & Scheduling',
       icon: Calendar,
       summary: isGerman 
-        ? 'Terminkalender mit Google Live Sync, Fälligkeitsterminen und Outlook-Kategorien.' 
+        ? 'Terminkalender mit Google Live Sync, Fälligkeitsterminen und Terminkategorien.' 
         : 'Appointment scheduler with Google Live Sync, invoice due dates, and category views.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
