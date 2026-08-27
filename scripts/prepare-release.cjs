@@ -14,7 +14,8 @@ function main() {
   const majorTag = `v${major}`;
   const versionTag = `v${version}`;
 
-  // Standard releases without hyphen (e.g. 21.0.0, 21.2.0) are full releases
+  const isMajorRelease = (minor === 0 && patch === 0) ? 'true' : 'false';
+  // Standard releases without hyphen (e.g. 21.0.0, 21.2.0, 21.3.0) are full releases
   const isPrerelease = version.includes('-') || Boolean(pkg.prerelease);
   const makeLatest = isPrerelease ? 'false' : 'true';
 
@@ -29,8 +30,8 @@ function main() {
     let capturing = false;
     const capturedLines = [];
 
-    // Match "## Version v20.0.5" or "## Version 20.0.5"
-    const startRegex = new RegExp(`^##\\s+Version\\s+v?${version.replace(/\./g, '\\.')}\\b`, 'i');
+    // Match "## 🌟 Version 21.3.0" or "## Version v20.0.5"
+    const startRegex = new RegExp(`^##.*?\\bVersion\\s+v?${version.replace(/\\./g, '\\.')}\\b`, 'i');
 
     for (const line of lines) {
       if (!capturing) {
@@ -39,8 +40,8 @@ function main() {
           capturedLines.push(line);
         }
       } else {
-        // Stop capturing if we hit the next version header or separator
-        if (/^##\s+Version\s+/i.test(line)) {
+        // Stop capturing if we hit the next version header
+        if (/^##\s+.*?Version\s+/i.test(line)) {
           break;
         }
         capturedLines.push(line);
