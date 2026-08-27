@@ -6,7 +6,24 @@
 
 ## Completed Tasks Archive
 
-### 1. Electron Builder Windows Packaging Schema Alignment (v21.1.1)
+### 1. Microsoft Outlook 365 Calendar Layout, End Time & Navigation Chevrons (v21.2.0)
+- [x] **Outlook-Style Calendar Interface (`CalendarModule.tsx`)**:
+  - [x] Implemented Microsoft Outlook 365 command ribbon with "Neuer Termin" (New Appointment) button and view switchers.
+  - [x] Added 5-day Work Week view (Monday–Friday) alongside Day, Week, Month, and Agenda layouts.
+  - [x] Built Outlook-style left sidebar with category filter checkboxes and "Anstehende Termine" (Upcoming Appointments) quick list.
+- [x] **Start & End Time Controls with Duration Calculation**:
+  - [x] Added Start Time and End Time fields in event creation and editing dialogs.
+  - [x] Implemented dynamic duration calculation showing duration strings (e.g. `1 Std. 30 Min.` or `45 Min.`).
+  - [x] Added 1-click duration preset pills (`+15m`, `+30m`, `+45m`, `+1h`, `+2h`, `Ganztägig`).
+- [x] **Sidebar Mini-Calendar Navigation**:
+  - [x] Added dedicated `<` and `>` chevron buttons in the top-left mini-calendar to flip through months independently.
+  - [x] Rendered active date selection and event indicators across mini-calendar day cells.
+- [x] **Documentation & Versioning**:
+  - [x] Updated user manual in `DocumentationApp.tsx` with Outlook calendar documentation.
+  - [x] Updated `src/lib/i18n.ts` with complete German, English, French, and Spanish localization keys.
+  - [x] Bumped version to `21.2.0` in `package.json`, `src/lib/version.ts`, and updated `versions/V21.md`.
+
+### 2. Electron Builder Windows Packaging Schema Alignment (v21.1.1)
 - [x] **CI/CD Configuration Schema Fix**:
   - [x] Resolved `configuration.win should be one of these: null` error under `electron-builder` v26.15 schema validator.
   - [x] Removed unsupported `legalTrademarks` field from `win` configuration in `electron-builder.json`.

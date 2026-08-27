@@ -313,67 +313,67 @@ export const DocumentationApp: React.FC = () => {
     },
     {
       id: 'calendar',
-      title: isGerman ? 'Google Kalender, Live-Sync & Termine' : 'Google Calendar, Live Sync & Events',
+      title: isGerman ? 'Outlook Kalender, Live-Sync & Termine' : 'Outlook Calendar, Live Sync & Events',
       category: isGerman ? 'Produktivität & Zeit' : 'Productivity & Time',
       icon: Calendar,
       summary: isGerman 
-        ? 'Zwei-Wege Google Kalender Live-Sync, Rechnungsfälligkeiten, Monats-/Wochen-/Tagesansicht & Terminerstellung.' 
-        : 'Two-way Google Calendar live sync, invoice due dates, month/week/day views & event management.',
+        ? 'Outlook-Stil Kalender mit Monats-, Arbeitswochen- und Tagesansicht, Start-/Endzeit, Dauerberechnung, Minikalender-Navigation & Google 2-Wege-Sync.' 
+        : 'Outlook-style calendar with Month, Work Week, and Day views, full Start/End time support, duration calculations, mini-calendar navigation & Google 2-way sync.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
           <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800/60">
             <h5 className="font-bold text-sm text-blue-900 dark:text-blue-200 mb-1">
-              {isGerman ? 'Zwei-Wege Google Kalender Live-Synchronisation' : 'Two-Way Google Calendar Live Synchronization'}
+              {isGerman ? 'Microsoft Outlook 365 Design & Zwei-Wege Google Kalender Live-Sync' : 'Microsoft Outlook 365 Style & Two-Way Google Calendar Live Synchronization'}
             </h5>
             <p className="text-slate-700 dark:text-slate-300">
               {isGerman 
-                ? 'SOCDOF bietet eine vollständige, bidirektionale Google Kalender Synchronisierung. Offene Kundenrechnungen werden mit Zahlungsziel automatisch in Ihren Google Kalender eingetragen, während externe Termine live in SOCDOF importiert werden.' 
-                : 'SOCDOF provides comprehensive, bidirectional Google Calendar synchronization. Customer invoice due dates are automatically published as calendar events, while your Google Calendar appointments are streamed into SOCDOF in real time.'}
+                ? 'Das Kalendermodul ist nach dem Vorbild von Microsoft Outlook 365 aufgebaut: mit strukturierter Befehlsleiste (Ribbon), Minikalender mit Monatsblättern (< > Pfeile), Outlook-Farbbalken, Stundenraster, Start- und Endzeit-Verwaltung sowie automatischer Dauer-Berechnung.' 
+                : 'The Calendar module is styled after Microsoft Outlook 365: featuring a clean command ribbon, mini-calendar with independent month flipping chevrons (< >), signature Outlook accent bars, hourly grids, full Start and End time management, and automated duration calculation.'}
             </p>
           </div>
 
           <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
-            {isGerman ? 'Hauptfunktionen des Kalendermoduls' : 'Key Calendar Module Features'}
+            {isGerman ? 'Hauptfunktionen des Outlook-Kalenders' : 'Key Outlook Calendar Features'}
           </h5>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '1. Flexible Ansichten' : '1. Flexible View Modes'}
+                {isGerman ? '1. Outlook Ansichten (Tag, Arbeitswoche, Woche, Monat, Agenda)' : '1. Outlook View Modes (Day, Work Week, Week, Month, Agenda)'}
               </span>
               <p className="mt-1 text-slate-600 dark:text-slate-400">
                 {isGerman 
-                  ? 'Wechseln Sie nahtlos zwischen Monatsgitter (42-Tage-Matrix), Wochenansicht, detailliertem Tagesplan und chronologischer Agenda.' 
-                  : 'Switch seamlessly between full Month matrix (uniform 42-day layout), Week view, detailed Day view, and chronological Agenda.'}
+                  ? 'Echtes Arbeitswochen-Layout (Mo-Fr), Vollwoche (Mo-So), 42-Tage-Monatsmatrix und detaillierter Tagesstundenplan mit Live-Zeitmarker.' 
+                  : 'Signature 5-day Work Week (Mon-Fri), full Week (Mon-Sun), 42-day Month matrix, and hourly Day schedule with live red time marker.'}
               </p>
             </div>
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '2. Automatische Fälligkeiten' : '2. Automatic Invoice Deadlines'}
+                {isGerman ? '2. Startzeit, Endzeit & Dauerberechnung' : '2. Start Time, End Time & Duration Calculator'}
               </span>
               <p className="mt-1 text-slate-600 dark:text-slate-400">
                 {isGerman 
-                  ? 'Alle gebuchten Ausgangsrechnungen erscheinen automatisch als Fälligkeitstermine inklusive Rechnungsnummer, Kunde und Bruttobetrag.' 
-                  : 'All posted customer invoices automatically appear on their payment due date with invoice number, customer name, and total amount.'}
+                  ? 'Vollständige Erfassung von Start- und Endzeit mit Schnellauswahl (+15m, +30m, +45m, +1h, +2h, Ganztägig) und automatischer Daueranzeige (z.B. 1 Std. 30 Min.).' 
+                  : 'Full Start Date, Start Time, End Date, and End Time controls with 1-click duration pills (+15m, +30m, +45m, +1h, +2h, All-day) and automatic duration calculation.'}
               </p>
             </div>
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '3. Google Live-Verbindung' : '3. Google Live Connection'}
+                {isGerman ? '3. Minikalender-Navigation mit Pfeilen' : '3. Mini-Calendar Month Navigation Chevrons'}
               </span>
               <p className="mt-1 text-slate-600 dark:text-slate-400">
                 {isGerman 
-                  ? 'Verbinden Sie Ihren Google Account mit 1 Klick. Wählen Sie den Zielkalender und optional automatische Synchronisierungsintervalle (1m, 2m, 5m).' 
-                  : 'Connect your Google account in 1 click. Select your target calendar and configure background auto-sync intervals (1m, 2m, 5m).'}
+                  ? 'Der Minikalender oben links besitzt eigene < und > Pfeile zum schnellen Blättern durch Monate sowie Terminpunkte auf allen Tagen.' 
+                  : 'The sidebar mini-calendar features dedicated < and > chevrons for rapid month flipping and dot indicators for busy days.'}
               </p>
             </div>
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '4. Schnelle Terminerstellung' : '4. Fast Appointment Creation'}
+                {isGerman ? '4. Google Sync, Duplizieren & .ICS Export' : '4. Google Sync, Duplication & .ICS Export'}
               </span>
               <p className="mt-1 text-slate-600 dark:text-slate-400">
                 {isGerman 
-                  ? 'Erstellen Sie Kundentermine, Besprechungen oder Fristen mit Start-/Endzeit, Ganztags-Option, Farbkategorien und Ortsangaben.' 
-                  : 'Create custom meetings, deadlines, and customer consultations with start/end time, all-day toggle, color tags, and locations.'}
+                  ? 'Zwei-Wege Google Kalender Live-Sync, Termine mit 1 Klick duplizieren und RFC 5545 .ICS iCalendar Export für Outlook und Apple Kalender.' 
+                  : 'Bidirectional Google Calendar sync, 1-click template duplication, and RFC 5545 .ICS iCalendar export for Outlook and Apple Calendar.'}
               </p>
             </div>
           </div>

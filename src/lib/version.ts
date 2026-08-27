@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.1.1';
+export const APP_VERSION = '21.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.2.0',
+    date: '2026-08-27',
+    title: 'Microsoft Outlook 365 Calendar Layout, End Time Controls, Duration Calculation & Mini-Calendar Navigation',
+    highlights: [
+      'Microsoft Outlook-Style Desktop Calendar: Overhauled CalendarModule.tsx with an authentic Microsoft Outlook 365 command ribbon, sidebar navigation with category checklists, and signature colored accent bars',
+      'Full End Time & Duration Management: Added full Start Date, Start Time, End Date, and End Time controls across all event creation and editing dialogs, complete with automatic duration calculation (e.g., 1h 30m) and quick duration preset pills (+15m, +30m, +45m, +1h, +2h, All-day)',
+      'Mini-Calendar Month Navigation: Built independent previous and next month chevrons (< >) on the sidebar mini-calendar for seamless month hopping without losing focus',
+      'Outlook View Selector: Integrated Day, 5-Day Work Week (Mon–Fri), Full Week, Month, and Agenda view modes with active state indicators',
+      'Upcoming Events Sidebar Widget: Added a live "Anstehende Termine" sidebar panel with quick navigation to today, next appointments, and invoices'
+    ]
+  },
   {
     version: '21.1.1',
     date: '2026-08-27',
