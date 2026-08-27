@@ -55,7 +55,7 @@ jobs:
         run: npm run build
 
       - name: Package Windows .EXE with Electron Builder
-        run: npx --yes electron-builder --win --x64 --config electron-builder.json
+        run: npx --yes electron-builder --win --x64 --config electron-builder.json --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

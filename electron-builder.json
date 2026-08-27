@@ -13,10 +13,6 @@
   ],
   "win": {
     "icon": "public/socdof_icon.ico",
-    "publisherName": [
-      "Yuri / Strudel"
-    ],
-    "verifyUpdateCodeSignature": false,
     "target": [
       {
         "target": "nsis",

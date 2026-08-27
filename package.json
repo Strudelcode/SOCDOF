@@ -2,6 +2,7 @@
   "name": "socdof",
   "private": true,
   "version": "21.2.0",
+  "description": "Strudel's Organization, Commerce & Documentation Offline Flow - Offline-first Windows ERP Desktop Suite & Web Workspace",
   "author": "Yuri / Strudel",
   "publisher": "Yuri / Strudel",
   "type": "module",
