@@ -2309,18 +2309,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <SocdofLogo size="sm" />
           </button>
 
-          {/* Windows Search Bar / Spotlight Trigger */}
+          {/* Windows Search Bar / Spotlight Trigger - Authentic Windows 11 Fluent Search Box */}
           <button
             onClick={() => {
               sounds.playClick();
               setIsCommandPaletteOpen(true);
             }}
             title={t('nav.search', currentLang, 'Suche (Ctrl+K)...')}
-            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition text-xs border border-transparent hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer"
+            className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-2xs group cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="font-medium">{t('nav.search', currentLang, 'Suche...')}</span>
-            <kbd className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-300/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ml-1">
+            <Search className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+            <span className="font-medium tracking-tight">{t('nav.search', currentLang, 'Suchen...')}</span>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-300/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ml-1 border border-slate-400/30 dark:border-slate-700 shadow-2xs group-hover:border-indigo-400/40">
               Ctrl+K
             </kbd>
           </button>

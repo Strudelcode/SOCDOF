@@ -624,13 +624,25 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     return days;
   }, [focusedDate, selectedDay, filteredEvents, viewMode, currentLang]);
 
-  // Open New Event Modal with pre-filled date & hour & automatic +1h end time
+  // Open New Event Modal with pre-filled date & hour & automatic +1h end time based on current time
   const openNewEventModalWithDate = (dateStr?: string, defaultHour?: string) => {
     sounds.playPop();
     const d = dateStr || formatLocalDate(focusedDate);
-    const startH = defaultHour || '10:00';
-    const hourNum = parseInt(startH.split(':')[0], 10);
-    const endH = `${String((hourNum + 1) % 24).padStart(2, '0')}:${startH.split(':')[1] || '00'}`;
+    
+    let startH = defaultHour;
+    let endH = '';
+
+    if (startH) {
+      const hourNum = parseInt(startH.split(':')[0], 10);
+      const minStr = startH.split(':')[1] || '00';
+      endH = `${String((hourNum + 1) % 24).padStart(2, '0')}:${minStr}`;
+    } else {
+      const now = new Date();
+      const currentH = now.getHours();
+      const currentM = now.getMinutes() >= 30 ? '30' : '00';
+      startH = `${String(currentH).padStart(2, '0')}:${currentM}`;
+      endH = `${String((currentH + 1) % 24).padStart(2, '0')}:${currentM}`;
+    }
 
     setNewEventTitle('');
     setNewEventDesc('');
@@ -639,7 +651,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     setNewEventStartTime(startH);
     setNewEventEndDate(d);
     setNewEventEndTime(endH);
-    setNewEventIsAllDay(!defaultHour);
+    setNewEventIsAllDay(false);
     setNewEventCategory('general');
     setNewEventTarget(accessToken ? 'google' : 'local');
     setIsNewEventModalOpen(true);
@@ -865,57 +877,57 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans select-none">
       
-      {/* 1. OUTLOOK RIBBON / COMMAND BAR (Microsoft Outlook Style) */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
+      {/* 1. OUTLOOK 365 RIBBON / COMMAND BAR */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
         
         {/* Left: App Identity & Primary Action "+ Neuer Termin" */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-200 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+          <div className="flex items-center gap-2.5 pr-3 border-r border-slate-200 dark:border-slate-800">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <CalendarIcon className="w-4 h-4" />
             </div>
             <div className="hidden sm:block">
               <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span>Kalender</span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800">
+                <span>{t('module.calendar', currentLang, 'Kalender')}</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800">
                   OUTLOOK 365
                 </span>
               </h2>
             </div>
           </div>
 
-          {/* Primary Outlook Action: "+ Neuer Termin" */}
+          {/* Primary Action: "+ Neuer Termin" */}
           <button
             onClick={() => openNewEventModalWithDate()}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
-            title="Neuen Termin, Besprechung oder Frist anlegen"
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+            title={t('calendar.new_event', currentLang, 'Neuen Termin, Besprechung oder Frist anlegen')}
           >
             <Plus className="w-4 h-4" />
-            <span>Neuer Termin</span>
+            <span>{t('calendar.new_event', currentLang, 'Neuer Termin')}</span>
           </button>
 
-          {/* Today Button & Outlook Month Chevrons */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          {/* Today Button & Outlook Chevrons */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
               onClick={handleToday}
-              className="px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition shadow-2xs cursor-pointer flex items-center gap-1"
-              title="Zum heutigen Datum springen"
+              className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+              title={t('calendar.reset_today_title', currentLang, 'Zum heutigen Datum springen')}
             >
               <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600" />
-              <span>Heute</span>
+              <span>{t('calendar.today_btn', currentLang, 'Heute')}</span>
             </button>
 
             <div className="flex items-center">
               <button
                 onClick={handlePrev}
-                title="Vorheriger Zeitraum (Monat / Woche / Tag)"
+                title={t('calendar.prev_month', currentLang, 'Vorheriger Zeitraum')}
                 className="p-1 rounded-md hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleNext}
-                title="Nächster Zeitraum (Monat / Woche / Tag)"
+                title={t('calendar.next_month', currentLang, 'Nächster Zeitraum')}
                 className="p-1 rounded-md hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -931,40 +943,41 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </span>
         </div>
 
-        {/* Center: Search & Instant Filter */}
-        <div className="flex items-center gap-2 flex-1 max-w-xs">
+        {/* Center: Search & Instant Live Filter */}
+        <div className="flex items-center gap-2 flex-1 max-w-sm">
           <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-blue-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Termine, Fristen & Notizen suchen..."
+              placeholder={t('calendar.search_placeholder', currentLang, 'Termine, Fristen & Notizen suchen...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+              className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition focus:outline-none"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Suche zurücksetzen"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Right: Outlook View Modes Switcher (Tag, Arbeitswoche, Woche, Monat, Agenda) & Sync */}
+        {/* Right: View Modes Switcher & Export */}
         <div className="flex items-center gap-2">
           
           {/* View Mode Buttons (Outlook Styled) */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
             {(
               [
-                { mode: 'day', label: 'Tag' },
-                { mode: 'workweek', label: 'Arbeitswoche' },
-                { mode: 'week', label: 'Woche' },
-                { mode: 'month', label: 'Monat' },
-                { mode: 'agenda', label: 'Agenda' }
+                { mode: 'day', label: t('calendar.view_day', currentLang, 'Tag') },
+                { mode: 'workweek', label: t('calendar.view_workweek', currentLang, 'Arbeitswoche') },
+                { mode: 'week', label: t('calendar.view_week', currentLang, 'Woche') },
+                { mode: 'month', label: t('calendar.view_month', currentLang, 'Monat') },
+                { mode: 'agenda', label: t('calendar.view_agenda', currentLang, 'Agenda') }
               ] as Array<{ mode: CalendarViewMode; label: string }>
             ).map(({ mode, label }) => (
               <button
@@ -973,7 +986,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   sounds.playClick();
                   setViewMode(mode);
                 }}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                   viewMode === mode
                     ? 'bg-blue-600 text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
@@ -984,11 +997,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             ))}
           </div>
 
+          {/* Print Calendar */}
+          <button
+            onClick={() => { sounds.playClick(); window.print(); }}
+            title="Kalenderansicht drucken / als PDF speichern"
+            className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+          </button>
+
           {/* Export ICS */}
           <button
             onClick={handleExportICS}
-            title="Kalender als .ICS iCalendar Datei für Outlook / Apple Kalender exportieren"
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+            title={t('calendar.export_ics', currentLang, 'Kalender als .ICS iCalendar Datei für Outlook / Apple Kalender exportieren')}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">.ICS</span>
@@ -996,12 +1018,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
           {/* Google Sync Pill */}
           {googleUser ? (
-            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-1 rounded-lg">
+            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-1 rounded-xl">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <button
                 onClick={handleManualSync}
                 disabled={syncState.isSyncing}
-                title="Jetzt live mit Google synchronisieren"
+                title={t('calendar.google_sync_now', currentLang, 'Jetzt live mit Google synchronisieren')}
                 className="text-xs font-bold text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className={`w-3 h-3 ${syncState.isSyncing ? 'animate-spin' : ''}`} />
@@ -1009,7 +1031,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </button>
               <button
                 onClick={handleDisconnectGoogle}
-                title="Google Konto trennen"
+                title={t('calendar.disconnect_google', currentLang, 'Google Konto trennen')}
                 className="text-slate-400 hover:text-rose-500 cursor-pointer ml-1"
               >
                 <LogOut className="w-3 h-3" />
@@ -1018,8 +1040,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           ) : (
             <button
               onClick={handleConnectGoogle}
-              title="Google Kalender verbinden für 2-Wege Live-Synchronisation"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+              title={t('calendar.connect_google', currentLang, 'Google Kalender verbinden für 2-Wege Live-Synchronisation')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -1669,6 +1691,30 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 />
               </div>
 
+              {/* Section Header: Times & Ganztägig Toggle */}
+              <div className="flex items-center justify-between pt-1 pb-0.5">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Terminzeitraum & Uhrzeiten
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playClick();
+                    setNewEventIsAllDay(prev => !prev);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                    newEventIsAllDay
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60'
+                  }`}
+                  title="Zwischen genauer Uhrzeit und ganztägigem Termin umschalten"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Ganztägig</span>
+                  {newEventIsAllDay && <Check className="w-3 h-3 ml-0.5" />}
+                </button>
+              </div>
+
               {/* Start Date & Start Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1703,17 +1749,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         // Auto-advance End time by 1 hour
                         setNewEventEndTime(addMinutesToTime(newStart, 60));
                       }}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none font-mono font-bold"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none font-mono font-bold text-blue-600 dark:text-blue-400"
                     />
                   </div>
                 ) : (
-                  <div className="flex items-end pb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">Ganztägig aktiv</span>
+                  <div className="flex flex-col justify-end pb-0.5">
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 text-center">
+                      Ganzer Tag aktiv
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* End Date & End Time (USER REQUEST: ADD END TIME) */}
+              {/* End Date & End Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1731,13 +1779,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 {!newEventIsAllDay ? (
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Endzeit
+                      Endzeit (+1 Std. Standard)
                     </label>
                     <input
                       type="time"
                       value={newEventEndTime}
                       onChange={(e) => setNewEventEndTime(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none font-mono font-bold"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none font-mono font-bold text-blue-600 dark:text-blue-400"
                     />
                   </div>
                 ) : null}
@@ -2095,6 +2143,52 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* 4. OUTLOOK 365 BOTTOM STATUS BAR (With Quick Search Info, Sync State & Count) */}
+      <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 py-1.5 flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 select-none z-10">
+        
+        {/* Left: Event Count and Filter Status */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+            <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>
+              {filteredEvents.length} {filteredEvents.length === 1 ? 'Termin / Beleg' : 'Termine / Belege'}
+            </span>
+          </div>
+
+          {searchQuery && (
+            <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 text-[11px] font-semibold">
+              <Search className="w-3 h-3 text-blue-500" />
+              <span>Gefiltert nach: "{searchQuery}"</span>
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="hover:text-blue-900 dark:hover:text-white ml-0.5 cursor-pointer font-bold"
+                title="Suchfilter aufheben"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {showInvoicesOnly && (
+            <span className="text-[11px] font-mono px-1.5 py-0.2 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+              Nur Rechnungen aktiv
+            </span>
+          )}
+        </div>
+
+        {/* Right: Quick Shortcuts & Sync Status */}
+        <div className="flex items-center gap-4 text-[11px]">
+          <span className="hidden sm:inline text-slate-400 font-mono">
+            Doppelklick = Neuer Termin
+          </span>
+          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${googleUser ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            <span>{googleUser ? `Verbunden mit ${googleUser.email || 'Google'}` : 'Offline-Modus'}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
