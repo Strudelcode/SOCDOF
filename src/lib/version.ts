@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.2.0';
+export const APP_VERSION = '21.3.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.3.0',
+    date: '2026-08-27',
+    title: 'Spotlight Command Palette, Showcase & Documentation Hub Portal & Global Keyboard Shortcuts',
+    highlights: [
+      'Spotlight Command Palette (Ctrl+K / Cmd+K): Instant overlay search across all business modules, contacts, invoices, products, and fast system actions (Dark/Light mode, Sound toggle, Language selection)',
+      'Multi-Page Showcase & Documentation Hub Portal: Complete overhaul of DocumentationApp into an interactive multi-tab showcase portal with Feature Matrix, Release Notes & Download Hub, Step-by-Step User Manual, Keyboard Shortcuts Reference, and Zero-Cloud Security & DSGVO Compliance documentation',
+      'Windows Taskbar Search Pill: Integrated quick-launch search button with Ctrl+K shortcut indicator directly on the Windows 11 taskbar',
+      'Global Desktop Keyboard Shortcuts: Added native hotkeys for F1 (Help & Documentation Portal), Alt+1..9 (Open/focus pinned taskbar applications), Ctrl+Space (Toggle Start Menu), and Esc (Close active modal/palette/flyout)'
+    ]
+  },
   {
     version: '21.2.0',
     date: '2026-08-27',

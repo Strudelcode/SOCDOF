@@ -6,7 +6,29 @@
 
 ## Completed Tasks Archive
 
-### 1. Microsoft Outlook 365 Calendar Layout, End Time & Navigation Chevrons (v21.2.0)
+### 1. Spotlight Command Palette, Showcase & Documentation Hub Portal & Global Shortcuts (v21.3.0)
+- [x] **Spotlight Command Palette (`CommandPaletteModal.tsx` & `DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented global `Ctrl + K` / `Cmd + K` search dialog with module launchers, fast database search (invoices, contacts, products), and quick system action toggles (Theme, Sound, Language).
+  - [x] Integrated Windows 11 Taskbar Search Pill button next to the Start Menu.
+- [x] **Showcase & Documentation Hub Portal (`DocumentationApp.tsx`)**:
+  - [x] Overhauled Documentation app into an interactive multi-page portal featuring:
+    - [x] Showcase & Feature Matrix with compliance badges.
+    - [x] Releases & Download Hub with Windows `.exe` setup installer links.
+    - [x] In-depth User Manual for all core business modules.
+    - [x] Keyboard Shortcuts Reference Cheat Sheet.
+    - [x] Zero-Cloud & DSGVO Compliance Certification.
+    - [x] Official Discord Community (`discord.gg/QW85EaXTgB`) and GitHub links.
+- [x] **Global Desktop Keyboard Shortcuts**:
+  - [x] `Ctrl + K` / `Cmd + K` Spotlight Search.
+  - [x] `F1` Help & Documentation Hub.
+  - [x] `Alt + 1..9` Quick-launch / focus pinned taskbar apps.
+  - [x] `Ctrl + Space` Toggle Start Menu.
+  - [x] `Esc` Dismiss active modal dialogs, flyouts, and search palette.
+- [x] **Full 4-Language Localization & Versioning**:
+  - [x] Updated `src/lib/i18n.ts` with all translation keys across German, English, French, and Spanish.
+  - [x] Bumped version to `21.3.0` in `package.json`, `src/lib/version.ts`, and updated `versions/V21.md`.
+
+### 2. Microsoft Outlook 365 Calendar Layout, End Time & Navigation Chevrons (v21.2.0)
 - [x] **Outlook-Style Calendar Interface (`CalendarModule.tsx`)**:
   - [x] Implemented Microsoft Outlook 365 command ribbon with "Neuer Termin" (New Appointment) button and view switchers.
   - [x] Added 5-day Work Week view (Monday–Friday) alongside Day, Week, Month, and Agenda layouts.

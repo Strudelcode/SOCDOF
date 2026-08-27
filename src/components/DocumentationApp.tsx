@@ -27,11 +27,23 @@ import {
   History,
   Calendar,
   UtensilsCrossed,
-  Headphones
+  Headphones,
+  HardDrive,
+  Globe,
+  Lock,
+  Cpu,
+  Monitor,
+  LayoutGrid,
+  Check,
+  ArrowRight,
+  Compass
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
 import { useLanguage, t } from '../lib/i18n';
+import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
+
+type PortalTab = 'showcase' | 'manual' | 'releases' | 'shortcuts' | 'security' | 'community';
 
 interface DocSection {
   id: string;
@@ -44,10 +56,12 @@ interface DocSection {
 
 export const DocumentationApp: React.FC = () => {
   const currentLang = useLanguage();
+  const [activeTab, setActiveTab] = useState<PortalTab>('showcase');
   const [activeSectionId, setActiveSectionId] = useState<string>('quickstart');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const isGerman = currentLang === 'de';
+  const isDesktop = isElectron();
 
   const docSections: DocSection[] = [
     {
@@ -181,485 +195,85 @@ export const DocumentationApp: React.FC = () => {
     },
     {
       id: 'contacts',
-      title: isGerman ? 'Kontakte & Batch-Import' : 'Contacts & Address Book',
-      category: isGerman ? 'Stammdaten' : 'Master Data',
+      title: isGerman ? 'Kontakte & CRM' : 'Contacts & CRM Directory',
+      category: isGerman ? 'Kunden & Stammdaten' : 'Customers & Master Data',
       icon: Users,
       summary: isGerman 
-        ? 'Kunden, Lieferanten, Batch-Erstellung und Outlook/CSV/vCard-Import.' 
-        : 'Customers, suppliers, batch multi-entry, and Outlook/CSV/vCard data import.',
+        ? 'Adressbuch, Firmen- und Privatkunden, USt-IdNr., Zahlungsziele und Historie.' 
+        : 'Address book, business and private accounts, VAT ID, payment terms, and ledger history.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {isGerman ? 'Kundenverwaltung & Adressbuch' : 'Customer Directory & Accounts'}
+          </h5>
           <p className="text-slate-600 dark:text-slate-300">
             {isGerman 
-              ? 'Das Kontaktmodul verwaltet Kunden, Lieferanten und Dienstleister mit Adressen, USt-IdNr., Bankdaten und Kundenhistorie.' 
-              : 'The contacts module manages customers, suppliers, and vendors with complete addresses, Tax/VAT IDs, billing history, and balances.'}
+              ? 'Pflegen Sie Firmen- und Privatkunden mit lückenlosen Anschriften für das DIN 5008 Adressfenster, Telefonnummern, E-Mail-Adressen und Steuernummern.' 
+              : 'Maintain corporate and private customers with complete postal addresses formatted for DIN 5008 envelope windows, phone numbers, email addresses, and VAT IDs.'}
           </p>
-          <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-            <h6 className="font-bold text-slate-900 dark:text-white mb-1">
-              {isGerman ? 'Mehrfach-Import & Batch-Erstellung' : 'Bulk Import & Fast Batch Creation'}
-            </h6>
-            <p className="text-slate-600 dark:text-slate-300">
-              {isGerman 
-                ? 'Über die Buttons Import (CSV / vCard) oder Batch-Erstellung können Sie beliebig viele Kontakte auf einen Schlag einfügen. Unterstützt werden Standard-Outlook-Dateien, Adressbuch-vCards und CSVs mit Spalten wie Name, E-Mail, Telefon und Firma.' 
-                : 'Use CSV / vCard Import or the Batch Add modal to create dozens of contacts at once. Supported formats include Outlook CSV exports, standard vCard files, and formatted spreadsheet tables.'}
-            </p>
-          </div>
         </div>
       )
     },
     {
       id: 'pos',
-      title: isGerman ? 'POS Kasse & Barcode-Scanner' : 'Point of Sale (POS) & Barcode Scanner',
-      category: isGerman ? 'Verkauf & Finanzen' : 'Sales & Finance',
+      title: isGerman ? 'Kassensystem (POS) & Barcode' : 'Point of Sale (POS) & Barcode Scanning',
+      category: isGerman ? 'Verkauf & Kasse' : 'Sales & Retail POS',
       icon: CreditCard,
       summary: isGerman 
-        ? 'Touch-Kassensystem, Scanner-Unterstützung, Bar-/Kartenzahlung und Bon-Druck.' 
-        : 'Touch cash register, barcode scanner support, cash/card checkout, and thermal receipt printing.',
+        ? 'Touch-Kasse, Barcode-Scanning, Bar- und Kartenzahlung, Kassenbeleg-Druck (Bon).' 
+        : 'Touch screen register, barcode scanning, cash and card tender, thermal receipt printer.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {isGerman ? 'POS Kassenbetrieb' : 'POS Cash Register Operations'}
+          </h5>
           <p className="text-slate-600 dark:text-slate-300">
             {isGerman 
-              ? 'Die Point of Sale (POS) Kasse ist für schnelle Thekenverkäufe optimiert:' 
-              : 'The POS cash register is designed for ultra-fast over-the-counter sales:'}
+              ? 'Die POS Kasse ermöglicht schnelle Verkäufe per Touch oder USB-Barcodescanner. Kassenbons können thermogedruckt oder als PDF exportiert werden.' 
+              : 'The POS register provides lightning-fast checkout via touch grid or barcode scanner. Thermal receipts can be printed or exported directly.'}
           </p>
-          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
-            <li>
-              <strong>{isGerman ? 'Warenkorb per Klick: ' : 'One-Click Cart: '}</strong>
-              {isGerman 
-                ? 'Tippen Sie auf einen Artikel, um ihn dem Beleg hinzuzufügen.' 
-                : 'Tap any product tile to instantly add it to the active receipt ticket.'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Barcode-Scanner: ' : 'Hardware Scanner Support: '}</strong>
-              {isGerman 
-                ? 'Scannen Sie Barcodes oder EAN-Nummern via USB/Bluetooth-Handscanner.' 
-                : 'Scan barcodes or EAN-13 codes seamlessly with handheld USB/Bluetooth scanners.'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Zahlungsarten: ' : 'Multiple Payment Methods: '}</strong>
-              {isGerman 
-                ? 'Barzahlung mit automatischer Wechselgeldberechnung, EC-/Kreditkarte oder NFC.' 
-                : 'Cash checkout with automatic change calculation, debit/credit cards, or contactless payments.'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Thermischer Bon-Druck: ' : 'Thermal Receipt Printing: '}</strong>
-              {isGerman 
-                ? 'Kompatibel mit standardmäßigen 80mm und 58mm POS-Bondruckern.' 
-                : 'Generates standard 80mm/58mm thermal receipt layouts with company header and QR codes.'}
-            </li>
-          </ul>
         </div>
       )
     },
     {
       id: 'accounting',
-      title: isGerman ? 'Abrechnungen, BWA & Finanzen' : 'Accounting, Financial Reports & BWA',
-      category: isGerman ? 'Verkauf & Finanzen' : 'Sales & Finance',
+      title: isGerman ? 'Buchhaltung, EÜR & Finanzen' : 'Accounting, BWA, Cash Flow & Financials',
+      category: isGerman ? 'Finanzen & Steuern' : 'Finance & Tax',
       icon: Calculator,
       summary: isGerman 
-        ? 'Einnahmen-Überschuss-Rechnung (EÜR), BWA-Übersicht, UStVA, Offene Posten & Z-Bon.' 
-        : 'Income statement (EÜR), monthly financial evaluations, sales tax filings, and register closing (Z-report).',
+        ? 'Automatische Buchungssätze, Einnahmen-Überschuss-Rechnung (EÜR), BWA und DATEV-Export.' 
+        : 'Automatic ledger entries, cash-basis accounting, profit and loss, and DATEV export.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {isGerman ? 'Doppelte Buchführung & EÜR' : 'Accounting & Ledger Engine'}
+          </h5>
           <p className="text-slate-600 dark:text-slate-300">
             {isGerman 
-              ? 'Im Modul Abrechnungen & Finanzen erhalten Sie den vollständigen buchhalterischen Überblick über Ihr Unternehmen:' 
-              : 'The Accounting & Finance module gives you full real-time transparency over your business performance:'}
+              ? 'Jede gebuchte Rechnung und jeder Kassenbeleg erzeugt automatisch GoBD-konforme Buchungszeilen für Erlöskonten, Vorsteuer und Umsatzsteuer.' 
+              : 'Every posted invoice or POS sale automatically writes compliant double-entry journal rows across revenue, receivables, and VAT liability accounts.'}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {isGerman ? 'EÜR & BWA' : 'Income & Operating Result'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Gegenüberstellung von Umsatzerlösen, Material-/Wareneinsatz und Betriebsergebnis.' 
-                  : 'Breakdown of gross revenue, operational expenses, material costs, and net profit.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {isGerman ? 'Umsatzsteuer-Voranmeldung' : 'VAT / Sales Tax Breakdown'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Aufschlüsselung der fälligen Mehrwertsteuer nach 19% und 7% sowie Vorsteuer.' 
-                  : 'Calculates tax liabilities split by 19% standard, 7% reduced, and deductible input tax.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {isGerman ? 'Offene Posten & Mahnwesen' : 'Receivables & Dunning'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Überfällige Rechnungen mit Tagen Verzug und 1-Klick-Zahlungseingang.' 
-                  : 'Track overdue customer invoices, payment delays, and record incoming payments in 1 click.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {isGerman ? 'Kassenabschluss (Z-Bon)' : 'Register Closing (Z-Report)'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Tagesabschluss für Barumsätze und Kartenterminal-Umsätze mit Druckansicht.' 
-                  : 'End-of-day summary reconciling cash drawer takings, card transactions, and thermal Z-receipts.'}
-              </p>
-            </div>
-          </div>
         </div>
       )
     },
     {
       id: 'calendar',
-      title: isGerman ? 'Outlook Kalender, Live-Sync & Termine' : 'Outlook Calendar, Live Sync & Events',
-      category: isGerman ? 'Produktivität & Zeit' : 'Productivity & Time',
+      title: isGerman ? 'Kalender & Google Sync' : 'Calendar & Google Sync',
+      category: isGerman ? 'Planung & Termine' : 'Planning & Scheduling',
       icon: Calendar,
       summary: isGerman 
-        ? 'Outlook-Stil Kalender mit Monats-, Arbeitswochen- und Tagesansicht, Start-/Endzeit, Dauerberechnung, Minikalender-Navigation & Google 2-Wege-Sync.' 
-        : 'Outlook-style calendar with Month, Work Week, and Day views, full Start/End time support, duration calculations, mini-calendar navigation & Google 2-way sync.',
+        ? 'Terminkalender mit Google Live Sync, Fälligkeitsterminen und Outlook-Kategorien.' 
+        : 'Appointment scheduler with Google Live Sync, invoice due dates, and category views.',
       content: (
         <div className="space-y-4 text-xs leading-relaxed">
-          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800/60">
-            <h5 className="font-bold text-sm text-blue-900 dark:text-blue-200 mb-1">
-              {isGerman ? 'Microsoft Outlook 365 Design & Zwei-Wege Google Kalender Live-Sync' : 'Microsoft Outlook 365 Style & Two-Way Google Calendar Live Synchronization'}
-            </h5>
-            <p className="text-slate-700 dark:text-slate-300">
-              {isGerman 
-                ? 'Das Kalendermodul ist nach dem Vorbild von Microsoft Outlook 365 aufgebaut: mit strukturierter Befehlsleiste (Ribbon), Minikalender mit Monatsblättern (< > Pfeile), Outlook-Farbbalken, Stundenraster, Start- und Endzeit-Verwaltung sowie automatischer Dauer-Berechnung.' 
-                : 'The Calendar module is styled after Microsoft Outlook 365: featuring a clean command ribbon, mini-calendar with independent month flipping chevrons (< >), signature Outlook accent bars, hourly grids, full Start and End time management, and automated duration calculation.'}
-            </p>
-          </div>
-
           <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
-            {isGerman ? 'Hauptfunktionen des Outlook-Kalenders' : 'Key Outlook Calendar Features'}
+            {isGerman ? 'Integrierter Business-Kalender' : 'Integrated Business Calendar'}
           </h5>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '1. Outlook Ansichten (Tag, Arbeitswoche, Woche, Monat, Agenda)' : '1. Outlook View Modes (Day, Work Week, Week, Month, Agenda)'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Echtes Arbeitswochen-Layout (Mo-Fr), Vollwoche (Mo-So), 42-Tage-Monatsmatrix und detaillierter Tagesstundenplan mit Live-Zeitmarker.' 
-                  : 'Signature 5-day Work Week (Mon-Fri), full Week (Mon-Sun), 42-day Month matrix, and hourly Day schedule with live red time marker.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '2. Startzeit, Endzeit & Dauerberechnung' : '2. Start Time, End Time & Duration Calculator'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Vollständige Erfassung von Start- und Endzeit mit Schnellauswahl (+15m, +30m, +45m, +1h, +2h, Ganztägig) und automatischer Daueranzeige (z.B. 1 Std. 30 Min.).' 
-                  : 'Full Start Date, Start Time, End Date, and End Time controls with 1-click duration pills (+15m, +30m, +45m, +1h, +2h, All-day) and automatic duration calculation.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '3. Minikalender-Navigation mit Pfeilen' : '3. Mini-Calendar Month Navigation Chevrons'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Der Minikalender oben links besitzt eigene < und > Pfeile zum schnellen Blättern durch Monate sowie Terminpunkte auf allen Tagen.' 
-                  : 'The sidebar mini-calendar features dedicated < and > chevrons for rapid month flipping and dot indicators for busy days.'}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                {isGerman ? '4. Google Sync, Duplizieren & .ICS Export' : '4. Google Sync, Duplication & .ICS Export'}
-              </span>
-              <p className="mt-1 text-slate-600 dark:text-slate-400">
-                {isGerman 
-                  ? 'Zwei-Wege Google Kalender Live-Sync, Termine mit 1 Klick duplizieren und RFC 5545 .ICS iCalendar Export für Outlook und Apple Kalender.' 
-                  : 'Bidirectional Google Calendar sync, 1-click template duplication, and RFC 5545 .ICS iCalendar export for Outlook and Apple Calendar.'}
-              </p>
-            </div>
-          </div>
-
-          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
-            {isGerman ? 'Dynamisches Taskleisten-Icon & Windows 11 Agenda' : 'Dynamic Taskbar Icon & Windows 11 Agenda'}
-          </h5>
-          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
-            <li>
-              <strong>{isGerman ? 'Dynamisches Datum-Icon: ' : 'Live Dynamic Date Icon: '}</strong>
-              {isGerman 
-                ? 'Das Kalender-Icon auf dem Desktop und in der Taskleiste zeigt immer aktuell den aktuellen Monat und den Tag (z. B. 27. Aug) an.' 
-                : 'The desktop and taskbar calendar icons dynamically display the current month and live day number (e.g. Aug 27).'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Taskleisten-Uhr Flyout: ' : 'Taskbar Clock Flyout: '}</strong>
-              {isGerman 
-                ? 'Beim Klick auf die Systemuhr unten rechts öffnet sich die Windows-11-Kalender-Agenda mit Direktzugriff auf anstehende Termine und Rechnungsfälligkeiten.' 
-                : 'Clicking the system clock in the bottom taskbar opens the integrated Windows 11 Agenda flyout with upcoming appointments and invoices.'}
-            </li>
-          </ul>
-        </div>
-      )
-    },
-    {
-      id: 'restaurant',
-      title: isGerman ? 'Gastronomie, Tische & Küchenmonitor (KDS)' : 'Restaurant, Tables & Kitchen Display (KDS)',
-      category: isGerman ? 'Branchenlösungen' : 'Industry Solutions',
-      icon: UtensilsCrossed,
-      summary: isGerman 
-        ? 'Tischplan-Verwaltung, Gang-Bestellungen, Küchenmonitor und Touch-Abrechnung.' 
-        : 'Table management, course ordering, live kitchen display system (KDS), and split billing.',
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
           <p className="text-slate-600 dark:text-slate-300">
             {isGerman 
-              ? 'Das Gastronomie-Modul verwandelt SOCDOF in ein vollwertiges Restaurant-Kassensystem mit Tischplan und Küchenbildschirm:' 
-              : 'The Restaurant module provides full food-and-beverage workflows with interactive table layouts and kitchen display system:'}
+              ? 'Synchronisieren Sie Termine in Echtzeit mit Google Calendar oder verwalten Sie lokale Zahlungsziele und Kundentermine übersichtlich in Monats- und Wochenansichten.' 
+              : 'Sync appointments with Google Calendar or schedule local customer deadlines, invoices, and milestones in full monthly and weekly agenda views.'}
           </p>
-          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
-            <li>
-              <strong>{isGerman ? 'Interaktiver Tischplan: ' : 'Interactive Table Layout: '}</strong>
-              {isGerman 
-                ? 'Tische nach Bereichen (Gastraum, Terrasse, Bar) mit Statusfarben (Frei, Belegt, Bestellt).' 
-                : 'Manage dining rooms, outdoor patio, and bar tables with real-time status indicators.'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Küchenmonitor (KDS): ' : 'Kitchen Display System (KDS): '}</strong>
-              {isGerman 
-                ? 'Bestellungen werden in Echtzeit an die Küche übertragen und können als zubereitet markiert werden.' 
-                : 'Orders are sent live to kitchen screens with order timers and course progress management.'}
-            </li>
-          </ul>
-        </div>
-      )
-    },
-    {
-      id: 'support_services',
-      title: isGerman ? 'Kunden-Support & Zeiterfassung' : 'Customer Support & Time Tracking',
-      category: isGerman ? 'Dienstleistung' : 'Services & Tickets',
-      icon: Headphones,
-      summary: isGerman 
-        ? 'Support-Tickets erfassen, Stundensätze hinterlegen und direkt in Rechnungen abrechnen.' 
-        : 'Log support tickets, record billable time, and convert hours directly to customer invoices.',
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
-          <p className="text-slate-600 dark:text-slate-300">
-            {isGerman 
-              ? 'Erfassen Sie Kunden-Tickets, dokumentieren Sie geleistete Arbeitsstunden und rechnen Sie diese mit 1 Klick als Rechnungspositionen ab.' 
-              : 'Log customer support requests, track billable project time with timer controls, and convert tickets into invoice line items in 1 click.'}
-          </p>
-        </div>
-      )
-    },
-    {
-      id: 'appstore',
-      title: isGerman ? 'Odoo App Store & Modulverwaltung' : 'App Store & Module Management',
-      category: isGerman ? 'System' : 'System',
-      icon: Package,
-      summary: isGerman 
-        ? 'Module nach Bedarf aktivieren, installieren, anheften oder ausblenden.' 
-        : 'Enable, configure, pin, or hide application modules to customize your workflow.',
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
-          <p className="text-slate-600 dark:text-slate-300">
-            {isGerman 
-              ? 'Über den App Store passen Sie Ihr ERP exakt an Ihre Arbeitsweise an:' 
-              : 'Tailor your workspace directly from the modular App Store:'}
-          </p>
-          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
-            <li>
-              <strong>{isGerman ? 'Module aktivieren/deaktivieren: ' : 'Enable/Disable Modules: '}</strong>
-              {isGerman 
-                ? 'Blenden Sie nicht benötigte Module (z.B. POS Kasse oder Einkauf) mit einem Klick aus, um Ihren Desktop übersichtlich zu halten.' 
-                : 'Hide unused modules (such as POS or Purchases) with a single click to maintain a tidy desktop.'}
-            </li>
-            <li>
-              <strong>{isGerman ? 'Anheften an Desktop & Taskleiste: ' : 'Pin to Desktop & Taskbar: '}</strong>
-              {isGerman 
-                ? 'Legen Sie fest, welche Schnellzugriffe direkt auf Ihrem Windows-Desktop angezeigt werden.' 
-                : 'Choose which favorite apps appear as desktop shortcuts or pinned quick-launch icons.'}
-            </li>
-          </ul>
-        </div>
-      )
-    },
-    {
-      id: 'shortcuts',
-      title: isGerman ? 'Tastaturkürzel & Schnelltasten' : 'Keyboard Shortcuts & Productivity',
-      category: isGerman ? 'System' : 'System',
-      icon: Keyboard,
-      summary: isGerman 
-        ? 'Wichtige Tastaturkürzel für maximale Produktivität.' 
-        : 'Essential hotkeys and shortcuts for rapid navigation.',
-      content: (
-        <div className="space-y-3 text-xs leading-relaxed">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="font-medium text-slate-800 dark:text-slate-200">
-                {isGerman ? 'Befehlspalette / Globale Suche öffnen' : 'Open Command Palette / Search'}
-              </span>
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md font-mono text-[11px] font-bold shadow-xs">
-                Ctrl + K / Cmd + K
-              </kbd>
-            </div>
-            <div className="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="font-medium text-slate-800 dark:text-slate-200">
-                {isGerman ? 'Aktives Dokument drucken' : 'Print Active Document'}
-              </span>
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md font-mono text-[11px] font-bold shadow-xs">
-                Ctrl + P / Cmd + P
-              </kbd>
-            </div>
-            <div className="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="font-medium text-slate-800 dark:text-slate-200">
-                {isGerman ? 'Fenster maximieren / wiederherstellen' : 'Maximize / Restore Window'}
-              </span>
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md font-mono text-[11px] font-bold shadow-xs">
-                {isGerman ? 'Doppelklick Titelleiste' : 'Double-click Title Bar'}
-              </kbd>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: 'backups',
-      title: isGerman ? 'Backups, Datenschutz & Speicher' : 'Backups, Security & Offline Storage',
-      category: isGerman ? 'Sicherheit' : 'Security & Storage',
-      icon: ShieldCheck,
-      summary: isGerman 
-        ? 'Kompakte Backup-Dateien, Speicherplatz-Überwachung und Datenschutz.' 
-        : 'Offline-first database, automatic data backups, and local browser persistence.',
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
-          <p className="text-slate-600 dark:text-slate-300">
-            {isGerman 
-              ? 'Ihre Unternehmensdaten werden zu 100% lokal und sicher in Ihrem Browser gespeichert (IndexedDB). Es werden keine sensiblen Kundendaten an externe Server übertragen.' 
-              : 'All enterprise data is stored 100% locally and securely in your browser storage (IndexedDB). No sensitive customer or financial records are sent to external third parties.'}
-          </p>
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300">
-            <strong>{isGerman ? 'Empfehlung zur Datensicherung: ' : 'Backup Recommendation: '}</strong>
-            {isGerman 
-              ? 'Erstellen Sie regelmäßig über Einstellungen > Datensicherung eine separate JSON-Backup-Datei und speichern Sie diese auf einem USB-Stick oder Netzlaufwerk.' 
-              : 'Create regular JSON backup snapshots via Settings > Backup & Storage, and store copies on encrypted external drives or company cloud backup locations.'}
-          </div>
-        </div>
-      )
-    },
-    {
-      id: 'community',
-      title: isGerman ? 'Open Source & Discord Community Hilfe' : 'Open Source Repository & Discord Support',
-      category: isGerman ? 'Support & Community' : 'Support & Community',
-      icon: MessageSquare,
-      summary: isGerman 
-        ? 'Offizielles Open-Source GitHub Repository & Support ausschließlich auf Discord.' 
-        : 'Official open-source GitHub repository and developer community support on Discord.',
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
-          <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 space-y-3">
-            <h5 className="font-bold text-sm text-indigo-900 dark:text-indigo-200">
-              {isGerman ? 'Open Source Projekt & Community Support' : 'Open Source Project & Community Support'}
-            </h5>
-            <p className="text-slate-700 dark:text-slate-300">
-              {isGerman 
-                ? 'SOCDOF ist ein freies Open-Source-Projekt. Der gesamte Quellcode, Issues, Versionen und Erweiterungen sind transparent auf GitHub verfügbar.' 
-                : 'SOCDOF is a free open-source project. Source code, issue trackers, version releases, and documentation are openly available on GitHub.'}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* GitHub Card */}
-            <a
-              href="https://github.com/Strudelcode/SOCDOF"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition flex items-start gap-3 group"
-            >
-              <div className="p-2.5 rounded-xl bg-slate-900 text-white shrink-0">
-                <Github className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                  <span>GitHub Repository</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  github.com/Strudelcode/SOCDOF
-                </p>
-                <span className="inline-block mt-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-md">
-                  Source Code &amp; Releases
-                </span>
-              </div>
-            </a>
-
-            {/* Discord Support Card */}
-            <a
-              href="https://discord.gg/QW85EaXTgB"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-4 rounded-2xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 transition flex items-start gap-3 group"
-            >
-              <div className="p-2.5 rounded-xl bg-[#5865F2] text-white shrink-0 shadow-sm">
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 font-bold text-xs text-[#5865F2] dark:text-indigo-300">
-                  <span>{isGerman ? 'Hilfe & Support (Discord)' : 'Community Help & Support (Discord)'}</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
-                  {isGerman 
-                    ? 'Hilfe ausschließlich auf unserem offiziellen Discord-Server!' 
-                    : 'Get community help and feature support on our official Discord server!'}
-                </p>
-                <span className="inline-block mt-2 text-[10px] font-bold text-white bg-[#5865F2] px-2 py-0.5 rounded-md shadow-xs">
-                  discord.gg/QW85EaXTgB
-                </span>
-              </div>
-            </a>
-          </div>
-        </div>
-      )
-    },
-    {
-      id: 'changelog',
-      title: isGerman ? 'Versionshistorie & Updates' : 'Release History & Changelog',
-      category: isGerman ? 'System & Releases' : 'System & Releases',
-      icon: History,
-      summary: isGerman 
-        ? `Aktuelle Version SOCDOF v${APP_VERSION} und alle Release-Highlights.` 
-        : `Current version SOCDOF v${APP_VERSION} and all release highlights.`,
-      content: (
-        <div className="space-y-4 text-xs leading-relaxed">
-          <div className="flex items-center justify-between p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800/60">
-            <div>
-              <div className="text-[11px] uppercase font-bold text-indigo-600 dark:text-indigo-400">
-                {isGerman ? 'Installierte Version' : 'Installed Version'}
-              </div>
-              <div className="text-base font-extrabold text-slate-900 dark:text-white">SOCDOF v{APP_VERSION}</div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
-              {isGerman ? 'Aktuell' : 'Latest'}
-            </span>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            {VERSION_HISTORY.map((rel) => (
-              <div key={rel.version} className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-indigo-600 text-white">
-                      v{rel.version}
-                    </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{rel.title}</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{rel.date}</span>
-                </div>
-                <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
-                  {rel.highlights.map((h, i) => (
-                    <li key={i}>{h}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
         </div>
       )
     }
@@ -675,90 +289,638 @@ export const DocumentationApp: React.FC = () => {
   const ActiveIcon = activeSection.icon;
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-[500px] bg-slate-50 dark:bg-slate-950 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
-      {/* Left Sidebar: Chapters & Search */}
-      <div className="w-full md:w-64 bg-slate-100 dark:bg-slate-900/90 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col flex-shrink-0">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-            <BookOpen className="w-4 h-4" />
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 select-text">
+      {/* Top Portal Navigation Ribbon */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-900/40 px-5 py-3 text-white flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 border border-indigo-400/30">
+            <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-xs text-slate-900 dark:text-white">
-              {isGerman ? 'Handbuch & Docs' : 'User Manual & Docs'}
-            </h3>
-            <p className="text-[10px] text-slate-500">
-              {isGerman ? 'Offizielle Dokumentation' : 'Official Documentation'}
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-sm text-white tracking-tight">
+                SOCDOF Portal &amp; Documentation Hub
+              </h2>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs">
+                v{APP_VERSION}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {isGerman ? 'Offizielles Handbuch, Feature-Showcase, Release-Notes & Architektur' : 'Official User Manual, Feature Showcase, Release Notes & Architecture'}
             </p>
           </div>
         </div>
 
-        {/* Search input */}
-        <div className="relative mb-3">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={isGerman ? 'Thema suchen...' : 'Search documentation...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-500"
-          />
-        </div>
+        {/* Portal Tabs */}
+        <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/80 text-xs overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('showcase');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'showcase' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Showcase & Features' : 'Showcase & Features'}</span>
+          </button>
 
-        {/* List of sections */}
-        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-          {filteredSections.map((sec) => {
-            const Icon = sec.icon;
-            const isSelected = sec.id === activeSectionId;
-            return (
-              <button
-                key={sec.id}
-                onClick={() => {
-                  sounds.playClick();
-                  setActiveSectionId(sec.id);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs transition font-medium ${
-                  isSelected
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white' : 'text-indigo-500'}`} />
-                <span className="truncate flex-1">{sec.title}</span>
-                {isSelected && <ChevronRight className="w-3.5 h-3.5" />}
-              </button>
-            );
-          })}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('manual');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'manual' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Handbuch' : 'User Manual'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('releases');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'releases' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Download & Releases' : 'Download & Releases'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('shortcuts');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'shortcuts' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Tastenkürzel' : 'Shortcuts'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('security');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'security' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Sicherheit & DSGVO' : 'Security & Offline'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setActiveTab('community');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'community' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>{isGerman ? 'Community' : 'Community'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Right Content Area */}
-      <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-slate-950">
-        <div className="max-w-2xl mx-auto">
-          {/* Header of active section */}
-          <div className="flex items-start gap-3.5 pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
-              <ActiveIcon className="w-5 h-5" />
+      {/* Main Tab Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* 1. SHOWCASE & FEATURES TAB */}
+        {activeTab === 'showcase' && (
+          <div className="p-6 max-w-5xl mx-auto space-y-6 animate-fade-in">
+            {/* Hero Banner */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-900 text-white shadow-xl space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-white/20 backdrop-blur-md">
+                  100% Offline-First ERP Suite
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                {isGerman 
+                  ? 'Moderne Unternehmenssoftware mit echtem Desktop-Multi-Tasking' 
+                  : 'Modern Business ERP Workstation with True Multi-Tasking'}
+              </h1>
+              <p className="text-xs sm:text-sm text-indigo-100 max-w-2xl leading-relaxed">
+                {isGerman 
+                  ? 'Verwalten Sie Rechnungen nach DIN 5008, Kunden, POS Kassen, Bestände und Buchhaltung in einer blitzschnellen, vollkommen privaten Windows-Desktop-Umgebung ohne Cloud-Zwang.' 
+                  : 'Manage DIN 5008 compliant invoices, contacts CRM, POS registers, warehouse stock, and double-entry accounting in a private, offline-first Windows desktop workstation.'}
+              </p>
+
+              <div className="pt-2 flex flex-wrap gap-3">
+                <a
+                  href={GITHUB_RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-white text-indigo-900 font-bold text-xs shadow-md hover:bg-indigo-50 transition flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{isGerman ? 'Windows Setup (.exe) laden' : 'Download Windows Setup (.exe)'}</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </a>
+
+                <button
+                  onClick={() => setActiveTab('manual')}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-950/60 hover:bg-indigo-950 text-white font-semibold text-xs border border-white/20 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>{isGerman ? 'Handbuch & Anleitungen ansehen' : 'Explore User Manual'}</span>
+                </button>
+              </div>
             </div>
+
+            {/* Feature Modules Matrix */}
+            <div className="space-y-3">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <LayoutGrid className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>{isGerman ? 'Integrierte Business-Module im Überblick' : 'Integrated Business Modules Overview'}</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* 1. Invoices */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-indigo-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'DIN 5008 Fakturierung' : 'DIN 5008 Invoicing'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Rechtssichere Rechnungen, individuelle Briefköpfe mit Hintergrundgrafiken, Rabatte, Zahlungsziele und PDF-Export.' 
+                      : 'Compliant invoices, custom background letterhead stationery, line discounts, payment terms, and pixel-perfect PDF export.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'GoBD & DIN-A4 konform' : 'Statutory Standards'}</span>
+                  </div>
+                </div>
+
+                {/* 2. Contacts CRM */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-teal-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'Kontakte & CRM' : 'Contacts & CRM'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Zentrales Adressbuch für Kunden und Lieferanten, USt-IdNr., Bonität, Zahlungskonditionen und historische Belege.' 
+                      : 'Central master directory for customers and suppliers, VAT IDs, credit terms, and historical sales ledgers.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'Vollständige Adressprüfung' : 'Address Verification'}</span>
+                  </div>
+                </div>
+
+                {/* 3. POS Cash Register */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-violet-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center border border-violet-200 dark:border-violet-800">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'POS Touch-Kasse' : 'POS Cash Register'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Schnellkasse für Ladengeschäfte, Touch-Eingabe, Barcode-Scanner-Support, Bar-/Kartenzahlung und Bondruck.' 
+                      : 'Fast checkout for retail storefronts, touch grid, barcode scanner integration, cash/card tender, and thermal receipts.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'Thermobondruck & Kassenjournal' : 'Thermal Receipts'}</span>
+                  </div>
+                </div>
+
+                {/* 4. Accounting & BWA */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-emerald-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
+                    <Calculator className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'Abrechnung & BWA' : 'Accounting & Financials'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Automatische GoBD-Buchungssätze für Rechnungen und Kasse, Einnahmen-Überschuss-Rechnung (EÜR) und BWA.' 
+                      : 'Automatic double-entry journal rows for invoices and sales, cash-basis accounting, BWA profit, and tax reporting.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'Echtzeit-GuV & Steuerausweis' : 'Real-time Tax Engine'}</span>
+                  </div>
+                </div>
+
+                {/* 5. Inventory & Stock */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-amber-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-800">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'Warenwirtschaft & Lager' : 'Inventory & Warehouse'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Lagerbestandsführung in Echtzeit, Wareneingang und -ausgang, Mindestbestände und Bestandsbewertung.' 
+                      : 'Real-time stock ledger, goods receipts and issues, reorder alerts, and valuation metrics.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'Echtzeit-Bestandsabgleich' : 'Real-time Tracking'}</span>
+                  </div>
+                </div>
+
+                {/* 6. Calendar & Google Sync */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 hover:border-blue-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {isGerman ? 'Kalender & Live Sync' : 'Calendar & Live Sync'}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {isGerman 
+                      ? 'Nahtlose Integration von Google Calendar, Anzeige von Rechnungsfälligkeiten, Terminerstellung und Agenda.' 
+                      : 'Seamless Google Calendar synchronization, invoice payment tracking, appointment scheduler, and agenda flyout.'}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isGerman ? 'Google Calendar & Outlook Sync' : 'Cloud & Local Calendar'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. USER MANUAL & GUIDES TAB */}
+        {activeTab === 'manual' && (
+          <div className="flex flex-col md:flex-row h-full min-h-[500px]">
+            {/* Sidebar */}
+            <div className="w-full md:w-64 bg-slate-100 dark:bg-slate-900/90 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col flex-shrink-0">
+              <div className="relative mb-3">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder={isGerman ? 'Thema suchen...' : 'Search documentation...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                {filteredSections.map((sec) => {
+                  const Icon = sec.icon;
+                  const isSelected = sec.id === activeSectionId;
+                  return (
+                    <button
+                      key={sec.id}
+                      onClick={() => {
+                        sounds.playClick();
+                        setActiveSectionId(sec.id);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs transition font-medium cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-white' : 'text-indigo-500'}`} />
+                      <span className="truncate flex-1">{sec.title}</span>
+                      {isSelected && <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content view */}
+            <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-slate-950">
+              <div className="max-w-3xl mx-auto space-y-6">
+                <div className="flex items-start gap-3.5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+                    <ActiveIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      {activeSection.category}
+                    </span>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                      {activeSection.title}
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {activeSection.summary}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  {activeSection.content}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. DOWNLOAD & RELEASES TAB */}
+        {activeTab === 'releases' && (
+          <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+            {/* Download Card */}
+            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+                    Windows Installer
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">SOCDOF-Setup-v{APP_VERSION}.exe</span>
+                </div>
+                <h3 className="text-xl font-bold">
+                  {isGerman ? `SOCDOF v${APP_VERSION} für Windows herunterladen` : `Download SOCDOF v${APP_VERSION} for Windows`}
+                </h3>
+                <p className="text-xs text-slate-400 max-w-lg leading-relaxed">
+                  {isGerman 
+                    ? 'Der vollständige Windows-Installer richtet die Desktop-App auf Ihrem System ein. Ihre Daten bleiben 100% lokal gespeichert.' 
+                    : 'The official Windows NSIS installer configures the offline ERP suite on your PC with full local persistence.'}
+                </p>
+              </div>
+
+              <a
+                href={GITHUB_RELEASES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center gap-2 shrink-0"
+              >
+                <Download className="w-5 h-5" />
+                <span>{isGerman ? 'Installer herunterladen' : 'Download Installer'}</span>
+                <ExternalLink className="w-4 h-4 opacity-70" />
+              </a>
+            </div>
+
+            {/* Version History Changelog */}
+            <div className="space-y-4 pt-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>{isGerman ? 'Versionshistorie & Release Notes' : 'Release History & Changelog'}</span>
+              </h3>
+
+              <div className="space-y-3">
+                {VERSION_HISTORY.map((rel) => (
+                  <div key={rel.version} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-600 text-white">
+                          v{rel.version}
+                        </span>
+                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{rel.title}</span>
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{rel.date}</span>
+                    </div>
+                    <ul className="list-disc pl-5 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                      {rel.highlights.map((h, i) => (
+                        <li key={i}>{h}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. KEYBOARD SHORTCUTS TAB */}
+        {activeTab === 'shortcuts' && (
+          <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                {activeSection.category}
-              </span>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                {activeSection.title}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {activeSection.summary}
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>{isGerman ? 'Tastaturkürzel & Schnellnavigation' : 'Keyboard Shortcuts & Quick Navigation'}</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {isGerman ? 'Steuern Sie die gesamte Desktop-Umgebung noch schneller über die Tastatur.' : 'Control the entire desktop workspace swiftly using keyboard shortcuts.'}
               </p>
             </div>
-          </div>
 
-          {/* Body */}
-          <div>
-            {activeSection.content}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* General Shortcuts */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  {isGerman ? 'System & Desktop' : 'System & Desktop'}
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Spotlight Command Palette öffnen' : 'Open Spotlight Command Palette'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Ctrl</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">K</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Startmenü öffnen / schließen' : 'Toggle Start Menu'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Win</kbd>
+                      <span className="text-slate-400">/</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Ctrl+Space</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Handbuch & Showcase öffnen' : 'Open Documentation & Showcase'}</span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]">F1</kbd>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Aktives Fenster / Modal schließen' : 'Close Active Modal / Window'}</span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]">Esc</kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* Taskbar Apps Shortcuts */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  {isGerman ? 'Taskleisten-Apps starten' : 'Launch Taskbar Apps'}
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'App 1 auf Taskleiste öffnen' : 'Open Taskbar App 1'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Alt</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">1</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'App 2 auf Taskleiste öffnen' : 'Open Taskbar App 2'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Alt</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">2</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'App 3 auf Taskleiste öffnen' : 'Open Taskbar App 3'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Alt</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">3</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Apps 4 bis 9 öffnen' : 'Open Apps 4 to 9'}</span>
+                    <div className="flex items-center gap-1 font-mono text-[11px]">
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Alt</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">4..9</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 5. SECURITY & OFFLINE ARCHITECTURE TAB */}
+        {activeTab === 'security' && (
+          <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <div className="p-6 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-emerald-950 dark:text-emerald-100">
+                  {isGerman ? '100% Lokale Datenhoheit & Zero-Cloud-Architektur' : '100% Local Data Sovereignty & Zero-Cloud Architecture'}
+                </h3>
+                <p className="text-xs text-emerald-800 dark:text-emerald-200/90 leading-relaxed">
+                  {isGerman 
+                    ? 'SOCDOF speichert alle Stammdaten, Rechnungen, Kundenprofile und Finanzbuchungen ausschließlich auf Ihrem lokalen Computer. Keine Übertragung an externe Server, kein Tracking, DSGVO-konform by Design.' 
+                    : 'SOCDOF stores all master data, invoices, customer records, and ledger balances exclusively on your local device. No external tracking or unsolicited cloud telemetry.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-indigo-500" />
+                  <span>{isGerman ? 'Lokale Speicherung' : 'Local Storage Engine'}</span>
+                </div>
+                <p className="text-slate-600 dark:text-slate-400">
+                  {isGerman 
+                    ? 'Dauerhafte Persistenz via lokaler Datenbank und JSON-Backups. Sie behalten die volle Kontrolle über Ihre Dateien.' 
+                    : 'Permanent offline database persistence with comprehensive JSON export and restore capabilities.'}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-emerald-500" />
+                  <span>{isGerman ? 'DSGVO & Datenschutz' : 'GDPR & Privacy'}</span>
+                </div>
+                <p className="text-slate-600 dark:text-slate-400">
+                  {isGerman 
+                    ? 'Erfüllt höchste Datenschutzstandards, da keine personenbezogenen Daten an Dritte übermittelt werden.' 
+                    : 'Meets strict data privacy requirements as zero personal data leaves your local machine.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 6. COMMUNITY & DISCORD TAB */}
+        {activeTab === 'community' && (
+          <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <div className="p-6 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
+              <h3 className="font-bold text-base text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>{isGerman ? 'Open Source Projekt & Community Support' : 'Open Source Project & Community Support'}</span>
+              </h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                {isGerman 
+                  ? 'SOCDOF ist ein freies Open-Source-Projekt. Der gesamte Quellcode, Issues, Versionen und Erweiterungen sind transparent auf GitHub verfügbar. Bei Fragen oder für Support steht unsere Community auf Discord bereit.' 
+                  : 'SOCDOF is a free open-source project. Source code, issues, versions, and enhancements are openly maintained on GitHub. For help and discussions, join our Discord community.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* GitHub Card */}
+              <a
+                href={GITHUB_REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 transition flex items-start gap-3.5 group shadow-sm"
+              >
+                <div className="p-3 rounded-xl bg-slate-900 text-white shrink-0 shadow-sm">
+                  <Github className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                    <span>GitHub Repository</span>
+                    <ExternalLink className="w-4 h-4 opacity-60" />
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    github.com/Strudelcode/SOCDOF
+                  </p>
+                  <span className="inline-block mt-3 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2.5 py-1 rounded-md">
+                    Source Code &amp; Releases
+                  </span>
+                </div>
+              </a>
+
+              {/* Discord Card */}
+              <a
+                href="https://discord.gg/QW85EaXTgB"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-5 rounded-2xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 transition flex items-start gap-3.5 group shadow-sm"
+              >
+                <div className="p-3 rounded-xl bg-[#5865F2] text-white shrink-0 shadow-md">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 font-bold text-sm text-[#5865F2] dark:text-indigo-300">
+                    <span>{isGerman ? 'Hilfe & Support (Discord)' : 'Help & Support (Discord)'}</span>
+                    <ExternalLink className="w-4 h-4 opacity-60" />
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    {isGerman 
+                      ? 'Hilfe und Feature-Austausch auf unserem offiziellen Discord-Server!' 
+                      : 'Get community help and discuss new features on our official Discord server!'}
+                  </p>
+                  <span className="inline-block mt-3 text-[10px] font-bold text-white bg-[#5865F2] px-2.5 py-1 rounded-md shadow-xs">
+                    discord.gg/QW85EaXTgB
+                  </span>
+                </div>
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-

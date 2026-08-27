@@ -99,6 +99,7 @@ import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
+import { CommandPaletteModal } from './CommandPaletteModal';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -481,6 +482,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
   const [isWebPreviewExitMode, setIsWebPreviewExitMode] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Automatic GitHub Release Update Notification state
@@ -612,6 +614,64 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       document.removeEventListener('pointerdown', handleGlobalPointerDown);
     };
   }, [isStartMenuOpen, isCalendarFlyoutOpen]);
+
+  // Global Keyboard Shortcuts (Ctrl+K / Cmd+K, F1, Alt+1..9, Esc, Ctrl+Space)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Ctrl + K or Cmd + K: Spotlight Command Palette
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        sounds.playPop();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
+      // 2. F1: Help & Documentation Showcase Portal
+      if (e.key === 'F1') {
+        e.preventDefault();
+        sounds.playClick();
+        openWindow('docs');
+        return;
+      }
+
+      // 3. Alt + 1..9: Launch or focus pinned taskbar apps
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        const index = parseInt(e.key, 10) - 1;
+        if (index >= 0 && index < pinnedTaskbar.length) {
+          e.preventDefault();
+          const targetMod = pinnedTaskbar[index];
+          openWindow(targetMod);
+          return;
+        }
+      }
+
+      // 4. Ctrl + Space: Toggle Start Menu
+      if (e.ctrlKey && e.code === 'Space') {
+        e.preventDefault();
+        sounds.playClick();
+        setIsStartMenuOpen(prev => !prev);
+        return;
+      }
+
+      // 5. Escape: Close open modals / flyouts / palette
+      if (e.key === 'Escape') {
+        if (isCommandPaletteOpen) {
+          setIsCommandPaletteOpen(false);
+        } else if (isStartMenuOpen) {
+          setIsStartMenuOpen(false);
+        } else if (isPowerMenuOpen) {
+          setIsPowerMenuOpen(false);
+        } else if (isCalendarFlyoutOpen) {
+          setIsCalendarFlyoutOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCommandPaletteOpen, isStartMenuOpen, isPowerMenuOpen, isCalendarFlyoutOpen, pinnedTaskbar]);
 
   // Clock
   useEffect(() => {
@@ -2249,6 +2309,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <SocdofLogo size="sm" />
           </button>
 
+          {/* Windows Search Bar / Spotlight Trigger */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsCommandPaletteOpen(true);
+            }}
+            title={t('nav.search', currentLang, 'Suche (Ctrl+K)...')}
+            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition text-xs border border-transparent hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="font-medium">{t('nav.search', currentLang, 'Suche...')}</span>
+            <kbd className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-300/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ml-1">
+              Ctrl+K
+            </kbd>
+          </button>
+
           {/* Unified Windows 11 Taskbar App Items */}
           <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-[60vw]">
             {(() => {
@@ -2729,6 +2805,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         updateInfo={updateInfo}
         onClose={() => setIsUpdatePromptOpen(false)}
         onShutdownApp={handleShutdown}
+      />
+
+      {/* Global Spotlight / Command Palette Modal */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenModule={(mod) => openWindow(mod)}
+        contacts={contacts}
+        products={products}
+        invoices={invoices}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
+        isMuted={isMuted}
+        onToggleSound={onToggleSound}
+        onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        currency={company.currency || 'EUR'}
       />
     </div>
   );
