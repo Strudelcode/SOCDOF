@@ -95,7 +95,7 @@ import { CalendarModule } from './CalendarModule';
 import { DynamicCalendarIcon } from './DynamicCalendarIcon';
 import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
-import { isElectron, GITHUB_RELEASES_URL } from '../lib/platform';
+import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
@@ -1195,7 +1195,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setIsPowerMenuOpen(false);
     setIsStartMenuOpen(false);
     setWindows([]);
-    setIsLockedStandby(true);
+    if (!quitDesktopApp()) {
+      setIsLockedStandby(true);
+    }
   };
 
   const handleRestart = () => {

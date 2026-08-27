@@ -14,11 +14,9 @@ function main() {
   const majorTag = `v${major}`;
   const versionTag = `v${version}`;
 
-  // Major root releases are v19.0.0, v20.0.0, v21.0.0 (minor === 0 && patch === 0, no pre-tag)
-  const isMajorRelease = (minor === 0 && patch === 0) && !version.includes('-');
-  // Minor changes / patches (e.g. v20.0.9, v20.1.0, v20.1.1) or tagged builds are published as Prerelease
-  const isPrerelease = !isMajorRelease || version.includes('-') || Boolean(pkg.prerelease);
-  const makeLatest = isMajorRelease ? 'true' : 'false';
+  // Standard releases without hyphen (e.g. 21.0.0, 21.2.0) are full releases
+  const isPrerelease = version.includes('-') || Boolean(pkg.prerelease);
+  const makeLatest = isPrerelease ? 'false' : 'true';
 
   // Search for version notes in versions/V<major>.md
   const versionDocPath = path.join(process.cwd(), 'versions', `V${major}.md`);

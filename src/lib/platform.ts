@@ -5,15 +5,53 @@
 export const GITHUB_RELEASES_URL = 'https://github.com/Strudelcode/SOCDOF/releases';
 export const GITHUB_REPO_URL = 'https://github.com/Strudelcode/SOCDOF';
 
+export interface ElectronAPI {
+  isElectron: boolean;
+  getPlatformInfo: () => Promise<{ isElectron: boolean; platform: string; version: string }>;
+  quitApp: () => Promise<void>;
+  downloadAndInstallUpdate: (payload: { downloadUrl: string; version: string }) => Promise<{ success: boolean; error?: string }>;
+  onUpdateDownloadProgress: (callback: (data: { percent: number; downloadedBytes?: number; totalBytes?: number; isFinished?: boolean }) => void) => () => void;
+}
+
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPI;
+  }
+}
+
 /**
  * Detects whether the app is running in an Electron desktop shell or inside a web browser
  */
 export function isElectron(): boolean {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+  if (typeof window === 'undefined') {
     return false;
   }
-  const userAgent = (navigator.userAgent || '').toLowerCase();
+  if (window.electronAPI?.isElectron) {
+    return true;
+  }
+  const userAgent = (navigator?.userAgent || '').toLowerCase();
   return userAgent.includes('electron') || !!(window as any).electron;
+}
+
+/**
+ * Quits native desktop app if running in Electron, or returns false if in browser
+ */
+export function quitDesktopApp(): boolean {
+  if (typeof window !== 'undefined' && window.electronAPI?.quitApp) {
+    window.electronAPI.quitApp();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Trigger background download and automated restart installation in Electron
+ */
+export async function downloadAndInstallDesktopUpdate(payload: { downloadUrl: string; version: string }): Promise<{ success: boolean; error?: string }> {
+  if (typeof window !== 'undefined' && window.electronAPI?.downloadAndInstallUpdate) {
+    return await window.electronAPI.downloadAndInstallUpdate(payload);
+  }
+  return { success: false, error: 'Not running in desktop app' };
 }
 
 /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Sparkles, 
@@ -6,16 +6,17 @@ import {
   Clock, 
   Ban, 
   CheckCircle2, 
-  ExternalLink, 
   X, 
   HardDrive, 
   ArrowRight,
   ShieldCheck,
-  RefreshCw,
-  Power
+  RotateCcw,
+  Power,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { UpdateInfo, setVersionSkipped, snoozeUpdateNotification } from '../lib/updateChecker';
-import { GITHUB_RELEASES_URL } from '../lib/platform';
+import { GITHUB_RELEASES_URL, isElectron, downloadAndInstallDesktopUpdate, quitDesktopApp } from '../lib/platform';
 import { sounds } from '../lib/sound';
 
 interface UpdatePromptModalProps {
@@ -31,20 +32,31 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
   onClose,
   onShutdownApp
 }) => {
-  const [downloadStep, setDownloadStep] = useState<'prompt' | 'downloading' | 'ready'>('prompt');
+  const [downloadStep, setDownloadStep] = useState<'prompt' | 'downloading' | 'installing' | 'ready' | 'error'>('prompt');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadedMb, setDownloadedMb] = useState(0);
-  const totalMb = 84.5; // Typical SOCDOF Windows .exe bundle size
+  const [totalMb, setTotalMb] = useState(85.0);
+  const [errorMessage, setErrorMessage] = useState('');
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  const isDesktop = isElectron();
 
   useEffect(() => {
     if (!isOpen) {
       setDownloadStep('prompt');
       setDownloadProgress(0);
       setDownloadedMb(0);
+      setErrorMessage('');
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     }
   }, [isOpen]);
 
   if (!isOpen || !updateInfo) return null;
+
+  const targetUrl = updateInfo.downloadUrl || `${GITHUB_RELEASES_URL}/download/v${updateInfo.latestVersion}/SOCDOF.Setup.${updateInfo.latestVersion}.exe`;
 
   const handleSkipVersion = () => {
     sounds.playPop();
@@ -58,47 +70,88 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
     onClose();
   };
 
-  const handleStartDownload = () => {
+  const handleStartAutoUpdate = async () => {
     sounds.playClick();
     setDownloadStep('downloading');
     setDownloadProgress(0);
     setDownloadedMb(0);
+    setErrorMessage('');
 
-    // Smooth download progress simulation while fetching
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setDownloadStep('ready');
-          sounds.playSuccess();
+    // If running in Native Desktop App (Electron)
+    if (isDesktop && window.electronAPI?.downloadAndInstallUpdate) {
+      if (window.electronAPI.onUpdateDownloadProgress) {
+        unsubscribeRef.current = window.electronAPI.onUpdateDownloadProgress((data) => {
+          if (typeof data.percent === 'number') {
+            setDownloadProgress(data.percent);
+            if (data.totalBytes && data.downloadedBytes) {
+              const mbTotal = parseFloat((data.totalBytes / (1024 * 1024)).toFixed(1));
+              const mbDown = parseFloat((data.downloadedBytes / (1024 * 1024)).toFixed(1));
+              setTotalMb(mbTotal);
+              setDownloadedMb(mbDown);
+            } else {
+              setDownloadedMb(parseFloat(((data.percent / 100) * 85).toFixed(1)));
+            }
+          }
+          if (data.isFinished || data.percent >= 100) {
+            setDownloadStep('installing');
+            sounds.playSuccess();
+          }
+        });
+      }
 
-          // Trigger download in browser
-          const targetUrl = updateInfo.downloadUrl || `${GITHUB_RELEASES_URL}/download/v${updateInfo.latestVersion}/SOCDOF.Setup.${updateInfo.latestVersion}.exe`;
-          const a = document.createElement('a');
-          a.href = targetUrl;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.download = `SOCDOF.Setup.${updateInfo.latestVersion}.exe`;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => document.body.removeChild(a), 500);
+      try {
+        const res = await downloadAndInstallDesktopUpdate({
+          downloadUrl: targetUrl,
+          version: updateInfo.latestVersion
+        });
 
-          return 100;
+        if (!res.success) {
+          setErrorMessage(res.error || 'Automatisches Update fehlgeschlagen.');
+          setDownloadStep('error');
         }
+      } catch (err: any) {
+        console.error('Update error:', err);
+        setErrorMessage(err?.message || 'Fehler beim Herunterladen des Updates.');
+        setDownloadStep('error');
+      }
+    } else {
+      // Running in Web Preview mode -> Simulate download & trigger browser download
+      const interval = setInterval(() => {
+        setDownloadProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setDownloadStep('ready');
+            sounds.playSuccess();
 
-        const increment = Math.random() * 12 + 6;
-        const next = Math.min(100, Math.round(prev + increment));
-        setDownloadedMb(parseFloat(((next / 100) * totalMb).toFixed(1)));
-        return next;
-      });
-    }, 280);
+            // Trigger browser download
+            const a = document.createElement('a');
+            a.href = targetUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.download = `SOCDOF.Setup.${updateInfo.latestVersion}.exe`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 500);
+
+            return 100;
+          }
+
+          const increment = Math.random() * 14 + 8;
+          const next = Math.min(100, Math.round(prev + increment));
+          setDownloadedMb(parseFloat(((next / 100) * totalMb).toFixed(1)));
+          return next;
+        });
+      }, 250);
+    }
   };
 
   const handleFinishAndCloseApp = () => {
     sounds.playPop();
     onClose();
-    if (onShutdownApp) {
-      onShutdownApp();
+    if (!quitDesktopApp()) {
+      if (onShutdownApp) {
+        onShutdownApp();
+      }
     }
   };
 
@@ -135,7 +188,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
           {downloadStep === 'prompt' && (
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-black/10 hover:bg-black/30 flex items-center justify-center text-white/90 hover:text-white transition"
+              className="w-8 h-8 rounded-xl bg-black/10 hover:bg-black/30 flex items-center justify-center text-white/90 hover:text-white transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -176,14 +229,14 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 </span>
               </div>
 
-              {/* Action Buttons: Jetzt installieren / Später / Überspringen */}
+              {/* Action Buttons: Jetzt direkt aktualisieren / Später / Überspringen */}
               <div className="space-y-2 pt-1">
                 <button
-                  onClick={handleStartDownload}
+                  onClick={handleStartAutoUpdate}
                   className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Jetzt herunterladen &amp; installieren</span>
+                  <span>Jetzt direkt aktualisieren &amp; neu starten</span>
                   <ArrowRight className="w-4 h-4 opacity-80" />
                 </button>
 
@@ -193,7 +246,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer"
                   >
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Später fragen</span>
+                    <span>Später erinnern</span>
                   </button>
 
                   <button
@@ -216,10 +269,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
               <div>
                 <h4 className="font-bold text-base text-slate-900 dark:text-white">
-                  Update wird vorbereitet &amp; heruntergeladen...
+                  Update wird im Hintergrund geladen...
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  SOCDOF.Setup.{updateInfo.latestVersion}.exe ({downloadedMb} MB von {totalMb} MB)
+                  SOCDOF.Setup.{updateInfo.latestVersion}.exe ({downloadedMb} MB / {totalMb} MB)
                 </p>
               </div>
 
@@ -232,8 +285,25 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
-                <span>GitHub Releases CDN</span>
+                <span>{isDesktop ? 'Automatischer In-App Download' : 'GitHub Releases CDN'}</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{downloadProgress}%</span>
+              </div>
+            </div>
+          )}
+
+          {downloadStep === 'installing' && (
+            <div className="py-6 space-y-4 text-center animate-fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  Update wird installiert...
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
+                  SOCDOF wird jetzt beendet, die neue Version <strong>v{updateInfo.latestVersion}</strong> installiert und die Anwendung automatisch neu gestartet.
+                </p>
               </div>
             </div>
           )}
@@ -244,21 +314,21 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed">
                   <span className="font-bold text-sm block mb-1">
-                    Download erfolgreich abgeschlossen!
+                    Download abgeschlossen!
                   </span>
-                  Die Installationsdatei <strong>SOCDOF.Setup.{updateInfo.latestVersion}.exe</strong> wurde in Ihren Download-Ordner heruntergeladen.
+                  Die Installationsdatei <strong>SOCDOF.Setup.{updateInfo.latestVersion}.exe</strong> wurde heruntergeladen.
                 </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <HardDrive className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Nächste Schritte zur Installation:</span>
+                  <span>Installation abschließen:</span>
                 </div>
                 <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
                   <li>SOCDOF beenden, um laufende Dateisperren freizugeben.</li>
                   <li>Die heruntergeladene <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-300">SOCDOF.Setup.{updateInfo.latestVersion}.exe</code> starten.</li>
-                  <li>Das Setup aktualisiert Ihre Programmdateien automatisch unter Beibehaltung aller Daten.</li>
+                  <li>Das Setup aktualisiert Ihre Version unter Beibehaltung aller Daten.</li>
                 </ol>
               </div>
 
@@ -277,6 +347,40 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 >
                   Später manuell ausführen (Weiterarbeiten)
                 </button>
+              </div>
+            </div>
+          )}
+
+          {downloadStep === 'error' && (
+            <div className="py-2 space-y-4">
+              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-start gap-3">
+                <AlertCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-rose-950 dark:text-rose-200 leading-relaxed">
+                  <span className="font-bold text-sm block mb-1">
+                    Update konnte nicht automatisch geladen werden
+                  </span>
+                  {errorMessage || 'Bitte überprüfen Sie Ihre Internetverbindung oder laden Sie das Update manuell herunter.'}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={handleStartAutoUpdate}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Erneut versuchen</span>
+                </button>
+
+                <a
+                  href={targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer text-center"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Manuell im Browser herunterladen</span>
+                </a>
               </div>
             </div>
           )}
