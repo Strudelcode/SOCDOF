@@ -512,7 +512,7 @@ export interface CalendarAppEvent {
   endDate?: string; // YYYY-MM-DD
   endTime?: string; // HH:mm
   isAllDay?: boolean;
-  category?: 'invoice' | 'customer' | 'meeting' | 'deadline' | 'personal' | 'general';
+  category?: 'invoice' | 'customer' | 'meeting' | 'deadline' | 'personal' | 'general' | 'google';
   color?: string;
   source: 'google' | 'invoice' | 'local';
   googleCalendarId?: string;

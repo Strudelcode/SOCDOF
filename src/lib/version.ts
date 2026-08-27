@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.0.0';
+export const APP_VERSION = '21.1.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,28 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.1.1',
+    date: '2026-08-27',
+    title: 'Electron Builder Windows Packaging Schema Alignment Fix',
+    highlights: [
+      'CI/CD Packaging Fix: Resolved electron-builder 26.15 schema validation issue by removing unrecognized configuration keys and formatting publisherName as an explicit array',
+      'Automated Windows .EXE Builder: Ensured smooth GitHub Actions workflow execution for automated NSIS standalone installer and portable binary generation'
+    ]
+  },
+  {
+    version: '21.1.0',
+    date: '2026-08-27',
+    title: 'Taskbar Calendar Flyout Timezone Fix, Hourly Grid & Calendar App UX Enhancements',
+    highlights: [
+      'Taskbar Calendar Flyout Timezone Alignment: Fixed timezone-sensitive date parsing where appointments and invoices appeared one day early; integrated timezone-safe date utilities (formatLocalDate, isEventOnDate) across all flyout and agenda components',
+      'Hourly Time Grid for Week & Day Views: Added full 7:00–22:00 hourly schedule grids with clickable time slots for rapid appointment scheduling and visual duration blocks',
+      'Event Duplication & Quick Clone: Built 1-click event duplication button in appointment details modal for fast template-based scheduling',
+      'iCalendar (.ICS) Export: Added instant 1-click RFC 5545 .ics calendar export download for all filtered appointments and invoice due dates',
+      'Visual Category Indicators in Taskbar Flyout: Rendered distinct color dots for Invoices (Indigo), Google Calendar (Blue), Deadlines (Rose), and Customer meetings (Emerald) on taskbar mini-calendar day cells',
+      'Taskbar Flyout Quick Add: Added 1-click "+ Termin im Kalender anlegen" prompt directly from empty flyout dates to open the Calendar app'
+    ]
+  },
   {
     version: '21.0.0',
     date: '2026-08-27',

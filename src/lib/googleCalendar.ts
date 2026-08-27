@@ -171,6 +171,38 @@ export const signOutGoogleCalendar = async (): Promise<void> => {
 };
 
 // -------------------------------------------------------------
+// Timezone-Safe Local Date Utilities
+// -------------------------------------------------------------
+
+export const formatLocalDate = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const parseLocalDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length < 3 || isNaN(parts[0])) return new Date();
+  return new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+};
+
+export const isSameCalendarDay = (d1: Date, d2: Date): boolean => {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+};
+
+export const isEventOnDate = (event: CalendarAppEvent, dateStr: string): boolean => {
+  const start = event.startDate;
+  const end = event.endDate || event.startDate;
+  return dateStr >= start && dateStr <= end;
+};
+
+// -------------------------------------------------------------
 // Google Calendar REST API Client
 // -------------------------------------------------------------
 
@@ -258,20 +290,41 @@ export const fetchGoogleCalendarEvents = async (
   const data = await response.json();
   const events: CalendarAppEvent[] = (data.items || []).map((item: any) => {
     const isAllDay = Boolean(item.start?.date && !item.start?.dateTime);
-    const startStr = item.start?.dateTime || item.start?.date || '';
-    const endStr = item.end?.dateTime || item.end?.date || '';
-
-    const startDate = startStr.slice(0, 10);
-    const endDate = endStr.slice(0, 10);
-
+    
+    let startDate = '';
     let startTime = '';
+    let endDate = '';
     let endTime = '';
 
-    if (!isAllDay && startStr.includes('T')) {
-      startTime = startStr.substring(11, 16);
+    if (isAllDay) {
+      startDate = (item.start?.date || '').slice(0, 10);
+      endDate = (item.end?.date || startDate).slice(0, 10);
+    } else {
+      if (item.start?.dateTime) {
+        const sDate = new Date(item.start.dateTime);
+        if (!isNaN(sDate.getTime())) {
+          startDate = formatLocalDate(sDate);
+          startTime = `${String(sDate.getHours()).padStart(2, '0')}:${String(sDate.getMinutes()).padStart(2, '0')}`;
+        } else {
+          startDate = item.start.dateTime.slice(0, 10);
+        }
+      }
+      if (item.end?.dateTime) {
+        const eDate = new Date(item.end.dateTime);
+        if (!isNaN(eDate.getTime())) {
+          endDate = formatLocalDate(eDate);
+          endTime = `${String(eDate.getHours()).padStart(2, '0')}:${String(eDate.getMinutes()).padStart(2, '0')}`;
+        } else {
+          endDate = startDate;
+        }
+      }
     }
-    if (!isAllDay && endStr.includes('T')) {
-      endTime = endStr.substring(11, 16);
+
+    if (!startDate) {
+      startDate = formatLocalDate(new Date());
+    }
+    if (!endDate) {
+      endDate = startDate;
     }
 
     // Determine category / type
@@ -288,8 +341,8 @@ export const fetchGoogleCalendarEvents = async (
       endDate: endDate || startDate,
       endTime: endTime || undefined,
       isAllDay,
-      category: isInvoiceEvent ? 'invoice' : 'general',
-      color: item.colorId ? '#4f46e5' : undefined,
+      category: isInvoiceEvent ? 'invoice' : 'google',
+      color: item.colorId ? '#4f46e5' : '#3b82f6',
       source: 'google',
       googleCalendarId: calendarId,
       googleEventId: item.id,
@@ -331,17 +384,22 @@ export const createGoogleCalendarEvent = async (
 
   if (isAllDay) {
     startPayload = { date: event.startDate };
-    // Google Calendar all-day end dates are exclusive, so if same day, add 1 day or use end date
-    const endDateObj = event.endDate ? new Date(event.endDate) : new Date(event.startDate);
-    endDateObj.setDate(endDateObj.getDate() + 1);
-    const endFormatted = endDateObj.toISOString().slice(0, 10);
-    endPayload = { date: endFormatted };
+    // Google Calendar all-day end dates are exclusive, so add 1 day
+    const endDateParsed = parseLocalDate(event.endDate || event.startDate);
+    endDateParsed.setDate(endDateParsed.getDate() + 1);
+    endPayload = { date: formatLocalDate(endDateParsed) };
   } else {
+    // Format local ISO datetime strings with browser timezone or local representation
     const startIso = `${event.startDate}T${event.startTime || '09:00'}:00`;
     const endTargetDate = event.endDate || event.startDate;
     const endIso = `${endTargetDate}T${event.endTime || '10:00'}:00`;
-    startPayload = { dateTime: new Date(startIso).toISOString() };
-    endPayload = { dateTime: new Date(endIso).toISOString() };
+    
+    // Create Date objects from local parts
+    const sDate = new Date(startIso);
+    const eDate = new Date(endIso);
+
+    startPayload = { dateTime: sDate.toISOString() };
+    endPayload = { dateTime: eDate.toISOString() };
   }
 
   const requestBody: any = {
@@ -382,7 +440,7 @@ export const createGoogleCalendarEvent = async (
     endDate: event.endDate || event.startDate,
     endTime: event.endTime,
     isAllDay,
-    category: 'general',
+    category: 'google',
     source: 'google',
     googleCalendarId: calendarId,
     googleEventId: data.id,
@@ -418,13 +476,14 @@ export const updateGoogleCalendarEvent = async (
 
   if (isAllDay) {
     startPayload = { date: event.startDate };
-    const endDateObj = event.endDate ? new Date(event.endDate) : new Date(event.startDate);
-    endDateObj.setDate(endDateObj.getDate() + 1);
-    endPayload = { date: endDateObj.toISOString().slice(0, 10) };
+    const endDateParsed = parseLocalDate(event.endDate || event.startDate);
+    endDateParsed.setDate(endDateParsed.getDate() + 1);
+    endPayload = { date: formatLocalDate(endDateParsed) };
   } else {
     const startIso = `${event.startDate}T${event.startTime || '09:00'}:00`;
     const endTargetDate = event.endDate || event.startDate;
     const endIso = `${endTargetDate}T${event.endTime || '10:00'}:00`;
+    
     startPayload = { dateTime: new Date(startIso).toISOString() };
     endPayload = { dateTime: new Date(endIso).toISOString() };
   }
@@ -703,4 +762,68 @@ export const performFullGoogleCalendarSync = async (
       message: err.message || 'Sync failed'
     };
   }
+};
+
+// -------------------------------------------------------------
+// iCalendar (.ics) Exporter
+// -------------------------------------------------------------
+
+export const generateICSContent = (events: CalendarAppEvent[]): string => {
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SOCDOF//DE//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:SOCDOF Kalender'
+  ];
+
+  for (const evt of events) {
+    const cleanStart = evt.startDate.replace(/-/g, '');
+    const cleanEnd = (evt.endDate || evt.startDate).replace(/-/g, '');
+    
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${evt.id}@socdof.app`);
+    lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`);
+    
+    if (evt.isAllDay) {
+      lines.push(`DTSTART;VALUE=DATE:${cleanStart}`);
+      // For all-day events, DTEND is exclusive
+      const endD = parseLocalDate(evt.endDate || evt.startDate);
+      endD.setDate(endD.getDate() + 1);
+      const nextDayStr = formatLocalDate(endD).replace(/-/g, '');
+      lines.push(`DTEND;VALUE=DATE:${nextDayStr}`);
+    } else {
+      const sTime = (evt.startTime || '09:00').replace(':', '') + '00';
+      const eTime = (evt.endTime || '10:00').replace(':', '') + '00';
+      lines.push(`DTSTART:${cleanStart}T${sTime}`);
+      lines.push(`DTEND:${cleanEnd}T${eTime}`);
+    }
+
+    lines.push(`SUMMARY:${(evt.title || '').replace(/\n/g, ' ')}`);
+    if (evt.description) {
+      lines.push(`DESCRIPTION:${evt.description.replace(/\n/g, '\\n')}`);
+    }
+    if (evt.location) {
+      lines.push(`LOCATION:${evt.location.replace(/\n/g, ' ')}`);
+    }
+    lines.push(`CATEGORIES:${(evt.category || 'GENERAL').toUpperCase()}`);
+    lines.push('END:VEVENT');
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+};
+
+export const downloadICSFile = (events: CalendarAppEvent[], filename: string = 'socdof-kalender.ics'): void => {
+  const icsData = generateICSContent(events);
+  const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };

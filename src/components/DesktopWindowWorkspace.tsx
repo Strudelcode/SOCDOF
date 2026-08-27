@@ -93,7 +93,7 @@ import { IOSBillingModule } from './IOSBillingModule';
 import { SupportServicesModule } from './SupportServicesModule';
 import { CalendarModule } from './CalendarModule';
 import { DynamicCalendarIcon } from './DynamicCalendarIcon';
-import { buildUnifiedCalendarEvents } from '../lib/googleCalendar';
+import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL } from '../lib/platform';
 import { WebPreviewModal } from './WebPreviewModal';
@@ -897,46 +897,56 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
     const result: Array<{
       date: Date;
+      dateStr: string;
       dayNum: number;
       isCurrentMonth: boolean;
       isToday: boolean;
       isSelected: boolean;
       hasEvent: boolean;
+      eventsCount: number;
+      categories: string[];
     }> = [];
 
     const unifiedEvents = buildUnifiedCalendarEvents(invoices, company.currency);
 
-    const checkEventOnDate = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dStr = `${year}-${month}-${day}`;
-      return unifiedEvents.some(evt => evt.startDate === dStr);
+    const checkEventsOnDate = (d: Date) => {
+      const dStr = formatLocalDate(d);
+      return unifiedEvents.filter(evt => isEventOnDate(evt, dStr));
     };
 
     // Prev month days
     for (let i = startDay - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDay - i);
+      const dStr = formatLocalDate(d);
+      const dayEvts = checkEventsOnDate(d);
       result.push({
         date: d,
+        dateStr: dStr,
         dayNum: prevMonthLastDay - i,
         isCurrentMonth: false,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: checkEventOnDate(d)
+        hasEvent: dayEvts.length > 0,
+        eventsCount: dayEvts.length,
+        categories: Array.from(new Set(dayEvts.map(e => e.category || (e.source === 'google' ? 'google' : 'general'))))
       });
     }
 
     // Current month days
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
+      const dStr = formatLocalDate(d);
+      const dayEvts = checkEventsOnDate(d);
       result.push({
         date: d,
+        dateStr: dStr,
         dayNum: i,
         isCurrentMonth: true,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: checkEventOnDate(d)
+        hasEvent: dayEvts.length > 0,
+        eventsCount: dayEvts.length,
+        categories: Array.from(new Set(dayEvts.map(e => e.category || (e.source === 'google' ? 'google' : 'general'))))
       });
     }
 
@@ -945,13 +955,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const remaining = totalRequiredCells - result.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
+      const dStr = formatLocalDate(d);
+      const dayEvts = checkEventsOnDate(d);
       result.push({
         date: d,
+        dateStr: dStr,
         dayNum: i,
         isCurrentMonth: false,
         isToday: isSameDate(d, currentTime),
         isSelected: isSameDate(d, selectedCalendarDate),
-        hasEvent: checkEventOnDate(d)
+        hasEvent: dayEvts.length > 0,
+        eventsCount: dayEvts.length,
+        categories: Array.from(new Set(dayEvts.map(e => e.category || (e.source === 'google' ? 'google' : 'general'))))
       });
     }
 
@@ -959,12 +974,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   }, [calendarViewDate, currentTime, selectedCalendarDate, invoices, company.currency]);
 
   const selectedDateUnifiedEvents = useMemo(() => {
-    const year = selectedCalendarDate.getFullYear();
-    const month = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedCalendarDate.getDate()).padStart(2, '0');
-    const dStr = `${year}-${month}-${day}`;
+    const dStr = formatLocalDate(selectedCalendarDate);
     const unified = buildUnifiedCalendarEvents(invoices, company.currency);
-    return unified.filter(evt => evt.startDate === dStr);
+    return unified.filter(evt => isEventOnDate(evt, dStr));
   }, [invoices, selectedCalendarDate, company.currency]);
 
   const openInvoicesUpcoming = useMemo(() => {
@@ -2544,7 +2556,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 >
                   <span>{item.dayNum}</span>
                   {item.hasEvent && !item.isSelected && (
-                    <span className="absolute bottom-1 w-1 h-1 rounded-full bg-rose-500" />
+                    <div className="absolute bottom-0.5 flex items-center justify-center gap-0.5">
+                      {item.categories.includes('invoice') && <span className="w-1 h-1 rounded-full bg-indigo-500" />}
+                      {item.categories.includes('google') && <span className="w-1 h-1 rounded-full bg-blue-500" />}
+                      {item.categories.includes('deadline') && <span className="w-1 h-1 rounded-full bg-rose-500" />}
+                      {item.categories.includes('customer') && <span className="w-1 h-1 rounded-full bg-emerald-500" />}
+                      {!item.categories.some(c => ['invoice', 'google', 'deadline', 'customer'].includes(c)) && (
+                        <span className="w-1 h-1 rounded-full bg-slate-400" />
+                      )}
+                    </div>
                   )}
                 </button>
               );
@@ -2611,7 +2631,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                         }`} />
                         <span className="truncate">{evt.title}</span>
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate pl-3">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate pl-3 font-mono">
                         {evt.startTime ? `${evt.startTime} ${evt.endTime ? `- ${evt.endTime}` : ''}` : evt.description || evt.startDate}
                       </div>
                     </div>
@@ -2626,31 +2646,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     </span>
                   </div>
                 ))
-              ) : openInvoicesUpcoming.length > 0 ? (
-                <div className="space-y-1.5">
-                  <div className="text-[10px] text-slate-400 italic mb-1">{t('calendar.next_open_items', currentLang, 'Nächste offene Posten:')}</div>
-                  {openInvoicesUpcoming.map((inv) => (
-                    <div
-                      key={inv.id}
-                      onClick={() => {
-                        setIsCalendarFlyoutOpen(false);
-                        openWindow('invoices', t('module.invoices', currentLang, 'Rechnungen'));
-                      }}
-                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition border border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between text-xs"
-                    >
-                      <div className="truncate mr-2">
-                        <div className="font-bold truncate text-slate-800 dark:text-slate-200">{inv.number} • {inv.customer_name}</div>
-                        <div className="text-[10px] text-slate-500">Fällig: {inv.due_date || '—'}</div>
-                      </div>
-                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">
-                        {inv.total_gross.toFixed(2)} €
-                      </span>
-                    </div>
-                  ))}
-                </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-center py-2 text-xs text-slate-400">
-                  {t('calendar.no_events', currentLang, 'Keine anstehenden Termine')}
+                <div className="py-4 text-center space-y-1">
+                  <p className="text-[11px] text-slate-400">Keine Termine an diesem Tag.</p>
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setIsCalendarFlyoutOpen(false);
+                      openWindow('calendar', t('module.calendar', currentLang, 'Kalender'));
+                    }}
+                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>+ Termin im Kalender anlegen</span>
+                  </button>
                 </div>
               )}
             </div>

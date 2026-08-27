@@ -11,18 +11,17 @@ import {
   Edit3, 
   Clock, 
   MapPin, 
-  AlignLeft, 
-  Tag, 
   Filter, 
-  Layers, 
-  AlertCircle, 
   CalendarDays, 
   UserCheck, 
   LogOut, 
-  FileText, 
   Receipt,
   Search,
-  X
+  X,
+  Download,
+  Printer,
+  Copy,
+  CalendarCheck2
 } from 'lucide-react';
 import { 
   CalendarAppEvent, 
@@ -34,7 +33,6 @@ import {
   signInWithGoogleCalendar, 
   signOutGoogleCalendar, 
   fetchGoogleCalendarsList, 
-  fetchGoogleCalendarEvents, 
   createGoogleCalendarEvent, 
   updateGoogleCalendarEvent, 
   deleteGoogleCalendarEvent, 
@@ -45,7 +43,11 @@ import {
   subscribeToGoogleAuth, 
   subscribeToSyncStatus,
   getCachedGoogleUserMeta,
-  getGoogleAccessToken
+  getGoogleAccessToken,
+  formatLocalDate,
+  parseLocalDate,
+  isEventOnDate,
+  downloadICSFile
 } from '../lib/googleCalendar';
 import { DynamicCalendarIcon } from './DynamicCalendarIcon';
 import { useLanguage, t } from '../lib/i18n';
@@ -59,6 +61,8 @@ interface CalendarModuleProps {
 }
 
 type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
+
+const HOURS_RANGE = Array.from({ length: 16 }, (_, i) => i + 7); // 07:00 to 22:00
 
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
   invoices,
@@ -97,7 +101,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     meeting: true,
     deadline: true,
     personal: true,
-    general: true
+    general: true,
+    google: true
   });
   const [showInvoicesOnly, setShowInvoicesOnly] = useState(false);
 
@@ -112,16 +117,16 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
-  const [newEventStartDate, setNewEventStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newEventStartDate, setNewEventStartDate] = useState(formatLocalDate(new Date()));
   const [newEventStartTime, setNewEventStartTime] = useState('10:00');
-  const [newEventEndDate, setNewEventEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newEventEndDate, setNewEventEndDate] = useState(formatLocalDate(new Date()));
   const [newEventEndTime, setNewEventEndTime] = useState('11:00');
   const [newEventIsAllDay, setNewEventIsAllDay] = useState(false);
   const [newEventCategory, setNewEventCategory] = useState<'invoice' | 'customer' | 'meeting' | 'deadline' | 'personal' | 'general'>('general');
   const [newEventTarget, setNewEventTarget] = useState<'google' | 'local'>('google');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Events Cache & State
+  // Unified Events State
   const [events, setEvents] = useState<CalendarAppEvent[]>(() => buildUnifiedCalendarEvents(invoices, company.currency));
 
   // Reload events from all sources
@@ -136,7 +141,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       setGoogleUser(user);
       setAccessToken(token);
       if (token) {
-        // Load available calendars
         fetchGoogleCalendarsList(token)
           .then(list => setCalendarsList(list))
           .catch(e => console.warn('Could not fetch calendar list:', e));
@@ -163,7 +167,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   useEffect(() => {
     if (!accessToken) return;
 
-    // Trigger initial sync on mount
     performFullGoogleCalendarSync(invoices, selectedCalendarId, company.currency);
 
     const intervalMinutes = company.google_cal_sync_interval_mins || 2;
@@ -201,104 +204,158 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     try {
       sounds.playClick();
       await signOutGoogleCalendar();
+      setGoogleUser(null);
+      setAccessToken(null);
       setCalendarsList([]);
-      refreshUnifiedEvents();
+      sounds.playPop();
       setStatusNotification({
         text: 'Google Konto erfolgreich getrennt.',
         type: 'success'
       });
+      refreshUnifiedEvents();
     } catch (err: any) {
+      sounds.playWarning();
       setStatusNotification({
-        text: err.message || 'Abmelden fehlgeschlagen',
+        text: err.message || 'Fehler beim Abmelden',
         type: 'error'
       });
     }
   };
 
-  // Manual Trigger Sync Now
+  // Handle Manual Sync Click
   const handleManualSync = async () => {
-    if (!accessToken) {
-      handleConnectGoogle();
-      return;
-    }
     sounds.playClick();
-    const result = await performFullGoogleCalendarSync(invoices, selectedCalendarId, company.currency);
-    if (result.success) {
+    const res = await performFullGoogleCalendarSync(invoices, selectedCalendarId, company.currency);
+    if (res.success) {
       sounds.playSuccess();
       setStatusNotification({
-        text: result.message,
+        text: res.message,
         type: 'success'
       });
+      refreshUnifiedEvents();
     } else {
       sounds.playWarning();
       setStatusNotification({
-        text: result.message,
+        text: res.message,
         type: 'error'
       });
     }
-    refreshUnifiedEvents();
-  };
-
-  // Date Navigation Helpers
-  const handlePrev = () => {
-    sounds.playPop();
-    const next = new Date(focusedDate);
-    if (viewMode === 'month') {
-      next.setMonth(next.getMonth() - 1);
-    } else if (viewMode === 'week') {
-      next.setDate(next.getDate() - 7);
-    } else if (viewMode === 'day') {
-      next.setDate(next.getDate() - 1);
-    }
-    setFocusedDate(next);
-  };
-
-  const handleNext = () => {
-    sounds.playPop();
-    const next = new Date(focusedDate);
-    if (viewMode === 'month') {
-      next.setMonth(next.getMonth() + 1);
-    } else if (viewMode === 'week') {
-      next.setDate(next.getDate() + 7);
-    } else if (viewMode === 'day') {
-      next.setDate(next.getDate() + 1);
-    }
-    setFocusedDate(next);
-  };
-
-  const handleToday = () => {
-    sounds.playClick();
-    const today = new Date();
-    setFocusedDate(today);
-    setSelectedDay(today);
   };
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
     return events.filter(evt => {
-      // Category filter
-      const cat = evt.category || 'general';
-      if (!enabledCategories[cat]) return false;
+      // 1. Invoice Only filter
+      if (showInvoicesOnly && evt.source !== 'invoice') return false;
 
-      // Invoices only
-      if (showInvoicesOnly && evt.source !== 'invoice' && !evt.title.includes('[SOCDOF #')) {
-        return false;
-      }
+      // 2. Category filter
+      const cat = evt.category || (evt.source === 'google' ? 'google' : 'general');
+      if (enabledCategories[cat] === false) return false;
 
-      // Search query
+      // 3. Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesTitle = evt.title.toLowerCase().includes(q);
-        const matchesDesc = (evt.description || '').toLowerCase().includes(q);
-        const matchesLoc = (evt.location || '').toLowerCase().includes(q);
-        if (!matchesTitle && !matchesDesc && !matchesLoc) return false;
+        const matchTitle = (evt.title || '').toLowerCase().includes(q);
+        const matchDesc = (evt.description || '').toLowerCase().includes(q);
+        const matchLoc = (evt.location || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc && !matchLoc) return false;
       }
 
       return true;
     });
-  }, [events, enabledCategories, showInvoicesOnly, searchQuery]);
+  }, [events, showInvoicesOnly, enabledCategories, searchQuery]);
 
-  // Month Grid Calculation (42 cells)
+  // Category Color Map
+  const categoryColorMap: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+    invoice: { 
+      bg: 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800/80', 
+      text: 'text-indigo-900 dark:text-indigo-200', 
+      dot: 'bg-indigo-500', 
+      label: 'Fällige Rechnung' 
+    },
+    customer: { 
+      bg: 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/80', 
+      text: 'text-emerald-900 dark:text-emerald-200', 
+      dot: 'bg-emerald-500', 
+      label: 'Kundentermin' 
+    },
+    meeting: { 
+      bg: 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800/80', 
+      text: 'text-amber-900 dark:text-amber-200', 
+      dot: 'bg-amber-500', 
+      label: 'Meeting / Besprechung' 
+    },
+    deadline: { 
+      bg: 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800/80', 
+      text: 'text-rose-900 dark:text-rose-200', 
+      dot: 'bg-rose-500', 
+      label: 'Frist & Abgabe' 
+    },
+    personal: { 
+      bg: 'bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800/80', 
+      text: 'text-purple-900 dark:text-purple-200', 
+      dot: 'bg-purple-500', 
+      label: 'Privater Termin' 
+    },
+    google: { 
+      bg: 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800/80', 
+      text: 'text-blue-900 dark:text-blue-200', 
+      dot: 'bg-blue-500', 
+      label: 'Google Kalender' 
+    },
+    general: { 
+      bg: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700', 
+      text: 'text-slate-800 dark:text-slate-200', 
+      dot: 'bg-slate-400', 
+      label: 'Allgemein' 
+    }
+  };
+
+  // Month Navigation Handlers
+  const handlePrev = () => {
+    sounds.playClick();
+    const d = new Date(focusedDate);
+    if (viewMode === 'month') {
+      d.setMonth(d.getMonth() - 1);
+    } else if (viewMode === 'week') {
+      d.setDate(d.getDate() - 7);
+    } else if (viewMode === 'day') {
+      d.setDate(d.getDate() - 1);
+    } else {
+      d.setMonth(d.getMonth() - 1);
+    }
+    setFocusedDate(d);
+  };
+
+  const handleNext = () => {
+    sounds.playClick();
+    const d = new Date(focusedDate);
+    if (viewMode === 'month') {
+      d.setMonth(d.getMonth() + 1);
+    } else if (viewMode === 'week') {
+      d.setDate(d.getDate() + 7);
+    } else if (viewMode === 'day') {
+      d.setDate(d.getDate() + 1);
+    } else {
+      d.setMonth(d.getMonth() + 1);
+    }
+    setFocusedDate(d);
+  };
+
+  const handleToday = () => {
+    sounds.playPop();
+    const now = new Date();
+    setFocusedDate(now);
+    setSelectedDay(now);
+  };
+
+  const isSameDay = (d1: Date, d2: Date) => (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+
+  // Month Grid Calculation (Strictly 42 cells, timezone-safe)
   const monthGridDays = useMemo(() => {
     const year = focusedDate.getFullYear();
     const month = focusedDate.getMonth();
@@ -307,12 +364,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
     const totalDays = lastDay.getDate();
     const prevMonthLastDay = new Date(year, month, 0).getDate();
-
-    const isSameDate = (d1: Date, d2: Date) => (
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate()
-    );
 
     const cells: Array<{
       date: Date;
@@ -329,15 +380,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     // Previous month padding
     for (let i = startDay - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDay - i);
-      const dStr = d.toISOString().slice(0, 10);
-      const dayEvts = filteredEvents.filter(e => e.startDate === dStr);
+      const dStr = formatLocalDate(d);
+      const dayEvts = filteredEvents.filter(e => isEventOnDate(e, dStr));
       cells.push({
         date: d,
         dateStr: dStr,
         dayNum: prevMonthLastDay - i,
         isCurrentMonth: false,
-        isToday: isSameDate(d, now),
-        isSelected: isSameDate(d, selectedDay),
+        isToday: isSameDay(d, now),
+        isSelected: isSameDay(d, selectedDay),
         events: dayEvts
       });
     }
@@ -345,15 +396,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     // Current month days
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
-      const dStr = d.toISOString().slice(0, 10);
-      const dayEvts = filteredEvents.filter(e => e.startDate === dStr);
+      const dStr = formatLocalDate(d);
+      const dayEvts = filteredEvents.filter(e => isEventOnDate(e, dStr));
       cells.push({
         date: d,
         dateStr: dStr,
         dayNum: i,
         isCurrentMonth: true,
-        isToday: isSameDate(d, now),
-        isSelected: isSameDate(d, selectedDay),
+        isToday: isSameDay(d, now),
+        isSelected: isSameDay(d, selectedDay),
         events: dayEvts
       });
     }
@@ -362,15 +413,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const remaining = 42 - cells.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
-      const dStr = d.toISOString().slice(0, 10);
-      const dayEvts = filteredEvents.filter(e => e.startDate === dStr);
+      const dStr = formatLocalDate(d);
+      const dayEvts = filteredEvents.filter(e => isEventOnDate(e, dStr));
       cells.push({
         date: d,
         dateStr: dStr,
         dayNum: i,
         isCurrentMonth: false,
-        isToday: isSameDate(d, now),
-        isSelected: isSameDate(d, selectedDay),
+        isToday: isSameDay(d, now),
+        isSelected: isSameDay(d, selectedDay),
         events: dayEvts
       });
     }
@@ -385,44 +436,42 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const startOfWeek = new Date(current);
     startOfWeek.setDate(current.getDate() - dayOfWeek);
 
-    const isSameDate = (d1: Date, d2: Date) => (
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate()
-    );
     const now = new Date();
-
     const days = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek);
       d.setDate(startOfWeek.getDate() + i);
-      const dStr = d.toISOString().slice(0, 10);
-      const dayEvts = filteredEvents.filter(e => e.startDate === dStr);
+      const dStr = formatLocalDate(d);
+      const dayEvts = filteredEvents.filter(e => isEventOnDate(e, dStr));
       days.push({
         date: d,
         dateStr: dStr,
         dayNum: d.getDate(),
-        dayName: d.toLocaleDateString(undefined, { weekday: 'short' }),
-        isToday: isSameDate(d, now),
-        isSelected: isSameDate(d, selectedDay),
+        dayName: d.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short' }),
+        isToday: isSameDay(d, now),
+        isSelected: isSameDay(d, selectedDay),
         events: dayEvts
       });
     }
     return days;
-  }, [focusedDate, selectedDay, filteredEvents]);
+  }, [focusedDate, selectedDay, filteredEvents, currentLang]);
 
-  // Open New Event Modal with optional pre-filled date
-  const openNewEventModalWithDate = (dateStr?: string) => {
+  // Open New Event Modal with optional pre-filled date & hour
+  const openNewEventModalWithDate = (dateStr?: string, defaultHour?: string) => {
     sounds.playPop();
-    const d = dateStr || new Date().toISOString().slice(0, 10);
+    const d = dateStr || formatLocalDate(focusedDate);
+    const startH = defaultHour || '10:00';
+    const hourNum = parseInt(startH.split(':')[0], 10);
+    const endH = `${String((hourNum + 1) % 24).padStart(2, '0')}:00`;
+
     setNewEventTitle('');
     setNewEventDesc('');
     setNewEventLocation('');
     setNewEventStartDate(d);
-    setNewEventStartTime('10:00');
+    setNewEventStartTime(startH);
     setNewEventEndDate(d);
-    setNewEventEndTime('11:00');
-    setNewEventIsAllDay(false);
+    setNewEventEndTime(endH);
+    setNewEventIsAllDay(!defaultHour);
     setNewEventCategory('general');
     setNewEventTarget(accessToken ? 'google' : 'local');
     setIsNewEventModalOpen(true);
@@ -436,7 +485,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     setIsSubmitting(true);
     try {
       if (newEventTarget === 'google' && accessToken) {
-        // Push directly to Google Calendar API
         await createGoogleCalendarEvent(selectedCalendarId, {
           title: newEventTitle.trim(),
           description: newEventDesc.trim(),
@@ -452,12 +500,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           text: `Termin "${newEventTitle}" in Google Kalender angelegt.`,
           type: 'success'
         });
-        // Sync cache
         await performFullGoogleCalendarSync(invoices, selectedCalendarId, company.currency);
       } else {
-        // Save locally to SOCDOF custom events
         const newLocalEvent: CalendarAppEvent = {
-          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           title: newEventTitle.trim(),
           description: newEventDesc.trim(),
           location: newEventLocation.trim(),
@@ -545,6 +591,31 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     }
   };
 
+  // Duplicate Event
+  const handleDuplicateEvent = (event: CalendarAppEvent) => {
+    sounds.playPop();
+    const newEvt: CalendarAppEvent = {
+      ...event,
+      id: `local_${Date.now()}_dup`,
+      title: `${event.title} (Kopie)`,
+      source: 'local',
+      createdAt: new Date().toISOString()
+    };
+    delete newEvt.googleCalendarId;
+    delete newEvt.googleEventId;
+    delete newEvt.htmlLink;
+
+    const existing = getStoredCustomCalendarEvents();
+    saveStoredCustomCalendarEvents([...existing, newEvt]);
+    sounds.playSuccess();
+    setStatusNotification({
+      text: `Termin "${event.title}" erfolgreich dupliziert.`,
+      type: 'success'
+    });
+    refreshUnifiedEvents();
+    setSelectedEventForDetail(null);
+  };
+
   // Delete Event with explicit confirmation
   const handleDeleteEvent = async (event: CalendarAppEvent) => {
     sounds.playDelete();
@@ -584,20 +655,27 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     }
   };
 
-  // Category Color Map
-  const categoryColorMap: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-    invoice: { bg: 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-500', label: 'Rechnungen' },
-    customer: { bg: 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', label: 'Kundentermin' },
-    meeting: { bg: 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', dot: 'bg-blue-500', label: 'Meeting' },
-    deadline: { bg: 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', label: 'Frist / Deadline' },
-    personal: { bg: 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', label: 'Privat' },
-    general: { bg: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-400', label: 'Allgemein' }
+  // Download ICS File
+  const handleExportICS = () => {
+    sounds.playClick();
+    downloadICSFile(filteredEvents, `socdof-kalender-${formatLocalDate(new Date())}.ics`);
+    setStatusNotification({
+      text: 'Kalender erfolgreich als .ICS iCalendar-Datei exportiert.',
+      type: 'success'
+    });
   };
 
-  // Month & Year string formatted in language
   const formattedMonthYear = useMemo(() => {
-    return focusedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  }, [focusedDate]);
+    return focusedDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', {
+      month: 'long',
+      year: 'numeric'
+    });
+  }, [focusedDate, currentLang]);
+
+  const focusedDayEvents = useMemo(() => {
+    const dStr = formatLocalDate(focusedDate);
+    return filteredEvents.filter(e => isEventOnDate(e, dStr));
+  }, [focusedDate, filteredEvents]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans select-none">
@@ -678,7 +756,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <button
                 onClick={handleDisconnectGoogle}
                 title="Google Konto trennen"
-                className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -686,7 +764,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           ) : (
             <button
               onClick={handleConnectGoogle}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs transition"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs transition cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -699,14 +777,27 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           )}
         </div>
 
-        {/* Right: Primary Action "+ Neuer Termin" */}
-        <button
-          onClick={() => openNewEventModalWithDate()}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Neuer Termin</span>
-        </button>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          {/* Export ICS */}
+          <button
+            onClick={handleExportICS}
+            title="Kalender als .ICS (iCalendar) Datei exportieren"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export .ICS</span>
+          </button>
+
+          {/* Primary Action "+ Neuer Termin" */}
+          <button
+            onClick={() => openNewEventModalWithDate()}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Neuer Termin</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. SUBHEADER: NAVIGATION, SEARCH & VIEW SWITCHER */}
@@ -716,7 +807,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleToday}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition shadow-2xs"
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition shadow-2xs cursor-pointer"
           >
             Heute
           </button>
@@ -724,22 +815,24 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
             <button
               onClick={handlePrev}
-              title="Vorheriger Monat / Woche"
-              className="p-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition"
+              title="Vorheriger Zeitraum"
+              className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleNext}
-              title="Nächster Monat / Woche"
-              className="p-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition"
+              title="Nächster Zeitraum"
+              className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <span className="text-sm font-extrabold text-slate-900 dark:text-white capitalize ml-2">
-            {formattedMonthYear}
+            {viewMode === 'day'
+              ? focusedDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
+              : formattedMonthYear}
           </span>
         </div>
 
@@ -757,7 +850,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -774,7 +867,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 sounds.playClick();
                 setViewMode(mode);
               }}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition capitalize ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition capitalize cursor-pointer ${
                 viewMode === mode
                   ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -794,7 +887,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
         }`}>
           <span>{statusNotification.text}</span>
-          <button onClick={() => setStatusNotification(null)} className="opacity-70 hover:opacity-100">✕</button>
+          <button onClick={() => setStatusNotification(null)} className="opacity-70 hover:opacity-100 cursor-pointer">✕</button>
         </div>
       )}
 
@@ -802,12 +895,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left Collapsible Categories & Filter Sidebar */}
-        <div className="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 p-4 flex flex-col gap-5 overflow-y-auto hidden md:flex">
+        <div className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 p-4 flex flex-col gap-5 overflow-y-auto hidden md:flex">
           
           {/* Mini Calendar Widget */}
           <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
             <div className="text-xs font-extrabold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
-              <span className="capitalize">{focusedDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+              <span className="capitalize">{focusedDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', year: 'numeric' })}</span>
               <span className="text-[10px] font-normal text-slate-400">{filteredEvents.length} Termine</span>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 mb-1">
@@ -822,7 +915,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     setFocusedDate(cell.date);
                     setSelectedDay(cell.date);
                   }}
-                  className={`h-6 rounded-md flex items-center justify-center font-medium transition ${
+                  className={`h-6 rounded-md flex items-center justify-center font-medium transition cursor-pointer ${
                     cell.isToday
                       ? 'bg-blue-600 text-white font-bold'
                       : cell.isSelected
@@ -838,7 +931,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
           </div>
 
-          {/* Calendars & Filter Section */}
+          {/* Categories & Filter Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
               <span className="flex items-center gap-1.5">
@@ -849,8 +942,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
             <div className="space-y-1.5">
               {Object.entries(categoryColorMap).map(([key, meta]) => {
-                const count = events.filter(e => (e.category || 'general') === key).length;
-                const isChecked = Boolean(enabledCategories[key]);
+                const count = events.filter(e => {
+                  const cat = e.category || (e.source === 'google' ? 'google' : 'general');
+                  return cat === key;
+                }).length;
+                const isChecked = enabledCategories[key] !== false;
                 return (
                   <label 
                     key={key} 
@@ -862,7 +958,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         checked={isChecked}
                         onChange={() => {
                           sounds.playClick();
-                          setEnabledCategories(prev => ({ ...prev, [key]: !prev[key] }));
+                          setEnabledCategories(prev => ({ ...prev, [key]: !isChecked }));
                         }}
                         className="rounded accent-blue-600 cursor-pointer"
                       />
@@ -948,7 +1044,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                           openNewEventModalWithDate(cell.dateStr);
                         }}
                         title="Termin an diesem Tag anlegen"
-                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition"
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -959,7 +1055,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       {cell.events.slice(0, 3).map((evt) => {
                         const isInv = evt.source === 'invoice';
                         const isGcal = evt.source === 'google';
-                        const catMeta = categoryColorMap[evt.category || 'general'];
+                        const catKey = evt.category || (isGcal ? 'google' : 'general');
+                        const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
                         return (
                           <div
                             key={evt.id}
@@ -1002,13 +1099,23 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
           )}
 
-          {/* VIEW: WEEK VIEW */}
+          {/* VIEW: WEEK VIEW WITH HOURLY TIME GRID */}
           {viewMode === 'week' && (
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
               {/* Day Headers */}
-              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 divide-x divide-slate-200 dark:divide-slate-800 text-center py-2.5">
+              <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 divide-x divide-slate-200 dark:divide-slate-800 text-center py-2.5">
+                <div className="text-[11px] font-bold text-slate-400 flex items-center justify-center">
+                  Zeit
+                </div>
                 {weekDays.map((w, idx) => (
-                  <div key={idx} className="flex flex-col items-center">
+                  <div 
+                    key={idx} 
+                    onClick={() => {
+                      setFocusedDate(w.date);
+                      setSelectedDay(w.date);
+                    }}
+                    className="flex flex-col items-center cursor-pointer"
+                  >
                     <span className="text-[11px] font-semibold text-slate-400 uppercase">{w.dayName}</span>
                     <span className={`w-7 h-7 mt-1 rounded-full flex items-center justify-center text-xs font-bold ${
                       w.isToday ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-800 dark:text-slate-200'
@@ -1019,136 +1126,182 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 ))}
               </div>
 
-              {/* 7 Columns for Week */}
-              <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 dark:divide-slate-800 p-2 overflow-y-auto">
-                {weekDays.map((w, idx) => (
-                  <div key={idx} className="p-1 space-y-1.5 min-h-[400px]">
-                    {w.events.map(evt => {
-                      const catMeta = categoryColorMap[evt.category || 'general'];
-                      return (
-                        <div
-                          key={evt.id}
-                          onClick={() => {
-                            sounds.playClick();
-                            setSelectedEventForDetail(evt);
-                          }}
-                          className={`p-2 rounded-xl border text-xs cursor-pointer shadow-2xs transition hover:scale-[1.02] ${catMeta.bg} ${catMeta.text}`}
-                        >
-                          <div className="font-bold truncate">{evt.title}</div>
-                          {evt.startTime && (
-                            <div className="text-[10px] opacity-80 flex items-center gap-1 mt-0.5">
-                              <Clock className="w-3 h-3" />
-                              <span>{evt.startTime} - {evt.endTime || 'Ende'}</span>
-                            </div>
-                          )}
-                          {evt.location && (
-                            <div className="text-[10px] opacity-75 flex items-center gap-1 mt-0.5 truncate">
-                              <MapPin className="w-3 h-3" />
-                              <span className="truncate">{evt.location}</span>
-                            </div>
-                          )}
+              {/* All-Day Events Row */}
+              <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 divide-x divide-slate-200 dark:divide-slate-800 text-xs py-1.5 px-1">
+                <div className="text-[10px] font-bold text-slate-400 text-center self-center">
+                  Ganztägig
+                </div>
+                {weekDays.map((w, idx) => {
+                  const allDayEvents = w.events.filter(e => e.isAllDay);
+                  return (
+                    <div key={idx} className="space-y-1 p-0.5 min-h-[28px]">
+                      {allDayEvents.map(evt => {
+                        const catKey = evt.category || (evt.source === 'google' ? 'google' : 'general');
+                        const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
+                        return (
+                          <div
+                            key={evt.id}
+                            onClick={() => {
+                              sounds.playClick();
+                              setSelectedEventForDetail(evt);
+                            }}
+                            className={`p-1 rounded text-[10px] font-semibold border truncate cursor-pointer transition hover:opacity-90 ${catMeta.bg} ${catMeta.text}`}
+                            title={evt.title}
+                          >
+                            {evt.title}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Hourly Time Grid */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  {HOURS_RANGE.map(hour => {
+                    const hourStr = `${String(hour).padStart(2, '0')}:00`;
+                    return (
+                      <div key={hour} className="grid grid-cols-8 divide-x divide-slate-100 dark:divide-slate-800/80 min-h-[50px] group">
+                        {/* Time Label */}
+                        <div className="text-[11px] font-mono text-slate-400 text-center pt-1 select-none">
+                          {hourStr}
                         </div>
-                      );
-                    })}
-                    <button
-                      onClick={() => openNewEventModalWithDate(w.dateStr)}
-                      className="w-full py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-blue-500 hover:border-blue-400 text-[11px] font-semibold transition"
-                    >
-                      + Termin
-                    </button>
-                  </div>
-                ))}
+
+                        {/* 7 Day slots for this hour */}
+                        {weekDays.map((w, dIdx) => {
+                          const hourEvents = w.events.filter(e => {
+                            if (e.isAllDay) return false;
+                            if (!e.startTime) return hour === 9; // default slot
+                            const startH = parseInt(e.startTime.split(':')[0], 10);
+                            return startH === hour;
+                          });
+
+                          return (
+                            <div
+                              key={dIdx}
+                              onClick={() => openNewEventModalWithDate(w.dateStr, hourStr)}
+                              className="p-1 relative hover:bg-blue-50/20 dark:hover:bg-blue-950/10 transition cursor-pointer"
+                            >
+                              {hourEvents.map(evt => {
+                                const catKey = evt.category || (evt.source === 'google' ? 'google' : 'general');
+                                const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
+                                return (
+                                  <div
+                                    key={evt.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sounds.playClick();
+                                      setSelectedEventForDetail(evt);
+                                    }}
+                                    className={`p-1.5 rounded-lg border text-xs cursor-pointer shadow-2xs transition hover:scale-[1.02] mb-1 ${catMeta.bg} ${catMeta.text}`}
+                                  >
+                                    <div className="font-bold text-[11px] truncate">{evt.title}</div>
+                                    <div className="text-[9px] opacity-80 flex items-center gap-1 font-mono">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <span>{evt.startTime} - {evt.endTime || 'Ende'}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
-          {/* VIEW: DAY VIEW */}
+          {/* VIEW: DAY VIEW WITH FULL TIME TIMELINE */}
           {viewMode === 'day' && (
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white capitalize">
-                    {focusedDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    {focusedDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {filteredEvents.filter(e => e.startDate === focusedDate.toISOString().slice(0, 10)).length} Termine an diesem Tag
+                    {focusedDayEvents.length} Termine an diesem Tag
                   </p>
                 </div>
                 <button
-                  onClick={() => openNewEventModalWithDate(focusedDate.toISOString().slice(0, 10))}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                  onClick={() => openNewEventModalWithDate(formatLocalDate(focusedDate))}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Termin hinzufügen</span>
                 </button>
               </div>
 
-              {/* Day Events Timeline List */}
-              <div className="space-y-3">
-                {filteredEvents.filter(e => e.startDate === focusedDate.toISOString().slice(0, 10)).length === 0 ? (
+              {/* Day Hourly Slots Grid */}
+              <div className="space-y-2">
+                {focusedDayEvents.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 space-y-2">
                     <CalendarDays className="w-10 h-10 mx-auto opacity-40" />
                     <p className="text-sm font-semibold">Keine Termine für diesen Tag geplant</p>
                     <button
-                      onClick={() => openNewEventModalWithDate(focusedDate.toISOString().slice(0, 10))}
-                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                      onClick={() => openNewEventModalWithDate(formatLocalDate(focusedDate))}
+                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                     >
                       Jetzt ersten Termin anlegen
                     </button>
                   </div>
                 ) : (
-                  filteredEvents
-                    .filter(e => e.startDate === focusedDate.toISOString().slice(0, 10))
-                    .map(evt => {
-                      const catMeta = categoryColorMap[evt.category || 'general'];
-                      return (
-                        <div
-                          key={evt.id}
-                          onClick={() => {
-                            sounds.playClick();
-                            setSelectedEventForDetail(evt);
-                          }}
-                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer shadow-xs transition hover:shadow-md ${catMeta.bg} ${catMeta.text}`}
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2.5 h-2.5 rounded-full ${catMeta.dot}`} />
-                              <h4 className="text-sm font-bold">{evt.title}</h4>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800">
-                                {evt.source.toUpperCase()}
-                              </span>
-                            </div>
-                            {evt.description && (
-                              <p className="text-xs opacity-80 line-clamp-2 max-w-xl">{evt.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-xs opacity-75 pt-1">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5" />
-                                <span>{evt.isAllDay ? 'Ganztägig' : `${evt.startTime || '09:00'} - ${evt.endTime || '10:00'}`}</span>
-                              </span>
-                              {evt.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  <span>{evt.location}</span>
-                                </span>
-                              )}
-                            </div>
+                  focusedDayEvents.map(evt => {
+                    const catKey = evt.category || (evt.source === 'google' ? 'google' : 'general');
+                    const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
+                    return (
+                      <div
+                        key={evt.id}
+                        onClick={() => {
+                          sounds.playClick();
+                          setSelectedEventForDetail(evt);
+                        }}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer shadow-xs transition hover:shadow-md ${catMeta.bg} ${catMeta.text}`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${catMeta.dot}`} />
+                            <h4 className="text-sm font-bold">{evt.title}</h4>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800">
+                              {evt.source.toUpperCase()}
+                            </span>
                           </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEventForDetail(evt);
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-900/80 text-xs font-semibold hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition"
-                            >
-                              Details
-                            </button>
+                          {evt.description && (
+                            <p className="text-xs opacity-80 line-clamp-2 max-w-xl">{evt.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs opacity-75 pt-1">
+                            <span className="flex items-center gap-1 font-mono">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>{evt.isAllDay ? 'Ganztägig' : `${evt.startTime || '09:00'} - ${evt.endTime || '10:00'}`}</span>
+                            </span>
+                            {evt.location && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5" />
+                                <span>{evt.location}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
-                      );
-                    })
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEventForDetail(evt);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-900/80 text-xs font-semibold hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1168,7 +1321,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </div>
                 <button
                   onClick={() => openNewEventModalWithDate()}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Neuer Termin</span>
@@ -1183,7 +1336,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   </div>
                 ) : (
                   filteredEvents.map(evt => {
-                    const catMeta = categoryColorMap[evt.category || 'general'];
+                    const catKey = evt.category || (evt.source === 'google' ? 'google' : 'general');
+                    const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
                     const isInv = evt.source === 'invoice';
                     return (
                       <div
@@ -1197,10 +1351,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         <div className="flex items-center gap-3">
                           <div className="text-center w-14 p-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0">
                             <span className="block text-[10px] font-bold uppercase text-slate-400">
-                              {new Date(evt.startDate).toLocaleDateString(undefined, { weekday: 'short' })}
+                              {new Date(evt.startDate).toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short' })}
                             </span>
                             <span className="block text-sm font-black text-slate-900 dark:text-white">
-                              {new Date(evt.startDate).getDate()}
+                              {parseInt(evt.startDate.split('-')[2] || '1', 10)}
                             </span>
                           </div>
 
@@ -1250,7 +1404,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
               <button 
                 onClick={() => setIsNewEventModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 ✕
               </button>
@@ -1379,14 +1533,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNewEventModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>Termin anlegen</span>
@@ -1404,7 +1558,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${categoryColorMap[selectedEventForDetail.category || 'general']?.dot}`} />
+                <span className={`w-3 h-3 rounded-full ${categoryColorMap[selectedEventForDetail.category || (selectedEventForDetail.source === 'google' ? 'google' : 'general')]?.dot || 'bg-slate-400'}`} />
                 <span className="text-xs font-extrabold uppercase text-slate-400">
                   {selectedEventForDetail.source === 'invoice' ? 'Fakturierung' : selectedEventForDetail.source === 'google' ? 'Google Calendar' : 'Lokaler Termin'}
                 </span>
@@ -1415,7 +1569,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   setIsEditingEvent(false);
                   setConfirmDeleteId(null);
                 }}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 ✕
               </button>
@@ -1465,13 +1619,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsEditingEvent(false)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs cursor-pointer"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                    className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold cursor-pointer"
                   >
                     Speichern
                   </button>
@@ -1481,7 +1635,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <div className="space-y-4">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">{selectedEventForDetail.title}</h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">
                     <span className="flex items-center gap-1">
                       <CalendarIcon className="w-3.5 h-3.5 text-blue-500" />
                       <span>{selectedEventForDetail.startDate}</span>
@@ -1513,7 +1667,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       onOpenInvoice(selectedEventForDetail.invoiceId!);
                       setSelectedEventForDetail(null);
                     }}
-                    className="w-full p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition"
+                    className="w-full p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition cursor-pointer"
                   >
                     <Receipt className="w-4 h-4" />
                     <span>Zugehörige Rechnung #{selectedEventForDetail.invoiceNumber || selectedEventForDetail.invoiceId} öffnen</span>
@@ -1542,13 +1696,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="px-3 py-1 rounded-lg border border-rose-200 text-rose-700 text-xs"
+                        className="px-3 py-1 rounded-lg border border-rose-200 text-rose-700 text-xs cursor-pointer"
                       >
                         Abbrechen
                       </button>
                       <button
                         onClick={() => handleDeleteEvent(selectedEventForDetail)}
-                        className="px-3 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
+                        className="px-3 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer"
                       >
                         Ja, löschen
                       </button>
@@ -1556,22 +1710,31 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   </div>
                 ) : (
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                    {selectedEventForDetail.source !== 'invoice' ? (
+                    <div className="flex items-center gap-2">
+                      {selectedEventForDetail.source !== 'invoice' && (
+                        <button
+                          onClick={() => setConfirmDeleteId(selectedEventForDetail.id)}
+                          className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Löschen</span>
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => setConfirmDeleteId(selectedEventForDetail.id)}
-                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                        onClick={() => handleDuplicateEvent(selectedEventForDetail)}
+                        className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1 cursor-pointer"
+                        title="Diesen Termin als lokale Vorlage duplizieren"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Löschen</span>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Duplizieren</span>
                       </button>
-                    ) : (
-                      <span className="text-[10px] text-slate-400">Verwaltet über Rechnungen</span>
-                    )}
+                    </div>
 
                     {selectedEventForDetail.source !== 'invoice' && (
                       <button
                         onClick={() => setIsEditingEvent(true)}
-                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Bearbeiten</span>

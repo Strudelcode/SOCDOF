@@ -13,13 +13,16 @@
   ],
   "win": {
     "icon": "public/socdof_icon.ico",
-    "publisherName": "Yuri / Strudel",
-    "legalTrademarks": "Yuri / Strudel",
+    "publisherName": [
+      "Yuri / Strudel"
+    ],
     "verifyUpdateCodeSignature": false,
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ]
   },

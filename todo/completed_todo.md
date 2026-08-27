@@ -6,7 +6,25 @@
 
 ## Completed Tasks Archive
 
-### 1. Google Calendar 2-Way Live Sync, Dedicated Calendar App & Documentation (v21.0.0)
+### 1. Electron Builder Windows Packaging Schema Alignment (v21.1.1)
+- [x] **CI/CD Configuration Schema Fix**:
+  - [x] Resolved `configuration.win should be one of these: null` error under `electron-builder` v26.15 schema validator.
+  - [x] Removed unsupported `legalTrademarks` field from `win` configuration in `electron-builder.json`.
+  - [x] Converted `publisherName` to schema-compliant string array `["Yuri / Strudel"]`.
+
+### 2. Taskbar Calendar Flyout Timezone Alignment & Calendar UX Enhancements (v21.1.0)
+- [x] **Taskbar Flyout Timezone Alignment**:
+  - [x] Replaced manual timezone-sensitive date slicing with timezone-safe utility functions (`formatLocalDate`, `parseLocalDate`, `isSameCalendarDay`, `isEventOnDate`) in `src/lib/googleCalendar.ts`.
+  - [x] Fixed date arithmetic in `DesktopWindowWorkspace.tsx` (`calendarDays` and `selectedDateUnifiedEvents`) so events entered on day X no longer show on day X-1 in the taskbar flyout.
+  - [x] Rendered distinct category color indicators (Invoices, Google Calendar, Deadlines, Customer meetings) on mini-calendar day cells in the taskbar flyout.
+  - [x] Added quick 1-click "+ Termin im Kalender anlegen" prompt directly on empty day agenda selections.
+- [x] **Calendar App UX & Feature Enhancements (`CalendarModule.tsx`)**:
+  - [x] Integrated hourly time grid (07:00–22:00) into Week and Day views with clickable slot appointment creation.
+  - [x] Added 1-click appointment duplication (`Duplizieren`) in the event details modal.
+  - [x] Added RFC 5545 `.ics` iCalendar export download button in the calendar header.
+  - [x] Polished category chips, search filters, and responsive layout.
+
+### 2. Google Calendar 2-Way Live Sync, Dedicated Calendar App & Documentation (v21.0.0)
 - [x] **Dedicated Calendar Desktop App (`CalendarModule.tsx`)**:
   - [x] Implemented multi-view calendar (Month, Week, Day, Agenda) with fluid view transitions.
   - [x] Built unified event display combining Google Calendar items, customer invoice due dates, and local custom appointments.
