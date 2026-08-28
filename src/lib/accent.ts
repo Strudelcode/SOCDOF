@@ -68,7 +68,7 @@ export const ACCENT_PRESETS: Record<string, AccentPreset> = {
   },
   purple: {
     id: 'purple',
-    label: 'Odoo Purple',
+    label: 'SOCDOF Aubergine',
     hex: '#714B67',
     hoverHex: '#5a3b52',
     lightRgba: 'rgba(113, 75, 103, 0.14)',

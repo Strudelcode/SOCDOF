@@ -178,7 +178,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Studio Button (Signature Odoo Feature) */}
+        {/* Studio Button (Signature SOCDOF Feature) */}
         <button
           type="button"
           id="btn-odoo-studio"
@@ -187,7 +187,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onOpenStudio();
           }}
           className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 border border-white/20 transition shadow-xs"
-          title="Odoo Studio: Unternehmensdaten, Theme, Steuern & Layouts anpassen"
+          title="SOCDOF Studio: Unternehmensdaten, Theme, Steuern & Layouts anpassen"
         >
           <Sliders className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Studio</span>
@@ -268,14 +268,14 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
                 <span className="font-bold block text-slate-900 dark:text-white">Mitchell Admin</span>
-                <span className="text-[10px] text-slate-400 font-mono">admin@odoo.local (Superuser)</span>
+                <span className="text-[10px] text-slate-400 font-mono">admin@socdof.local (Superuser)</span>
               </div>
               <button
                 onClick={onOpenStudio}
                 className="w-full px-4 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
               >
                 <Sliders className="w-3.5 h-3.5 text-purple-600" />
-                <span>Odoo Studio Konfigurator</span>
+                <span>SOCDOF Studio Konfigurator</span>
               </button>
               <button
                 onClick={() => onSelectModule('settings')}

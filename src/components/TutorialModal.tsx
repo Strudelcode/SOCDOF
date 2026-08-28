@@ -63,7 +63,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
       tag: '1. Grundlagen & Fenster',
       icon: Monitor,
       color: 'bg-indigo-600',
-      description: 'Die Odoo ERP Suite läuft wie echte Windows 11 Programme in frei verschiebbaren Fenstern. Sie können mehrere Apps gleichzeitig öffnen.',
+      description: 'Die SOCDOF ERP Suite läuft wie echte Windows 11 Programme in frei verschiebbaren Fenstern. Sie können mehrere Apps gleichzeitig öffnen.',
       actionInstructions: [
         'Klicken Sie unten links auf das Windows-Startmenü oder doppelklicken Sie auf ein Desktop-Icon.',
         'Verschieben Sie Fenster an der oberen Titelleiste oder ziehen Sie an den Fensterecken, um die Größe anzupassen.',
@@ -159,7 +159,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
       proTip: 'Prüfen Sie regelmäßig den Mahnwesen-Filter, um überfällige Kundenforderungen frühzeitig zu erkennen.'
     },
     {
-      title: 'Odoo App Store & Modulverwaltung',
+      title: 'SOCDOF App Store & Modulverwaltung',
       tag: '7. Personalisierung',
       moduleId: 'appstore',
       actionButtonText: 'App Store öffnen',
@@ -167,7 +167,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
       color: 'bg-blue-600',
       description: 'Passen Sie die Arbeitsumgebung exakt an Ihre Branche und Ihre täglichen Aufgaben an.',
       actionInstructions: [
-        'Öffnen Sie den Odoo App Store über das Desktop-Icon oder das Startmenü.',
+        'Öffnen Sie den App Store über das Desktop-Icon oder das Startmenü.',
         'Aktivieren oder deaktivieren Sie Module mit nur einem Klick (z.B. Restaurant, Einkauf oder Lager).',
         'Klicken Sie bei einer App auf "Auf Desktop anheften", um Schnellzugriffe zu erstellen.',
         'Wichtige Basis-Apps (Einstellungen & Handbuch) bleiben immer geschützt und dauerhaft verfügbar.'
@@ -187,7 +187,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
         'Öffnen Sie die "Einstellungen" über das Desktop-Icon oder das Startmenü.',
         'Klicken Sie im Reiter "Firmendaten" auf "Briefkopf", um Logo und Bankverbindung einzurichten.',
         'Klicken Sie unter "Datensicherung" auf "ERP-Datenbank exportieren (.json)", um ein lokales Backup zu speichern.',
-        'Laden Sie unter "Windows Desktop" die Datei "Odoo_ERP_Windows_Starten.bat" für einen nativen 1-Klick-Start herunter.'
+        'Laden Sie unter "Windows Desktop" die Datei "SOCDOF_ERP_Windows_Starten.bat" für einen nativen 1-Klick-Start herunter.'
       ],
       whatHappens: 'Alle Belege, Artikel und Stammdaten liegen verschlüsselt auf Ihrer lokalen Windows-Festplatte (C:).',
       proTip: 'Erstellen Sie wöchentlich eine kompakte Sicherungsdatei auf einem externen USB-Stick oder Netzlaufwerk.'

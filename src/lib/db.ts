@@ -809,11 +809,11 @@ export async function exportDatabaseToJson(options?: { pretty?: boolean; owner?:
   const settings = await db.settings.toArray();
 
   const exportData = {
-    app: 'Odoo_Enterprise_Local_ERP',
+    app: 'SOCDOF_Enterprise_Local_ERP',
     version: 2,
     exported_at: new Date().toISOString(),
     backup_owner: options?.owner || 'System Admin',
-    backup_target_folder: options?.folder || 'C:\\ERP-Daten\\Odoo_Backups',
+    backup_target_folder: options?.folder || 'C:\\ERP-Daten\\SOCDOF_Backups',
     data_summary: {
       contacts_count: contacts.length,
       invoices_count: invoices.length,
@@ -840,7 +840,7 @@ export async function exportDatabaseToJson(options?: { pretty?: boolean; owner?:
 export async function importDatabaseFromJson(jsonStr: string): Promise<boolean> {
   const parsed = JSON.parse(jsonStr);
   if (!parsed.contacts || !parsed.products || !parsed.invoices) {
-    throw new Error('Ungültiges Datenformat für Odoo ERP Backup.');
+    throw new Error('Ungültiges Datenformat für SOCDOF ERP Backup.');
   }
 
   await db.transaction('rw', [

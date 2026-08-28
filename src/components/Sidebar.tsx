@@ -149,14 +149,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id="sidebar-launcher-toggle"
             onClick={() => handleNavClick('launcher')}
             className="flex items-center gap-3 text-left w-full hover:opacity-85 transition group"
-            title="Klicken, um zum Odoo App Launcher (Startbildschirm) zurückzukehren"
+            title="Klicken, um zum SOCDOF App Launcher (Startbildschirm) zurückzukehren"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#714B67] to-[#875A7B] flex items-center justify-center text-white shadow-md shadow-purple-900/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform">
               <Grid className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-900 dark:text-white tracking-tight text-base">Odoo</span>
+                <span className="font-bold text-slate-900 dark:text-white tracking-tight text-base">SOCDOF</span>
                 <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/70 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50">
                   Apps
                 </span>

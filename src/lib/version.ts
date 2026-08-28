@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.4.0';
+export const APP_VERSION = '21.5.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,52 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.5.1',
+    date: '2026-08-28',
+    title: 'Mobile Sync Network Auto-Detection, Cloud Preview & Electron Background Server Bridge',
+    highlights: [
+      'Multi-Mode Network Target Switcher: Seamless switching between Cloud/Web Preview URL (global access from mobile over LTE/5G), Local LAN WiFi (192.168.x.x for installed Desktop .exe), and custom IP/Port setups',
+      'APIPA 169.254 Exclusion & Intelligent Priority Sorting: Clean filtering of link-local 169.254 autoconfig subnets, prioritizing standard 192.168.x.x, 10.x.x.x, and 172.x.x.x LAN IPs',
+      'Electron Native Background Sync Server: Embedded HTTP listener on port 3000 in packaged desktop app with IPC bridge for instantaneous background data reception',
+      'Connection Guidance & Diagnostics: Added interactive troubleshooting accordion explaining network differences between Cloud Web Preview and local offline desktop environments'
+    ]
+  },
+  {
+    version: '21.5.0',
+    date: '2026-08-28',
+    title: 'Mobile Companion Integration, Camera QR Optical Scanner & Field Service Data Bridge',
+    highlights: [
+      'Mobile Companion Data Bridge: Seamless zero-cloud synchronization of field service timesheets, on-site tickets, travel mileage (km), GPS coordinates, and field expenses between smartphone companion apps and SOCDOF ERP',
+      'Optical QR-Code Live Scanner & JSON Import: High-speed camera scanner powered by jsQR with fallback for direct JSON/Base64 payload pasting and staging review',
+      'Intelligent Deduplication & Merge Engine: Automated comparison against existing ERP tickets, allowing users to skip duplicates or merge newly tracked work sessions and expenses seamlessly',
+      'SOCDOF_MOBILE_COMPANION_V1 Protocol Specification: Standardized offline sync payload schema with comprehensive developer instructions and copyable integration prompts',
+      'Full 4-Language Localization: Complete translation coverage across German, English, French, and Spanish in src/lib/i18n.ts'
+    ]
+  },
+  {
+    version: '21.4.2',
+    date: '2026-08-28',
+    title: 'Smart Low-Stock Reorder Engine, Amazon Multi-Item Remote Cart Generator & Inventory Replenishment Hub',
+    highlights: [
+      'Smart Reorder & Low-Stock Dashboard: Automated replenishment assistant scanning inventory for products at or below threshold levels (min_qty / global threshold) with live deficit calculations',
+      'Amazon Multi-Item Remote Cart Integration: 1-click Amazon Cart generation (ASIN mapping) and Amazon Business Wishlist link generation to instantly reorder multiple low-stock items in a single basket',
+      'Item Exclusion & ASIN Management: Fine-grained per-product control to exclude specific items from reordering, customize target stock levels, and auto-detect / edit Amazon ASINs',
+      'Internal Purchase Order Generation: Direct conversion of replenishment lists into official SOCDOF draft Purchase Orders with vendor assignments and warehouse staging',
+      'Full 4-Language Localization: Complete translation coverage across German, English, French, and Spanish in src/lib/i18n.ts'
+    ]
+  },
+  {
+    version: '21.4.1',
+    date: '2026-08-28',
+    title: 'Stock Moves KPI Analytics & Journal Export, Full 4-Language Localization & Purchases Enhancement',
+    highlights: [
+      'Inventory & Stock Moves KPI Bar: Added live analytics ribbon tracking Total Movements, Inbound Receipts (+), Outbound Issues (-), and Inventory Adjustments/Losses with instant visual metrics',
+      'Stock Journal CSV & Print Export: Integrated 1-click audit-compliant CSV export for stock transfer logs and full-screen formatted print layout',
+      'Purchases & Procurement Polish: Added KPI Overview cards, DIN A4 Purchase Order preview with print modal, duplicate order workflows, and supplier metrics',
+      'Unified POS & Stock Localization: Comprehensive translation coverage across all 4 supported languages (German, English, French, Spanish) in src/lib/i18n.ts'
+    ]
+  },
   {
     version: '21.4.0',
     date: '2026-08-27',

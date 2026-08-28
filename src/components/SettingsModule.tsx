@@ -382,7 +382,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       const json = await exportDatabaseToJson({
         pretty: !exportCompact,
         owner: profile.backup_owner || 'System Administrator',
-        folder: profile.backup_folder_path || 'C:\\ERP-Daten\\Odoo_Backups'
+        folder: profile.backup_folder_path || 'C:\\ERP-Daten\\SOCDOF_Backups'
       });
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

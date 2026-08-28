@@ -1,7 +1,7 @@
 {
   "name": "socdof",
   "private": true,
-  "version": "21.4.0",
+  "version": "21.5.1",
   "description": "Strudel's Organization, Commerce & Documentation Offline Flow - Offline-first Windows ERP Desktop Suite & Web Workspace",
   "author": "Yuri / Strudel",
   "publisher": "Yuri / Strudel",
@@ -20,14 +20,17 @@
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-react": "^5.0.4",
     "canvas-confetti": "^1.9.4",
     "dexie": "^4.4.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.18.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "qrcode": "^1.5.4",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^6.2.3"

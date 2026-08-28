@@ -6,7 +6,67 @@
 
 ## Completed Tasks Archive
 
-### 1. Restaurant & POS Integration with ERP Invoicing, Clean Professional Redesign & GoBD Hospitality Receipts (v21.4.0)
+### 1. Mobile Sync Network Auto-Detection, Cloud Preview & Electron Background Server Bridge (v21.5.1)
+- [x] **Network Target Mode Switcher (`MobileCompanionImportModal.tsx`)**:
+  - [x] Added 3 target tabs: Cloud / Web Preview URL (`https://...`), Local LAN WiFi (`http://192.168.x.x:3000`), and Custom IP/Port.
+  - [x] Allows mobile devices to send data globally in Cloud Preview environments over cellular (LTE/5G) or outside WiFi without shared local subnet constraints.
+- [x] **APIPA 169.254 Exclusion & Intelligent Priority Sorting (`vite.config.ts`, `electron/main.cjs`)**:
+  - [x] Filtered out link-local autoconfiguration `169.254.x.x` addresses.
+  - [x] Prioritized standard router LAN subnets (`192.168.*`, `10.*`, `172.*`).
+- [x] **Electron Embedded Sync Server (`electron/main.cjs`, `electron/preload.cjs`)**:
+  - [x] Native Node.js HTTP server on port 3000 inside packaged Windows desktop app.
+  - [x] IPC channel `socdof:mobile-sync-received` and `socdof:get-network-ips` for instant desktop sync without polling lag.
+- [x] **Troubleshooting & Diagnostics (`MobileCompanionImportModal.tsx`)**:
+  - [x] Added interactive accordion explaining connection requirements between Cloud Web Preview and local offline desktop setups.
+
+### 2. Mobile Companion Integration, Camera QR Optical Scanner & Field Service Data Bridge (v21.5.0)
+- [x] **Mobile Companion Synchronization Protocol (`mobileCompanionTypes.ts`)**:
+  - [x] Established standardized `SOCDOF_MOBILE_COMPANION_V1` payload format with validation for tickets, timesheets, expenses, GPS, and voice note metadata.
+- [x] **Optical Live QR Scanner & Staging Modal (`MobileCompanionImportModal.tsx`)**:
+  - [x] High-performance in-browser camera scanning powered by `jsQR` with continuous frame detection and visual reticle.
+  - [x] Manual paste and drop support for raw JSON or Base64 QR payloads.
+  - [x] Date range filter (all, today, 7 days, 30 days) and intelligent ticket matching (ticketNumber, internal ID, composite key).
+  - [x] Interactive deduplication resolution with options to skip existing duplicates or merge newly tracked sessions and field expenses.
+  - [x] Interactive in-app specification viewer and 1-click copyable prompt for mobile app companion developers/AIs.
+- [x] **Support Services Integration (`SupportServicesModule.tsx`)**:
+  - [x] Added prominent "Mobile App Sync" ribbon button in header.
+  - [x] Mounted modal with automatic persistence to `localStorage` and direct navigation to newly imported tickets.
+- [x] **4-Language Localization & Release Notes (`i18n.ts`, `version.ts`, `V21.md`, `package.json`)**:
+  - [x] Fully localized all modal controls, guides, tabs, and buttons across German, English, French, and Spanish.
+
+### 2. Smart Low-Stock Reorder Engine, Amazon Multi-Item Remote Cart Generator & Inventory Replenishment Hub (v21.4.2)
+- [x] **Smart Low-Stock Reorder Dashboard (`SmartReorderModal.tsx`)**:
+  - [x] Automated replenishment calculator scanning inventory for products at or below threshold levels (`min_qty` or global deficit threshold).
+  - [x] Configurable target inventory level (`target_stock`) and auto-suggested replenishment quantities.
+  - [x] Per-item exclusion toggle (`exclude_from_reorder`) to suppress automated reorder proposals.
+  - [x] Instant search, category filters, and out-of-stock highlights.
+- [x] **Amazon Multi-Item Remote Cart & Wishlist URL Generator (`productLinkExtractor.ts`, `SmartReorderModal.tsx`)**:
+  - [x] Automated ASIN extraction from Amazon URLs and manual ASIN editing inline.
+  - [x] Direct Amazon Remote Cart URL compilation (`/gp/aws/cart/add.html`) mapping `ASIN.1=...&Quantity.1=...` to purchase all deficit items in a single combined cart on Amazon.
+  - [x] Multi-item Amazon search generator fallback for items without explicit ASINs.
+- [x] **Internal Purchase Order Conversion**:
+  - [x] Direct 1-click generation of draft SOCDOF Purchase Orders with supplier allocation and warehouse receiving workflows.
+- [x] **Product & Procurement Module Integration (`ProductsModule.tsx`, `PurchasesModule.tsx`)**:
+  - [x] Added prominent Smart Reorder Hub launcher buttons with live low-stock count badges.
+  - [x] Added `min_qty`, `target_stock`, `asin`, and `exclude_from_reorder` inputs to product edit and creation forms.
+- [x] **4-Language Localization & Release Notes (`i18n.ts`, `version.ts`, `V19.md`, `package.json`)**:
+  - [x] Complete translations across German, English, French, and Spanish.
+
+### 2. Stock Moves KPI Analytics & Journal Export, Full 4-Language Localization & Purchases Enhancement (v21.4.1)
+- [x] **Inventory & Stock Moves KPI Analytics Ribbon (`StockMovesModule.tsx`)**:
+  - [x] Implemented real-time KPI overview bar for Total Movements, Inbound Volume (`+`), Outbound Volume (`-`), and Inventory Adjustments/Losses.
+  - [x] Added 1-click UTF-8 BOM CSV export for stock transfer audit logs.
+  - [x] Added dedicated print journal command with formatted print layout.
+- [x] **Purchases & Procurement Module Polish (`PurchasesModule.tsx`)**:
+  - [x] Added KPI overview cards for Procurement Volume, In-Flight Orders, Goods Received, and Active Suppliers.
+  - [x] Built DIN A4 Purchase Order preview with print modal, duplicate order cloning, and deletion safeguards.
+- [x] **Comprehensive Localization & Currency Formatting (`i18n.ts`, `POSModule.tsx`, `StockMovesModule.tsx`)**:
+  - [x] Replaced hardcoded strings with full 4-language i18n keys (`de`, `en`, `fr`, `es`) in `src/lib/i18n.ts`.
+  - [x] Standardized dynamic company currency usage across POS and Stock views.
+- [x] **App Store & Core Branding Rebrand**:
+  - [x] Rebranded all remaining instances of "Odoo" to "SOCDOF" across the App Store and throughout the entire application.
+
+### 2. Restaurant & POS Integration with ERP Invoicing, Clean Professional Redesign & GoBD Hospitality Receipts (v21.4.0)
 - [x] **Unified Database & Invoice Pipeline (`src/lib/db.ts`)**:
   - [x] Upgraded `createPOSCheckout` to atomically generate official paid `Invoice` records (`GASTRO/2026/...` / `POS/2026/...`) and POS orders in Dexie.
   - [x] Directly updates Dashboard KPI revenue counters, Rechnungsjournal, and Accounting metrics without manual reconciliation.

@@ -71,8 +71,8 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   };
 
   const themeOptions = [
-    { id: 'odoo-purple', name: 'Odoo Aubergine (Klassisch)', color: '#714B67', accent: '#875A7B' },
-    { id: 'odoo-teal', name: 'Odoo Teal (Modern Enterprise)', color: '#017e84', accent: '#00a09d' },
+    { id: 'odoo-purple', name: 'SOCDOF Aubergine (Klassisch)', color: '#714B67', accent: '#875A7B' },
+    { id: 'odoo-teal', name: 'SOCDOF Teal (Modern Enterprise)', color: '#017e84', accent: '#00a09d' },
     { id: 'odoo-blue', name: 'Sapphire Enterprise', color: '#1e3a8a', accent: '#2563eb' },
     { id: 'odoo-emerald', name: 'Emerald Forest', color: '#065f46', accent: '#059669' },
     { id: 'odoo-dark', name: 'Midnight Obsidian', color: '#0f172a', accent: '#334155' }
@@ -98,7 +98,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                Odoo Studio & Anpassung
+                SOCDOF Studio & Anpassung
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-semibold">
                   Customizer
                 </span>
@@ -315,7 +315,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             <div className="space-y-6 animate-fade-in text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Odoo Primärfarbschema (Header & Akzente)
+                  SOCDOF Primärfarbschema (Header & Akzente)
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   {themeOptions.map((t) => (
@@ -392,7 +392,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'odoo-modern', name: 'Odoo Modern 18', desc: 'Strukturierte Farbakzente & QR-Zahlteil' },
+                    { id: 'odoo-modern', name: 'SOCDOF Modern', desc: 'Strukturierte Farbakzente & QR-Zahlteil' },
                     { id: 'din5008', name: 'DIN 5008 Standard', desc: 'Deutscher Geschäftsbrief nach Norm' },
                     { id: 'clean', name: 'Minimalist Clean', desc: 'Schlankes reduziertes Layout' },
                     { id: 'compact', name: 'Kompakt Retail', desc: 'Für dichte Artikellisten' }

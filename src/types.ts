@@ -31,6 +31,9 @@ export interface Product {
   category?: string;
   unit?: string;
   min_qty?: number;
+  target_stock?: number;
+  asin?: string;
+  exclude_from_reorder?: boolean;
   barcode?: string;
   image_emoji?: string;
   image_url?: string;
@@ -305,6 +308,17 @@ export type ActiveModule =
   | 'ios_billing'
   | 'support_services';
 
+export interface SupportExpenseEntry {
+  id: string;
+  ticket_id?: string;
+  date: string;
+  title: string;
+  amount: number;
+  category?: 'travel' | 'food' | 'material' | 'parking' | 'toll' | 'other';
+  notes?: string;
+  billable?: boolean;
+}
+
 export interface SupportTimesheetEntry {
   id: string;
   ticket_id?: string;
@@ -316,14 +330,19 @@ export interface SupportTimesheetEntry {
   billable?: boolean;
   startedAt?: string;
   endedAt?: string;
+  travelKm?: number;
+  locationName?: string;
+  geoLatitude?: number;
+  geoLongitude?: number;
 }
 
 export interface SupportActivityEntry {
   id: string;
   author: string;
-  type: 'message' | 'note' | 'activity' | 'system';
+  type: 'message' | 'note' | 'activity' | 'system' | 'voice_note';
   content: string;
   createdAt: string;
+  audioUrl?: string;
 }
 
 export interface SupportServiceTicket {
@@ -343,6 +362,12 @@ export interface SupportServiceTicket {
   description: string;
   timesheets: SupportTimesheetEntry[];
   activities: SupportActivityEntry[];
+  expenses?: SupportExpenseEntry[];
+  location_name?: string;
+  geo_latitude?: number;
+  geo_longitude?: number;
+  travel_km?: number;
+  source_device?: 'desktop' | 'mobile_companion' | 'external';
   hourlyRate?: number;
   billable: boolean;
   isTimerRunning?: boolean;

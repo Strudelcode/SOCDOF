@@ -25,13 +25,16 @@ import {
   Users,
   Receipt,
   Eye,
-  Info
+  Info,
+  ShoppingCart,
+  EyeOff
 } from 'lucide-react';
 import { Product, Invoice, StockMove } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
-import { extractProductFromUrl } from '../lib/productLinkExtractor';
+import { extractProductFromUrl, extractAmazonAsin } from '../lib/productLinkExtractor';
 import { t } from '../lib/i18n';
+import { SmartReorderModal } from './SmartReorderModal';
 
 interface ProductsModuleProps {
   products: Product[];
@@ -53,6 +56,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   
   // Link extraction state in modal
@@ -66,12 +70,26 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
   // Categories extraction
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category || 'Allgemein')))];
 
+  // Low stock counter
+  const lowStockCount = useMemo(() => {
+    return products.filter(p => (p.qty_available || 0) <= (p.min_qty ?? 5) && !p.exclude_from_reorder).length;
+  }, [products]);
+
   const filteredProducts = products.filter((p) => {
-    const matchesCat = selectedCategory === 'all' || (p.category || 'Allgemein') === selectedCategory;
+    let matchesCat = true;
+    if (selectedCategory === '__low_stock__') {
+      matchesCat = (p.qty_available || 0) <= (p.min_qty ?? 5);
+    } else if (selectedCategory === '__excluded__') {
+      matchesCat = Boolean(p.exclude_from_reorder);
+    } else if (selectedCategory !== 'all') {
+      matchesCat = (p.category || 'Allgemein') === selectedCategory;
+    }
+
     const q = searchQuery.toLowerCase();
     const matchesSearch = 
       p.name.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q) ||
+      (p.asin && p.asin.toLowerCase().includes(q)) ||
       (p.source_domain && p.source_domain.toLowerCase().includes(q)) ||
       (p.description && p.description.toLowerCase().includes(q));
     return matchesCat && matchesSearch;
@@ -112,10 +130,12 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
       cost_price: 50,
       qty_available: 0,
       min_qty: 5,
+      target_stock: 15,
       unit: 'Stück',
       category: 'Hardware',
       image_emoji: '📦',
-      description: ''
+      description: '',
+      exclude_from_reorder: false
     });
     setIsEditModalOpen(true);
   };
@@ -147,6 +167,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
           web_link: linkInput.trim(),
           source_domain: extracted.source_domain,
           image_url: extracted.image_url || prev?.image_url,
+          asin: extracted.asin || prev?.asin || extractAmazonAsin(linkInput.trim()) || undefined,
           description: extracted.description || prev?.description || (extracted.source_domain ? `Importiert von ${extracted.source_domain}` : '')
         }));
         setExtractSuccessMsg(`Produktdaten erfolgreich von ${extracted.source_domain} übernommen!`);
@@ -190,15 +211,36 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
     try {
       if (editingProduct.id) {
-        await db.products.update(editingProduct.id, editingProduct);
-      } else {
-        await db.products.add({
-          name: editingProduct.name,
-          sku: editingProduct.sku,
+        await db.products.update(editingProduct.id, {
+          ...editingProduct,
+          name: editingProduct.name.trim(),
+          sku: editingProduct.sku.trim(),
           sale_price: Number(editingProduct.sale_price) || 0,
           cost_price: Number(editingProduct.cost_price) || 0,
           qty_available: Number(editingProduct.qty_available) || 0,
-          min_qty: Number(editingProduct.min_qty) || 5,
+          min_qty: Number(editingProduct.min_qty) !== undefined ? Number(editingProduct.min_qty) : 5,
+          target_stock: Number(editingProduct.target_stock) || undefined,
+          asin: editingProduct.asin?.trim() || (editingProduct.web_link ? extractAmazonAsin(editingProduct.web_link) || undefined : undefined),
+          exclude_from_reorder: Boolean(editingProduct.exclude_from_reorder),
+          unit: editingProduct.unit || 'Stück',
+          category: editingProduct.category || 'Allgemein',
+          image_emoji: editingProduct.image_emoji || '📦',
+          image_url: editingProduct.image_url || undefined,
+          web_link: editingProduct.web_link || undefined,
+          source_domain: editingProduct.source_domain || undefined,
+          description: editingProduct.description || ''
+        });
+      } else {
+        await db.products.add({
+          name: editingProduct.name.trim(),
+          sku: editingProduct.sku.trim(),
+          sale_price: Number(editingProduct.sale_price) || 0,
+          cost_price: Number(editingProduct.cost_price) || 0,
+          qty_available: Number(editingProduct.qty_available) || 0,
+          min_qty: Number(editingProduct.min_qty) !== undefined ? Number(editingProduct.min_qty) : 5,
+          target_stock: Number(editingProduct.target_stock) || 15,
+          asin: editingProduct.asin?.trim() || (editingProduct.web_link ? extractAmazonAsin(editingProduct.web_link) || undefined : undefined),
+          exclude_from_reorder: Boolean(editingProduct.exclude_from_reorder),
           unit: editingProduct.unit || 'Stück',
           category: editingProduct.category || 'Allgemein',
           image_emoji: editingProduct.image_emoji || '📦',
@@ -240,7 +282,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
     <div className="space-y-6">
       {/* Top Filter & Actions Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Category Pills */}
+        {/* Category & Status Pills */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto max-w-full">
           {categories.map((cat) => (
             <button
@@ -258,11 +300,27 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               {cat === 'all' ? t('products.all_categories', undefined, 'Alle Kategorien') : cat}
             </button>
           ))}
+
+          {/* Low Stock Quick Filter Pill */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setSelectedCategory(selectedCategory === '__low_stock__' ? 'all' : '__low_stock__');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1 ${
+              selectedCategory === '__low_stock__'
+                ? 'bg-rose-500 text-white shadow-xs'
+                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60'
+            }`}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            <span>{t('products.low_stock_pill', undefined, 'Knappe Bestände')} ({lowStockCount})</span>
+          </button>
         </div>
 
-        {/* Live Search & Create Button */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 sm:w-64">
+        {/* Live Search, Smart Reorder & Create Button */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+          <div className="relative flex-1 sm:w-60">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -273,9 +331,27 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
             />
           </div>
 
+          {/* Smart Reorder & Amazon Cart Generator Launcher */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsReorderModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 text-xs font-extrabold rounded-xl shadow-xs transition shrink-0"
+            title="Nachbestell-Assistent für knappe Lagerbestände & Amazon-Warenkorb"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span>{t('products.btn_smart_reorder', undefined, 'Nachbestellen & Amazon-Warenkorb')}</span>
+            {lowStockCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                {lowStockCount}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-xs transition shrink-0"
           >
             <PackagePlus className="w-4 h-4" />
             <span>{t('products.btn_new_product', undefined, 'Neues Produkt')}</span>
@@ -290,6 +366,15 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
             <Boxes className="w-4 h-4 text-indigo-500" />
             <span>{t('products.catalog_title', undefined, 'Produktkatalog & Bestandsübersicht')} ({filteredProducts.length} {t('invoice.entries', undefined, 'Artikel')})</span>
           </h2>
+          {lowStockCount > 0 && (
+            <button
+              onClick={() => setIsReorderModalOpen(true)}
+              className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>{lowStockCount} {t('products.low_stock_warning_link', undefined, 'Artikel nachbestellen')} &rarr;</span>
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -298,7 +383,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                 <th className="p-4 w-12 text-center">{t('products.th_image', undefined, 'Bild')}</th>
                 <th className="p-4">{t('products.th_name', undefined, 'Artikel / Bezeichnung')}</th>
-                <th className="p-4">{t('products.th_sku', undefined, 'SKU / Code')}</th>
+                <th className="p-4">{t('products.th_sku', undefined, 'SKU / ASIN')}</th>
                 <th className="p-4">{t('products.th_category', undefined, 'Kategorie')}</th>
                 <th className="p-4 text-right">{t('products.th_cost_price', undefined, 'Einkaufspreis (EK)')}</th>
                 <th className="p-4 text-right">{t('products.th_sale_price', undefined, 'Verkaufspreis (VK)')}</th>
@@ -317,9 +402,10 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               ) : (
                 filteredProducts.map((p) => {
                   const qty = p.qty_available || 0;
-                  const isLowStock = qty < (p.min_qty ?? 5);
+                  const isLowStock = qty <= (p.min_qty ?? 5);
                   const allocation = p.id ? productAllocations.get(p.id) : undefined;
                   const soldQty = allocation?.totalSold || 0;
+                  const asin = p.asin || (p.web_link ? extractAmazonAsin(p.web_link) : null);
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
@@ -364,16 +450,29 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                             {p.description}
                           </div>
                         )}
-                        {p.source_domain && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-mono mt-0.5">
-                            <Globe className="w-2.5 h-2.5" />
-                            <span>{p.source_domain}</span>
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {p.source_domain && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-mono">
+                              <Globe className="w-2.5 h-2.5" />
+                              <span>{p.source_domain}</span>
+                            </span>
+                          )}
+                          {p.exclude_from_reorder && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-rose-500 font-semibold">
+                              <EyeOff className="w-2.5 h-2.5" />
+                              <span>{t('reorder.badge_excluded', undefined, 'Nicht nachbestellen')}</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      <td className="p-4 font-mono-num font-medium text-slate-600 dark:text-slate-300">
-                        {p.sku}
+                      <td className="p-4 font-mono-num text-slate-600 dark:text-slate-300">
+                        <div className="font-medium">{p.sku}</div>
+                        {asin && (
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                            ASIN: {asin}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-4">
@@ -403,7 +502,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                           </span>
                           {isLowStock && (
                             <span className="text-[10px] text-rose-500 font-semibold mt-0.5">
-                              {t('products.low_stock', undefined, 'Niedrig')} (&lt; {p.min_qty ?? 5})
+                              {t('products.low_stock', undefined, 'Niedrig')} (&le; {p.min_qty ?? 5})
                             </span>
                           )}
                         </div>
@@ -464,6 +563,15 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Smart Reorder & Amazon Cart Generator Modal */}
+      <SmartReorderModal
+        isOpen={isReorderModalOpen}
+        onClose={() => setIsReorderModalOpen(false)}
+        products={products}
+        onRefreshProducts={onRefresh}
+        currency={currency}
+      />
 
       {/* Customer Allocation Detail Modal */}
       {selectedProductDetail && createPortal(
@@ -572,7 +680,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                   <span>{t('products.modal_weblink_label', undefined, 'Optional: Produkt-Weblink eintragen (z. B. Amazon, Lieferanten-Shop)')}</span>
                 </label>
                 <p className="text-[11px] text-sky-700 dark:text-sky-300">
-                  {t('products.modal_weblink_desc', undefined, 'Füge einen Weblink ein, um Titel, Kategorie, Bild und Daten automatisch vorzubelegen. Du kannst alle Werte danach beliebig anpassen.')}
+                  {t('products.modal_weblink_desc', undefined, 'Füge einen Weblink ein, um Titel, Kategorie, ASIN, Bild und Daten automatisch vorzubelegen.')}
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -722,7 +830,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 </div>
               </div>
 
-              {/* Stock Quantity, Min Qty & Unit */}
+              {/* Stock Quantity, Min Qty & Target Stock */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -738,7 +846,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" title="Schwellenwert für Knappe Bestände">
                     {t('products.modal_min_qty_label', undefined, 'Mindestbestand')}
                   </label>
                   <input
@@ -751,16 +859,63 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('products.modal_unit_label', undefined, 'Einheit')}
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1" title="Zielbestand beim Auffüllen">
+                    {t('products.modal_target_stock_label', undefined, 'Zielbestand')}
                   </label>
                   <input
-                    type="text"
-                    placeholder="Stück, Std, Lizenz"
-                    value={editingProduct.unit || 'Stück'}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                    type="number"
+                    min="1"
+                    placeholder="15"
+                    value={editingProduct.target_stock ?? 15}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, target_stock: parseInt(e.target.value) || 15 })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono focus:border-indigo-500 focus:outline-none"
                   />
+                </div>
+              </div>
+
+              {/* ASIN & Reorder Exclusion */}
+              <div className="p-3.5 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/50 rounded-2xl space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <ShoppingCart className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{t('products.modal_asin_label', undefined, 'Amazon ASIN (10 Zeichen)')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      placeholder="z. B. B08N5WRWNW"
+                      value={editingProduct.asin || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, asin: e.target.value.toUpperCase().trim() })}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono uppercase focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {t('products.modal_unit_label', undefined, 'Einheit')}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Stück, Std, Lizenz"
+                      value={editingProduct.unit || 'Stück'}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="exclude_from_reorder_cb"
+                    checked={Boolean(editingProduct.exclude_from_reorder)}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, exclude_from_reorder: e.target.checked })}
+                    className="w-4 h-4 text-rose-600 rounded-md border-slate-300 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <label htmlFor="exclude_from_reorder_cb" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                    {t('products.modal_exclude_reorder_label', undefined, 'Von automatischen Nachbestellungen / Amazon-Warenkorb ausschließen')}
+                  </label>
                 </div>
               </div>
 

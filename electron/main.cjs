@@ -3,9 +3,140 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
+const os = require('os');
 const { spawn } = require('child_process');
 
 let mainWindow;
+let mobileSyncHttpServer = null;
+const mobileSyncStore = new Map();
+
+function getLocalIpAddresses() {
+  const networkInterfaces = os.networkInterfaces();
+  const validIps = [];
+
+  for (const iface of Object.values(networkInterfaces)) {
+    if (iface) {
+      for (const config of iface) {
+        if (config.family === 'IPv4' && !config.internal) {
+          const ip = config.address;
+          // Filter out APIPA (169.254.x.x) autoconfig addresses
+          if (!ip.startsWith('169.254.')) {
+            validIps.push(ip);
+          }
+        }
+      }
+    }
+  }
+
+  // Sort LAN IPs: 192.168.* first, then 10.*, then 172.*
+  validIps.sort((a, b) => {
+    const score = (ip) => {
+      if (ip.startsWith('192.168.')) return 1;
+      if (ip.startsWith('10.')) return 2;
+      if (ip.startsWith('172.')) return 3;
+      return 4;
+    };
+    return score(a) - score(b);
+  });
+
+  return validIps;
+}
+
+// Background lightweight HTTP sync server for Mobile Companion in packaged Electron
+function startMobileSyncServer(preferredPort = 3000) {
+  if (mobileSyncHttpServer) return;
+
+  const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Source, X-App-Version, X-Device-Id, X-Export-Timestamp');
+
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+    if (parsedUrl.pathname === '/api/mobile-sync/info' && req.method === 'GET') {
+      const ips = getLocalIpAddresses();
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        status: 'ok',
+        ips,
+        port: preferredPort,
+        primaryIp: ips[0] || '127.0.0.1'
+      }));
+      return;
+    }
+
+    if (parsedUrl.pathname === '/api/mobile-sync' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const payload = JSON.parse(body);
+          const token = parsedUrl.searchParams.get('token') || payload.token || payload.session_id || 'default';
+          
+          mobileSyncStore.set(token, { payload, timestamp: Date.now() });
+          mobileSyncStore.set('latest', { payload, timestamp: Date.now() });
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('socdof:mobile-sync-received', payload);
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            message: 'Synchronisation erfolgreich!',
+            receivedSessions: payload.sessions?.length || payload.tickets?.length || 0,
+            timestamp: new Date().toISOString()
+          }));
+        } catch (err) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    if (parsedUrl.pathname === '/api/mobile-sync' && req.method === 'GET') {
+      const token = parsedUrl.searchParams.get('token') || 'latest';
+      const session = mobileSyncStore.get(token) || mobileSyncStore.get('latest');
+
+      res.setHeader('Content-Type', 'application/json');
+      if (session && Date.now() - session.timestamp < 1000 * 60 * 15) {
+        if (parsedUrl.searchParams.get('consume') === 'true') {
+          mobileSyncStore.delete(token);
+          mobileSyncStore.delete('latest');
+        }
+        res.end(JSON.stringify({ ready: true, timestamp: session.timestamp, payload: session.payload }));
+      } else {
+        res.end(JSON.stringify({ ready: false, message: 'Waiting...' }));
+      }
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end('Not found');
+  });
+
+  server.on('error', (err) => {
+    console.error('Mobile sync server error:', err);
+    if (err.code === 'EADDRINUSE' && preferredPort === 3000) {
+      startMobileSyncServer(3001);
+    }
+  });
+
+  server.listen(preferredPort, '0.0.0.0', () => {
+    console.log(`[SOCDOF Electron] Background Mobile Sync server running on port ${preferredPort}`);
+  });
+
+  mobileSyncHttpServer = server;
+}
 
 // Disable default top menu bar (File, Edit, View, Window)
 Menu.setApplicationMenu(null);
@@ -104,6 +235,15 @@ ipcMain.handle('socdof:get-platform', () => {
   };
 });
 
+ipcMain.handle('socdof:get-network-ips', () => {
+  const ips = getLocalIpAddresses();
+  return {
+    ips,
+    port: 3000,
+    primaryIp: ips[0] || '127.0.0.1'
+  };
+});
+
 ipcMain.handle('socdof:quit-app', () => {
   app.quit();
 });
@@ -158,6 +298,7 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
 
 app.whenReady().then(() => {
   createWindow();
+  startMobileSyncServer(3000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

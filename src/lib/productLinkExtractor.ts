@@ -7,6 +7,72 @@ export interface ExtractedProductInfo {
   source_domain: string;
   description?: string;
   sku?: string;
+  asin?: string;
+}
+
+/**
+ * Extracts Amazon ASIN (10 alphanumeric characters) from an Amazon URL or string
+ */
+export function extractAmazonAsin(rawInput: string): string | null {
+  if (!rawInput) return null;
+  const trimmed = rawInput.trim();
+
+  // If it is directly a 10-char ASIN (e.g. B08N5WRWNW)
+  if (/^[A-Z0-9]{10}$/i.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+
+  try {
+    const asinMatch = trimmed.match(/(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/|\/d\/|\/exec\/obidos\/ASIN\/|[?&]asin=)([A-Z0-9]{10})/i);
+    if (asinMatch && asinMatch[1]) {
+      return asinMatch[1].toUpperCase();
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+/**
+ * Generates an Amazon Multi-Item Remote Shopping Cart URL
+ * Amazon AWS Remote Cart format:
+ * https://www.amazon.{tld}/gp/aws/cart/add.html?ASIN.1=...&Quantity.1=...&ASIN.2=...&Quantity.2=...
+ */
+export function buildAmazonMultiCartUrl(
+  items: { asin: string; quantity: number }[],
+  domain: string = 'amazon.de'
+): string {
+  const validItems = items.filter(it => it.asin && it.asin.trim().length === 10 && it.quantity > 0);
+  if (validItems.length === 0) return '';
+
+  let cleanDomain = domain.toLowerCase().trim();
+  if (cleanDomain.startsWith('http://') || cleanDomain.startsWith('https://')) {
+    try {
+      cleanDomain = new URL(cleanDomain).hostname.replace(/^www\./, '');
+    } catch {
+      cleanDomain = 'amazon.de';
+    }
+  }
+  if (!cleanDomain.includes('amazon.')) {
+    cleanDomain = 'amazon.de';
+  }
+
+  const queryParts = validItems.map((item, idx) => {
+    const pos = idx + 1;
+    return `ASIN.${pos}=${encodeURIComponent(item.asin.toUpperCase())}&Quantity.${pos}=${Math.max(1, Math.round(item.quantity))}`;
+  });
+
+  return `https://www.${cleanDomain}/gp/aws/cart/add.html?${queryParts.join('&')}`;
+}
+
+/**
+ * Generates Amazon Search URL for a product query
+ */
+export function buildAmazonSearchUrl(query: string, domain: string = 'amazon.de'): string {
+  let cleanDomain = domain.toLowerCase().trim().replace(/^www\./, '');
+  if (!cleanDomain.includes('amazon.')) cleanDomain = 'amazon.de';
+  return `https://www.${cleanDomain}/s?k=${encodeURIComponent(query.trim())}`;
 }
 
 /**
@@ -31,7 +97,7 @@ export function extractProductFromUrl(rawUrl: string): ExtractedProductInfo | nu
     // 1. AMAZON (.de, .com, .at, .co.uk, etc.)
     if (hostname.includes('amazon.')) {
       // Look for /dp/ASIN or /gp/product/ASIN
-      const asinMatch = pathname.match(/(?:\/dp\/|\/gp\/product\/|\/exec\/obidos\/ASIN\/)([A-Z0-9]{10})/i);
+      const asinMatch = pathname.match(/(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/|\/d\/|\/exec\/obidos\/ASIN\/)([A-Z0-9]{10})/i);
       const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
 
       // Extract title from slug /Product-Name/dp/ASIN
@@ -47,6 +113,7 @@ export function extractProductFromUrl(rawUrl: string): ExtractedProductInfo | nu
       info.source_domain = 'Amazon (' + hostname.split('.').pop()?.toUpperCase() + ')';
       info.name = title || (asin ? `Amazon Artikel (${asin})` : 'Amazon Produkt');
       info.sku = asin ? `AMZ-${asin}` : `AMZ-${Math.floor(1000 + Math.random() * 9000)}`;
+      info.asin = asin || undefined;
       info.category = 'Handel & Elektronik';
       info.image_url = asin 
         ? `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SX300_SCLZZZZZZZ_.jpg`

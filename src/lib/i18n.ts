@@ -498,6 +498,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'stock.modal_notes_label': 'Booking Notes / Reason',
     'stock.modal_btn_cancel': 'Cancel',
     'stock.modal_btn_submit': 'Post Stock Move',
+    'stock.kpi_total_moves': 'Total Movements',
+    'stock.kpi_inbound': 'Total Inbound',
+    'stock.kpi_outbound': 'Total Outbound',
+    'stock.kpi_adjustments': 'Adjustments',
+    'stock.btn_export_csv': 'Export Journal (CSV)',
+    'stock.btn_print': 'Print Journal',
 
     // Products Module
     'product.title': 'Products & Catalog',
@@ -619,6 +625,20 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'purchases.modal_btn_order': 'Order Directly',
     'purchases.receive_confirm': 'Do you want to book the goods receipt now? Items will be credited immediately to the warehouse inventory.',
     'purchases.select_vendor_error': 'Please select a supplier and at least one item.',
+    'purchases.kpi_volume': 'Procurement Volume',
+    'purchases.orders_unit': 'orders',
+    'purchases.suppliers_count': 'Active Suppliers',
+    'purchases.vendors_unit': 'vendors',
+    'purchases.duplicate': 'Duplicate Order',
+    'purchases.print_title': 'Official Purchase Order Sheet (DIN A4)',
+    'purchases.document_label': 'Purchase Order',
+    'purchases.vendor_recipient': 'Vendor / Supplier:',
+    'purchases.delivery_terms': 'Expected Delivery:',
+    'purchases.delivery_loc': 'Central Warehouse Ramp 1',
+    'purchases.delivery_notes': 'Instructions & Notes:',
+    'purchases.standard_terms': 'Payment terms: Net 14 days after receipt of goods and invoice. Please mention our order number on your delivery note.',
+    'purchases.sign_purchaser': 'Authorized Purchasing Officer',
+    'purchases.sign_vendor': 'Supplier Order Confirmation / Date',
 
     // Accounting & BWA Module
     'accounting.title': 'Accounting, Financials & P&L',
@@ -754,6 +774,16 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.area_terrace': 'Terrace',
     'restaurant.area_bar': 'Bar',
     'restaurant.area_togo': 'To-Go',
+
+    // Mobile Companion & QR Sync
+    'mobile_sync.modal_title': 'Mobile App Pairing & QR Code Receiver',
+    'mobile_sync.modal_subtitle': 'Scan this QR code with your mobile app camera to transfer logged times, tickets & expenses directly to SOCDOF',
+    'mobile_sync.filter_date_range': 'Filter Date Range:',
+    'mobile_sync.skip_duplicates_label': 'Skip existing duplicate records',
+    'mobile_sync.btn_scan_again': 'Back to QR Code',
+    'mobile_sync.btn_apply_import': 'Import selected data into SOCDOF',
+    'support.mobile_sync_btn': 'Mobile App Sync',
+    'support.mobile_sync_tooltip': 'Generate pairing QR code to transfer field service times & tickets from mobile app',
 
     // Power & Desktop Overlay
     'power.title': 'Exit SOCDOF?',
@@ -1311,6 +1341,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'stock.modal_notes_label': 'Buchungsvermerk / Grund',
     'stock.modal_btn_cancel': 'Abbrechen',
     'stock.modal_btn_submit': 'Lagerbewegung buchen',
+    'stock.kpi_total_moves': 'Gesamte Bewegungen',
+    'stock.kpi_inbound': 'Gesamter Wareneingang',
+    'stock.kpi_outbound': 'Gesamter Warenausgang',
+    'stock.kpi_adjustments': 'Korrekturen & Verluste',
+    'stock.btn_export_csv': 'Journal exportieren (CSV)',
+    'stock.btn_print': 'Journal drucken',
 
     // Products Module
     'product.title': 'Artikel- & Produktkatalog',
@@ -1432,6 +1468,20 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'purchases.modal_btn_order': 'Direkt bestellen',
     'purchases.receive_confirm': 'Möchten Sie den Wareneingang jetzt buchen? Die Artikel werden sofort dem Hauptlager gutgeschrieben.',
     'purchases.select_vendor_error': 'Bitte wählen Sie einen Lieferanten und mindestens einen Artikel aus.',
+    'purchases.kpi_volume': 'Beschaffungsvolumen',
+    'purchases.orders_unit': 'Bestellungen',
+    'purchases.suppliers_count': 'Aktive Lieferanten',
+    'purchases.vendors_unit': 'Lieferanten',
+    'purchases.duplicate': 'Bestellung duplizieren',
+    'purchases.print_title': 'Offizielles Bestellformular (DIN A4)',
+    'purchases.document_label': 'Lieferantenbestellung',
+    'purchases.vendor_recipient': 'Lieferant / Empfänger:',
+    'purchases.delivery_terms': 'Erwartete Lieferung:',
+    'purchases.delivery_loc': 'Hauptlager Rampe 1',
+    'purchases.delivery_notes': 'Hinweise & Konditionen:',
+    'purchases.standard_terms': 'Zahlungsziel: 14 Tage netto nach Wareneingang und Rechnungserhalt. Bitte geben Sie unsere Bestellnummer auf dem Lieferschein an.',
+    'purchases.sign_purchaser': 'Autorisierter Einkäufer',
+    'purchases.sign_vendor': 'Lieferantenbestätigung / Datum',
 
     // Accounting & BWA Module
     'accounting.title': 'Abrechnungen, BWA & Finanzen',
@@ -1567,6 +1617,16 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.area_terrace': 'Terrasse',
     'restaurant.area_bar': 'Bar & Counter',
     'restaurant.area_togo': 'To-Go / Abholung',
+
+    // Mobile Companion & QR Sync
+    'mobile_sync.modal_title': 'Mobile App Kopplung & QR-Code Empfänger',
+    'mobile_sync.modal_subtitle': 'Scanne diesen QR-Code mit der Kamera deiner Mobile-App, um Zeiten, Tickets & Spesen direkt in SOCDOF zu übertragen',
+    'mobile_sync.filter_date_range': 'Zeitraum filtern:',
+    'mobile_sync.skip_duplicates_label': 'Vorhandene Duplikate überspringen',
+    'mobile_sync.btn_scan_again': 'Zurück zum QR-Code',
+    'mobile_sync.btn_apply_import': 'Ausgewählte Daten in SOCDOF einbuchen',
+    'support.mobile_sync_btn': 'Mobile App Sync',
+    'support.mobile_sync_tooltip': 'Kopplungs-QR-Code für die Mobile-App zur Übertragung von Außendienst-Zeiten generieren',
 
     // Power & Desktop Overlay
     'power.title': 'SOCDOF beenden?',
@@ -2122,6 +2182,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'stock.modal_notes_label': 'Note / Motif d’enregistrement',
     'stock.modal_btn_cancel': 'Annuler',
     'stock.modal_btn_submit': 'Valider le mouvement',
+    'stock.kpi_total_moves': 'Mouvements totaux',
+    'stock.kpi_inbound': 'Total réceptions',
+    'stock.kpi_outbound': 'Total sorties',
+    'stock.kpi_adjustments': 'Ajustements & pertes',
+    'stock.btn_export_csv': 'Exporter journal (CSV)',
+    'stock.btn_print': 'Imprimer journal',
 
     // Products Module
     'product.title': 'Catalogue Articles & Produits',
@@ -2243,6 +2309,20 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'purchases.modal_btn_order': 'Commander directement',
     'purchases.receive_confirm': 'Voulez-vous enregistrer la réception maintenant ? Les articles seront immédiatement ajoutés au stock.',
     'purchases.select_vendor_error': 'Veuillez sélectionner un fournisseur et au moins un article.',
+    'purchases.kpi_volume': 'Volume d’achats',
+    'purchases.orders_unit': 'commandes',
+    'purchases.suppliers_count': 'Fournisseurs actifs',
+    'purchases.vendors_unit': 'fournisseurs',
+    'purchases.duplicate': 'Dupliquer la commande',
+    'purchases.print_title': 'Bon de commande officiel (DIN A4)',
+    'purchases.document_label': 'Commande Fournisseur',
+    'purchases.vendor_recipient': 'Fournisseur / Destinataire :',
+    'purchases.delivery_terms': 'Livraison prévue :',
+    'purchases.delivery_loc': 'Entrepôt central Quai 1',
+    'purchases.delivery_notes': 'Instructions & Conditions :',
+    'purchases.standard_terms': 'Conditions de paiement : 14 jours net après réception des marchandises et de la facture. Veuillez indiquer notre numéro de commande sur votre bon de livraison.',
+    'purchases.sign_purchaser': 'Responsable des achats autorisé',
+    'purchases.sign_vendor': 'Confirmation de commande fournisseur / Date',
 
     // Accounting & BWA Module
     'accounting.title': 'Comptabilité, Bilan & Finances',
@@ -2378,6 +2458,16 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.area_terrace': 'Terrasse',
     'restaurant.area_bar': 'Bar & Comptoir',
     'restaurant.area_togo': 'À emporter / Vente à emporter',
+
+    // Mobile Companion & QR Sync
+    'mobile_sync.modal_title': 'Couplage Application Mobile & Récepteur QR Code',
+    'mobile_sync.modal_subtitle': 'Scannez ce QR code avec la caméra de votre smartphone pour transférer les heures, tickets et frais directement dans SOCDOF',
+    'mobile_sync.filter_date_range': 'Filtrer la période :',
+    'mobile_sync.skip_duplicates_label': 'Ignorer les doublons existants',
+    'mobile_sync.btn_scan_again': 'Retour au code QR',
+    'mobile_sync.btn_apply_import': 'Enregistrer les données sélectionnées dans SOCDOF',
+    'support.mobile_sync_btn': 'Sync App Mobile',
+    'support.mobile_sync_tooltip': 'Générer le QR code de couplage pour transférer les heures de terrain depuis l’app mobile',
 
     // Power & Desktop Overlay
     'power.title': 'Quitter SOCDOF ?',
@@ -2933,6 +3023,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'stock.modal_notes_label': 'Nota de registro / Motivo',
     'stock.modal_btn_cancel': 'Cancelar',
     'stock.modal_btn_submit': 'Contabilizar movimiento',
+    'stock.kpi_total_moves': 'Movimientos totales',
+    'stock.kpi_inbound': 'Total entradas',
+    'stock.kpi_outbound': 'Total salidas',
+    'stock.kpi_adjustments': 'Ajustes y mermas',
+    'stock.btn_export_csv': 'Exportar diario (CSV)',
+    'stock.btn_print': 'Imprimir diario',
 
     // Products Module
     'product.title': 'Catálogo de Artículos y Productos',
@@ -3054,6 +3150,20 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'purchases.modal_btn_order': 'Pedir directamente',
     'purchases.receive_confirm': '¿Desea registrar la entrada de mercancías ahora? Los artículos se añadirán inmediatamente al inventario.',
     'purchases.select_vendor_error': 'Por favor seleccione un proveedor y al menos un artículo.',
+    'purchases.kpi_volume': 'Volumen de compras',
+    'purchases.orders_unit': 'pedidos',
+    'purchases.suppliers_count': 'Proveedores activos',
+    'purchases.vendors_unit': 'proveedores',
+    'purchases.duplicate': 'Duplicar pedido',
+    'purchases.print_title': 'Orden de compra oficial (DIN A4)',
+    'purchases.document_label': 'Pedido a Proveedor',
+    'purchases.vendor_recipient': 'Proveedor / Destinatario:',
+    'purchases.delivery_terms': 'Entrega estimada:',
+    'purchases.delivery_loc': 'Almacén central Muelle 1',
+    'purchases.delivery_notes': 'Instrucciones y condiciones:',
+    'purchases.standard_terms': 'Condiciones de pago: 14 días neto tras la recepción de mercancías y factura. Por favor indique nuestro número de pedido en su albarán.',
+    'purchases.sign_purchaser': 'Responsable de compras autorizado',
+    'purchases.sign_vendor': 'Confirmación de pedido del proveedor / Fecha',
 
     // Accounting & BWA Module
     'accounting.title': 'Contabilidad, BWA y Finanzas',
@@ -3189,6 +3299,16 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'restaurant.area_terrace': 'Terraza',
     'restaurant.area_bar': 'Barra',
     'restaurant.area_togo': 'Para llevar',
+
+    // Mobile Companion & QR Sync
+    'mobile_sync.modal_title': 'Emparejamiento App Móvil y Receptor Código QR',
+    'mobile_sync.modal_subtitle': 'Escanee este código QR con la cámara de su smartphone para transferir horas, tickets y gastos directamente a SOCDOF',
+    'mobile_sync.filter_date_range': 'Filtrar rango de fechas:',
+    'mobile_sync.skip_duplicates_label': 'Omitir duplicados existentes',
+    'mobile_sync.btn_scan_again': 'Volver al código QR',
+    'mobile_sync.btn_apply_import': 'Importar datos seleccionados a SOCDOF',
+    'support.mobile_sync_btn': 'Sincronizar App Móvil',
+    'support.mobile_sync_tooltip': 'Generar código QR de emparejamiento para transferir partes de trabajo desde la app móvil',
 
     // Power & Desktop Overlay
     'power.title': '¿Salir de SOCDOF?',

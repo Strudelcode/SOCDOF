@@ -9,5 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('socdof:update-download-progress', listener);
     return () => ipcRenderer.removeListener('socdof:update-download-progress', listener);
+  },
+  getNetworkIps: () => ipcRenderer.invoke('socdof:get-network-ips'),
+  onMobileSyncReceived: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:mobile-sync-received', listener);
+    return () => ipcRenderer.removeListener('socdof:mobile-sync-received', listener);
   }
 });

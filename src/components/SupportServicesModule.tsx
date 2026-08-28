@@ -47,6 +47,8 @@ import {
 import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
 import { sounds } from '../lib/sound';
 import { useLanguage, t } from '../lib/i18n';
+import { MobileCompanionImportModal } from './MobileCompanionImportModal';
+import { Smartphone, QrCode } from 'lucide-react';
 
 interface SupportServicesModuleProps {
   contacts: Contact[];
@@ -198,6 +200,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+  const [isMobileSyncOpen, setIsMobileSyncOpen] = useState(false);
 
   // Detail / Edit Form state
   const [activeTab, setActiveTab] = useState<'description' | 'timesheets'>('description');
@@ -621,6 +624,19 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
         {/* Header Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Mobile Companion QR-Import Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsMobileSyncOpen(true);
+            }}
+            className="px-3.5 py-1.5 text-xs font-bold rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-600/10 via-blue-600/10 to-indigo-600/10 hover:from-cyan-600/20 hover:to-blue-600/20 text-cyan-700 dark:text-cyan-300 transition flex items-center gap-1.5 shadow-2xs"
+            title={t('support.mobile_sync_tooltip', undefined, 'Daten von der mobilen App (TimeTracking / Außendienst) per QR-Code oder JSON importieren')}
+          >
+            <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span>{t('support.mobile_sync_btn', undefined, 'Mobile App Sync')}</span>
+          </button>
+
           {/* Support Settings Button */}
           <button
             onClick={() => {
@@ -2107,6 +2123,33 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           </div>
         </div>
       )}
+      {/* Mobile Companion Import Modal */}
+      <MobileCompanionImportModal
+        isOpen={isMobileSyncOpen}
+        onClose={() => setIsMobileSyncOpen(false)}
+        existingTickets={tickets}
+        currency={companyProfile.currency || '€'}
+        onImportComplete={(newTickets, updatedTickets) => {
+          let currentList = [...tickets];
+          // Apply updates
+          if (updatedTickets.length > 0) {
+            const updatedIds = new Set(updatedTickets.map(u => u.id));
+            currentList = currentList.map(t => {
+              const match = updatedTickets.find(u => u.id === t.id);
+              return match || t;
+            });
+          }
+          // Prepend new tickets
+          if (newTickets.length > 0) {
+            currentList = [...newTickets, ...currentList];
+          }
+          saveTickets(currentList);
+          if (newTickets.length > 0) {
+            setSelectedTicketId(newTickets[0].id);
+            setViewMode('detail');
+          }
+        }}
+      />
     </div>
   );
 };

@@ -12,13 +12,14 @@ import {
   CheckCircle2, 
   X, 
   Barcode, 
-  Receipt,
-  UserCheck,
-  RotateCcw
+  Receipt, 
+  UserCheck, 
+  RotateCcw 
 } from 'lucide-react';
 import { Product, Contact, POSOrder, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
-import { createPOSCheckout, getNextPONumber } from '../lib/db';
+import { createPOSCheckout } from '../lib/db';
+import { t } from '../lib/i18n';
 
 interface POSModuleProps {
   products: Product[];
@@ -118,7 +119,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
       setBarcodeInput('');
     } else {
       sounds.playError();
-      alert(`Kein Artikel mit Barcode/SKU "${barcodeInput}" gefunden.`);
+      alert(t('pos.not_found_alert', undefined, 'No item with barcode/SKU "{barcode}" found.').replace('{barcode}', barcodeInput));
     }
   };
 
@@ -140,7 +141,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
   const handleCompleteSale = async () => {
     if (paymentMethod === 'cash' && cashAmount < total) {
       sounds.playError();
-      alert('Der gegebene Barbetrag ist kleiner als der Rechnungsbetrag!');
+      alert(t('pos.insufficient_cash', undefined, 'The cash amount tendered is less than the total due!'));
       return;
     }
 
@@ -165,7 +166,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
       payment_method: paymentMethod,
       cash_tendered: paymentMethod === 'cash' ? cashAmount : undefined,
       cash_change: paymentMethod === 'cash' ? cashChange : undefined,
-      customer_name: customer ? customer.name : 'Laufkundschaft'
+      customer_name: customer ? customer.name : t('pos.walk_in_customer', undefined, 'Walk-in Customer')
     };
 
     try {
@@ -176,7 +177,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
       onRefreshData();
     } catch (err) {
       sounds.playError();
-      alert('Fehler beim Abschließen der Kassenbuchung: ' + String(err));
+      alert('Error finalizing POS checkout: ' + String(err));
     }
   };
 
@@ -193,7 +194,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
               <input
                 type="text"
                 id="pos-search-input"
-                placeholder="Artikel suchen nach Name, SKU oder Barcode..."
+                placeholder={t('pos.search_placeholder', undefined, 'Search product by name, SKU or barcode...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 text-white pl-9 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -207,7 +208,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 <input
                   type="text"
                   id="pos-barcode-input"
-                  placeholder="Barcode scannen..."
+                  placeholder={t('pos.barcode_placeholder', undefined, 'Scan barcode...')}
                   value={barcodeInput}
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 text-white pl-9 pr-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -218,7 +219,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 id="btn-pos-scan"
                 className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shadow-sm"
               >
-                Scan
+                {t('pos.scan_btn', undefined, 'Scan')}
               </button>
             </form>
           </div>
@@ -239,7 +240,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                     : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                 }`}
               >
-                {cat === 'all' ? 'Alle Kategorien' : cat}
+                {cat === 'all' ? t('pos.all_categories', undefined, 'All Categories') : cat}
               </button>
             ))}
           </div>
@@ -261,7 +262,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                     ? 'bg-rose-900/60 text-rose-300 border border-rose-700/40' 
                     : 'bg-slate-700 text-slate-300'
                 }`}>
-                  {prod.qty_available} {prod.unit || 'Stk'}
+                  {prod.qty_available} {prod.unit || 'pcs'}
                 </span>
               </div>
               <div className="font-semibold text-white text-xs sm:text-sm line-clamp-1 group-hover:text-purple-300">
@@ -283,7 +284,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
           {filteredProducts.length === 0 && (
             <div className="col-span-full py-16 text-center text-slate-500">
               <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Keine Artikel gefunden.</p>
+              <p className="text-sm">{t('contacts.empty_list', undefined, 'No products found.')}</p>
             </div>
           )}
         </div>
@@ -296,7 +297,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-white text-sm flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-purple-400" />
-              Warenkorb & Bon
+              {t('pos.cart_empty', undefined, 'Cart & Receipt')}
             </h2>
             {cart.length > 0 && (
               <button
@@ -305,7 +306,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
               >
                 <Trash2 className="w-3 h-3" />
-                Leeren
+                {t('pos.btn_clear', undefined, 'Clear')}
               </button>
             )}
           </div>
@@ -317,7 +318,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
               onChange={(e) => setSelectedCustomerId(e.target.value ? Number(e.target.value) : null)}
               className="flex-1 bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
             >
-              <option value="">👤 Laufkundschaft (Standard)</option>
+              <option value="">👤 {t('pos.walk_in_customer', undefined, 'Walk-in Customer (Default)')}</option>
               {contacts.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.company ? `(${c.company})` : ''}
@@ -339,7 +340,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                   {item.product.name}
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  {item.product.sale_price.toFixed(2)} {companyProfile.currency} / {item.product.unit || 'Stk'}
+                  {item.product.sale_price.toFixed(2)} {companyProfile.currency} / {item.product.unit || 'pcs'}
                 </div>
               </div>
 
@@ -375,8 +376,8 @@ export const POSModule: React.FC<POSModuleProps> = ({
           {cart.length === 0 && (
             <div className="h-48 flex flex-col items-center justify-center text-slate-500">
               <ShoppingBag className="w-10 h-10 mb-2 opacity-20" />
-              <p className="text-xs">Kasse ist bereit.</p>
-              <p className="text-[11px] text-slate-600">Artikel anklicken oder Barcode scannen</p>
+              <p className="text-xs">{t('pos.ready_title', undefined, 'POS is ready.')}</p>
+              <p className="text-[11px] text-slate-600">{t('pos.ready_subtitle', undefined, 'Click on items or scan barcode')}</p>
             </div>
           )}
         </div>
@@ -385,15 +386,15 @@ export const POSModule: React.FC<POSModuleProps> = ({
         <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-3">
           <div className="space-y-1.5 text-xs text-slate-300">
             <div className="flex justify-between">
-              <span className="text-slate-400">Nettobetrag:</span>
+              <span className="text-slate-400">{t('pos.subtotal', undefined, 'Net Subtotal:')}</span>
               <span>{subtotal.toFixed(2)} {companyProfile.currency}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">MwSt. ({companyProfile.default_tax_rate || 19}%):</span>
+              <span className="text-slate-400">{t('pos.tax', undefined, 'VAT')} ({companyProfile.default_tax_rate || 19}%):</span>
               <span>{taxTotal.toFixed(2)} {companyProfile.currency}</span>
             </div>
             <div className="flex justify-between text-base font-bold text-white pt-2 border-t border-slate-800">
-              <span>Gesamtbetrag:</span>
+              <span>{t('pos.total', undefined, 'Total Due:')}</span>
               <span className="text-emerald-400">{total.toFixed(2)} {companyProfile.currency}</span>
             </div>
           </div>
@@ -410,7 +411,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
             }`}
           >
             <CreditCard className="w-4 h-4" />
-            Bezahlen ({total.toFixed(2)} {companyProfile.currency})
+            {t('pos.btn_checkout', undefined, 'Pay')} ({total.toFixed(2)} {companyProfile.currency})
           </button>
         </div>
       </div>
@@ -422,7 +423,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-emerald-400" />
-                Zahlungsvorgang abschließen
+                {t('pos.checkout_dialog_title', undefined, 'Complete Checkout & Payment')}
               </h3>
               <button
                 type="button"
@@ -434,7 +435,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
             </div>
 
             <div className="text-center py-2 bg-slate-800/80 rounded-xl border border-slate-700">
-              <div className="text-xs text-slate-400">Zu zahlender Betrag</div>
+              <div className="text-xs text-slate-400">{t('pos.amount_to_pay', undefined, 'Amount to Pay')}</div>
               <div className="text-3xl font-extrabold text-emerald-400">
                 {total.toFixed(2)} {companyProfile.currency}
               </div>
@@ -455,7 +456,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 }`}
               >
                 <Banknote className="w-5 h-5" />
-                Barzahlung
+                {t('pos.cash_payment', undefined, 'Cash')}
               </button>
               <button
                 type="button"
@@ -470,7 +471,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 }`}
               >
                 <CreditCard className="w-5 h-5" />
-                EC / Kreditkarte
+                {t('pos.card_payment', undefined, 'Card')}
               </button>
               <button
                 type="button"
@@ -485,7 +486,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 }`}
               >
                 <Smartphone className="w-5 h-5" />
-                Apple/Google Pay
+                {t('pos.nfc_payment', undefined, 'Apple/Google Pay')}
               </button>
             </div>
 
@@ -493,7 +494,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
             {paymentMethod === 'cash' && (
               <div className="space-y-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Erhaltenes Bargeld:</span>
+                  <span className="text-slate-400">{t('pos.cash_tendered', undefined, 'Cash Received:')}</span>
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -515,13 +516,13 @@ export const POSModule: React.FC<POSModuleProps> = ({
                       onClick={() => setCashGiven(val.toString())}
                       className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded font-mono"
                     >
-                      {val} €
+                      {val} {companyProfile.currency}
                     </button>
                   ))}
                 </div>
 
                 <div className="flex items-center justify-between text-sm font-bold pt-2 border-t border-slate-700">
-                  <span className="text-slate-300">Rückgeld:</span>
+                  <span className="text-slate-300">{t('pos.change', undefined, 'Change:')}</span>
                   <span className="text-emerald-400 font-mono text-base">
                     {cashChange.toFixed(2)} {companyProfile.currency}
                   </span>
@@ -535,7 +536,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 onClick={() => setIsPaymentOpen(false)}
                 className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs font-semibold hover:bg-slate-800"
               >
-                Abbrechen
+                {t('action.cancel', undefined, 'Cancel')}
               </button>
               <button
                 type="button"
@@ -547,7 +548,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/40"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Kauf abschließen & Bon drucken
+                {t('pos.btn_complete_print', undefined, 'Complete Checkout & Print Receipt')}
               </button>
             </div>
           </div>
@@ -561,16 +562,18 @@ export const POSModule: React.FC<POSModuleProps> = ({
             <div className="text-center border-b border-dashed border-slate-300 pb-3">
               <div className="font-bold text-base uppercase tracking-wider">{companyProfile.name}</div>
               <div className="text-[11px] text-slate-600">{companyProfile.street}</div>
-              <div className="text-[11px] text-slate-600">{companyProfile.zip_city}</div>
-              <div className="text-[10px] text-slate-500 mt-1">USt-IdNr: {companyProfile.tax_id}</div>
+              <div className="text-[11px] text-slate-600">{companyProfile.zip} {companyProfile.city}</div>
+              {companyProfile.vat_id && (
+                <div className="text-[10px] text-slate-500 mt-1">USt-IdNr: {companyProfile.vat_id}</div>
+              )}
             </div>
 
             <div className="flex justify-between text-[11px] text-slate-600">
-              <span>Beleg: {completedOrder.receipt_number}</span>
-              <span>{new Date(completedOrder.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span>{t('pos.receipt_beleg', undefined, 'Receipt:')} {completedOrder.receipt_number}</span>
+              <span>{new Date(completedOrder.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             <div className="text-[11px] text-slate-600">
-              Kunde: {completedOrder.customer_name}
+              {t('pos.receipt_customer', undefined, 'Customer:')} {completedOrder.customer_name}
             </div>
 
             <div className="border-t border-b border-dashed border-slate-300 py-2 space-y-1">
@@ -584,29 +587,29 @@ export const POSModule: React.FC<POSModuleProps> = ({
 
             <div className="space-y-1 text-right">
               <div className="flex justify-between text-slate-600">
-                <span>Netto:</span>
+                <span>{t('pos.receipt_subtotal', undefined, 'Net:')}</span>
                 <span>{completedOrder.subtotal.toFixed(2)} {companyProfile.currency}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>MwSt. ({completedOrder.items[0]?.tax_rate || 19}%):</span>
+                <span>{t('pos.receipt_vat', undefined, 'VAT')} ({completedOrder.items[0]?.tax_rate || 19}%):</span>
                 <span>{completedOrder.tax_total.toFixed(2)} {companyProfile.currency}</span>
               </div>
               <div className="flex justify-between text-sm font-bold border-t border-slate-900 pt-1">
-                <span>GESAMT:</span>
+                <span>{t('pos.receipt_total', undefined, 'TOTAL:')}</span>
                 <span>{completedOrder.total.toFixed(2)} {companyProfile.currency}</span>
               </div>
               {completedOrder.payment_method === 'cash' && (
                 <div className="flex justify-between text-slate-600 text-[11px] pt-1">
-                  <span>Gegeben: {completedOrder.cash_tendered?.toFixed(2)} {companyProfile.currency}</span>
-                  <span>Rückgeld: {completedOrder.cash_change?.toFixed(2)} {companyProfile.currency}</span>
+                  <span>{t('pos.receipt_tendered', undefined, 'Tendered:')} {completedOrder.cash_tendered?.toFixed(2)} {companyProfile.currency}</span>
+                  <span>{t('pos.receipt_change', undefined, 'Change:')} {completedOrder.cash_change?.toFixed(2)} {companyProfile.currency}</span>
                 </div>
               )}
             </div>
 
             <div className="text-center text-[10px] text-slate-500 pt-2 border-t border-dashed border-slate-300">
-              Vielen Dank für Ihren Einkauf!
+              {t('pos.receipt_thank_you', undefined, 'Thank you for your purchase!')}
               <br />
-              TSE Signatur: OK-LOC-2026-X
+              TSE Signature: OK-LOC-2026-X
             </div>
 
             <div className="flex items-center gap-2 pt-2 print:hidden">
@@ -619,7 +622,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-sans text-xs font-semibold flex items-center justify-center gap-2"
               >
                 <Printer className="w-3.5 h-3.5" />
-                Drucken
+                {t('pos.receipt_print', undefined, 'Print')}
               </button>
               <button
                 type="button"
@@ -629,7 +632,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
                 }}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-sans text-xs font-semibold"
               >
-                Schließen
+                {t('pos.receipt_close', undefined, 'Close')}
               </button>
             </div>
           </div>

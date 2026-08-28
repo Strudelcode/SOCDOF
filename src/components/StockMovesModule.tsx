@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeftRight, 
   ArrowDownToLine, 
@@ -12,7 +12,10 @@ import {
   Plus, 
   X,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Printer,
+  Download,
+  AlertTriangle
 } from 'lucide-react';
 import { Product, StockMove, StockLocation } from '../types';
 import { db, executeStockMove } from '../lib/db';
@@ -40,6 +43,30 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('all');
+
+  // KPI Calculations
+  const stats = useMemo(() => {
+    let totalInboundQty = 0;
+    let totalOutboundQty = 0;
+    let totalAdjustmentQty = 0;
+
+    stockMoves.forEach(m => {
+      if (m.dest_location === 'Physical/Warehouse') {
+        totalInboundQty += m.qty;
+      } else if (m.dest_location === 'Virtual/Customers') {
+        totalOutboundQty += m.qty;
+      } else if (m.dest_location === 'Virtual/Inventory-Loss' || m.dest_location === 'Virtual/Scrap') {
+        totalAdjustmentQty += m.qty;
+      }
+    });
+
+    return {
+      totalMoves: stockMoves.length,
+      inboundQty: totalInboundQty,
+      outboundQty: totalOutboundQty,
+      adjustmentQty: totalAdjustmentQty
+    };
+  }, [stockMoves]);
 
   // New transfer form state
   const [transferData, setTransferData] = useState<{
@@ -135,6 +162,30 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
     }
   };
 
+  const exportCSV = () => {
+    sounds.playClick();
+    const headers = ['Datum', 'Referenz', 'Produkt', 'SKU', 'Quelle', 'Ziel', 'Menge', 'Notiz'];
+    const rows = stockMoves.map(m => [
+      formatSystemDate(m.date),
+      m.reference,
+      `"${(m.product_name || '').replace(/"/g, '""')}"`,
+      m.product_sku || '',
+      m.source_location,
+      m.dest_location,
+      m.qty,
+      `"${(m.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `SOCDOF_Stock_Journal_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredMoves = stockMoves.filter((m) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = 
@@ -160,26 +211,106 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
           <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
               <Boxes className="w-4 h-4" />
-              <span>{t('stock.double_entry_title', undefined, 'SOCDOF-Prinzip: Doppelte Lagerbuchführung')}</span>
+              <span>{t('stock.double_entry_title', undefined, 'SOCDOF Principle: Double-Entry Inventory')}</span>
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              {t('stock.double_entry_headline', undefined, 'Bestände entstehen nicht aus dem Nichts – jede Bewegung hat Herkunft & Ziel.')}
+              {t('stock.double_entry_headline', undefined, 'Stock does not appear from nowhere – every movement has origin & destination.')}
             </h3>
             <p className="text-xs text-slate-300">
-              {t('stock.double_entry_desc', undefined, 'Wareneinkauf bewegt Artikel von Virtual/Vendors nach Physical/Warehouse (+Bestand). Warenverkauf verschiebt von Physical/Warehouse nach Virtual/Customers (-Bestand).')}
+              {t('stock.double_entry_desc', undefined, 'Purchases move items from Virtual/Vendors to Physical/Warehouse (+Stock). Sales move items from Physical/Warehouse to Virtual/Customers (-Stock).')}
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              sounds.playClick();
-              onOpenTransferModal();
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 whitespace-nowrap self-start md:self-auto transition"
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-            <span>{t('stock.btn_record_move', undefined, 'Lagerbewegung erfassen')}</span>
-          </button>
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 shadow-sm transition"
+              title={t('stock.btn_export_csv', undefined, 'Export Journal (CSV)')}
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">{t('stock.btn_export_csv', undefined, 'Export CSV')}</span>
+            </button>
+            <button
+              onClick={() => {
+                sounds.playClick();
+                window.print();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 shadow-sm transition"
+              title={t('stock.btn_print', undefined, 'Print Journal')}
+            >
+              <Printer className="w-4 h-4 text-indigo-400" />
+              <span className="hidden sm:inline">{t('stock.btn_print', undefined, 'Print')}</span>
+            </button>
+            <button
+              onClick={() => {
+                sounds.playClick();
+                onOpenTransferModal();
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 whitespace-nowrap transition"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              <span>{t('stock.btn_record_move', undefined, 'Record Stock Move')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Overview Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+            <ArrowLeftRight className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+              {t('stock.kpi_total_moves', undefined, 'Total Movements')}
+            </div>
+            <div className="text-xl font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+              {stats.totalMoves}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+            <ArrowDownToLine className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+              {t('stock.kpi_inbound', undefined, 'Total Inbound')}
+            </div>
+            <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
+              +{stats.inboundQty}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
+            <ArrowUpRight className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+              {t('stock.kpi_outbound', undefined, 'Total Outbound')}
+            </div>
+            <div className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono mt-0.5">
+              -{stats.outboundQty}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+              {t('stock.kpi_adjustments', undefined, 'Adjustments')}
+            </div>
+            <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+              {stats.adjustmentQty}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -197,7 +328,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            {t('stock.filter_all', undefined, 'Alle Standorte')}
+            {t('stock.filter_all', undefined, 'All Locations')}
           </button>
           <button
             onClick={() => {
@@ -210,7 +341,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            {t('stock.filter_vendors', undefined, 'Lieferanten (In)')}
+            {t('stock.filter_vendors', undefined, 'Vendors (In)')}
           </button>
           <button
             onClick={() => {
@@ -223,7 +354,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            {t('stock.filter_customers', undefined, 'Kunden (Out)')}
+            {t('stock.filter_customers', undefined, 'Customers (Out)')}
           </button>
         </div>
 
@@ -231,7 +362,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={t('stock.search_placeholder', undefined, 'Produkt, SKU, Referenz oder Lagerort suchen...')}
+            placeholder={t('stock.search_placeholder', undefined, 'Search product, SKU, reference or location...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -243,7 +374,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            {t('stock.journal_title', undefined, 'Lagerbuchungsjournal')} ({filteredMoves.length} {t('invoice.entries', undefined, 'Einträge')})
+            {t('stock.journal_title', undefined, 'Stock Movement Journal')} ({filteredMoves.length} {t('invoice.entries', undefined, 'entries')})
           </h2>
         </div>
 
@@ -251,20 +382,20 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
-                <th className="p-4">{t('stock.th_date', undefined, 'Datum')}</th>
-                <th className="p-4">{t('stock.th_ref', undefined, 'Referenz-Nr.')}</th>
-                <th className="p-4">{t('stock.th_product', undefined, 'Produkt / Artikel')}</th>
-                <th className="p-4">{t('stock.th_source', undefined, 'Quelle (Herkunft)')}</th>
-                <th className="p-4">{t('stock.th_dest', undefined, 'Ziel (Bestimmungsort)')}</th>
-                <th className="p-4 text-right">{t('stock.th_qty', undefined, 'Menge')}</th>
-                <th className="p-4">{t('stock.th_notes', undefined, 'Notiz / Zweck')}</th>
+                <th className="p-4">{t('stock.th_date', undefined, 'Date')}</th>
+                <th className="p-4">{t('stock.th_ref', undefined, 'Reference No.')}</th>
+                <th className="p-4">{t('stock.th_product', undefined, 'Product / Article')}</th>
+                <th className="p-4">{t('stock.th_source', undefined, 'Source (Origin)')}</th>
+                <th className="p-4">{t('stock.th_dest', undefined, 'Destination')}</th>
+                <th className="p-4 text-right">{t('stock.th_qty', undefined, 'Quantity')}</th>
+                <th className="p-4">{t('stock.th_notes', undefined, 'Notes / Reason')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredMoves.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">
-                    {t('stock.empty_list', undefined, 'Keine Lagerbewegungen vorhanden.')}
+                    {t('stock.empty_list', undefined, 'No stock movements found.')}
                   </td>
                 </tr>
               ) : (
@@ -282,7 +413,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
 
                       <td className="p-4">
                         <div className="font-semibold text-slate-900 dark:text-white">
-                          {move.product_name || `Produkt #${move.product_id}`}
+                          {move.product_name || `Product #${move.product_id}`}
                         </div>
                         {move.product_sku && (
                           <div className="text-[10px] font-mono-num text-slate-400">
@@ -333,7 +464,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               <div className="flex items-center gap-2">
                 <ArrowLeftRight className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                  {t('stock.modal_title', undefined, 'Lagerbewegung buchen (Double-Entry)')}
+                  {t('stock.modal_title', undefined, 'Book Stock Movement (Double-Entry)')}
                 </h3>
               </div>
               <button
@@ -348,7 +479,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               {/* Preset buttons */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('stock.modal_preset_label', undefined, 'Art des Vorgangs')}
+                  {t('stock.modal_preset_label', undefined, 'Transaction Type')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
@@ -360,8 +491,8 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <div className="font-bold text-xs">{t('stock.modal_preset_in', undefined, 'Wareneingang (+)')}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_in_sub', undefined, 'Vom Lieferanten')}</div>
+                    <div className="font-bold text-xs">{t('stock.modal_preset_in', undefined, 'Goods Receipt (+)')}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_in_sub', undefined, 'From Vendor')}</div>
                   </button>
 
                   <button
@@ -373,8 +504,8 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <div className="font-bold text-xs">{t('stock.modal_preset_out', undefined, 'Warenausgang (-)')}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_out_sub', undefined, 'An Kunden')}</div>
+                    <div className="font-bold text-xs">{t('stock.modal_preset_out', undefined, 'Goods Issue (-)')}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_out_sub', undefined, 'To Customer')}</div>
                   </button>
 
                   <button
@@ -386,8 +517,8 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <div className="font-bold text-xs">{t('stock.modal_preset_loss', undefined, 'Inventurverlust')}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_loss_sub', undefined, 'Bruch / Schwund')}</div>
+                    <div className="font-bold text-xs">{t('stock.modal_preset_loss', undefined, 'Inventory Loss')}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{t('stock.modal_preset_loss_sub', undefined, 'Damage / Shrinkage')}</div>
                   </button>
                 </div>
               </div>
@@ -395,7 +526,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               {/* Product Selection */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('stock.modal_product_select', undefined, 'Produkt auswählen *')}
+                  {t('stock.modal_product_select', undefined, 'Select Product *')}
                 </label>
                 <select
                   value={transferData.product_id}
@@ -404,7 +535,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} (SKU: {p.sku} | Aktuell: {p.qty_available} {p.unit || 'Stk.'})
+                      {p.name} (SKU: {p.sku} | {t('product.qty_available', undefined, 'Stock')}: {p.qty_available} {p.unit || 'pcs'})
                     </option>
                   ))}
                 </select>
@@ -413,9 +544,9 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               {/* Locations Grid */}
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
                 <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                  <span>{t('stock.modal_source_label', undefined, 'Herkunft (Quelle)')}</span>
+                  <span>{t('stock.modal_source_label', undefined, 'Source (Origin)')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
-                  <span>{t('stock.modal_dest_label', undefined, 'Bestimmungsort (Ziel)')}</span>
+                  <span>{t('stock.modal_dest_label', undefined, 'Destination')}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -449,7 +580,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('stock.modal_qty_label', undefined, 'Menge *')}
+                    {t('stock.modal_qty_label', undefined, 'Quantity *')}
                   </label>
                   <input
                     type="number"
@@ -463,7 +594,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('stock.modal_ref_label', undefined, 'Beleg- / Referenznummer')}
+                    {t('stock.modal_ref_label', undefined, 'Reference Number')}
                   </label>
                   <input
                     type="text"
@@ -478,11 +609,11 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               {/* Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('stock.modal_notes_label', undefined, 'Buchungsvermerk / Grund')}
+                  {t('stock.modal_notes_label', undefined, 'Booking Notes / Reason')}
                 </label>
                 <input
                   type="text"
-                  placeholder="z. B. Nachbestellung Charge #4092"
+                  placeholder="e.g. Replenishment Batch #4092"
                   value={transferData.notes}
                   onChange={(e) => setTransferData({ ...transferData, notes: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
@@ -496,13 +627,13 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                   onClick={onCloseTransferModal}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                 >
-                  {t('stock.modal_btn_cancel', undefined, 'Abbrechen')}
+                  {t('stock.modal_btn_cancel', undefined, 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
                 >
-                  {t('stock.modal_btn_submit', undefined, 'Lagerbewegung buchen')}
+                  {t('stock.modal_btn_submit', undefined, 'Post Stock Move')}
                 </button>
               </div>
             </form>
