@@ -24,7 +24,8 @@ import {
   Download,
   Upload,
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  Copy
 } from 'lucide-react';
 import { Invoice, InvoiceItem, InvoiceStatus, Contact, Product, CompanyProfile } from '../types';
 import { db, executeStockMove, getNextInvoiceNumber } from '../lib/db';
@@ -33,6 +34,7 @@ import { InvoicePrintModal } from './InvoicePrintModal';
 import { FakeSmtpModal } from './FakeSmtpModal';
 import { PaymentModal } from './PaymentModal';
 import { t, formatSystemDate } from '../lib/i18n';
+import { generateInvoiceEml } from '../lib/emlGenerator';
 import { downloadFatturaPaXml } from '../lib/fatturaPaGenerator';
 import { parseFatturaPaXml, convertFatturaPaToInvoice, ParsedFatturaPa } from '../lib/fatturaPaParser';
 import { isSdIReceiptXml, parseSdIReceiptXml, ParsedSdIReceipt, SDI_ERROR_CATALOG } from '../lib/sdiReceiptParser';
@@ -508,6 +510,34 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     }
   };
 
+  const handleDuplicateInvoice = async (inv: Invoice, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      sounds.playClick();
+      const nextNum = await getNextInvoiceNumber();
+      const duplicated: Invoice = {
+        ...inv,
+        id: undefined,
+        number: nextNum,
+        date: new Date().toISOString(),
+        due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
+        status: 'draft',
+        paid_at: undefined,
+        payment_method: undefined,
+        stock_moved: false,
+        sdi_status: undefined,
+        sdi_identifier: undefined,
+        sdi_receipts: []
+      };
+      await db.invoices.add(duplicated);
+      sounds.playSuccess();
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+      sounds.playError();
+    }
+  };
+
   const formatCurrency = (val: number) => {
     return `${val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${company.currency}`;
   };
@@ -805,6 +835,27 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                           className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Mail className="w-4 h-4" />
+                        </button>
+
+                        {/* Generate .EML Draft File */}
+                        <button
+                          onClick={() => {
+                            sounds.playSuccess();
+                            generateInvoiceEml(inv, company);
+                          }}
+                          title={t('invoice.btn_generate_eml_tooltip', undefined, 'E-Mail-Entwurf (.eml) mit Rechnungs- & Bankdaten herunterladen')}
+                          className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        >
+                          <FileText className="w-4 h-4 text-indigo-500" />
+                        </button>
+
+                        {/* Duplicate Invoice */}
+                        <button
+                          onClick={(e) => handleDuplicateInvoice(inv, e)}
+                          title={t('invoice.btn_duplicate_tooltip', undefined, 'Rechnung als neuen Entwurf duplizieren')}
+                          className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        >
+                          <Copy className="w-4 h-4 text-slate-500 hover:text-indigo-500" />
                         </button>
 
                         {/* Post if Draft */}

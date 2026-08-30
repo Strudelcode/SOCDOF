@@ -858,7 +858,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calendar.search_placeholder': 'Search appointments, due dates & subjects...',
     'calendar.open_invoice': 'Open Linked Invoice',
     'calendar.open_gcal': 'Open in Google Calendar Web',
-    'calendar.delete_confirm': 'Are you sure you want to delete this appointment?'
+    'calendar.delete_confirm': 'Are you sure you want to delete this appointment?',
+
+    // EML, vCard & Advanced Features
+    'contacts.btn_generate_eml': 'Email Draft (.eml)',
+    'contacts.btn_export_vcf': 'vCard (.vcf)',
+    'contacts.eml_downloaded': 'Email draft downloaded (.eml)',
+    'invoice.btn_duplicate': 'Duplicate',
+    'invoice.btn_duplicate_tooltip': 'Duplicate invoice as a new draft',
+    'invoice.btn_generate_eml': 'Email Draft (.eml)',
+    'invoice.btn_generate_eml_tooltip': 'Generate pre-formatted email draft (.eml) with invoice details',
+    'products.btn_duplicate': 'Duplicate',
+    'products.btn_duplicate_tooltip': 'Duplicate article as a new catalog item',
+    'products.th_margin': 'Margin / Profit',
+    'products.margin_label': 'Margin',
+    'products.btn_qr_label': 'Barcode / QR Label'
   },
 
   de: {
@@ -1701,7 +1715,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calendar.search_placeholder': 'Termine, Fälligkeiten & Betreff suchen...',
     'calendar.open_invoice': 'Zugehörige Rechnung öffnen',
     'calendar.open_gcal': 'In Google Kalender Web öffnen',
-    'calendar.delete_confirm': 'Möchten Sie diesen Termin wirklich unwiderruflich löschen?'
+    'calendar.delete_confirm': 'Möchten Sie diesen Termin wirklich unwiderruflich löschen?',
+
+    // EML, vCard & Advanced Features
+    'contacts.btn_generate_eml': 'E-Mail-Entwurf (.eml)',
+    'contacts.btn_export_vcf': 'vCard (.vcf)',
+    'contacts.eml_downloaded': 'E-Mail-Entwurf heruntergeladen (.eml)',
+    'invoice.btn_duplicate': 'Duplizieren',
+    'invoice.btn_duplicate_tooltip': 'Rechnung als neuen Entwurf duplizieren',
+    'invoice.btn_generate_eml': 'E-Mail-Entwurf (.eml)',
+    'invoice.btn_generate_eml_tooltip': 'E-Mail-Entwurf (.eml) mit Rechnungs- & Bankdaten generieren',
+    'products.btn_duplicate': 'Duplizieren',
+    'products.btn_duplicate_tooltip': 'Artikel als neuen Katalogeintrag duplizieren',
+    'products.th_margin': 'Marge / Gewinn',
+    'products.margin_label': 'Marge',
+    'products.btn_qr_label': 'Barcode / QR-Etikett'
   },
 
   fr: {
@@ -2542,7 +2570,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calendar.search_placeholder': 'Rechercher des rendez-vous, échéances...',
     'calendar.open_invoice': 'Ouvrir la facture liée',
     'calendar.open_gcal': 'Ouvrir dans Google Calendar Web',
-    'calendar.delete_confirm': 'Voulez-vous vraiment supprimer cet événement ?'
+    'calendar.delete_confirm': 'Voulez-vous vraiment supprimer cet événement ?',
+
+    // EML, vCard & Advanced Features
+    'contacts.btn_generate_eml': 'Brouillon d\'e-mail (.eml)',
+    'contacts.btn_export_vcf': 'vCard (.vcf)',
+    'contacts.eml_downloaded': 'Brouillon d\'e-mail téléchargé (.eml)',
+    'invoice.btn_duplicate': 'Dupliquer',
+    'invoice.btn_duplicate_tooltip': 'Dupliquer la facture en nouveau brouillon',
+    'invoice.btn_generate_eml': 'Brouillon d\'e-mail (.eml)',
+    'invoice.btn_generate_eml_tooltip': 'Générer un brouillon (.eml) avec détails de facture et IBAN',
+    'products.btn_duplicate': 'Dupliquer',
+    'products.btn_duplicate_tooltip': 'Dupliquer l\'article dans le catalogue',
+    'products.th_margin': 'Marge / Bénéfice',
+    'products.margin_label': 'Marge',
+    'products.btn_qr_label': 'Code-barres / Étiquette QR'
   },
 
   es: {
@@ -3383,7 +3425,21 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calendar.search_placeholder': 'Buscar citas, facturas y asuntos...',
     'calendar.open_invoice': 'Abrir factura vinculada',
     'calendar.open_gcal': 'Abrir en Google Calendar Web',
-    'calendar.delete_confirm': '¿Está seguro de que desea eliminar esta cita?'
+    'calendar.delete_confirm': '¿Está seguro de que desea eliminar esta cita?',
+
+    // EML, vCard & Advanced Features
+    'contacts.btn_generate_eml': 'Borrador de correo (.eml)',
+    'contacts.btn_export_vcf': 'vCard (.vcf)',
+    'contacts.eml_downloaded': 'Borrador de correo descargado (.eml)',
+    'invoice.btn_duplicate': 'Duplicar',
+    'invoice.btn_duplicate_tooltip': 'Duplicar factura como nuevo borrador',
+    'invoice.btn_generate_eml': 'Borrador de correo (.eml)',
+    'invoice.btn_generate_eml_tooltip': 'Generar borrador (.eml) con datos de factura e IBAN',
+    'products.btn_duplicate': 'Duplicar',
+    'products.btn_duplicate_tooltip': 'Duplicar artículo en el catálogo',
+    'products.th_margin': 'Margen / Beneficio',
+    'products.margin_label': 'Margen',
+    'products.btn_qr_label': 'Código de barras / Etiqueta QR'
   }
 };
 

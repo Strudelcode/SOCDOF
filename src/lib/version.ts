@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.5.1';
+export const APP_VERSION = '21.6.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.6.0',
+    date: '2026-08-30',
+    title: 'Offline EML Email Drafts, vCard 3.0 Contact Export, Product QR Labels, Margins & 1-Click Duplication',
+    highlights: [
+      'Universal RFC 822 EML Draft Generator: 1-click generation of fully formatted .eml email drafts with subject, headers, customer address, line items, and bank transfer details (IBAN/BIC) ready for Outlook, Thunderbird, and Apple Mail without external servers',
+      'Electronic Business Cards (vCard 3.0): Native .vcf export for all contacts and business partners, enabling instant address book imports into mobile smartphones and email clients',
+      'Product Label & Barcode Printing Hub: High-resolution QR code and Code 128 barcode generator with configurable label dimensions (DIN A4 3x8, 2x5, or 62mm/100mm thermal rolls) and 1-click browser printing',
+      'Profit Margin Analytics & Duplication Engine: Real-time calculation of absolute profit margin and profit percentage (%) across product catalogs, accompanied by 1-click duplication for invoices and catalog products',
+      'Full 4-Language Localization: Complete translation coverage across German, English, French, and Spanish in src/lib/i18n.ts'
+    ]
+  },
   {
     version: '21.5.1',
     date: '2026-08-28',

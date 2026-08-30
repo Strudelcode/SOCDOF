@@ -6,7 +6,24 @@
 
 ## Completed Tasks Archive
 
-### 1. Mobile Sync Network Auto-Detection, Cloud Preview & Electron Background Server Bridge (v21.5.1)
+### 1. Offline EML Email Drafts, vCard 3.0 Contact Export, Product QR Labels, Margins & 1-Click Duplication (v21.6.0)
+- [x] **RFC 822 EML Draft Generator (`src/lib/emlGenerator.ts`)**:
+  - [x] 100% offline generation of `.eml` email files directly in the browser.
+  - [x] Pre-fills invoice subject, recipient address, item breakdowns, total balance, and company bank details (IBAN/BIC).
+  - [x] Pre-fills contact communication templates for partner inquiries.
+- [x] **vCard 3.0 Electronic Business Cards (`src/lib/vcardGenerator.ts`)**:
+  - [x] Native `.vcf` export with full partner metadata (name, company, email, phone, street address, notes).
+- [x] **Product Label & Barcode Printing Hub (`src/components/ProductLabelModal.tsx`)**:
+  - [x] QR code and Code 128 barcode generation with layout customizer (DIN A4 grids and thermal labels).
+  - [x] 1-click direct print styling.
+- [x] **Profit Margin Analytics & Duplication Engine (`src/components/ProductsModule.tsx`, `src/components/InvoicesModule.tsx`)**:
+  - [x] Real-time profit margin calculation (`€` and `%`) in catalog table.
+  - [x] 1-click invoice duplication into new draft with sequential numbering.
+  - [x] 1-click product cloning with automated SKU suffix.
+- [x] **4-Language Localization (`src/lib/i18n.ts`)**:
+  - [x] Full coverage across German, English, French, and Spanish.
+
+### 2. Mobile Sync Network Auto-Detection, Cloud Preview & Electron Background Server Bridge (v21.5.1)
 - [x] **Network Target Mode Switcher (`MobileCompanionImportModal.tsx`)**:
   - [x] Added 3 target tabs: Cloud / Web Preview URL (`https://...`), Local LAN WiFi (`http://192.168.x.x:3000`), and Custom IP/Port.
   - [x] Allows mobile devices to send data globally in Cloud Preview environments over cellular (LTE/5G) or outside WiFi without shared local subnet constraints.

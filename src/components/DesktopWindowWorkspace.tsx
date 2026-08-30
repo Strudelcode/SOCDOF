@@ -1984,6 +1984,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <ContactsModule
                   contacts={contacts}
                   invoices={invoices}
+                  company={company}
                   onRefresh={onRefreshData}
                   onCreateInvoiceForContact={(c) => openWindow('invoices', `Rechnung für ${c.name}`)}
                   currency={company.currency}

@@ -27,7 +27,9 @@ import {
   Eye,
   Info,
   ShoppingCart,
-  EyeOff
+  EyeOff,
+  Copy,
+  QrCode
 } from 'lucide-react';
 import { Product, Invoice, StockMove } from '../types';
 import { db } from '../lib/db';
@@ -35,6 +37,7 @@ import { sounds } from '../lib/sound';
 import { extractProductFromUrl, extractAmazonAsin } from '../lib/productLinkExtractor';
 import { t } from '../lib/i18n';
 import { SmartReorderModal } from './SmartReorderModal';
+import { ProductLabelModal } from './ProductLabelModal';
 
 interface ProductsModuleProps {
   products: Product[];
@@ -66,6 +69,31 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
   // Detail / Customer allocation view modal
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+
+  // QR Code & Barcode Label Modal
+  const [selectedLabelProduct, setSelectedLabelProduct] = useState<Product | null>(null);
+
+  // Duplicate Product
+  const handleDuplicateProduct = async (p: Product, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      sounds.playClick();
+      const newSku = `${p.sku}-COPY`;
+      const duplicated: Product = {
+        ...p,
+        id: undefined,
+        name: `${p.name} (Kopie)`,
+        sku: newSku,
+        qty_available: 0
+      };
+      await db.products.add(duplicated);
+      sounds.playSuccess();
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+      sounds.playError();
+    }
+  };
 
   // Categories extraction
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category || 'Allgemein')))];
@@ -387,6 +415,7 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                 <th className="p-4">{t('products.th_category', undefined, 'Kategorie')}</th>
                 <th className="p-4 text-right">{t('products.th_cost_price', undefined, 'Einkaufspreis (EK)')}</th>
                 <th className="p-4 text-right">{t('products.th_sale_price', undefined, 'Verkaufspreis (VK)')}</th>
+                <th className="p-4 text-right">{t('products.th_margin', undefined, 'Marge / Gewinn')}</th>
                 <th className="p-4 text-center">{t('products.th_stock', undefined, 'Auf Lager')}</th>
                 <th className="p-4 text-center">{t('products.th_allocated', undefined, 'An Kunden vergeben')}</th>
                 <th className="p-4 text-right">{t('products.th_actions', undefined, 'Aktionen')}</th>
@@ -489,6 +518,24 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                         {formatCurrency(p.sale_price || 0)}
                       </td>
 
+                      {/* Profit Margin */}
+                      <td className="p-4 text-right">
+                        {p.sale_price !== undefined && p.cost_price !== undefined ? (
+                          <div>
+                            <div className={`font-mono font-bold text-xs ${((p.sale_price || 0) - (p.cost_price || 0)) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                              {formatCurrency((p.sale_price || 0) - (p.cost_price || 0))}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {p.sale_price > 0 
+                                ? `${(((p.sale_price - p.cost_price) / p.sale_price) * 100).toFixed(1)}%` 
+                                : '0.0%'}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+
                       {/* Stock on Hand */}
                       <td className="p-4 text-center">
                         <div className="inline-flex flex-col items-center">
@@ -538,6 +585,27 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
                             <span>{t('products.btn_book_stock', undefined, 'Buchen')}</span>
                           </button>
 
+                          {/* Print QR / Barcode Label */}
+                          <button
+                            onClick={() => {
+                              sounds.playClick();
+                              setSelectedLabelProduct(p);
+                            }}
+                            title={t('products.btn_qr_label', undefined, 'Barcode / QR-Etikett drucken')}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-indigo-500" />
+                          </button>
+
+                          {/* Duplicate Product */}
+                          <button
+                            onClick={(e) => handleDuplicateProduct(p, e)}
+                            title={t('products.btn_duplicate_tooltip', undefined, 'Artikel als neuen Katalogeintrag duplizieren')}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-slate-500 hover:text-indigo-500" />
+                          </button>
+
                           <button
                             onClick={() => handleOpenEdit(p)}
                             title="Bearbeiten"
@@ -570,6 +638,14 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
         onClose={() => setIsReorderModalOpen(false)}
         products={products}
         onRefreshProducts={onRefresh}
+        currency={currency}
+      />
+
+      {/* Product Barcode & QR Label Printing Modal */}
+      <ProductLabelModal
+        isOpen={!!selectedLabelProduct}
+        onClose={() => setSelectedLabelProduct(null)}
+        product={selectedLabelProduct}
         currency={currency}
       />
 
