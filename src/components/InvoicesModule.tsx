@@ -50,6 +50,7 @@ interface InvoicesModuleProps {
   preselectedContactId?: number;
   onCloseCreate: () => void;
   onOpenCreate: (contactId?: number) => void;
+  onOpenSettings?: () => void;
 }
 
 export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
@@ -61,7 +62,8 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   isCreateOpen,
   preselectedContactId,
   onCloseCreate,
-  onOpenCreate
+  onOpenCreate,
+  onOpenSettings
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -552,8 +554,40 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     return matchesStatus && matchesSearch;
   });
 
+  const isCompanyIncomplete = !company.street?.trim() || !company.zip_city?.trim() || (!company.tax_id?.trim() && !company.iban?.trim());
+
   return (
     <div className="space-y-6">
+      {/* Incomplete Master Data Warning Banner */}
+      {isCompanyIncomplete && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-bold text-amber-900 dark:text-amber-200 block text-xs">
+                {t('company.complete_details_title', undefined, 'Unternehmensdaten vervollständigen')}
+              </span>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300/90 mt-0.5">
+                {t('company.complete_details_desc', undefined, 'Für rechtskonforme Rechnungen & Belege fehlen noch Stammdaten (wie Anschrift, Steuernummer oder Bankverbindung).')}
+              </p>
+            </div>
+          </div>
+          {onOpenSettings && (
+            <button
+              onClick={() => {
+                sounds.playClick();
+                onOpenSettings();
+              }}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl shrink-0 transition text-xs shadow-xs cursor-pointer"
+            >
+              {t('company.complete_details_btn', undefined, 'Jetzt Stammdaten ausfüllen')}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         {/* Status Filter Tabs */}
@@ -943,6 +977,27 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
             {/* Scrollable Form Body */}
             <div className="p-6 overflow-y-auto space-y-6">
+              {isCompanyIncomplete && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>{t('company.complete_details_desc', undefined, 'Für rechtskonforme Rechnungen & Belege fehlen noch Stammdaten (wie Anschrift, Steuernummer oder Bankverbindung).')}</span>
+                  </div>
+                  {onOpenSettings && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sounds.playClick();
+                        onOpenSettings();
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg shrink-0 text-[11px] transition cursor-pointer"
+                    >
+                      {t('company.complete_details_btn', undefined, 'Stammdaten ausfüllen')}
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Customer & Date Selection */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>

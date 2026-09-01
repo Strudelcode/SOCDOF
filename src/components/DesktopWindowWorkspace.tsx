@@ -83,7 +83,7 @@ import { StockMovesModule } from './StockMovesModule';
 import { InvoicesModule } from './InvoicesModule';
 import { POSModule } from './POSModule';
 import { PurchasesModule } from './PurchasesModule';
-import { SettingsModule } from './SettingsModule';
+import { SettingsModule, type SettingsSection } from './SettingsModule';
 import { AccountingModule } from './AccountingModule';
 import { AppStoreModule } from './AppStoreModule';
 import { DocumentationApp } from './DocumentationApp';
@@ -718,33 +718,47 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const calendarFlyoutRef = useRef<HTMLDivElement>(null);
   const clockTrayButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Global Outside Click Listener for Menus (Start Menu, Calendar Flyout, etc.)
+  // Global Outside Click Listener for Menus (Start Menu, Calendar Flyout, Context Menus)
   useEffect(() => {
     const handleGlobalPointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node;
-      if (isStartMenuOpen) {
-        if (
-          startMenuRef.current && !startMenuRef.current.contains(target) &&
-          startButtonRef.current && !startButtonRef.current.contains(target)
-        ) {
-          setIsStartMenuOpen(false);
+      const target = e.target as HTMLElement | null;
+
+      // 1. Close active context menus on ANY click outside a context menu
+      if (hasAnyContextMenu) {
+        if (!target?.closest?.('[data-context-menu]')) {
+          closeAllContextMenus();
         }
       }
+
+      // 2. Close Start Menu when clicking outside
+      if (isStartMenuOpen) {
+        if (
+          startMenuRef.current && !startMenuRef.current.contains(target as Node) &&
+          startButtonRef.current && !startButtonRef.current.contains(target as Node) &&
+          !target?.closest?.('[data-context-menu]')
+        ) {
+          setIsStartMenuOpen(false);
+          closeAllContextMenus();
+        }
+      }
+
+      // 3. Close Calendar Flyout when clicking outside
       if (isCalendarFlyoutOpen) {
         if (
-          calendarFlyoutRef.current && !calendarFlyoutRef.current.contains(target) &&
-          clockTrayButtonRef.current && !clockTrayButtonRef.current.contains(target)
+          calendarFlyoutRef.current && !calendarFlyoutRef.current.contains(target as Node) &&
+          clockTrayButtonRef.current && !clockTrayButtonRef.current.contains(target as Node)
         ) {
           setIsCalendarFlyoutOpen(false);
         }
       }
     };
 
-    document.addEventListener('pointerdown', handleGlobalPointerDown);
+    // Use capture phase to ensure clicks anywhere (even inside stopPropagation containers) dismiss context menus
+    document.addEventListener('pointerdown', handleGlobalPointerDown, true);
     return () => {
-      document.removeEventListener('pointerdown', handleGlobalPointerDown);
+      document.removeEventListener('pointerdown', handleGlobalPointerDown, true);
     };
-  }, [isStartMenuOpen, isCalendarFlyoutOpen]);
+  }, [isStartMenuOpen, isCalendarFlyoutOpen, hasAnyContextMenu]);
 
   // Global Keyboard Shortcuts (Ctrl+K / Cmd+K, F1, Alt+1..9, Esc, Ctrl+Space)
   useEffect(() => {
@@ -753,6 +767,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         sounds.playPop();
+        closeAllContextMenus();
         setIsCommandPaletteOpen(prev => !prev);
         return;
       }
@@ -761,6 +776,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       if (e.key === 'F1') {
         e.preventDefault();
         sounds.playClick();
+        closeAllContextMenus();
         openWindow('docs');
         return;
       }
@@ -770,6 +786,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         const index = parseInt(e.key, 10) - 1;
         if (index >= 0 && index < pinnedTaskbar.length) {
           e.preventDefault();
+          closeAllContextMenus();
           const targetMod = pinnedTaskbar[index];
           openWindow(targetMod);
           return;
@@ -780,12 +797,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       if (e.ctrlKey && e.code === 'Space') {
         e.preventDefault();
         sounds.playClick();
+        closeAllContextMenus();
         setIsStartMenuOpen(prev => !prev);
         return;
       }
 
-      // 5. Escape: Close open modals / flyouts / palette
+      // 5. Escape: Close open modals / context menus / flyouts / palette
       if (e.key === 'Escape') {
+        if (hasAnyContextMenu) {
+          e.preventDefault();
+          closeAllContextMenus();
+          return;
+        }
         if (isCommandPaletteOpen) {
           setIsCommandPaletteOpen(false);
         } else if (isStartMenuOpen) {
@@ -802,7 +825,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCommandPaletteOpen, isStartMenuOpen, isPowerMenuOpen, isCalendarFlyoutOpen, pinnedTaskbar]);
+  }, [isCommandPaletteOpen, isStartMenuOpen, isPowerMenuOpen, isCalendarFlyoutOpen, pinnedTaskbar, hasAnyContextMenu]);
 
   // Clock
   useEffect(() => {
@@ -1193,7 +1216,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return undefined;
   };
 
+  const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSection>('home');
+
+  const handleOpenSettings = (section: SettingsSection = 'general') => {
+    setSettingsInitialSection(section);
+    openWindow('settings', t('desktop.system_settings', currentLang, 'System-Einstellungen'));
+  };
+
   const openWindow = (module: ActiveModule, customTitle?: string) => {
+    closeAllContextMenus();
     sounds.playWindowOpen();
     setIsStartMenuOpen(false);
     setIsPowerMenuOpen(false);
@@ -1951,6 +1982,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   isCreateOpen={false}
                   onCloseCreate={() => {}}
                   onOpenCreate={() => {}}
+                  onOpenSettings={() => handleOpenSettings('general')}
                 />
               )}
 
@@ -2073,6 +2105,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onToggleSound={onToggleSound}
                   invoices={invoices}
                   onOpenWindowsModal={() => setIsWindowsModalOpen(true)}
+                  initialSection={settingsInitialSection}
                 />
               )}
             </div>
@@ -2281,10 +2314,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <button
               onClick={() => {
-                openWindow('settings', t('desktop.system_settings', currentLang, 'System-Einstellungen'));
+                handleOpenSettings('general');
                 setIsStartMenuOpen(false);
+                closeAllContextMenus();
               }}
-              title="Benutzer- & Firmenprofil öffnen"
+              title={t('company.user_profile', currentLang, 'Firmen- & Benutzerprofil')}
               className="flex items-center gap-2.5 min-w-0 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer group"
             >
               <div 
@@ -2295,11 +2329,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </div>
               <div className="min-w-0 flex flex-col">
                 <span className="text-xs font-bold truncate max-w-[130px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {company.name || 'Administrator'}
+                  {company.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
                 </span>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  {company.owner || 'Lokales Profil'}
+                  {company.owner || t('company.local_profile', currentLang, 'Lokales Profil')}
                 </span>
               </div>
             </button>
@@ -3003,6 +3037,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       {/* 1. Desktop Background Context Menu */}
       {desktopContextMenu && (
         <div
+          data-context-menu="true"
           style={{ left: `${desktopContextMenu.x}px`, top: `${desktopContextMenu.y}px` }}
           className="fixed z-[99999] w-56 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
           onClick={(e) => e.stopPropagation()}
@@ -3054,6 +3089,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         return (
           <div
+            data-context-menu="true"
             style={{ left: `${desktopIconContextMenu.x}px`, top: `${desktopIconContextMenu.y}px` }}
             className="fixed z-[99999] w-60 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
             onClick={(e) => e.stopPropagation()}
@@ -3134,6 +3170,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         return (
           <div
+            data-context-menu="true"
             style={{ left: `${startMenuIconContextMenu.x}px`, top: `${startMenuIconContextMenu.y}px` }}
             className="fixed z-[99999] w-60 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
             onClick={(e) => e.stopPropagation()}
@@ -3158,22 +3195,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </button>
 
             <button
-              disabled={isPinnedToDesktop}
               onClick={() => {
-                if (!isPinnedToDesktop) {
+                if (isPinnedToDesktop) {
+                  savePinnedDesktop(pinnedDesktop.filter(m => m !== startMenuIconContextMenu.modId));
+                  sounds.playDelete();
+                } else {
                   savePinnedDesktop([...pinnedDesktop, startMenuIconContextMenu.modId]);
                   sounds.playInstall();
                 }
                 closeAllContextMenus();
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition ${
-                isPinnedToDesktop 
-                  ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed' 
-                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer'
-              }`}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
             >
-              <Monitor className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--accent, #4f46e5)' }} />
-              <span>{isPinnedToDesktop ? t('desktop.already_on_desktop', currentLang, 'Auf Desktop vorhanden') : t('desktop.add_to_desktop', currentLang, 'Zum Desktop hinzufügen')}</span>
+              {isPinnedToDesktop ? (
+                <>
+                  <Trash2 className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                  <span>{t('desktop.remove_from_desktop', currentLang, 'Vom Desktop entfernen')}</span>
+                </>
+              ) : (
+                <>
+                  <Monitor className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--accent, #4f46e5)' }} />
+                  <span>{t('desktop.add_to_desktop', currentLang, 'Zum Desktop hinzufügen')}</span>
+                </>
+              )}
             </button>
 
             <button
@@ -3209,6 +3253,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         return (
           <div
+            data-context-menu="true"
             style={{
               left: `${Math.max(8, Math.min(taskbarIconContextMenu.x - 30, window.innerWidth - 260))}px`,
               bottom: '54px'

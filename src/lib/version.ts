@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.6.1';
+export const APP_VERSION = '21.6.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,27 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.6.3',
+    date: '2026-09-01',
+    title: 'Isolated Context Menu Dismissal & Start Menu State Preservation Fix',
+    highlights: [
+      'Context Menu Isolation: Removed full-screen overlay interception that inadvertently closed the Start Menu on inside clicks',
+      'Start Menu State Preservation: Clicking anywhere inside the Start Menu (search bar, empty areas, categories) now closes only the active context menu while keeping the Start Menu reliably open',
+      'External Dismissal: Clicking outside on the desktop, windows, or taskbar continues to dismiss both the context menu and the Start Menu naturally'
+    ]
+  },
+  {
+    version: '21.6.2',
+    date: '2026-09-01',
+    title: 'Default Company Profile UX, Start Menu Profile Card Navigation & Incomplete Master Data Invoicing Warnings',
+    highlights: [
+      'Default Company Name UX: Standardized initial company name default to "Ihr Firmenname" in default database settings and SettingsModule profile state',
+      'Start Menu Profile Card Deep-Link: Clicking the bottom-left profile card in the Start Menu immediately navigates directly to the "Allgemein & Stammdaten" settings section with auto-dismissal of the Start Menu',
+      'Dynamic Profile Identity Display: The Start Menu profile card now dynamically displays the configured company name (with multilingual "Ihr Firmenname" fallback) instead of a hardcoded "Administrator" label',
+      'Incomplete Master Data Guidance: Added informative alert banners in the Invoices module and invoice creation modal when essential company master data (address, tax ID, or bank info) is missing, complete with a 1-click button to complete data in Settings'
+    ]
+  },
   {
     version: '21.6.1',
     date: '2026-09-01',

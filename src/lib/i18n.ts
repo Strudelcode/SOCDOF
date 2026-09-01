@@ -819,6 +819,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'taskbar.restore_window': 'Restore',
     'taskbar.maximize_window': 'Maximize',
 
+    // Company & Invoices Incomplete Data Banner
+    'company.complete_details_title': 'Complete Company Details',
+    'company.complete_details_desc': 'For legally compliant invoices & tax receipts, required master data (address, tax ID, or bank account) is still missing.',
+    'company.complete_details_btn': 'Fill out master data now',
+    'company.default_name': 'Your Company Name',
+    'company.user_profile': 'Company & User Profile',
+    'company.local_profile': 'Local Profile',
+
     // Web Preview & Exit Modal
     'preview.modal_title': 'Leave Web Preview?',
     'preview.modal_subtitle': 'Interactive In-Browser Demonstration',
@@ -1695,6 +1703,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'taskbar.restore_window': 'Wiederherstellen',
     'taskbar.maximize_window': 'Maximieren',
 
+    // Company & Invoices Incomplete Data Banner
+    'company.complete_details_title': 'Unternehmensdaten vervollständigen',
+    'company.complete_details_desc': 'Für rechtskonforme Rechnungen & Belege fehlen noch Stammdaten (wie Anschrift, Steuernummer oder Bankverbindung).',
+    'company.complete_details_btn': 'Jetzt Stammdaten ausfüllen',
+    'company.default_name': 'Ihr Firmenname',
+    'company.user_profile': 'Firmen- & Benutzerprofil',
+    'company.local_profile': 'Lokales Profil',
+
     // Web Preview & Exit Modal
     'preview.modal_title': 'Web-Vorschau verlassen?',
     'preview.modal_subtitle': 'Interaktive Browser-Demonstration',
@@ -2569,6 +2585,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'taskbar.restore_window': 'Restaurer',
     'taskbar.maximize_window': 'Agrandir',
 
+    // Company & Invoices Incomplete Data Banner
+    'company.complete_details_title': 'Compléter les données de l’entreprise',
+    'company.complete_details_desc': 'Pour des factures et reçus fiscaux conformes, des données de base obligatoires (adresse, numéro fiscal ou IBAN) sont manquantes.',
+    'company.complete_details_btn': 'Remplir les données maintenant',
+    'company.default_name': 'Nom de votre entreprise',
+    'company.user_profile': 'Profil de l’entreprise',
+    'company.local_profile': 'Profil local',
+
     // Web Preview & Exit Modal
     'preview.modal_title': 'Quitter l’aperçu Web ?',
     'preview.modal_subtitle': 'Démonstration interactive dans le navigateur',
@@ -3442,6 +3466,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'taskbar.minimize_window': 'Minimizar',
     'taskbar.restore_window': 'Restaurar',
     'taskbar.maximize_window': 'Maximizar',
+
+    // Company & Invoices Incomplete Data Banner
+    'company.complete_details_title': 'Completar los datos de la empresa',
+    'company.complete_details_desc': 'Para emitir facturas y recibos fiscales conformes, aún faltan datos maestros obligatorios (dirección, NIF/CIF o cuenta bancaria).',
+    'company.complete_details_btn': 'Completar datos ahora',
+    'company.default_name': 'Nombre de su empresa',
+    'company.user_profile': 'Perfil de la empresa',
+    'company.local_profile': 'Perfil local',
 
     // Web Preview & Exit Modal
     'preview.modal_title': '¿Salir de la vista previa web?',

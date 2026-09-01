@@ -40,7 +40,7 @@ export class LocalOdooDB extends Dexie {
 export const db = new LocalOdooDB();
 
 export const defaultCompanyProfile: CompanyProfile = {
-  name: '',
+  name: 'Ihr Firmenname',
   legal_form: '',
   street: '',
   zip_city: '',

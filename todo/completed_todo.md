@@ -6,7 +6,31 @@
 
 ## Completed Tasks Archive
 
-### 1. Windows-Style Context Menus, Desktop & Taskbar Drag-and-Drop Pinning & UI Polish (v21.6.0)
+### 1. Isolated Context Menu Dismissal & Start Menu State Preservation Fix (v21.6.3)
+- [x] **Context Menu Dismissal Isolation (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed full-screen overlay interception that was causing inside Start Menu clicks to be treated as outside clicks.
+  - [x] Clicking anywhere inside the Start Menu (search bar, empty spaces, buttons) now closes only the active context menu while keeping the Start Menu reliably open.
+  - [x] Clicking outside the Start Menu on the desktop, windows, or taskbar dismisses both context menu and Start Menu.
+
+### 2. Default Company Profile UX, Start Menu Profile Card Navigation & Incomplete Master Data Invoicing Warnings (v21.6.2)
+- [x] **Default Company Name UX (`db.ts` & `SettingsModule.tsx`)**:
+  - [x] Pre-filled default company name with "Ihr Firmenname" in default database settings and SettingsModule profile state.
+- [x] **Start Menu Profile Card Deep-Link (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Clicking the bottom-left profile card in the Start Menu immediately navigates directly to the "Allgemein & Stammdaten" settings section with auto-dismissal of the Start Menu.
+  - [x] The Start Menu profile card dynamically displays the user's configured company name (with multilingual "Ihr Firmenname" fallback) instead of a hardcoded "Administrator" label.
+- [x] **Incomplete Master Data Guidance (`InvoicesModule.tsx` & `i18n.ts`)**:
+  - [x] Added informative alert banners in the Invoices module and invoice creation modal when essential company master data (address, tax ID, or bank info) is missing, complete with a 1-click button to complete data in Settings.
+  - [x] Full 4-language i18n support across German, English, French, and Spanish.
+
+### 2. Context Menu Layer Stacking Fix, Start Menu Brand Polish, .EML & vCard Generators & Product Label Barcodes (v21.6.1)
+- [x] **Root-Level Context Menu Layering & Dismissal Fix (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented fullscreen backdrop and global capture listener (`pointerdown`) so clicking anywhere outside or pressing `Escape` reliably closes active context menus.
+  - [x] Added active "Vom Desktop entfernen" toggle to Start Menu right-click menu.
+  - [x] Re-anchored Taskbar context menu at `bottom: 54px` with horizontal clamping.
+- [x] **Hover Tooltip Overlap Suppression (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Suppressed hover tooltips whenever any context menu is open.
+
+### 3. Windows-Style Context Menus, Desktop & Taskbar Drag-and-Drop Pinning & UI Polish (v21.6.0)
 - [x] **Windows-Style Context Menus (`DesktopWindowWorkspace.tsx` & `i18n.ts`)**:
   - [x] Right-clicking desktop icons provides options to "App öffnen", "An Taskleiste anheften / Von Taskleiste lösen", "Vom Desktop entfernen", and "System-Einstellungen".
   - [x] Right-clicking Start menu apps provides options to "App öffnen", "Zum Desktop hinzufügen", and "An Taskleiste anheften / Von Taskleiste lösen".

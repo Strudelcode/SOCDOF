@@ -83,19 +83,7 @@ import {
   type SocdofCalendarEvent
 } from '../lib/ical';
 
-interface SettingsModuleProps {
-  company: CompanyProfile;
-  onUpdateCompany: (updated: CompanyProfile) => void;
-  onFullReset: () => void;
-  isDark?: boolean;
-  onToggleTheme?: () => void;
-  isMuted?: boolean;
-  onToggleSound?: () => void;
-  invoices?: Invoice[];
-  onOpenWindowsModal?: () => void;
-}
-
-type SettingsSection = 
+export type SettingsSection = 
   | 'home'
   | 'general'
   | 'personalization'
@@ -107,6 +95,19 @@ type SettingsSection =
   | 'windows'
   | 'danger';
 
+interface SettingsModuleProps {
+  company: CompanyProfile;
+  onUpdateCompany: (updated: CompanyProfile) => void;
+  onFullReset: () => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
+  isMuted?: boolean;
+  onToggleSound?: () => void;
+  invoices?: Invoice[];
+  onOpenWindowsModal?: () => void;
+  initialSection?: SettingsSection;
+}
+
 export const SettingsModule: React.FC<SettingsModuleProps> = ({
   company,
   onUpdateCompany,
@@ -116,14 +117,31 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   isMuted = false,
   onToggleSound,
   invoices = [],
-  onOpenWindowsModal
+  onOpenWindowsModal,
+  initialSection
 }) => {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('home');
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
   const [searchQuery, setSearchQuery] = useState('');
-  const [profile, setProfile] = useState<CompanyProfile>({ ...company });
+  const [profile, setProfile] = useState<CompanyProfile>({
+    ...company,
+    name: company.name || 'Ihr Firmenname'
+  });
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
+
+  useEffect(() => {
+    setProfile(prev => ({
+      ...company,
+      name: company.name || prev.name || 'Ihr Firmenname'
+    }));
+  }, [company]);
 
   // Storage stats
   const [storageStats, setStorageStats] = useState<{
