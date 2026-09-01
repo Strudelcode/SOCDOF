@@ -6,22 +6,58 @@
 
 ## Completed Tasks Archive
 
-### 1. Offline EML Email Drafts, vCard 3.0 Contact Export, Product QR Labels, Margins & 1-Click Duplication (v21.6.0)
-- [x] **RFC 822 EML Draft Generator (`src/lib/emlGenerator.ts`)**:
-  - [x] 100% offline generation of `.eml` email files directly in the browser.
-  - [x] Pre-fills invoice subject, recipient address, item breakdowns, total balance, and company bank details (IBAN/BIC).
-  - [x] Pre-fills contact communication templates for partner inquiries.
-- [x] **vCard 3.0 Electronic Business Cards (`src/lib/vcardGenerator.ts`)**:
-  - [x] Native `.vcf` export with full partner metadata (name, company, email, phone, street address, notes).
-- [x] **Product Label & Barcode Printing Hub (`src/components/ProductLabelModal.tsx`)**:
-  - [x] QR code and Code 128 barcode generation with layout customizer (DIN A4 grids and thermal labels).
-  - [x] 1-click direct print styling.
-- [x] **Profit Margin Analytics & Duplication Engine (`src/components/ProductsModule.tsx`, `src/components/InvoicesModule.tsx`)**:
-  - [x] Real-time profit margin calculation (`€` and `%`) in catalog table.
-  - [x] 1-click invoice duplication into new draft with sequential numbering.
-  - [x] 1-click product cloning with automated SKU suffix.
-- [x] **4-Language Localization (`src/lib/i18n.ts`)**:
-  - [x] Full coverage across German, English, French, and Spanish.
+### 1. Windows-Style Context Menus, Desktop & Taskbar Drag-and-Drop Pinning & UI Polish (v21.6.0)
+- [x] **Windows-Style Context Menus (`DesktopWindowWorkspace.tsx` & `i18n.ts`)**:
+  - [x] Right-clicking desktop icons provides options to "App öffnen", "An Taskleiste anheften / Von Taskleiste lösen", "Vom Desktop entfernen", and "System-Einstellungen".
+  - [x] Right-clicking Start menu apps provides options to "App öffnen", "Zum Desktop hinzufügen", and "An Taskleiste anheften / Von Taskleiste lösen".
+  - [x] Right-clicking Taskbar icons provides standard window controls ("Fenster schließen", "Minimieren", "Maximieren / Wiederherstellen", "App öffnen", and "An Taskleiste anheften / Von Taskleiste lösen").
+  - [x] Right-clicking the desktop background opens the canvas context menu ("Symbole links anordnen", "Am Raster ausrichten", "App Store öffnen", "System-Einstellungen").
+- [x] **Bi-directional Drag & Drop App Pinning (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Dragging an app from the Start Menu onto the desktop canvas automatically adds and snaps it to the desktop grid.
+  - [x] Dragging an app onto the taskbar automatically pins it.
+- [x] **Start Button Title & i18n Polish (`DesktopWindowWorkspace.tsx` & `i18n.ts`)**:
+  - [x] Updated Start button tooltip to clean "Start" (removed "OS").
+  - [x] Added full translations across German, English, French, and Spanish for all context menu actions.
+
+### 2. Streamlined Start Menu Header, Auto-Closing Language Switcher & Footer Polish (v21.5.5)
+- [x] **Streamlined Start Menu Header (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed redundant "Standard-Apps" and "Studio" buttons from the Start Menu top header.
+  - [x] Removed "Offline Flow OS" subtitle to present a clean, concise company identity.
+- [x] **Auto-Closing Language Selection Flyout (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Automatically closes Start Menu when opening language switcher so users return cleanly to the desktop without an open flyout.
+- [x] **Footer Info Clean-up (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed "Web-Vorschau (Info)" footer text link for a clean user avatar and name presentation.
+
+### 2. Silent In-Place Desktop Updates & Seamless Automatic Restart (v21.5.4)
+- [x] **Silent In-Place Update Execution (`electron/main.cjs`)**:
+  - [x] Configured updater spawning to pass `/S` and `--force-run` arguments so update installations run completely silent in the background.
+  - [x] Automatically detects and overwrites the existing installation directory without prompting the user for directory path or setup options.
+- [x] **Automatic Post-Install Restart & Seamless Handover (`electron/main.cjs` & `electron-builder.json`)**:
+  - [x] Ensured clean app exit to free Windows binary file locks and configured `runAfterFinish: true` so the newly installed version starts automatically upon completion.
+  - [x] Polished modal in-app feedback to clearly explain the silent update and automatic relaunch.
+
+### 2. Streamlined Non-Zero Time Units, Dynamic Company Name Resolution & Customer Label Polish (v21.5.3)
+- [x] **Streamlined Non-Zero Time Formatting (`SupportServicesModule.tsx`)**:
+  - [x] Logbook entries and live-timer strings dynamically omit 0-value units (e.g. `6 Sek.` instead of `0 Tage, 00 Std., 00 Min., 06 Sek.`, or `14 Min., 22 Sek.` when under an hour).
+- [x] **Dynamic Company Name Resolution (`SupportServicesModule.tsx`)**:
+  - [x] Replaced generic "Firmenbestellung" placeholder with the user’s exact company name configured in Settings / Company Profile across all ticket views, staff defaults, and logbook author entries.
+- [x] **Multilingual Customer Company Keys (`i18n.ts`)**:
+  - [x] Updated and aligned client company labels across all 4 languages (`Kundenfirma` in German, `Client Company` in English, `Entreprise cliente` in French, and `Empresa cliente` in Spanish).
+
+### 2. Support Live-Timer Persistence, Detailed Time Breakdown & Role Sanitization (v21.5.2)
+- [x] **Support Live-Timer Persistence & Multi-State Controls (`SupportServicesModule.tsx`)**:
+  - [x] Implemented timestamp-based timer persistence in `localStorage`, maintaining running time across ticket navigation, view switches, and app restarts.
+  - [x] Added Pause, Resume, Reset, and Stop & Book controls for flexible timer workflow.
+  - [x] Added persistent active timer notification banner at the top of the Support module when a timer is running in the background, with 1-click navigation to the active ticket.
+  - [x] Added real-time timer status chips in list and kanban card views.
+- [x] **Detailed Human-Readable Time Breakdown (`SupportServicesModule.tsx`)**:
+  - [x] Added duration formatting in days, hours, minutes, and seconds (e.g., `0 Tage, 00 Std., 14 Min., 22 Sek.`) alongside digital clock (`00:14:22`) and decimal hours (`0.24 h`).
+- [x] **Staff & Role Sanitization & Company Profile Default (`SupportServicesModule.tsx`)**:
+  - [x] Removed hardcoded sample/personal defaults; newly created tickets default to company profile name (`Firma`).
+  - [x] Added quick navigation links to the Staff & Roles configuration dialog directly from ticket assignment fields.
+- [x] **System Date Format Integration & 4-Language Localization (`SupportServicesModule.tsx`, `i18n.ts`)**:
+  - [x] Harmonized timesheet table dates with configured system date preferences (`DD.MM.YYYY`, `YYYY-MM-DD`, `MM/DD/YYYY`).
+  - [x] Full translation coverage across all 4 supported languages (`de`, `en`, `fr`, `es`).
 
 ### 2. Mobile Sync Network Auto-Detection, Cloud Preview & Electron Background Server Bridge (v21.5.1)
 - [x] **Network Target Mode Switcher (`MobileCompanionImportModal.tsx`)**:

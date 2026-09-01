@@ -272,10 +272,11 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
       mainWindow.webContents.send('socdof:update-download-progress', { percent: 100, isFinished: true });
     }
 
-    // Launch installer detached and quit current instance
+    // Launch installer detached with silent in-place update flags (/S --force-run)
+    // This updates the existing installation directory without prompting for paths and relaunches the app automatically
     setTimeout(() => {
       try {
-        const child = spawn(installerPath, [], {
+        const child = spawn(installerPath, ['/S', '--force-run'], {
           detached: true,
           stdio: 'ignore'
         });

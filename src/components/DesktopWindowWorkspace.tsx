@@ -36,6 +36,7 @@ import {
   Calculator,
   Compass,
   Pin,
+  PinOff,
   HelpCircle,
   Lock,
   Utensils,
@@ -52,7 +53,8 @@ import {
   Clock,
   AlertCircle,
   Check,
-  Headphones
+  Headphones,
+  User
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -457,7 +459,33 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   } | null>(null);
 
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [desktopIconContextMenu, setDesktopIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
+  const [startMenuIconContextMenu, setStartMenuIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
+  const [taskbarIconContextMenu, setTaskbarIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
   const desktopCanvasRef = useRef<HTMLDivElement>(null);
+
+  // Desktop App Name Tooltip State with ~0.6s hover delay for truncated or full titles
+  const [desktopTooltip, setDesktopTooltip] = useState<{
+    text: string;
+    subtext?: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const tooltipTimeoutRef = useRef<number | null>(null);
+
+  const hasAnyContextMenu = !!(desktopContextMenu || desktopIconContextMenu || startMenuIconContextMenu || taskbarIconContextMenu);
+
+  const closeAllContextMenus = () => {
+    setDesktopContextMenu(null);
+    setDesktopIconContextMenu(null);
+    setStartMenuIconContextMenu(null);
+    setTaskbarIconContextMenu(null);
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+    setDesktopTooltip(null);
+  };
 
   const getDesktopPosition = (id: string, index: number) => {
     if (desktopPositions[id]) {
@@ -485,7 +513,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     });
     setDesktopPositions(nextPositions);
     try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(nextPositions)); } catch {}
-    setDesktopContextMenu(null);
+    closeAllContextMenus();
   };
 
   const handleSnapDesktopToGrid = () => {
@@ -495,7 +523,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(resolved)); } catch {}
       return resolved;
     });
-    setDesktopContextMenu(null);
+    closeAllContextMenus();
   };
 
   const handleDesktopCanvasDrop = (e: React.DragEvent) => {
@@ -506,6 +534,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const rawData = e.dataTransfer.getData('text/plain');
     const itemId = rawData || draggedDesktopItem?.id;
     if (!itemId) return;
+
+    // If dragged from Start menu or App launcher and not yet on desktop, add it
+    if (Object.prototype.hasOwnProperty.call(shortcutMeta, itemId) && !pinnedDesktop.includes(itemId as ActiveModule)) {
+      savePinnedDesktop([...pinnedDesktop, itemId as ActiveModule]);
+    }
 
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -624,16 +657,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
 
-  // Desktop App Name Tooltip State with ~0.6s hover delay for truncated or full titles
-  const [desktopTooltip, setDesktopTooltip] = useState<{
-    text: string;
-    subtext?: string;
-    x: number;
-    y: number;
-  } | null>(null);
-  const tooltipTimeoutRef = useRef<number | null>(null);
-
   const handleIconMouseEnter = (e: React.MouseEvent, title: string, subtext?: string) => {
+    if (hasAnyContextMenu) return;
     if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const targetX = rect.left + rect.width / 2;
@@ -1381,6 +1406,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       onClick={() => {
         if (isStartMenuOpen) setIsStartMenuOpen(false);
         if (isPowerMenuOpen) setIsPowerMenuOpen(false);
+        closeAllContextMenus();
       }}
       className={`relative w-screen h-screen overflow-hidden select-none font-sans flex flex-col justify-between transition-colors duration-300 ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'}`}
     >
@@ -1546,6 +1572,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, meta.title, meta.subtitle)}
                 onMouseLeave={handleIconMouseLeave}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closeAllContextMenus();
+                  setDesktopIconContextMenu({
+                    x: Math.min(e.clientX, window.innerWidth - 250),
+                    y: Math.min(e.clientY, window.innerHeight - 230),
+                    modId
+                  });
+                }}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent cursor-pointer ${
                   isDark 
                     ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
@@ -1747,60 +1783,330 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           );
         })}
 
-        {/* Desktop Context Menu (Rechtsklick auf Desktop-Hintergrund) */}
+        {/* Desktop Background Context Menu (Rechtsklick auf Desktop-Hintergrund) */}
         {desktopContextMenu && (
           <div
             style={{ left: `${desktopContextMenu.x}px`, top: `${desktopContextMenu.y}px` }}
-            className="fixed z-50 w-56 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+            className="fixed z-[9999] w-56 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleAutoArrangeDesktop}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
             >
-              <Boxes className="w-4 h-4 text-indigo-500" />
-              <span>Symbole links anordnen</span>
+              <Boxes className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+              <span>{t('desktop.auto_arrange', currentLang, 'Symbole links anordnen')}</span>
             </button>
             <button
               onClick={handleSnapDesktopToGrid}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
             >
-              <Sliders className="w-4 h-4 text-indigo-500" />
-              <span>Am Raster ausrichten</span>
+              <Sliders className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+              <span>{t('desktop.snap_grid', currentLang, 'Am Raster ausrichten')}</span>
             </button>
             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
             <button
               onClick={() => {
                 openWindow('appstore', 'App Store');
-                setDesktopContextMenu(null);
+                closeAllContextMenus();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
             >
-              <Package className="w-4 h-4 text-purple-500" />
-              <span>App Store öffnen</span>
+              <Package className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <span>{t('desktop.open_appstore', currentLang, 'App Store öffnen')}</span>
             </button>
             <button
               onClick={() => {
                 openWindow('settings', 'Einstellungen');
-                setDesktopContextMenu(null);
+                closeAllContextMenus();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
             >
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span>System-Einstellungen</span>
+              <Settings className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <span>{t('desktop.system_settings', currentLang, 'System-Einstellungen')}</span>
             </button>
           </div>
         )}
 
+        {/* Desktop App Icon Context Menu (Rechtsklick auf App auf Desktop) */}
+        {desktopIconContextMenu && (() => {
+          const meta = shortcutMeta[desktopIconContextMenu.modId];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const isPinnedToTaskbar = pinnedTaskbar.includes(desktopIconContextMenu.modId);
+
+          return (
+            <div
+              style={{ left: `${desktopIconContextMenu.x}px`, top: `${desktopIconContextMenu.y}px` }}
+              className="fixed z-[9999] w-60 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                <div className={`w-6 h-6 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0`}>
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200">{meta.title}</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  openWindow(desktopIconContextMenu.modId, meta.title);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                <span>{t('desktop.open_app', currentLang, 'App öffnen')}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleTogglePinTaskbar(desktopIconContextMenu.modId);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+              >
+                {isPinnedToTaskbar ? (
+                  <>
+                    <PinOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <span>{t('desktop.unpin_taskbar', currentLang, 'Von Taskleiste lösen')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Pin className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                    <span>{t('desktop.pin_taskbar', currentLang, 'An Taskleiste anheften')}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  savePinnedDesktop(pinnedDesktop.filter(m => m !== desktopIconContextMenu.modId));
+                  sounds.playDelete();
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                <span>{t('desktop.remove_from_desktop', currentLang, 'Vom Desktop entfernen')}</span>
+              </button>
+
+              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+              <button
+                onClick={() => {
+                  openWindow('settings', 'Einstellungen');
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                <span>{t('desktop.system_settings', currentLang, 'System-Einstellungen')}</span>
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Start Menu App Icon Context Menu (Rechtsklick auf App im Startmenü) */}
+        {startMenuIconContextMenu && (() => {
+          const meta = shortcutMeta[startMenuIconContextMenu.modId];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const isPinnedToDesktop = pinnedDesktop.includes(startMenuIconContextMenu.modId);
+          const isPinnedToTaskbar = pinnedTaskbar.includes(startMenuIconContextMenu.modId);
+
+          return (
+            <div
+              style={{ left: `${startMenuIconContextMenu.x}px`, top: `${startMenuIconContextMenu.y}px` }}
+              className="fixed z-[9999] w-60 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                <div className={`w-6 h-6 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0`}>
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200">{meta.title}</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  openWindow(startMenuIconContextMenu.modId, meta.title);
+                  setIsStartMenuOpen(false);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                <span>{t('desktop.open_app', currentLang, 'App öffnen')}</span>
+              </button>
+
+              <button
+                disabled={isPinnedToDesktop}
+                onClick={() => {
+                  if (!isPinnedToDesktop) {
+                    savePinnedDesktop([...pinnedDesktop, startMenuIconContextMenu.modId]);
+                    sounds.playInstall();
+                  }
+                  closeAllContextMenus();
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition ${
+                  isPinnedToDesktop 
+                    ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                    : 'hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 cursor-pointer'
+                }`}
+              >
+                <Monitor className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                <span>{isPinnedToDesktop ? t('desktop.already_on_desktop', currentLang, 'Auf Desktop vorhanden') : t('desktop.add_to_desktop', currentLang, 'Zum Desktop hinzufügen')}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleTogglePinTaskbar(startMenuIconContextMenu.modId);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+              >
+                {isPinnedToTaskbar ? (
+                  <>
+                    <PinOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <span>{t('desktop.unpin_taskbar', currentLang, 'Von Taskleiste lösen')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Pin className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                    <span>{t('desktop.pin_taskbar', currentLang, 'An Taskleiste anheften')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Taskbar App Icon Context Menu (Rechtsklick auf Taskleiste) */}
+        {taskbarIconContextMenu && (() => {
+          const meta = shortcutMeta[taskbarIconContextMenu.modId];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const openWin = windows.find(w => w.module === taskbarIconContextMenu.modId);
+          const isPinned = pinnedTaskbar.includes(taskbarIconContextMenu.modId);
+
+          return (
+            <div
+              style={{ left: `${taskbarIconContextMenu.x}px`, top: `${taskbarIconContextMenu.y}px` }}
+              className="fixed z-[9999] w-60 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                <div className={`w-6 h-6 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0`}>
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200">{meta.title}</span>
+              </div>
+
+              {openWin && (
+                <>
+                  {openWin.isMinimized ? (
+                    <button
+                      onClick={() => {
+                        focusWindow(openWin.id);
+                        closeAllContextMenus();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                      <span>{t('taskbar.restore_window', currentLang, 'Wiederherstellen')}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        minimizeWindow(openWin.id, e);
+                        closeAllContextMenus();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+                    >
+                      <Minus className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                      <span>{t('taskbar.minimize_window', currentLang, 'Minimieren')}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={(e) => {
+                      toggleMaximizeWindow(openWin.id, e);
+                      closeAllContextMenus();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+                  >
+                    {openWin.isMaximized ? (
+                      <>
+                        <Minimize2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                        <span>{t('taskbar.restore_window', currentLang, 'Wiederherstellen')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Square className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                        <span>{t('taskbar.maximize_window', currentLang, 'Maximieren')}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      closeWindow(openWin.id, e);
+                      closeAllContextMenus();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition cursor-pointer"
+                  >
+                    <X className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                    <span>{t('taskbar.close_window', currentLang, 'Fenster schließen')}</span>
+                  </button>
+
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                </>
+              )}
+
+              <button
+                onClick={() => {
+                  openWindow(taskbarIconContextMenu.modId, meta.title);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                <span>{t('desktop.open_app', currentLang, 'App öffnen')}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleTogglePinTaskbar(taskbarIconContextMenu.modId);
+                  closeAllContextMenus();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+              >
+                {isPinned ? (
+                  <>
+                    <PinOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <span>{t('desktop.unpin_taskbar', currentLang, 'Von Taskleiste lösen')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Pin className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                    <span>{t('desktop.pin_taskbar', currentLang, 'An Taskleiste anheften')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })()}
+
         {/* 0.6s Hover Tooltip for Desktop App & Folder Names */}
-        {desktopTooltip && (
+        {desktopTooltip && !hasAnyContextMenu && (
           <div
             style={{
               left: `${desktopTooltip.x}px`,
               top: `${desktopTooltip.y}px`,
               transform: 'translateX(-50%)'
             }}
-            className="fixed z-50 pointer-events-none px-2.5 py-1 rounded-lg bg-slate-900/95 dark:bg-slate-800/95 text-white text-xs font-semibold shadow-2xl border border-slate-700/80 backdrop-blur-xl animate-fade-in flex flex-col items-center max-w-xs text-center select-none"
+            className="fixed z-[9990] pointer-events-none px-2.5 py-1 rounded-lg bg-slate-900/95 dark:bg-slate-800/95 text-white text-xs font-semibold shadow-2xl border border-slate-700/80 backdrop-blur-xl animate-fade-in flex flex-col items-center max-w-xs text-center select-none"
           >
             <span>{desktopTooltip.text}</span>
             {desktopTooltip.subtext && (
@@ -2167,32 +2473,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         >
           
           {/* Start Menu Header */}
-          <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <SocdofLogo size="md" className="shadow-md flex-shrink-0" />
-              <div>
-                <h4 className="font-bold text-sm">{company.name}</h4>
-                <p className="text-[11px] text-slate-400">SOCDOF &bull; Offline Flow OS</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleRestoreStandardApps}
-                title="Standard-Apps auf dem Desktop & Taskleiste wiederherstellen"
-                className="px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-[11px] font-semibold flex items-center gap-1 transition"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Standard-Apps</span>
-              </button>
-
-              <button
-                onClick={() => { setIsStartMenuOpen(false); onOpenStudio(); }}
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center gap-1 transition"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Studio</span>
-              </button>
+          <div className="flex items-center gap-3 pb-3.5 border-b border-slate-200 dark:border-slate-800">
+            <SocdofLogo size="lg" className="shadow-md flex-shrink-0" showBorder />
+            <div className="min-w-0">
+              <h4 className="font-extrabold text-base leading-tight tracking-tight flex items-center gap-2">
+                <span>SoKnoTec</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">OS</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                {company.name || 'SOCDOF ERP Suite'}
+              </p>
             </div>
           </div>
 
@@ -2235,8 +2525,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 return (
                   <button
                     key={modId}
-                    onClick={() => openWindow(modId, meta.title)}
-                    className="flex flex-col items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-center group"
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedDesktopItem({ id: modId, type: 'app', offsetX: 48, offsetY: 44 });
+                      e.dataTransfer.setData('text/plain', modId);
+                      e.dataTransfer.effectAllowed = 'copyMove';
+                    }}
+                    onDragEnd={() => {
+                      setDraggedDesktopItem(null);
+                    }}
+                    onClick={() => {
+                      openWindow(modId, meta.title);
+                      setIsStartMenuOpen(false);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      closeAllContextMenus();
+                      setStartMenuIconContextMenu({
+                        x: Math.min(e.clientX, window.innerWidth - 250),
+                        y: Math.min(e.clientY, window.innerHeight - 200),
+                        modId
+                      });
+                    }}
+                    className="flex flex-col items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-center group cursor-pointer"
                   >
                     <div className={`w-10 h-10 rounded-xl ${meta.color} flex items-center justify-center text-white mb-1 shadow-xs group-hover:scale-105 transition-transform`}>
                       <Icon className="w-5 h-5" />
@@ -2253,7 +2565,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Quick Links: Language, Docs, GitHub & Discord */}
           <div className="py-2 grid grid-cols-4 gap-1.5">
             <button
-              onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
+              onClick={() => { 
+                sounds.playClick(); 
+                setIsStartMenuOpen(false); 
+                setIsLanguageModalOpen(true); 
+              }}
               className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40"
               title="Sprache ändern / Change Language"
             >
@@ -2271,6 +2587,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               href="https://github.com/Strudelcode/SOCDOF"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => setIsStartMenuOpen(false)}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700"
             >
               <Github className="w-3.5 h-3.5" />
@@ -2280,6 +2597,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               href="https://discord.gg/QW85EaXTgB"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => setIsStartMenuOpen(false)}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-[#5865F2]/10 text-[#5865F2] dark:text-indigo-300 text-[11px] font-semibold hover:bg-[#5865F2]/20 transition border border-[#5865F2]/30"
             >
               <MessageSquare className="w-3.5 h-3.5" />
@@ -2287,24 +2605,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </a>
           </div>
 
-          {/* Bottom Footer Actions: Power Button & User */}
+          {/* Bottom Footer Actions: Power Button & User Profile */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                {company.name.charAt(0)}
+            <button
+              onClick={() => {
+                openWindow('settings', t('desktop.system_settings', currentLang, 'System-Einstellungen'));
+                setIsStartMenuOpen(false);
+              }}
+              title="Benutzer- & Firmenprofil öffnen"
+              className="flex items-center gap-2.5 min-w-0 px-2 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer group"
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                {company.name ? company.name.charAt(0).toUpperCase() : <User className="w-4 h-4 text-white" />}
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold truncate max-w-[120px]">{company.name}</span>
-                {!isDesktopApp && (
-                  <button
-                    onClick={() => { setIsStartMenuOpen(false); setIsWebPreviewModalOpen(true); }}
-                    className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline text-left"
-                  >
-                    Web-Vorschau (Info)
-                  </button>
-                )}
+              <div className="min-w-0 flex flex-col">
+                <span className="text-xs font-bold truncate max-w-[130px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  {company.name || 'Administrator'}
+                </span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                  {company.owner || 'Lokales Profil'}
+                </span>
               </div>
-            </div>
+            </button>
 
             <div className="flex items-center gap-1">
               <button
@@ -2463,8 +2785,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsStartMenuOpen(!isStartMenuOpen);
             }}
-            title="Start - SOCDOF OS"
-            className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
+            title="Start"
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition cursor-pointer ${
               isStartMenuOpen 
                 ? 'ring-2 shadow-md scale-105' 
                 : 'hover:bg-slate-200/60 dark:hover:bg-white/10 active:scale-95'
@@ -2494,7 +2816,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </button>
 
           {/* Unified Windows 11 Taskbar App Items */}
-          <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-[60vw]">
+          <div 
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const rawData = e.dataTransfer.getData('text/plain');
+              const droppedModId = (rawData || draggedDesktopItem?.id) as ActiveModule;
+              if (droppedModId && shortcutMeta[droppedModId] && !pinnedTaskbar.includes(droppedModId)) {
+                savePinnedTaskbar([...pinnedTaskbar, droppedModId]);
+                sounds.playInstall();
+              }
+            }}
+            className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-[60vw]"
+          >
             {(() => {
               const taskbarModules = [...pinnedTaskbar];
               windows.forEach(w => {
@@ -2568,8 +2905,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
                     <button
                       onClick={handleTaskbarClick}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeAllContextMenus();
+                        setTaskbarIconContextMenu({
+                          x: Math.min(e.clientX, window.innerWidth - 250),
+                          y: Math.max(10, window.innerHeight - 250),
+                          modId
+                        });
+                      }}
                       title={`${meta.title}${isOpen ? (isActive ? ' (Aktiv)' : isMinimized ? ' (Minimiert)' : ' (Geöffnet)') : ''}`}
-                      className={`group h-9 min-w-[38px] px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition relative active:scale-95 ${
+                      className={`group h-9 min-w-[38px] px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition relative active:scale-95 cursor-pointer ${
                         draggedTaskbarIdx === index ? 'opacity-30 scale-90 filter grayscale' : ''
                       } ${
                         isActive 

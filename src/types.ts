@@ -372,6 +372,8 @@ export interface SupportServiceTicket {
   billable: boolean;
   isTimerRunning?: boolean;
   timerStartedAt?: string;
+  timerAccumulatedSeconds?: number;
+  timerPausedAt?: string;
   invoice_id?: number;
   invoice_number?: string;
   createdAt: string;

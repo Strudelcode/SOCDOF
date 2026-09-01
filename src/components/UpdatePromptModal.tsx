@@ -299,10 +299,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
               <div className="space-y-2">
                 <h4 className="font-bold text-lg text-slate-900 dark:text-white">
-                  Update wird installiert...
+                  Update wird geräuschlos installiert...
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                  SOCDOF wird jetzt beendet, die neue Version <strong>v{updateInfo.latestVersion}</strong> installiert und die Anwendung automatisch neu gestartet.
+                  SOCDOF schließt sich kurz, installiert Version <strong>v{updateInfo.latestVersion}</strong> direkt im bestehenden Pfad und startet die Anwendung anschließend automatisch neu.
                 </p>
               </div>
             </div>

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.6.0';
+export const APP_VERSION = '21.6.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -14,15 +14,72 @@ export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '21.6.0',
-    date: '2026-08-30',
-    title: 'Offline EML Email Drafts, vCard 3.0 Contact Export, Product QR Labels, Margins & 1-Click Duplication',
+    version: '21.6.1',
+    date: '2026-09-01',
+    title: 'Context Menu Layer Stacking Fix, Start Menu Brand Polish, .EML & vCard Generators & Product Label Barcodes',
     highlights: [
-      'Universal RFC 822 EML Draft Generator: 1-click generation of fully formatted .eml email drafts with subject, headers, customer address, line items, and bank transfer details (IBAN/BIC) ready for Outlook, Thunderbird, and Apple Mail without external servers',
-      'Electronic Business Cards (vCard 3.0): Native .vcf export for all contacts and business partners, enabling instant address book imports into mobile smartphones and email clients',
-      'Product Label & Barcode Printing Hub: High-resolution QR code and Code 128 barcode generator with configurable label dimensions (DIN A4 3x8, 2x5, or 62mm/100mm thermal rolls) and 1-click browser printing',
-      'Profit Margin Analytics & Duplication Engine: Real-time calculation of absolute profit margin and profit percentage (%) across product catalogs, accompanied by 1-click duplication for invoices and catalog products',
-      'Full 4-Language Localization: Complete translation coverage across German, English, French, and Spanish in src/lib/i18n.ts'
+      'Context Menu Layer Stacking Fix: Raised all desktop and Start menu context menus to highest z-index (z-[9999]), ensuring right-click menus on Start Menu items always display in front of the Start Menu',
+      'Hover Tooltip Conflict Suppression: Tooltips are automatically suppressed while any context menu is open and positioned at z-[9990] to prevent any visual overlap with open context menus',
+      'Start Menu SoKnoTec Branding: Enlarged the vector logo squircle (size="lg") with accent border and prominently display the SoKnoTec OS suite title alongside company name',
+      'Interactive Start Menu Profile Button: Replaced the standalone circular icon with a dedicated profile button featuring account fallback and direct navigation to System Settings',
+      'RFC 822 .EML Draft Generators: Direct generation and download of formatted .eml mail draft files for partners/contacts and invoices with full line item breakdowns and banking details',
+      'vCard 3.0 Contact Export: One-click export of .vcf electronic business card files compatible with Outlook, Apple Mail, and mobile devices',
+      'Barcode & QR-Code Product Label Printing: Interactive label generator modal for products with standard, shelf tag, and compact sizes, barcode/QR rendering, and printable preview',
+      'One-Click Duplication: Instant duplication workflow for both invoices and catalog products with auto-generated SKU tags and incremental document numbers'
+    ]
+  },
+  {
+    version: '21.6.0',
+    date: '2026-08-31',
+    title: 'Windows-Style Context Menus, Desktop & Taskbar Drag-and-Drop Pinning & UI Polish',
+    highlights: [
+      'Windows-Style Context Menus for Desktop & Start Menu: Right-clicking any desktop or Start menu app icon opens a context menu with options to Open App, Pin/Unpin from Taskbar, Add to / Remove from Desktop, and open Settings',
+      'Taskbar Window Management Context Menu: Right-clicking any active or minimized taskbar icon provides quick window actions (Close Window, Minimize, Maximize / Restore, Open App, and Pin/Unpin from Taskbar)',
+      'Desktop Background Context Menu: Right-clicking the desktop canvas provides instant access to "Symbole links anordnen", "Am Raster ausrichten", "App Store öffnen", and "System-Einstellungen"',
+      'Bi-directional Drag & Drop App Pinning: Dragging apps from the Start Menu onto the desktop canvas automatically adds and snaps them to the desktop grid; dragging apps onto the taskbar pins them directly',
+      'Start Button Label Polish: Cleaned Start button title to "Start" (removing "OS" subtext) and unified 4-language i18n support across all context menu actions'
+    ]
+  },
+  {
+    version: '21.5.5',
+    date: '2026-08-31',
+    title: 'Streamlined Start Menu Header, Auto-Closing Language Switcher & Footer Polish',
+    highlights: [
+      'Streamlined Start Menu Header: Removed redundant action buttons (Standard-Apps & Studio) and removed "Offline Flow OS" subtitle text for a clean, distraction-free branding display',
+      'Auto-Closing Language Selection: Opening the language switcher from the Start Menu now automatically dismisses the Start Menu flyout so users return cleanly to the desktop after choosing a language',
+      'Removed Web-Preview Footer Badge: Eliminated the "Web-Vorschau (Info)" footer label from the Start Menu profile area, displaying a clean user avatar and company identity'
+    ]
+  },
+  {
+    version: '21.5.4',
+    date: '2026-08-28',
+    title: 'Silent In-Place Desktop Updates & Seamless Automatic Restart',
+    highlights: [
+      'Silent In-Place Updates: Upgrades executed from within the desktop app now run quietly with `/S --force-run` flags, directly updating the existing installation path without re-prompting for directory selection',
+      'Automatic Post-Install Restart: Once installation finishes in the background, SOCDOF automatically relaunches into the updated version without manual intervention',
+      'Preserved Setup Wizard for Fresh Installs: Fresh installations continue to offer customizable destination paths and shortcut creation options via the standard setup wizard'
+    ]
+  },
+  {
+    version: '21.5.3',
+    date: '2026-08-28',
+    title: 'Streamlined Non-Zero Time Units, Dynamic Company Name Resolution & Customer Label Polish',
+    highlights: [
+      'Streamlined Non-Zero Time Formatting: Logbook and live-timer string representations now dynamically omit zero units (e.g. "6 Sek." instead of "0 Tage, 00 Std., 00 Min., 06 Sek.", or "14 Min., 22 Sek." when under an hour)',
+      'Dynamic Company Name Resolution: Replaced generic "Firmenbestellung" placeholder with the user’s exact company name configured in Settings / Company Profile across all ticket views and staff selectors',
+      'Multilingual Customer Company Keys: Differentiated client company labels from internal company profile names across all 4 supported languages (Kundenfirma / Client Company / Entreprise cliente / Empresa cliente)'
+    ]
+  },
+  {
+    version: '21.5.2',
+    date: '2026-08-28',
+    title: 'Support Live-Timer Persistence, Detailed Time Breakdown & Role Sanitization',
+    highlights: [
+      'Crash & Reload Resilient Live-Timer: Preserves running timer start times and accumulated seconds across page reloads, tab navigation, and app restarts with full Pause, Resume, Reset, and Stop & Book controls',
+      'Human-Readable Time Formatting: Displays detailed duration breakdowns in days, hours, minutes, and seconds (e.g. 0 Tage, 01 Std., 24 Min., 10 Sek.) alongside digital clock and decimal hour indicators',
+      'Persistent Active Timer Banner: System-wide alert banner at the top of the Support module when a timer is running in the background with 1-click navigation to the active ticket',
+      'Zero-Preset Role Sanitization: Removed hardcoded role defaults, defaulting unassigned tickets to company profile name ("Firma") with quick access to the roles and staff manager',
+      'System Date Formatting: Harmonized timesheet table dates with configured system date preferences (DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY)'
     ]
   },
   {

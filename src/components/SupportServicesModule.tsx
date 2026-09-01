@@ -23,7 +23,9 @@ import {
   HelpCircle, 
   Receipt,
   Play,
+  Pause,
   Square,
+  RefreshCw,
   Star,
   Layers,
   Send,
@@ -46,7 +48,7 @@ import {
 } from 'lucide-react';
 import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
 import { sounds } from '../lib/sound';
-import { useLanguage, t } from '../lib/i18n';
+import { useLanguage, t, formatSystemDate, formatSystemTime } from '../lib/i18n';
 import { MobileCompanionImportModal } from './MobileCompanionImportModal';
 import { Smartphone, QrCode } from 'lucide-react';
 
@@ -73,19 +75,8 @@ const DEFAULT_TEAMS = [
   'Standard'
 ];
 
-const DEFAULT_STAFF = [
-  'Support Agent',
-  'Staff Member',
-  'Admin'
-];
-
-const DEFAULT_SETTINGS: SupportSettings = {
-  ticketPrefix: 'SUP-',
-  nextNumber: 1001,
-  defaultHourlyRate: 95,
-  defaultTeam: 'Standard',
-  defaultStaff: 'Support Agent'
-};
+// Clean role/staff list without arbitrary dummy presets
+const DEFAULT_STAFF: string[] = [];
 
 export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   contacts,
@@ -95,25 +86,53 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   // Subscribe to active language state for real-time reactivity
   const lang = useLanguage();
 
+  // Standard company fallback label
+  const companyRoleName = companyProfile.name?.trim() || t('support.default_company_role', undefined, 'Firma (Eigener Betrieb)');
+
+  const defaultSettingsObj: SupportSettings = useMemo(() => ({
+    ticketPrefix: 'SUP-',
+    nextNumber: 1001,
+    defaultHourlyRate: 95,
+    defaultTeam: 'Standard',
+    defaultStaff: companyRoleName
+  }), [companyRoleName]);
+
   // Support Settings (e.g. ticket prefix, default rate)
   const [settings, setSettings] = useState<SupportSettings>(() => {
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Sanitize out any personal friend names or legacy defaults
-        if (parsed.defaultStaff?.toLowerCase().includes('robert') || parsed.defaultStaff?.toLowerCase().includes('hölzl')) {
-          parsed.defaultStaff = 'Support Agent';
+        // Sanitize out any personal friend names or legacy dummy defaults
+        if (
+          parsed.defaultStaff?.toLowerCase().includes('robert') || 
+          parsed.defaultStaff?.toLowerCase().includes('hölzl') ||
+          parsed.defaultStaff === 'Support Agent' ||
+          parsed.defaultStaff === 'Staff Member'
+        ) {
+          parsed.defaultStaff = companyProfile.name || 'Firma';
         }
         if (parsed.defaultTeam?.toLowerCase().includes('kundendienst & service')) {
           parsed.defaultTeam = 'Standard';
         }
-        return { ...DEFAULT_SETTINGS, ...parsed };
+        return { 
+          ticketPrefix: parsed.ticketPrefix || 'SUP-',
+          nextNumber: parsed.nextNumber || 1001,
+          defaultHourlyRate: parsed.defaultHourlyRate || 95,
+          defaultTeam: parsed.defaultTeam || 'Standard',
+          defaultStaff: parsed.defaultStaff || companyProfile.name || 'Firma'
+        };
       }
     } catch (e) {
       console.error(e);
     }
-    return DEFAULT_SETTINGS;
+    return {
+      ticketPrefix: 'SUP-',
+      nextNumber: 1001,
+      defaultHourlyRate: 95,
+      defaultTeam: 'Standard',
+      defaultStaff: companyProfile.name || 'Firma'
+    };
   });
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -134,16 +153,20 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return DEFAULT_TEAMS;
   });
 
-  // Staff / Agents state (customizable by user)
+  // Staff / Agents state (customizable by user, clean without dummy presets)
   const [staffList, setStaffList] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(STAFF_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Sanitize out any personal friend names
+          // Sanitize out any personal friend names or legacy dummy defaults
           const sanitized = parsed.filter(
-            s => typeof s === 'string' && !s.toLowerCase().includes('robert') && !s.toLowerCase().includes('hölzl')
+            s => typeof s === 'string' && 
+                 !s.toLowerCase().includes('robert') && 
+                 !s.toLowerCase().includes('hölzl') &&
+                 s !== 'Support Agent' &&
+                 s !== 'Staff Member'
           );
           if (sanitized.length > 0) return sanitized;
         }
@@ -172,18 +195,18 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Sanitize legacy entries
+          const fallbackStaff = companyProfile.name || 'Firma';
           return parsed.map((t: any) => ({
             ...t,
-            assignedStaff: (t.assignedStaff?.toLowerCase().includes('robert') || t.assignedStaff?.toLowerCase().includes('hölzl')) 
-              ? 'Support Agent' 
-              : t.assignedStaff || 'Support Agent',
+            assignedStaff: (t.assignedStaff?.toLowerCase().includes('robert') || t.assignedStaff?.toLowerCase().includes('hölzl') || t.assignedStaff === 'Support Agent') 
+              ? fallbackStaff 
+              : t.assignedStaff || fallbackStaff,
             activities: Array.isArray(t.activities) 
               ? t.activities.map((a: any) => ({
                   ...a,
-                  author: (a.author?.toLowerCase().includes('robert') || a.author?.toLowerCase().includes('hölzl')) 
-                    ? 'Support Agent' 
-                    : a.author || 'Support Agent'
+                  author: (a.author?.toLowerCase().includes('robert') || a.author?.toLowerCase().includes('hölzl') || a.author === 'Support Agent') 
+                    ? fallbackStaff 
+                    : a.author || fallbackStaff
                 }))
               : []
           }));
@@ -210,16 +233,31 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   // Custom Free-Text Assignee Mode
   const [isCustomAssigneeMode, setIsCustomAssigneeMode] = useState(false);
 
+  // Effective staff options (includes companyRoleName / companyProfile.name as primary default)
+  const effectiveStaffList = useMemo(() => {
+    const list = [...staffList];
+    if (companyRoleName && !list.includes(companyRoleName)) {
+      list.unshift(companyRoleName);
+    }
+    return list.length > 0 ? list : [companyRoleName];
+  }, [staffList, companyRoleName]);
+
   // Quick Timesheet Row Form
   const [isAddingTimesheet, setIsAddingTimesheet] = useState(false);
   const [newTsDate, setNewTsDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newTsStaff, setNewTsStaff] = useState(staffList[0] || 'Support Agent');
+  const [newTsStaff, setNewTsStaff] = useState(companyRoleName);
   const [newTsDesc, setNewTsDesc] = useState('');
   const [newTsHours, setNewTsHours] = useState('1.0');
   const [tagInput, setTagInput] = useState('');
 
-  // Live Timer elapsed time tracker
+  // Live Timer elapsed time tracker (in seconds)
   const [timerSeconds, setTimerSeconds] = useState(0);
+
+  // Formatted date helper matching settings format
+  const formatDate = (dateInput: Date | string | number | undefined | null) => {
+    if (!dateInput) return '';
+    return formatSystemDate(dateInput, companyProfile.date_format || 'DD.MM.YYYY');
+  };
 
   // Status helper mapping
   const getStatusLabel = (st: SupportServiceTicket['status']) => {
@@ -274,22 +312,44 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return tickets.find(t => t.id === selectedTicketId) || null;
   }, [tickets, selectedTicketId]);
 
-  // Live Timer Interval
+  // Global background running ticket (if any)
+  const activeRunningTicket = useMemo(() => {
+    return tickets.find(t => t.isTimerRunning && t.timerStartedAt);
+  }, [tickets]);
+
+  // Calculate live total seconds for any ticket (accounting for accumulated + active run)
+  const calculateTicketTimerSeconds = (tItem: SupportServiceTicket | null) => {
+    if (!tItem) return 0;
+    const base = tItem.timerAccumulatedSeconds || 0;
+    if (tItem.isTimerRunning && tItem.timerStartedAt) {
+      const startMs = new Date(tItem.timerStartedAt).getTime();
+      const elapsed = isNaN(startMs) ? 0 : Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      return base + elapsed;
+    }
+    return base;
+  };
+
+  // Live Timer Interval with session & crash-recovery persistence
   useEffect(() => {
     let interval: any = null;
-    if (selectedTicket?.isTimerRunning && selectedTicket.timerStartedAt) {
-      const startMs = new Date(selectedTicket.timerStartedAt).getTime();
-      setTimerSeconds(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
-      interval = setInterval(() => {
-        setTimerSeconds(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
-      }, 1000);
-    } else {
-      setTimerSeconds(0);
+    const updateSeconds = () => {
+      if (selectedTicket) {
+        setTimerSeconds(calculateTicketTimerSeconds(selectedTicket));
+      } else {
+        setTimerSeconds(0);
+      }
+    };
+
+    updateSeconds();
+
+    if (selectedTicket?.isTimerRunning) {
+      interval = setInterval(updateSeconds, 1000);
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [selectedTicket?.isTimerRunning, selectedTicket?.timerStartedAt]);
+  }, [selectedTicket?.id, selectedTicket?.isTimerRunning, selectedTicket?.timerStartedAt, selectedTicket?.timerAccumulatedSeconds]);
 
   // Filtered tickets
   const filteredTickets = useMemo(() => {
@@ -337,10 +397,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       hourlyRate: settings.defaultHourlyRate || 95,
       billable: true,
       timesheets: [],
+      timerAccumulatedSeconds: 0,
       activities: [
         {
           id: `act_${Date.now()}`,
-          author: settings.defaultStaff || staffList[0] || 'Support Agent',
+          author: settings.defaultStaff || staffList[0] || companyRoleName,
           type: 'system',
           content: t('support.act_created', undefined, 'Ticket created.'),
           createdAt: new Date().toISOString()
@@ -387,7 +448,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
     const newActivity: SupportActivityEntry = {
       id: `act_${Date.now()}`,
-      author: selectedTicket.assignedStaff || 'Support Agent',
+      author: selectedTicket.assignedStaff || companyRoleName,
       type: 'system',
       content: `${t('support.act_status_changed', undefined, 'Status changed to')} "${getStatusLabel(newStatus)}".`,
       createdAt: new Date().toISOString()
@@ -399,62 +460,118 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     });
   };
 
-  // Toggle Live Timer
-  const handleToggleTimer = () => {
+  // Live Timer Actions with full persistence across reload/crashes
+  const handleStartTimer = () => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || companyRoleName,
+      type: 'system',
+      content: t('support.act_timer_started', undefined, 'Live-Timer started.'),
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      isTimerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      status: selectedTicket.status === 'new' ? 'in_progress' : selectedTicket.status,
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+  };
+
+  const handlePauseTimer = () => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const currentElapsed = selectedTicket.timerStartedAt 
+      ? Math.max(0, Math.floor((Date.now() - new Date(selectedTicket.timerStartedAt).getTime()) / 1000))
+      : 0;
+    const newAccumulated = (selectedTicket.timerAccumulatedSeconds || 0) + currentElapsed;
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || companyRoleName,
+      type: 'system',
+      content: `${t('support.timer_paused', undefined, 'Live-Timer paused:')} ${formatDetailedTimer(newAccumulated, lang)}.`,
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      isTimerRunning: false,
+      timerStartedAt: undefined,
+      timerAccumulatedSeconds: newAccumulated,
+      timerPausedAt: new Date().toISOString(),
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+  };
+
+  const handleResumeTimer = () => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || companyRoleName,
+      type: 'system',
+      content: t('support.btn_resume_timer', undefined, 'Live-Timer resumed.'),
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      isTimerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+  };
+
+  const handleStopAndBookTimer = () => {
     if (!selectedTicket) return;
     sounds.playClick();
 
-    if (selectedTicket.isTimerRunning) {
-      // Stop timer and automatically create a timesheet entry
-      const startedAt = selectedTicket.timerStartedAt ? new Date(selectedTicket.timerStartedAt) : new Date();
-      const endedAt = new Date();
-      const durationHours = Math.max(0.1, Number(((endedAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60)).toFixed(2)));
-      
-      const newEntry: SupportTimesheetEntry = {
-        id: `ts_${Date.now()}`,
-        ticket_id: selectedTicket.id,
-        staff: selectedTicket.assignedStaff || 'Support Agent',
-        description: t('support.timesheet_live_timer_title', undefined, '1-Click Live-Timer (Work Time)'),
-        hours: durationHours,
-        hourlyRate: selectedTicket.hourlyRate || 95,
-        billable: selectedTicket.billable,
-        date: new Date().toISOString().split('T')[0],
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString()
-      };
+    const totalSec = calculateTicketTimerSeconds(selectedTicket);
+    const durationHours = Math.max(0.05, Number((totalSec / 3600).toFixed(2)));
+    const formattedDur = formatDetailedTimer(totalSec, lang);
 
-      const newActivity: SupportActivityEntry = {
-        id: `act_${Date.now()}`,
-        author: selectedTicket.assignedStaff || 'Support Agent',
-        type: 'activity',
-        content: `${t('support.act_timer_stopped', undefined, 'Live-Timer stopped:')} ${durationHours} h.`,
-        createdAt: new Date().toISOString()
-      };
+    const newEntry: SupportTimesheetEntry = {
+      id: `ts_${Date.now()}`,
+      ticket_id: selectedTicket.id,
+      staff: selectedTicket.assignedStaff || companyRoleName,
+      description: `${t('support.timesheet_live_timer_title', undefined, '1-Click Live-Timer (Work Time)')} [${formattedDur}]`,
+      hours: durationHours,
+      hourlyRate: selectedTicket.hourlyRate || settings.defaultHourlyRate || 95,
+      billable: selectedTicket.billable,
+      date: new Date().toISOString().split('T')[0],
+      startedAt: selectedTicket.timerStartedAt || new Date().toISOString(),
+      endedAt: new Date().toISOString()
+    };
 
-      updateCurrentTicket({
-        isTimerRunning: false,
-        timerStartedAt: undefined,
-        timesheets: [newEntry, ...selectedTicket.timesheets],
-        activities: [newActivity, ...selectedTicket.activities]
-      });
-      sounds.playSuccess();
-    } else {
-      // Start timer
-      const newActivity: SupportActivityEntry = {
-        id: `act_${Date.now()}`,
-        author: selectedTicket.assignedStaff || 'Support Agent',
-        type: 'system',
-        content: t('support.act_timer_started', undefined, 'Live-Timer started.'),
-        createdAt: new Date().toISOString()
-      };
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: selectedTicket.assignedStaff || companyRoleName,
+      type: 'activity',
+      content: `${t('support.act_timer_stopped', undefined, 'Live-Timer stopped & recorded:')} ${durationHours} h (${formattedDur}).`,
+      createdAt: new Date().toISOString()
+    };
 
-      updateCurrentTicket({
-        isTimerRunning: true,
-        timerStartedAt: new Date().toISOString(),
-        status: selectedTicket.status === 'new' ? 'in_progress' : selectedTicket.status,
-        activities: [newActivity, ...selectedTicket.activities]
-      });
-    }
+    updateCurrentTicket({
+      isTimerRunning: false,
+      timerStartedAt: undefined,
+      timerAccumulatedSeconds: 0,
+      timerPausedAt: undefined,
+      timesheets: [newEntry, ...selectedTicket.timesheets],
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+    sounds.playSuccess();
+  };
+
+  const handleResetTimer = () => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    updateCurrentTicket({
+      isTimerRunning: false,
+      timerStartedAt: undefined,
+      timerAccumulatedSeconds: 0,
+      timerPausedAt: undefined
+    });
   };
 
   // Add Manual Timesheet Entry
@@ -467,7 +584,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     const newEntry: SupportTimesheetEntry = {
       id: `ts_${Date.now()}`,
       ticket_id: selectedTicket.id,
-      staff: newTsStaff || selectedTicket.assignedStaff || 'Support Agent',
+      staff: newTsStaff || selectedTicket.assignedStaff || companyRoleName,
       description: newTsDesc.trim() || t('support.tab_timesheets', undefined, 'Work Hours'),
       hours: hours,
       hourlyRate: selectedTicket.hourlyRate || 95,
@@ -477,7 +594,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
     const newActivity: SupportActivityEntry = {
       id: `act_${Date.now()}`,
-      author: newTsStaff || selectedTicket.assignedStaff || 'Support Agent',
+      author: newTsStaff || selectedTicket.assignedStaff || companyRoleName,
       type: 'activity',
       content: `${t('support.act_time_booked', undefined, 'Work time recorded:')} ${hours.toFixed(2)} h (${newTsDesc.trim()}).`,
       createdAt: new Date().toISOString()
@@ -510,7 +627,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
     const newEntry: SupportActivityEntry = {
       id: `act_${Date.now()}`,
-      author: selectedTicket.assignedStaff || 'Support Agent',
+      author: selectedTicket.assignedStaff || companyRoleName,
       type: chatterTab,
       content: chatterInput.trim(),
       createdAt: new Date().toISOString()
@@ -573,14 +690,45 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return selectedTicket.timesheets.reduce((sum, ts) => sum + (Number(ts.hours) || 0), 0);
   }, [selectedTicket]);
 
-  const formatTimerDisplay = (sec: number) => {
-    const hrs = Math.floor(sec / 3600);
+  // Detailed human-readable timer breakdown (Seconds, Minutes, Hours, Days) without redundant 0 units
+  const formatDetailedTimer = (totalSeconds: number, langCode: string = 'de') => {
+    const sec = Math.max(0, Math.floor(totalSeconds));
+    const days = Math.floor(sec / 86400);
+    const hours = Math.floor((sec % 86400) / 3600);
     const mins = Math.floor((sec % 3600) / 60);
     const secs = sec % 60;
-    if (hrs > 0) {
-      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    const dayLabel = langCode === 'de' ? (days === 1 ? 'Tag' : 'Tage') : langCode === 'fr' ? (days === 1 ? 'jour' : 'jours') : langCode === 'es' ? (days === 1 ? 'día' : 'días') : (days === 1 ? 'day' : 'days');
+    const hrLabel = langCode === 'de' ? 'Std.' : langCode === 'fr' ? 'h' : langCode === 'es' ? 'h' : (hours === 1 ? 'hr' : 'hrs');
+    const minLabel = langCode === 'de' ? 'Min.' : langCode === 'fr' ? 'min' : langCode === 'es' ? 'min' : (mins === 1 ? 'min' : 'mins');
+    const secLabel = langCode === 'de' ? 'Sek.' : langCode === 'fr' ? 's' : langCode === 'es' ? 'seg' : (secs === 1 ? 'sec' : 'secs');
+
+    const parts: string[] = [];
+    if (days > 0) {
+      parts.push(`${days} ${dayLabel}`);
     }
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    if (hours > 0 || days > 0) {
+      parts.push(`${days > 0 ? hours.toString().padStart(2, '0') : hours} ${hrLabel}`);
+    }
+    if (mins > 0 || hours > 0 || days > 0) {
+      parts.push(`${(days > 0 || hours > 0) ? mins.toString().padStart(2, '0') : mins} ${minLabel}`);
+    }
+    parts.push(`${(days > 0 || hours > 0 || mins > 0) ? secs.toString().padStart(2, '0') : secs} ${secLabel}`);
+
+    return parts.join(', ');
+  };
+
+  // Clock format: e.g. 00:00:00 or 1d 04:15:30
+  const formatTimerDisplay = (totalSeconds: number) => {
+    const sec = Math.max(0, Math.floor(totalSeconds));
+    const days = Math.floor(sec / 86400);
+    const hours = Math.floor((sec % 86400) / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const secs = sec % 60;
+    if (days > 0) {
+      return `${days}d ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatTimeAgo = (isoString: string) => {
@@ -589,7 +737,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       if (diff < 60) return t('support.time_just_now', undefined, 'Just now');
       if (diff < 3600) return `${Math.floor(diff / 60)} ${t('support.time_mins_ago', undefined, 'min.')}`;
       if (diff < 86400) return `${Math.floor(diff / 3600)} ${t('support.time_hours_ago', undefined, 'hours')}`;
-      return new Date(isoString).toLocaleDateString();
+      return formatDate(isoString);
     } catch {
       return isoString;
     }
@@ -707,6 +855,34 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         </div>
 
       </div>
+
+      {/* Active Timer Running Persistent Banner (Crash recovery / Session notification) */}
+      {activeRunningTicket && (selectedTicketId !== activeRunningTicket.id || viewMode !== 'detail') && (
+        <div className="bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white px-4 py-2.5 text-xs font-semibold flex flex-wrap items-center justify-between gap-2 shadow-md shrink-0 border-b border-rose-700">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+            <Clock className="w-4 h-4 text-white animate-pulse" />
+            <span>
+              {t('support.timer_running', undefined, 'Live-Timer running')}: <strong className="underline underline-offset-2">{activeRunningTicket.ticketNumber} – {activeRunningTicket.title}</strong>
+            </span>
+            <span className="font-mono bg-black/30 text-rose-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+              {formatDetailedTimer(calculateTicketTimerSeconds(activeRunningTicket), lang)}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setSelectedTicketId(activeRunningTicket.id);
+              setViewMode('detail');
+              setActiveTab('timesheets');
+            }}
+            className="px-3 py-1 bg-white text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1"
+          >
+            <span>{t('support.open_ticket', undefined, 'Open ticket')}</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Main Module Content */}
       {viewMode === 'list' || viewMode === 'kanban' ? (
@@ -865,9 +1041,17 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                             </td>
 
                             <td className="py-3.5 px-4 text-right font-mono">
-                              <span className="font-bold text-slate-700 dark:text-slate-300">
-                                {hours.toFixed(1)} h
-                              </span>
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="font-bold text-slate-700 dark:text-slate-300">
+                                  {hours.toFixed(1)} h
+                                </span>
+                                {ticket.isTimerRunning && (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-mono text-[9px] font-bold animate-pulse flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4 text-right">
@@ -942,9 +1126,17 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                           className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:border-cyan-500 cursor-pointer transition space-y-2 group"
                         >
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                              {ticket.ticketNumber}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                                {ticket.ticketNumber}
+                              </span>
+                              {ticket.isTimerRunning && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-mono text-[9px] font-bold animate-pulse flex items-center gap-0.5">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
+                                </span>
+                              )}
+                            </div>
                             <span className="text-slate-400 font-medium">{ticket.team}</span>
                           </div>
 
@@ -1123,6 +1315,18 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
+                          onClick={() => {
+                            setSettingsActiveTab('staff');
+                            setIsSettingsModalOpen(true);
+                          }}
+                          className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{t('support.btn_add_role_staff', undefined, 'Rollen / Mitarbeiter')}</span>
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-700">|</span>
+                        <button
+                          type="button"
                           onClick={() => setIsCustomAssigneeMode(!isCustomAssigneeMode)}
                           className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                         >
@@ -1171,16 +1375,23 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         onChange={(e) => {
                           if (e.target.value === '__custom_mode__') {
                             setIsCustomAssigneeMode(true);
+                          } else if (e.target.value === '__manage_staff__') {
+                            setSettingsActiveTab('staff');
+                            setIsSettingsModalOpen(true);
                           } else {
                             updateCurrentTicket({ assignedStaff: e.target.value });
                           }
                         }}
                         className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
                       >
-                        {staffList.map(staff => (
+                        {effectiveStaffList.map(staff => (
                           <option key={staff} value={staff}>{staff}</option>
                         ))}
+                        {selectedTicket.assignedStaff && !effectiveStaffList.includes(selectedTicket.assignedStaff) && (
+                          <option value={selectedTicket.assignedStaff}>{selectedTicket.assignedStaff}</option>
+                        )}
                         <option value="__custom_mode__">✏️ {t('support.btn_switch_freetext', undefined, 'Custom name (Free text)...')}</option>
+                        <option value="__manage_staff__">⚙️ + {t('support.btn_manage_staff', undefined, 'Rollen & Mitarbeiter verwalten...')}</option>
                       </select>
                     )}
                   </div>
@@ -1406,55 +1617,113 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   <div className="space-y-4">
                     
                     {/* Integrated Live Timer Control Bar */}
-                    <div className={`p-4 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    <div className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                       selectedTicket.isTimerRunning
-                        ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 shadow-md animate-pulse'
+                        ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/80 shadow-md ring-2 ring-rose-500/20'
+                        : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                        ? 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/80 shadow-xs'
                         : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
                     }`}>
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs ${
-                          selectedTicket.isTimerRunning ? 'bg-rose-600' : 'bg-emerald-600'
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-xs shrink-0 ${
+                          selectedTicket.isTimerRunning ? 'bg-rose-600 animate-pulse' : (selectedTicket.timerAccumulatedSeconds || 0) > 0 ? 'bg-amber-600' : 'bg-emerald-600'
                         }`}>
-                          <Clock className="w-5 h-5" />
+                          <Clock className="w-6 h-6" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                              {selectedTicket.isTimerRunning ? t('support.timer_running', undefined, 'Timer running...') : t('support.timesheet_live_timer_title', undefined, '1-Click Live-Timer (Work Time)')}
+                              {selectedTicket.isTimerRunning 
+                                ? t('support.timer_running', undefined, 'Live-Timer läuft...') 
+                                : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                                ? t('support.timer_paused', undefined, 'Live-Timer pausiert')
+                                : t('support.timesheet_live_timer_title', undefined, '1-Klick Live-Timer (Arbeitszeit-Erfassung)')}
                             </span>
-                            {selectedTicket.isTimerRunning && (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-mono text-[10px] font-bold">
-                                {formatTimerDisplay(timerSeconds)}
+                            <span className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-bold ${
+                              selectedTicket.isTimerRunning 
+                                ? 'bg-rose-600 text-white shadow-xs animate-pulse' 
+                                : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}>
+                              {formatTimerDisplay(timerSeconds)}
+                            </span>
+                            {timerSeconds > 0 && (
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                                ({(timerSeconds / 3600).toFixed(2)} h)
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {t('support.timesheet_live_timer_desc', undefined, 'Start the timer when working on the ticket. Stopping automatically records work time.')}
-                          </p>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono mt-0.5">
+                            {formatDetailedTimer(timerSeconds, lang)}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleToggleTimer}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition active:scale-95 ${
-                            selectedTicket.isTimerRunning
-                              ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          }`}
-                        >
-                          {selectedTicket.isTimerRunning ? (
-                            <>
-                              <Square className="w-4 h-4 fill-current" />
-                              <span>{t('support.btn_stop_timer', undefined, 'Stop timer & book time')} ({formatTimerDisplay(timerSeconds)})</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 fill-current" />
-                              <span>{t('support.btn_start_timer', undefined, 'Start live timer')}</span>
-                            </>
-                          )}
-                        </button>
+                      {/* Timer Action Buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {selectedTicket.isTimerRunning ? (
+                          <>
+                            {/* Pause */}
+                            <button
+                              type="button"
+                              onClick={handlePauseTimer}
+                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition active:scale-95"
+                              title={t('support.btn_pause_timer', undefined, 'Pausieren')}
+                            >
+                              <Pause className="w-3.5 h-3.5" />
+                              <span>{t('support.btn_pause_timer', undefined, 'Pausieren')}</span>
+                            </button>
+                            {/* Stop & Book */}
+                            <button
+                              type="button"
+                              onClick={handleStopAndBookTimer}
+                              className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition active:scale-95"
+                            >
+                              <Square className="w-3.5 h-3.5 fill-current" />
+                              <span>{t('support.btn_stop_timer', undefined, 'Stoppen & buchen')} ({formatTimerDisplay(timerSeconds)})</span>
+                            </button>
+                          </>
+                        ) : (selectedTicket.timerAccumulatedSeconds || 0) > 0 ? (
+                          <>
+                            {/* Resume */}
+                            <button
+                              type="button"
+                              onClick={handleResumeTimer}
+                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>{t('support.btn_resume_timer', undefined, 'Fortsetzen')}</span>
+                            </button>
+                            {/* Stop & Book */}
+                            <button
+                              type="button"
+                              onClick={handleStopAndBookTimer}
+                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs transition active:scale-95"
+                            >
+                              <Square className="w-3.5 h-3.5 fill-current" />
+                              <span>{t('support.btn_stop_timer', undefined, 'Zeit buchen')} ({formatTimerDisplay(timerSeconds)})</span>
+                            </button>
+                            {/* Reset */}
+                            <button
+                              type="button"
+                              onClick={handleResetTimer}
+                              className="px-2.5 py-2 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
+                              title={t('support.btn_reset_timer', undefined, 'Zurücksetzen')}
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleStartTimer}
+                            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
+                          >
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>{t('support.btn_start_timer', undefined, 'Live-Timer starten')}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1480,7 +1749,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                           ) : (
                             selectedTicket.timesheets.map(ts => (
                               <tr key={ts.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                <td className="py-2.5 px-3 font-mono">{ts.date}</td>
+                                <td className="py-2.5 px-3 font-mono">{formatDate(ts.date)}</td>
                                 <td className="py-2.5 px-3 font-medium">{ts.staff}</td>
                                 <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{ts.description}</td>
                                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">
@@ -1520,7 +1789,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        {t('support.btn_manual_entry', undefined, '+ Manual Time Entry')}
+                        <span>{t('support.btn_manual_entry', undefined, 'Manuelle Zeiterfassung')}</span>
                       </button>
                     ) : (
                       <form onSubmit={handleAddTimesheetEntry} className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
@@ -1539,7 +1808,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                             onChange={(e) => setNewTsStaff(e.target.value)}
                             className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                           >
-                            {staffList.map(staff => (
+                            {effectiveStaffList.map(staff => (
                               <option key={staff} value={staff}>{staff}</option>
                             ))}
                           </select>
@@ -1866,7 +2135,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       onChange={(e) => setTempSettings({ ...tempSettings, defaultStaff: e.target.value })}
                       className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
                     >
-                      {staffList.map(s => (
+                      {effectiveStaffList.map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
