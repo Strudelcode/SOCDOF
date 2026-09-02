@@ -573,6 +573,20 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
 
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {isLowStock && (
+                            <button
+                              onClick={() => {
+                                sounds.playClick();
+                                setIsReorderModalOpen(true);
+                              }}
+                              title="1-Klick Nachbestellung im Bestellvorschlag öffnen"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-2xs"
+                            >
+                              <ShoppingCart className="w-3 h-3" />
+                              <span>Nachbestellen</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
                               sounds.playClick();

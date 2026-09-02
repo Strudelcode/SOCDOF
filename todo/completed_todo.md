@@ -6,7 +6,94 @@
 
 ## Completed Tasks Archive
 
-### 1. Isolated Context Menu Dismissal & Start Menu State Preservation Fix (v21.6.3)
+### 1. Advanced Widget Customization Studio, Floating Search & Filter Dropdown, Analog & World Clocks, Quick Actions & Wallpaper Layering (v21.8.3)
+- [x] **Floating Search Bar & Category Filter Dropdown (`WidgetsModule.tsx`)**:
+  - [x] Replaced blocky container with a floating, rounded-2xl glass search bar with smooth focus highlights and blur.
+  - [x] Implemented dropdown filter menu with category counts (*Alle Widgets*, *Handy-Kacheln*, *Haftnotizen*, *Zeit & Kalender*, *Finanzen & KPI*, *Aktionen & Lager*).
+- [x] **Widget Customization Studio & Gear Icon Modal (`WidgetSettingsModal.tsx`, `DesktopWidgetsLayer.tsx`)**:
+  - [x] Added gear icon (`Settings`) button to catalog items and desktop widget headers / context menus.
+  - [x] Background style options: *Ohne Hintergrund (Transparent)*, *Liquid Glass*, *Dunkel*, and *Standard Solid*.
+  - [x] Typography options: *Standard (Sans)*, *Monospace (Code)*, *Serif (Klassisch)*, and *Display (Modern)*.
+  - [x] Text color accents: White, Emerald, Indigo, Amber, Sky Blue, and Rose.
+- [x] **Digital, Analog & World City Clocks (`WidgetSettingsModal.tsx`, `DesktopWidgetsLayer.tsx`)**:
+  - [x] Real-time geometric round analog clock face with animated second, minute, and hour hands.
+  - [x] World timezone and city picker (Berlin, London, New York, Tokyo, Sydney, Zurich, Vienna, etc.) with custom labels.
+  - [x] 12-hour AM/PM (ENG) and 24-hour time formatting options.
+- [x] **Custom Quick Actions (Schnellstarter) Launcher (`WidgetSettingsModal.tsx`, `DesktopWidgetsLayer.tsx`)**:
+  - [x] Configurable 4-slot quick launcher for choosing any application (Invoices, Contacts, POS Kasse, Calendar, Stock, Purchases, Restaurant, etc.).
+- [x] **Wallpaper Background Layering (`DesktopWidgetsLayer.tsx`)**:
+  - [x] Layer level configuration allowing widgets to sit directly on the wallpaper background layer (`zIndex: 1`) or in the floating interactive layer.
+
+### 2. App Store Integration for Widgets, Completely Pristine Desktop Default & Circular Bottom-Right Icon (v21.8.2)
+- [x] **App Store Integration (`AppStoreModule.tsx`)**:
+  - [x] Moved `widgets` from default pre-installed/pinned modules into the App Store catalog (`AppStoreModule.tsx`).
+  - [x] Removed `widgets` from `DEFAULT_STANDARD_MODULES`, `DEFAULT_PINNED_DESKTOP`, and `DEFAULT_PINNED_TASKBAR` in `DesktopWindowWorkspace.tsx`.
+  - [x] Users can now enable/install, launch, or pin Widgets directly through the App Store.
+- [x] **Zero-Widget Clean Desktop Default (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Initialized desktop widget canvas with 0 widgets by default.
+  - [x] Implemented automatic purge of legacy sample demo widgets (`widget-notes-1`, `widget-revenue-1`) from browser localStorage so returning users start with an uncluttered screen.
+- [x] **Circular Bottom-Right App Icon (`WidgetsIcon.tsx`)**:
+  - [x] Replaced the 4-square grid icon with a distinctive custom `WidgetsIcon` featuring 3 rounded squares and a bottom-right circle for high recognizability.
+  - [x] Applied `WidgetsIcon` consistently across taskbar shortcuts, Start menu, App Store, Command Palette, and desktop context menus.
+
+### 2. Minimalist Widgets App with Search-Only Header, Clean Empty Desktop Default & Phone-Style Resizing (v21.8.1)
+- [x] **Minimalist Widgets Window App (`WidgetsModule.tsx`)**:
+  - [x] Removed redundant top navigation headers, buttons (`+ Neue Haftnotiz`, `Widget-Katalog`, `Aktive Widgets`, `Notizen-Editor`), and category filter pills (`Alle`, `Handy-Kacheln`, `Haftnotizen`).
+  - [x] Replaced with a single clean, responsive search bar directly filtering widgets and notes.
+  - [x] Direct 1-click "+ Auf Desktop anheften" button on all cards with live interactive preview.
+  - [x] Integrated pastel color palette selector into sticky note creation card.
+- [x] **Clean Empty Desktop Initialization (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Initialized desktop widgets to empty array `[]` by default, giving users an uncluttered desktop with zero forced demo widgets.
+- [x] **Smartphone-Style Right-Click Resizing & Draggable Sticky Notes (`DesktopWidgetsLayer.tsx`)**:
+  - [x] Right-click context menu on pinned desktop widgets includes size adjustments (`Klein`, `Mittel`, `Groß`), virtual desktop scoping, and removal.
+  - [x] Resizing restricted specifically to pinned desktop widgets as requested.
+  - [x] Draggable sticky notes ("Schiebe-Widgets") come to foreground on click, support free movement, pastel color switching, and quick close.
+- [x] **Label Cleanup & Global Naming (`i18n.ts`, `DesktopWidgetsLayer.tsx`, `DesktopWidgetsModal.tsx`)**:
+  - [x] Removed all unnecessary "100% offline / lokal" badges and descriptions from widgets and clock displays.
+  - [x] Renamed feature to simply "Widgets" globally across all 4 languages (DE, EN, FR, ES).
+
+### 2. Standalone Widgets & Notes Studio App with Phone-Style Grid Widgets & Floating Sticky Notes (v21.8.0)
+- [x] **Dedicated Widgets & Notes Studio Window App (`WidgetsModule.tsx`, `DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented standalone `WidgetsModule` window component for comprehensive management of desktop widgets and sticky notes (create, configure, toggle visibility, and delete).
+  - [x] Integrated `widgets` into `ActiveModule`, taskbar pinned defaults, desktop shortcuts, Start menu apps list, and context menu launcher.
+  - [x] Added virtual desktop scoping support for widgets (display on specific desktop or all virtual desktops).
+- [x] **Phone-Style Grid Widgets & Floating Sticky Notes (`DesktopWidgetsLayer.tsx`, `DesktopWidgetsModal.tsx`, `types.ts`)**:
+  - [x] Smartphone-style widgets (Revenue KPIs, Live Clocks, Upcoming Invoices Agenda, Low Stock warnings) with right-click context menu "Vom Desktop entfernen" and size presets.
+  - [x] Floating draggable sticky notes with header bar, color picker (6 pastel shades), live inline editing, and instant close button.
+- [x] **4-Language Localization (`i18n.ts`)**:
+  - [x] Complete translations for `module.widgets` and `desc.widgets` across German, English, French, and Spanish.
+
+### 2. Virtual Desktop Taskbar State Synchronization & Window Bring-Forward Fix (v21.7.2)
+- [x] **Taskbar Scoping & Window Bring-Forward (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Taskbar open/active indicators now accurately evaluate against the currently active virtual desktop, preventing ghost active badges for apps open on other desktops.
+  - [x] Clicking a taskbar icon for an app open on another desktop now brings that window onto the active desktop and focuses it immediately.
+  - [x] Desktop switching automatically recalibrates `activeWindowId` to the topmost window of the destination desktop.
+
+### 2. Windows 11 Task View Taskbar Icon Button & Minimal Layout (v21.7.1)
+- [x] **Windows 11 Task View Taskbar Icon Button (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Replaced wide desktop pill bar (`Desktops 1 2 +`) with the authentic Windows 11 overlapping rectangles icon button next to the search box.
+  - [x] Clicking the button or pressing `Ctrl+Tab` opens the full Task View modal with virtual desktop previews and open window management.
+
+### 2. Virtual Desktops, Windows 11 Task View, Desktop Widgets & Sticky Notes, Dunning Modal & CRM 360° (v21.7.0)
+- [x] **Virtual Desktops & Taskbar Badges (`DesktopWindowWorkspace.tsx`, `TaskViewModal.tsx`, `types.ts`)**:
+  - [x] Implemented multi-workspace state (`virtualDesktops`, `activeDesktopId`) with localStorage persistence.
+  - [x] Added Windows 10/11 taskbar badge switcher buttons with live window count indicators and "+ Neuer Desktop" creation.
+  - [x] Added fullscreen Windows 11 Task View modal (`Ctrl+Tab`) with live desktop management, window closure, and workspace migration.
+  - [x] Added keyboard shortcuts (`Ctrl+Alt+Left/Right` for desktop switching, `Ctrl+Shift+D` for new desktop, `Ctrl+Tab` for Task View).
+- [x] **Desktop Widgets & Sticky Notes (`DesktopWidgetsLayer.tsx`, `DesktopWidgetsModal.tsx`, `DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented interactive draggable sticky notes layer on the desktop canvas with color selector and live markdown/text notes.
+  - [x] Added Desktop Background context menu items ("+ Neue Haftnotiz anheften", "Desktop-Widgets anpassen...").
+  - [x] Implemented Desktop Widgets catalog modal with Live Gross Revenue KPI tile, live clock, and today's due agenda.
+- [x] **Invoicing Dunning & Payment Reminders (`DunningModal.tsx`, `InvoicesModule.tsx`)**:
+  - [x] Multi-level dunning generator (Stufe 1 freundliche Zahlungserinnerung, Stufe 2 2. Mahnung mit Gebühren, Stufe 3 Letzte Mahnung mit Verzugszinsen).
+  - [x] 1-click DIN 5008 print view and offline `.EML` email draft download.
+- [x] **CRM 360° Profile & Inventory Reorder (`ContactsModule.tsx`, `ProductsModule.tsx`)**:
+  - [x] CRM 360° tabs for contact master data, linked invoices, and contact activity history.
+  - [x] 1-click "Nachbestellen" for low-stock inventory directly drafting purchase orders in Purchases.
+- [x] **Full 4-Language Localization (`i18n.ts`)**:
+  - [x] Added complete translations across German, English, French, and Spanish.
+
+### 2. Isolated Context Menu Dismissal & Start Menu State Preservation Fix (v21.6.3)
 - [x] **Context Menu Dismissal Isolation (`DesktopWindowWorkspace.tsx`)**:
   - [x] Removed full-screen overlay interception that was causing inside Start Menu clicks to be treated as outside clicks.
   - [x] Clicking anywhere inside the Start Menu (search bar, empty spaces, buttons) now closes only the active context menu while keeping the Start Menu reliably open.

@@ -30,6 +30,7 @@ import {
 import { ActiveModule, Contact, Product, Invoice } from '../types';
 import { useLanguage, t, LanguageCode } from '../lib/i18n';
 import { sounds } from '../lib/sound';
+import { WidgetsIcon } from './WidgetsIcon';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -104,6 +105,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       { id: 'purchases', title: t('module.purchases', lang, 'Einkauf'), subtitle: t('desc.purchases', lang, 'Bestellungen & Wareneingang'), icon: ShoppingCart, color: 'bg-orange-600' },
       { id: 'pos', title: t('module.pos', lang, 'POS Kasse'), subtitle: t('desc.pos', lang, 'Kassensystem & Barcode-Scanner'), icon: CreditCard, color: 'bg-violet-600' },
       { id: 'calendar', title: t('module.calendar', lang, 'Kalender'), subtitle: t('desc.calendar', lang, 'Google Sync & Termine'), icon: Calendar, color: 'bg-blue-600' },
+      { id: 'widgets', title: t('module.widgets', lang, 'Widgets'), subtitle: t('desc.widgets', lang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-violet-600' },
       { id: 'restaurant', title: t('module.restaurant', lang, 'Restaurant'), subtitle: t('desc.restaurant', lang, 'Tischplan & Gastronomie'), icon: Utensils, color: 'bg-amber-600' },
       { id: 'ios_billing', title: t('module.ios_billing', lang, 'Schnellkasse'), subtitle: t('desc.ios_billing', lang, 'Touch-Billing & Beilagen'), icon: Utensils, color: 'bg-indigo-600' },
       { id: 'support_services', title: t('module.support_services', lang, 'Support & Service'), subtitle: t('desc.support_services', lang, 'Tickets & Zeiterfassung'), icon: Headphones, color: 'bg-cyan-600' },

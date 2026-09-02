@@ -31,7 +31,7 @@ import {
 import { Contact, ContactType, Invoice, CompanyProfile } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
-import { t, useLanguage } from '../lib/i18n';
+import { t, useLanguage, formatSystemDate } from '../lib/i18n';
 import { generateContactEml } from '../lib/emlGenerator';
 import { downloadVCard } from '../lib/vcardGenerator';
 
@@ -56,6 +56,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'customer' | 'vendor'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [contactDetailTab, setContactDetailTab] = useState<'info' | 'invoices' | 'products' | 'notes'>('info');
   
   // Single Edit / Create Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -348,6 +349,30 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     .filter(inv => inv.status === 'posted')
     .reduce((sum, inv) => sum + inv.total, 0);
 
+  // Purchased products by this contact
+  const contactPurchasedProducts = React.useMemo(() => {
+    if (!selectedContact) return [];
+    const itemMap = new Map<string, { name: string; quantity: number; totalAmount: number; lastDate: string }>();
+    contactInvoices.forEach(inv => {
+      (inv.items || []).forEach(item => {
+        const existing = itemMap.get(item.description);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.totalAmount += (item.amount || (item.price * item.quantity));
+          if (inv.date > existing.lastDate) existing.lastDate = inv.date;
+        } else {
+          itemMap.set(item.description, {
+            name: item.description,
+            quantity: item.quantity,
+            totalAmount: item.amount || (item.price * item.quantity),
+            lastDate: inv.date
+          });
+        }
+      });
+    });
+    return Array.from(itemMap.values());
+  }, [selectedContact, contactInvoices]);
+
   return (
     <div className="space-y-6 max-w-7xl animate-fade-in">
       {/* 1. Header Toolbar */}
@@ -607,77 +632,161 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
               </div>
             </div>
 
-            {/* Contact Details List */}
-            <div className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
-              <div>
-                <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_email', currentLang, 'Email Address')}</span>
-                <a href={`mailto:${selectedContact.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
-                  {selectedContact.email}
-                </a>
-              </div>
+            {/* 360 CRM Hub Tabs */}
+            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setContactDetailTab('info'); }}
+                className={`py-1.5 px-2 rounded-lg text-center transition ${contactDetailTab === 'info' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              >
+                Stammdaten
+              </button>
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setContactDetailTab('invoices'); }}
+                className={`py-1.5 px-2 rounded-lg text-center transition flex items-center justify-center gap-1 ${contactDetailTab === 'invoices' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              >
+                <span>Rechnungen</span>
+                <span className="text-[10px] px-1 rounded-full bg-slate-200 dark:bg-slate-700">{contactInvoices.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setContactDetailTab('products'); }}
+                className={`py-1.5 px-2 rounded-lg text-center transition flex items-center justify-center gap-1 ${contactDetailTab === 'products' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              >
+                <span>Produkte</span>
+                <span className="text-[10px] px-1 rounded-full bg-slate-200 dark:bg-slate-700">{contactPurchasedProducts.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setContactDetailTab('notes'); }}
+                className={`py-1.5 px-2 rounded-lg text-center transition ${contactDetailTab === 'notes' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+              >
+                Notizen
+              </button>
+            </div>
 
-              {selectedContact.phone && (
+            {/* TAB 1: INFO & STAMMDATEN */}
+            {contactDetailTab === 'info' && (
+              <div className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 animate-fade-in">
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_phone', currentLang, 'Phone Number')}</span>
-                  <span>{selectedContact.phone}</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_email', currentLang, 'Email Address')}</span>
+                  <a href={`mailto:${selectedContact.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                    {selectedContact.email}
+                  </a>
                 </div>
-              )}
 
-              {selectedContact.street && (
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_address', currentLang, 'Address')}</span>
-                  <span>{selectedContact.street}, {selectedContact.zip} {selectedContact.city}</span>
-                </div>
-              )}
+                {selectedContact.phone && (
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_phone', currentLang, 'Phone Number')}</span>
+                    <span>{selectedContact.phone}</span>
+                  </div>
+                )}
 
-              {selectedContact.taxId && (
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}</span>
-                  <span className="font-mono">{selectedContact.taxId}</span>
-                </div>
-              )}
+                {selectedContact.street && (
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_address', currentLang, 'Address')}</span>
+                    <span>{selectedContact.street}, {selectedContact.zip} {selectedContact.city}</span>
+                  </div>
+                )}
 
-              {selectedContact.fiscal_code && (
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">Codice Fiscale</span>
-                  <span className="font-mono">{selectedContact.fiscal_code}</span>
-                </div>
-              )}
+                {selectedContact.taxId && (
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}</span>
+                    <span className="font-mono">{selectedContact.taxId}</span>
+                  </div>
+                )}
 
-              {(selectedContact.sdi_recipient_code || selectedContact.pec) && (
-                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
-                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase block mb-1">
-                    Italienische E-Rechnung (SdI)
-                  </span>
-                  {selectedContact.sdi_recipient_code && (
-                    <div className="text-[11px] flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400">Codice Destinatario:</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">{selectedContact.sdi_recipient_code}</span>
-                    </div>
-                  )}
-                  {selectedContact.pec && (
-                    <div className="text-[11px] flex items-center justify-between mt-0.5">
-                      <span className="text-slate-500 dark:text-slate-400">PEC-Adresse:</span>
-                      <span className="font-mono text-indigo-600 dark:text-indigo-400">{selectedContact.pec}</span>
-                    </div>
-                  )}
-                  {selectedContact.is_public_admin && (
-                    <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded">
-                      🏛️ Pubblica Amministrazione (FPA12)
+                {selectedContact.fiscal_code && (
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Codice Fiscale</span>
+                    <span className="font-mono">{selectedContact.fiscal_code}</span>
+                  </div>
+                )}
+
+                {(selectedContact.sdi_recipient_code || selectedContact.pec) && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase block mb-1">
+                      Italienische E-Rechnung (SdI)
                     </span>
-                  )}
-                </div>
-              )}
+                    {selectedContact.sdi_recipient_code && (
+                      <div className="text-[11px] flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Codice Destinatario:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{selectedContact.sdi_recipient_code}</span>
+                      </div>
+                    )}
+                    {selectedContact.pec && (
+                      <div className="text-[11px] flex items-center justify-between mt-0.5">
+                        <span className="text-slate-500 dark:text-slate-400">PEC-Adresse:</span>
+                        <span className="font-mono text-indigo-600 dark:text-indigo-400">{selectedContact.pec}</span>
+                      </div>
+                    )}
+                    {selectedContact.is_public_admin && (
+                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded">
+                        🏛️ Pubblica Amministrazione (FPA12)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-              {selectedContact.notes && (
+            {/* TAB 2: INVOICES LIST */}
+            {contactDetailTab === 'invoices' && (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 animate-fade-in">
+                {contactInvoices.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">Keine Rechnungen für diesen Kontakt vorhanden.</p>
+                ) : (
+                  contactInvoices.map(inv => (
+                    <div key={inv.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
+                      <div>
+                        <div className="font-mono font-bold text-slate-900 dark:text-white">{inv.number}</div>
+                        <div className="text-[10px] text-slate-400">{formatSystemDate(inv.date)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-slate-900 dark:text-white">{inv.total.toFixed(2)} {currency}</div>
+                        <span className={`inline-block text-[9px] font-bold px-1.5 py-0.2 rounded-md ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : inv.status === 'posted' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                          {inv.status === 'paid' ? 'Bezahlt' : inv.status === 'posted' ? 'Offen' : 'Entwurf'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: PURCHASED PRODUCTS */}
+            {contactDetailTab === 'products' && (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 animate-fade-in">
+                {contactPurchasedProducts.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">Bisher wurden keine Produkte abgerechnet.</p>
+                ) : (
+                  contactPurchasedProducts.map((prod, pIdx) => (
+                    <div key={pIdx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 dark:text-white truncate">{prod.name}</div>
+                        <div className="text-[10px] text-slate-400">Menge: {prod.quantity} &bull; Letzter Kauf: {formatSystemDate(prod.lastDate)}</div>
+                      </div>
+                      <div className="text-right font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                        {prod.totalAmount.toFixed(2)} {currency}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: NOTES */}
+            {contactDetailTab === 'notes' && (
+              <div className="space-y-3 animate-fade-in text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_notes', currentLang, 'Internal Notes')}</span>
-                  <p className="text-slate-600 dark:text-slate-400 text-[11px] bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                    {selectedContact.notes}
+                  <span className="text-[10px] text-slate-400 block font-semibold mb-1">Kunden-Notizen &amp; Vereinbarungen</span>
+                  <p className="text-slate-600 dark:text-slate-300 text-xs bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 min-h-[80px] whitespace-pre-wrap">
+                    {selectedContact.notes || 'Keine Notizen hinterlegt. Klicken Sie oben auf Bearbeiten, um Notizen zu erfassen.'}
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

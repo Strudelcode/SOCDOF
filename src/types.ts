@@ -306,7 +306,8 @@ export type ActiveModule =
   | 'docs'
   | 'restaurant'
   | 'ios_billing'
-  | 'support_services';
+  | 'support_services'
+  | 'widgets';
 
 export interface SupportExpenseEntry {
   id: string;
@@ -520,6 +521,59 @@ export interface AppWindow {
   y: number;
   width: number;
   height: number;
+  desktopId?: string; // Virtual desktop ID (or 'all' for pinned to all desktops)
+  snapState?: 'left' | 'right' | 'maximize' | null;
+}
+
+export interface VirtualDesktop {
+  id: string;
+  name: string;
+  wallpaperUrl?: string;
+  createdAt: string;
+}
+
+export type DesktopWidgetType = 
+  | 'notes' 
+  | 'revenue_kpi' 
+  | 'calendar_agenda' 
+  | 'system_clock' 
+  | 'quick_actions'
+  | 'stock_alert'
+  | 'cashflow';
+
+export interface DesktopWidget {
+  id: string;
+  type: DesktopWidgetType;
+  title?: string;
+  kind?: 'phone_widget' | 'sticky_note'; // 'phone_widget' for grid-style phone widgets or 'sticky_note' for floating notes
+  size?: 'small' | 'medium' | 'large';   // 'small' (2x2), 'medium' (4x2), 'large' (4x4)
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex?: number;
+  desktopId?: string; // specific virtual desktop ID or 'all' for all desktops
+  content?: string; // Text content for sticky notes
+  color?: string;   // Color for sticky notes ('yellow' | 'blue' | 'green' | 'pink' | 'purple' | 'dark' | 'transparent')
+  isCollapsed?: boolean;
+  isVisible?: boolean;
+  metricType?: string;
+  createdAt?: string;
+
+  // Customization & Display options
+  backgroundStyle?: 'solid' | 'transparent' | 'glass' | 'dark'; // 'transparent' has no background box
+  fontStyle?: 'sans' | 'mono' | 'serif' | 'display';
+  textColor?: 'default' | 'white' | 'emerald' | 'indigo' | 'amber' | 'sky' | 'rose';
+  layerLevel?: 'normal' | 'background'; // 'background' stays behind open windows
+
+  // Clock specific settings
+  clockType?: 'digital' | 'analog'; // Digital vs Round Analog Clock
+  clockTimezone?: string; // Timezone name or 'local'
+  clockCityLabel?: string; // e.g. 'Berlin', 'New York', 'Tokyo', 'London'
+  clockFormat?: '24h' | '12h'; // 24h or 12h ENG AM/PM
+
+  // Quick actions customization
+  quickActionModules?: ActiveModule[]; // 4 configured action modules
 }
 
 export interface GoogleCalendarItem {

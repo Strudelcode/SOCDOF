@@ -64,6 +64,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.calendar': 'Calendar',
     'module.docs': 'Documentation',
     'module.settings': 'Settings',
+    'module.widgets': 'Widgets',
 
     // Module Subtitles & Descriptions
     'desc.dashboard': 'Live revenue, open invoices, and sales performance',
@@ -81,6 +82,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.calendar': 'Google Calendar live 2-way sync, appointments & invoice due dates',
     'desc.docs': 'Complete user guide and workflow documentation',
     'desc.settings': 'Company data, letterhead, colors, and JSON backups',
+    'desc.widgets': 'Desktop widgets and floating sticky notes',
 
     // Common Actions & Buttons
     'action.save': 'Save Changes',
@@ -899,7 +901,47 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.days_plural': 'days',
     'support.hour_short': 'hrs',
     'support.minute_short': 'mins',
-    'support.second_short': 'sec'
+    'support.second_short': 'sec',
+
+    // Virtual Desktops & Task View
+    'taskview.title': 'Task View & Virtual Desktops',
+    'taskview.subtitle': 'Manage workspaces, open windows, and switch between clean desktop views.',
+    'taskview.desktops_title': 'Virtual Desktops',
+    'taskview.new_desktop': 'New Desktop',
+    'taskview.active_badge': 'Active Workspace',
+    'taskview.switch_to': 'Switch to this Desktop',
+    'taskview.rename': 'Rename',
+    'taskview.delete': 'Delete Desktop',
+    'taskview.delete_confirm': 'Delete this desktop and move windows to Desktop 1?',
+    'taskview.open_windows': 'Open Windows on this Desktop',
+    'taskview.no_windows': 'No open windows on this desktop',
+    'taskview.no_windows_hint': 'Launch apps from Start Menu or Taskbar to populate this workspace.',
+    'taskview.windows': 'Windows',
+    'taskview.move_to': 'Move to Desktop',
+    'taskview.all_desktops': 'All Desktops',
+    'taskview.shortcuts_hint': 'Shortcuts: Ctrl+Alt+Left/Right (Switch Desktop) | Ctrl+Tab (Task View) | Ctrl+Shift+D (New Desktop)',
+
+    // Desktop Widgets
+    'widgets.manage_widgets': 'Customize Desktop Widgets...',
+    'widgets.add_note': '+ Pin New Sticky Note',
+    'widgets.catalog_title': 'Desktop Widgets & Sticky Notes',
+    'widgets.catalog_subtitle': 'Pin interactive sticky notes, live revenue metrics, clocks, and quick agendas directly onto your desktop canvas.',
+    'widgets.stickynote_title': 'Color Sticky Note',
+    'widgets.stickynote_desc': 'Pin quick reminders, phone memos, or ideas with custom pastel colors.',
+    'widgets.kpi_revenue_title': 'Live Revenue Metric',
+    'widgets.kpi_revenue_desc': 'Displays real-time gross turnover from paid and booked invoices.',
+    'widgets.clock_title': 'Analog / Digital Clock',
+    'widgets.clock_desc': 'Minimalist live clock and calendar date tracker on desktop.',
+    'widgets.agenda_title': 'Quick Today Agenda',
+    'widgets.agenda_desc': 'Overview of upcoming invoice due dates and scheduled appointments.',
+    'widgets.add': 'Pin Widget',
+    'widgets.hide': 'Hide',
+    'widgets.show': 'Show',
+    'widgets.remove': 'Remove',
+    'widgets.note_placeholder': 'Type note here...',
+    'widgets.total_revenue': 'Total Revenue',
+    'widgets.today_agenda': 'Today Agenda',
+    'widgets.no_due_today': 'No pending dues today'
   },
 
   de: {
@@ -948,6 +990,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.calendar': 'Kalender',
     'module.docs': 'Handbuch',
     'module.settings': 'Einstellungen',
+    'module.widgets': 'Widgets',
 
     // Module Subtitles & Descriptions
     'desc.dashboard': 'Echtzeit-Umsätze, offene Rechnungen und Kennzahlen',
@@ -965,6 +1008,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.calendar': 'Google Kalender Live-Sync, Termine & Rechnungsfälligkeiten',
     'desc.docs': 'Vollständiges Benutzerhandbuch und Abläufe',
     'desc.settings': 'Firmendaten, Briefkopf, Farben und JSON-Backups',
+    'desc.widgets': 'Widgets und Notizen auf dem Desktop',
 
     // Common Actions & Buttons
     'action.save': 'Änderungen speichern',
@@ -1783,7 +1827,47 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.days_plural': 'Tage',
     'support.hour_short': 'Std.',
     'support.minute_short': 'Min.',
-    'support.second_short': 'Sek.'
+    'support.second_short': 'Sek.',
+
+    // Virtual Desktops & Task View
+    'taskview.title': 'Task-Ansicht & Virtuelle Desktops',
+    'taskview.subtitle': 'Arbeitsbereiche verwalten, geöffnete Fenster organisieren und zwischen Desktops wechseln.',
+    'taskview.desktops_title': 'Virtuelle Desktops',
+    'taskview.new_desktop': 'Neuer Desktop',
+    'taskview.active_badge': 'Aktiver Arbeitsbereich',
+    'taskview.switch_to': 'Zu diesem Desktop wechseln',
+    'taskview.rename': 'Umbenennen',
+    'taskview.delete': 'Desktop löschen',
+    'taskview.delete_confirm': 'Diesen Desktop löschen und alle Fenster auf Desktop 1 verschieben?',
+    'taskview.open_windows': 'Geöffnete Fenster auf diesem Desktop',
+    'taskview.no_windows': 'Keine geöffneten Fenster auf diesem Desktop',
+    'taskview.no_windows_hint': 'Starten Sie Apps über das Startmenü oder die Taskleiste.',
+    'taskview.windows': 'Fenster',
+    'taskview.move_to': 'Verschieben nach Desktop',
+    'taskview.all_desktops': 'Alle Desktops',
+    'taskview.shortcuts_hint': 'Tastenkürzel: Strg+Alt+Links/Rechts (Desktop wechseln) | Strg+Tab (Task-Ansicht) | Strg+Umschalt+D (Neuer Desktop)',
+
+    // Desktop Widgets
+    'widgets.manage_widgets': 'Desktop-Widgets anpassen...',
+    'widgets.add_note': '+ Neue Haftnotiz anheften',
+    'widgets.catalog_title': 'Desktop-Widgets & Haftnotizen',
+    'widgets.catalog_subtitle': 'Interaktive Haftnotizen, Live-Umsatzanzeigen, Uhren und Schnell-Agenden direkt auf Ihrem Schreibtisch anheften.',
+    'widgets.stickynote_title': 'Farbige Haftnotiz',
+    'widgets.stickynote_desc': 'Schnelle Notizen, Telefonnotizen oder Gedanken mit individuellen Farben anheften.',
+    'widgets.kpi_revenue_title': 'Live-Umsatz KPI',
+    'widgets.kpi_revenue_desc': 'Zeigt den aktuellen Gesamtumsatz aus bezahlten und gebuchten Rechnungen in Echtzeit.',
+    'widgets.clock_title': 'Uhr & Datum Widget',
+    'widgets.clock_desc': 'Elegante Live-Uhr und Datumsanzeige direkt auf dem Desktop.',
+    'widgets.agenda_title': 'Tages-Agenda & Fälligkeiten',
+    'widgets.agenda_desc': 'Schnellübersicht über heute fällige Rechnungen und geplante Termine.',
+    'widgets.add': 'Anheften',
+    'widgets.hide': 'Ausblenden',
+    'widgets.show': 'Einblenden',
+    'widgets.remove': 'Entfernen',
+    'widgets.note_placeholder': 'Notiz hier eingeben...',
+    'widgets.total_revenue': 'Gesamtumsatz',
+    'widgets.today_agenda': 'Tages-Agenda',
+    'widgets.no_due_today': 'Heute keine offenen Fälligkeiten'
   },
 
   fr: {
@@ -1832,6 +1916,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.calendar': 'Calendrier',
     'module.docs': 'Documentation',
     'module.settings': 'Paramètres',
+    'module.widgets': 'Widgets',
 
     // Module Subtitles & Descriptions
     'desc.dashboard': 'Chiffre d’affaires en temps réel, factures ouvertes et indicateurs',
@@ -1848,6 +1933,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.calendar': 'Synchronisation Google Agenda en direct, rendez-vous et échéances',
     'desc.docs': 'Guide d’utilisation complet et processus',
     'desc.settings': 'Données d’entreprise, en-tête, couleurs et sauvegardes JSON',
+    'desc.widgets': 'Widgets et notes sur le bureau',
 
     // Common Actions & Buttons
     'action.save': 'Enregistrer',
@@ -2665,7 +2751,47 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.days_plural': 'jours',
     'support.hour_short': 'h',
     'support.minute_short': 'min',
-    'support.second_short': 's'
+    'support.second_short': 's',
+
+    // Virtual Desktops & Task View
+    'taskview.title': 'Affichage des tâches & Bureaux virtuels',
+    'taskview.subtitle': 'Gérer les espaces de travail, organiser les fenêtres et basculer entre bureaux.',
+    'taskview.desktops_title': 'Bureaux virtuels',
+    'taskview.new_desktop': 'Nouveau bureau',
+    'taskview.active_badge': 'Espace actif',
+    'taskview.switch_to': 'Basculer vers ce bureau',
+    'taskview.rename': 'Renommer',
+    'taskview.delete': 'Supprimer le bureau',
+    'taskview.delete_confirm': 'Supprimer ce bureau et déplacer les fenêtres vers le Bureau 1 ?',
+    'taskview.open_windows': 'Fenêtres ouvertes sur ce bureau',
+    'taskview.no_windows': 'Aucune fenêtre ouverte sur ce bureau',
+    'taskview.no_windows_hint': 'Lancez des applications depuis le menu Démarrer ou la barre des tâches.',
+    'taskview.windows': 'Fenêtres',
+    'taskview.move_to': 'Déplacer vers le bureau',
+    'taskview.all_desktops': 'Tous les bureaux',
+    'taskview.shortcuts_hint': 'Raccourcis: Ctrl+Alt+Gauche/Droite (Changer bureau) | Ctrl+Tab (Affichage des tâches) | Ctrl+Maj+D (Nouveau bureau)',
+
+    // Desktop Widgets
+    'widgets.manage_widgets': 'Personnaliser les widgets du bureau...',
+    'widgets.add_note': '+ Épingler un pense-bête',
+    'widgets.catalog_title': 'Widgets du bureau & Pense-bêtes',
+    'widgets.catalog_subtitle': 'Épinglez des notes colorées, indicateurs de revenus en direct et horloges sur votre bureau.',
+    'widgets.stickynote_title': 'Pense-bête couleur',
+    'widgets.stickynote_desc': 'Épingler des mémos rapides ou idées avec des couleurs pastel personnalisées.',
+    'widgets.kpi_revenue_title': 'Indicateur de chiffre d’affaires en direct',
+    'widgets.kpi_revenue_desc': 'Affiche le chiffre d’affaires réel des factures réglées en temps réel.',
+    'widgets.clock_title': 'Horloge & Date',
+    'widgets.clock_desc': 'Horloge en direct et calendrier minimaliste sur le bureau.',
+    'widgets.agenda_title': 'Agenda du jour & Échéances',
+    'widgets.agenda_desc': 'Aperçu des factures à échéance et des rendez-vous prévus aujourd’hui.',
+    'widgets.add': 'Épingler',
+    'widgets.hide': 'Masquer',
+    'widgets.show': 'Afficher',
+    'widgets.remove': 'Supprimer',
+    'widgets.note_placeholder': 'Saisissez votre note ici...',
+    'widgets.total_revenue': 'Chiffre d’affaires total',
+    'widgets.today_agenda': 'Agenda du jour',
+    'widgets.no_due_today': 'Aucune échéance en attente aujourd’hui'
   },
 
   es: {
@@ -2714,6 +2840,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'module.calendar': 'Calendario',
     'module.docs': 'Manual',
     'module.settings': 'Configuración',
+    'module.widgets': 'Widgets',
 
     // Module Subtitles & Descriptions
     'desc.dashboard': 'Ingresos en tiempo real, facturas abiertas y métricas',
@@ -2730,6 +2857,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'desc.calendar': 'Sincronización en vivo con Google Calendar, citas y vencimientos',
     'desc.docs': 'Guía de usuario completa y flujos de trabajo',
     'desc.settings': 'Datos de empresa, membrete, colores y copias de seguridad',
+    'desc.widgets': 'Widgets y notas en el escritorio',
 
     // Common Actions & Buttons
     'action.save': 'Guardar cambios',
@@ -3547,7 +3675,47 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.days_plural': 'días',
     'support.hour_short': 'h',
     'support.minute_short': 'min',
-    'support.second_short': 'seg'
+    'support.second_short': 'seg',
+
+    // Virtual Desktops & Task View
+    'taskview.title': 'Vista de tareas y escritorios virtuales',
+    'taskview.subtitle': 'Administrar espacios de trabajo, organizar ventanas y cambiar de escritorio.',
+    'taskview.desktops_title': 'Escritorios virtuales',
+    'taskview.new_desktop': 'Nuevo escritorio',
+    'taskview.active_badge': 'Espacio de trabajo activo',
+    'taskview.switch_to': 'Cambiar a este escritorio',
+    'taskview.rename': 'Renombrar',
+    'taskview.delete': 'Eliminar escritorio',
+    'taskview.delete_confirm': '¿Eliminar este escritorio y mover las ventanas al Escritorio 1?',
+    'taskview.open_windows': 'Ventanas abiertas en este escritorio',
+    'taskview.no_windows': 'No hay ventanas abiertas en este escritorio',
+    'taskview.no_windows_hint': 'Inicie aplicaciones desde el menú Inicio o la barra de tareas.',
+    'taskview.windows': 'Ventanas',
+    'taskview.move_to': 'Mover al escritorio',
+    'taskview.all_desktops': 'Todos los escritorios',
+    'taskview.shortcuts_hint': 'Atajos: Ctrl+Alt+Izquierda/Derecha (Cambiar escritorio) | Ctrl+Tab (Vista de tareas) | Ctrl+Shift+D (Nuevo escritorio)',
+
+    // Desktop Widgets
+    'widgets.manage_widgets': 'Personalizar widgets del escritorio...',
+    'widgets.add_note': '+ Fijar nueva nota adhesiva',
+    'widgets.catalog_title': 'Widgets de escritorio y notas adhesivas',
+    'widgets.catalog_subtitle': 'Fije notas interactivas, métricas de facturación en vivo, reloj y agenda en su escritorio.',
+    'widgets.stickynote_title': 'Nota adhesiva en color',
+    'widgets.stickynote_desc': 'Fije recordatorios rápidos o notas telefónicas con colores pastel personalizados.',
+    'widgets.kpi_revenue_title': 'Métrica de ingresos en vivo',
+    'widgets.kpi_revenue_desc': 'Muestra la facturación total de facturas cobradas en tiempo real.',
+    'widgets.clock_title': 'Reloj y fecha en vivo',
+    'widgets.clock_desc': 'Reloj minimalista en tiempo real con fecha en el escritorio.',
+    'widgets.agenda_title': 'Agenda del día y vencimientos',
+    'widgets.agenda_desc': 'Resumen de facturas con vencimiento y citas programadas para hoy.',
+    'widgets.add': 'Fijar widget',
+    'widgets.hide': 'Ocultar',
+    'widgets.show': 'Mostrar',
+    'widgets.remove': 'Eliminar',
+    'widgets.note_placeholder': 'Escriba su nota aquí...',
+    'widgets.total_revenue': 'Ingresos totales',
+    'widgets.today_agenda': 'Agenda de hoy',
+    'widgets.no_due_today': 'Sin vencimientos pendientes hoy'
   }
 };
 

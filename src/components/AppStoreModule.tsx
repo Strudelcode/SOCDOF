@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { ActiveModule, StoreApp } from '../types';
 import { sounds } from '../lib/sound';
+import { WidgetsIcon } from './WidgetsIcon';
 
 interface AppStoreModuleProps {
   installedModules: ActiveModule[];
@@ -264,6 +265,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Fälligkeiten', 'Produktivität']
     },
     {
+      id: 'widgets',
+      title: 'Widgets & Notizen',
+      category: 'productivity',
+      description: 'Desktop-Widgets (Tagesumsatz, Termine, Uhr) und frei verschiebbare Haftnotizen für den Arbeitsbereich.',
+      iconName: 'LayoutGrid',
+      badge: 'Desktop-Widgets',
+      author: 'Yuri / Strudel',
+      version: '21.8.2',
+      isInstalled: installedModules.includes('widgets'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Widgets', 'Notizen', 'Kacheln', 'Sticky Notes', 'Dashboard', 'Uhr', 'Desktop']
+    },
+    {
       id: 'docs',
       title: 'Handbuch & Dokumentation',
       category: 'productivity',
@@ -307,6 +322,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'stock': return Layers;
       case 'purchases': return ShoppingCart;
       case 'calendar': return Calendar;
+      case 'widgets': return WidgetsIcon;
       case 'docs': return BookOpen;
       case 'settings': return Settings;
       default: return Package;
@@ -327,6 +343,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'stock': return 'bg-amber-600';
       case 'purchases': return 'bg-orange-600';
       case 'calendar': return 'bg-blue-600';
+      case 'widgets': return 'bg-violet-600';
       case 'docs': return 'bg-sky-600';
       case 'settings': return 'bg-slate-700';
       default: return 'bg-slate-800';

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.6.3';
+export const APP_VERSION = '21.8.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,85 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.8.3',
+    date: '2026-09-02',
+    title: 'Advanced Widget Customization Studio, Floating Search & Filter Dropdown, Analog & World Clocks, Quick Actions & Wallpaper Layering',
+    highlights: [
+      'Search Bar Refinement & Filter Dropdown: Replaced blocky search box with a floating rounded-2xl glass search bar and category filter dropdown (Handy-Kacheln, Haftnotizen, Zeit & Kalender, Finanzen, Aktionen)',
+      'Widget Settings Modal (Gear Icon): Gear icon on each widget card and desktop context menu allows extensive customization before or after pinning to desktop',
+      'Analog & World Clocks: Choose between digital and animated round analog clock displays with selectable world timezones and city labels (Berlin, London, New York, Tokyo, Sydney, Zurich, Vienna, etc.) or ENG 12h formatting',
+      'Custom Quick Actions Launcher: Freely configure which 4 apps (Invoices, Contacts, POS, Calendar, Warehouse, Purchases, etc.) are launched from the quick starter widget',
+      'Desktop Layering & Transparency: Customize background styling (Transparent, Glassmorphism, Dark, Solid), typography (Sans, Mono, Serif, Display), text colors, and wallpaper background layer mode'
+    ]
+  },
+  {
+    version: '21.8.2',
+    date: '2026-09-02',
+    title: 'App Store Integration for Widgets, Completely Pristine Desktop Default & Circular Bottom-Right Icon',
+    highlights: [
+      'App Store Module Management: Widgets is now an optional, installable app in the App Store rather than an active module enabled by default',
+      'Zero-Widget Clean Desktop Default: Fully pristine desktop initialization with zero demo tiles or leftover notes upon opening SOCDOF',
+      'Circular Bottom-Right App Icon: Custom WidgetsIcon featuring three rounded squares with a distinctive bottom-right circle for instant recognition in the taskbar and Start menu'
+    ]
+  },
+  {
+    version: '21.8.1',
+    date: '2026-09-02',
+    title: 'Minimalist Widgets App with Search-Only Header, Clean Empty Desktop Default & Phone-Style Resizing',
+    highlights: [
+      'Minimalist Widgets App: Streamlined WidgetsModule into a focused catalog with a search-only top bar, eliminating redundant navigation headers and category pills',
+      'Clean Desktop Default: Starting desktop is now completely pristine (0 widgets/notes by default) with no forced demo widgets',
+      'Smartphone-Style Right-Click Resizing: Phone-style pinned desktop widgets support right-click size presets (Klein / Mittel / Groß) while floating sticky notes remain freeform draggable with top header controls',
+      'Clean Typography & Label Simplification: Removed all unnecessary "100% offline / lokal" labels from widgets, and standardized naming to simply "Widgets" globally across all 4 supported languages'
+    ]
+  },
+  {
+    version: '21.8.0',
+    date: '2026-09-02',
+    title: 'Standalone Widgets & Notes Studio App with Phone-Style Grid Widgets & Floating Sticky Notes',
+    highlights: [
+      'Dedicated Widgets Studio App: A full standalone window app (Widgets & Notes Studio) to create, configure, customize, and manage widgets and sticky notes in one place',
+      'Dual Widget Ecosystem: Supports smartphone-style grid widgets (Revenue KPIs, Analog/Digital Clocks, Live Invoice Agendas, Stock Alerts) with right-click desktop removal and size presets, alongside floating sticky notes with drag & drop, color palettes, and quick close buttons',
+      'Virtual Desktop Scoping: Widgets and sticky notes can now be attached to a specific virtual desktop or displayed across all virtual workspaces',
+      'Seamless Multi-Window Integration: Integrated into the window manager, Start menu, taskbar shortcuts, desktop context menus, and widget management modals with 4-language localization'
+    ]
+  },
+  {
+    version: '21.7.2',
+    date: '2026-09-02',
+    title: 'Virtual Desktop Taskbar State Synchronization & Window Bring-Forward Fix',
+    highlights: [
+      'Virtual Desktop Taskbar Sync: Taskbar indicators (active highlight, open dots) now accurately scope to the current active workspace, eliminating ghost active indicators for apps open on other desktops',
+      'Instant Window Bring-Forward: Clicking a taskbar icon for an app that is already open on another virtual desktop now smoothly pulls that window to the active desktop and focuses it immediately',
+      'Active Window State Correction: Switching virtual desktops automatically recalibrates active focus to the topmost visible window on the destination workspace'
+    ]
+  },
+  {
+    version: '21.7.1',
+    date: '2026-09-01',
+    title: 'Authentic Windows 11 Task View Taskbar Icon Button & Minimal Taskbar Polish',
+    highlights: [
+      'Authentic Windows 11 Task View Taskbar Button: Replaced the wide desktop pill bar with the authentic Windows 11 overlapping rectangles Task View icon button right next to the search box',
+      'Clean & Uncluttered Taskbar: Clicking the Task View button or pressing Ctrl+Tab opens the full virtual desktops and window management workspace cleanly without crowding the taskbar',
+      'Desktop Widgets Clarification: Clarified that desktop widgets and sticky notes live directly on the SOCDOF virtual desktop canvas, providing a self-contained OS experience inside the application'
+    ]
+  },
+  {
+    version: '21.7.0',
+    date: '2026-09-01',
+    title: 'Virtual Desktops, Windows 11 Task View, Desktop Widgets & Sticky Notes, Dunning/Mahnwesen Modal & CRM 360°',
+    highlights: [
+      'Virtual Desktops & Workspaces: Multiple independent desktop workspaces with dedicated windows, custom workspace renaming, and live badge indicators on the taskbar (like Windows 10/11)',
+      'Windows 11 Task View (Ctrl+Tab): Fullscreen modal overview of all virtual desktops and active window thumbnails with direct window switching, closing, and workspace migration',
+      'Desktop Widgets & Color Sticky Notes: Interactive desktop widgets including pastel sticky notes with color picker, live gross revenue KPI tile, live clock, and quick today agenda',
+      'Direct Sticky Note Creation: Right-click desktop background context menu option "+ Neue Haftnotiz anheften" and widget catalog management modal',
+      'Mahnwesen / Dunning Modal: Multi-stage reminder and dunning generator (Stufe 1 freundliche Zahlungserinnerung, Stufe 2 2. Mahnung mit Mahngebühren, Stufe 3 Letzte Mahnung mit Verzugszinsen) with instant print and .EML download',
+      'CRM 360° Contact Profile: Integrated contact tabs for master data, linked invoices, and contact activity history with live balance calculations',
+      'Inventory 1-Click Nachbestellen: Instant reorder workflow for products below reorder point directly pre-filling supplier orders in Purchases',
+      'Keyboard Shortcuts: Ctrl+Alt+Left/Right (switch virtual desktop), Ctrl+Shift+D (new desktop), and Ctrl+Tab (toggle Task View)'
+    ]
+  },
   {
     version: '21.6.3',
     date: '2026-09-01',

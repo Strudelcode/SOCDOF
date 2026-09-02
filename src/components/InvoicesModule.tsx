@@ -39,6 +39,7 @@ import { downloadFatturaPaXml } from '../lib/fatturaPaGenerator';
 import { parseFatturaPaXml, convertFatturaPaToInvoice, ParsedFatturaPa } from '../lib/fatturaPaParser';
 import { isSdIReceiptXml, parseSdIReceiptXml, ParsedSdIReceipt, SDI_ERROR_CATALOG } from '../lib/sdiReceiptParser';
 import { FatturaPaInspectorModal } from './FatturaPaInspectorModal';
+import { DunningModal } from './DunningModal';
 
 interface InvoicesModuleProps {
   invoices: Invoice[];
@@ -73,6 +74,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const [mailInvoice, setMailInvoice] = useState<Invoice | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
   const [sdiInspectorInvoice, setSdiInspectorInvoice] = useState<Invoice | null>(null);
+  const [dunningInvoice, setDunningInvoice] = useState<Invoice | null>(null);
   const [incomingReceiptModal, setIncomingReceiptModal] = useState<{
     receipt: ParsedSdIReceipt;
     invoiceId?: number;
@@ -778,9 +780,17 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                         </div>
                       )}
                       {inv.status === 'posted' && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                          {t('invoice.filter_posted', undefined, 'Offen')}
-                        </span>
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                            {t('invoice.filter_posted', undefined, 'Offen')}
+                          </span>
+                          {inv.due_date && new Date(inv.due_date).getTime() < new Date().setHours(0, 0, 0, 0) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              <span>Überfällig</span>
+                            </span>
+                          )}
+                        </div>
                       )}
                       {inv.status === 'draft' && (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
@@ -900,6 +910,22 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-[11px] transition shadow-xs"
                           >
                             {t('invoice.btn_post', undefined, 'Buchen')}
+                          </button>
+                        )}
+
+                        {/* Dunning / Payment Reminder if Overdue */}
+                        {inv.status === 'posted' && inv.due_date && new Date(inv.due_date).getTime() < new Date().setHours(0, 0, 0, 0) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sounds.playWarning();
+                              setDunningInvoice(inv);
+                            }}
+                            title="Zahlungserinnerung / Mahnung generieren (3-Stufiges Mahnwesen)"
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl font-bold text-xs shadow-xs transition"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>Mahnung</span>
                           </button>
                         )}
 
@@ -1700,6 +1726,18 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* 3-Stage Dunning Modal */}
+      {dunningInvoice && (
+        <DunningModal
+          isOpen={!!dunningInvoice}
+          onClose={() => setDunningInvoice(null)}
+          invoice={dunningInvoice}
+          company={company}
+          contacts={contacts}
+          onRefresh={onRefresh}
+          currency={company.currency}
+        />
       )}
     </div>
   );

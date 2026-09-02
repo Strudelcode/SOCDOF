@@ -54,7 +54,9 @@ import {
   AlertCircle,
   Check,
   Headphones,
-  User
+  User,
+  Plus,
+  StickyNote
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -66,7 +68,10 @@ import {
   CompanyProfile, 
   PurchaseOrder, 
   POSOrder,
-  DesktopFolder 
+  DesktopFolder,
+  VirtualDesktop,
+  DesktopWidget,
+  DesktopWidgetType
 } from '../types';
 import { sounds } from '../lib/sound';
 import { applyAccentColor } from '../lib/accent';
@@ -102,6 +107,11 @@ import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
 import { CommandPaletteModal } from './CommandPaletteModal';
+import { TaskViewModal } from './TaskViewModal';
+import { DesktopWidgetsLayer } from './DesktopWidgetsLayer';
+import { DesktopWidgetsModal } from './DesktopWidgetsModal';
+import { WidgetsModule } from './WidgetsModule';
+import { WidgetsIcon } from './WidgetsIcon';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -616,6 +626,172 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Virtual Desktops (Windows 11 Style Task View & Multiple Desktops)
+  const [virtualDesktops, setVirtualDesktops] = useState<VirtualDesktop[]>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_virtual_desktops');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'desktop-1', name: 'Desktop 1', createdAt: new Date().toISOString() },
+      { id: 'desktop-2', name: 'Desktop 2', createdAt: new Date().toISOString() }
+    ];
+  });
+
+  const [activeDesktopId, setActiveDesktopId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_active_desktop_id');
+      if (saved) return saved;
+    } catch {}
+    return 'desktop-1';
+  });
+
+  const [isTaskViewOpen, setIsTaskViewOpen] = useState(false);
+
+  const saveVirtualDesktops = (desktops: VirtualDesktop[]) => {
+    setVirtualDesktops(desktops);
+    try { localStorage.setItem('socdof_virtual_desktops', JSON.stringify(desktops)); } catch {}
+  };
+
+  const handleSelectDesktop = (id: string) => {
+    sounds.playClick();
+    setActiveDesktopId(id);
+    try { localStorage.setItem('socdof_active_desktop_id', id); } catch {}
+    setIsTaskViewOpen(false);
+
+    // Update activeWindowId to top unminimized window on the selected desktop
+    const desktopWindows = windows
+      .filter(w => (!w.desktopId || w.desktopId === 'all' || w.desktopId === id) && !w.isMinimized)
+      .sort((a, b) => b.zIndex - a.zIndex);
+
+    if (desktopWindows.length > 0) {
+      setActiveWindowId(desktopWindows[0].id);
+    } else {
+      setActiveWindowId('');
+    }
+  };
+
+  const handleAddDesktop = () => {
+    sounds.playPop();
+    const newDesk: VirtualDesktop = {
+      id: `desktop-${Date.now()}`,
+      name: `Desktop ${virtualDesktops.length + 1}`,
+      createdAt: new Date().toISOString()
+    };
+    const next = [...virtualDesktops, newDesk];
+    saveVirtualDesktops(next);
+    handleSelectDesktop(newDesk.id);
+  };
+
+  const handleRemoveDesktop = (id: string) => {
+    if (virtualDesktops.length <= 1) return;
+    sounds.playWarning();
+    const remaining = virtualDesktops.filter(d => d.id !== id);
+    saveVirtualDesktops(remaining);
+    const fallbackId = remaining[0].id;
+    setWindows(prev => prev.map(w => w.desktopId === id ? { ...w, desktopId: fallbackId } : w));
+    if (activeDesktopId === id) {
+      handleSelectDesktop(fallbackId);
+    }
+  };
+
+  const handleRenameDesktop = (id: string, name: string) => {
+    const next = virtualDesktops.map(d => d.id === id ? { ...d, name } : d);
+    saveVirtualDesktops(next);
+  };
+
+  const handleMoveWindowToDesktop = (windowId: string, targetDesktopId: string) => {
+    sounds.playPop();
+    setWindows(prev => prev.map(w => w.id === windowId ? { ...w, desktopId: targetDesktopId } : w));
+  };
+
+  // Desktop Mini-Widgets (Sticky Notes, Revenue KPI, Agenda, Clock)
+  const [desktopWidgets, setDesktopWidgets] = useState<DesktopWidget[]>(() => {
+    try {
+      // Clear out legacy sample demo notes from previous sessions if present
+      const isCleaned = localStorage.getItem('socdof_widgets_cleaned_v2');
+      if (!isCleaned) {
+        localStorage.removeItem('socdof_desktop_widgets');
+        localStorage.setItem('socdof_widgets_cleaned_v2', 'true');
+        return [];
+      }
+      const saved = localStorage.getItem('socdof_desktop_widgets');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((w: any) => w.id !== 'widget-notes-1' && w.id !== 'widget-revenue-1');
+        }
+      }
+    } catch {}
+    return [];
+  });
+
+  const [isWidgetsModalOpen, setIsWidgetsModalOpen] = useState(false);
+
+  const saveDesktopWidgets = (widgets: DesktopWidget[]) => {
+    setDesktopWidgets(widgets);
+    try { localStorage.setItem('socdof_desktop_widgets', JSON.stringify(widgets)); } catch {}
+  };
+
+  const handleUpdateWidget = (id: string, updates: Partial<DesktopWidget>) => {
+    const next = desktopWidgets.map(w => w.id === id ? { ...w, ...updates } : w);
+    saveDesktopWidgets(next);
+  };
+
+  const handleRemoveWidget = (id: string) => {
+    sounds.playClick();
+    const next = desktopWidgets.filter(w => w.id !== id);
+    saveDesktopWidgets(next);
+  };
+
+  const handleAddStickyNote = (options?: { color?: string; content?: string; title?: string }) => {
+    sounds.playPop();
+    const newNote: DesktopWidget = {
+      id: `widget-note-${Date.now()}`,
+      type: 'notes',
+      kind: 'sticky_note',
+      title: options?.title || 'Notiz',
+      x: 700 + (desktopWidgets.length % 4) * 20,
+      y: 60 + (desktopWidgets.length % 4) * 20,
+      width: 260,
+      height: 210,
+      color: options?.color || 'yellow',
+      content: options?.content || '',
+      desktopId: activeDesktopId,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: new Date().toISOString()
+    };
+    saveDesktopWidgets([...desktopWidgets, newNote]);
+  };
+
+  const handleAddWidget = (type: DesktopWidgetType, options?: Partial<DesktopWidget>) => {
+    sounds.playPop();
+    const newWidget: DesktopWidget = {
+      id: `widget-${type}-${Date.now()}`,
+      type,
+      kind: options?.kind || 'phone_widget',
+      size: options?.size || 'medium',
+      title: options?.title,
+      x: options?.x ?? (680 + (desktopWidgets.length % 4) * 25),
+      y: options?.y ?? (50 + (desktopWidgets.length % 4) * 25),
+      width: options?.width ?? (type === 'revenue_kpi' ? 290 : type === 'calendar_agenda' ? 280 : type === 'system_clock' ? 240 : 280),
+      height: options?.height ?? (type === 'revenue_kpi' ? 170 : type === 'calendar_agenda' ? 180 : type === 'system_clock' ? 140 : 180),
+      desktopId: options?.desktopId || activeDesktopId,
+      color: options?.color,
+      content: options?.content,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: new Date().toISOString()
+    };
+    saveDesktopWidgets([...desktopWidgets, newWidget]);
+  };
+
+  const handleToggleWidgetVisibility = (id: string) => {
+    const next = desktopWidgets.map(w => w.id === id ? { ...w, isVisible: !w.isVisible } : w);
+    saveDesktopWidgets(next);
+  };
+
   // Automatic GitHub Release Update Notification state
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isUpdatePromptOpen, setIsUpdatePromptOpen] = useState(false);
@@ -802,14 +978,51 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         return;
       }
 
-      // 5. Escape: Close open modals / context menus / flyouts / palette
+      // 5. Ctrl + Alt + ArrowLeft / ArrowRight: Switch Virtual Desktop
+      if (e.ctrlKey && e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        sounds.playPop();
+        const currentIdx = virtualDesktops.findIndex(d => d.id === activeDesktopId);
+        if (currentIdx !== -1) {
+          if (e.key === 'ArrowLeft') {
+            const prevIdx = (currentIdx - 1 + virtualDesktops.length) % virtualDesktops.length;
+            handleSelectDesktop(virtualDesktops[prevIdx].id);
+          } else {
+            const nextIdx = (currentIdx + 1) % virtualDesktops.length;
+            handleSelectDesktop(virtualDesktops[nextIdx].id);
+          }
+        }
+        return;
+      }
+
+      // 6. Ctrl + Shift + D: Add New Virtual Desktop
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        handleAddDesktop();
+        return;
+      }
+
+      // 7. Ctrl + Tab or Alt + Tab (when focused in app): Task View / Desktop Overview
+      if ((e.ctrlKey || e.altKey) && e.key === 'Tab') {
+        e.preventDefault();
+        sounds.playClick();
+        closeAllContextMenus();
+        setIsTaskViewOpen(prev => !prev);
+        return;
+      }
+
+      // 8. Escape: Close open modals / context menus / flyouts / palette / task view
       if (e.key === 'Escape') {
         if (hasAnyContextMenu) {
           e.preventDefault();
           closeAllContextMenus();
           return;
         }
-        if (isCommandPaletteOpen) {
+        if (isTaskViewOpen) {
+          setIsTaskViewOpen(false);
+        } else if (isWidgetsModalOpen) {
+          setIsWidgetsModalOpen(false);
+        } else if (isCommandPaletteOpen) {
           setIsCommandPaletteOpen(false);
         } else if (isStartMenuOpen) {
           setIsStartMenuOpen(false);
@@ -825,7 +1038,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCommandPaletteOpen, isStartMenuOpen, isPowerMenuOpen, isCalendarFlyoutOpen, pinnedTaskbar, hasAnyContextMenu]);
+  }, [isCommandPaletteOpen, isStartMenuOpen, isPowerMenuOpen, isCalendarFlyoutOpen, isTaskViewOpen, isWidgetsModalOpen, pinnedTaskbar, hasAnyContextMenu, virtualDesktops, activeDesktopId]);
 
   // Clock
   useEffect(() => {
@@ -1087,6 +1300,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-blue-600' },
+    widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-violet-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
     settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-slate-700' },
@@ -1235,7 +1449,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const title = customTitle || meta.title;
 
     if (existing) {
-      setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, isMinimized: false, zIndex: maxZ } : w));
+      setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, isMinimized: false, zIndex: maxZ, desktopId: activeDesktopId } : w));
       setActiveWindowId(existing.id);
     } else {
       const offset = (windows.length % 6) * 25;
@@ -1274,7 +1488,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         x: startX,
         y: startY,
         width: startW,
-        height: startH
+        height: startH,
+        desktopId: activeDesktopId
       };
       setWindows(prev => [...prev, newWin]);
       setActiveWindowId(newWin.id);
@@ -1283,7 +1498,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   const focusWindow = (id: string) => {
     const maxZ = Math.max(...windows.map(w => w.zIndex), 10) + 1;
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: maxZ, isMinimized: false } : w));
+    setWindows(prev => prev.map(w => {
+      if (w.id === id) {
+        return {
+          ...w,
+          zIndex: maxZ,
+          isMinimized: false,
+          desktopId: (w.desktopId && w.desktopId !== 'all' && w.desktopId !== activeDesktopId) ? activeDesktopId : w.desktopId
+        };
+      }
+      return w;
+    }));
     setActiveWindowId(id);
   };
 
@@ -1535,6 +1760,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
         )}
+
+        {/* Desktop Widgets Layer (Sticky Notes, KPI Cards, Clock, Agenda) */}
+        <DesktopWidgetsLayer
+          widgets={desktopWidgets}
+          onUpdateWidget={handleUpdateWidget}
+          onRemoveWidget={handleRemoveWidget}
+          onAddStickyNote={handleAddStickyNote}
+          invoices={invoices}
+          products={products}
+          currency={company.currency || '€'}
+          onOpenModule={(mod) => openWindow(mod)}
+          activeDesktopId={activeDesktopId}
+        />
 
         {/* Render Each Desktop Icon at its persistent X/Y coordinate */}
         {pinnedDesktop.map((modId, index) => {
@@ -1827,6 +2065,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       {/* 4. Floating Windows Layer */}
       {windows.map((win) => {
         if (win.isMinimized) return null;
+        if (win.desktopId && win.desktopId !== 'all' && win.desktopId !== activeDesktopId) return null;
 
         const isActive = activeWindowId === win.id;
         const meta = shortcutMeta[win.module] || { icon: Boxes, color: 'bg-indigo-600' };
@@ -2092,6 +2331,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
               {win.module === 'docs' && (
                 <DocumentationApp />
+              )}
+
+              {win.module === 'widgets' && (
+                <WidgetsModule
+                  widgets={desktopWidgets}
+                  onAddWidget={handleAddWidget}
+                  onUpdateWidget={handleUpdateWidget}
+                  onRemoveWidget={handleRemoveWidget}
+                  onAddStickyNote={handleAddStickyNote}
+                  invoices={invoices}
+                  products={products}
+                  company={company}
+                  onOpenModule={(mod) => openWindow(mod)}
+                  virtualDesktops={virtualDesktops}
+                  activeDesktopId={activeDesktopId}
+                />
               )}
 
               {win.module === 'settings' && (
@@ -2525,6 +2780,34 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </kbd>
           </button>
 
+          {/* Authentic Windows 11 Task View Icon Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsTaskViewOpen(!isTaskViewOpen);
+            }}
+            title={t('taskview.title', currentLang, 'Task-Ansicht & Virtuelle Desktops (Ctrl+Tab)')}
+            aria-label="Task View"
+            className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+              isTaskViewOpen
+                ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/40 shadow-xs'
+                : 'hover:bg-slate-200/80 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {/* Windows 11 Overlapping Rectangles Icon */}
+            <div className="relative w-4 h-4 flex items-center justify-center">
+              {/* Back translucent rectangle */}
+              <div className="absolute top-0 left-0 w-3 h-3 rounded-[3px] border-[1.5px] border-slate-500/70 dark:border-white/50 bg-slate-400/20 dark:bg-white/10 group-hover:border-slate-800 dark:group-hover:border-white transition-colors" />
+              {/* Front solid rectangle */}
+              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-[3px] border-[1.5px] border-slate-800 dark:border-white bg-slate-200/90 dark:bg-slate-800 shadow-xs group-hover:scale-105 transition-all" />
+            </div>
+
+            {/* Subtle active desktop indicator dot if multiple desktops exist */}
+            {virtualDesktops.length > 1 && (
+              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-80" />
+            )}
+          </button>
+
           {/* Unified Windows 11 Taskbar App Items */}
           <div 
             onDragOver={(e) => {
@@ -2545,7 +2828,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             {(() => {
               const taskbarModules = [...pinnedTaskbar];
               windows.forEach(w => {
-                if (!taskbarModules.includes(w.module)) {
+                const belongsToCurrent = !w.desktopId || w.desktopId === 'all' || w.desktopId === activeDesktopId;
+                if (belongsToCurrent && !taskbarModules.includes(w.module)) {
                   taskbarModules.push(w.module);
                 }
               });
@@ -2554,23 +2838,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 const meta = shortcutMeta[modId];
                 if (!meta) return null;
                 const Icon = meta.icon;
-                const openWin = windows.find(w => w.module === modId);
-                const isOpen = Boolean(openWin);
-                const isActive = Boolean(openWin && activeWindowId === openWin.id && !openWin.isMinimized);
-                const isMinimized = Boolean(openWin && openWin.isMinimized);
+                const openWinCurrent = windows.find(w => w.module === modId && (!w.desktopId || w.desktopId === 'all' || w.desktopId === activeDesktopId));
+                const openWinAny = windows.find(w => w.module === modId);
+                const isOpen = Boolean(openWinCurrent);
+                const isActive = Boolean(openWinCurrent && activeWindowId === openWinCurrent.id && !openWinCurrent.isMinimized);
+                const isMinimized = Boolean(openWinCurrent && openWinCurrent.isMinimized);
                 const isPinned = pinnedTaskbar.includes(modId);
                 const badge = getBadgeForModule(modId);
 
                 const handleTaskbarClick = (e: React.MouseEvent) => {
                   sounds.playClick();
-                  if (!openWin) {
-                    openWindow(modId, meta.title);
-                  } else if (isMinimized) {
-                    focusWindow(openWin.id);
-                  } else if (isActive) {
-                    minimizeWindow(openWin.id, e);
+                  if (openWinCurrent) {
+                    if (isMinimized) {
+                      focusWindow(openWinCurrent.id);
+                    } else if (isActive) {
+                      minimizeWindow(openWinCurrent.id, e);
+                    } else {
+                      focusWindow(openWinCurrent.id);
+                    }
+                  } else if (openWinAny) {
+                    focusWindow(openWinAny.id);
                   } else {
-                    focusWindow(openWin.id);
+                    openWindow(modId, meta.title);
                   }
                 };
 
@@ -3033,15 +3322,85 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onShutdownApp={handleShutdown}
       />
 
+      {/* Windows 11 Task View & Virtual Desktops Management Modal */}
+      <TaskViewModal
+        isOpen={isTaskViewOpen}
+        onClose={() => setIsTaskViewOpen(false)}
+        virtualDesktops={virtualDesktops}
+        activeDesktopId={activeDesktopId}
+        onSelectDesktop={handleSelectDesktop}
+        onAddDesktop={handleAddDesktop}
+        onRemoveDesktop={handleRemoveDesktop}
+        onRenameDesktop={handleRenameDesktop}
+        windows={windows}
+        onSelectWindow={(win) => {
+          if (win.desktopId && win.desktopId !== 'all' && win.desktopId !== activeDesktopId) {
+            handleSelectDesktop(win.desktopId);
+          }
+          focusWindow(win.id);
+          setIsTaskViewOpen(false);
+        }}
+        onCloseWindow={(id) => {
+          setWindows(prev => prev.filter(w => w.id !== id));
+        }}
+        onMoveWindowToDesktop={handleMoveWindowToDesktop}
+      />
+
+      {/* Desktop Widgets Customization & Catalog Modal */}
+      <DesktopWidgetsModal
+        isOpen={isWidgetsModalOpen}
+        onClose={() => setIsWidgetsModalOpen(false)}
+        widgets={desktopWidgets}
+        onAddWidget={handleAddWidget}
+        onRemoveWidget={handleRemoveWidget}
+        onToggleVisibility={handleToggleWidgetVisibility}
+        onOpenWidgetsApp={() => {
+          setIsWidgetsModalOpen(false);
+          openWindow('widgets', t('module.widgets', currentLang, 'Widgets & Notizen'));
+        }}
+      />
+
       {/* Global Windows-Style Context Menus Layer (Placed at root with highest z-index) */}
       {/* 1. Desktop Background Context Menu */}
       {desktopContextMenu && (
         <div
           data-context-menu="true"
           style={{ left: `${desktopContextMenu.x}px`, top: `${desktopContextMenu.y}px` }}
-          className="fixed z-[99999] w-56 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+          className="fixed z-[99999] w-64 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            onClick={() => {
+              openWindow('widgets', t('module.widgets', currentLang, 'Widgets'));
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer font-semibold"
+          >
+            <WidgetsIcon className="w-4 h-4 text-violet-500 flex-shrink-0" />
+            <span>{t('module.widgets', currentLang, 'Widgets')}</span>
+          </button>
+          <button
+            onClick={() => {
+              handleAddStickyNote();
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <span>{t('widgets.add_note', currentLang, '+ Neue Haftnotiz anheften')}</span>
+          </button>
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setIsTaskViewOpen(true);
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+          >
+            <Layers className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span>{t('taskview.title', currentLang, 'Virtuelle Desktops & Task-Ansicht')}</span>
+          </button>
+          <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
           <button
             onClick={handleAutoArrangeDesktop}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
