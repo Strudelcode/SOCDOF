@@ -160,28 +160,95 @@ export interface MobileCompanionSyncPayload {
 }
 
 /**
- * Validates and normalizes raw parsed JSON into a valid MobileCompanionSyncPayload
+ * Validates and normalizes raw parsed JSON or universal mobile export into a valid MobileCompanionSyncPayload
  */
 export function validateMobilePayload(raw: unknown): { isValid: boolean; error?: string; data?: MobileCompanionSyncPayload } {
-  if (!raw || typeof raw !== 'object') {
-    return { isValid: false, error: 'Ungültiges Datenformat: Kein JSON-Objekt.' };
+  if (!raw) {
+    return { isValid: false, error: 'Ungültiges Datenformat: Leere Daten übermittelt.' };
   }
 
-  const obj = raw as Record<string, any>;
+  let obj: Record<string, any> = {};
+
+  // If passed an array directly
+  if (Array.isArray(raw)) {
+    obj = { sessions: raw };
+  } else if (typeof raw === 'object') {
+    obj = raw as Record<string, any>;
+    // Check if payload is wrapped inside data/payload/export
+    if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      obj = { ...obj, ...obj.data };
+    } else if (obj.payload && typeof obj.payload === 'object' && !Array.isArray(obj.payload)) {
+      obj = { ...obj, ...obj.payload };
+    } else if (obj.export && typeof obj.export === 'object' && !Array.isArray(obj.export)) {
+      obj = { ...obj, ...obj.export };
+    }
+  } else if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return validateMobilePayload(parsed);
+    } catch {
+      // Create a ticket from text lines
+      const textLines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      return {
+        isValid: true,
+        data: {
+          protocol: 'SOCDOF_MOBILE_COMPANION_V1',
+          exportTimestamp: new Date().toISOString(),
+          appName: 'Text / Raw Import',
+          tickets: [{
+            id: `text_import_${Date.now()}`,
+            ticket_number: `IMP-${Date.now().toString().slice(-4)}`,
+            title: textLines[0] || 'Mobiler Notiz-Import',
+            description: raw,
+            customer_name: 'Mobiler Direktimport',
+            status: 'in_progress',
+            priority: 1,
+            team: 'Kundendienst & Außendienst',
+            assigned_staff: 'Außendienst',
+            created_at: new Date().toISOString(),
+            timesheets: [{
+              id: `ts_${Date.now()}`,
+              date: new Date().toISOString().split('T')[0],
+              staff: 'Außendienst',
+              description: textLines[0] || 'Mobiler Import',
+              hours: 1,
+              hourly_rate: 65,
+              billable: true
+            }]
+          }]
+        }
+      };
+    }
+  }
+
   const tickets: MobileCompanionTicketItem[] = [];
   const standalone_timesheets: MobileCompanionTimesheetItem[] = [];
   const standalone_expenses: MobileCompanionExpenseItem[] = [];
 
-  const rawSessions: MobileSessionItem[] = Array.isArray(obj.sessions) ? obj.sessions : [];
-  const rawTrips: MobileTripItem[] = Array.isArray(obj.trips) ? obj.trips : [];
-  const rawCustomers: MobileCustomerItem[] = Array.isArray(obj.customers) ? obj.customers : [];
+  // Look for sessions under various keys (sessions, records, items, time_entries, entries, logs, work_logs)
+  const rawSessions: any[] = Array.isArray(obj.sessions) ? obj.sessions :
+                             Array.isArray(obj.records) ? obj.records :
+                             Array.isArray(obj.items) ? obj.items :
+                             Array.isArray(obj.time_entries) ? obj.time_entries :
+                             Array.isArray(obj.entries) ? obj.entries :
+                             Array.isArray(obj.logs) ? obj.logs :
+                             Array.isArray(obj.work_logs) ? obj.work_logs : [];
 
-  // 1. Process Mobile Sessions (from new TimeTracking structure)
+  const rawTrips: any[] = Array.isArray(obj.trips) ? obj.trips :
+                          Array.isArray(obj.fahrten) ? obj.fahrten :
+                          Array.isArray(obj.gps_routes) ? obj.gps_routes : [];
+
+  const rawCustomers: any[] = Array.isArray(obj.customers) ? obj.customers :
+                              Array.isArray(obj.kunden) ? obj.kunden :
+                              Array.isArray(obj.contacts) ? obj.contacts : [];
+
+  // 1. Process Mobile Sessions (from TimeTracking structure)
   if (rawSessions.length > 0) {
-    rawSessions.forEach((session) => {
-      const customer = rawCustomers.find(c => c.id === session.customerId || c.companyName === session.customerName);
+    rawSessions.forEach((session, index) => {
+      const customerName = session.customerName || session.customer || session.kunde || session.company || session.client || 'Kunde';
+      const customer = rawCustomers.find(c => c.id === session.customerId || c.companyName === customerName || c.name === customerName);
       
-      // Build 5-Part Description Notes
+      // Build Description Notes
       let noteParts: string[] = [];
       let expensesList: MobileCompanionExpenseItem[] = [];
 
@@ -192,88 +259,102 @@ export function validateMobilePayload(raw: unknown): { isValid: boolean; error?:
         if (n.onSiteReport) noteParts.push(`📝 **Tätigkeitsbericht vor Ort:**\n${n.onSiteReport}`);
         if (n.materialAndExpenses) {
           noteParts.push(`🛠️ **Material & Spesen:** ${n.materialAndExpenses}`);
-          
-          // Check if there is a monetary amount mentioned or create an expense item
-          const expenseItem: MobileCompanionExpenseItem = {
-            id: `exp_${session.id}_${Date.now()}`,
+          expensesList.push({
+            id: `exp_${session.id || index}_${Date.now()}`,
             date: session.date || new Date().toISOString().split('T')[0],
             title: n.materialAndExpenses,
-            amount: 0, // Fallback if not specified separately
+            amount: Number(session.materialCost || session.expenseAmount || 0),
             category: 'material',
             notes: n.materialAndExpenses,
             billable: true
-          };
-          expensesList.push(expenseItem);
+          });
         }
         if (n.remarks) noteParts.push(`ℹ️ **Besonderheiten & Abnahme:** ${n.remarks}`);
       } else if (typeof session.notes === 'string' && session.notes.trim()) {
         noteParts.push(session.notes);
+      } else if (session.description || session.beschreibung || session.memo) {
+        noteParts.push(session.description || session.beschreibung || session.memo);
       }
 
-      // Check matching trips for this session/customer on the same date
+      // Check matching trips
       const matchingTrips = rawTrips.filter(t => 
         (t.customerId && t.customerId === session.customerId) || 
-        (t.customerName && t.customerName === session.customerName) ||
-        (t.date === session.date)
+        (t.customerName && t.customerName === customerName) ||
+        (t.date && session.date && t.date === session.date)
       );
 
-      const totalTripKm = matchingTrips.reduce((acc, t) => acc + (Number(t.distanceKm) || 0), 0);
+      const totalTripKm = matchingTrips.reduce((acc, t) => acc + (Number(t.distanceKm || t.km || t.distance) || 0), 0);
       const firstTrip = matchingTrips[0];
 
-      // Build timesheet entry from session duration
-      const hours = session.durationMinutes ? session.durationMinutes / 60 : (session.durationSeconds ? session.durationSeconds / 3600 : 0);
+      // Calculate hours
+      let hours = 0;
+      if (typeof session.durationMinutes === 'number') {
+        hours = session.durationMinutes / 60;
+      } else if (typeof session.durationSeconds === 'number') {
+        hours = session.durationSeconds / 3600;
+      } else if (typeof session.hours === 'number') {
+        hours = session.hours;
+      } else if (typeof session.duration === 'number') {
+        hours = session.duration > 20 ? session.duration / 60 : session.duration;
+      } else if (session.startTime && session.endTime) {
+        const diffMs = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
+        if (diffMs > 0) hours = diffMs / (1000 * 60 * 60);
+      }
+      if (hours <= 0) hours = 1; // Minimum 1h fallback
+
       const timesheet: MobileCompanionTimesheetItem = {
-        id: `ts_${session.id}`,
-        date: session.date,
-        staff: 'Mobile Außendienst',
-        description: session.title || 'Vor-Ort Einsatz',
+        id: `ts_${session.id || index}_${Date.now()}`,
+        date: session.date || session.datum || new Date().toISOString().split('T')[0],
+        staff: session.staff || session.mitarbeiter || session.user || 'Mobile Außendienst',
+        description: session.title || session.name || session.titel || 'Vor-Ort Einsatz',
         hours: Number(hours.toFixed(2)),
-        hourly_rate: session.hourlyRate || customer?.customHourlyRate || 65,
-        billable: true,
-        started_at: session.startTime,
-        ended_at: session.endTime,
-        travel_km: session.kilometers || totalTripKm || 0,
-        location_name: firstTrip?.endLocation || (customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : undefined),
-        geo_latitude: customer?.latitude,
-        geo_longitude: customer?.longitude
+        hourly_rate: session.hourlyRate || session.rate || customer?.customHourlyRate || 65,
+        billable: session.billable !== false,
+        started_at: session.startTime || session.start,
+        ended_at: session.endTime || session.end,
+        travel_km: Number(session.kilometers || session.km || totalTripKm || 0),
+        location_name: firstTrip?.endLocation || session.location || (customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : undefined),
+        geo_latitude: customer?.latitude || session.latitude,
+        geo_longitude: customer?.longitude || session.longitude
       };
 
-      // Add trip cost expenses if any
+      // Add trip expenses
       matchingTrips.forEach(trip => {
-        if (trip.calculatedCost && trip.calculatedCost > 0) {
+        const tripCost = Number(trip.calculatedCost || trip.cost || 0);
+        if (tripCost > 0) {
           expensesList.push({
-            id: `exp_trip_${trip.id}`,
-            date: trip.date,
-            title: `Fahrtkosten (${trip.distanceKm || 0} km, ${trip.startLocation || 'Start'} ➔ ${trip.endLocation || 'Ziel'})`,
-            amount: trip.calculatedCost,
+            id: `exp_trip_${trip.id || Math.random().toString(36).slice(2)}`,
+            date: trip.date || session.date || new Date().toISOString().split('T')[0],
+            title: `Fahrtkosten (${trip.distanceKm || trip.km || 0} km, ${trip.startLocation || 'Start'} ➔ ${trip.endLocation || 'Ziel'})`,
+            amount: tripCost,
             category: 'travel',
-            notes: trip.notes || `Fahrtzeit: ${trip.durationMinutes || 0} Min.${trip.wasStandstillDetected ? ` (Stau: ${trip.standstillMinutes} Min.)` : ''}`,
+            notes: trip.notes || `Fahrtzeit: ${trip.durationMinutes || 0} Min.`,
             billable: true
           });
         }
       });
 
-      const fullDescription = noteParts.length > 0 ? noteParts.join('\n\n') : (session.title || 'Keine detaillierten Notizen erfasst.');
+      const fullDescription = noteParts.length > 0 ? noteParts.join('\n\n') : (session.title || 'Mobiler Einsatzbericht');
 
       const ticketItem: MobileCompanionTicketItem = {
-        id: `mob_sess_${session.id}`,
-        ticket_number: `MOB-${session.id}`,
-        title: session.title || `Einsatz bei ${session.customerName || 'Kunde'}`,
-        customer_name: session.customerName || customer?.companyName || 'Unbekannter Kunde',
-        customer_email: customer?.email,
-        customer_phone: customer?.phone,
-        customer_company: customer?.companyName,
-        customer_address: customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : undefined,
+        id: `mob_sess_${session.id || index}_${Date.now()}`,
+        ticket_number: `MOB-${session.id || String(index + 101).padStart(3, '0')}`,
+        title: session.title || session.name || session.titel || `Einsatz bei ${customerName}`,
+        customer_name: customerName,
+        customer_email: customer?.email || session.customerEmail || session.email,
+        customer_phone: customer?.phone || session.customerPhone || session.phone,
+        customer_company: customer?.companyName || session.customerCompany || customerName,
+        customer_address: customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : session.address,
         description: fullDescription,
         status: 'in_progress',
-        priority: 1,
+        priority: session.priority !== undefined ? Number(session.priority) as any : 1,
         team: 'Kundendienst & Außendienst',
-        assigned_staff: 'Außendienst',
+        assigned_staff: session.staff || session.mitarbeiter || 'Außendienst',
         created_at: session.startTime || session.date || new Date().toISOString(),
-        location_name: firstTrip?.endLocation || (customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : undefined),
-        geo_latitude: customer?.latitude,
-        geo_longitude: customer?.longitude,
-        travel_km: totalTripKm || session.kilometers || 0,
+        location_name: firstTrip?.endLocation || session.location || (customer ? `${customer.street || ''}, ${customer.zipCity || ''}`.trim() : undefined),
+        geo_latitude: customer?.latitude || session.latitude,
+        geo_longitude: customer?.longitude || session.longitude,
+        travel_km: totalTripKm || session.kilometers || session.km || 0,
         timesheets: [timesheet],
         expenses: expensesList
       };
@@ -295,15 +376,40 @@ export function validateMobilePayload(raw: unknown): { isValid: boolean; error?:
     standalone_expenses.push(...obj.standalone_expenses);
   }
 
+  // If still empty but obj has at least some identifiable content, wrap as single ticket
   if (tickets.length === 0 && standalone_timesheets.length === 0 && standalone_expenses.length === 0 && rawTrips.length === 0) {
-    return { isValid: false, error: 'Keine Datensätze (Einsätze, Zeiten, Fahrten oder Kunden) im Payload gefunden.' };
+    if (obj.title || obj.name || obj.titel || obj.customer || obj.kunde || obj.description || obj.message) {
+      tickets.push({
+        id: `mob_single_${Date.now()}`,
+        ticket_number: `MOB-${Math.floor(100 + Math.random() * 900)}`,
+        title: obj.title || obj.name || obj.titel || 'Mobiler Service-Einsatz',
+        customer_name: obj.customer || obj.kunde || obj.client || 'Kunde',
+        description: obj.description || obj.notes || obj.message || JSON.stringify(obj, null, 2),
+        status: 'in_progress',
+        priority: 1,
+        team: 'Kundendienst & Außendienst',
+        assigned_staff: 'Außendienst',
+        created_at: obj.date || new Date().toISOString(),
+        timesheets: [{
+          id: `ts_${Date.now()}`,
+          date: obj.date || new Date().toISOString().split('T')[0],
+          staff: 'Außendienst',
+          description: obj.title || 'Mobiler Vor-Ort Einsatz',
+          hours: Number(obj.hours || obj.durationMinutes ? obj.durationMinutes / 60 : 1),
+          hourly_rate: 65,
+          billable: true
+        }]
+      });
+    } else {
+      return { isValid: false, error: 'Keine verwertbaren Datensätze im übermittelten Format gefunden.' };
+    }
   }
 
   const payload: MobileCompanionSyncPayload = {
     protocol: 'SOCDOF_MOBILE_COMPANION_V1',
     export_version: obj.exportVersion || obj.export_version || '1.0',
     exportTimestamp: obj.exportTimestamp || obj.exported_at || new Date().toISOString(),
-    appName: obj.appName || obj.app_name || 'SOCDOF TimeTracking Mobile',
+    appName: obj.appName || obj.app_name || 'SOCDOF Mobile Companion',
     deviceId: obj.deviceId || obj.device_name || 'Mobile Device',
     exportFilter: obj.exportFilter,
     summary: obj.summary,

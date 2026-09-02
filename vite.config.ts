@@ -6,14 +6,15 @@ import { defineConfig, Plugin } from 'vite';
 
 // In-memory store for mobile sync sessions
 const mobileSyncStore = new Map<string, { payload: any; timestamp: number }>();
+const recentSyncQueue: Array<{ token: string; payload: any; timestamp: number }> = [];
 
 function mobileSyncPlugin(): Plugin {
   return {
     name: 'mobile-sync-api',
     configureServer(server) {
-      // Helper to parse JSON body
-      const parseJsonBody = (req: any): Promise<any> => {
-        return new Promise((resolve, reject) => {
+      // Helper to parse body (JSON, urlencoded, text, or query params)
+      const parseRequestBody = (req: any): Promise<any> => {
+        return new Promise((resolve) => {
           let body = '';
           req.on('data', (chunk: any) => {
             body += chunk;
@@ -21,20 +22,58 @@ function mobileSyncPlugin(): Plugin {
           req.on('end', () => {
             try {
               if (!body.trim()) return resolve({});
-              resolve(JSON.parse(body));
+              
+              // 1. Try standard JSON
+              try {
+                return resolve(JSON.parse(body));
+              } catch {}
+
+              // 2. Try URL-encoded payload (data=... or payload=...)
+              if (body.includes('=')) {
+                try {
+                  const params = new URLSearchParams(body);
+                  const payloadStr = params.get('payload') || params.get('data') || params.get('json');
+                  if (payloadStr) {
+                    return resolve(JSON.parse(payloadStr));
+                  }
+                } catch {}
+              }
+
+              // 3. Try base64 decoded JSON
+              try {
+                const decoded = Buffer.from(body.trim(), 'base64').toString('utf-8');
+                return resolve(JSON.parse(decoded));
+              } catch {}
+
+              // Fallback raw text wrapper
+              resolve({ raw_text: body });
             } catch (err) {
-              reject(err);
+              resolve({ error: String(err), raw_body: body });
             }
           });
-          req.on('error', reject);
+          req.on('error', () => resolve({}));
         });
       };
 
       server.middlewares.use(async (req, res, next) => {
-        const url = new URL(req.url || '', `http://${req.headers.host}`);
+        const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
         
+        // Universal CORS & Private Network Access Headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS, HEAD, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', '*');
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+
+        // Route: CORS preflight for any mobile-sync route
+        if (cleanPath.startsWith('/api/mobile-sync') && req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
         // Route: GET /api/mobile-sync/info (Discover local LAN IP addresses)
-        if (url.pathname === '/api/mobile-sync/info' && req.method === 'GET') {
+        if (cleanPath === '/api/mobile-sync/info' && req.method === 'GET') {
           const networkInterfaces = os.networkInterfaces();
           const localIps: string[] = [];
 
@@ -63,99 +102,140 @@ function mobileSyncPlugin(): Plugin {
           });
 
           res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
           res.end(JSON.stringify({
             status: 'ok',
             ips: localIps,
             port: 3000,
-            primaryIp: localIps[0] || '127.0.0.1'
+            primaryIp: localIps[0] || '127.0.0.1',
+            serverTime: new Date().toISOString()
           }));
           return;
         }
 
-        // Route: CORS preflight
-        if (url.pathname === '/api/mobile-sync' && req.method === 'OPTIONS') {
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Source, X-App-Version, X-Device-Id, X-Export-Timestamp');
-          res.statusCode = 204;
-          res.end();
+        // Route: GET /api/mobile-sync/ping or /api/mobile-sync/test (Diagnostics)
+        if ((cleanPath === '/api/mobile-sync/ping' || cleanPath === '/api/mobile-sync/test') && (req.method === 'GET' || req.method === 'POST')) {
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            status: 'online',
+            service: 'SOCDOF Mobile Companion Sync Gateway',
+            version: '21.7.0',
+            activeSessionsCount: mobileSyncStore.size,
+            recentQueueCount: recentSyncQueue.length,
+            serverTimestamp: new Date().toISOString(),
+            message: 'SOCDOF Sync Gateway is active, ready and reachable!'
+          }));
           return;
         }
 
-        // Route: POST /api/mobile-sync (Mobile App uploads data)
-        if (url.pathname === '/api/mobile-sync' && req.method === 'POST') {
-          res.setHeader('Access-Control-Allow-Origin', '*');
+        // Route: POST / PUT /api/mobile-sync or /api/mobile-sync/upload (Mobile App uploads data)
+        if ((cleanPath === '/api/mobile-sync' || cleanPath === '/api/mobile-sync/upload' || cleanPath === '/api/mobile-sync/submit') && (req.method === 'POST' || req.method === 'PUT')) {
           res.setHeader('Content-Type', 'application/json');
 
           try {
-            const body = await parseJsonBody(req);
+            const body = await parseRequestBody(req);
             
+            // Check query param data if body was empty
+            const queryData = url.searchParams.get('data') || url.searchParams.get('payload') || url.searchParams.get('json');
+            let effectivePayload = body;
+            if (queryData && Object.keys(body).length === 0) {
+              try {
+                effectivePayload = JSON.parse(queryData);
+              } catch {
+                effectivePayload = { raw_query: queryData };
+              }
+            }
+
             // Extract token from query, header, or body
-            const authHeader = req.headers['authorization'] || '';
+            const authHeader = (req.headers['authorization'] || '') as string;
             const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-            const token = url.searchParams.get('token') || bearerToken || body.token || body.session_id || 'default';
+            const token = url.searchParams.get('token') || bearerToken || effectivePayload.token || effectivePayload.session_id || effectivePayload.sessionId || 'default';
+            const normalizedToken = token.trim();
 
-            // Store in memory
-            mobileSyncStore.set(token, {
-              payload: body,
+            const syncItem = {
+              payload: effectivePayload,
               timestamp: Date.now()
-            });
+            };
 
-            // Also store under 'latest'
-            mobileSyncStore.set('latest', {
-              payload: body,
-              timestamp: Date.now()
-            });
+            // Store in memory across identifiers
+            mobileSyncStore.set(normalizedToken, syncItem);
+            mobileSyncStore.set(normalizedToken.toUpperCase(), syncItem);
+            mobileSyncStore.set(normalizedToken.toLowerCase(), syncItem);
+            mobileSyncStore.set('latest', syncItem);
 
-            const sessionCount = body.sessions?.length || body.tickets?.length || 0;
-            const tripCount = body.trips?.length || 0;
+            if (effectivePayload.deviceId) {
+              mobileSyncStore.set(`device_${effectivePayload.deviceId}`, syncItem);
+            }
+
+            recentSyncQueue.unshift({ token: normalizedToken, ...syncItem });
+            if (recentSyncQueue.length > 20) recentSyncQueue.pop();
+
+            const sessionCount = effectivePayload.sessions?.length || effectivePayload.tickets?.length || effectivePayload.records?.length || 0;
+            const tripCount = effectivePayload.trips?.length || effectivePayload.fahrten?.length || 0;
 
             res.statusCode = 200;
             res.end(JSON.stringify({
               success: true,
-              message: `Synchronisation erfolgreich! ${sessionCount} Einsätze und ${tripCount} Fahrten an SOCDOF Desktop übertragen.`,
+              message: `Synchronisation erfolgreich! ${sessionCount} Einsätze und ${tripCount} Fahrten an SOCDOF übertragen.`,
               receivedSessions: sessionCount,
               receivedTrips: tripCount,
+              pairedToken: normalizedToken,
               timestamp: new Date().toISOString()
             }));
           } catch (err: any) {
-            res.statusCode = 400;
+            res.statusCode = 200; // Return 200 with soft error so mobile apps don't crash
             res.end(JSON.stringify({
               success: false,
-              error: 'Invalid JSON payload',
-              message: err.message
+              error: 'Processing payload issue',
+              message: err?.message || 'Unknown error'
             }));
           }
           return;
         }
 
-        // Route: GET /api/mobile-sync (Desktop App polls for data)
-        if (url.pathname === '/api/mobile-sync' && req.method === 'GET') {
+        // Route: GET /api/mobile-sync (Desktop App polls for data or browser test)
+        if (cleanPath === '/api/mobile-sync' && req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
 
-          const token = url.searchParams.get('token') || 'latest';
-          const session = mobileSyncStore.get(token) || (token !== 'latest' ? mobileSyncStore.get('latest') : null);
+          const token = (url.searchParams.get('token') || 'latest').trim();
+          let session = mobileSyncStore.get(token) || 
+                        mobileSyncStore.get(token.toUpperCase()) || 
+                        mobileSyncStore.get(token.toLowerCase()) || 
+                        (token !== 'latest' ? mobileSyncStore.get('latest') : null);
 
-          if (session && Date.now() - session.timestamp < 1000 * 60 * 15) { // 15 min freshness
+          // If no specific session found, check unread recent queue
+          if (!session && recentSyncQueue.length > 0) {
+            const recent = recentSyncQueue[0];
+            if (Date.now() - recent.timestamp < 1000 * 60 * 15) {
+              session = recent;
+            }
+          }
+
+          if (session && Date.now() - session.timestamp < 1000 * 60 * 20) { // 20 min freshness
             // If requested with &consume=true, remove it
             if (url.searchParams.get('consume') === 'true') {
               mobileSyncStore.delete(token);
+              mobileSyncStore.delete(token.toUpperCase());
+              mobileSyncStore.delete(token.toLowerCase());
               mobileSyncStore.delete('latest');
+              const idx = recentSyncQueue.findIndex(q => q.token === token);
+              if (idx >= 0) recentSyncQueue.splice(idx, 1);
             }
 
             res.statusCode = 200;
             res.end(JSON.stringify({
               ready: true,
               timestamp: session.timestamp,
-              payload: session.payload
+              payload: session.payload,
+              token: token
             }));
           } else {
             res.statusCode = 200;
             res.end(JSON.stringify({
               ready: false,
-              message: 'Waiting for mobile app transmission...'
+              status: 'listening',
+              message: 'Waiting for mobile companion transmission...',
+              serverTime: new Date().toISOString()
             }));
           }
           return;

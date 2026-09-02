@@ -56,7 +56,8 @@ import {
   Headphones,
   User,
   Plus,
-  StickyNote
+  StickyNote,
+  Zap
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -468,6 +469,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     offsetY: number;
   } | null>(null);
 
+  const [dragPreviewPos, setDragPreviewPos] = useState<{
+    x: number;
+    y: number;
+    col: number;
+    row: number;
+  } | null>(null);
+
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [desktopIconContextMenu, setDesktopIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
   const [startMenuIconContextMenu, setStartMenuIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
@@ -536,8 +544,69 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     closeAllContextMenus();
   };
 
+  const handleDesktopCanvasDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = desktopCanvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const rawData = e.dataTransfer.getData('text/plain');
+    const itemId = draggedDesktopItem?.id || rawData;
+    if (!itemId) return;
+
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const offsetX = draggedDesktopItem?.offsetX ?? 48;
+    const offsetY = draggedDesktopItem?.offsetY ?? 44;
+
+    const targetX = mouseX - offsetX;
+    const targetY = mouseY - offsetY;
+
+    // Snap to Grid coordinates
+    const snapCol = Math.max(0, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
+    const snapRow = Math.max(0, Math.min(DESKTOP_GRID_MAX_ROWS - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
+    const targetSlotKey = `${snapCol},${snapRow}`;
+
+    let nextX = DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X;
+    let nextY = DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y;
+
+    // Check if slot is occupied by another item (and not hovering to merge into a folder)
+    const occupiedByOther = Object.entries(desktopPositions).find(([id, rawPos]) => {
+      if (id === itemId) return false;
+      const pos = rawPos as { x: number; y: number };
+      const col = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
+      const row = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
+      return `${col},${row}` === targetSlotKey;
+    });
+
+    if (occupiedByOther && draggedDesktopItem?.type === 'folder') {
+      const occupiedSet = new Set<string>();
+      Object.entries(desktopPositions).forEach(([id, rawPos]) => {
+        if (id !== itemId) {
+          const pos = rawPos as { x: number; y: number };
+          const c = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
+          const r = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
+          occupiedSet.add(`${c},${r}`);
+        }
+      });
+      const freeSlot = findNextFreeDesktopSlot(occupiedSet);
+      nextX = freeSlot.x;
+      nextY = freeSlot.y;
+    }
+
+    setDragPreviewPos({
+      x: nextX,
+      y: nextY,
+      col: snapCol,
+      row: snapRow
+    });
+  };
+
   const handleDesktopCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragPreviewPos(null);
+    setDragOverIconId(null);
     const rect = desktopCanvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -1721,9 +1790,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       {/* 3. Desktop Canvas with Windows-style Free Drag & Drop Icon Positioning */}
       <div 
         ref={desktopCanvasRef}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
+        onDragOver={handleDesktopCanvasDragOver}
+        onDragLeave={(e) => {
+          if (e.relatedTarget === null || !desktopCanvasRef.current?.contains(e.relatedTarget as Node)) {
+            setDragPreviewPos(null);
+          }
         }}
         onDrop={handleDesktopCanvasDrop}
         onContextMenu={(e) => {
@@ -1735,6 +1806,46 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         }}
         className="relative z-1 w-full h-[calc(100vh-48px)] overflow-hidden select-none"
       >
+        {/* Semi-transparent App Placement Ghost Preview */}
+        {draggedDesktopItem && dragPreviewPos && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${dragPreviewPos.x}px`,
+              top: `${dragPreviewPos.y}px`,
+              zIndex: 35
+            }}
+            className="w-24 p-2 rounded-2xl pointer-events-none transition-all duration-75 flex flex-col items-center justify-center text-center animate-pulse"
+          >
+            <div className="relative w-12 h-12 rounded-2xl border-2 border-dashed border-indigo-500/80 dark:border-indigo-400 bg-indigo-500/20 dark:bg-indigo-400/25 backdrop-blur-xs flex items-center justify-center shadow-lg ring-4 ring-indigo-500/20">
+              {draggedDesktopItem.type === 'folder' ? (
+                <div className="w-8 h-8 rounded-xl bg-white/40 dark:bg-slate-700/50 flex items-center justify-center">
+                  <span className="text-[12px] opacity-80">📁</span>
+                </div>
+              ) : shortcutMeta[draggedDesktopItem.id as ActiveModule] ? (
+                (() => {
+                  const m = shortcutMeta[draggedDesktopItem.id as ActiveModule];
+                  const GhostIcon = m.icon;
+                  return (
+                    <div className={`w-9 h-9 rounded-xl ${m.color} text-white flex items-center justify-center opacity-65 shadow-inner`}>
+                      <GhostIcon className="w-4.5 h-4.5" />
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-indigo-600/50 text-white flex items-center justify-center opacity-70">
+                  <Zap className="w-4.5 h-4.5" />
+                </div>
+              )}
+            </div>
+            <span className="mt-1.5 px-2 py-0.5 rounded-lg bg-indigo-900/90 text-white text-[10px] font-bold truncate max-w-[85px] shadow-sm border border-indigo-400/30">
+              {draggedDesktopItem.type === 'folder' 
+                ? (desktopFolders.find(f => f.id === draggedDesktopItem.id)?.name || 'Ordner')
+                : (shortcutMeta[draggedDesktopItem.id as ActiveModule]?.title || draggedDesktopItem.id)}
+            </span>
+          </div>
+        )}
+
         {/* Aero Snap Translucent Docking Preview */}
         {snapPreview === 'left' && (
           <div className="absolute left-3 top-3 bottom-3 w-[calc(50%-12px)] rounded-3xl bg-indigo-500/15 border-2 border-indigo-400/80 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center">
@@ -2801,11 +2912,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               {/* Front solid rectangle */}
               <div className="absolute bottom-0 right-0 w-3 h-3 rounded-[3px] border-[1.5px] border-slate-800 dark:border-white bg-slate-200/90 dark:bg-slate-800 shadow-xs group-hover:scale-105 transition-all" />
             </div>
-
-            {/* Subtle active desktop indicator dot if multiple desktops exist */}
-            {virtualDesktops.length > 1 && (
-              <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-80" />
-            )}
           </button>
 
           {/* Unified Windows 11 Taskbar App Items */}

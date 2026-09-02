@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.8.3';
+export const APP_VERSION = '21.8.6';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,37 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.8.6',
+    date: '2026-09-02',
+    title: 'Top-Level Portal Rendering & Keyboard Escape Dismissal for Desktop Widget Settings Modal',
+    highlights: [
+      'Top-Level React Portal Stacking (z-[999999]): Moved WidgetSettingsModal to document.body portal so it renders strictly above desktop icons, windows, and the taskbar without CSS stacking context clipping',
+      'Instant Interaction & Modal Controls: Fixed unresponsive settings buttons caused by desktop container pointer-events and z-index masking',
+      'Keyboard Escape & Backdrop Dismissal: Added Escape key listener and backdrop click dismissal so users can effortlessly exit the customization modal at any time'
+    ]
+  },
+  {
+    version: '21.8.5',
+    date: '2026-09-02',
+    title: 'Pure Desktop Widget Presentation, True Background Transparency, Position Locking & Right-Click Customization Context Menu',
+    highlights: [
+      'Pure Smartphone-Style Widget Presentation: Eliminated redundant top header bars and titles on desktop widgets so they render directly in their authentic format as clean clock, calendar, revenue, and launcher tiles',
+      'True Zero-Background Transparency: Completely removed card borders, backgrounds, and hover outlines when "Ohne Hintergrund" is selected, featuring high-contrast drop-shadow typography over desktop wallpapers',
+      'Widget Position Locking: Prevent accidental widget movement with the "Position fixieren" feature, toggleable via right-click context menu, hover badges, and the customization modal',
+      'Right-Click Context Menu & Live Customization: Full desktop right-click menu offering direct access to Widget Settings, Position Lock/Unlock, Background Style switcher (Transparent, Glass, Dark, Solid), Resizing, Layer Mode, and Virtual Desktop assignment'
+    ]
+  },
+  {
+    version: '21.8.4',
+    date: '2026-09-02',
+    title: 'Task View Indicator Removal, Semi-Transparent Desktop Placement Ghost & Complete Widgets 4-Language Localization',
+    highlights: [
+      'Task View Permanent System Feature (No Dot Indicator): Removed active dot indicator from the Task View taskbar icon to match authentic Windows 11 behavior, as Task View is a persistent background OS shell capability',
+      'Semi-Transparent App Placement Ghost: Added a translucent real-time preview element that tracks cursor movement across the desktop canvas and highlights the exact grid slot where the app will land prior to dropping',
+      'Complete 4-Language Widget Localization: Comprehensive translation coverage across German, English, French, and Spanish for all widget catalog entries, settings modals, labels, and action buttons in src/lib/i18n.ts'
+    ]
+  },
   {
     version: '21.8.3',
     date: '2026-09-02',

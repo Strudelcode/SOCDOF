@@ -557,6 +557,7 @@ export interface DesktopWidget {
   color?: string;   // Color for sticky notes ('yellow' | 'blue' | 'green' | 'pink' | 'purple' | 'dark' | 'transparent')
   isCollapsed?: boolean;
   isVisible?: boolean;
+  isLocked?: boolean;
   metricType?: string;
   createdAt?: string;
 
@@ -565,6 +566,7 @@ export interface DesktopWidget {
   fontStyle?: 'sans' | 'mono' | 'serif' | 'display';
   textColor?: 'default' | 'white' | 'emerald' | 'indigo' | 'amber' | 'sky' | 'rose';
   layerLevel?: 'normal' | 'background'; // 'background' stays behind open windows
+  blurBehindApps?: boolean; // When active, widget renders with a soft frosted blur when lying behind windows on the desktop
 
   // Clock specific settings
   clockType?: 'digital' | 'analog'; // Digital vs Round Analog Clock
@@ -606,6 +608,96 @@ export interface CalendarAppEvent {
   syncedAt?: string;
   invoiceId?: number;
   invoiceNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FleetVehicle {
+  id: string;
+  licensePlate: string;
+  make: string;
+  model: string;
+  type: 'car' | 'van' | 'truck' | 'motorcycle' | 'electric';
+  fuelType: 'diesel' | 'petrol' | 'electric' | 'hybrid' | 'cng';
+  vin?: string;
+  currentOdometer: number;
+  assignedDriver?: string;
+  year?: number;
+  nextInspectionDue?: string;
+  notes?: string;
+  status: 'active' | 'maintenance' | 'retired';
+  createdAt?: string;
+}
+
+export interface FleetTripEntry {
+  id: string;
+  vehicleId: string;
+  vehiclePlate?: string;
+  driver: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  startLocation: string;
+  endLocation: string;
+  purposeType: 'business' | 'private' | 'commute';
+  reason?: string;
+  customer?: string;
+  customerName?: string;
+  startKm: number;
+  endKm: number;
+  distanceKm: number;
+  calculatedCost?: number;
+  notes?: string;
+  invoiced?: boolean;
+  createdAt?: string;
+}
+
+export interface FleetFuelEntry {
+  id: string;
+  vehicleId: string;
+  vehiclePlate?: string;
+  date: string;
+  odometer: number;
+  units?: number;
+  litersOrKwh?: number;
+  totalCost: number;
+  pricePerUnit?: number;
+  station?: string;
+  fuelStation?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface ProjectTaskItem {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'todo' | 'in_progress' | 'review' | 'done';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignee?: string;
+  estimatedHours: number;
+  loggedHours: number;
+  dueDate?: string;
+  billable?: boolean;
+  createdAt?: string;
+}
+
+export interface ProjectItem {
+  id: string;
+  title: string;
+  code: string;
+  description?: string;
+  contactId?: string;
+  clientName?: string;
+  category: 'client_work' | 'internal' | 'maintenance' | 'development' | 'marketing';
+  status: 'active' | 'on_hold' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high';
+  budget?: number;
+  hourlyRate?: number;
+  startDate?: string;
+  deadline?: string;
+  color?: string;
+  tasks: ProjectTaskItem[];
   createdAt?: string;
   updatedAt?: string;
 }

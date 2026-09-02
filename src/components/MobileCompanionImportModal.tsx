@@ -521,6 +521,31 @@ export const MobileCompanionImportModal: React.FC<MobileCompanionImportModalProp
       ticketsToCreate.push(newGenericTicket);
     }
 
+    // Save fleet trips to localStorage if present in payload
+    if (parsedPayload.trips && Array.isArray(parsedPayload.trips) && parsedPayload.trips.length > 0) {
+      try {
+        const savedTrips = JSON.parse(localStorage.getItem('odoo_fleet_trips') || '[]');
+        const incomingTrips = parsedPayload.trips.map(tr => ({
+          id: tr.id || `trp_mob_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          vehiclePlate: tr.vehicle_plate || 'MOB-01',
+          driverName: tr.driver || 'Außendienst',
+          date: tr.date || new Date().toISOString().split('T')[0],
+          purpose: tr.purpose || 'business',
+          startLocation: tr.start_location || 'Betriebsstätte',
+          endLocation: tr.end_location || 'Kunde',
+          startKm: Number(tr.start_km) || 0,
+          endKm: Number(tr.end_km) || (Number(tr.start_km) || 0) + (Number(tr.distance_km) || 0),
+          distanceKm: Number(tr.distance_km) || Math.max(0, (Number(tr.end_km) || 0) - (Number(tr.start_km) || 0)),
+          notes: tr.notes || 'Aus Mobile-App importiert',
+          billableToCustomer: tr.billable !== false,
+          createdAt: new Date().toISOString()
+        }));
+        localStorage.setItem('odoo_fleet_trips', JSON.stringify([...incomingTrips, ...savedTrips]));
+      } catch (err) {
+        console.error('Failed to save mobile fleet trips:', err);
+      }
+    }
+
     onImportComplete(ticketsToCreate, ticketsToUpdate);
     sounds.playSuccess();
     onClose();

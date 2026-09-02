@@ -41,13 +41,13 @@ interface WidgetsModuleProps {
 }
 
 const STICKY_PALETTE = [
-  { key: 'yellow', label: 'Gelb', bg: 'bg-amber-100 dark:bg-amber-950/90', border: 'border-amber-300 dark:border-amber-800', dot: 'bg-amber-400' },
-  { key: 'blue', label: 'Blau', bg: 'bg-sky-100 dark:bg-sky-950/90', border: 'border-sky-300 dark:border-sky-800', dot: 'bg-sky-400' },
-  { key: 'green', label: 'Grün', bg: 'bg-emerald-100 dark:bg-emerald-950/90', border: 'border-emerald-300 dark:border-emerald-800', dot: 'bg-emerald-400' },
-  { key: 'pink', label: 'Rosa', bg: 'bg-rose-100 dark:bg-rose-950/90', border: 'border-rose-300 dark:border-rose-800', dot: 'bg-rose-400' },
-  { key: 'purple', label: 'Lila', bg: 'bg-purple-100 dark:bg-purple-950/90', border: 'border-purple-300 dark:border-purple-800', dot: 'bg-purple-400' },
-  { key: 'dark', label: 'Dunkel', bg: 'bg-slate-900', border: 'border-slate-700', dot: 'bg-slate-700' },
-  { key: 'transparent', label: 'Ohne Hintergrund', bg: 'bg-transparent', border: 'border-slate-400/40', dot: 'bg-white/40' }
+  { key: 'yellow', labelKey: 'widgets.color_yellow', defaultLabel: 'Gelb', bg: 'bg-amber-100 dark:bg-amber-950/90', border: 'border-amber-300 dark:border-amber-800', dot: 'bg-amber-400' },
+  { key: 'blue', labelKey: 'widgets.color_blue', defaultLabel: 'Blau', bg: 'bg-sky-100 dark:bg-sky-950/90', border: 'border-sky-300 dark:border-sky-800', dot: 'bg-sky-400' },
+  { key: 'green', labelKey: 'widgets.color_green', defaultLabel: 'Grün', bg: 'bg-emerald-100 dark:bg-emerald-950/90', border: 'border-emerald-300 dark:border-emerald-800', dot: 'bg-emerald-400' },
+  { key: 'pink', labelKey: 'widgets.color_pink', defaultLabel: 'Rosa', bg: 'bg-rose-100 dark:bg-rose-950/90', border: 'border-rose-300 dark:border-rose-800', dot: 'bg-rose-400' },
+  { key: 'purple', labelKey: 'widgets.color_purple', defaultLabel: 'Lila', bg: 'bg-purple-100 dark:bg-purple-950/90', border: 'border-purple-300 dark:border-purple-800', dot: 'bg-purple-400' },
+  { key: 'dark', labelKey: 'widgets.color_dark', defaultLabel: 'Dunkel', bg: 'bg-slate-900', border: 'border-slate-700', dot: 'bg-slate-700' },
+  { key: 'transparent', labelKey: 'widgets.color_transparent', defaultLabel: 'Ohne Hintergrund', bg: 'bg-transparent', border: 'border-slate-400/40', dot: 'bg-white/40' }
 ];
 
 type CategoryFilter = 'all' | 'phone_widget' | 'sticky_note' | 'finance' | 'time' | 'actions';
@@ -92,7 +92,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-emerald-600 text-white',
       defaultWidth: 290,
       defaultHeight: 170,
-      tags: ['Umsatz', 'Finanzen', 'Kasse', 'KPI', 'Revenue']
+      tags: ['Umsatz', 'Finanzen', 'Kasse', 'KPI', 'Revenue', 'Facture', 'Ingresos']
     },
     {
       type: 'calendar_agenda' as DesktopWidgetType,
@@ -104,7 +104,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-indigo-600 text-white',
       defaultWidth: 280,
       defaultHeight: 180,
-      tags: ['Kalender', 'Datum', 'Termine', 'Agenda', 'Calendar']
+      tags: ['Kalender', 'Datum', 'Termine', 'Agenda', 'Calendar', 'Calendrier', 'Calendario']
     },
     {
       type: 'system_clock' as DesktopWidgetType,
@@ -116,7 +116,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-sky-600 text-white',
       defaultWidth: 260,
       defaultHeight: 160,
-      tags: ['Uhr', 'Zeit', 'Clock', 'Time', 'Weltzeit', 'Analog']
+      tags: ['Uhr', 'Zeit', 'Clock', 'Time', 'Weltzeit', 'Analog', 'Horloge', 'Reloj']
     },
     {
       type: 'stock_alert' as DesktopWidgetType,
@@ -128,7 +128,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-amber-600 text-white',
       defaultWidth: 290,
       defaultHeight: 170,
-      tags: ['Lager', 'Bestand', 'Warnung', 'Stock', 'Inventory']
+      tags: ['Lager', 'Bestand', 'Warnung', 'Stock', 'Inventory', 'Stocks', 'Inventario']
     },
     {
       type: 'quick_actions' as DesktopWidgetType,
@@ -140,7 +140,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-violet-600 text-white',
       defaultWidth: 300,
       defaultHeight: 160,
-      tags: ['Aktionen', 'Start', 'Rechnung', 'POS', 'Notiz', 'Quick', 'Launcher']
+      tags: ['Aktionen', 'Start', 'Rechnung', 'POS', 'Notiz', 'Quick', 'Launcher', 'Raccourcis', 'Accesos']
     },
     {
       type: 'notes' as DesktopWidgetType,
@@ -152,17 +152,17 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       color: 'bg-amber-500 text-white',
       defaultWidth: 260,
       defaultHeight: 210,
-      tags: ['Notiz', 'Sticky', 'Gedanken', 'To-Do', 'Notes']
+      tags: ['Notiz', 'Sticky', 'Gedanken', 'To-Do', 'Notes', 'Pense-bête', 'Notas']
     }
   ];
 
   const FILTER_OPTIONS: { id: CategoryFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'Alle Widgets', count: WIDGET_CATALOG_ITEMS.length },
-    { id: 'phone_widget', label: 'Handy-Kacheln', count: WIDGET_CATALOG_ITEMS.filter(i => i.kind === 'phone_widget').length },
-    { id: 'sticky_note', label: 'Haftnotizen', count: WIDGET_CATALOG_ITEMS.filter(i => i.kind === 'sticky_note').length },
-    { id: 'time', label: 'Zeit & Kalender', count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'time').length },
-    { id: 'finance', label: 'Finanzen & KPI', count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'finance').length },
-    { id: 'actions', label: 'Aktionen & Lager', count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'actions').length }
+    { id: 'all', label: t('widgets.filter_all', currentLang, 'Alle Widgets'), count: WIDGET_CATALOG_ITEMS.length },
+    { id: 'phone_widget', label: t('widgets.filter_phone_widgets', currentLang, 'Handy-Kacheln'), count: WIDGET_CATALOG_ITEMS.filter(i => i.kind === 'phone_widget').length },
+    { id: 'sticky_note', label: t('widgets.filter_sticky_notes', currentLang, 'Haftnotizen'), count: WIDGET_CATALOG_ITEMS.filter(i => i.kind === 'sticky_note').length },
+    { id: 'time', label: t('widgets.filter_time', currentLang, 'Zeit & Kalender'), count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'time').length },
+    { id: 'finance', label: t('widgets.filter_finance', currentLang, 'Finanzen & KPI'), count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'finance').length },
+    { id: 'actions', label: t('widgets.filter_actions', currentLang, 'Aktionen & Lager'), count: WIDGET_CATALOG_ITEMS.filter(i => i.category === 'actions').length }
   ];
 
   const filteredCatalog = useMemo(() => {
@@ -269,7 +269,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                 />
                 <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl backdrop-blur-xl p-1.5 z-50 animate-scale-in space-y-1">
                   <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                    Kategorie filtern
+                    {t('widgets.filter_category', currentLang, 'Kategorie filtern')}
                   </div>
                   {FILTER_OPTIONS.map((opt) => (
                     <button
@@ -305,7 +305,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                 <Search className="w-5 h-5" />
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Keine Widgets für diese Filterkriterien gefunden
+                {t('widgets.no_results', currentLang, 'Keine Widgets für diese Filterkriterien gefunden')}
               </p>
               <button
                 onClick={() => {
@@ -314,7 +314,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                 }}
                 className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
               >
-                Filter zurücksetzen
+                {t('widgets.reset_filter', currentLang, 'Filter zurücksetzen')}
               </button>
             </div>
           ) : (
@@ -353,7 +353,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                             setSettingsModalWidgetType(item.type);
                           }}
                           className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer shrink-0"
-                          title="Widget-Einstellungen anpassen (Hintergrund, Schrift, Städte, etc.)"
+                          title={t('widgets.btn_configure', currentLang, 'Anpassen')}
                         >
                           <Settings className="w-4 h-4" />
                         </button>
@@ -370,7 +370,7 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                                 type="button"
                                 onClick={() => setSelectedNoteColor(p.key)}
                                 className={`w-5 h-5 rounded-full ${p.dot} border transition ${selectedNoteColor === p.key ? 'scale-125 ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-slate-900 border-black/30' : 'border-black/10 opacity-70 hover:opacity-100'}`}
-                                title={p.label}
+                                title={t(p.labelKey, currentLang, p.defaultLabel)}
                               />
                             ))}
                           </div>
@@ -383,14 +383,14 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between text-[11px] font-bold">
                               <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                                <TrendingUp className="w-3 h-3" /> Tagesumsatz
+                                <TrendingUp className="w-3 h-3" /> {t('widgets.daily_revenue_short', currentLang, 'Tagesumsatz')}
                               </span>
                               <span className="font-mono text-emerald-600 font-extrabold">
-                                {todayRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {company.currency}
+                                {todayRevenue.toLocaleString(currentLang === 'de' ? 'de-DE' : 'en-US', { minimumFractionDigits: 2 })} {company.currency}
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/60 dark:border-slate-800">
-                              <span>Offene Rechnungen:</span>
+                              <span>{t('widgets.open_invoices', currentLang, 'Offene Rechnungen:')}</span>
                               <span className="font-bold text-amber-600">{openInvoicesCount}</span>
                             </div>
                           </div>
@@ -427,9 +427,9 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="min-w-0">
                               <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 block">
-                                {lowStockProducts.length > 0 ? `${lowStockProducts.length} Artikel knapp` : 'Alle Bestände im Soll'}
+                                {lowStockProducts.length > 0 ? `${lowStockProducts.length} ${t('widgets.low_stock_warning', currentLang, 'Artikel knapp')}` : t('widgets.all_stock_ok', currentLang, 'Alle Bestände im Soll')}
                               </span>
-                              <span className="text-[10px] text-slate-500">Mindestbestand-Prüfung</span>
+                              <span className="text-[10px] text-slate-500">{t('widgets.min_stock_check', currentLang, 'Mindestbestand-Prüfung')}</span>
                             </div>
                             <div className={`w-7 h-7 rounded-xl ${lowStockProducts.length > 0 ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'} flex items-center justify-center`}>
                               <AlertTriangle className="w-3.5 h-3.5" />
@@ -439,16 +439,16 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
 
                         {item.type === 'quick_actions' && (
                           <div className="grid grid-cols-4 gap-1.5 text-center">
-                            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 text-[9px] font-bold">Faktura</div>
-                            <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 text-[9px] font-bold">Kontakt</div>
-                            <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-600 text-[9px] font-bold">Kasse</div>
-                            <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-[9px] font-bold">Kalender</div>
+                            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 text-[9px] font-bold">{t('widgets.quick_invoices', currentLang, 'Faktura')}</div>
+                            <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 text-[9px] font-bold">{t('widgets.quick_contacts', currentLang, 'Kontakt')}</div>
+                            <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-600 text-[9px] font-bold">{t('widgets.quick_pos', currentLang, 'Kasse')}</div>
+                            <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-[9px] font-bold">{t('widgets.quick_calendar', currentLang, 'Kalender')}</div>
                           </div>
                         )}
 
                         {item.type === 'notes' && (
                           <div className={`p-2.5 rounded-xl border text-[11px] italic transition ${STICKY_PALETTE.find(p => p.key === selectedNoteColor)?.bg || 'bg-amber-100'} ${STICKY_PALETTE.find(p => p.key === selectedNoteColor)?.border || 'border-amber-300'}`}>
-                            "Wichtige Notiz oder To-Do direkt auf dem Desktop..."
+                            "{t('widgets.note_desktop_preview', currentLang, 'Wichtige Notiz oder To-Do direkt auf dem Desktop...')}"
                           </div>
                         )}
                       </div>
@@ -462,10 +462,10 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
                           setSettingsModalWidgetType(item.type);
                         }}
                         className="py-2.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                        title="Widget konfigurieren (Hintergrund, Zeitzone, etc.)"
+                        title={t('widgets.btn_configure', currentLang, 'Anpassen')}
                       >
                         <Settings className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Anpassen</span>
+                        <span className="hidden sm:inline">{t('widgets.btn_configure', currentLang, 'Anpassen')}</span>
                       </button>
 
                       <button

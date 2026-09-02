@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   Check, 
@@ -20,7 +21,9 @@ import {
   CreditCard,
   ShoppingCart,
   Boxes,
-  BookOpen
+  BookOpen,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { DesktopWidget, DesktopWidgetType, ActiveModule, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
@@ -50,15 +53,15 @@ export const TIMEZONE_OPTIONS = [
   { city: 'Sydney (AEST)', tz: 'Australia/Sydney' }
 ];
 
-export const AVAILABLE_ACTION_MODULES: { id: ActiveModule; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { id: 'invoices', label: 'Rechnungen', icon: Receipt },
-  { id: 'contacts', label: 'Kontakte', icon: Users },
-  { id: 'pos', label: 'POS Kasse', icon: CreditCard },
-  { id: 'calendar', label: 'Kalender', icon: Calendar },
-  { id: 'stock', label: 'Lagerbestand', icon: Boxes },
-  { id: 'purchases', label: 'Einkauf', icon: ShoppingCart },
-  { id: 'accounting', label: 'Finanzen', icon: TrendingUp },
-  { id: 'docs', label: 'Handbuch', icon: BookOpen }
+export const AVAILABLE_ACTION_MODULES: { id: ActiveModule; labelKey: string; defaultLabel: string; icon: React.FC<{ className?: string }> }[] = [
+  { id: 'invoices', labelKey: 'widgets.quick_invoices', defaultLabel: 'Rechnungen', icon: Receipt },
+  { id: 'contacts', labelKey: 'widgets.quick_contacts', defaultLabel: 'Kontakte', icon: Users },
+  { id: 'pos', labelKey: 'widgets.quick_pos', defaultLabel: 'POS Kasse', icon: CreditCard },
+  { id: 'calendar', labelKey: 'widgets.quick_calendar', defaultLabel: 'Kalender', icon: Calendar },
+  { id: 'stock', labelKey: 'widgets.quick_stock', defaultLabel: 'Lagerbestand', icon: Boxes },
+  { id: 'purchases', labelKey: 'widgets.quick_purchases', defaultLabel: 'Einkauf', icon: ShoppingCart },
+  { id: 'accounting', labelKey: 'widgets.quick_accounting', defaultLabel: 'Finanzen', icon: TrendingUp },
+  { id: 'docs', labelKey: 'widgets.quick_docs', defaultLabel: 'Handbuch', icon: BookOpen }
 ];
 
 export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
@@ -84,6 +87,12 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
   );
   const [layerLevel, setLayerLevel] = useState<'normal' | 'background'>(
     initialWidget?.layerLevel || 'normal'
+  );
+  const [blurBehindApps, setBlurBehindApps] = useState<boolean>(
+    initialWidget?.blurBehindApps || false
+  );
+  const [isLocked, setIsLocked] = useState<boolean>(
+    initialWidget?.isLocked || false
   );
 
   // Clock specific state
@@ -114,6 +123,17 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleToggleActionModule = (modId: ActiveModule) => {
@@ -139,6 +159,8 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
       fontStyle,
       textColor,
       layerLevel,
+      blurBehindApps,
+      isLocked,
       clockType,
       clockTimezone,
       clockCityLabel: cityOpt ? cityOpt.city.split('/')[0].trim() : 'Lokal',
@@ -216,10 +238,16 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
     backgroundStyle === 'dark' ? 'bg-slate-950 border-slate-800 text-white shadow-xl' :
     'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-md';
 
-  return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in select-none">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[999999] pointer-events-auto flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in select-none"
+      onClick={() => {
+        sounds.playClick();
+        onClose();
+      }}
+    >
       <div 
-        className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-in text-slate-800 dark:text-slate-100"
+        className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-in text-slate-800 dark:text-slate-100 relative z-10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -255,11 +283,11 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
           {/* 1. INTERACTIVE LIVE PREVIEW BOX */}
           <div className="space-y-2">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Live-Vorschau
+              {t('widgets.live_preview', currentLang, 'Live-Vorschau')}
             </label>
             <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-950 dark:to-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center min-h-[160px] relative overflow-hidden">
               {/* Preview Canvas Tile */}
-              <div className={`p-4 rounded-3xl border transition-all duration-300 ${bgBoxClass} ${fontClass} w-full max-w-[280px]`}>
+              <div className={`p-4 rounded-3xl ${backgroundStyle === 'transparent' ? 'bg-transparent border-0 shadow-none ring-0' : 'border'} transition-all duration-300 ${bgBoxClass} ${fontClass} w-full max-w-[280px]`}>
                 
                 {/* CLOCK PREVIEW */}
                 {widgetType === 'system_clock' && (
@@ -267,7 +295,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                     {clockType === 'digital' ? (
                       <div>
                         <div className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-0.5">
-                          {TIMEZONE_OPTIONS.find(o => o.tz === clockTimezone)?.city || 'Lokal'}
+                          {TIMEZONE_OPTIONS.find(o => o.tz === clockTimezone)?.city || t('widgets.local_time', currentLang, 'Lokal')}
                         </div>
                         <div className={`text-2xl font-bold tracking-tight ${textColorClass}`}>
                           {getTimeInZone()}
@@ -280,7 +308,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       /* Analog Round Clock SVG */
                       <div className="flex flex-col items-center gap-1.5">
                         <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">
-                          {TIMEZONE_OPTIONS.find(o => o.tz === clockTimezone)?.city || 'Lokal'}
+                          {TIMEZONE_OPTIONS.find(o => o.tz === clockTimezone)?.city || t('widgets.local_time', currentLang, 'Lokal')}
                         </div>
                         <div className="relative w-24 h-24 rounded-full border-2 border-slate-400/40 dark:border-slate-600/40 flex items-center justify-center shadow-inner">
                           {/* 12, 3, 6, 9 marks */}
@@ -318,16 +346,17 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Zap className="w-3.5 h-3.5 text-violet-500" />
-                      <span className="text-xs font-bold">Schnellstarter</span>
+                      <span className="text-xs font-bold">{t('widgets.quick_actions_title', currentLang, 'Schnellstarter')}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-1.5 text-center">
                       {quickActionModules.map((modId) => {
                         const info = AVAILABLE_ACTION_MODULES.find(m => m.id === modId);
                         const ModIcon = info?.icon || Receipt;
+                        const label = info ? t(info.labelKey, currentLang, info.defaultLabel) : modId;
                         return (
                           <div key={modId} className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex flex-col items-center gap-0.5">
                             <ModIcon className="w-3.5 h-3.5 text-indigo-500" />
-                            <span className="text-[8px] font-bold truncate max-w-full">{info?.label}</span>
+                            <span className="text-[8px] font-bold truncate max-w-full">{label}</span>
                           </div>
                         );
                       })}
@@ -338,8 +367,8 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 {/* STICKY NOTE PREVIEW */}
                 {widgetType === 'notes' && (
                   <div className="space-y-1 text-center italic text-xs">
-                    <div className="text-[10px] font-bold not-italic text-slate-400">Haftnotiz</div>
-                    <p className={textColorClass}>"Eigene Notiz ohne Ablenkung..."</p>
+                    <div className="text-[10px] font-bold not-italic text-slate-400">{t('widgets.sticky_note', currentLang, 'Haftnotiz')}</div>
+                    <p className={textColorClass}>"{t('widgets.notes_custom_preview', currentLang, 'Eigene Notiz ohne Ablenkung...')}"</p>
                   </div>
                 )}
 
@@ -348,7 +377,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-bold">
                       <span className="flex items-center gap-1 text-emerald-600">
-                        <TrendingUp className="w-3 h-3" /> Tagesumsatz
+                        <TrendingUp className="w-3 h-3" /> {t('widgets.daily_revenue_short', currentLang, 'Tagesumsatz')}
                       </span>
                     </div>
                     <div className={`text-lg font-black ${textColorClass}`}>
@@ -375,8 +404,8 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 {widgetType === 'stock_alert' && (
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className={`text-xs font-bold block ${textColorClass}`}>Lagerbestand OK</span>
-                      <span className="text-[10px] text-slate-400">Mindestbestand-Prüfung</span>
+                      <span className={`text-xs font-bold block ${textColorClass}`}>{t('widgets.all_stock_ok', currentLang, 'Lagerbestand OK')}</span>
+                      <span className="text-[10px] text-slate-400">{t('widgets.min_stock_check', currentLang, 'Mindestbestand-Prüfung')}</span>
                     </div>
                     <AlertTriangle className="w-4 h-4 text-emerald-500" />
                   </div>
@@ -390,12 +419,12 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-4">
               <h3 className="text-xs font-extrabold flex items-center gap-2">
                 <Clock className="w-4 h-4 text-sky-500" />
-                <span>Uhr-Einstellungen</span>
+                <span>{t('widgets.clock_settings_title', currentLang, 'Uhr-Einstellungen')}</span>
               </h3>
 
               {/* Digital vs Analog */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500">Uhren-Typ:</label>
+                <label className="text-[11px] font-bold text-slate-500">{t('widgets.clock_type_label', currentLang, 'Uhren-Typ:')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -403,9 +432,9 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       sounds.playClick();
                       setClockType('digital');
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${clockType === 'digital' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'digital' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                   >
-                    <span>Digital-Uhr</span>
+                    <span>{t('widgets.clock_digital', currentLang, 'Digital-Uhr')}</span>
                   </button>
                   <button
                     type="button"
@@ -413,9 +442,9 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       sounds.playClick();
                       setClockType('analog');
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${clockType === 'analog' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'analog' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                   >
-                    <span>Runde Analoguhr</span>
+                    <span>{t('widgets.clock_analog', currentLang, 'Runde Analoguhr')}</span>
                   </button>
                 </div>
               </div>
@@ -424,16 +453,16 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5" />
-                  <span>Stadt & Zeitzone:</span>
+                  <span>{t('widgets.clock_timezone_label', currentLang, 'Stadt & Zeitzone:')}</span>
                 </label>
                 <select
                   value={clockTimezone}
                   onChange={(e) => setClockTimezone(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800 dark:text-slate-200"
                 >
                   {TIMEZONE_OPTIONS.map(opt => (
                     <option key={opt.tz} value={opt.tz}>
-                      {opt.city} {opt.tz !== 'local' ? `(${opt.tz})` : ''}
+                      {opt.tz === 'local' ? t('widgets.tz_local', currentLang, 'Lokal (System)') : opt.city} {opt.tz !== 'local' ? `(${opt.tz})` : ''}
                     </option>
                   ))}
                 </select>
@@ -441,21 +470,21 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
 
               {/* 24h vs 12h Format */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500">Zeitformat:</label>
+                <label className="text-[11px] font-bold text-slate-500">{t('widgets.clock_format_label', currentLang, 'Zeitformat:')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setClockFormat('24h')}
-                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition ${clockFormat === '24h' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '24h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                   >
-                    24-Stunden (14:30)
+                    {t('widgets.clock_24h', currentLang, '24-Stunden (14:30)')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setClockFormat('12h')}
-                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition ${clockFormat === '12h' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '12h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                   >
-                    12-Stunden ENG (02:30 PM)
+                    {t('widgets.clock_12h', currentLang, '12-Stunden ENG (02:30 PM)')}
                   </button>
                 </div>
               </div>
@@ -467,22 +496,23 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
               <h3 className="text-xs font-extrabold flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-500" />
-                <span>Schnellstarter-Apps wählen (bis zu 4):</span>
+                <span>{t('widgets.quick_actions_apps_title', currentLang, 'Schnellstarter-Apps wählen (bis zu 4):')}</span>
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {AVAILABLE_ACTION_MODULES.map(mod => {
                   const isSelected = quickActionModules.includes(mod.id);
                   const ModIcon = mod.icon;
+                  const label = t(mod.labelKey, currentLang, mod.defaultLabel);
                   return (
                     <button
                       key={mod.id}
                       type="button"
                       onClick={() => handleToggleActionModule(mod.id)}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'}`}
+                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                     >
                       <div className="flex items-center gap-2">
                         <ModIcon className="w-4 h-4 text-indigo-500" />
-                        <span className="text-xs">{mod.label}</span>
+                        <span className="text-xs">{label}</span>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </button>
@@ -496,40 +526,40 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
           <div className="space-y-4">
             <h3 className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Palette className="w-4 h-4 text-indigo-500" />
-              <span>Hintergrund & Optik</span>
+              <span>{t('widgets.appearance_title', currentLang, 'Hintergrund & Optik')}</span>
             </h3>
 
             {/* Background Style Selection */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500">Hintergrund-Modus:</label>
+              <label className="text-[11px] font-bold text-slate-500">{t('widgets.bg_mode_label', currentLang, 'Hintergrund-Modus:')}</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('solid')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition ${backgroundStyle === 'solid' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'solid' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  <span className="text-[11px]">Klassisch</span>
+                  <span className="text-[11px]">{t('widgets.bg_solid', currentLang, 'Klassisch')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('transparent')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition ${backgroundStyle === 'transparent' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'transparent' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  <span className="text-[11px]">Ohne Hintergrund</span>
+                  <span className="text-[11px]">{t('widgets.bg_transparent', currentLang, 'Ohne Hintergrund')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('glass')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition ${backgroundStyle === 'glass' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'glass' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  <span className="text-[11px]">Glas / Acryl</span>
+                  <span className="text-[11px]">{t('widgets.bg_glass', currentLang, 'Glas / Acryl')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('dark')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition ${backgroundStyle === 'dark' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'dark' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  <span className="text-[11px]">Dunkel</span>
+                  <span className="text-[11px]">{t('widgets.bg_dark', currentLang, 'Dunkel')}</span>
                 </button>
               </div>
             </div>
@@ -538,59 +568,59 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
                 <Type className="w-3.5 h-3.5" />
-                <span>Schriftart / Typografie:</span>
+                <span>{t('widgets.font_style_label', currentLang, 'Schriftart / Typografie:')}</span>
               </label>
               <div className="grid grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setFontStyle('sans')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-sans transition ${fontStyle === 'sans' ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-sans transition cursor-pointer ${fontStyle === 'sans' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  Modern
+                  {t('widgets.font_sans', currentLang, 'Modern')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('mono')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-mono transition ${fontStyle === 'mono' ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-mono transition cursor-pointer ${fontStyle === 'mono' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  Digital
+                  {t('widgets.font_mono', currentLang, 'Digital')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('serif')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-serif transition ${fontStyle === 'serif' ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-serif transition cursor-pointer ${fontStyle === 'serif' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  Klassisch
+                  {t('widgets.font_serif', currentLang, 'Klassisch')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('display')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-extrabold transition ${fontStyle === 'display' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-extrabold transition cursor-pointer ${fontStyle === 'display' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
                 >
-                  Display
+                  {t('widgets.font_display', currentLang, 'Display')}
                 </button>
               </div>
             </div>
 
             {/* Text Color Selection */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500">Text- & Akzentfarbe:</label>
+              <label className="text-[11px] font-bold text-slate-500">{t('widgets.text_color_label', currentLang, 'Text- & Akzentfarbe:')}</label>
               <div className="flex items-center gap-2 flex-wrap">
                 {[
-                  { key: 'default', label: 'Standard', color: 'bg-slate-700' },
-                  { key: 'white', label: 'Weiß (Glow)', color: 'bg-white border-slate-300' },
-                  { key: 'emerald', label: 'Smaragd', color: 'bg-emerald-500' },
-                  { key: 'indigo', label: 'Indigo', color: 'bg-indigo-500' },
-                  { key: 'amber', label: 'Bernstein', color: 'bg-amber-500' },
-                  { key: 'sky', label: 'Himmelblau', color: 'bg-sky-500' },
-                  { key: 'rose', label: 'Rose', color: 'bg-rose-500' }
+                  { key: 'default', labelKey: 'widgets.color_default', defaultLabel: 'Standard', color: 'bg-slate-700' },
+                  { key: 'white', labelKey: 'widgets.color_white', defaultLabel: 'Weiß (Glow)', color: 'bg-white border-slate-300' },
+                  { key: 'emerald', labelKey: 'widgets.color_emerald', defaultLabel: 'Smaragd', color: 'bg-emerald-500' },
+                  { key: 'indigo', labelKey: 'widgets.color_indigo', defaultLabel: 'Indigo', color: 'bg-indigo-500' },
+                  { key: 'amber', labelKey: 'widgets.color_amber', defaultLabel: 'Bernstein', color: 'bg-amber-500' },
+                  { key: 'sky', labelKey: 'widgets.color_sky', defaultLabel: 'Himmelblau', color: 'bg-sky-500' },
+                  { key: 'rose', labelKey: 'widgets.color_rose', defaultLabel: 'Rose', color: 'bg-rose-500' }
                 ].map(col => (
                   <button
                     key={col.key}
                     type="button"
                     onClick={() => setTextColor(col.key as any)}
-                    className={`w-7 h-7 rounded-full ${col.color} border transition flex items-center justify-center ${textColor === col.key ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110' : 'opacity-70 hover:opacity-100'}`}
-                    title={col.label}
+                    className={`w-7 h-7 rounded-full ${col.color} border transition flex items-center justify-center cursor-pointer ${textColor === col.key ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110' : 'opacity-70 hover:opacity-100'}`}
+                    title={t(col.labelKey, currentLang, col.defaultLabel)}
                   >
                     {textColor === col.key && <Check className="w-3.5 h-3.5 text-black/80 dark:text-white" />}
                   </button>
@@ -599,29 +629,102 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             </div>
 
             {/* Placement Layer Selection (Hintergrund vs Vordergrund) */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                <span>Desktop-Ebene / Platzierung:</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLayerLevel('normal')}
-                  className={`py-2 px-3 rounded-xl border text-xs text-left transition ${layerLevel === 'normal' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'}`}
-                >
-                  <div className="font-bold">Standard (Verschiebbar)</div>
-                  <div className="text-[10px] opacity-75">Als schwebende Kachel auf dem Desktop</div>
-                </button>
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-indigo-500" />
+                  <span>{t('widgets.placement_layer_label', currentLang, 'Desktop-Ebene & Fenster-Verhalten:')}</span>
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {t('widgets.placement_layer_sub', currentLang, 'Bestimme, ob das Widget hinter geöffneten Programmen auf dem Desktop liegt oder immer im Vordergrund schwebt.')}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setLayerLevel('background')}
-                  className={`py-2 px-3 rounded-xl border text-xs text-left transition ${layerLevel === 'background' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'}`}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'background' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                 >
-                  <div className="font-bold">Desktop-Hintergrund</div>
-                  <div className="text-[10px] opacity-75">Hinter allen Fenstern auf Wallpaper-Ebene</div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />
+                      {t('widgets.layer_bg_title', currentLang, 'Hinter Fenstern (Desktop-Hintergrund)')}
+                    </span>
+                    {layerLevel === 'background' && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                    {t('widgets.layer_bg_desc', currentLang, 'Widget liegt fest auf dem Hintergrundbild; geöffnete Apps legen sich darüber.')}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayerLevel('normal')}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'normal' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5" />
+                      {t('widgets.layer_normal_title', currentLang, 'Immer im Vordergrund (Über Apps)')}
+                    </span>
+                    {layerLevel === 'normal' && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                    {t('widgets.layer_normal_desc', currentLang, 'Widget schwebt über allen Fenstern und bleibt stets im Vordergrund sichtbar.')}
+                  </div>
                 </button>
               </div>
+            </div>
+
+            {/* Blur Effect when Behind Windows Toggle */}
+            {layerLevel === 'background' && (
+              <div className="space-y-2 pt-2 p-3 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                      {t('widgets.blur_behind_label', currentLang, 'Unschärfe-Effekt (Blur) hinter Fenstern:')}
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t('widgets.blur_desc', currentLang, 'Zeichnet das Widget im Desktop-Hintergrund dezent weich. Beim Drüberfahren mit der Maus wird es sofort scharf.')}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setBlurBehindApps(false)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${!blurBehindApps ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  >
+                    {t('widgets.blur_disabled', currentLang, 'Gestochen scharf (Standard)')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBlurBehindApps(true)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${blurBehindApps ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  >
+                    {t('widgets.blur_enabled', currentLang, 'Dezenter Bokeh / Blur-Effekt')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Lock Position Toggle */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5" />
+                <span>{t('widgets.lock_position', currentLang, 'Position fixieren (Sperren):')}</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsLocked(!isLocked)}
+                className={`w-full py-2.5 px-3.5 rounded-xl border text-xs flex items-center justify-between transition cursor-pointer ${isLocked ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+              >
+                <div className="flex items-center gap-2">
+                  {isLocked ? <Lock className="w-4 h-4 text-amber-600" /> : <Unlock className="w-4 h-4 text-slate-400" />}
+                  <span>{isLocked ? t('widgets.lock_position', currentLang, 'Position fixiert (Nicht verschiebbar)') : t('widgets.unlock_position', currentLang, 'Frei verschiebbar')}</span>
+                </div>
+                {isLocked && <Check className="w-4 h-4 text-amber-600" />}
+              </button>
             </div>
 
           </div>
@@ -638,7 +741,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             }}
             className="px-4 py-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition cursor-pointer"
           >
-            Abbrechen
+            {t('common.cancel', currentLang, 'Abbrechen')}
           </button>
           <button
             type="button"
@@ -646,10 +749,11 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
             className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-xs font-extrabold text-white flex items-center gap-2 shadow-md transition cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>{initialWidget ? 'Einstellungen speichern' : 'Konfigurieren & Anheften'}</span>
+            <span>{initialWidget ? t('widgets.btn_save_settings', currentLang, 'Einstellungen speichern') : t('widgets.btn_configure_and_pin', currentLang, 'Konfigurieren & Anheften')}</span>
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

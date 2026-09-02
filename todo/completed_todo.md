@@ -6,7 +6,41 @@
 
 ## Completed Tasks Archive
 
-### 1. Advanced Widget Customization Studio, Floating Search & Filter Dropdown, Analog & World Clocks, Quick Actions & Wallpaper Layering (v21.8.3)
+### 1. Top-Level Portal Rendering & Keyboard Escape Dismissal for Desktop Widget Settings Modal (v21.8.6)
+- [x] **Top-Level React Portal Stacking (`WidgetSettingsModal.tsx`)**:
+  - [x] Wrapped `WidgetSettingsModal` in `createPortal(..., document.body)` with `z-[999999]` and `pointer-events-auto`.
+  - [x] Fixed stacking context issue where desktop icons and canvas containers clipped or rendered in front of the settings modal.
+  - [x] Ensured all interactive controls (buttons, dropdowns, inputs, styles) receive direct pointer input.
+- [x] **Modal Dismissal & Keyboard Controls (`WidgetSettingsModal.tsx`, `DesktopWidgetsLayer.tsx`)**:
+  - [x] Added `Escape` key event listener to immediately close the modal.
+  - [x] Enabled backdrop click to close the modal.
+  - [x] Ensured `onSave` cleanly saves updates and unmounts the modal.
+
+### 2. Pure Desktop Widget Presentation, True Background Transparency, Position Locking & Right-Click Customization Context Menu (v21.8.5)
+- [x] **Pure Smartphone-Style Widget Presentation (`DesktopWidgetsLayer.tsx`)**:
+  - [x] Removed bulky header bars and static titles from pinned desktop widgets so they render directly in their authentic format as clean clock, calendar, revenue, and launcher tiles.
+  - [x] Added subtle floating micro-action controls (⚙️ Settings and ✖️ Remove) on hover.
+- [x] **True Zero-Background Transparency (`DesktopWidgetsLayer.tsx`, `WidgetSettingsModal.tsx`)**:
+  - [x] Eliminated all background colors, solid container borders, and hover outlines when "Ohne Hintergrund" (Transparent) is selected.
+  - [x] High-contrast drop-shadow typography (`drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]`) ensures high readability across all wallpaper backgrounds.
+- [x] **Widget Position Locking & Accidental Movement Prevention (`DesktopWidgetsLayer.tsx`, `WidgetSettingsModal.tsx`, `src/types.ts`)**:
+  - [x] Added `isLocked` property to `DesktopWidget` interface.
+  - [x] Drag events are prevented when `isLocked` is true, ensuring widgets stay firmly anchored on the desktop.
+  - [x] Position locking toggleable via right-click context menu, hover lock badge, and settings modal.
+- [x] **Right-Click Context Menu & Live Customizer (`DesktopWidgetsLayer.tsx`, `src/lib/i18n.ts`)**:
+  - [x] Right-clicking on any widget opens a Windows 11-styled context menu for live configuration.
+  - [x] Menu actions: Open Customization Settings Modal, Lock/Unlock Position, Fast Background Style switcher, Fast Resizing (Klein, Mittel, Groß), Layer Mode, and Remove from Desktop.
+
+### 2. Task View Indicator Removal, Semi-Transparent Desktop Placement Ghost & Complete Widgets 4-Language Localization (v21.8.4)
+- [x] **Task View Active Indicator Dot Removal (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed active dot indicator under the Task View taskbar button to reflect its status as a permanent system background feature (Windows 11 style).
+- [x] **Semi-Transparent App Placement Ghost (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented real-time desktop grid placement ghost preview (`dragPreviewPos`) on `onDragOver` / `onDragLeave`.
+  - [x] Visual translucent badge with dashed border, module icon, and name shows the destination slot before drop.
+- [x] **Complete Widgets 4-Language Localization (`src/lib/i18n.ts`, `WidgetsModule.tsx`, `WidgetSettingsModal.tsx`, `DesktopWidgetsModal.tsx`)**:
+  - [x] Localized all widget cards, category filter dropdown, background and typography selectors, analog clock options, and quick action launcher across German, English, French, and Spanish.
+
+### 2. Advanced Widget Customization Studio, Floating Search & Filter Dropdown, Analog & World Clocks, Quick Actions & Wallpaper Layering (v21.8.3)
 - [x] **Floating Search Bar & Category Filter Dropdown (`WidgetsModule.tsx`)**:
   - [x] Replaced blocky container with a floating, rounded-2xl glass search bar with smooth focus highlights and blur.
   - [x] Implemented dropdown filter menu with category counts (*Alle Widgets*, *Handy-Kacheln*, *Haftnotizen*, *Zeit & Kalender*, *Finanzen & KPI*, *Aktionen & Lager*).

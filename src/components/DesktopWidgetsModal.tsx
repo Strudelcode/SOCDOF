@@ -129,7 +129,7 @@ export const DesktopWidgetsModal: React.FC<DesktopWidgetsModalProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-300 hover:bg-violet-100 text-xs font-bold transition"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Widgets App öffnen</span>
+                <span>{t('widgets.open_widgets_app', currentLang, 'Widgets App öffnen')}</span>
               </button>
             )}
 
@@ -204,7 +204,7 @@ export const DesktopWidgetsModal: React.FC<DesktopWidgetsModalProps> = ({
                   className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-between gap-3 text-xs"
                 >
                   <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize truncate">
-                    {w.title || (w.type === 'notes' ? 'Haftnotiz' : w.type)}
+                    {w.title || (w.type === 'notes' ? t('widgets.sticky_note', currentLang, 'Haftnotiz') : w.type)}
                   </span>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -216,7 +216,7 @@ export const DesktopWidgetsModal: React.FC<DesktopWidgetsModalProps> = ({
                           : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
                       }`}
                     >
-                      {w.isVisible !== false ? 'Sichtbar' : 'Ausgeblendet'}
+                      {w.isVisible !== false ? t('widgets.visible', currentLang, 'Sichtbar') : t('widgets.hidden', currentLang, 'Ausgeblendet')}
                     </button>
 
                     <button
@@ -225,7 +225,7 @@ export const DesktopWidgetsModal: React.FC<DesktopWidgetsModalProps> = ({
                         onRemoveWidget(w.id);
                       }}
                       className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                      title="Widget entfernen"
+                      title={t('widgets.remove_widget', currentLang, 'Widget entfernen')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

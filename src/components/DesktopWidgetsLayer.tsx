@@ -8,22 +8,28 @@ import {
   Clock, 
   Receipt, 
   ExternalLink,
-  Palette,
-  X,
-  Check,
-  AlertTriangle,
-  Zap,
-  Maximize2,
-  Minimize2,
-  Smartphone,
-  Layers,
-  Settings,
-  Grid,
-  Users,
-  CreditCard,
-  ShoppingCart,
-  Boxes,
-  BookOpen
+  Palette, 
+  X, 
+  Check, 
+  AlertTriangle, 
+  Zap, 
+  Maximize2, 
+  Minimize2, 
+  Smartphone, 
+  Layers, 
+  Settings, 
+  Grid, 
+  Users, 
+  CreditCard, 
+  ShoppingCart, 
+  Boxes, 
+  BookOpen,
+  Lock,
+  Unlock,
+  Globe,
+  Sun,
+  Moon,
+  Sparkles
 } from 'lucide-react';
 import { DesktopWidget, Invoice, Product, ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -87,8 +93,8 @@ const STICKY_COLORS: Record<string, { bg: string; border: string; text: string; 
   },
   transparent: {
     bg: 'bg-transparent',
-    border: 'border-slate-400/30 hover:border-slate-400/60',
-    text: 'text-slate-900 dark:text-white drop-shadow-md',
+    border: 'border-0',
+    text: 'text-slate-900 dark:text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]',
     header: 'bg-black/20 text-white backdrop-blur-sm',
     dot: 'bg-white/40'
   }
@@ -128,9 +134,18 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
     return () => window.removeEventListener('click', handleCloseMenu);
   }, []);
 
-  const handleMouseDownHeader = (w: DesktopWidget, e: React.MouseEvent) => {
-    // Only left click
+  const handleMouseDownWidget = (w: DesktopWidget, e: React.MouseEvent) => {
+    // Only left click initiates drag
     if (e.button !== 0) return;
+    // If locked, do not allow drag
+    if (w.isLocked) return;
+
+    // Ignore clicks on buttons, inputs, textareas or elements marked with data-no-drag
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('textarea') || target.closest('input') || target.closest('[data-no-drag]')) {
+      return;
+    }
+
     setContextMenu(null);
     setDraggingId(w.id);
     setDragOffset({
@@ -150,7 +165,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!draggingId) return;
     const currentW = widgets.find(w => w.id === draggingId);
-    if (!currentW) return;
+    if (!currentW || currentW.isLocked) return;
 
     const newX = Math.max(10, Math.min(window.innerWidth - currentW.width - 10, e.clientX - dragOffset.x));
     const newY = Math.max(10, Math.min(window.innerHeight - 100, e.clientY - dragOffset.y));
@@ -168,8 +183,8 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
-      x: Math.min(e.clientX, window.innerWidth - 240),
-      y: Math.min(e.clientY, window.innerHeight - 280),
+      x: Math.min(e.clientX, window.innerWidth - 270),
+      y: Math.min(e.clientY, window.innerHeight - 340),
       widgetId
     });
   };
@@ -192,17 +207,17 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
 
   // Helper styles for widgets
   const getWidgetCardStyle = (w: DesktopWidget) => {
-    const isBgTransparent = w.backgroundStyle === 'transparent';
+    const isBgTransparent = w.backgroundStyle === 'transparent' || w.color === 'transparent';
     const isBgGlass = w.backgroundStyle === 'glass';
     const isBgDark = w.backgroundStyle === 'dark';
 
     const bgClass = isBgTransparent
-      ? 'bg-transparent border-transparent shadow-none'
+      ? 'bg-transparent border-0 shadow-none ring-0'
       : isBgGlass
-      ? 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/30 dark:border-slate-700/50 shadow-2xl'
+      ? 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/30 dark:border-slate-700/50 shadow-2xl hover:border-indigo-400/80'
       : isBgDark
-      ? 'bg-slate-950/95 border-slate-800 text-white shadow-2xl backdrop-blur-md'
-      : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/90 dark:border-slate-800/90 shadow-2xl backdrop-blur-md';
+      ? 'bg-slate-950/95 border border-slate-800 text-white shadow-2xl backdrop-blur-md hover:border-indigo-400/80'
+      : 'bg-white/95 dark:bg-slate-900/95 border border-slate-200/90 dark:border-slate-800/90 shadow-2xl backdrop-blur-md hover:border-indigo-400/80';
 
     const fontClass = 
       w.fontStyle === 'mono' ? 'font-mono' :
@@ -210,14 +225,15 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       w.fontStyle === 'display' ? 'font-extrabold tracking-tight' : 'font-sans';
 
     const textColClass =
-      w.textColor === 'white' ? 'text-white drop-shadow-md' :
+      w.textColor === 'white' ? 'text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' :
       w.textColor === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' :
       w.textColor === 'indigo' ? 'text-indigo-600 dark:text-indigo-400' :
       w.textColor === 'amber' ? 'text-amber-600 dark:text-amber-400' :
       w.textColor === 'sky' ? 'text-sky-600 dark:text-sky-400' :
-      w.textColor === 'rose' ? 'text-rose-600 dark:text-rose-400' : '';
+      w.textColor === 'rose' ? 'text-rose-600 dark:text-rose-400' : 
+      isBgTransparent ? 'text-slate-900 dark:text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]' : '';
 
-    return { bgClass, fontClass, textColClass };
+    return { bgClass, fontClass, textColClass, isBgTransparent };
   };
 
   // Helper for timezone time string on clock widgets
@@ -273,13 +289,54 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       onMouseUp={handleMouseUp}
     >
       {visibleWidgets.map(widget => {
-        const { bgClass, fontClass, textColClass } = getWidgetCardStyle(widget);
+        const { bgClass, fontClass, textColClass, isBgTransparent } = getWidgetCardStyle(widget);
         const zIndexValue = widget.layerLevel === 'background' ? 1 : (widget.zIndex || 20);
+        const cursorClass = widget.isLocked ? 'cursor-default' : 'cursor-move';
+
+        // Floating Micro-Actions on Hover
+        const renderHoverMicroActions = () => (
+          <div 
+            className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-30 pointer-events-auto"
+            data-no-drag
+          >
+            {widget.isLocked && (
+              <div 
+                className="p-1.5 rounded-xl bg-slate-900/70 text-amber-300 backdrop-blur-md shadow-xs" 
+                title={t('widgets.lock_position', currentLang, 'Position fixiert')}
+              >
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                sounds.playClick();
+                setSettingsWidget(widget);
+              }}
+              className="p-1.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 text-white backdrop-blur-md transition cursor-pointer shadow-xs hover:scale-105"
+              title={t('widgets.context_settings', currentLang, 'Widget-Einstellungen')}
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                sounds.playDelete();
+                onRemoveWidget(widget.id);
+              }}
+              className="p-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white backdrop-blur-md transition cursor-pointer shadow-xs hover:scale-105"
+              title={t('widgets.remove_from_desktop', currentLang, 'Widget entfernen')}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
 
         // 1. STICKY NOTE WIDGET
         if (widget.type === 'notes') {
           const colorKey = widget.color || 'yellow';
           const colorConf = STICKY_COLORS[colorKey] || STICKY_COLORS.yellow;
+          const isNoteTransparent = colorKey === 'transparent' || widget.backgroundStyle === 'transparent';
 
           return (
             <div
@@ -291,81 +348,27 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 height: widget.isCollapsed ? '44px' : `${widget.height}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border shadow-2xl backdrop-blur-md flex flex-col transition duration-150 animate-fade-in group ${colorConf.bg} ${colorConf.border} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl ${isNoteTransparent ? 'bg-transparent border-0 shadow-none' : 'border shadow-2xl backdrop-blur-md'} flex flex-col transition duration-150 animate-fade-in group ${cursorClass} ${colorConf.bg} ${isNoteTransparent ? '' : colorConf.border} ${fontClass}`}
             >
-              {/* Note Header */}
-              <div
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className={`h-11 px-3.5 flex items-center justify-between cursor-move rounded-t-3xl ${colorConf.header}`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <StickyNote className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                  <span className="text-xs font-black truncate">
-                    {widget.title || t('widgets.sticky_note', currentLang, 'Notiz')}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 shrink-0">
-                  {/* Settings Gear Button */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition opacity-70 group-hover:opacity-100 cursor-pointer"
-                    title="Notiz konfigurieren"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Palette button */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setColorPickerOpenId(colorPickerOpenId === widget.id ? null : widget.id);
-                      }}
-                      className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition opacity-70 group-hover:opacity-100 cursor-pointer"
-                      title="Farbe ändern"
-                    >
-                      <Palette className="w-3.5 h-3.5" />
-                    </button>
-
-                    {colorPickerOpenId === widget.id && (
-                      <div className="absolute right-0 top-full mt-1.5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl flex items-center gap-1.5 z-50 animate-scale-in">
-                        {Object.entries(STICKY_COLORS).map(([key, item]) => (
-                          <button
-                            key={key}
-                            onClick={() => {
-                              sounds.playClick();
-                              onUpdateWidget(widget.id, { color: key });
-                              setColorPickerOpenId(null);
-                            }}
-                            className={`w-5 h-5 rounded-full ${item.dot} border transition ${colorKey === key ? 'scale-125 ring-2 ring-indigo-500' : 'opacity-70 hover:opacity-100'}`}
-                          />
-                        ))}
-                      </div>
-                    )}
+              {/* Note Top Grip Handle */}
+              {!isNoteTransparent && (
+                <div className={`h-9 px-3 flex items-center justify-between rounded-t-3xl ${colorConf.header}`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <StickyNote className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                    <span className="text-[11px] font-black truncate">
+                      {widget.title || t('widgets.sticky_note', currentLang, 'Notiz')}
+                    </span>
                   </div>
-
-                  {/* Close button */}
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-500 hover:text-white transition opacity-70 group-hover:opacity-100 cursor-pointer"
-                    title="Notiz schließen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Note Content Textarea */}
               {!widget.isCollapsed && (
-                <div className="flex-1 p-3 flex flex-col min-h-0">
+                <div className={`flex-1 ${isNoteTransparent ? 'p-2' : 'p-3'} flex flex-col min-h-0`}>
                   <textarea
                     value={widget.content || ''}
                     onChange={(e) => onUpdateWidget(widget.id, { content: e.target.value })}
@@ -389,67 +392,31 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 width: `${widget.width}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border p-4 flex flex-col justify-between gap-3 animate-fade-in group hover:border-indigo-400 transition ${bgClass} ${fontClass}`}
+              onDoubleClick={() => onOpenModule('invoices')}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
             >
-              <div 
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className="flex items-center justify-between cursor-move select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-xs">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-extrabold ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
-                    {widget.title || t('widgets.daily_revenue', currentLang, 'Tagesumsatz & Kasse')}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
-                    title="Widget konfigurieren"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onOpenModule('invoices')}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition"
-                    title="Rechnungen öffnen"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition"
-                    title="Widget entfernen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+              {/* Header Label */}
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-xs">
+                  <TrendingUp className="w-4 h-4" />
                 </div>
+                <span className={`text-[11px] font-black uppercase tracking-wider ${textColClass || 'text-slate-700 dark:text-slate-300'}`}>
+                  {widget.title || t('widgets.daily_revenue_short', currentLang, 'Tagesumsatz')}
+                </span>
               </div>
 
-              {/* KPI Data */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Heute bezahlt</span>
-                  <span className={`text-base font-extrabold font-mono ${textColClass || 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {todayRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Offen</span>
-                  <span className="text-base font-extrabold font-mono text-amber-600 dark:text-amber-400">
-                    {openInvoicesCount} Rechnungen
-                  </span>
-                </div>
+              {/* Big KPI Metric */}
+              <div>
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight block ${textColClass || 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {todayRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Heute bezahlt • <strong className="text-amber-600 dark:text-amber-400">{openInvoicesCount} offen</strong>
+                </span>
               </div>
             </div>
           );
@@ -471,76 +438,38 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 width: `${widget.width}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border p-4 flex flex-col justify-between gap-3 animate-fade-in group hover:border-indigo-400 transition ${bgClass} ${fontClass}`}
+              onDoubleClick={() => onOpenModule('calendar')}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex items-center gap-3.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
             >
-              <div 
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className="flex items-center justify-between cursor-move select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shadow-xs">
-                    <Calendar className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-extrabold ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
-                    {widget.title || t('widgets.calendar_widget', currentLang, 'Tageskalender')}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
-                    title="Widget konfigurieren"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onOpenModule('calendar')}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition"
-                    title="Kalender öffnen"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition"
-                    title="Widget entfernen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+              <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex flex-col items-center justify-center shrink-0 shadow-md">
+                <span className="text-[10px] font-black uppercase tracking-wider">{monthName}</span>
+                <span className="text-xl font-black leading-none">{dayNum}</span>
               </div>
-
-              <div className="flex items-center gap-3.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex flex-col items-center justify-center shrink-0 shadow-md">
-                  <span className="text-[9px] font-extrabold uppercase tracking-wider">{monthName}</span>
-                  <span className="text-lg font-black leading-none">{dayNum}</span>
-                </div>
-                <div className="min-w-0">
-                  <span className={`text-xs font-bold block truncate ${textColClass || 'text-slate-800 dark:text-slate-200'}`}>
-                    {weekdayName}
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">
-                    {formatSystemDate(now.toISOString())}
-                  </span>
-                </div>
+              <div className="min-w-0 flex-1">
+                <span className={`text-sm font-extrabold block truncate ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
+                  {weekdayName}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                  {formatSystemDate(now.toISOString())}
+                </span>
+                <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 block mt-1">
+                  Kalender öffnen &rarr;
+                </span>
               </div>
             </div>
           );
         }
 
-        // 4. PHONE-STYLE WIDGET: SYSTEM CLOCK (Digital OR Round Analog Clock)
+        // 4. PHONE-STYLE WIDGET: SYSTEM CLOCK (Pure Digital OR Round Analog)
         if (widget.type === 'system_clock') {
           const isAnalog = widget.clockType === 'analog';
           const { secAngle, minAngle, hourAngle } = getAnalogAnglesForWidget(widget);
-          const cityTitle = widget.clockCityLabel || (widget.clockTimezone === 'local' || !widget.clockTimezone ? 'Lokal' : widget.clockTimezone);
+          const hasCustomTz = widget.clockTimezone && widget.clockTimezone !== 'local';
+          const cityTitle = widget.clockCityLabel || (hasCustomTz ? widget.clockTimezone : null);
 
           return (
             <div
@@ -551,67 +480,39 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 width: `${widget.width}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border p-4 flex flex-col justify-between gap-2 animate-fade-in group hover:border-sky-400 transition ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-center animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
             >
-              <div 
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className="flex items-center justify-between cursor-move select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 shadow-xs">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-extrabold ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
-                    {widget.title || cityTitle}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-sky-600 transition cursor-pointer"
-                    title="Uhr anpassen (Analog/Digital, Zeitzone, etc.)"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                    title="Widget entfernen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Clock Body: Analog or Digital */}
               {isAnalog ? (
-                <div className="flex items-center justify-center pt-2 pb-1">
-                  <div className="relative w-28 h-28 rounded-full border-2 border-slate-400/40 dark:border-slate-600/40 flex items-center justify-center shadow-inner">
+                /* Analog Round Clock */
+                <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+                  {cityTitle && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${textColClass || 'text-slate-600 dark:text-slate-300'}`}>
+                      <Globe className="w-3 h-3 text-sky-500" />
+                      {cityTitle}
+                    </span>
+                  )}
+                  <div className={`relative w-28 h-28 rounded-full ${isBgTransparent ? 'border-2 border-white/60 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' : 'border-2 border-slate-400/40 dark:border-slate-600/40'} flex items-center justify-center shadow-inner`}>
                     {/* Hour Marks */}
-                    <div className="absolute top-1 text-[8px] font-bold opacity-70">12</div>
-                    <div className="absolute right-1.5 text-[8px] font-bold opacity-70">3</div>
-                    <div className="absolute bottom-1 text-[8px] font-bold opacity-70">6</div>
-                    <div className="absolute left-1.5 text-[8px] font-bold opacity-70">9</div>
+                    <div className="absolute top-1 text-[8px] font-bold opacity-80">12</div>
+                    <div className="absolute right-1.5 text-[8px] font-bold opacity-80">3</div>
+                    <div className="absolute bottom-1 text-[8px] font-bold opacity-80">6</div>
+                    <div className="absolute left-1.5 text-[8px] font-bold opacity-80">9</div>
                     
                     {/* Center Pin */}
-                    <div className="absolute w-2.5 h-2.5 rounded-full bg-sky-600 z-30" />
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-sky-500 z-30" />
 
                     {/* Hour Hand */}
                     <div 
-                      className="absolute w-1 h-7 bg-slate-800 dark:bg-slate-200 rounded-full origin-bottom bottom-1/2 z-10 transition-transform duration-200"
+                      className="absolute w-1 h-7 bg-slate-900 dark:bg-slate-100 rounded-full origin-bottom bottom-1/2 z-10 transition-transform duration-200"
                       style={{ transform: `rotate(${hourAngle}deg)` }}
                     />
                     {/* Minute Hand */}
                     <div 
-                      className="absolute w-0.5 h-10 bg-slate-700 dark:bg-slate-300 rounded-full origin-bottom bottom-1/2 z-20 transition-transform duration-200"
+                      className="absolute w-0.5 h-10 bg-slate-800 dark:bg-slate-200 rounded-full origin-bottom bottom-1/2 z-20 transition-transform duration-200"
                       style={{ transform: `rotate(${minAngle}deg)` }}
                     />
                     {/* Second Hand */}
@@ -622,13 +523,20 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                  <span className={`text-xl font-black font-mono tracking-tight ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
+                /* Pure Digital Clock (Clean numbers & date) */
+                <div className="flex flex-col justify-center">
+                  {cityTitle && (
+                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-0.5 opacity-80">
+                      <Globe className="w-3 h-3 text-sky-500" />
+                      <span>{cityTitle}</span>
+                    </div>
+                  )}
+                  <div className={`text-3xl sm:text-4xl font-black font-mono tracking-tight leading-none ${textColClass || 'text-slate-900 dark:text-white'}`}>
                     {formatClockTime(widget)}
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  </div>
+                  <div className="text-xs font-semibold opacity-75 mt-1">
                     {formatSystemDate(currentTime.toISOString())}
-                  </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -646,65 +554,28 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 width: `${widget.width}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border p-4 flex flex-col justify-between gap-3 animate-fade-in group hover:border-amber-400 transition ${bgClass} ${fontClass}`}
+              onDoubleClick={() => onOpenModule('stock')}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
             >
-              <div 
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className="flex items-center justify-between cursor-move select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-xl ${lowStockProducts.length > 0 ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/60' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60'} shadow-xs`}>
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-extrabold ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
-                    {widget.title || t('widgets.stock_alert_title', currentLang, 'Lagerbestand')}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-amber-600 transition cursor-pointer"
-                    title="Widget konfigurieren"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onOpenModule('stock')}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-600 transition"
-                    title="Lager öffnen"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition"
-                    title="Widget entfernen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-xl ${lowStockProducts.length > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'} shadow-xs`}>
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
+                <span className={`text-[11px] font-black uppercase tracking-wider ${textColClass || 'text-slate-700 dark:text-slate-300'}`}>
+                  {widget.title || t('widgets.stock_alert_title', currentLang, 'Lagerbestand')}
+                </span>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div>
                 {lowStockProducts.length > 0 ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      {lowStockProducts.length} Artikel knapp
+                    <span className="text-sm font-black text-amber-600 dark:text-amber-400">
+                      {lowStockProducts.length} Artikel unter Mindestbestand
                     </span>
-                    <button
-                      onClick={() => onOpenModule('purchases')}
-                      className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
-                    >
-                      Nachbestellen &rarr;
-                    </button>
                   </div>
                 ) : (
                   <span className={`text-xs font-bold ${textColClass || 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -729,58 +600,23 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 width: `${widget.width}px`,
                 zIndex: zIndexValue
               }}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl border p-4 flex flex-col justify-between gap-3 animate-fade-in group hover:border-violet-400 transition ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-3.5 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
             >
-              <div 
-                onMouseDown={(e) => handleMouseDownHeader(widget, e)}
-                className="flex items-center justify-between cursor-move select-none"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 shadow-xs">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-extrabold ${textColClass || 'text-slate-800 dark:text-slate-100'}`}>
-                    {widget.title || t('widgets.quick_actions_title', currentLang, 'Schnellstarter')}
-                  </span>
-                </div>
+              {renderHoverMicroActions()}
 
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setSettingsWidget(widget);
-                    }}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-violet-600 transition cursor-pointer"
-                    title="Apps konfigurieren"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      sounds.playDelete();
-                      onRemoveWidget(widget.id);
-                    }}
-                    className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition opacity-60 group-hover:opacity-100"
-                    title="Widget entfernen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Dynamic 4 Configured App Actions */}
-              <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="grid grid-cols-4 gap-1.5" data-no-drag>
                 {actionModules.map((modId) => {
                   const modInfo = AVAILABLE_ACTION_MODULES.find(m => m.id === modId);
                   const ModIcon = modInfo?.icon || Zap;
-                  const label = modInfo?.label || modId;
+                  const label = modInfo ? t(modInfo.labelKey, currentLang, modInfo.defaultLabel) : modId;
 
                   return (
                     <button
                       key={modId}
                       onClick={() => onOpenModule(modId)}
-                      className="p-2 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex flex-col items-center gap-1 transition cursor-pointer"
+                      className="p-2 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-600 dark:text-indigo-400 flex flex-col items-center gap-1 transition cursor-pointer shadow-xs hover:scale-105"
                       title={label}
                     >
                       <ModIcon className="w-4 h-4" />
@@ -801,7 +637,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
         <div
           data-context-menu
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
-          className="fixed pointer-events-auto z-[99999] w-60 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/90 dark:border-slate-800/90 shadow-2xl backdrop-blur-xl p-1.5 space-y-1 animate-scale-in text-slate-800 dark:text-slate-100 text-xs font-medium"
+          className="fixed pointer-events-auto z-[99999] w-64 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/90 dark:border-slate-800/90 shadow-2xl backdrop-blur-xl p-1.5 space-y-1 animate-scale-in text-slate-800 dark:text-slate-100 text-xs font-medium"
           onClick={(e) => e.stopPropagation()}
         >
           {(() => {
@@ -811,63 +647,118 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
 
             return (
               <>
-                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                  {targetWidget.title || (isNote ? 'Haftnotiz' : 'Widget')}
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span>{targetWidget.title || (isNote ? 'Haftnotiz' : 'Desktop Widget')}</span>
+                  {targetWidget.isLocked && <Lock className="w-3 h-3 text-amber-500" />}
                 </div>
 
-                {/* Edit Settings option */}
+                {/* 1. Edit Settings & Live Customizer */}
                 <button
                   onClick={() => {
                     sounds.playClick();
                     setSettingsWidget(targetWidget);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold transition text-left cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-600 dark:text-indigo-400 font-bold transition text-left cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Design & Einstellungen anpassen</span>
+                  <Settings className="w-4 h-4" />
+                  <span>{t('widgets.context_settings', currentLang, 'Design & Einstellungen anpassen')}</span>
                 </button>
 
-                {/* Resize options for phone widgets */}
+                {/* 2. Lock / Unlock Position */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    onUpdateWidget(targetWidget.id, { isLocked: !targetWidget.isLocked });
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    {targetWidget.isLocked ? (
+                      <Unlock className="w-3.5 h-3.5 text-amber-500" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                    )}
+                    <span>
+                      {targetWidget.isLocked 
+                        ? t('widgets.unlock_position', currentLang, 'Position entsperren')
+                        : t('widgets.lock_position', currentLang, 'Position fixieren (Sperren)')}
+                    </span>
+                  </div>
+                  {targetWidget.isLocked && <Check className="w-3.5 h-3.5 text-amber-500" />}
+                </button>
+
+                {/* 3. Fast Background Style Selector */}
+                <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold text-slate-400">
+                  {t('widgets.change_bg_style', currentLang, 'Hintergrund-Stil:')}
+                </div>
+                <div className="grid grid-cols-4 gap-1 px-1">
+                  {[
+                    { id: 'transparent', label: 'Ohne' },
+                    { id: 'glass', label: 'Glas' },
+                    { id: 'dark', label: 'Dunkel' },
+                    { id: 'solid', label: 'Hell' }
+                  ].map((bgOpt) => {
+                    const active = (targetWidget.backgroundStyle || 'solid') === bgOpt.id;
+                    return (
+                      <button
+                        key={bgOpt.id}
+                        onClick={() => {
+                          sounds.playClick();
+                          onUpdateWidget(targetWidget.id, { backgroundStyle: bgOpt.id as any });
+                          setContextMenu(null);
+                        }}
+                        className={`py-1 px-1 rounded-lg text-[10px] font-bold text-center transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-600 dark:text-slate-300'}`}
+                      >
+                        {bgOpt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 4. Resize Options for phone widgets */}
                 {!isNote && (
                   <>
-                    <div className="px-2 py-1 text-[10px] font-bold text-slate-400">Größe anpassen:</div>
+                    <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold text-slate-400">
+                      {t('widgets.size_label', currentLang, 'Größe anpassen:')}
+                    </div>
                     <div className="grid grid-cols-3 gap-1 px-1">
                       <button
                         onClick={() => {
                           sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 220, height: 140 });
+                          onUpdateWidget(targetWidget.id, { width: 220, height: 120 });
                           setContextMenu(null);
                         }}
                         className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
                       >
-                        Klein
+                        {t('widgets.size_small', currentLang, 'Klein')}
                       </button>
                       <button
                         onClick={() => {
                           sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 290, height: 170 });
+                          onUpdateWidget(targetWidget.id, { width: 290, height: 150 });
                           setContextMenu(null);
                         }}
                         className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
                       >
-                        Mittel
+                        {t('widgets.size_medium', currentLang, 'Mittel')}
                       </button>
                       <button
                         onClick={() => {
                           sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 340, height: 260 });
+                          onUpdateWidget(targetWidget.id, { width: 360, height: 200 });
                           setContextMenu(null);
                         }}
                         className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
                       >
-                        Groß
+                        {t('widgets.size_large', currentLang, 'Groß')}
                       </button>
                     </div>
                   </>
                 )}
 
-                {/* Desktop Layer Level Toggle */}
+                {/* 5. Desktop Layer Level Toggle */}
                 <button
                   onClick={() => {
                     sounds.playClick();
@@ -879,12 +770,12 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Hintergrund-Ebene</span>
+                    <span>{t('widgets.layer_background_toggle', currentLang, 'Auf Hintergrund-Ebene')}</span>
                   </div>
                   {targetWidget.layerLevel === 'background' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
                 </button>
 
-                {/* Virtual Desktop Pinned Scope */}
+                {/* 6. Virtual Desktop Scope */}
                 <button
                   onClick={() => {
                     sounds.playClick();
@@ -896,14 +787,14 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Auf allen Desktops</span>
+                    <span>{t('widgets.on_all_desktops', currentLang, 'Auf allen Desktops')}</span>
                   </div>
                   {targetWidget.desktopId === 'all' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
                 </button>
 
                 <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
 
-                {/* Delete / Remove */}
+                {/* 7. Delete / Remove */}
                 <button
                   onClick={() => {
                     sounds.playDelete();
@@ -913,7 +804,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-semibold transition text-left cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isNote ? 'Notiz schließen' : 'Vom Desktop entfernen'}</span>
+                  <span>{isNote ? t('widgets.remove', currentLang, 'Notiz schließen') : t('widgets.remove_from_desktop', currentLang, 'Vom Desktop entfernen')}</span>
                 </button>
               </>
             );
@@ -928,7 +819,10 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
           onClose={() => setSettingsWidget(null)}
           widgetType={settingsWidget.type}
           initialWidget={settingsWidget}
-          onSave={(updates) => onUpdateWidget(settingsWidget.id, updates)}
+          onSave={(updates) => {
+            onUpdateWidget(settingsWidget.id, updates);
+            setSettingsWidget(null);
+          }}
           currency={currency}
         />
       )}
