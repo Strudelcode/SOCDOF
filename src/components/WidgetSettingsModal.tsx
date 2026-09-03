@@ -23,7 +23,8 @@ import {
   Boxes,
   BookOpen,
   Lock,
-  Unlock
+  Unlock,
+  Sliders
 } from 'lucide-react';
 import { DesktopWidget, DesktopWidgetType, ActiveModule, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
@@ -40,17 +41,27 @@ interface WidgetSettingsModalProps {
 }
 
 export const TIMEZONE_OPTIONS = [
-  { city: 'Lokal (System)', tz: 'local' },
-  { city: 'Berlin / Frankfurt', tz: 'Europe/Berlin' },
-  { city: 'Wien', tz: 'Europe/Vienna' },
-  { city: 'Zürich', tz: 'Europe/Zurich' },
-  { city: 'London', tz: 'Europe/London' },
-  { city: 'Paris', tz: 'Europe/Paris' },
-  { city: 'New York (EST)', tz: 'America/New_York' },
-  { city: 'Los Angeles (PST)', tz: 'America/Los_Angeles' },
-  { city: 'Tokyo (JST)', tz: 'Asia/Tokyo' },
-  { city: 'Dubai (GST)', tz: 'Asia/Dubai' },
-  { city: 'Sydney (AEST)', tz: 'Australia/Sydney' }
+  { city: 'Lokal (Systemzeit)', tz: 'local', region: 'Lokal' },
+  { city: 'Rom / Mailand (Italien - MESZ/MEZ)', tz: 'Europe/Rome', region: 'Europa' },
+  { city: 'Berlin / Frankfurt (Deutschland)', tz: 'Europe/Berlin', region: 'Europa' },
+  { city: 'Wien (Österreich)', tz: 'Europe/Vienna', region: 'Europa' },
+  { city: 'Zürich / Bern (Schweiz)', tz: 'Europe/Zurich', region: 'Europa' },
+  { city: 'London / Dublin (UK - GMT/BST)', tz: 'Europe/London', region: 'Europa' },
+  { city: 'Paris (Frankreich)', tz: 'Europe/Paris', region: 'Europa' },
+  { city: 'Madrid / Barcelona (Spanien)', tz: 'Europe/Madrid', region: 'Europa' },
+  { city: 'Athen / Istanbul (EEST/TRT)', tz: 'Europe/Athens', region: 'Europa' },
+  { city: 'Dubai / Abu Dhabi (VAE - GST)', tz: 'Asia/Dubai', region: 'Nahost & Asien' },
+  { city: 'Riad / Doha (Saudi-Arabien/Katar)', tz: 'Asia/Riyadh', region: 'Nahost & Asien' },
+  { city: 'Bangkok / Jakarta (Thailand/Indonesien)', tz: 'Asia/Bangkok', region: 'Nahost & Asien' },
+  { city: 'Singapur / Hongkong / Peking', tz: 'Asia/Singapore', region: 'Nahost & Asien' },
+  { city: 'Tokio / Seoul (Japan/Korea)', tz: 'Asia/Tokyo', region: 'Nahost & Asien' },
+  { city: 'Sydney / Melbourne (Australien)', tz: 'Australia/Sydney', region: 'Australien / Ozeanien' },
+  { city: 'Auckland (Neuseeland)', tz: 'Pacific/Auckland', region: 'Australien / Ozeanien' },
+  { city: 'New York / Miami (USA Ostküste - EDT/EST)', tz: 'America/New_York', region: 'Nordamerika' },
+  { city: 'Chicago / Dallas (USA Zentral - CDT/CST)', tz: 'America/Chicago', region: 'Nordamerika' },
+  { city: 'Los Angeles / San Francisco (USA Westküste - PDT/PST)', tz: 'America/Los_Angeles', region: 'Nordamerika' },
+  { city: 'São Paulo / Rio (Brasilien - BRT)', tz: 'America/Sao_Paulo', region: 'Südamerika' },
+  { city: 'UTC / GMT (Koordinierte Weltzeit)', tz: 'UTC', region: 'Standard' }
 ];
 
 export const AVAILABLE_ACTION_MODULES: { id: ActiveModule; labelKey: string; defaultLabel: string; icon: React.FC<{ className?: string }> }[] = [
@@ -87,9 +98,6 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
   );
   const [layerLevel, setLayerLevel] = useState<'normal' | 'background'>(
     initialWidget?.layerLevel || 'normal'
-  );
-  const [blurBehindApps, setBlurBehindApps] = useState<boolean>(
-    initialWidget?.blurBehindApps || false
   );
   const [isLocked, setIsLocked] = useState<boolean>(
     initialWidget?.isLocked || false
@@ -159,11 +167,10 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
       fontStyle,
       textColor,
       layerLevel,
-      blurBehindApps,
       isLocked,
       clockType,
       clockTimezone,
-      clockCityLabel: cityOpt ? cityOpt.city.split('/')[0].trim() : 'Lokal',
+      clockCityLabel: cityOpt ? (cityOpt.tz === 'local' ? 'Lokal' : cityOpt.city.split('(')[0].trim()) : 'Lokal',
       clockFormat,
       quickActionModules,
       color: noteColor
@@ -432,7 +439,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       sounds.playClick();
                       setClockType('digital');
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'digital' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'digital' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                   >
                     <span>{t('widgets.clock_digital', currentLang, 'Digital-Uhr')}</span>
                   </button>
@@ -442,7 +449,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       sounds.playClick();
                       setClockType('analog');
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'analog' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${clockType === 'analog' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                   >
                     <span>{t('widgets.clock_analog', currentLang, 'Runde Analoguhr')}</span>
                   </button>
@@ -458,14 +465,46 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 <select
                   value={clockTimezone}
                   onChange={(e) => setClockTimezone(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800 dark:text-slate-200"
+                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800 dark:text-slate-200"
                 >
-                  {TIMEZONE_OPTIONS.map(opt => (
-                    <option key={opt.tz} value={opt.tz}>
-                      {opt.tz === 'local' ? t('widgets.tz_local', currentLang, 'Lokal (System)') : opt.city} {opt.tz !== 'local' ? `(${opt.tz})` : ''}
-                    </option>
-                  ))}
+                  {TIMEZONE_OPTIONS.map(opt => {
+                    let livePreview = '';
+                    try {
+                      if (opt.tz === 'local') {
+                        livePreview = now.toLocaleTimeString(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: clockFormat === '12h' });
+                      } else {
+                        livePreview = now.toLocaleTimeString(currentLang === 'de' ? 'de-DE' : 'en-US', { timeZone: opt.tz, hour: '2-digit', minute: '2-digit', hour12: clockFormat === '12h' });
+                      }
+                    } catch {}
+
+                    return (
+                      <option key={opt.tz} value={opt.tz}>
+                        {opt.city} · [{livePreview}]
+                      </option>
+                    );
+                  })}
                 </select>
+                {clockTimezone !== 'local' && (
+                  <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300">
+                    <span className="font-semibold">
+                      {TIMEZONE_OPTIONS.find(o => o.tz === clockTimezone)?.city || clockTimezone}
+                    </span>
+                    <span className="font-mono font-bold">
+                      {(() => {
+                        try {
+                          const localNow = new Date();
+                          const tzStr = localNow.toLocaleString('en-US', { timeZone: clockTimezone });
+                          const tzDate = new Date(tzStr);
+                          const diffHours = Math.round((tzDate.getTime() - localNow.getTime()) / (1000 * 60 * 60));
+                          if (diffHours === 0) return '±0h zur lokalen Systemzeit';
+                          return diffHours > 0 ? `+${diffHours}h vor lokaler Systemzeit` : `${diffHours}h hinter lokaler Systemzeit`;
+                        } catch {
+                          return '';
+                        }
+                      })()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* 24h vs 12h Format */}
@@ -475,14 +514,14 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setClockFormat('24h')}
-                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '24h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '24h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                   >
                     {t('widgets.clock_24h', currentLang, '24-Stunden (14:30)')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setClockFormat('12h')}
-                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '12h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                    className={`py-1.5 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${clockFormat === '12h' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                   >
                     {t('widgets.clock_12h', currentLang, '12-Stunden ENG (02:30 PM)')}
                   </button>
@@ -508,7 +547,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       key={mod.id}
                       type="button"
                       onClick={() => handleToggleActionModule(mod.id)}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
                     >
                       <div className="flex items-center gap-2">
                         <ModIcon className="w-4 h-4 text-indigo-500" />
@@ -536,28 +575,28 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('solid')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'solid' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'solid' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   <span className="text-[11px]">{t('widgets.bg_solid', currentLang, 'Klassisch')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('transparent')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'transparent' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'transparent' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   <span className="text-[11px]">{t('widgets.bg_transparent', currentLang, 'Ohne Hintergrund')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('glass')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'glass' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'glass' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   <span className="text-[11px]">{t('widgets.bg_glass', currentLang, 'Glas / Acryl')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBackgroundStyle('dark')}
-                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'dark' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${backgroundStyle === 'dark' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   <span className="text-[11px]">{t('widgets.bg_dark', currentLang, 'Dunkel')}</span>
                 </button>
@@ -574,28 +613,28 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setFontStyle('sans')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-sans transition cursor-pointer ${fontStyle === 'sans' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-sans transition cursor-pointer ${fontStyle === 'sans' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   {t('widgets.font_sans', currentLang, 'Modern')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('mono')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-mono transition cursor-pointer ${fontStyle === 'mono' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-mono transition cursor-pointer ${fontStyle === 'mono' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   {t('widgets.font_mono', currentLang, 'Digital')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('serif')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-serif transition cursor-pointer ${fontStyle === 'serif' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-serif transition cursor-pointer ${fontStyle === 'serif' ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   {t('widgets.font_serif', currentLang, 'Klassisch')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFontStyle('display')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-extrabold transition cursor-pointer ${fontStyle === 'display' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                  className={`py-1.5 px-2 rounded-xl border text-xs font-extrabold transition cursor-pointer ${fontStyle === 'display' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                 >
                   {t('widgets.font_display', currentLang, 'Display')}
                 </button>
@@ -643,7 +682,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setLayerLevel('background')}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'background' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'background' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
@@ -660,7 +699,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setLayerLevel('normal')}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'normal' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${layerLevel === 'normal' ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500 shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
@@ -676,38 +715,6 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
               </div>
             </div>
 
-            {/* Blur Effect when Behind Windows Toggle */}
-            {layerLevel === 'background' && (
-              <div className="space-y-2 pt-2 p-3 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                      {t('widgets.blur_behind_label', currentLang, 'Unschärfe-Effekt (Blur) hinter Fenstern:')}
-                    </label>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t('widgets.blur_desc', currentLang, 'Zeichnet das Widget im Desktop-Hintergrund dezent weich. Beim Drüberfahren mit der Maus wird es sofort scharf.')}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setBlurBehindApps(false)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${!blurBehindApps ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
-                  >
-                    {t('widgets.blur_disabled', currentLang, 'Gestochen scharf (Standard)')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBlurBehindApps(true)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${blurBehindApps ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
-                  >
-                    {t('widgets.blur_enabled', currentLang, 'Dezenter Bokeh / Blur-Effekt')}
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Lock Position Toggle */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
@@ -717,7 +724,7 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLocked(!isLocked)}
-                className={`w-full py-2.5 px-3.5 rounded-xl border text-xs flex items-center justify-between transition cursor-pointer ${isLocked ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 font-bold' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
+                className={`w-full py-2.5 px-3.5 rounded-xl border text-xs flex items-center justify-between transition cursor-pointer ${isLocked ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 font-bold' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
               >
                 <div className="flex items-center gap-2">
                   {isLocked ? <Lock className="w-4 h-4 text-amber-600" /> : <Unlock className="w-4 h-4 text-slate-400" />}

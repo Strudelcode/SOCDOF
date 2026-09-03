@@ -20,8 +20,9 @@ import {
   BookOpen,
   Utensils
 } from 'lucide-react';
-import { ActiveModule, Contact, Product, Invoice } from '../types';
+import { ActiveModule, Contact, Product, Invoice, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
+import { useLanguage, t, formatShortcut } from '../lib/i18n';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ interface CommandPaletteProps {
   contacts: Contact[];
   products: Product[];
   invoices: Invoice[];
+  profile?: CompanyProfile;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -330,7 +332,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {/* Footer */}
         <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between px-4">
-          <span>Tipp: Drücken Sie <kbd className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Ctrl+K</kbd> oder <kbd className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">⌘K</kbd></span>
+          <span>
+            {currentLang === 'de' ? 'Tipp: Drücken Sie ' : currentLang === 'fr' ? 'Astuce : Appuyez sur ' : currentLang === 'es' ? 'Consejo: Presione ' : 'Tip: Press '}
+            <kbd className="font-mono bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">
+              {formatShortcut('Ctrl+K', currentLang, profile?.shortcut_modifier_style)}
+            </kbd>
+          </span>
           <span>SOCDOF Windows ERP Suite</span>
         </div>
       </div>

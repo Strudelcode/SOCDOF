@@ -233,7 +233,9 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       w.textColor === 'rose' ? 'text-rose-600 dark:text-rose-400' : 
       isBgTransparent ? 'text-slate-900 dark:text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]' : '';
 
-    return { bgClass, fontClass, textColClass, isBgTransparent };
+    const blurClass = '';
+
+    return { bgClass, fontClass, textColClass, blurClass, isBgTransparent };
   };
 
   // Helper for timezone time string on clock widgets
@@ -258,6 +260,24 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       });
     } catch {
       return currentTime.toLocaleTimeString();
+    }
+  };
+
+  // Helper for timezone-aware date string on clock widgets
+  const formatClockDate = (w: DesktopWidget) => {
+    const tz = w.clockTimezone || 'local';
+    try {
+      if (tz === 'local') {
+        return formatSystemDate(currentTime.toISOString());
+      }
+      return new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
+        timeZone: tz,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(currentTime);
+    } catch {
+      return formatSystemDate(currentTime.toISOString());
     }
   };
 
@@ -289,7 +309,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       onMouseUp={handleMouseUp}
     >
       {visibleWidgets.map(widget => {
-        const { bgClass, fontClass, textColClass, isBgTransparent } = getWidgetCardStyle(widget);
+        const { bgClass, fontClass, textColClass, blurClass, isBgTransparent } = getWidgetCardStyle(widget);
         const zIndexValue = widget.layerLevel === 'background' ? 1 : (widget.zIndex || 20);
         const cursorClass = widget.isLocked ? 'cursor-default' : 'cursor-move';
 
@@ -350,7 +370,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl ${isNoteTransparent ? 'bg-transparent border-0 shadow-none' : 'border shadow-2xl backdrop-blur-md'} flex flex-col transition duration-150 animate-fade-in group ${cursorClass} ${colorConf.bg} ${isNoteTransparent ? '' : colorConf.border} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl ${isNoteTransparent ? 'bg-transparent border-0 shadow-none' : 'border shadow-2xl backdrop-blur-md'} flex flex-col transition duration-150 animate-fade-in group ${cursorClass} ${colorConf.bg} ${isNoteTransparent ? '' : colorConf.border} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -395,7 +415,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('invoices')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -441,7 +461,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('calendar')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex items-center gap-3.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex items-center gap-3.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -482,7 +502,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-center animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-center animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -535,7 +555,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                     {formatClockTime(widget)}
                   </div>
                   <div className="text-xs font-semibold opacity-75 mt-1">
-                    {formatSystemDate(currentTime.toISOString())}
+                    {formatClockDate(widget)}
                   </div>
                 </div>
               )}
@@ -557,7 +577,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('stock')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -602,7 +622,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl p-3.5 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-3.5 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -689,76 +709,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                   {targetWidget.isLocked && <Check className="w-3.5 h-3.5 text-amber-500" />}
                 </button>
 
-                {/* 3. Fast Background Style Selector */}
-                <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold text-slate-400">
-                  {t('widgets.change_bg_style', currentLang, 'Hintergrund-Stil:')}
-                </div>
-                <div className="grid grid-cols-4 gap-1 px-1">
-                  {[
-                    { id: 'transparent', label: 'Ohne' },
-                    { id: 'glass', label: 'Glas' },
-                    { id: 'dark', label: 'Dunkel' },
-                    { id: 'solid', label: 'Hell' }
-                  ].map((bgOpt) => {
-                    const active = (targetWidget.backgroundStyle || 'solid') === bgOpt.id;
-                    return (
-                      <button
-                        key={bgOpt.id}
-                        onClick={() => {
-                          sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { backgroundStyle: bgOpt.id as any });
-                          setContextMenu(null);
-                        }}
-                        className={`py-1 px-1 rounded-lg text-[10px] font-bold text-center transition cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-600 dark:text-slate-300'}`}
-                      >
-                        {bgOpt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* 4. Resize Options for phone widgets */}
-                {!isNote && (
-                  <>
-                    <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold text-slate-400">
-                      {t('widgets.size_label', currentLang, 'Größe anpassen:')}
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 px-1">
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 220, height: 120 });
-                          setContextMenu(null);
-                        }}
-                        className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
-                      >
-                        {t('widgets.size_small', currentLang, 'Klein')}
-                      </button>
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 290, height: 150 });
-                          setContextMenu(null);
-                        }}
-                        className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
-                      >
-                        {t('widgets.size_medium', currentLang, 'Mittel')}
-                      </button>
-                      <button
-                        onClick={() => {
-                          sounds.playClick();
-                          onUpdateWidget(targetWidget.id, { width: 360, height: 200 });
-                          setContextMenu(null);
-                        }}
-                        className="py-1 px-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[10px] font-bold text-center cursor-pointer"
-                      >
-                        {t('widgets.size_large', currentLang, 'Groß')}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {/* 5. Desktop Layer Level Toggle */}
+                {/* 3. Desktop Layer Level Toggle (Clear and explicit) */}
                 <button
                   onClick={() => {
                     sounds.playClick();
@@ -766,16 +717,31 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                     onUpdateWidget(targetWidget.id, { layerLevel: nextLayer });
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{t('widgets.layer_background_toggle', currentLang, 'Auf Hintergrund-Ebene')}</span>
+                    <Layers className="w-4 h-4 text-indigo-500" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        {targetWidget.layerLevel === 'background'
+                          ? t('widgets.layer_context_behind', currentLang, 'Hinter Fenstern (Desktop-Ebene)')
+                          : t('widgets.layer_context_front', currentLang, 'Immer im Vordergrund (Schwebend)')}
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                        {targetWidget.layerLevel === 'background'
+                          ? 'Klicken für: Immer im Vordergrund'
+                          : 'Klicken für: Hinter Fenstern'}
+                      </span>
+                    </div>
                   </div>
-                  {targetWidget.layerLevel === 'background' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                  {targetWidget.layerLevel === 'background' ? (
+                    <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Desktop</span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">Top</span>
+                  )}
                 </button>
 
-                {/* 6. Virtual Desktop Scope */}
+                {/* 4. Virtual Desktop Scope */}
                 <button
                   onClick={() => {
                     sounds.playClick();
@@ -794,7 +760,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
 
                 <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
 
-                {/* 7. Delete / Remove */}
+                {/* 5. Delete / Remove */}
                 <button
                   onClick={() => {
                     sounds.playDelete();

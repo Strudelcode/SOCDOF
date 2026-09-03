@@ -137,6 +137,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Settings Sections
     'settings.title': 'SOCDOF Settings',
+    'settings.search_placeholder': 'Search settings...',
     'settings.home': 'Overview',
     'settings.general': 'General & Master Data',
     'settings.personalization': 'Personalization & Colors',
@@ -158,6 +159,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.dark_mode_desc': 'Eye-friendly Windows dark aesthetic',
     'settings.mica_title': 'Windows Mica / Acrylic Glass Overlay',
     'settings.mica_desc': 'Subtle blur and translucent titlebars for a native desktop feel.',
+    'settings.desktop_icon_blur': 'Frosted Glass behind Desktop App Icons',
+    'settings.desktop_icon_blur_desc': 'Adds a soft frosted blur under desktop app icons for maximum contrast on busy backgrounds (disabled by default for crystal sharpness).',
     'settings.accent_system_title': 'System Accent Color & Color Picasso',
     'settings.accent_system_desc': 'Instantly applied across window headers, buttons, badges, and the taskbar.',
     'settings.active_badge': 'Active',
@@ -210,6 +213,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.currency_symbol': 'Currency Symbol',
     'settings.date_format_label': 'Date Format',
     'settings.timezone_label': 'Timezone',
+    'settings.keyboard_layout_title': 'Keyboard Shortcuts & Modifier Key Labels',
+    'settings.keyboard_layout_desc': 'Choose how shortcut key combinations are displayed (Strg vs Ctrl vs ⌘ Cmd).',
+    'settings.keyboard_layout_auto': 'Automatic (Adaptive to Language & OS)',
+    'settings.keyboard_layout_auto_desc': 'German = Strg (QWERTZ), English/French/Spanish = Ctrl (QWERTY), macOS = ⌘ Cmd',
+    'settings.keyboard_layout_strg': 'Always "Strg" (German QWERTZ Layout)',
+    'settings.keyboard_layout_strg_desc': 'Displays Strg+K, Strg+S, Strg+Space across all menus and tooltips',
+    'settings.keyboard_layout_ctrl': 'Always "Ctrl" (International QWERTY Layout)',
+    'settings.keyboard_layout_ctrl_desc': 'Displays Ctrl+K, Ctrl+S, Ctrl+Space across all menus and tooltips',
+    'settings.keyboard_layout_cmd': 'Always "⌘ Cmd" (Apple macOS Layout)',
+    'settings.keyboard_layout_cmd_desc': 'Displays ⌘K, ⌘S, ⌘Space across all menus and tooltips',
+    'settings.keyboard_preview': 'Shortcut Preview',
 
     // Connections, Calendar & Code Signing
     'connections.title': 'Connections, Google Calendar & Integrations',
@@ -1030,10 +1044,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'widgets.layer_normal_desc': 'Widget floats above all open windows and stays in foreground.',
     'widgets.layer_bg_title': 'Behind Windows (Desktop Background)',
     'widgets.layer_bg_desc': 'Widget stays fixed on wallpaper; opened applications cover it.',
-    'widgets.blur_behind_label': 'Blur Effect (When Behind Windows):',
-    'widgets.blur_disabled': 'Crisp & Sharp (No Blur)',
-    'widgets.blur_enabled': 'Soft Bokeh Blur (Frosted Depth)',
-    'widgets.blur_desc': 'Renders a gentle blur when on desktop background, clears upon mouse hover.',
+    'widgets.blur_behind_label': 'Appearance Behind Desktop Apps:',
+    'widgets.blur_disabled': 'Sharp behind App (Crystal Clear)',
+    'widgets.blur_enabled': 'Blurred behind App (Default / Frosted)',
+    'widgets.blur_desc': 'Blurs the area directly behind app icons for optimal contrast and legibility (as shown in default), or keeps it crystal sharp.',
+    'desktop.icon_blur_toggle': 'Blur Behind App Icons (Frosted Glass)',
+    'desktop.icon_sharp_toggle': 'Sharp Behind App Icons (Crystal Clear)',
     'widgets.on_all_desktops': 'Show on All Desktops',
     'widgets.remove_from_desktop': 'Remove from Desktop',
     'widgets.change_bg_style': 'Background Style:'
@@ -1158,6 +1174,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Settings Sections
     'settings.title': 'SOCDOF Einstellungen',
+    'settings.search_placeholder': 'Einstellungen suchen...',
     'settings.home': 'Startseite',
     'settings.general': 'Allgemein & Stammdaten',
     'settings.personalization': 'Personalisierung & Farben',
@@ -1179,6 +1196,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.dark_mode_desc': 'Augenschonender Windows-Dark Look',
     'settings.mica_title': 'Windows Mica / Acryl Glas-Overlay',
     'settings.mica_desc': 'Subtiler Weichzeichner und transparente Titelleisten für ein natives Desktop-Gefühl.',
+    'settings.desktop_icon_blur': 'Frosted Glass Weichzeichner hinter App-Symbolen',
+    'settings.desktop_icon_blur_desc': 'Fügt einen dezenten Unschärfe-Hintergrund unter Desktop-Symbolen hinzu für maximalen Textkontrast auf bunten Wallpapern & Widgets (standardmäßig aus für glasklare Sicht).',
     'settings.accent_system_title': 'System-Akzentfarbe & Color Picasso',
     'settings.accent_system_desc': 'Wird sofort systemweit auf Fensterleisten, Buttons, Badges und Taskleiste angewendet.',
     'settings.active_badge': 'Aktiv',
@@ -1231,6 +1250,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.currency_symbol': 'Währungssymbol',
     'settings.date_format_label': 'Datumsformat',
     'settings.timezone_label': 'Zeitzone',
+    'settings.keyboard_layout_title': 'Tastatur-Layout & Shortcut-Tastenbezeichnung',
+    'settings.keyboard_layout_desc': 'Wählen Sie, wie Tastenkombinationen in Menüs, Tooltips und Fenstern beschriftet werden (Strg vs. Ctrl vs. ⌘ Cmd).',
+    'settings.keyboard_layout_auto': 'Automatisch (an Sprache & System anpassen)',
+    'settings.keyboard_layout_auto_desc': 'Deutsch = Strg (QWERTZ), International = Ctrl (QWERTY), macOS = ⌘ Cmd',
+    'settings.keyboard_layout_strg': 'Immer „Strg“ (Deutsches QWERTZ-Layout)',
+    'settings.keyboard_layout_strg_desc': 'Zeigt einheitlich Strg+K, Strg+S, Strg+Leertaste in allen Menüs',
+    'settings.keyboard_layout_ctrl': 'Immer „Ctrl“ (Internationales QWERTY-Layout)',
+    'settings.keyboard_layout_ctrl_desc': 'Zeigt einheitlich Ctrl+K, Ctrl+S, Ctrl+Space in allen Menüs',
+    'settings.keyboard_layout_cmd': 'Immer „⌘ Cmd“ (Apple macOS)',
+    'settings.keyboard_layout_cmd_desc': 'Zeigt einheitlich ⌘K, ⌘S, ⌘Space in allen Menüs',
+    'settings.keyboard_preview': 'Shortcut-Vorschau',
 
     // Connections, Calendar & Code Signing
     'connections.title': 'Verbindungen, Google Kalender & Schnittstellen',
@@ -2051,10 +2081,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'widgets.layer_normal_desc': 'Widget schwebt über allen Fenstern und bleibt stets im Vordergrund sichtbar.',
     'widgets.layer_bg_title': 'Hinter Fenstern (Auf Desktop-Hintergrund)',
     'widgets.layer_bg_desc': 'Widget liegt fest auf dem Hintergrundbild; geöffnete Apps legen sich darüber.',
-    'widgets.blur_behind_label': 'Unschärfe-Effekt (Blur) hinter Fenstern:',
-    'widgets.blur_disabled': 'Gestochen scharf (Standard)',
-    'widgets.blur_enabled': 'Dezenter Bokeh / Blur-Effekt',
-    'widgets.blur_desc': 'Zeichnet das Widget im Desktop-Hintergrund dezent weich. Beim Drüberfahren mit der Maus wird es sofort scharf.',
+    'widgets.blur_behind_label': 'Darstellung hinter Desktop-Apps:',
+    'widgets.blur_disabled': 'Hinter App scharf (Glasklar)',
+    'widgets.blur_enabled': 'Hinter App unscharf (Standard / Frosted)',
+    'widgets.blur_desc': 'Zeichnet den Bereich hinter App-Symbolen für beste Lesbarkeit dezent weich (wie standardmäßig im Bild), oder stellt ihn glasklar dar.',
+    'desktop.icon_blur_toggle': 'Hinter App-Symbolen: Frosted Glass (Unscharf)',
+    'desktop.icon_sharp_toggle': 'Hinter App-Symbolen: Glasklar (Scharf)',
     'widgets.on_all_desktops': 'Auf allen Desktops anzeigen',
     'widgets.remove_from_desktop': 'Vom Desktop entfernen',
     'widgets.change_bg_style': 'Hintergrund-Stil:'
@@ -2179,6 +2211,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Settings Sections
     'settings.title': 'Paramètres SOCDOF',
+    'settings.search_placeholder': 'Rechercher des paramètres...',
     'settings.home': 'Vue générale',
     'settings.general': 'Général & Entreprise',
     'settings.personalization': 'Personnalisation & Couleurs',
@@ -2200,6 +2233,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.dark_mode_desc': 'Style sombre Windows agréable pour les yeux',
     'settings.mica_title': 'Windows Mica / Effet de verre acrylique',
     'settings.mica_desc': 'Flou subtil et barres de titre translucides pour un rendu natif.',
+    'settings.desktop_icon_blur': 'Flou dépoli (Frosted Glass) sous les icônes d’apps',
+    'settings.desktop_icon_blur_desc': 'Ajoute un flou d’arrière-plan doux sous les icônes du bureau pour un contraste optimal (désactivé par défaut pour une netteté parfaite).',
     'settings.accent_system_title': 'Couleur d’accentuation & Color Picasso',
     'settings.accent_system_desc': 'Appliqué immédiatement aux fenêtres, boutons, badges et barre des tâches.',
     'settings.active_badge': 'Actif',
@@ -2252,6 +2287,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.currency_symbol': 'Symbole monétaire',
     'settings.date_format_label': 'Format de date',
     'settings.timezone_label': 'Fuseau horaire',
+    'settings.keyboard_layout_title': 'Disposition du clavier et libellés des raccourcis',
+    'settings.keyboard_layout_desc': 'Choisissez comment les combinaisons de touches sont affichées (Ctrl vs Strg vs ⌘ Cmd).',
+    'settings.keyboard_layout_auto': 'Automatique (adapté à la langue et au système)',
+    'settings.keyboard_layout_auto_desc': 'Allemand = Strg (QWERTZ), Français/Anglais = Ctrl (QWERTY/AZERTY), macOS = ⌘ Cmd',
+    'settings.keyboard_layout_strg': 'Toujours "Strg" (Clavier allemand QWERTZ)',
+    'settings.keyboard_layout_strg_desc': 'Affiche Strg+K, Strg+S, Strg+Espace dans tous les menus',
+    'settings.keyboard_layout_ctrl': 'Toujours "Ctrl" (Clavier international QWERTY/AZERTY)',
+    'settings.keyboard_layout_ctrl_desc': 'Affiche Ctrl+K, Ctrl+S, Ctrl+Space dans tous les menus',
+    'settings.keyboard_layout_cmd': 'Toujours "⌘ Cmd" (Apple macOS)',
+    'settings.keyboard_layout_cmd_desc': 'Affiche ⌘K, ⌘S, ⌘Space dans tous les menus',
+    'settings.keyboard_preview': 'Aperçu des raccourcis',
 
     // Connections, Calendar & Code Signing
     'connections.title': 'Connexions, Google Agenda & Intégrations',
@@ -3071,10 +3117,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'widgets.layer_normal_desc': 'Le widget reste visible au-dessus de toutes les fenêtres ouvertes.',
     'widgets.layer_bg_title': 'Derrière les fenêtres (Fond d’écran)',
     'widgets.layer_bg_desc': 'Le widget reste sur le fond d’écran; les applications ouvertes le recouvrent.',
-    'widgets.blur_behind_label': 'Effet de flou (Derrière les fenêtres) :',
-    'widgets.blur_disabled': 'Net et précis (Sans flou)',
-    'widgets.blur_enabled': 'Effet Bokeh / Flou doux',
-    'widgets.blur_desc': 'Applique un léger flou en arrière-plan qui redevient net au survol de la souris.',
+    'widgets.blur_behind_label': 'Affichage derrière les icônes d’apps :',
+    'widgets.blur_disabled': 'Net derrière l’app (Glasklar)',
+    'widgets.blur_enabled': 'Flou derrière l’app (Par défaut)',
+    'widgets.blur_desc': 'Floute légèrement la zone sous les icônes pour une lisibilité parfaite (par défaut), ou affiche tout de manière nette.',
+    'desktop.icon_blur_toggle': 'Flou sous les icônes (Verre dépoli)',
+    'desktop.icon_sharp_toggle': 'Net et clair sous les icônes',
     'widgets.on_all_desktops': 'Afficher sur tous les bureaux',
     'widgets.remove_from_desktop': 'Supprimer du bureau',
     'widgets.change_bg_style': "Style d'arrière-plan :"
@@ -3199,6 +3247,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Settings Sections
     'settings.title': 'Configuración de SOCDOF',
+    'settings.search_placeholder': 'Buscar configuraciones...',
     'settings.home': 'Vista general',
     'settings.general': 'General & Empresa',
     'settings.personalization': 'Personalización & Colores',
@@ -3220,6 +3269,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.dark_mode_desc': 'Aspecto oscuro Windows cómodo para la vista',
     'settings.mica_title': 'Windows Mica / Capa de Cristal Acrílico',
     'settings.mica_desc': 'Desenfoque sutil y barras de título translúcidas para sensación nativa.',
+    'settings.desktop_icon_blur': 'Efecto Frosted Glass bajo iconos del escritorio',
+    'settings.desktop_icon_blur_desc': 'Añade un suave desenfoque de fondo bajo los iconos de apps para máximo contraste (desactivado por defecto para máxima nitidez cristalina).',
     'settings.accent_system_title': 'Color de Acento del Sistema & Color Picasso',
     'settings.accent_system_desc': 'Aplicado al instante a ventanas, botones, insignias y barra de tareas.',
     'settings.active_badge': 'Activo',
@@ -3272,6 +3323,17 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.currency_symbol': 'Símbolo de moneda',
     'settings.date_format_label': 'Formato de fecha',
     'settings.timezone_label': 'Zona horaria',
+    'settings.keyboard_layout_title': 'Distribución de teclado y etiquetas de atajos',
+    'settings.keyboard_layout_desc': 'Elija cómo se muestran las combinaciones de teclas (Ctrl vs Strg vs ⌘ Cmd).',
+    'settings.keyboard_layout_auto': 'Automático (según idioma y sistema)',
+    'settings.keyboard_layout_auto_desc': 'Alemán = Strg (QWERTZ), Español/Inglés = Ctrl (QWERTY), macOS = ⌘ Cmd',
+    'settings.keyboard_layout_strg': 'Siempre "Strg" (Teclado alemán QWERTZ)',
+    'settings.keyboard_layout_strg_desc': 'Muestra Strg+K, Strg+S, Strg+Espacio en todos los menús',
+    'settings.keyboard_layout_ctrl': 'Siempre "Ctrl" (Teclado internacional QWERTY)',
+    'settings.keyboard_layout_ctrl_desc': 'Muestra Ctrl+K, Ctrl+S, Ctrl+Space en todos los menús',
+    'settings.keyboard_layout_cmd': 'Siempre "⌘ Cmd" (Apple macOS)',
+    'settings.keyboard_layout_cmd_desc': 'Muestra ⌘K, ⌘S, ⌘Space en todos los menús',
+    'settings.keyboard_preview': 'Vista previa de atajos',
 
     // Connections, Calendar & Code Signing
     'connections.title': 'Conexiones, Google Calendar e Integraciones',
@@ -4091,10 +4153,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'widgets.layer_normal_desc': 'El widget permanece visible flotando sobre todas las ventanas abiertas.',
     'widgets.layer_bg_title': 'Detrás de ventanas (Fondo de escritorio)',
     'widgets.layer_bg_desc': 'El widget queda fijo en el fondo de pantalla; las aplicaciones abiertas lo cubren.',
-    'widgets.blur_behind_label': 'Efecto de desenfoque (Detrás de ventanas):',
-    'widgets.blur_disabled': 'Nítido y claro (Sin desenfoque)',
-    'widgets.blur_enabled': 'Desenfoque suave (Efecto bokeh)',
-    'widgets.blur_desc': 'Aplica un desenfoque suave en segundo plano que se enfoca al pasar el ratón.',
+    'widgets.blur_behind_label': 'Apariencia detrás de las aplicaciones:',
+    'widgets.blur_disabled': 'Nítido detrás de la app (Glasklar)',
+    'widgets.blur_enabled': 'Desenfoque detrás de app (Por defecto)',
+    'widgets.blur_desc': 'Desenfoca el área detrás de los iconos para una legibilidad óptima (por defecto), o muestra todo nítido.',
+    'desktop.icon_blur_toggle': 'Desenfocar tras iconos (Cristal esmerilado)',
+    'desktop.icon_sharp_toggle': 'Nítido y claro tras iconos',
     'widgets.on_all_desktops': 'Mostrar en todos los escritorios',
     'widgets.remove_from_desktop': 'Eliminar del escritorio',
     'widgets.change_bg_style': 'Estilo de fondo:'
@@ -4253,4 +4317,71 @@ export function formatSystemDate(
     return String(dateInput);
   }
 }
+
+/**
+ * Formats keyboard shortcut strings according to language or user-configured modifier preference (Strg / Ctrl / Cmd)
+ * Example: formatShortcut('Ctrl+K', 'de') => 'Strg+K'
+ */
+export function formatShortcut(
+  shortcut: string,
+  lang: LanguageCode = 'de',
+  style: 'auto' | 'strg' | 'ctrl' | 'cmd' = 'auto'
+): string {
+  if (!shortcut) return '';
+
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || navigator.userAgent || '');
+
+  let targetStyle: 'strg' | 'ctrl' | 'cmd' = 'ctrl';
+  if (style === 'strg') {
+    targetStyle = 'strg';
+  } else if (style === 'ctrl') {
+    targetStyle = 'ctrl';
+  } else if (style === 'cmd') {
+    targetStyle = 'cmd';
+  } else {
+    // auto mode
+    if (isMac && lang !== 'de') {
+      targetStyle = 'cmd';
+    } else if (lang === 'de') {
+      targetStyle = 'strg';
+    } else {
+      targetStyle = 'ctrl';
+    }
+  }
+
+  let res = shortcut;
+
+  if (targetStyle === 'cmd') {
+    res = res
+      .replace(/\b(Ctrl|Strg)\b/g, '⌘')
+      .replace(/\bAlt\b/g, '⌥')
+      .replace(/\b(Shift|Umschalt)\b/g, '⇧')
+      .replace(/⌘\+/g, '⌘')
+      .replace(/⌥\+/g, '⌥')
+      .replace(/⇧\+/g, '⇧');
+    return res;
+  }
+
+  if (targetStyle === 'strg') {
+    res = res
+      .replace(/\bCtrl\b/g, 'Strg')
+      .replace(/\b⌘\b/g, 'Strg')
+      .replace(/\bShift\b/g, 'Umschalt')
+      .replace(/\bSpace\b/g, 'Leertaste')
+      .replace(/\bLeft\b/g, 'Links')
+      .replace(/\bRight\b/g, 'Rechts');
+    return res;
+  }
+
+  // default 'ctrl'
+  res = res
+    .replace(/\bStrg\b/g, 'Ctrl')
+    .replace(/\b⌘\b/g, 'Ctrl')
+    .replace(/\bUmschalt\b/g, 'Shift')
+    .replace(/\bLeertaste\b/g, 'Space')
+    .replace(/\bLinks\b/g, 'Left')
+    .replace(/\bRechts\b/g, 'Right');
+  return res;
+}
+
 

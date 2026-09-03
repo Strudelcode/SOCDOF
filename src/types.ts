@@ -246,6 +246,7 @@ export interface CompanyProfile {
   date_format?: 'DD.MM.YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY';
   time_show_seconds?: boolean;
   timezone?: string;
+  shortcut_modifier_style?: 'auto' | 'strg' | 'ctrl' | 'cmd';
 
   // Calendar & External Connections
   google_cal_sync_enabled?: boolean;
@@ -566,7 +567,6 @@ export interface DesktopWidget {
   fontStyle?: 'sans' | 'mono' | 'serif' | 'display';
   textColor?: 'default' | 'white' | 'emerald' | 'indigo' | 'amber' | 'sky' | 'rose';
   layerLevel?: 'normal' | 'background'; // 'background' stays behind open windows
-  blurBehindApps?: boolean; // When active, widget renders with a soft frosted blur when lying behind windows on the desktop
 
   // Clock specific settings
   clockType?: 'digital' | 'analog'; // Digital vs Round Analog Clock

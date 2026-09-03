@@ -76,7 +76,7 @@ import {
 } from '../types';
 import { sounds } from '../lib/sound';
 import { applyAccentColor } from '../lib/accent';
-import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, formatSystemTime, LanguageCode } from '../lib/i18n';
+import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, formatSystemTime, LanguageCode, formatShortcut } from '../lib/i18n';
 import { getStoredCalendarEvents, CustomCalendarEvent } from '../lib/ical';
 import { FlagIcon } from './FlagIcon';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
@@ -1971,10 +1971,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     modId
                   });
                 }}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent cursor-pointer ${
+                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
                   isDark 
-                    ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
-                    : 'hover:bg-black/5 active:bg-black/10 hover:border-black/10'
+                    ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
+                    : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
                 }`}
               >
                 <div className="relative">
@@ -2084,14 +2084,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }}
                 onMouseEnter={(e) => handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
                 onMouseLeave={handleIconMouseLeave}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-2xl text-center transition backdrop-blur-xs border border-transparent cursor-pointer ${
+                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
                   isDark 
-                    ? 'hover:bg-white/10 active:bg-white/20 hover:border-white/15' 
-                    : 'hover:bg-black/5 active:bg-black/10 hover:border-black/10'
+                    ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
+                    : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
                 }`}
               >
                 {/* Mini Apps Preview Squircle (iOS/macOS Liquid Glass Style) */}
-                <div className="relative w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800/90 backdrop-blur-md p-1.5 flex items-center justify-center border border-white/60 dark:border-white/20 shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-transform duration-200">
+                <div className="relative w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800/90 p-1.5 flex items-center justify-center border border-white/60 dark:border-white/20 shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-transform duration-200">
                   {folder.modules.length === 1 ? (
                     // Single App: Centered large icon
                     (() => {
@@ -2881,14 +2881,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsCommandPaletteOpen(true);
             }}
-            title={t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen...')}
+            title={t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen... (Ctrl+K)')}
             className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-2xs group cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
             <span className="font-medium tracking-tight">{t('nav.search', currentLang, 'Suchen...')}</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-300/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ml-1 border border-slate-400/30 dark:border-slate-700 shadow-2xs group-hover:border-indigo-400/40">
-              Ctrl+K
-            </kbd>
           </button>
 
           {/* Authentic Windows 11 Task View Icon Button */}

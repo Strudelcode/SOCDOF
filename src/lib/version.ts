@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.8.6';
+export const APP_VERSION = '21.9.6';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,110 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.9.6',
+    date: '2026-09-03',
+    title: 'Clean Minimalist Taskbar Search Bar',
+    highlights: [
+      'Removed Ctrl+K Badge: Removed the shortcut badge from the Windows 11 taskbar search pill for a cleaner, ultra-minimalist appearance.',
+      'Preserved Shortcut Functionality: Ctrl+K / Cmd+K and direct clicking continue to work seamlessly to invoke the Spotlight Command Palette.'
+    ]
+  },
+  {
+    version: '21.9.5',
+    date: '2026-09-03',
+    title: 'Fixed Right-Aligned Settings Search & Stable Toolbar Geometry',
+    highlights: [
+      'Stable Non-Jumping Search Bar: The search input is now firmly anchored on the right side of the toolbar with a fixed responsive width and flexible center spacing, eliminating unwanted horizontal shifting when switching tabs.',
+      'Concise Placeholder Text: Replaced lengthy placeholder examples with clean, localized "Einstellungen suchen..." / "Search settings..." text across all supported languages.',
+      'Balanced Spacing: Clean breadcrumb view on the left, flexible breathing space in the middle, and quick-save action right alongside search.'
+    ]
+  },
+  {
+    version: '21.9.4',
+    date: '2026-09-03',
+    title: 'Ultra-Compact Settings Toolbar & Badge Cleanup',
+    highlights: [
+      'Removed Bulky Header Box: Eliminated the oversized SOCDOF header container in favor of a sleek, space-efficient single-row toolbar.',
+      'Maximized Screen Real Estate: Search bar, active view breadcrumb, and quick-save button now occupy minimal vertical space, leaving maximum area for settings content.',
+      'Clean Navigation Labels: Removed the redundant "Google Sync" pill badge next to "Verbindungen & Kalender" for a uniform, streamlined sidebar.'
+    ]
+  },
+  {
+    version: '21.9.3',
+    date: '2026-09-03',
+    title: 'Adaptive Windows 11 Settings Layout & Small Window/Mobile Optimization',
+    highlights: [
+      'Responsive Two-Column Layout: Settings now adapt gracefully to medium and compact window sizes down to 768px with sticky sidebar navigation and side-by-side content.',
+      'Mobile / Compact Horizontal Category Carousel: On small windows and mobile views (<768px), vertical sidebar clutter is replaced with a sleek horizontal category carousel and instant content display.',
+      'Quick Save Header Action: Added a convenient quick-save button right in the top header on smaller screens for effortless 1-tap saving without scrolling.',
+      'Compact Top Header: Optimized header padding, typography, and search field scaling for cleaner visibility and no cut-off elements.'
+    ]
+  },
+  {
+    version: '21.9.2',
+    date: '2026-09-03',
+    title: 'Precise IANA World Timezone Calculations, Live Comparison & Italy/Rome Support',
+    highlights: [
+      'Comprehensive World Timezone Options: Added Rome / Milan (Italy - Europe/Rome), Madrid, Athens, Riyadh, Singapore, and more to the clock widget options.',
+      'Real-Time Live Previews: Timezone selector displays live real-time preview timestamps for every single city/zone in the dropdown list for immediate verification.',
+      'Timezone Difference Badge: Shows real-time difference against local system time (e.g. "+2h ahead of local system time" for Dubai vs Italy/CET in summer).',
+      'Accurate Date Calculation: Calendar date under the clock widget is now mathematically localized to the selected timezone using Intl.DateTimeFormat.'
+    ]
+  },
+  {
+    version: '21.9.1',
+    date: '2026-09-03',
+    title: 'Windows Native Desktop Icon Hover Outline & Pure Background Cleanliness',
+    highlights: [
+      'Authentic Windows Desktop Hover: Removed bulky dark cards and background box overlays. When idle, icons and text float cleanly with zero background.',
+      'Sleek Hover Outline: Hovering over an app or folder icon now displays a crisp, subtle Windows-style outline and light translucent highlight with zero lag.',
+      'Clean Codebase: Stripped out redundant background boxes and toggle switches for a lightweight, authentic desktop experience.'
+    ]
+  },
+  {
+    version: '21.9.0',
+    date: '2026-09-03',
+    title: 'Smart Delayed Frosted Glass Focus Card on Desktop App Hover',
+    highlights: [
+      'Crystal Sharp by Default: Desktop app and folder icons have zero background plate during normal rest state, providing unobstructed view of wallpapers and desktop widgets.',
+      '0.5s Hover Focus Card: Hovering over any app or folder icon for ~0.5s smoothly transitions into a frosted glass focus card (dark translucent backdrop with soft border and elevation).',
+      'Immediate Clean Reset: Moving the cursor away instantly fades the focus plate back to crystal transparency without lingering artifacts.'
+    ]
+  },
+  {
+    version: '21.8.9',
+    date: '2026-09-03',
+    title: 'Default Crystal Clarity for Desktop Icons & System Settings Relocation',
+    highlights: [
+      'Removed icon blur behind desktop apps by default: Icons and background widgets now render 100% crystal clear and sharp out of the box.',
+      'Relocated the Frosted Glass Icon Blur toggle into Personalization & Appearance Settings (SettingsModule > Personalization), keeping widget configuration focused on widget layout and style.',
+      'Retained instant toggle capability via the Desktop Right-Click Wallpaper Context Menu with live cross-window state synchronization.',
+      'Removed redundant blur configuration from WidgetSettingsModal to maintain lean, unified customization workflows.'
+    ]
+  },
+  {
+    version: '21.8.8',
+    date: '2026-09-03',
+    title: 'Precision App Icon Backdrop Blur vs Crystal Clarity Toggle for Desktop Widgets',
+    highlights: [
+      'Implemented configurable frosted glass backdrop blur directly under desktop app icons (active by default for high app readability)',
+      'Added crystal clear (sharp) toggle so widgets and wallpaper show without any blur underneath app icons if desired',
+      'Restored native crispness to desktop background widgets without artificial whole-card CSS filter blurring',
+      'Added quick toggle in desktop right-click menu and synchronized with Widget Settings Modal in all 4 languages'
+    ]
+  },
+  {
+    version: '21.8.7',
+    date: '2026-09-03',
+    title: 'Desktop Widget Background Blur Behind Apps, Layer Clarity & Settings Contrast Polish',
+    highlights: [
+      'Configurable background blur/bokeh effect for widgets stationed on the desktop background layer',
+      'Context menu cleanup ensuring deep styling, sizing, and theme configuration are centered in the settings modal',
+      'Clarified layer levels with clear explanations for "Hinter Fenstern" vs "Immer im Vordergrund"',
+      'Eliminated hover contrast glare on modal options in dark and light modes'
+    ]
+  },
   {
     version: '21.8.6',
     date: '2026-09-02',

@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
-import { useLanguage, t } from '../lib/i18n';
+import { useLanguage, t, formatShortcut } from '../lib/i18n';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
 
 type PortalTab = 'showcase' | 'manual' | 'releases' | 'shortcuts' | 'security' | 'community';
@@ -737,7 +737,9 @@ export const DocumentationApp: React.FC = () => {
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                     <span className="text-slate-700 dark:text-slate-300">{isGerman ? 'Spotlight Command Palette öffnen' : 'Open Spotlight Command Palette'}</span>
                     <div className="flex items-center gap-1 font-mono text-[11px]">
-                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Ctrl</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        {formatShortcut('Ctrl+K', currentLang).split('+')[0] || 'Ctrl'}
+                      </kbd>
                       <span>+</span>
                       <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">K</kbd>
                     </div>
@@ -747,7 +749,9 @@ export const DocumentationApp: React.FC = () => {
                     <div className="flex items-center gap-1 font-mono text-[11px]">
                       <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Win</kbd>
                       <span className="text-slate-400">/</span>
-                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Ctrl+Space</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        {formatShortcut('Ctrl+Space', currentLang)}
+                      </kbd>
                     </div>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
