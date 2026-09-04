@@ -40,7 +40,7 @@ export class LocalOdooDB extends Dexie {
 export const db = new LocalOdooDB();
 
 export const defaultCompanyProfile: CompanyProfile = {
-  name: 'Ihr Firmenname',
+  name: 'Your Company Name',
   legal_form: '',
   street: '',
   zip_city: '',
@@ -54,13 +54,13 @@ export const defaultCompanyProfile: CompanyProfile = {
   currency: '€',
   default_tax_rate: 19,
   invoice_template: 'din5008',
-  language: 'de',
+  language: 'en',
   accent_color: 'indigo',
   theme_mode: 'light',
   glass_overlay: true,
   letterhead_show_bg: false,
   letterhead_show_fold_marks: true,
-  letterhead_default_subject: 'Rechnung für Lieferungen und Leistungen',
+  letterhead_default_subject: 'Invoice for goods and services',
   letterhead_managing_director: '',
   letterhead_commercial_register: '',
   letterhead_footer_line1: '',

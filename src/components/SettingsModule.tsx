@@ -57,7 +57,8 @@ import {
   Save,
   Type,
   Wallpaper,
-  Keyboard
+  Keyboard,
+  RefreshCw
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -77,7 +78,11 @@ import {
   getActiveCustomPackId,
   setActiveCustomPack,
   deleteCustomLanguagePack,
-  CustomLanguagePack
+  CustomLanguagePack,
+  DesktopLanguageFileInfo,
+  getDesktopLanguageFiles,
+  subscribeDesktopLanguageFiles,
+  syncDesktopLanguageFiles
 } from '../lib/i18n';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
@@ -160,6 +165,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedLangPath, setCopiedLangPath] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -276,6 +282,59 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     deleteCustomLanguagePack(packId);
     setCustomPacks(getCustomLanguagePacks());
     setActiveCustomPackState(getActiveCustomPackId());
+  };
+
+  const handleOpenLanguagesFolder = async () => {
+    sounds.playClick();
+    if ((window as any).electronAPI?.openLanguagesFolder) {
+      try {
+        await (window as any).electronAPI.openLanguagesFolder();
+        sounds.playSuccess();
+        return;
+      } catch (err) {
+        console.warn('Failed to open languages folder via Electron:', err);
+      }
+    }
+    // Fallback: Copy path to clipboard
+    try {
+      await navigator.clipboard.writeText('%APPDATA%\\socdof\\languages');
+      setCopiedLangPath(true);
+      sounds.playSuccess();
+      setTimeout(() => setCopiedLangPath(false), 3000);
+    } catch {}
+  };
+
+  const handleCopyLanguagesFolderPath = async () => {
+    sounds.playClick();
+    try {
+      await navigator.clipboard.writeText('%APPDATA%\\socdof\\languages');
+      setCopiedLangPath(true);
+      sounds.playSuccess();
+      setTimeout(() => setCopiedLangPath(false), 3000);
+    } catch {}
+  };
+
+  const [desktopFiles, setDesktopFiles] = useState<DesktopLanguageFileInfo[]>(getDesktopLanguageFiles());
+  const [isSyncingDesktopFiles, setIsSyncingDesktopFiles] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeDesktopLanguageFiles(files => {
+      setDesktopFiles(files);
+    });
+    return unsub;
+  }, []);
+
+  const handleRefreshDesktopLanguages = async () => {
+    sounds.playClick();
+    setIsSyncingDesktopFiles(true);
+    try {
+      await syncDesktopLanguageFiles();
+      setCustomPacks(getCustomLanguagePacks());
+      setActiveCustomPackState(getActiveCustomPackId());
+      sounds.playSuccess();
+    } finally {
+      setTimeout(() => setIsSyncingDesktopFiles(false), 400);
+    }
   };
 
   // Delete Warning Confirmation Dialog State
@@ -2371,12 +2430,151 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                   )}
 
-                  {/* Windows desktop hint */}
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-start gap-2.5">
-                    <Laptop className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
-                    <p>
-                      {t('settings.lang_electron_folder_hint', activeLang, 'Windows Desktop Offline-Ordner: Eigene .json-Sprachdateien können auch im Ordner %APPDATA%/socdof/languages/ hinterlegt werden.')}
-                    </p>
+                  {/* Windows desktop languages folder integration */}
+                  <div className="text-xs bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 shrink-0">
+                          <Laptop className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>{t('settings.lang_electron_folder_title', activeLang, 'Windows Desktop Sprach-Ordner')}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 select-all">
+                              %APPDATA%\socdof\languages\
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {t('settings.lang_electron_folder_desc', activeLang, 'Eigene .json-Sprachdateien können direkt in diesem lokalen Windows-Ordner hinterlegt werden.')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleRefreshDesktopLanguages}
+                          disabled={isSyncingDesktopFiles}
+                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                          title="Dateien aus Ordner neu einlesen"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDesktopFiles ? 'animate-spin text-sky-500' : ''}`} />
+                          <span>{isSyncingDesktopFiles ? 'Lade...' : 'Neu einlesen'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleCopyLanguagesFolderPath}
+                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
+                          title="Pfad in Zwischenablage kopieren"
+                        >
+                          {copiedLangPath ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedLangPath ? 'Kopiert!' : 'Pfad kopieren'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenLanguagesFolder}
+                          className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" />
+                          <span>{t('settings.lang_open_folder', activeLang, 'Ordner im Explorer öffnen')}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Live reload feature indicator */}
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span>
+                        <strong>Live-Synchronisation aktiv:</strong> Änderst du Wörter oder Sätze in <code className="font-mono px-1 py-0.5 bg-emerald-100 dark:bg-emerald-950/80 rounded text-[11px]">en.json</code> oder einer anderen Datei in Notepad und speicherst (Strg+S), aktualisiert SOCDOF alle Texte sofort ohne Neustart!
+                      </span>
+                    </div>
+
+                    {/* Detected files list */}
+                    {desktopFiles.length > 0 ? (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Erkannte Desktop-Dateien in %APPDATA%\socdof\languages\ ({desktopFiles.length})
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {desktopFiles.map(file => {
+                            const isBuiltIn = ['en', 'de', 'fr', 'es'].includes(file.id.toLowerCase());
+                            const isCurrentlyActive = (activeLang === file.id && !activeCustomPackId) || activeCustomPackId === `desktop_file_${file.id}`;
+                            return (
+                              <div
+                                key={file.filename}
+                                className={`p-3 rounded-xl border transition flex items-center justify-between gap-2.5 ${
+                                  isCurrentlyActive
+                                    ? 'bg-sky-50/80 dark:bg-sky-950/30 border-sky-300 dark:border-sky-800'
+                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/80'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <FileCode className={`w-4 h-4 shrink-0 ${isCurrentlyActive ? 'text-sky-500' : 'text-slate-400'}`} />
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                                      <span>{file.filename}</span>
+                                      {isBuiltIn && (
+                                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300">
+                                          {file.id.toUpperCase()} Master
+                                        </span>
+                                      )}
+                                      {isCurrentlyActive && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                                          Aktiv
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                      {file.count.toLocaleString()} Schlüssel • Geändert: {new Date(file.lastModified).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {!isBuiltIn && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      sounds.playClick();
+                                      const targetPackId = `desktop_file_${file.id}`;
+                                      if (activeCustomPackId === targetPackId) {
+                                        setActiveCustomPack(null);
+                                      } else {
+                                        setActiveCustomPack(targetPackId);
+                                      }
+                                      setActiveCustomPackState(getActiveCustomPackId());
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition shrink-0 ${
+                                      activeCustomPackId === `desktop_file_${file.id}`
+                                        ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                        : 'bg-sky-600 hover:bg-sky-500 text-white'
+                                    }`}
+                                  >
+                                    {activeCustomPackId === `desktop_file_${file.id}` ? 'Deaktivieren' : 'Aktivieren'}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p>
+                            Im installierten Windows Desktop-Setup erstellt SOCDOF die Dateien <code className="font-mono text-slate-700 dark:text-slate-300 font-semibold">en.json</code> und <code className="font-mono text-slate-700 dark:text-slate-300 font-semibold">template_en.json</code> automatisch im obigen Verzeichnis.
+                          </p>
+                          <p className="mt-1">
+                            Im Web-Modus kannst du oben auf <strong>"Englische Vorlage (.json) herunterladen"</strong> klicken, die Datei mit beliebigem Texteditor anpassen und per <strong>"Sprachdatei (.json) importieren"</strong> einbinden.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

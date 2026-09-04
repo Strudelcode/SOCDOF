@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.10.0';
+export const APP_VERSION = '22.0.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.0.0',
+    date: '2026-09-04',
+    title: 'Version 22 Major Milestone: Modular Language Pack Architecture, Desktop Translation Directory & Universal English Default',
+    highlights: [
+      'Universal English Standard: Formalized English as the primary default system language across all startup flows, new company profiles, translation fallbacks, and documentation while maintaining full 4-language support (EN, DE, FR, ES).',
+      'Desktop Language Pack Directory: Integrated native support for local language packs in %APPDATA%/socdof/languages/ with 1-click Windows Explorer folder access and direct IPC bridge in Electron.',
+      'Standalone JSON Translation Template: Built-in 1-click template export (socdof-language-template.json) allowing end users and businesses to create, customize, and maintain custom dialect or specialized industry language packs with any text editor.',
+      'Dynamic Language Pack Importer & Manager: Complete live importer for custom .json packs with metadata extraction, real-time activation, deletion safeguards, and automatic fallback to English for missing keys.',
+      'Re-architected Settings Hub: Reorganized system settings into 4 intuitive categories (Overview & Quick Controls, Business & Finance, Appearance & Personalization, System & Devices) featuring an integrated audio volume slider, procedural sound preview matrix, and responsive layout.'
+    ]
+  },
   {
     version: '21.10.0',
     date: '2026-09-04',

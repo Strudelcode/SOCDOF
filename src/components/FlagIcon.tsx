@@ -1,109 +1,151 @@
-import React from 'react';
-import { LanguageCode } from '../lib/i18n';
+import React, { useState, useEffect } from 'react';
+import { LanguageCode, getCustomFlagImage, subscribeFlags } from '../lib/i18n';
 
 interface FlagIconProps {
   code: LanguageCode | string;
+  customImage?: string | null;
+  emoji?: string | null;
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  title?: string;
 }
 
-export const FlagIcon: React.FC<FlagIconProps> = ({ code, className = '', size = 'md' }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-3',
-    md: 'w-6 h-4',
-    lg: 'w-8 h-5.5',
-    xl: 'w-10 h-7'
+const KNOWN_FLAG_EMOJIS: Record<string, string> = {
+  en: '🇺🇸',
+  us: '🇺🇸',
+  uk: '🇬🇧',
+  gb: '🇬🇧',
+  de: '🇩🇪',
+  at: '🇦🇹',
+  ch: '🇨🇭',
+  fr: '🇫🇷',
+  es: '🇪🇸',
+  it: '🇮🇹',
+  nl: '🇳🇱',
+  pt: '🇵🇹',
+  br: '🇧🇷',
+  pl: '🇵🇱',
+  ru: '🇷🇺',
+  tr: '🇹🇷',
+  ua: '🇺🇦',
+  ukr: '🇺🇦',
+  zh: '🇨🇳',
+  cn: '🇨🇳',
+  ja: '🇯🇵',
+  jp: '🇯🇵',
+  ko: '🇰🇷',
+  kr: '🇰🇷',
+  sv: '🇸🇪',
+  se: '🇸🇪',
+  no: '🇳🇴',
+  da: '🇩🇰',
+  dk: '🇩🇰',
+  fi: '🇫🇮',
+  cs: '🇨🇿',
+  cz: '🇨🇿',
+  el: '🇬🇷',
+  gr: '🇬🇷',
+  hu: '🇭🇺',
+  ro: '🇷🇴',
+  ar: '🇸🇦',
+  hi: '🇮🇳'
+};
+
+export const FlagIcon: React.FC<FlagIconProps> = ({ 
+  code, 
+  customImage, 
+  emoji, 
+  className = '', 
+  size = 'md',
+  title
+}) => {
+  const [, setFlagUpdateTick] = useState(0);
+
+  // Subscribe to live flag updates from desktop flags folder
+  useEffect(() => {
+    return subscribeFlags(() => {
+      setFlagUpdateTick(t => t + 1);
+    });
+  }, []);
+
+  const sizeDimensions = {
+    sm: { box: 'w-4 h-3', text: 'text-xs', img: 'w-4 h-3' },
+    md: { box: 'w-6 h-4', text: 'text-sm', img: 'w-6 h-4' },
+    lg: { box: 'w-8 h-6', text: 'text-lg', img: 'w-8 h-6' },
+    xl: { box: 'w-10 h-7', text: 'text-2xl', img: 'w-10 h-7' }
   };
 
-  const selectedSize = sizeClasses[size] || sizeClasses.md;
+  const selectedSize = sizeDimensions[size] || sizeDimensions.md;
+  const cleanCode = (code || '').toLowerCase().trim();
 
-  switch (code) {
-    case 'en':
-    case 'us':
-    case 'uk':
-      // USA Flag Vector (13 stripes + canton with stars)
-      return (
-        <svg 
-          viewBox="0 0 7410 3900" 
-          className={`rounded-[3px] shadow-xs shrink-0 object-cover ${selectedSize} ${className}`}
-          aria-label="English / USA Flag"
-        >
-          <rect width="7410" height="3900" fill="#b22234"/>
-          <path d="M0,450H7410M0,1050H7410M0,1650H7410M0,2250H7410M0,2850H7410M0,3450H7410" stroke="#fff" strokeWidth="300"/>
-          <rect width="2964" height="2100" fill="#3c3b6e"/>
-          <g fill="#fff">
-            <g id="s18">
-              <g id="s9">
-                <g id="s5">
-                  <g id="s4">
-                    <path id="s" d="M247,90 317,307 134,173h226L177,307z"/>
-                    <use href="#s" y="420"/>
-                    <use href="#s" y="840"/>
-                    <use href="#s" y="1260"/>
-                  </g>
-                  <use href="#s" y="1680"/>
-                </g>
-                <use href="#s4" x="247" y="210"/>
-              </g>
-              <use href="#s9" x="494"/>
-            </g>
-            <use href="#s18" x="988"/>
-            <use href="#s9" x="1976"/>
-            <use href="#s5" x="2470"/>
-          </g>
-        </svg>
-      );
+  // 1. Check if a custom image was provided directly or discovered in %APPDATA%/socdof/languages/flags/
+  const resolvedImage = customImage || getCustomFlagImage(cleanCode);
 
-    case 'de':
-      // German Flag Vector (Black, Red, Gold)
-      return (
-        <svg 
-          viewBox="0 0 5 3" 
-          className={`rounded-[3px] shadow-xs shrink-0 object-cover ${selectedSize} ${className}`}
-          aria-label="German Flag"
-        >
-          <rect width="5" height="1" y="0" fill="#000000"/>
-          <rect width="5" height="1" y="1" fill="#DD0000"/>
-          <rect width="5" height="1" y="2" fill="#FFCE00"/>
-        </svg>
-      );
-
-    case 'fr':
-      // French Flag Vector (Blue, White, Red)
-      return (
-        <svg 
-          viewBox="0 0 3 2" 
-          className={`rounded-[3px] shadow-xs shrink-0 object-cover ${selectedSize} ${className}`}
-          aria-label="French Flag"
-        >
-          <rect width="1" height="2" x="0" fill="#002395"/>
-          <rect width="1" height="2" x="1" fill="#FFFFFF"/>
-          <rect width="1" height="2" x="2" fill="#ED2939"/>
-        </svg>
-      );
-
-    case 'es':
-      // Spanish Flag Vector (Red, Yellow, Red with Crown/Shield touch)
-      return (
-        <svg 
-          viewBox="0 0 750 500" 
-          className={`rounded-[3px] shadow-xs shrink-0 object-cover ${selectedSize} ${className}`}
-          aria-label="Spanish Flag"
-        >
-          <rect width="750" height="500" fill="#AA151B"/>
-          <rect width="750" height="250" y="125" fill="#F1BF00"/>
-          {/* Subtle Coat of Arms indicator */}
-          <circle cx="200" cy="250" r="45" fill="#AA151B" opacity="0.85"/>
-          <rect x="185" y="230" width="30" height="40" rx="6" fill="#F1BF00"/>
-          <circle cx="200" cy="225" r="10" fill="#AA151B"/>
-        </svg>
-      );
-
-    default:
-      return (
-        <div className={`rounded bg-slate-300 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold ${selectedSize} ${className}`}>
-          {code.toUpperCase()}
-        </div>
-      );
+  if (resolvedImage) {
+    return (
+      <img
+        src={resolvedImage}
+        alt={title || code}
+        title={title || code.toUpperCase()}
+        className={`rounded-[3px] object-cover shadow-xs border border-slate-200/80 dark:border-slate-700/80 shrink-0 ${selectedSize.img} ${className}`}
+        onError={(e) => {
+          // Hide image if broken and fallback below
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    );
   }
+
+  // 2. Check for real emoji flag
+  const resolvedEmoji = emoji || KNOWN_FLAG_EMOJIS[cleanCode];
+
+  if (resolvedEmoji) {
+    return (
+      <span 
+        className={`inline-flex items-center justify-center shrink-0 leading-none select-none filter drop-shadow-xs transition-transform ${selectedSize.text} ${className}`}
+        role="img"
+        aria-label={title || code}
+        title={title || code.toUpperCase()}
+      >
+        {resolvedEmoji}
+      </span>
+    );
+  }
+
+  // 3. Fallback: Black flag with a question mark (Standard schwarze Flagge mit Fragezeichen)
+  return (
+    <div 
+      className={`rounded-[3px] bg-slate-950 dark:bg-black text-white border border-slate-700/80 dark:border-slate-800 shadow-xs flex items-center justify-center shrink-0 select-none overflow-hidden ${selectedSize.box} ${className}`}
+      title={title || `Custom Flag (${code})`}
+      aria-label={title || `Custom Flag (${code})`}
+    >
+      <svg 
+        viewBox="0 0 24 18" 
+        className="w-full h-full p-0.5" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Dark canvas */}
+        <rect width="24" height="18" rx="2" fill="#09090b"/>
+        {/* Flag pole */}
+        <path d="M4 3.5v11" stroke="#71717a" strokeWidth="1.2" strokeLinecap="round"/>
+        {/* Black wave banner */}
+        <path d="M4.5 4.5c3-1.2 5.5 1.2 8.5 0v6.5c-3 1.2-5.5-1.2-8.5 0V4.5z" fill="#27272a" stroke="#52525b" strokeWidth="0.8"/>
+        {/* Bold question mark centered on the black flag */}
+        <text 
+          x="8.8" 
+          y="8.8" 
+          textAnchor="middle" 
+          dominantBaseline="central" 
+          fill="#ffffff" 
+          fontSize="5.5" 
+          fontWeight="900" 
+          fontFamily="system-ui, -apple-system, sans-serif"
+        >
+          ?
+        </text>
+      </svg>
+    </div>
+  );
 };
+

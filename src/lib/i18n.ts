@@ -4550,6 +4550,165 @@ export function deleteCustomLanguagePack(packId: string) {
   } catch {}
 }
 
+export interface DesktopLanguageFileInfo {
+  filename: string;
+  id: string;
+  title: string;
+  language_name: string;
+  language_code: string;
+  count: number;
+  lastModified: number;
+  translations: Record<string, string>;
+  isBuiltInOverride: boolean;
+  emoji?: string | null;
+  flagImage?: string | null;
+}
+
+let customFlagImages: Record<string, string> = {};
+const flagListeners = new Set<() => void>();
+
+export function getCustomFlagImage(code: string): string | null {
+  if (!code) return null;
+  const clean = code.toLowerCase().trim();
+  return customFlagImages[clean] || null;
+}
+
+export function getAllCustomFlagImages(): Record<string, string> {
+  return customFlagImages;
+}
+
+export function setCustomFlagImages(map: Record<string, string>) {
+  if (!map || typeof map !== 'object') return;
+  customFlagImages = { ...customFlagImages, ...map };
+  flagListeners.forEach(cb => {
+    try { cb(); } catch {}
+  });
+}
+
+export function subscribeFlags(cb: () => void) {
+  flagListeners.add(cb);
+  return () => {
+    flagListeners.delete(cb);
+  };
+}
+
+let desktopLanguageFiles: DesktopLanguageFileInfo[] = [];
+const desktopFileListeners = new Set<(files: DesktopLanguageFileInfo[]) => void>();
+
+export function getDesktopLanguageFiles(): DesktopLanguageFileInfo[] {
+  return desktopLanguageFiles;
+}
+
+export function subscribeDesktopLanguageFiles(cb: (files: DesktopLanguageFileInfo[]) => void) {
+  desktopFileListeners.add(cb);
+  cb(desktopLanguageFiles);
+  return () => {
+    desktopFileListeners.delete(cb);
+  };
+}
+
+export async function syncDesktopLanguageFiles(): Promise<number> {
+  if (typeof window === 'undefined') return 0;
+  const electronAPI = (window as any).electronAPI;
+  if (!electronAPI || typeof electronAPI.readLocalLanguages !== 'function') {
+    return 0;
+  }
+
+  try {
+    // 0. Sync custom flag images if available
+    if (typeof electronAPI.getAvailableFlags === 'function') {
+      try {
+        const flagMap = await electronAPI.getAvailableFlags();
+        if (flagMap && typeof flagMap === 'object') {
+          setCustomFlagImages(flagMap);
+        }
+      } catch {}
+    }
+
+    const files: DesktopLanguageFileInfo[] = await electronAPI.readLocalLanguages();
+    if (!Array.isArray(files)) return 0;
+
+    desktopLanguageFiles = files;
+
+    // 1. Apply overrides for built-in languages (en, de, fr, es)
+    for (const file of files) {
+      if (file.flagImage) {
+        customFlagImages[file.id.toLowerCase()] = file.flagImage;
+        if (file.language_code) {
+          customFlagImages[file.language_code.toLowerCase()] = file.flagImage;
+        }
+      }
+
+      const langKey = file.id.toLowerCase();
+      if (langKey === 'en' || langKey === 'de' || langKey === 'fr' || langKey === 'es') {
+        const target = langKey as LanguageCode;
+        translations[target] = {
+          ...translations[target],
+          ...file.translations
+        };
+      } else {
+        // 2. Register custom language files as selectable CustomLanguagePack
+        const customPack: CustomLanguagePack = {
+          id: `desktop_file_${file.id}`,
+          name: file.title || file.language_name || file.filename,
+          code: file.language_code || file.id,
+          updatedAt: new Date(file.lastModified).toISOString(),
+          count: file.count,
+          translations: file.translations,
+          emoji: file.emoji || undefined,
+          flagImage: file.flagImage || undefined
+        };
+
+        const existing = getCustomLanguagePacks();
+        const filtered = existing.filter(p => p.id !== customPack.id);
+        const updated = [customPack, ...filtered];
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('socdof_custom_lang_packs', JSON.stringify(updated));
+          } catch {}
+        }
+
+        // If this custom pack is currently active, update active translations immediately
+        if (activeCustomPackId === customPack.id) {
+          activeCustomTranslations = customPack.translations;
+        }
+      }
+    }
+
+    // Notify listeners so UI updates instantly
+    listeners.forEach(cb => {
+      try {
+        cb(getLanguage());
+      } catch {}
+    });
+
+    desktopFileListeners.forEach(cb => {
+      try {
+        cb(desktopLanguageFiles);
+      } catch {}
+    });
+
+    return files.length;
+  } catch (err) {
+    console.warn('Failed to sync desktop language files:', err);
+    return 0;
+  }
+}
+
+// Automatically initiate sync and hook file watcher on desktop start
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    syncDesktopLanguageFiles();
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI && typeof electronAPI.onLanguagesFolderChanged === 'function') {
+      electronAPI.onLanguagesFolderChanged(() => {
+        console.log('[i18n] Desktop language file change detected, reloading translations...');
+        syncDesktopLanguageFiles();
+      });
+    }
+  }, 100);
+}
+
 export function exportLanguageTemplate(): string {
   const template: Record<string, unknown> = {
     _metadata: {
@@ -4558,7 +4717,7 @@ export function exportLanguageTemplate(): string {
       author: 'User / Community',
       language_name: 'Custom Language',
       language_code: 'custom',
-      app_version: '21.10.0',
+      app_version: '22.0.0',
       created_at: new Date().toISOString()
     },
     translations: { ...translations.en }
@@ -4573,7 +4732,7 @@ export function exportLanguagePack(lang: LanguageCode): string {
       title: `SOCDOF Language Pack (${langName})`,
       language_name: langName,
       language_code: lang,
-      app_version: '21.10.0',
+      app_version: '22.0.0',
       exported_at: new Date().toISOString()
     },
     translations: { ...(translations[lang] || translations.en) }

@@ -9,7 +9,15 @@
     "dist/**/*",
     "electron/**/*",
     "public/**/*",
+    "languages/**/*",
     "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "languages",
+      "to": "languages",
+      "filter": ["**/*"]
+    }
   ],
   "win": {
     "icon": "public/socdof_icon.ico",
