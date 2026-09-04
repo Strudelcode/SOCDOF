@@ -501,15 +501,6 @@ export interface StoreApp {
   isPinnedTaskbar?: boolean;
 }
 
-export interface TutorialStep {
-  id: string;
-  title: string;
-  target?: string;
-  description: string;
-  icon: string;
-  actionHint?: string;
-}
-
 export interface AppWindow {
   id: string;
   module: ActiveModule;

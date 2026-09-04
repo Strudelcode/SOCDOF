@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.0.0';
+export const APP_VERSION = '22.1.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,49 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.1.3',
+    date: '2026-09-04',
+    title: 'Smooth Desktop Widget Dragging Behind Fixed Apps & Dynamic Pointer-Events Isolation',
+    highlights: [
+      'Fluid Movement Behind Apps: Dragged widgets (e.g. Clock, Calendar, Notes, KPIs) now glide completely smoothly behind desktop apps, windows, and folders without jitter, wobble, or getting trapped.',
+      'Active Pointer-Events Isolation: While a widget is being dragged or clicked, all desktop app icons, folders, and windows dynamically disable pointer events and suppress hover effects, preventing event capture interruptions.',
+      'High-Performance 60FPS Drag Engine: Implemented global window event listeners with requestAnimationFrame coordinates updating and drag-state transition bypassing for instantaneous cursor tracking.',
+      'Safe Release & Gap Finding: Releasing the mouse immediately restores app interactions. Widgets tucked behind applications stay at their background depth, allowing users to grab them whenever an edge or gap is clicked.'
+    ]
+  },
+  {
+    version: '22.1.2',
+    date: '2026-09-04',
+    title: 'Removal of Deprecated Interactive Tutorial System',
+    highlights: [
+      'Removed Legacy Tutorial Companion: Completely removed the outdated 8-step interactive tutorial wizard and floating companion overlay.',
+      'Taskbar Cleanup: Removed the yellow/amber Tutorial button and Compass icon from the taskbar tray for a cleaner, modern system tray layout.',
+      'Codebase Optimization: Deleted unused TutorialModal component and associated type declarations.'
+    ]
+  },
+  {
+    version: '22.1.1',
+    date: '2026-09-04',
+    title: 'Language Menu Streamlining, Dynamic Directory Resolution & Template Exclusion',
+    highlights: [
+      'Streamlined Language UI: Removed cluttered search inputs, redundant manual upload buttons, and verbose fallback descriptions from both the Language Selection Modal and Settings Module.',
+      'Dynamic Directory Path Resolution: System automatically locates the languages and flags folder across custom install directories, current working directory, and app data paths rather than relying solely on %APPDATA%.',
+      'Boilerplate Template Filtering: Template files (e.g. template_en.json) are cleanly filtered out from active language selection dropdowns and custom pack lists.',
+      'Clean Flag Representation: Standardized clean fallback flag rendering with subtle question mark indicator when no local flag asset exists.'
+    ]
+  },
+  {
+    version: '22.1.0',
+    date: '2026-09-04',
+    title: 'Instant Dynamic Language Live-Reload, Selection Module Dropdown & Custom Flag Asset Architecture',
+    highlights: [
+      'Instant Zero-Restart Live Reload: Any edit or modification made to a language JSON file in languages/ (%APPDATA%/socdof/languages or public/languages) is dynamically detected and instantly reflected in all active UI modules in real time without refreshing the page or restarting the app.',
+      'Dynamic Language Selection Module & Dropdown: Replaced static language grid with an ergonomic selection module and dropdown menu that lists all built-in system languages alongside all dynamically detected local files and imported custom packs.',
+      'Flag Customization & Flexible Fallback Pipeline: Replaced synthetic AI-generated graphics with a clean 3-tier flag system: (1) Custom user images from languages/flags/ (or in-app upload), (2) Standard authentic country flag emojis, and (3) A black flag with a question mark fallback for unknown or unconfigured languages.',
+      'In-App Flag Uploader & Folder Bridge: Added direct 1-click file upload for custom flag images (PNG, JPG, SVG, WebP) and quick access buttons to open the physical languages/ and languages/flags/ directories.'
+    ]
+  },
   {
     version: '22.0.0',
     date: '2026-09-04',

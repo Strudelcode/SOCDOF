@@ -4467,6 +4467,8 @@ export interface CustomLanguagePack {
   updatedAt: string;
   count: number;
   translations: Record<string, string>;
+  emoji?: string;
+  flagImage?: string;
 }
 
 let activeCustomPackId: string | null = null;
@@ -4495,7 +4497,19 @@ export function getCustomLanguagePacks(): CustomLanguagePack[] {
   if (typeof localStorage === 'undefined') return [];
   try {
     const saved = localStorage.getItem('socdof_custom_lang_packs');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    // Ensure template files are never registered or exposed as custom packs
+    const cleaned = parsed.filter(p => 
+      !p.id.toLowerCase().includes('template') && 
+      !p.name.toLowerCase().includes('template') &&
+      !(p.code && p.code.toLowerCase().includes('template'))
+    );
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem('socdof_custom_lang_packs', JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -4610,28 +4624,53 @@ export function subscribeDesktopLanguageFiles(cb: (files: DesktopLanguageFileInf
 export async function syncDesktopLanguageFiles(): Promise<number> {
   if (typeof window === 'undefined') return 0;
   const electronAPI = (window as any).electronAPI;
-  if (!electronAPI || typeof electronAPI.readLocalLanguages !== 'function') {
-    return 0;
-  }
 
   try {
-    // 0. Sync custom flag images if available
-    if (typeof electronAPI.getAvailableFlags === 'function') {
+    let files: DesktopLanguageFileInfo[] = [];
+
+    // 1. Electron Desktop Environment
+    if (electronAPI && typeof electronAPI.readLocalLanguages === 'function') {
+      if (typeof electronAPI.getAvailableFlags === 'function') {
+        try {
+          const flagMap = await electronAPI.getAvailableFlags();
+          if (flagMap && typeof flagMap === 'object') {
+            setCustomFlagImages(flagMap);
+          }
+        } catch {}
+      }
+
+      const desktopFiles = await electronAPI.readLocalLanguages();
+      if (Array.isArray(desktopFiles)) {
+        files = desktopFiles;
+      }
+    } else {
+      // 2. Web / Browser / Vite Environment
       try {
-        const flagMap = await electronAPI.getAvailableFlags();
-        if (flagMap && typeof flagMap === 'object') {
-          setCustomFlagImages(flagMap);
+        const res = await fetch('/api/languages');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.files)) {
+            files = data.files;
+          }
+          if (data && data.flags && typeof data.flags === 'object') {
+            setCustomFlagImages(data.flags);
+          }
         }
-      } catch {}
+      } catch (fetchErr) {
+        // Soft fallback for offline/static hosting
+      }
     }
 
-    const files: DesktopLanguageFileInfo[] = await electronAPI.readLocalLanguages();
     if (!Array.isArray(files)) return 0;
 
-    desktopLanguageFiles = files;
+    // Filter out templates so they are never treated as active language packs
+    desktopLanguageFiles = files.filter(f => 
+      !f.filename.toLowerCase().startsWith('template') && 
+      !f.id.toLowerCase().startsWith('template')
+    );
 
-    // 1. Apply overrides for built-in languages (en, de, fr, es)
-    for (const file of files) {
+    // Apply overrides for built-in languages (en, de, fr, es)
+    for (const file of desktopLanguageFiles) {
       if (file.flagImage) {
         customFlagImages[file.id.toLowerCase()] = file.flagImage;
         if (file.language_code) {
@@ -4647,7 +4686,7 @@ export async function syncDesktopLanguageFiles(): Promise<number> {
           ...file.translations
         };
       } else {
-        // 2. Register custom language files as selectable CustomLanguagePack
+        // Register custom language files as selectable CustomLanguagePack
         const customPack: CustomLanguagePack = {
           id: `desktop_file_${file.id}`,
           name: file.title || file.language_name || file.filename,
@@ -4675,7 +4714,7 @@ export async function syncDesktopLanguageFiles(): Promise<number> {
       }
     }
 
-    // Notify listeners so UI updates instantly
+    // Notify listeners so UI updates instantly across all modules
     listeners.forEach(cb => {
       try {
         cb(getLanguage());
@@ -4690,22 +4729,71 @@ export async function syncDesktopLanguageFiles(): Promise<number> {
 
     return files.length;
   } catch (err) {
-    console.warn('Failed to sync desktop language files:', err);
+    console.warn('Failed to sync language files:', err);
     return 0;
   }
 }
 
-// Automatically initiate sync and hook file watcher on desktop start
+export const syncLanguageFiles = syncDesktopLanguageFiles;
+
+export async function uploadCustomFlag(code: string, dataUrl: string): Promise<boolean> {
+  const cleanCode = code.toLowerCase().trim();
+  // Update in-memory and notify flag subscribers immediately
+  setCustomFlagImages({ [cleanCode]: dataUrl });
+
+  if (typeof window !== 'undefined') {
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI && typeof electronAPI.saveFlagImage === 'function') {
+      try {
+        await electronAPI.saveFlagImage({ code: cleanCode, dataUrl });
+        return true;
+      } catch {}
+    }
+
+    try {
+      const res = await fetch('/api/languages/upload-flag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: cleanCode, dataUrl })
+      });
+      return res.ok;
+    } catch {}
+  }
+  return true;
+}
+
+// Automatically initiate sync and hook file watchers on desktop start and web mode
 if (typeof window !== 'undefined') {
   setTimeout(() => {
     syncDesktopLanguageFiles();
+
+    // 1. Electron folder watcher bridge
     const electronAPI = (window as any).electronAPI;
     if (electronAPI && typeof electronAPI.onLanguagesFolderChanged === 'function') {
       electronAPI.onLanguagesFolderChanged(() => {
-        console.log('[i18n] Desktop language file change detected, reloading translations...');
+        console.log('[i18n] Desktop language/flag change detected, reloading translations...');
         syncDesktopLanguageFiles();
       });
     }
+
+    // 2. Web SSE Real-Time Watcher (Vite dev server)
+    try {
+      if (typeof window.EventSource !== 'undefined') {
+        const sse = new EventSource('/api/languages/events');
+        sse.addEventListener('change', () => {
+          console.log('[i18n] Live change detected via SSE, updating language pack state...');
+          syncDesktopLanguageFiles();
+        });
+        sse.onerror = () => {
+          // EventSource auto-reconnects
+        };
+      }
+    } catch {}
+
+    // 3. Fallback continuous polling (every 3.5s) to guarantee zero-lag update
+    setInterval(() => {
+      syncDesktopLanguageFiles();
+    }, 3500);
   }, 100);
 }
 

@@ -34,7 +34,6 @@ import {
   RotateCcw,
   BookOpen,
   Calculator,
-  Compass,
   Pin,
   PinOff,
   HelpCircle,
@@ -93,7 +92,6 @@ import { SettingsModule, type SettingsSection } from './SettingsModule';
 import { AccountingModule } from './AccountingModule';
 import { AppStoreModule } from './AppStoreModule';
 import { DocumentationApp } from './DocumentationApp';
-import { TutorialModal } from './TutorialModal';
 import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
 import { DesktopFolderModal } from './DesktopFolderModal';
 import { RestaurantModule } from './RestaurantModule';
@@ -687,7 +685,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
   const [isPowerMenuOpen, setIsPowerMenuOpen] = useState(false);
   const [isLockedStandby, setIsLockedStandby] = useState(false);
-  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
@@ -796,15 +793,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   });
 
   const [isWidgetsModalOpen, setIsWidgetsModalOpen] = useState(false);
+  const [isDraggingWidget, setIsDraggingWidget] = useState(false);
 
   const saveDesktopWidgets = (widgets: DesktopWidget[]) => {
     setDesktopWidgets(widgets);
     try { localStorage.setItem('socdof_desktop_widgets', JSON.stringify(widgets)); } catch {}
   };
 
-  const handleUpdateWidget = (id: string, updates: Partial<DesktopWidget>) => {
-    const next = desktopWidgets.map(w => w.id === id ? { ...w, ...updates } : w);
-    saveDesktopWidgets(next);
+  const handleUpdateWidget = (id: string, updates: Partial<DesktopWidget>, persist: boolean = true) => {
+    setDesktopWidgets(prev => {
+      const next = prev.map(w => w.id === id ? { ...w, ...updates } : w);
+      if (persist) {
+        try { localStorage.setItem('socdof_desktop_widgets', JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
   };
 
   const handleRemoveWidget = (id: string) => {
@@ -903,7 +906,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
 
   const handleIconMouseEnter = (e: React.MouseEvent, title: string, subtext?: string) => {
-    if (desktopContextMenu || desktopIconContextMenu || startMenuIconContextMenu || taskbarIconContextMenu) {
+    if (isDraggingWidget || desktopContextMenu || desktopIconContextMenu || startMenuIconContextMenu || taskbarIconContextMenu) {
       return;
     }
     if (tooltipTimeoutRef.current) {
@@ -1883,6 +1886,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           currency={company.currency || '€'}
           onOpenModule={(mod) => openWindow(mod)}
           activeDesktopId={activeDesktopId}
+          onDraggingWidgetChange={setIsDraggingWidget}
         />
 
         {/* Render Each Desktop Icon at its persistent X/Y coordinate */}
@@ -1901,8 +1905,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           return (
             <div
               key={modId}
-              draggable
+              draggable={!isDraggingWidget}
               onDragStart={(e) => {
+                if (isDraggingWidget) {
+                  e.preventDefault();
+                  return;
+                }
                 const rect = e.currentTarget.getBoundingClientRect();
                 const offsetX = e.clientX - rect.left;
                 const offsetY = e.clientY - rect.top;
@@ -1915,6 +1923,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 setDragOverIconId(null);
               }}
               onDragOver={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 if (draggedDesktopItem && draggedDesktopItem.id !== modId && draggedDesktopItem.type === 'app') {
@@ -1922,6 +1931,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }
               }}
               onDragLeave={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 if (dragOverIconId === modId) {
@@ -1929,6 +1939,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }
               }}
               onDrop={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || (draggedDesktopItem?.id as ActiveModule);
@@ -1941,26 +1952,32 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 position: 'absolute',
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
-                zIndex: isBeingDragged ? 40 : 2
+                zIndex: isBeingDragged ? 40 : 2,
+                pointerEvents: isDraggingWidget ? 'none' : 'auto'
               }}
               className={`rounded-2xl select-none transition-all duration-150 ${
-                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : 'hover:scale-102'
+                isDraggingWidget ? 'pointer-events-none' : ''
+              } ${
+                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : isDraggingWidget ? '' : 'hover:scale-102'
               } ${
                 isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20 shadow-xl' : ''
               }`}
             >
               <button
                 onClick={() => {
+                  if (isDraggingWidget) return;
                   handleIconMouseLeave();
                   openWindow(modId, meta.title);
                 }}
                 onDoubleClick={() => {
+                  if (isDraggingWidget) return;
                   handleIconMouseLeave();
                   openWindow(modId, meta.title);
                 }}
-                onMouseEnter={(e) => handleIconMouseEnter(e, meta.title, meta.subtitle)}
+                onMouseEnter={(e) => !isDraggingWidget && handleIconMouseEnter(e, meta.title, meta.subtitle)}
                 onMouseLeave={handleIconMouseLeave}
                 onContextMenu={(e) => {
+                  if (isDraggingWidget) return;
                   e.preventDefault();
                   e.stopPropagation();
                   handleIconMouseLeave();
@@ -1972,6 +1989,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   });
                 }}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
+                  isDraggingWidget ? 'pointer-events-none' : ''
+                } ${
                   isDark 
                     ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
                     : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
@@ -2028,8 +2047,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           return (
             <div
               key={folder.id}
-              draggable
+              draggable={!isDraggingWidget}
               onDragStart={(e) => {
+                if (isDraggingWidget) {
+                  e.preventDefault();
+                  return;
+                }
                 const rect = e.currentTarget.getBoundingClientRect();
                 const offsetX = e.clientX - rect.left;
                 const offsetY = e.clientY - rect.top;
@@ -2042,6 +2065,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 setDragOverIconId(null);
               }}
               onDragOver={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 if (draggedDesktopItem && draggedDesktopItem.id !== folder.id && draggedDesktopItem.type === 'app') {
@@ -2049,6 +2073,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }
               }}
               onDragLeave={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 if (dragOverIconId === folder.id) {
@@ -2056,6 +2081,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 }
               }}
               onDrop={(e) => {
+                if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
                 const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || (draggedDesktopItem?.id as ActiveModule);
@@ -2068,23 +2094,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 position: 'absolute',
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
-                zIndex: isBeingDragged ? 40 : 3
+                zIndex: isBeingDragged ? 40 : 3,
+                pointerEvents: isDraggingWidget ? 'none' : 'auto'
               }}
               className={`rounded-2xl select-none transition-all duration-150 ${
-                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : 'hover:scale-102'
+                isDraggingWidget ? 'pointer-events-none' : ''
+              } ${
+                isBeingDragged ? 'opacity-30 scale-95 ring-2 ring-indigo-400 ring-dashed filter grayscale' : isDraggingWidget ? '' : 'hover:scale-102'
               } ${
                 isDragOver ? 'scale-110 ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-500/20 shadow-xl' : ''
               }`}
             >
               <button
                 onClick={() => {
+                  if (isDraggingWidget) return;
                   handleIconMouseLeave();
                   sounds.playClick();
                   setActiveFolderModal(folder);
                 }}
-                onMouseEnter={(e) => handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
+                onMouseEnter={(e) => !isDraggingWidget && handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
                 onMouseLeave={handleIconMouseLeave}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
+                  isDraggingWidget ? 'pointer-events-none' : ''
+                } ${
                   isDark 
                     ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
                     : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
@@ -2185,7 +2217,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         return (
           <div
             key={win.id}
-            onClick={() => focusWindow(win.id)}
+            onClick={() => !isDraggingWidget && focusWindow(win.id)}
             style={{
               zIndex: win.zIndex,
               width: win.isMaximized ? '100vw' : `${win.width}px`,
@@ -2193,12 +2225,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               top: win.isMaximized ? 0 : `${win.y}px`,
               left: win.isMaximized ? 0 : `${win.x}px`,
               position: 'absolute',
+              pointerEvents: isDraggingWidget ? 'none' : 'auto',
               ...(isActive && !win.isMaximized ? {
                 borderColor: 'var(--accent, #4f46e5)',
                 boxShadow: '0 20px 40px -15px var(--accent-ring, rgba(79, 70, 229, 0.3)), 0 0 0 1px var(--accent, #4f46e5)'
               } : {})
             }}
             className={`flex flex-col bg-white dark:bg-slate-900 ${
+              isDraggingWidget ? 'pointer-events-none select-none' : ''
+            } ${
               win.isMaximized ? 'rounded-none border-0' : 'rounded-2xl border'
             } ${
               isActive 
@@ -3098,16 +3133,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <span className="uppercase tracking-wider">{currentLang}</span>
           </button>
 
-          {/* Tutorial Button in Taskbar */}
-          <button
-            onClick={() => { sounds.playClick(); setIsTutorialOpen(true); }}
-            title="Interaktives Tutorial & Einführung"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition"
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Tutorial</span>
-          </button>
-
           {/* Sound Toggle */}
           <button
             onClick={onToggleSound}
@@ -3373,14 +3398,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onDissolveFolder={handleDissolveFolder}
         shortcutMeta={shortcutMeta}
         isDark={isDark}
-      />
-
-      {/* Interactive Step-by-Step Tutorial Wizard */}
-      <TutorialModal
-        isOpen={isTutorialOpen}
-        onClose={() => setIsTutorialOpen(false)}
-        onOpenModule={(mod) => openWindow(mod)}
-        onOpenStartMenu={() => setIsStartMenuOpen(true)}
       />
 
       {/* Windows Desktop Manager Modal */}

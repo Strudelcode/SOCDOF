@@ -38,7 +38,7 @@ import { WidgetSettingsModal, AVAILABLE_ACTION_MODULES, TIMEZONE_OPTIONS } from 
 
 interface DesktopWidgetsLayerProps {
   widgets: DesktopWidget[];
-  onUpdateWidget: (id: string, updates: Partial<DesktopWidget>) => void;
+  onUpdateWidget: (id: string, updates: Partial<DesktopWidget>, persist?: boolean) => void;
   onRemoveWidget: (id: string) => void;
   onAddStickyNote: () => void;
   invoices: Invoice[];
@@ -46,6 +46,7 @@ interface DesktopWidgetsLayerProps {
   currency: string;
   onOpenModule: (module: ActiveModule) => void;
   activeDesktopId?: string;
+  onDraggingWidgetChange?: (isDragging: boolean) => void;
 }
 
 const STICKY_COLORS: Record<string, { bg: string; border: string; text: string; header: string; dot: string }> = {
@@ -109,16 +110,88 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
   products = [],
   currency,
   onOpenModule,
-  activeDesktopId = 'desktop-1'
+  activeDesktopId = 'desktop-1',
+  onDraggingWidgetChange
 }) => {
   const currentLang = useLanguage();
   const [colorPickerOpenId, setColorPickerOpenId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; widgetId: string } | null>(null);
   const [settingsWidget, setSettingsWidget] = useState<DesktopWidget | null>(null);
 
-  // Dragging widget state
+  // Dragging widget state & ref for high-performance 60fps tracking
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragRef = React.useRef<{
+    id: string;
+    offsetX: number;
+    offsetY: number;
+    width: number;
+    currentX: number;
+    currentY: number;
+    rafId: number | null;
+  } | null>(null);
+
+  // Global window listeners for drag & drop
+  useEffect(() => {
+    if (!draggingId) return;
+
+    const handlePointerMove = (e: MouseEvent | PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag || drag.id !== draggingId) return;
+
+      const newX = Math.max(10, Math.min(window.innerWidth - drag.width - 10, e.clientX - drag.offsetX));
+      const newY = Math.max(10, Math.min(window.innerHeight - 100, e.clientY - drag.offsetY));
+
+      drag.currentX = newX;
+      drag.currentY = newY;
+
+      if (drag.rafId) {
+        cancelAnimationFrame(drag.rafId);
+      }
+      drag.rafId = requestAnimationFrame(() => {
+        onUpdateWidget(drag.id, { x: newX, y: newY }, false);
+      });
+    };
+
+    const handlePointerUp = () => {
+      const drag = dragRef.current;
+      if (drag) {
+        if (drag.rafId) {
+          cancelAnimationFrame(drag.rafId);
+          drag.rafId = null;
+        }
+        // Save final coordinates to storage (persist = true)
+        onUpdateWidget(drag.id, { x: drag.currentX, y: drag.currentY }, true);
+      }
+      dragRef.current = null;
+      setDraggingId(null);
+      onDraggingWidgetChange?.(false);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handlePointerUp();
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('blur', handlePointerUp);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      if (dragRef.current?.rafId) {
+        cancelAnimationFrame(dragRef.current.rafId);
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('blur', handlePointerUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [draggingId, onUpdateWidget, onDraggingWidgetChange]);
 
   // Clock state
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -146,12 +219,25 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       return;
     }
 
+    e.preventDefault();
     setContextMenu(null);
+    setColorPickerOpenId(null);
+
+    const offsetX = e.clientX - w.x;
+    const offsetY = e.clientY - w.y;
+
+    dragRef.current = {
+      id: w.id,
+      offsetX,
+      offsetY,
+      width: w.width,
+      currentX: w.x,
+      currentY: w.y,
+      rafId: null
+    };
+
     setDraggingId(w.id);
-    setDragOffset({
-      x: e.clientX - w.x,
-      y: e.clientY - w.y
-    });
+    onDraggingWidgetChange?.(true);
 
     // Bring forward on click / drag if not explicitly locked in background
     if (w.layerLevel !== 'background') {
@@ -159,23 +245,6 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
       if ((w.zIndex || 20) <= maxZ) {
         onUpdateWidget(w.id, { zIndex: maxZ + 1 });
       }
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingId) return;
-    const currentW = widgets.find(w => w.id === draggingId);
-    if (!currentW || currentW.isLocked) return;
-
-    const newX = Math.max(10, Math.min(window.innerWidth - currentW.width - 10, e.clientX - dragOffset.x));
-    const newY = Math.max(10, Math.min(window.innerHeight - 100, e.clientY - dragOffset.y));
-
-    onUpdateWidget(draggingId, { x: newX, y: newY });
-  };
-
-  const handleMouseUp = () => {
-    if (draggingId) {
-      setDraggingId(null);
     }
   };
 
@@ -304,14 +373,18 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
 
   return (
     <div 
-      className="absolute inset-0 pointer-events-none overflow-hidden select-none z-[1]"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      className={`absolute inset-0 pointer-events-none overflow-hidden select-none ${
+        draggingId ? 'pointer-events-auto cursor-move' : ''
+      }`}
     >
       {visibleWidgets.map(widget => {
         const { bgClass, fontClass, textColClass, blurClass, isBgTransparent } = getWidgetCardStyle(widget);
         const zIndexValue = widget.layerLevel === 'background' ? 1 : (widget.zIndex || 20);
-        const cursorClass = widget.isLocked ? 'cursor-default' : 'cursor-move';
+        const isBeingDragged = draggingId === widget.id;
+        const cursorClass = widget.isLocked ? 'cursor-default' : (isBeingDragged ? 'cursor-grabbing' : 'cursor-move');
+        const dragClass = isBeingDragged 
+          ? 'transition-none shadow-2xl scale-[1.01] select-none ring-2 ring-indigo-500/40' 
+          : 'transition duration-150';
 
         // Floating Micro-Actions on Hover
         const renderHoverMicroActions = () => (
@@ -370,7 +443,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl ${isNoteTransparent ? 'bg-transparent border-0 shadow-none' : 'border shadow-2xl backdrop-blur-md'} flex flex-col transition duration-150 animate-fade-in group ${cursorClass} ${colorConf.bg} ${isNoteTransparent ? '' : colorConf.border} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl ${isNoteTransparent ? 'bg-transparent border-0 shadow-none' : 'border shadow-2xl backdrop-blur-md'} flex flex-col ${dragClass} animate-fade-in group ${cursorClass} ${colorConf.bg} ${isNoteTransparent ? '' : colorConf.border} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -415,7 +488,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('invoices')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2.5 animate-fade-in group ${dragClass} ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -461,7 +534,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('calendar')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex items-center gap-3.5 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex items-center gap-3.5 animate-fade-in group ${dragClass} ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -502,7 +575,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-center animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-center animate-fade-in group ${dragClass} ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -577,7 +650,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
               onDoubleClick={() => onOpenModule('stock')}
-              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-4 flex flex-col justify-between gap-2 animate-fade-in group ${dragClass} ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 
@@ -622,7 +695,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
               }}
               onMouseDown={(e) => handleMouseDownWidget(widget, e)}
               onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
-              className={`absolute pointer-events-auto rounded-3xl p-3.5 flex flex-col justify-between gap-2 animate-fade-in group transition ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
+              className={`absolute pointer-events-auto rounded-3xl p-3.5 flex flex-col justify-between gap-2 animate-fade-in group ${dragClass} ${cursorClass} ${bgClass} ${fontClass} ${blurClass}`}
             >
               {renderHoverMicroActions()}
 

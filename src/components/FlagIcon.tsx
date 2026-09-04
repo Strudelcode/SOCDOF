@@ -10,51 +10,107 @@ interface FlagIconProps {
   title?: string;
 }
 
-const KNOWN_FLAG_EMOJIS: Record<string, string> = {
-  en: '🇺🇸',
-  us: '🇺🇸',
-  uk: '🇬🇧',
-  gb: '🇬🇧',
-  de: '🇩🇪',
-  at: '🇦🇹',
-  ch: '🇨🇭',
-  fr: '🇫🇷',
-  es: '🇪🇸',
-  it: '🇮🇹',
-  nl: '🇳🇱',
-  pt: '🇵🇹',
-  br: '🇧🇷',
-  pl: '🇵🇱',
-  ru: '🇷🇺',
-  tr: '🇹🇷',
-  ua: '🇺🇦',
-  ukr: '🇺🇦',
-  zh: '🇨🇳',
-  cn: '🇨🇳',
-  ja: '🇯🇵',
-  jp: '🇯🇵',
-  ko: '🇰🇷',
-  kr: '🇰🇷',
-  sv: '🇸🇪',
-  se: '🇸🇪',
-  no: '🇳🇴',
-  da: '🇩🇰',
-  dk: '🇩🇰',
-  fi: '🇫🇮',
-  cs: '🇨🇿',
-  cz: '🇨🇿',
-  el: '🇬🇷',
-  gr: '🇬🇷',
-  hu: '🇭🇺',
-  ro: '🇷🇴',
-  ar: '🇸🇦',
-  hi: '🇮🇳'
+// Built-in crisp vector flags for standard languages
+const BuiltInFlags: Record<string, React.FC<{ className?: string }>> = {
+  de: ({ className }) => (
+    <svg viewBox="0 0 5 3" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="5" height="3" fill="#000000" />
+      <rect width="5" height="2" y="1" fill="#DD0000" />
+      <rect width="5" height="1" y="2" fill="#FFCE00" />
+    </svg>
+  ),
+  ger: ({ className }) => (
+    <svg viewBox="0 0 5 3" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="5" height="3" fill="#000000" />
+      <rect width="5" height="2" y="1" fill="#DD0000" />
+      <rect width="5" height="1" y="2" fill="#FFCE00" />
+    </svg>
+  ),
+  fr: ({ className }) => (
+    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="1" height="2" x="0" fill="#002654" />
+      <rect width="1" height="2" x="1" fill="#FFFFFF" />
+      <rect width="1" height="2" x="2" fill="#ED2939" />
+    </svg>
+  ),
+  fra: ({ className }) => (
+    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="1" height="2" x="0" fill="#002654" />
+      <rect width="1" height="2" x="1" fill="#FFFFFF" />
+      <rect width="1" height="2" x="2" fill="#ED2939" />
+    </svg>
+  ),
+  es: ({ className }) => (
+    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="3" height="2" fill="#AA151B" />
+      <rect width="3" height="1" y="0.5" fill="#F1BF00" />
+    </svg>
+  ),
+  esp: ({ className }) => (
+    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="3" height="2" fill="#AA151B" />
+      <rect width="3" height="1" y="0.5" fill="#F1BF00" />
+    </svg>
+  ),
+  en: ({ className }) => (
+    <svg viewBox="0 0 19 10" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="19" height="10" fill="#B22234" />
+      <path d="M0,1.54H19M0,3.08H19M0,4.62H19M0,6.15H19M0,7.69H19M0,9.23H19" stroke="#fff" strokeWidth="0.77" />
+      <rect width="7.6" height="5.38" fill="#3C3B6E" />
+      <g fill="#fff" opacity="0.9">
+        <circle cx="1.3" cy="0.9" r="0.25" /><circle cx="2.6" cy="0.9" r="0.25" /><circle cx="3.9" cy="0.9" r="0.25" /><circle cx="5.2" cy="0.9" r="0.25" /><circle cx="6.5" cy="0.9" r="0.25" />
+        <circle cx="1.9" cy="1.8" r="0.25" /><circle cx="3.2" cy="1.8" r="0.25" /><circle cx="4.5" cy="1.8" r="0.25" /><circle cx="5.8" cy="1.8" r="0.25" />
+        <circle cx="1.3" cy="2.7" r="0.25" /><circle cx="2.6" cy="2.7" r="0.25" /><circle cx="3.9" cy="2.7" r="0.25" /><circle cx="5.2" cy="2.7" r="0.25" /><circle cx="6.5" cy="2.7" r="0.25" />
+        <circle cx="1.9" cy="3.6" r="0.25" /><circle cx="3.2" cy="3.6" r="0.25" /><circle cx="4.5" cy="3.6" r="0.25" /><circle cx="5.8" cy="3.6" r="0.25" />
+        <circle cx="1.3" cy="4.5" r="0.25" /><circle cx="2.6" cy="4.5" r="0.25" /><circle cx="3.9" cy="4.5" r="0.25" /><circle cx="5.2" cy="4.5" r="0.25" /><circle cx="6.5" cy="4.5" r="0.25" />
+      </g>
+    </svg>
+  ),
+  us: ({ className }) => (
+    <svg viewBox="0 0 19 10" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect width="19" height="10" fill="#B22234" />
+      <path d="M0,1.54H19M0,3.08H19M0,4.62H19M0,6.15H19M0,7.69H19M0,9.23H19" stroke="#fff" strokeWidth="0.77" />
+      <rect width="7.6" height="5.38" fill="#3C3B6E" />
+      <g fill="#fff" opacity="0.9">
+        <circle cx="1.3" cy="0.9" r="0.25" /><circle cx="2.6" cy="0.9" r="0.25" /><circle cx="3.9" cy="0.9" r="0.25" /><circle cx="5.2" cy="0.9" r="0.25" /><circle cx="6.5" cy="0.9" r="0.25" />
+        <circle cx="1.9" cy="1.8" r="0.25" /><circle cx="3.2" cy="1.8" r="0.25" /><circle cx="4.5" cy="1.8" r="0.25" /><circle cx="5.8" cy="1.8" r="0.25" />
+        <circle cx="1.3" cy="2.7" r="0.25" /><circle cx="2.6" cy="2.7" r="0.25" /><circle cx="3.9" cy="2.7" r="0.25" /><circle cx="5.2" cy="2.7" r="0.25" /><circle cx="6.5" cy="2.7" r="0.25" />
+        <circle cx="1.9" cy="3.6" r="0.25" /><circle cx="3.2" cy="3.6" r="0.25" /><circle cx="4.5" cy="3.6" r="0.25" /><circle cx="5.8" cy="3.6" r="0.25" />
+        <circle cx="1.3" cy="4.5" r="0.25" /><circle cx="2.6" cy="4.5" r="0.25" /><circle cx="3.9" cy="4.5" r="0.25" /><circle cx="5.2" cy="4.5" r="0.25" /><circle cx="6.5" cy="4.5" r="0.25" />
+      </g>
+    </svg>
+  ),
+  gb: ({ className }) => (
+    <svg viewBox="0 0 60 30" className={className} xmlns="http://www.w3.org/2000/svg">
+      <clipPath id="s_clip"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
+      <clipPath id="t_clip"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
+      <g clipPath="url(#s_clip)">
+        <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#t_clip)" stroke="#C8102E" strokeWidth="4"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
+      </g>
+    </svg>
+  ),
+  uk: ({ className }) => (
+    <svg viewBox="0 0 60 30" className={className} xmlns="http://www.w3.org/2000/svg">
+      <clipPath id="s_clip_uk"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
+      <clipPath id="t_clip_uk"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
+      <g clipPath="url(#s_clip_uk)">
+        <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#t_clip_uk)" stroke="#C8102E" strokeWidth="4"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
+      </g>
+    </svg>
+  )
 };
 
 export const FlagIcon: React.FC<FlagIconProps> = ({ 
   code, 
   customImage, 
-  emoji, 
   className = '', 
   size = 'md',
   title
@@ -69,16 +125,16 @@ export const FlagIcon: React.FC<FlagIconProps> = ({
   }, []);
 
   const sizeDimensions = {
-    sm: { box: 'w-4 h-3', text: 'text-xs', img: 'w-4 h-3' },
-    md: { box: 'w-6 h-4', text: 'text-sm', img: 'w-6 h-4' },
-    lg: { box: 'w-8 h-6', text: 'text-lg', img: 'w-8 h-6' },
-    xl: { box: 'w-10 h-7', text: 'text-2xl', img: 'w-10 h-7' }
+    sm: { box: 'w-4 h-3', text: 'text-[9px]', img: 'w-4 h-3' },
+    md: { box: 'w-6 h-4', text: 'text-[11px]', img: 'w-6 h-4' },
+    lg: { box: 'w-8 h-5.5', text: 'text-xs', img: 'w-8 h-5.5' },
+    xl: { box: 'w-10 h-7', text: 'text-sm', img: 'w-10 h-7' }
   };
 
   const selectedSize = sizeDimensions[size] || sizeDimensions.md;
   const cleanCode = (code || '').toLowerCase().trim();
 
-  // 1. Check if a custom image was provided directly or discovered in %APPDATA%/socdof/languages/flags/
+  // 1. Check if a custom image was provided directly or discovered in languages/flags/
   const resolvedImage = customImage || getCustomFlagImage(cleanCode);
 
   if (resolvedImage) {
@@ -89,63 +145,35 @@ export const FlagIcon: React.FC<FlagIconProps> = ({
         title={title || code.toUpperCase()}
         className={`rounded-[3px] object-cover shadow-xs border border-slate-200/80 dark:border-slate-700/80 shrink-0 ${selectedSize.img} ${className}`}
         onError={(e) => {
-          // Hide image if broken and fallback below
           e.currentTarget.style.display = 'none';
         }}
       />
     );
   }
 
-  // 2. Check for real emoji flag
-  const resolvedEmoji = emoji || KNOWN_FLAG_EMOJIS[cleanCode];
-
-  if (resolvedEmoji) {
+  // 2. Check for built-in vector flag (de, en, us, gb, fr, es)
+  const BuiltInComponent = BuiltInFlags[cleanCode];
+  if (BuiltInComponent) {
     return (
-      <span 
-        className={`inline-flex items-center justify-center shrink-0 leading-none select-none filter drop-shadow-xs transition-transform ${selectedSize.text} ${className}`}
-        role="img"
-        aria-label={title || code}
+      <div
+        className={`rounded-[3px] overflow-hidden shadow-xs border border-slate-200/80 dark:border-slate-700/80 shrink-0 flex items-center justify-center ${selectedSize.box} ${className}`}
         title={title || code.toUpperCase()}
       >
-        {resolvedEmoji}
-      </span>
+        <BuiltInComponent className="w-full h-full object-cover" />
+      </div>
     );
   }
 
-  // 3. Fallback: Black flag with a question mark (Standard schwarze Flagge mit Fragezeichen)
+  // 3. Fallback: If no flag image exists in flags/ folder, display a clean "?"
   return (
     <div 
-      className={`rounded-[3px] bg-slate-950 dark:bg-black text-white border border-slate-700/80 dark:border-slate-800 shadow-xs flex items-center justify-center shrink-0 select-none overflow-hidden ${selectedSize.box} ${className}`}
-      title={title || `Custom Flag (${code})`}
-      aria-label={title || `Custom Flag (${code})`}
+      className={`rounded-[3px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 select-none ${selectedSize.box} ${className}`}
+      title={title || code.toUpperCase()}
+      aria-label={title || code.toUpperCase()}
     >
-      <svg 
-        viewBox="0 0 24 18" 
-        className="w-full h-full p-0.5" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* Dark canvas */}
-        <rect width="24" height="18" rx="2" fill="#09090b"/>
-        {/* Flag pole */}
-        <path d="M4 3.5v11" stroke="#71717a" strokeWidth="1.2" strokeLinecap="round"/>
-        {/* Black wave banner */}
-        <path d="M4.5 4.5c3-1.2 5.5 1.2 8.5 0v6.5c-3 1.2-5.5-1.2-8.5 0V4.5z" fill="#27272a" stroke="#52525b" strokeWidth="0.8"/>
-        {/* Bold question mark centered on the black flag */}
-        <text 
-          x="8.8" 
-          y="8.8" 
-          textAnchor="middle" 
-          dominantBaseline="central" 
-          fill="#ffffff" 
-          fontSize="5.5" 
-          fontWeight="900" 
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          ?
-        </text>
-      </svg>
+      <span className={`${selectedSize.text} font-black leading-none select-none`}>?</span>
     </div>
   );
 };
+
 

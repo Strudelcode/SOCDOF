@@ -248,8 +248,31 @@ ipcMain.handle('socdof:quit-app', () => {
   app.quit();
 });
 
-// Languages directory manager
+// Languages directory manager - dynamically resolves path based on installation & execution context
 function getLanguagesDirectory() {
+  // 1. Check custom environment variable
+  if (process.env.SOCDOF_LANGUAGES_DIR && fs.existsSync(process.env.SOCDOF_LANGUAGES_DIR)) {
+    return process.env.SOCDOF_LANGUAGES_DIR;
+  }
+
+  // 2. Check next to executable (portable installation or custom install folder)
+  try {
+    const exeDir = path.dirname(process.execPath);
+    const exeLangDir = path.join(exeDir, 'languages');
+    if (fs.existsSync(exeLangDir)) {
+      return exeLangDir;
+    }
+  } catch {}
+
+  // 3. Check current working directory
+  try {
+    const cwdLangDir = path.join(process.cwd(), 'languages');
+    if (fs.existsSync(cwdLangDir)) {
+      return cwdLangDir;
+    }
+  } catch {}
+
+  // 4. Default persistent AppData / UserData folder
   const langDir = path.join(app.getPath('userData'), 'languages');
   if (!fs.existsSync(langDir)) {
     try {
@@ -450,6 +473,7 @@ function readAllLanguageFiles() {
     const files = fs.readdirSync(langDir);
     for (const file of files) {
       if (!file.toLowerCase().endsWith('.json')) continue;
+      if (file.toLowerCase().startsWith('template')) continue;
       const fullPath = path.join(langDir, file);
       try {
         const stats = fs.statSync(fullPath);

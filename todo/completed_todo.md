@@ -6,7 +6,50 @@
 
 ## Completed Tasks Archive
 
-### 1. Master Volume Slider, Multi-Sound Audio Library, Categorized Settings Hub & Custom Language Pack Engine (v21.10.0)
+### 1. Smooth Desktop Widget Dragging Behind Fixed Apps & Dynamic Pointer-Events Isolation (v22.1.3)
+- [x] **Desktop Widget Drag Engine (`src/components/DesktopWidgetsLayer.tsx`, `src/components/DesktopWindowWorkspace.tsx`)**:
+  - [x] Implemented global window pointer event listeners for high-frequency drag tracking.
+  - [x] Refactored widget movement to use `dragRef` with `requestAnimationFrame` updates to eliminate lag and 60fps jitter.
+  - [x] Added `isDraggingWidget` state in `DesktopWindowWorkspace` with `onDraggingWidgetChange` callback.
+  - [x] Disabled pointer events on desktop icons, app folders, and open windows while a widget is actively dragged.
+  - [x] Prevented apps and windows from capturing pointer events or showing hover animations during widget movements.
+  - [x] Ensured widgets can be dragged smoothly behind apps and picked up whenever an exposed gap/edge is clicked.
+
+### 2. Removal of Deprecated Interactive Tutorial System (v22.1.2)
+- [x] **Tutorial Elimination (`src/components/DesktopWindowWorkspace.tsx`, `src/types.ts`)**:
+  - [x] Completely removed deprecated `TutorialModal` companion overlay and 8-step wizard.
+  - [x] Removed yellow/amber "Tutorial" button and `Compass` icon from the taskbar tray.
+  - [x] Cleaned up unused `TutorialStep` interface from `src/types.ts`.
+  - [x] Deleted obsolete `src/components/TutorialModal.tsx` component file.
+
+### 2. Language Menu Streamlining, Dynamic Directory Resolution & Template Exclusion (v22.1.1)
+- [x] **Language UI Streamlining & De-cluttering (`src/components/SettingsModule.tsx`, `src/components/LanguageSelectionModal.tsx`)**:
+  - [x] Removed redundant search input ("Sprache oder Datei suchen...").
+  - [x] Removed "Bild zuweisen" manual upload buttons in favor of the direct physical `languages/flags/` workflow.
+  - [x] Removed confusing fallback explanation text ("Standard: schwarze Flagge mit ?").
+  - [x] Cleaned active flag preview display with subtle `?` indicator when no flag graphic is available.
+- [x] **Dynamic Directory Path Discovery (`electron/main.cjs`, `SettingsModule.tsx`)**:
+  - [x] Implemented multi-location dynamic resolver in Electron checking custom installation directories, executable paths, working directory, and app data.
+  - [x] Dynamically resolved and displayed path in UI instead of hardcoded `%APPDATA%`.
+- [x] **Template Exclusion (`SettingsModule.tsx`, `LanguageSelectionModal.tsx`)**:
+  - [x] Filtered out `template*.json` files from selectable language options and custom pack lists.
+
+### 2. Instant Dynamic Language Live-Reload, Selection Module Dropdown & Custom Flag Asset Architecture (v22.1.0)
+- [x] **Zero-Restart Live Language Reload (`vite.config.ts`, `src/lib/i18n.ts`, `LanguageSelectionModal.tsx`, `SettingsModule.tsx`)**:
+  - [x] Engineered continuous file system watching on `languages/` (`public/languages/` and `%APPDATA%/socdof/languages/`).
+  - [x] Created Server-Sent Events (SSE) notification bridge in Vite dev server and native IPC bridge in Electron.
+  - [x] Live updates trigger dynamic dictionary reload and re-render across all modules within ~200ms without page refresh.
+- [x] **Dropdown Language Selection Module (`src/components/SettingsModule.tsx`, `LanguageSelectionModal.tsx`)**:
+  - [x] Implemented accessible dropdown selection module in Settings and LanguageSelectionModal.
+  - [x] Dynamically aggregates standard languages (DE, EN, FR, ES), local language files (`.json`), and custom community packs.
+  - [x] Integrated active preview card showing translation counts, source tag, and active flag indicator.
+- [x] **Flag Hierarchy & Custom Image / Emoji Pipeline (`src/components/FlagIcon.tsx`, `src/lib/i18n.ts`)**:
+  - [x] Tier 1: Support for user-provided image files in `languages/flags/` (or via in-app upload).
+  - [x] Tier 2: Clean standard country flag emojis for all recognized language codes.
+  - [x] Tier 3: Default fallback displaying a styled black flag with centered question mark (`?`) for unknown/unconfigured languages.
+  - [x] In-app flag image uploader supporting PNG, JPG, SVG, and WebP with immediate global update.
+
+### 2. Master Volume Slider, Multi-Sound Audio Library, Categorized Settings Hub & Custom Language Pack Engine (v21.10.0)
 - [x] **Master Volume Control Slider (`src/lib/sound.ts`, `SettingsModule.tsx`, `src/lib/i18n.ts`)**:
   - [x] Implemented a smooth master volume slider (`0%` to `100%`) with Web Audio API gain scaling in `src/lib/sound.ts` (`sounds.getVolume()`, `sounds.setVolume()`).
   - [x] Added instant percentage badge, dynamic volume icons (`VolumeX`, `Volume1`, `Volume2`), 5 quick preset levels (`15%`, `35%`, `60%`, `85%`, `100%`), and audio test button in Settings.
