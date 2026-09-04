@@ -2881,7 +2881,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsCommandPaletteOpen(true);
             }}
-            title={t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen... (Ctrl+K)')}
+            title={`${t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen...')} (${formatShortcut('Ctrl+K', currentLang, company.shortcut_modifier_style)})`}
             className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-2xs group cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
@@ -2894,7 +2894,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsTaskViewOpen(!isTaskViewOpen);
             }}
-            title={t('taskview.title', currentLang, 'Task-Ansicht & Virtuelle Desktops (Ctrl+Tab)')}
+            title={`${t('taskview.title', currentLang, 'Task-Ansicht & Virtuelle Desktops')} (${formatShortcut('Ctrl+Tab', currentLang, company.shortcut_modifier_style)})`}
             aria-label="Task View"
             className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
               isTaskViewOpen

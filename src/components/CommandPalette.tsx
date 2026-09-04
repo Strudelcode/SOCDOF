@@ -48,8 +48,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isDark,
   contacts,
   products,
-  invoices
+  invoices,
+  profile
 }) => {
+  const currentLang = useLanguage();
   const [query, setQuery] = useState('');
 
   useEffect(() => {

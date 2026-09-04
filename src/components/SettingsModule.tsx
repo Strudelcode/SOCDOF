@@ -7,7 +7,12 @@ import {
   Upload, 
   RotateCcw, 
   Volume2, 
+  Volume1,
   VolumeX,
+  Play,
+  Coins,
+  FileUp,
+  FileDown,
   Check, 
   AlertCircle, 
   Sparkles, 
@@ -59,7 +64,21 @@ import { FlagIcon } from './FlagIcon';
 import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, clearDatabaseToEmpty, getDatabaseStorageStats } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { ACCENT_LIST, applyAccentColor, getAccentPreset } from '../lib/accent';
-import { SUPPORTED_LANGUAGES, setLanguage, useLanguage, t, formatShortcut } from '../lib/i18n';
+import { 
+  SUPPORTED_LANGUAGES, 
+  setLanguage, 
+  useLanguage, 
+  t, 
+  formatShortcut,
+  exportLanguageTemplate,
+  exportLanguagePack,
+  importCustomLanguagePack,
+  getCustomLanguagePacks,
+  getActiveCustomPackId,
+  setActiveCustomPack,
+  deleteCustomLanguagePack,
+  CustomLanguagePack
+} from '../lib/i18n';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL } from '../lib/platform';
@@ -123,6 +142,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
   const [searchQuery, setSearchQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectSection = (section: SettingsSection) => {
+    setActiveSection(section);
+    if (rootRef.current) {
+      const scrollParent = rootRef.current.closest('.overflow-y-auto');
+      if (scrollParent) {
+        scrollParent.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
   const [profile, setProfile] = useState<CompanyProfile>({
     ...company,
     name: company.name || 'Ihr Firmenname'
@@ -133,7 +164,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   useEffect(() => {
     if (initialSection) {
-      setActiveSection(initialSection);
+      handleSelectSection(initialSection);
     }
   }, [initialSection]);
 
@@ -154,6 +185,98 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   const currentLang = useLanguage();
   const activeLang = profile.language || currentLang;
+
+  // Master Sound Volume state
+  const [volume, setVolumeState] = useState<number>(() => sounds.getVolume());
+
+  // Custom Language Packs state
+  const [customPacks, setCustomPacks] = useState<CustomLanguagePack[]>(() => getCustomLanguagePacks());
+  const [activeCustomPackId, setActiveCustomPackState] = useState<string | null>(() => getActiveCustomPackId());
+  const [packFeedback, setPackFeedback] = useState<{ text: string; success: boolean } | null>(null);
+  const langFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleVolumeChange = (newVol: number) => {
+    setVolumeState(newVol);
+    sounds.setVolume(newVol);
+    if (isMuted && onToggleSound) {
+      onToggleSound();
+    }
+  };
+
+  const handleTestVolume = () => {
+    if (isMuted && onToggleSound) {
+      onToggleSound();
+    }
+    sounds.playCoinClink();
+  };
+
+  const handleDownloadTemplate = () => {
+    sounds.playClick();
+    const jsonStr = exportLanguageTemplate();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'socdof-language-template.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCurrentLang = () => {
+    sounds.playClick();
+    const jsonStr = exportLanguagePack(activeLang as any);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `socdof-language-${activeLang}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportLangFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const res = importCustomLanguagePack(file.name.replace(/\.json$/i, ''), content);
+        if (res.success) {
+          sounds.playSuccess();
+          setCustomPacks(getCustomLanguagePacks());
+          setActiveCustomPackState(res.packId || null);
+          setPackFeedback({
+            text: `${t('settings.lang_import_pack', activeLang, 'Sprachpaket importiert')}: ${res.count} ${t('settings.lang_keys_count', activeLang, 'Schlüssel')}`,
+            success: true
+          });
+        } else {
+          sounds.playError();
+          setPackFeedback({ text: res.error || 'Import fehlgeschlagen', success: false });
+        }
+      } catch (err) {
+        sounds.playError();
+        setPackFeedback({ text: String(err), success: false });
+      }
+    };
+    reader.readAsText(file);
+    if (e.target) e.target.value = '';
+    setTimeout(() => setPackFeedback(null), 5000);
+  };
+
+  const handleSwitchCustomPack = (packId: string | null) => {
+    sounds.playClick();
+    setActiveCustomPack(packId);
+    setActiveCustomPackState(packId);
+    setCustomPacks(getCustomLanguagePacks());
+  };
+
+  const handleDeleteCustomPack = (packId: string) => {
+    sounds.playDelete();
+    deleteCustomLanguagePack(packId);
+    setCustomPacks(getCustomLanguagePacks());
+    setActiveCustomPackState(getActiveCustomPackId());
+  };
 
   // Delete Warning Confirmation Dialog State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -590,26 +713,63 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     return items.filter(i => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
   }, [searchQuery]);
 
-  const navItems: { id: SettingsSection; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string; danger?: boolean }[] = [
-    { id: 'home', label: t('settings.home', activeLang, 'Startseite'), icon: Settings },
-    { id: 'general', label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2 },
-    { id: 'personalization', label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette },
-    { id: 'language', label: t('settings.language', activeLang, 'Sprache, Region & Zeit'), icon: Globe },
-    { id: 'connections', label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2 },
-    { id: 'letterhead', label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText },
-    { id: 'storage', label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive },
-    { id: 'audio', label: t('settings.audio', activeLang, 'Sound & Audio'), icon: Volume2 },
-    { id: 'windows', label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor },
-    { id: 'danger', label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true }
-  ];
+  const categoryGroups: {
+    id: string;
+    label: string;
+    items: {
+      id: SettingsSection;
+      label: string;
+      icon: React.ComponentType<{ className?: string }>;
+      desc?: string;
+      badge?: string;
+      danger?: boolean;
+    }[];
+  }[] = useMemo(() => [
+    {
+      id: 'overview',
+      label: t('settings.category_overview', activeLang, 'Übersicht'),
+      items: [
+        { id: 'home' as SettingsSection, label: t('settings.home', activeLang, 'Startseite'), icon: Settings, desc: 'Schnellzugriff & Personalisierung' }
+      ]
+    },
+    {
+      id: 'business',
+      label: t('settings.category_business', activeLang, 'Unternehmen & Workflow'),
+      items: [
+        { id: 'general' as SettingsSection, label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2, desc: 'Firmenanschrift, Steuern & Bankdaten' },
+        { id: 'letterhead' as SettingsSection, label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText, desc: 'Logo, Faltmarken & PDF-Layout' },
+        { id: 'connections' as SettingsSection, label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, desc: 'Google Kalender 2-Way Sync & iCal' }
+      ]
+    },
+    {
+      id: 'interface',
+      label: t('settings.category_interface', activeLang, 'System & Personalisierung'),
+      items: [
+        { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: 'Darkmode, Akzentfarben & Mica' },
+        { id: 'language' as SettingsSection, label: t('settings.language', activeLang, 'Sprache & Sprachpakete'), icon: Globe, desc: 'Systemsprache, Währung & .JSON Pakete' },
+        { id: 'audio' as SettingsSection, label: t('settings.audio', activeLang, 'Sound & Lautstärke'), icon: Volume2, desc: 'Kassentöne, Effekte & Lautstärkeregler' }
+      ]
+    },
+    {
+      id: 'admin',
+      label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
+      items: [
+        { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
+        { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
+        { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
+      ]
+    }
+  ], [activeLang]);
+
+  const navItems = useMemo(() => categoryGroups.flatMap(g => g.items), [categoryGroups]);
 
   const currentNav = navItems.find(n => n.id === activeSection);
   const CurrentIcon = currentNav?.icon || Settings;
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-12 animate-fade-in text-slate-900 dark:text-slate-100">
+    <div ref={rootRef} className="space-y-4 max-w-6xl mx-auto pb-12 animate-fade-in text-slate-900 dark:text-slate-100">
       
-      {/* 1. Sleek, Space-Efficient Top Toolbar (Fixed Right-Aligned Search) */}
+      {/* 1. Sleek, Space-Efficient Top Toolbar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 shadow-xs">
         <div className="flex items-center justify-between gap-3 sm:gap-4">
           
@@ -682,7 +842,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     key={idx}
                     onClick={() => {
                       sounds.playClick();
-                      setActiveSection(r.section);
+                      handleSelectSection(r.section);
                       setSearchQuery('');
                     }}
                     className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700/60 text-left transition flex items-center justify-between group"
@@ -714,7 +874,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               key={item.id}
               onClick={() => {
                 sounds.playClick();
-                setActiveSection(item.id);
+                handleSelectSection(item.id);
               }}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
                 isActive
@@ -745,43 +905,52 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
         
         {/* Left Sidebar Navigation (Desktop / Tablet view: side by side) */}
-        <div className="hidden md:block md:col-span-4 lg:col-span-3.5 xl:col-span-3 space-y-2 md:sticky md:top-3 md:self-start">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    sounds.playClick();
-                    setActiveSection(item.id);
-                  }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                    isActive
-                      ? item.danger
-                        ? 'bg-rose-600 text-white shadow-xs font-bold'
-                        : 'text-white shadow-xs font-bold'
-                      : item.danger
-                      ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                  style={isActive && !item.danger ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
+        <div className="hidden md:block md:col-span-4 lg:col-span-3.5 xl:col-span-3 space-y-3 md:self-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-3">
+            {categoryGroups.map((group) => (
+              <div key={group.id} className="space-y-1">
+                {group.id !== 'overview' && (
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    {group.label}
                   </div>
-                  {item.badge && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                )}
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        sounds.playClick();
+                        handleSelectSection(item.id);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-2xl text-xs font-semibold transition ${
+                        isActive
+                          ? item.danger
+                            ? 'bg-rose-600 text-white shadow-xs font-bold'
+                            : 'text-white shadow-xs font-bold'
+                          : item.danger
+                          ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      style={isActive && !item.danger ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           {/* Quick System Status Card & Community Links */}
@@ -874,7 +1043,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
 
                   <button
-                    onClick={() => setActiveSection('general')}
+                    onClick={() => handleSelectSection('general')}
                     className="px-4 py-2 bg-white text-indigo-950 hover:bg-indigo-50 font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
                   >
                     Profil anpassen
@@ -902,7 +1071,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         key={tile.id}
                         onClick={() => {
                           sounds.playClick();
-                          setActiveSection(tile.id as SettingsSection);
+                          handleSelectSection(tile.id as SettingsSection);
                         }}
                         className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700/60 text-left transition group flex items-start gap-3.5"
                       >
@@ -926,50 +1095,208 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
               {/* Quick Preferences Toggles */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Dark Mode Quick Toggle */}
-                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {isDark ? <Moon className="w-4 h-4 text-purple-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-                    <span className="text-xs font-bold">{isDark ? 'Dunkelmodus' : 'Hellmodus'}</span>
+                {/* 1. Dark Mode Quick Switch */}
+                <div
+                  onClick={() => {
+                    sounds.playClick();
+                    onToggleTheme();
+                  }}
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      sounds.playClick();
+                      onToggleTheme();
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0 ${
+                      isDark ? 'bg-purple-950/60 text-purple-400' : 'bg-amber-50 text-amber-600'
+                    }`}>
+                      {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {t('settings.quick_darkmode', activeLang, 'Dark Mode')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {isDark ? t('settings.quick_darkmode_active', activeLang, 'Aktiviert') : t('settings.quick_darkmode_inactive', activeLang, 'Deaktiviert')}
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={onToggleTheme}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                      isDark ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-800'
+
+                  {/* Elegant Animated Toggle Switch */}
+                  <div
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      isDark ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'
                     }`}
                   >
-                    Wechseln
-                  </button>
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                        isDark ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </div>
                 </div>
 
-                {/* Sound Quick Toggle */}
-                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {isMuted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-emerald-500" />}
-                    <span className="text-xs font-bold">{isMuted ? 'Stumm' : 'Sounds an'}</span>
+                {/* 2. Sound Effects Quick Switch */}
+                <div
+                  onClick={() => {
+                    sounds.playClick();
+                    onToggleSound();
+                  }}
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      sounds.playClick();
+                      onToggleSound();
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0 ${
+                      !isMuted ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                    }`}>
+                      {!isMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {t('settings.quick_sound', activeLang, 'Sound-Effekte')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {!isMuted ? t('settings.quick_sound_active', activeLang, 'Aktiviert') : t('settings.quick_sound_muted', activeLang, 'Stumm')}
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={onToggleSound}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                      !isMuted ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-800'
+
+                  {/* Elegant Animated Toggle Switch */}
+                  <div
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      !isMuted ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
                     }`}
                   >
-                    {isMuted ? 'Aktivieren' : 'Stumm'}
-                  </button>
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                        !isMuted ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </div>
                 </div>
 
-                {/* Google Cal Link Quick Tile */}
-                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <CalendarIcon className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-bold">Google Cal</span>
+                {/* 3. Google Calendar Quick Link */}
+                <div
+                  onClick={() => {
+                    sounds.playClick();
+                    handleSelectSection('connections');
+                  }}
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      sounds.playClick();
+                      handleSelectSection('connections');
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center transition shrink-0">
+                      <CalendarIcon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {t('settings.quick_google_cal', activeLang, 'Google Kalender')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {company.google_cal_enabled ? t('settings.sync_active', activeLang, 'Synchronisiert') : t('settings.quick_google_cal_sync', activeLang, '2-Way Live Sync')}
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setActiveSection('connections')}
-                    className="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-500 rounded-lg text-xs font-semibold transition"
-                  >
-                    Sync
-                  </button>
+                  <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition shrink-0">
+                    <span>{t('settings.quick_open', activeLang, 'Öffnen')}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Categorized Settings Hub (Übersichtlich & Strukturiert nach Bereichen) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <span>{t('settings.category_overview', activeLang, 'Einstellungsbereiche & Module')}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Strukturiert nach Unternehmensbereich, Benutzeroberfläche und Systemwartung.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {categoryGroups.filter(g => g.id !== 'overview').map((group) => (
+                    <div
+                      key={group.id}
+                      className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 shadow-xs flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            {group.label}
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 mt-2.5">
+                          {group.items.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => {
+                                  sounds.playClick();
+                                  handleSelectSection(item.id);
+                                }}
+                                className={`w-full p-2.5 rounded-2xl text-left transition flex items-start justify-between group ${
+                                  item.danger
+                                    ? 'hover:bg-rose-50/80 dark:hover:bg-rose-950/30'
+                                    : 'hover:bg-indigo-50/80 dark:hover:bg-indigo-950/30'
+                                }`}
+                              >
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                  <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                                    item.danger
+                                      ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                                  }`}>
+                                    <Icon className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className={`text-xs font-bold truncate ${
+                                      item.danger
+                                        ? 'text-rose-600 dark:text-rose-400'
+                                        : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                                    }`}>
+                                      {item.label}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                      {item.desc}
+                                    </div>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition shrink-0 mt-1" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1890,6 +2217,168 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     })}
                   </div>
                 </div>
+
+                {/* 5. Custom Language Packs & JSON Translation Editor */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-0.5 flex items-center gap-1.5">
+                        <FileJson className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{t('settings.lang_packs_title', activeLang, 'Externe Sprachpakete & JSON-Übersetzungseditor')}</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('settings.lang_packs_desc', activeLang, 'Passen Sie alle Fachbegriffe selbst an oder übersetzen Sie SOCDOF lokal in jede Sprache. Laden Sie die JSON-Vorlage herunter, bearbeiten Sie die Texte und laden Sie Ihr Paket.')}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 text-xs font-bold transition flex items-center gap-1.5"
+                        title={t('settings.lang_download_template_desc', activeLang, 'JSON-Vorlage mit allen Schlüsseln herunterladen')}
+                      >
+                        <Download className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{t('settings.lang_download_template', activeLang, 'JSON-Vorlage (.json)')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportCurrentLang}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 text-xs font-bold transition flex items-center gap-1.5"
+                        title={t('settings.lang_export_current', activeLang, 'Aktuelle Sprache exportieren')}
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{t('settings.lang_export_current', activeLang, 'Aktuelle exportieren')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => langFileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                      >
+                        <FileUp className="w-3.5 h-3.5" />
+                        <span>{t('settings.lang_import_pack', activeLang, 'Sprachpaket laden (.json)')}</span>
+                      </button>
+                      <input
+                        ref={langFileInputRef}
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportLangFile}
+                      />
+                    </div>
+                  </div>
+
+                  {packFeedback && (
+                    <div className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                      packFeedback.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    }`}>
+                      {packFeedback.success ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />}
+                      <span>{packFeedback.text}</span>
+                    </div>
+                  )}
+
+                  {/* Active Custom Pack Status Card */}
+                  <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 shrink-0">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{activeCustomPackId ? (customPacks.find(p => p.id === activeCustomPackId)?.name || 'Benutzerdefiniertes Sprachpaket') : t('settings.lang_no_custom_pack', activeLang, 'Standard-Systemsprache aktiv')}</span>
+                          {activeCustomPackId && (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-400/30">
+                              Aktiv
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {activeCustomPackId
+                            ? `${customPacks.find(p => p.id === activeCustomPackId)?.count || 0} ${t('settings.lang_keys_count', activeLang, 'übersetzte Schlüssel')} • Zuletzt aktualisiert: ${new Date(customPacks.find(p => p.id === activeCustomPackId)?.updatedAt || Date.now()).toLocaleDateString()}`
+                            : 'Kein externes Sprachpaket aktiv. Das System nutzt die integrierten Sprachdateien.'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeCustomPackId && (
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchCustomPack(null)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold transition self-start sm:self-auto"
+                      >
+                        {t('settings.lang_deactivate_pack', activeLang, 'Paket deaktivieren')}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Installed Custom Packs List */}
+                  {customPacks.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {t('settings.lang_installed_packs', activeLang, 'Installierte Sprachpakete')} ({customPacks.length})
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {customPacks.map(pack => {
+                          const isCurrent = activeCustomPackId === pack.id;
+                          return (
+                            <div
+                              key={pack.id}
+                              className={`p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                                isCurrent
+                                  ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/30 ring-1 ring-sky-500/20'
+                                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  {pack.name}
+                                </div>
+                                <div className="text-[10px] text-slate-500 truncate">
+                                  {pack.count} Schlüssel • v{pack.version || '1.0'} {pack.author ? `• ${pack.author}` : ''}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {!isCurrent ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSwitchCustomPack(pack.id)}
+                                    className="px-2.5 py-1 rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 hover:bg-sky-200 text-xs font-bold transition"
+                                  >
+                                    Aktivieren
+                                  </button>
+                                ) : (
+                                  <span className="text-xs font-bold text-sky-600 flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5" /> Aktiv
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomPack(pack.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                  title={t('settings.lang_delete_pack', activeLang, 'Paket löschen')}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Windows desktop hint */}
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-start gap-2.5">
+                    <Laptop className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                    <p>
+                      {t('settings.lang_electron_folder_hint', activeLang, 'Windows Desktop Offline-Ordner: Eigene .json-Sprachdateien können auch im Ordner %APPDATA%/socdof/languages/ hinterlegt werden.')}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2586,75 +3075,304 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* SECTION: SOUND & AUDIO */}
           {activeSection === 'audio' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <Volume2 className="w-5 h-5" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <Volume2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      {t('settings.audio_title', activeLang, 'System-Audio & Soundeffekte')}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('settings.audio_desc', activeLang, 'Akustisches Feedback für Kassenbons, Kartenzahlungen, Fensteraktionen und Benachrichtigungen.')}
+                    </p>
+                  </div>
                 </div>
+
+                <div className="flex items-center gap-3 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      onToggleSound();
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs ${
+                      !isMuted ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300'
+                    }`}
+                  >
+                    {!isMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                    <span>{!isMuted ? t('settings.quick_sound_active', activeLang, 'Aktiviert') : t('settings.quick_sound_muted', activeLang, 'Stummgeschaltet')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Master Volume Control Slider Card ("Schöner Schieberegler") */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-slate-50 to-purple-50/50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 border border-indigo-100 dark:border-indigo-900/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-5 h-5" />
+                      ) : volume < 0.5 ? (
+                        <Volume1 className="w-5 h-5" />
+                      ) : (
+                        <Volume2 className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>{t('settings.audio_volume_label', activeLang, 'Gesamtlautstärke (Master Volume)')}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        {t('settings.audio_volume_desc', activeLang, 'Regelt die Lautstärke aller Kassen-Effekte, Bestätigungen und Systemklänge stufenlos.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTestVolume}
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-xs shrink-0"
+                    title={t('settings.audio_test_btn', activeLang, 'Lautstärke probehören')}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{t('settings.audio_test_btn', activeLang, 'Probehören')}</span>
+                  </button>
+                </div>
+
+                {/* Elegant Slider Control */}
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleVolumeChange(0)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      title="Stumm (0%)"
+                    >
+                      <VolumeX className="w-4 h-4" />
+                    </button>
+
+                    <div className="relative flex-1 flex items-center">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                        className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleVolumeChange(1.0)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      title="Maximum (100%)"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Volume Preset Quick Selectors */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      Schnellwahl:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {[0.15, 0.35, 0.6, 0.85, 1.0].map((preset) => {
+                        const isPresetActive = !isMuted && Math.abs(volume - preset) < 0.08;
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => handleVolumeChange(preset)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                              isPresetActive
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {Math.round(preset * 100)}%
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Categorized Interactive Sound Catalog */}
+              <div className="space-y-4 pt-1">
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    System-Audio & Soundeffekte
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Akustisches Feedback für Klicks, Bestätigungen, Fensteraktionen und Fehler.
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    {t('settings.audio_catalog_title', activeLang, 'Interaktiver Sound-Katalog & Vorschau')}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Klicken Sie auf ein Element, um den jeweiligen Soundeffekt live abzuspielen:
                   </p>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-                <div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    Soundeffekte aktivieren
+                <div className="space-y-4">
+                  {/* Category 1: Kasse & Finanzen */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      <Coins className="w-4 h-4" />
+                      <span>Kasse, Bezahlung & Geldverkehr</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {[
+                        {
+                          name: 'Zahlung erfolgreich',
+                          desc: 'Melodischer Dur-Dreiklang bei erfolgreicher Kartenzahlung oder Barzahlung',
+                          badge: 'Kasse / POS',
+                          play: () => sounds.playPaymentSuccess()
+                        },
+                        {
+                          name: 'Kassenschublade öffnen',
+                          desc: 'Mechanisches Ausroll- und Schlossgeräusch bei Bar-Transaktionen',
+                          badge: 'Kassenlade',
+                          play: () => sounds.playCashDrawer()
+                        },
+                        {
+                          name: 'Münzen & Wechselgeld',
+                          desc: 'Klingendes Münzgeräusch bei Barauszahlung und Rückgeld',
+                          badge: 'Münzen',
+                          play: () => sounds.playCoinClink()
+                        },
+                        {
+                          name: 'NFC Kontaktlos / Terminal',
+                          desc: 'Doppelter Bestätigungspiep für kontaktlose Debit- und Kreditkarten',
+                          badge: 'Terminal / NFC',
+                          play: () => sounds.playNfcBeep()
+                        },
+                        {
+                          name: 'Thekenglocke (Desk Bell)',
+                          desc: 'Klassische Glocke bei Kundenbedienung und Bestellaufruf',
+                          badge: 'Theke',
+                          play: () => sounds.playBell()
+                        },
+                        {
+                          name: 'Registrierkasse (Ka-Ching)',
+                          desc: 'Traditioneller Kassenabschluss bei fertigem Kaufbeleg',
+                          badge: 'Verkauf',
+                          play: () => sounds.playKaChing()
+                        }
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => item.play()}
+                          className="p-3 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 rounded-2xl text-left transition group shadow-xs flex items-start gap-2.5"
+                        >
+                          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                                {item.name}
+                              </span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">
+                                {item.badge}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    Spielt dezente Windows-artige Klick- und Bestätigungstöne ab.
+
+                  {/* Category 2: Geschäftsprozesse & Dokumente */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <CalendarIcon className="w-4 h-4" />
+                      <span>Geschäftsprozesse, Termine & Belege</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {[
+                        {
+                          name: 'Kalender-Sync',
+                          desc: 'Google Kalender 2-Way Sync & Termineintrag',
+                          play: () => sounds.playCalendarSync()
+                        },
+                        {
+                          name: 'Erfolgs-Fanfare',
+                          desc: 'Fröhliche Akkordfolge für Meilensteine & Abschlüsse',
+                          play: () => sounds.playFanfare()
+                        },
+                        {
+                          name: 'Rechnung versendet',
+                          desc: 'Gleitton bei E-Mail- & PDF-Rechnungsversand',
+                          play: () => sounds.playSendInvoice()
+                        },
+                        {
+                          name: 'Papierkorb leeren',
+                          desc: 'Rascheln beim Bereinigen von Einträgen',
+                          play: () => sounds.playTrashEmpty()
+                        }
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => item.play()}
+                          className="p-3 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 rounded-2xl text-left transition group shadow-xs flex items-start gap-2.5"
+                        >
+                          <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 block truncate">
+                              {item.name}
+                            </span>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category 3: Benutzeroberfläche & Fenster */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <Sliders className="w-4 h-4" />
+                      <span>Benutzeroberfläche & Dialoge</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {[
+                        { name: 'Klick-Ton', play: () => sounds.playClick() },
+                        { name: 'Pop / Fenster', play: () => sounds.playPop() },
+                        { name: 'Erfolg / Speichern', play: () => sounds.playSuccess() },
+                        { name: 'Fehler / Warnung', play: () => sounds.playError() },
+                        { name: 'Kasse sperren', play: () => sounds.playLock() },
+                        { name: 'Kasse entsperren', play: () => sounds.playUnlock() }
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => item.play()}
+                          className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition text-center truncate flex items-center justify-center gap-1.5"
+                        >
+                          <Play className="w-3 h-3 fill-current opacity-60" />
+                          <span className="truncate">{item.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={onToggleSound}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                    !isMuted ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-800'
-                  }`}
-                >
-                  {!isMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                  <span>{!isMuted ? 'Aktiviert' : 'Stummgeschaltet'}</span>
-                </button>
               </div>
-
-              {/* Sound Test Panel */}
-              {!isMuted && (
-                <div className="space-y-3 pt-2">
-                  <label className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Sound-Vorschau testen
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <button
-                      onClick={() => sounds.playClick()}
-                      className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition"
-                    >
-                      Klick-Ton
-                    </button>
-                    <button
-                      onClick={() => sounds.playPop()}
-                      className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition"
-                    >
-                      Pop / Fenster
-                    </button>
-                    <button
-                      onClick={() => sounds.playSuccess()}
-                      className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition"
-                    >
-                      Erfolg
-                    </button>
-                    <button
-                      onClick={() => sounds.playError()}
-                      className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-rose-600 dark:text-rose-400 transition"
-                    >
-                      Fehler
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

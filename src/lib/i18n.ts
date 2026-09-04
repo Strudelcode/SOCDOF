@@ -189,6 +189,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.wallpaper_default': 'Default',
     'settings.save_now': 'Save Settings Now',
     'settings.save_success': 'Settings successfully saved!',
+    'settings.quick_darkmode': 'Dark Mode',
+    'settings.quick_darkmode_active': 'Active',
+    'settings.quick_darkmode_inactive': 'Inactive',
+    'settings.quick_sound': 'Sound Effects',
+    'settings.quick_sound_active': 'Active',
+    'settings.quick_sound_muted': 'Muted',
+    'settings.quick_google_cal': 'Google Calendar',
+    'settings.quick_google_cal_sync': '2-Way Live Sync',
+    'settings.quick_open': 'Open',
 
     // General & Master Data
     'settings.company_data_title': 'Company & Master Data',
@@ -276,6 +285,67 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'status.version_label': 'Version:',
     'status.github_repo': 'GitHub Repository',
     'status.discord_help': 'Help on Discord',
+    // Settings Categories & Organization
+    'settings.category_overview': 'Overview & Quick Access',
+    'settings.category_business': 'Company & Workflow',
+    'settings.category_interface': 'System & Personalization',
+    'settings.category_admin': 'Maintenance & Data Safety',
+
+    // Sound & Master Volume
+    'settings.master_volume': 'Master Sound Volume',
+    'settings.master_volume_desc': 'Adjust acoustic loudness for all POS checkouts, clicks, notifications, and chimes.',
+    'settings.volume_preview': 'Test Volume',
+    'settings.sound_pos': 'POS Register, Cash & Payments',
+    'settings.sound_business': 'Business & Workflow Automations',
+    'settings.sound_system': 'User Interface & Windows Actions',
+    'settings.sound_payment_success': 'Payment Successful',
+    'settings.sound_payment_success_desc': 'Sparkling coin cascade & 5-tone celebratory chime for POS checkouts & paid invoices',
+    'settings.sound_nfc': 'Contactless / NFC Tap',
+    'settings.sound_nfc_desc': 'Fast electronic double-beep for debit, credit cards, or smartphone taps',
+    'settings.sound_drawer': 'Cash Drawer Kick',
+    'settings.sound_drawer_desc': 'Mechanical bass slide and spring latch sound when opening the cash drawer',
+    'settings.sound_coin': 'Silver Coin Clink',
+    'settings.sound_coin_desc': 'Pure double coin ring for change calculation and coin trays',
+    'settings.sound_bell': 'Counter Service Bell',
+    'settings.sound_bell_desc': 'Traditional brass reception and table order chime',
+    'settings.sound_kaching': 'Cash Register Ka-Ching',
+    'settings.sound_kaching_desc': 'Classic vintage cash register register bell',
+    'settings.sound_sync': 'Calendar & Cloud Sync',
+    'settings.sound_sync_desc': 'Calm spatial dual tone on Google Calendar or cloud sync completion',
+    'settings.sound_celebration': 'Milestone Fanfare',
+    'settings.sound_celebration_desc': 'Brass fanfare when achieving daily revenue goals or project targets',
+    'settings.sound_invoice_sent': 'Invoice Sent / Dispatched',
+    'settings.sound_invoice_sent_desc': 'Airy swoosh and ping when invoices or quotes are dispatched',
+    'settings.sound_trash': 'Document Shred / Trash',
+    'settings.sound_trash_desc': 'Subtle paper crumple and shred sound for record deletion',
+    'settings.sound_lock': 'Workstation Locked',
+    'settings.sound_lock_desc': 'Secure mechanical lock latch when locking the screen or vault',
+    'settings.sound_unlock': 'Workstation Unlocked',
+    'settings.sound_unlock_desc': 'Clean latch release when logging in or unlocking workstation',
+    'settings.sound_click': 'Click Button',
+    'settings.sound_click_desc': 'Crisp micro-click feedback',
+    'settings.sound_pop': 'Window / Dialog Pop',
+    'settings.sound_pop_desc': 'Bubble tone on modal opening',
+    'settings.sound_success': 'Success Ding',
+    'settings.sound_success_desc': 'Positive action confirmation',
+    'settings.sound_error': 'Error Warning',
+    'settings.sound_error_desc': 'Validation alerts and warning tone',
+
+    // Custom Language Packs & Translation Editor
+    'settings.lang_packs_title': 'Custom Language Packs & JSON Translation Editor',
+    'settings.lang_packs_desc': 'Customize system terminology or translate SOCDOF into any language locally. Export the JSON template, edit the strings, and import your pack.',
+    'settings.lang_download_template': 'Download JSON Template',
+    'settings.lang_download_template_desc': 'Exports all English translation keys and descriptions ready for editing in VS Code, Notepad, or any editor.',
+    'settings.lang_export_current': 'Export Current Language JSON',
+    'settings.lang_import_pack': 'Import Language Pack (.json)',
+    'settings.lang_import_pack_desc': 'Load an external JSON language pack into your local installation.',
+    'settings.lang_active_pack': 'Active Custom Language Pack',
+    'settings.lang_no_custom_pack': 'Default Built-in Language active',
+    'settings.lang_deactivate_pack': 'Deactivate Custom Pack',
+    'settings.lang_delete_pack': 'Delete Pack',
+    'settings.lang_installed_packs': 'Installed Custom Language Packs',
+    'settings.lang_keys_count': 'translated keys',
+    'settings.lang_electron_folder_hint': 'Windows Desktop Offline Folder: You can also place custom .json files in %APPDATA%/socdof/languages/ for automatic desktop loading.',
 
     // Accent Colors & Color Picasso
     'accent.label': 'System Accent Color',
@@ -1226,6 +1296,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.wallpaper_default': 'Standard',
     'settings.save_now': 'Einstellungen jetzt speichern',
     'settings.save_success': 'Einstellungen erfolgreich gespeichert!',
+    'settings.quick_darkmode': 'Dark Mode',
+    'settings.quick_darkmode_active': 'Aktiviert',
+    'settings.quick_darkmode_inactive': 'Deaktiviert',
+    'settings.quick_sound': 'Sound-Effekte',
+    'settings.quick_sound_active': 'Aktiviert',
+    'settings.quick_sound_muted': 'Stumm',
+    'settings.quick_google_cal': 'Google Kalender',
+    'settings.quick_google_cal_sync': '2-Way Live Sync',
+    'settings.quick_open': 'Öffnen',
 
     // General & Master Data
     'settings.company_data_title': 'Firmendaten & Stammdaten',
@@ -1313,6 +1392,67 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'status.version_label': 'Version:',
     'status.github_repo': 'GitHub Repository',
     'status.discord_help': 'Hilfe auf Discord',
+    // Settings Categories & Organization
+    'settings.category_overview': 'Übersicht & Schnelleinstieg',
+    'settings.category_business': 'Unternehmen & Workflow',
+    'settings.category_interface': 'System & Personalisierung',
+    'settings.category_admin': 'Wartung & Datensicherheit',
+
+    // Sound & Master Volume
+    'settings.master_volume': 'Gesamtlautstärke',
+    'settings.master_volume_desc': 'Akustische Lautstärke für Kassiervorgänge, Klicktöne, Bestätigungen und Systemhinweise stufenlos anpassen.',
+    'settings.volume_preview': 'Lautstärke testen',
+    'settings.sound_pos': 'Kasse, Zahlungen & Finanzen',
+    'settings.sound_business': 'Geschäftsprozesse & Dokumente',
+    'settings.sound_system': 'Benutzeroberfläche & Fenster',
+    'settings.sound_payment_success': 'Zahlung erfolgreich',
+    'settings.sound_payment_success_desc': 'Münz-Kaskade & feierliches 5-Ton-Arpeggio bei Kassenbons & bezahlten Rechnungen',
+    'settings.sound_nfc': 'NFC / Kontaktlos-Terminal',
+    'settings.sound_nfc_desc': 'Schneller elektronischer Doppel-Beep für Girocard, Kreditkarte und Handy-Zahlung',
+    'settings.sound_drawer': 'Kassenschublade öffnen',
+    'settings.sound_drawer_desc': 'Mechanischer Bass-Schub und Federklinken-Klick beim Öffnen der Geldlade',
+    'settings.sound_coin': 'Münzen-Klang',
+    'settings.sound_coin_desc': 'Heller doppelter Silbermünzen-Klang bei Wechselgeldrückgabe',
+    'settings.sound_bell': 'Thekenglocke / Service-Glocke',
+    'settings.sound_bell_desc': 'Klassischer Messing-Glockenton an Rezeption oder Schanktheke',
+    'settings.sound_kaching': 'Registrierkasse Ka-Ching',
+    'settings.sound_kaching_desc': 'Traditionelles metallisches Registrierkassen-Chime',
+    'settings.sound_sync': 'Kalender & Cloud-Sync',
+    'settings.sound_sync_desc': 'Ruhiger Doppelton bei erfolgreicher Google Kalender Synchronisation',
+    'settings.sound_celebration': 'Ziel erreicht / Fanfare',
+    'settings.sound_celebration_desc': 'Feierliche Fanfare bei erreichten Tageszielen oder Meilensteinen',
+    'settings.sound_invoice_sent': 'Rechnung versendet',
+    'settings.sound_invoice_sent_desc': 'Luftiger Swoosh-Klang beim Versenden von Rechnungen oder Angeboten',
+    'settings.sound_trash': 'Dokument schreddern / Papierkorb',
+    'settings.sound_trash_desc': 'Dezentes Papierknüllen und Schreddern beim Löschen von Datensätzen',
+    'settings.sound_lock': 'Arbeitsplatz sperren',
+    'settings.sound_lock_desc': 'Sattes mechanisches Schloss-Geräusch beim Sperren der Workstation',
+    'settings.sound_unlock': 'Arbeitsplatz entsperren',
+    'settings.sound_unlock_desc': 'Entriegelungs-Klang bei erfolgreicher Anmeldung oder Entsperrung',
+    'settings.sound_click': 'Button-Klick',
+    'settings.sound_click_desc': 'Präziser Micro-Klick zur Interaktion',
+    'settings.sound_pop': 'Fenster-Pop',
+    'settings.sound_pop_desc': 'Dezenter Ton beim Öffnen von Dialogen',
+    'settings.sound_success': 'Erfolgs-Glocke',
+    'settings.sound_success_desc': 'Grüne Erfolgs-Bestätigung',
+    'settings.sound_error': 'Warn- & Fehlerton',
+    'settings.sound_error_desc': 'Akustischer Hinweis bei Validierungsfehlern',
+
+    // Custom Language Packs & Translation Editor
+    'settings.lang_packs_title': 'Externe Sprachpakete & JSON-Übersetzungseditor',
+    'settings.lang_packs_desc': 'Passen Sie alle Fachbegriffe selbst an oder übersetzen Sie SOCDOF lokal in jede Sprache. Laden Sie die JSON-Vorlage herunter, bearbeiten Sie die Texte und laden Sie Ihr Paket.',
+    'settings.lang_download_template': 'JSON-Vorlage herunterladen',
+    'settings.lang_download_template_desc': 'Exportiert alle englischen Übersetzungsschlüssel zur einfachen Bearbeitung in VS Code, Notepad oder jedem Texteditor.',
+    'settings.lang_export_current': 'Aktuelle Sprache als JSON exportieren',
+    'settings.lang_import_pack': 'Sprachpaket importieren (.json)',
+    'settings.lang_import_pack_desc': 'Wählen Sie eine bearbeitete .json-Datei aus, um sie sofort lokal zu aktivieren.',
+    'settings.lang_active_pack': 'Aktives benutzerdefiniertes Sprachpaket',
+    'settings.lang_no_custom_pack': 'Standard-Systemsprache aktiv',
+    'settings.lang_deactivate_pack': 'Benutzerdefiniertes Paket deaktivieren',
+    'settings.lang_delete_pack': 'Paket löschen',
+    'settings.lang_installed_packs': 'Installierte Sprachpakete',
+    'settings.lang_keys_count': 'übersetzte Schlüssel',
+    'settings.lang_electron_folder_hint': 'Windows Desktop Offline-Ordner: Eigene .json-Sprachdateien können auch im Ordner %APPDATA%/socdof/languages/ hinterlegt werden.',
 
     // Accent Colors & Color Picasso
     'accent.label': 'System-Akzentfarbe',
@@ -2263,6 +2403,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.wallpaper_default': 'Standard',
     'settings.save_now': 'Enregistrer les paramètres',
     'settings.save_success': 'Paramètres enregistrés avec succès !',
+    'settings.quick_darkmode': 'Mode sombre',
+    'settings.quick_darkmode_active': 'Activé',
+    'settings.quick_darkmode_inactive': 'Désactivé',
+    'settings.quick_sound': 'Effets sonores',
+    'settings.quick_sound_active': 'Activé',
+    'settings.quick_sound_muted': 'Muet',
+    'settings.quick_google_cal': 'Google Agenda',
+    'settings.quick_google_cal_sync': 'Synchro 2 voies',
+    'settings.quick_open': 'Ouvrir',
 
     // General & Master Data
     'settings.company_data_title': 'Données d’entreprise & Coordonnées',
@@ -2349,6 +2498,67 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'status.version_label': 'Version:',
     'status.github_repo': 'Dépôt GitHub',
     'status.discord_help': 'Aide sur Discord',
+    // Settings Categories & Organization
+    'settings.category_overview': 'Aperçu & Accès rapide',
+    'settings.category_business': 'Entreprise & Flux de travail',
+    'settings.category_interface': 'Système & Personnalisation',
+    'settings.category_admin': 'Maintenance & Sécurité des données',
+
+    // Sound & Master Volume
+    'settings.master_volume': 'Volume sonore principal',
+    'settings.master_volume_desc': 'Réglez le niveau sonore pour les encaissements, clics, notifications et alertes.',
+    'settings.volume_preview': 'Tester le volume',
+    'settings.sound_pos': 'Caisse, Paiements & Espèces',
+    'settings.sound_business': 'Processus & Documents',
+    'settings.sound_system': 'Interface & Fenêtres',
+    'settings.sound_payment_success': 'Paiement réussi',
+    'settings.sound_payment_success_desc': 'Cascade de pièces & arpège 5 tons lors des encaissements en caisse et règlements de factures',
+    'settings.sound_nfc': 'Terminal NFC / Sans contact',
+    'settings.sound_nfc_desc': 'Double bip électronique rapide pour carte bancaire ou smartphone',
+    'settings.sound_drawer': 'Ouverture tiroir-caisse',
+    'settings.sound_drawer_desc': 'Glissière mécanique et cliquet de ressort du tiroir-caisse',
+    'settings.sound_coin': 'Tintement de pièces',
+    'settings.sound_coin_desc': 'Son cristallin de pièces pour le rendu de monnaie',
+    'settings.sound_bell': 'Cloche de comptoir',
+    'settings.sound_bell_desc': 'Cloche en laiton classique pour réception et service',
+    'settings.sound_kaching': 'Caisse enregistreuse Ka-Ching',
+    'settings.sound_kaching_desc': 'Sonnerie vintage de caisse enregistreuse',
+    'settings.sound_sync': 'Synchronisation Calendrier',
+    'settings.sound_sync_desc': 'Double tonalité apaisante lors de la synchro Google Agenda',
+    'settings.sound_celebration': 'Fanfare de succès',
+    'settings.sound_celebration_desc': 'Fanfare lors de l’atteinte d’un objectif ou palier',
+    'settings.sound_invoice_sent': 'Facture envoyée',
+    'settings.sound_invoice_sent_desc': 'Swoosh discret lors de l’envoi d’un document',
+    'settings.sound_trash': 'Déchiqueteuse / Corbeille',
+    'settings.sound_trash_desc': 'Son de papier froissé lors de la suppression',
+    'settings.sound_lock': 'Poste verrouillé',
+    'settings.sound_lock_desc': 'Verrouillage mécanique du poste de travail',
+    'settings.sound_unlock': 'Poste déverrouillé',
+    'settings.sound_unlock_desc': 'Déverrouillage lors de la connexion',
+    'settings.sound_click': 'Clic de bouton',
+    'settings.sound_click_desc': 'Micro-clic net pour l’interaction',
+    'settings.sound_pop': 'Pop de fenêtre',
+    'settings.sound_pop_desc': 'Tonalité à l’ouverture des modales',
+    'settings.sound_success': 'Confirmation de succès',
+    'settings.sound_success_desc': 'Tonalité positive d’action',
+    'settings.sound_error': 'Alerte sonore',
+    'settings.sound_error_desc': 'Avertissement d’erreur de saisie',
+
+    // Custom Language Packs & Translation Editor
+    'settings.lang_packs_title': 'Packs de langues externes & Éditeur JSON',
+    'settings.lang_packs_desc': 'Personnalisez la terminologie ou traduisez SOCDOF localement. Exportez le modèle JSON, modifiez les textes et importez votre pack.',
+    'settings.lang_download_template': 'Télécharger le modèle JSON',
+    'settings.lang_download_template_desc': 'Exporte toutes les clés anglaises prêtes pour modification dans votre éditeur favori.',
+    'settings.lang_export_current': 'Exporter la langue actuelle en JSON',
+    'settings.lang_import_pack': 'Importer un pack de langue (.json)',
+    'settings.lang_import_pack_desc': 'Chargez un fichier .json externe pour l’activer immédiatement.',
+    'settings.lang_active_pack': 'Pack de langue actif',
+    'settings.lang_no_custom_pack': 'Langue système par défaut active',
+    'settings.lang_deactivate_pack': 'Désactiver le pack personnalisé',
+    'settings.lang_delete_pack': 'Supprimer le pack',
+    'settings.lang_installed_packs': 'Packs de langues installés',
+    'settings.lang_keys_count': 'clés traduites',
+    'settings.lang_electron_folder_hint': 'Dossier Windows Desktop: Les fichiers .json peuvent aussi être placés dans %APPDATA%/socdof/languages/.',
 
     // Accent Colors & Color Picasso
     'accent.label': 'Couleur d’accentuation',
@@ -3299,6 +3509,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'settings.wallpaper_default': 'Estándar',
     'settings.save_now': 'Guardar configuración ahora',
     'settings.save_success': '¡Configuración guardada con éxito!',
+    'settings.quick_darkmode': 'Modo oscuro',
+    'settings.quick_darkmode_active': 'Activado',
+    'settings.quick_darkmode_inactive': 'Desactivado',
+    'settings.quick_sound': 'Efectos de sonido',
+    'settings.quick_sound_active': 'Activado',
+    'settings.quick_sound_muted': 'Silenciado',
+    'settings.quick_google_cal': 'Google Calendar',
+    'settings.quick_google_cal_sync': 'Sync bidireccional',
+    'settings.quick_open': 'Abrir',
 
     // General & Master Data
     'settings.company_data_title': 'Datos de la Empresa & Contacto',
@@ -3385,6 +3604,67 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'status.version_label': 'Versión:',
     'status.github_repo': 'Repositorio GitHub',
     'status.discord_help': 'Ayuda en Discord',
+    // Settings Categories & Organization
+    'settings.category_overview': 'Resumen & Acceso rápido',
+    'settings.category_business': 'Empresa & Flujo de trabajo',
+    'settings.category_interface': 'Sistema & Personalización',
+    'settings.category_admin': 'Mantenimiento & Seguridad de datos',
+
+    // Sound & Master Volume
+    'settings.master_volume': 'Volumen de sonido principal',
+    'settings.master_volume_desc': 'Ajuste continuo del nivel sonoro para cobros, clics, notificaciones y avisos.',
+    'settings.volume_preview': 'Probar volumen',
+    'settings.sound_pos': 'TPV, Pagos & Efectivo',
+    'settings.sound_business': 'Procesos de negocio & Documentos',
+    'settings.sound_system': 'Interfaz & Ventanas',
+    'settings.sound_payment_success': 'Pago exitoso',
+    'settings.sound_payment_success_desc': 'Cascada de monedas & arpegio festivo de 5 tonos en cobros y facturas pagadas',
+    'settings.sound_nfc': 'Terminal NFC / Sin contacto',
+    'settings.sound_nfc_desc': 'Doble pitido electrónico rápido para tarjeta o smartphone',
+    'settings.sound_drawer': 'Cajón portamonedas',
+    'settings.sound_drawer_desc': 'Deslizamiento mecánico y sonido de cierre al abrir el cajón',
+    'settings.sound_coin': 'Sonido de monedas',
+    'settings.sound_coin_desc': 'Tintineo de monedas de plata para cambio en efectivo',
+    'settings.sound_bell': 'Timbre de mostrador',
+    'settings.sound_bell_desc': 'Campana de latón clásica para recepción y barra',
+    'settings.sound_kaching': 'Caja registradora Ka-Ching',
+    'settings.sound_kaching_desc': 'Timbre metálico tradicional de caja registradora',
+    'settings.sound_sync': 'Sincronización de calendario',
+    'settings.sound_sync_desc': 'Tono doble suave al sincronizar con Google Calendar',
+    'settings.sound_celebration': 'Fanfarria de logro',
+    'settings.sound_celebration_desc': 'Fanfarria al alcanzar metas de venta o hitos',
+    'settings.sound_invoice_sent': 'Factura enviada',
+    'settings.sound_invoice_sent_desc': 'Swoosh discreto al enviar facturas o presupuestos',
+    'settings.sound_trash': 'Triturar documento / Papelera',
+    'settings.sound_trash_desc': 'Sonido de papel arrugado al eliminar registros',
+    'settings.sound_lock': 'Puesto bloqueado',
+    'settings.sound_lock_desc': 'Cierre mecánico seguro al bloquear el puesto',
+    'settings.sound_unlock': 'Puesto desbloqueado',
+    'settings.sound_unlock_desc': 'Sonido de apertura al iniciar sesión',
+    'settings.sound_click': 'Clic de botón',
+    'settings.sound_click_desc': 'Micro-clic nítido al interactuar',
+    'settings.sound_pop': 'Pop de ventana',
+    'settings.sound_pop_desc': 'Tono al abrir diálogos y ventanas',
+    'settings.sound_success': 'Tono de éxito',
+    'settings.sound_success_desc': 'Confirmación positiva',
+    'settings.sound_error': 'Tono de error',
+    'settings.sound_error_desc': 'Aviso acústico en validaciones y fallos',
+
+    // Custom Language Packs & Translation Editor
+    'settings.lang_packs_title': 'Paquetes de idiomas externos & Editor JSON',
+    'settings.lang_packs_desc': 'Personalice los términos o traduzca SOCDOF a cualquier idioma. Descargue la plantilla JSON, edite los textos e importe su paquete.',
+    'settings.lang_download_template': 'Descargar plantilla JSON',
+    'settings.lang_download_template_desc': 'Exporta todas las claves en inglés listas para editar en VS Code o bloc de notas.',
+    'settings.lang_export_current': 'Exportar idioma actual en JSON',
+    'settings.lang_import_pack': 'Importar paquete de idioma (.json)',
+    'settings.lang_import_pack_desc': 'Cargue un archivo .json externo para activarlo de inmediato.',
+    'settings.lang_active_pack': 'Paquete personalizado activo',
+    'settings.lang_no_custom_pack': 'Idioma predeterminado del sistema activo',
+    'settings.lang_deactivate_pack': 'Desactivar paquete personalizado',
+    'settings.lang_delete_pack': 'Eliminar paquete',
+    'settings.lang_installed_packs': 'Paquetes instalados',
+    'settings.lang_keys_count': 'claves traducidas',
+    'settings.lang_electron_folder_hint': 'Carpeta Windows Desktop: Los archivos .json también se pueden colocar en %APPDATA%/socdof/languages/.',
 
     // Accent Colors & Color Picasso
     'accent.label': 'Color de acento del sistema',
@@ -4177,6 +4457,182 @@ let currentLang: LanguageCode = (() => {
   return 'en';
 })();
 
+export interface CustomLanguagePack {
+  id: string;
+  name: string;
+  code?: string;
+  author?: string;
+  version?: string;
+  description?: string;
+  updatedAt: string;
+  count: number;
+  translations: Record<string, string>;
+}
+
+let activeCustomPackId: string | null = null;
+let activeCustomTranslations: Record<string, string> = {};
+
+function initCustomPacks() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const activeId = localStorage.getItem('socdof_active_custom_pack_id');
+    if (activeId) {
+      const savedPacks = localStorage.getItem('socdof_custom_lang_packs');
+      if (savedPacks) {
+        const packs: CustomLanguagePack[] = JSON.parse(savedPacks);
+        const match = packs.find(p => p.id === activeId);
+        if (match) {
+          activeCustomPackId = match.id;
+          activeCustomTranslations = match.translations || {};
+        }
+      }
+    }
+  } catch {}
+}
+initCustomPacks();
+
+export function getCustomLanguagePacks(): CustomLanguagePack[] {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const saved = localStorage.getItem('socdof_custom_lang_packs');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getActiveCustomPackId(): string | null {
+  return activeCustomPackId;
+}
+
+export function getActiveCustomPack(): CustomLanguagePack | null {
+  if (!activeCustomPackId) return null;
+  const packs = getCustomLanguagePacks();
+  return packs.find(p => p.id === activeCustomPackId) || null;
+}
+
+export function setActiveCustomPack(packId: string | null) {
+  activeCustomPackId = packId;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      if (packId) {
+        localStorage.setItem('socdof_active_custom_pack_id', packId);
+        const packs = getCustomLanguagePacks();
+        const match = packs.find(p => p.id === packId);
+        activeCustomTranslations = match?.translations || {};
+      } else {
+        localStorage.removeItem('socdof_active_custom_pack_id');
+        activeCustomTranslations = {};
+      }
+    } catch {}
+  }
+  listeners.forEach(cb => {
+    try {
+      cb(getLanguage());
+    } catch {}
+  });
+}
+
+export function deleteCustomLanguagePack(packId: string) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const packs = getCustomLanguagePacks().filter(p => p.id !== packId);
+    localStorage.setItem('socdof_custom_lang_packs', JSON.stringify(packs));
+    if (activeCustomPackId === packId) {
+      setActiveCustomPack(null);
+    } else {
+      listeners.forEach(cb => {
+        try {
+          cb(getLanguage());
+        } catch {}
+      });
+    }
+  } catch {}
+}
+
+export function exportLanguageTemplate(): string {
+  const template: Record<string, unknown> = {
+    _metadata: {
+      title: 'SOCDOF Custom Language Pack Template',
+      instructions: 'Translate the string values into your desired language. Keep the keys unchanged. Save as a .json file and import via Settings -> Language & Region.',
+      author: 'User / Community',
+      language_name: 'Custom Language',
+      language_code: 'custom',
+      app_version: '21.10.0',
+      created_at: new Date().toISOString()
+    },
+    translations: { ...translations.en }
+  };
+  return JSON.stringify(template, null, 2);
+}
+
+export function exportLanguagePack(lang: LanguageCode): string {
+  const langName = lang === 'de' ? 'Deutsch' : lang === 'fr' ? 'Français' : lang === 'es' ? 'Español' : 'English';
+  const template: Record<string, unknown> = {
+    _metadata: {
+      title: `SOCDOF Language Pack (${langName})`,
+      language_name: langName,
+      language_code: lang,
+      app_version: '21.10.0',
+      exported_at: new Date().toISOString()
+    },
+    translations: { ...(translations[lang] || translations.en) }
+  };
+  return JSON.stringify(template, null, 2);
+}
+
+export function importCustomLanguagePack(name: string, rawJson: string): { success: boolean; count: number; packId?: string; error?: string } {
+  try {
+    const parsed = JSON.parse(rawJson);
+    let dict: Record<string, string> = {};
+
+    if (parsed.translations && typeof parsed.translations === 'object' && !Array.isArray(parsed.translations)) {
+      dict = parsed.translations;
+    } else if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+      dict = parsed;
+    } else {
+      return { success: false, count: 0, error: 'Invalid JSON format: An object with translation key-values was expected.' };
+    }
+
+    const cleanTranslations: Record<string, string> = {};
+    for (const [k, v] of Object.entries(dict)) {
+      if (!k.startsWith('_') && typeof v === 'string') {
+        cleanTranslations[k] = v;
+      }
+    }
+
+    const count = Object.keys(cleanTranslations).length;
+    if (count === 0) {
+      return { success: false, count: 0, error: 'No valid translation keys were found in this JSON file.' };
+    }
+
+    const metaName = (parsed._metadata && typeof parsed._metadata.language_name === 'string') ? parsed._metadata.language_name : name;
+    const packId = `lang_pack_${Date.now()}`;
+    const newPack: CustomLanguagePack = {
+      id: packId,
+      name: metaName || 'Custom Language Pack',
+      code: parsed._metadata?.language_code || 'custom',
+      author: parsed._metadata?.author || '',
+      version: parsed._metadata?.version || '1.0',
+      description: parsed._metadata?.description || '',
+      updatedAt: new Date().toISOString(),
+      count,
+      translations: cleanTranslations
+    };
+
+    const existing = getCustomLanguagePacks();
+    const updated = [newPack, ...existing.filter(p => p.id !== packId)];
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('socdof_custom_lang_packs', JSON.stringify(updated));
+    }
+
+    setActiveCustomPack(packId);
+    return { success: true, count, packId };
+  } catch (err) {
+    return { success: false, count: 0, error: `JSON Parse error: ${String(err)}` };
+  }
+}
+
 const listeners = new Set<(lang: LanguageCode) => void>();
 
 export function subscribeLanguageChange(listener: (lang: LanguageCode) => void) {
@@ -4232,6 +4688,9 @@ export function useLanguage(): LanguageCode {
 }
 
 export function t(key: string, langOverride?: LanguageCode, fallback?: string): string {
+  if (!langOverride && activeCustomTranslations && activeCustomTranslations[key]) {
+    return activeCustomTranslations[key];
+  }
   const active = langOverride || getLanguage();
   const dict = translations[active] || translations.en;
   if (dict && dict[key]) {

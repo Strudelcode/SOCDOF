@@ -6,7 +6,60 @@
 
 ## Completed Tasks Archive
 
-### 1. Top-Level Portal Rendering & Keyboard Escape Dismissal for Desktop Widget Settings Modal (v21.8.6)
+### 1. Master Volume Slider, Multi-Sound Audio Library, Categorized Settings Hub & Custom Language Pack Engine (v21.10.0)
+- [x] **Master Volume Control Slider (`src/lib/sound.ts`, `SettingsModule.tsx`, `src/lib/i18n.ts`)**:
+  - [x] Implemented a smooth master volume slider (`0%` to `100%`) with Web Audio API gain scaling in `src/lib/sound.ts` (`sounds.getVolume()`, `sounds.setVolume()`).
+  - [x] Added instant percentage badge, dynamic volume icons (`VolumeX`, `Volume1`, `Volume2`), 5 quick preset levels (`15%`, `35%`, `60%`, `85%`, `100%`), and audio test button in Settings.
+- [x] **Enriched Procedural Sound Effects & Interactive Sound Catalog (`src/lib/sound.ts`, `SettingsModule.tsx`, `PaymentModal.tsx`, `POSModule.tsx`)**:
+  - [x] Synthesized realistic enterprise sound effects:
+    - Kasse, Bezahlung & Geld: Payment Success chord (`playPaymentSuccess`), Cash Drawer latch (`playCashDrawer`), Metallic Coin Clink (`playCoinClink`), NFC Contactless Beep (`playNfcBeep`), Desk Bell (`playBell`), Ka-Ching (`playKaChing`).
+    - Geschäftsprozesse & Termine: Calendar Sync (`playCalendarSync`), Success Fanfare (`playFanfare`), Invoice Sent (`playSendInvoice`), Trash Empty (`playTrashEmpty`).
+    - UI Feedback: Window Lock (`playLock`), Window Unlock (`playUnlock`), Click, Pop, Success, Error.
+  - [x] Built an interactive categorized sound preview catalog directly in Settings > Sound & Audio.
+  - [x] Embedded cash drawer, coin clinking, and NFC audio triggers into live POS checkouts and invoice payment flows.
+- [x] **Categorized Settings Navigation & Home Hub (`SettingsModule.tsx`)**:
+  - [x] Restructured all 11 settings modules into 4 logical groups (Übersicht, Unternehmen & Finanzen, Oberfläche & Personalisierung, System & Geräte).
+  - [x] Designed an interactive "Einstellungsbereiche & Module" hub dashboard on the Settings Home tab with status indicators and quick-navigation cards.
+  - [x] Upgraded mobile/compact view navigation to group modules by category with responsive horizontal carousels.
+- [x] **Custom JSON Language Pack Engine & Translation Template (`src/lib/i18n.ts`, `SettingsModule.tsx`)**:
+  - [x] Created JSON translation template download containing all system translation keys.
+  - [x] Added 1-click export of current language packs (`de.json`, `en.json`, `fr.json`, `es.json`).
+  - [x] Implemented file import, validation, and persistent local storage of custom user-translated language packs.
+  - [x] Added UI for switching, deactivating, and deleting custom packs, along with offline desktop guidance for `%APPDATA%/socdof/languages/`.
+
+### 2. Modern Dark Mode Switch & Harmonized Settings Quick Toggles (v21.9.9)
+- [x] **Modern Dark Mode Toggle Switch (`SettingsModule.tsx`, `src/lib/i18n.ts`)**:
+  - [x] Replaced awkward "Wechseln" button and text with an authentic, smoothly animated toggle switch and localized "Dark Mode" title across all 4 languages.
+  - [x] Added active state indicators ("Aktiviert" / "Deaktiviert") and interactive card wrapper with click, keyboard (Enter / Space), and sound effect triggers.
+- [x] **Harmonized Quick Preferences Controls (`SettingsModule.tsx`)**:
+  - [x] Upgraded Sound Effects quick toggle to match the slider switch aesthetic with green active accent and clear status ("Aktiviert" / "Stumm").
+  - [x] Unified Google Calendar quick link tile with live synchronization status badge and hover chevron.
+- [x] **Natural Toolbar Document Flow (`SettingsModule.tsx`)**:
+  - [x] Cleaned up sticky toolbar wrapper that caused translucent overlapping over the Quick Access and search cards on window scroll.
+
+### 2. Settings Module Layout Fix & Sticky Docked Toolbar (v21.9.8)
+- [x] **Sticky Settings Header & Top Toolbar (`SettingsModule.tsx`)**:
+  - [x] Converted the settings top toolbar (search bar, breadcrumb, and quick save button) into a sticky element docked at `top: 0` with `backdrop-blur-md` and high z-index.
+  - [x] Prevents search input and current view indicators from being hidden during window scrolling.
+- [x] **Elimination of Sidebar Viewport Clipping (`SettingsModule.tsx`)**:
+  - [x] Fixed sticky positioning on the left navigation column that previously clipped the top navigation categories (`Startseite`, `Allgemein`, `Personalisierung`) when scrolling inside desktop windows.
+- [x] **Smooth Scroll Reset (`SettingsModule.tsx`)**:
+  - [x] Added automated scroll-to-top handler whenever changing settings tabs, clicking quick-access tiles, or navigating from search results.
+
+### 2. Adaptive Keyboard Shortcut Localization (Strg vs Ctrl vs ⌘ Cmd) (v21.9.7)
+- [x] **Language & Platform Adaptive Shortcut Helper (`src/lib/shortcuts.ts`, `src/types.ts`)**:
+  - [x] Implemented formatShortcut utility detecting user language (`de` -> `Strg`, `en`/`fr`/`es` -> `Ctrl`) and macOS (`⌘ Cmd`).
+  - [x] Added `shortcut_modifier_style` to CompanyProfile interface and localStorage persistence.
+- [x] **Settings UI Configuration (`SettingsModule.tsx`, `src/lib/i18n.ts`)**:
+  - [x] Added interactive modifier selector with 4 modes in "Sprache, Region & Zeit" settings section with live preview cards.
+- [x] **Application-Wide Shortcut Integration (`CommandPalette.tsx`, `DocumentationApp.tsx`, `DesktopWindowWorkspace.tsx`)**:
+  - [x] Unified all shortcut displays across tooltips, command palette, and manual documentation.
+
+### 3. Clean Minimalist Taskbar Search Bar (v21.9.6)
+- [x] **Removed Ctrl+K Shortcut Badge (`DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed shortcut badge pill from the taskbar search field for a clean, distraction-free aesthetic while retaining full search invocation on click / shortcut.
+
+### 4. Top-Level Portal Rendering & Keyboard Escape Dismissal for Desktop Widget Settings Modal (v21.8.6)
 - [x] **Top-Level React Portal Stacking (`WidgetSettingsModal.tsx`)**:
   - [x] Wrapped `WidgetSettingsModal` in `createPortal(..., document.body)` with `z-[999999]` and `pointer-events-auto`.
   - [x] Fixed stacking context issue where desktop icons and canvas containers clipped or rendered in front of the settings modal.

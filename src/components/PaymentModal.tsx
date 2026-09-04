@@ -61,7 +61,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleQuickCash = (amount: number) => {
-    sounds.playClick();
+    sounds.playCoinClink();
     setCashGiven(amount);
   };
 
@@ -93,6 +93,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     try {
       if (method === 'card') {
+        sounds.playNfcBeep();
         setProcessStep(t('payment.step_1', undefined, '1/3: Connecting to payment terminal (TLS 1.3 / ZVT)...'));
         await new Promise(r => setTimeout(r, 600));
 
@@ -105,6 +106,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setProcessStep(t('payment.step_3', undefined, '3/3: Payment booked & receipt signed!'));
         await new Promise(r => setTimeout(r, 400));
       } else {
+        sounds.playCashDrawer();
+        setTimeout(() => sounds.playCoinClink(), 250);
         const sig = `CASH-TSE-${Date.now().toString(36).toUpperCase()}`;
         setTseSignature(sig);
       }
@@ -120,7 +123,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         });
       }
 
-      sounds.playKaching();
+      sounds.playPaymentSuccess();
       try {
         confetti({
           particleCount: 80,

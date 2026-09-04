@@ -171,7 +171,16 @@ export const POSModule: React.FC<POSModuleProps> = ({
 
     try {
       const orderId = await createPOSCheckout(orderData);
-      sounds.playKaching();
+      if (paymentMethod === 'cash') {
+        sounds.playCashDrawer();
+        setTimeout(() => sounds.playCoinClink(), 250);
+        setTimeout(() => sounds.playPaymentSuccess(), 550);
+      } else if (paymentMethod === 'nfc') {
+        sounds.playNfcBeep();
+        setTimeout(() => sounds.playPaymentSuccess(), 400);
+      } else {
+        sounds.playPaymentSuccess();
+      }
       setCompletedOrder({ ...orderData, id: orderId });
       setCart([]);
       onRefreshData();

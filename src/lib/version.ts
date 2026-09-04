@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '21.9.6';
+export const APP_VERSION = '21.10.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,47 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '21.10.0',
+    date: '2026-09-04',
+    title: 'Master Volume Slider, Multi-Sound Audio Library, Categorized Settings Hub & Custom Language Pack Engine',
+    highlights: [
+      'Master Volume Control Slider: Added an elegant, continuous volume range slider (0% to 100%) with instant percentage indicators, 5 quick preset levels, and real-time audio testing in Sound & Audio Settings.',
+      'Enriched Audio & Sound Catalog: Synthesized authentic procedural sound effects across 3 business categories: Payments & Cash (Payment Success chord, Cash Drawer opening, Coin Clinking, NFC Terminal Beep, Desk Bell, Ka-Ching), Business & Operations (Calendar Sync, Success Fanfare, Invoice Sent Whoosh, Trash Empty), and Window & UI Feedback (Window Lock/Unlock, Click, Pop, Error).',
+      'Categorized Settings Architecture: Reorganized all 11 settings modules into 4 distinct groups (Übersicht, Unternehmen & Finanzen, Oberfläche & Personalisierung, System & Geräte) with a visual dashboard hub on the Settings home screen and responsive category navigation.',
+      'Custom JSON Language Packs & Translation Editor: Users can now download a complete JSON translation key template, export existing system languages, import custom translated packs, switch between translations live, and manage offline packs via %APPDATA%/socdof/languages/.'
+    ]
+  },
+  {
+    version: '21.9.9',
+    date: '2026-09-04',
+    title: 'Modern Dark Mode Switch & Harmonized Settings Quick Toggles',
+    highlights: [
+      'Modern Dark Mode Toggle: Replaced clumsy text and "Wechseln" button with an authentic, smoothly animated toggle switch and localized "Dark Mode" title.',
+      'Harmonized Quick Controls: Unified Dark Mode, Sound Effects, and Google Calendar into elegant, fully interactive cards with active status indicators and sound effects.',
+      'Natural Toolbar Layout: Removed awkward sticky header wrapper that caused visual overlapping over the Quick Access and search cards on scroll.'
+    ]
+  },
+  {
+    version: '21.9.8',
+    date: '2026-09-04',
+    title: 'Settings Module Layout Fix & Sticky Docked Toolbar',
+    highlights: [
+      'Sticky Header Toolbar: Pinned the settings top toolbar with search bar and breadcrumb to the top with backdrop blur, preventing it from scrolling away.',
+      'Smooth Scroll Reset: Added auto-scroll to top when switching between settings sections and categories, avoiding clipped or scrolled-down views.',
+      'Sidebar Viewport Stability: Removed restrictive sticky positioning from the left navigation column to prevent top navigation items from being cut off during scroll.'
+    ]
+  },
+  {
+    version: '21.9.7',
+    date: '2026-09-04',
+    title: 'Adaptive Shortcut Modifier Localization (Strg vs Ctrl vs ⌘ Cmd)',
+    highlights: [
+      'Language & OS Adaptive Shortcuts: Automatically renders "Strg" for German QWERTZ keyboards, "Ctrl" for international layouts, and "⌘ Cmd" for Apple macOS.',
+      'Customizable in Settings: Added dedicated keyboard shortcut modifier preference selector in Settings under "Sprache, Region & Zeit" with instant live preview cards.',
+      'Global Shortcut Formatter: Centralized formatShortcut() helper ensures uniform shortcut representation across tooltips, command palettes, and documentation portal.'
+    ]
+  },
   {
     version: '21.9.6',
     date: '2026-09-03',
