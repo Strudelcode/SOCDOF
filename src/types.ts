@@ -388,6 +388,24 @@ export interface DesktopFolder {
   modules: ActiveModule[];
   createdAt: string;
   color?: string;
+  fileCount?: number;
+}
+
+export type StorageAssetCategory = 'document' | 'image' | 'spreadsheet' | 'pdf' | 'archive' | 'audio' | 'video' | 'code' | 'other';
+
+export interface StorageAsset {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  category: StorageAssetCategory;
+  dataUrl?: string;
+  storageLocationName?: string;
+  folderId?: string; // linked DesktopFolder ID or undefined
+  tags?: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface IOSSubcategoryOption {

@@ -111,6 +111,16 @@ import {
   getCalendarSubscribeUrls,
   type SocdofCalendarEvent
 } from '../lib/ical';
+import { 
+  getStorageAssets, 
+  uploadFileFromStorage, 
+  deleteStorageAsset, 
+  formatFileSize, 
+  downloadStorageAsset, 
+  linkAssetToFolder 
+} from '../lib/storageAssets';
+import { StorageAsset, DesktopFolder } from '../types';
+import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
 
 export type SettingsSection = 
   | 'home'
@@ -204,6 +214,44 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [activeCustomPackId, setActiveCustomPackState] = useState<string | null>(() => getActiveCustomPackId());
   const [packFeedback, setPackFeedback] = useState<{ text: string; success: boolean } | null>(null);
   const langFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Storage Assets & Storage Locations state
+  const [storageAssetsList, setStorageAssetsList] = useState<StorageAsset[]>(() => getStorageAssets());
+  const [storageFoldersList, setStorageFoldersList] = useState<DesktopFolder[]>(() => {
+    try {
+      const raw = localStorage.getItem('socdof_desktop_folders');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+  const [selectedAssetForPreview, setSelectedAssetForPreview] = useState<StorageAsset | null>(null);
+  const [assetCategoryFilter, setAssetCategoryFilter] = useState<'all' | 'image' | 'document' | 'sheet' | 'archive' | 'other'>('all');
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
+  const storageUploadInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setStorageAssetsList(getStorageAssets());
+      try {
+        const raw = localStorage.getItem('socdof_desktop_folders');
+        if (raw) setStorageFoldersList(JSON.parse(raw));
+      } catch {}
+    };
+    window.addEventListener('socdof-storage-assets-updated', handleUpdate);
+    return () => window.removeEventListener('socdof-storage-assets-updated', handleUpdate);
+  }, []);
+
+  const handleUploadFromStorageLocation = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    sounds.playPop();
+    for (let i = 0; i < files.length; i++) {
+      await uploadFileFromStorage(files[i], undefined, 'Aus Einstellungen hochgeladen');
+    }
+    sounds.playSuccess();
+    setStorageAssetsList(getStorageAssets());
+    if (storageUploadInputRef.current) storageUploadInputRef.current.value = '';
+  };
 
   // Flag Management & Language Modal state
   const [showLanguageModal, setShowLanguageModal] = useState(false);
@@ -3442,6 +3490,194 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 )}
               </div>
 
+              {/* 5. Stored Files & Storage Locations / Assets Explorer */}
+              <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                      <FolderOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>{t('storage.assets_title', activeLang, 'Lokale Dateien & Speicherorte')}</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      {t('storage.assets_desc', activeLang, 'Dokumente, Belege, Bilder und Dateien lokal speichern mit Verknüpfung zu Desktop-Ordnern.')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => storageUploadInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{t('storage.upload_from_location', activeLang, 'Vom Speicherort hochladen')}</span>
+                    </button>
+                    <input
+                      ref={storageUploadInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleUploadFromStorageLocation}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Filter and search bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {(['all', 'image', 'document', 'sheet', 'archive'] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setAssetCategoryFilter(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                          assetCategoryFilter === cat
+                            ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {cat === 'all' && t('storage.category_all', activeLang, 'Alle')}
+                        {cat === 'image' && t('storage.category_images', activeLang, 'Bilder')}
+                        {cat === 'document' && t('storage.category_docs', activeLang, 'Dokumente')}
+                        {cat === 'sheet' && t('storage.category_sheets', activeLang, 'Tabellen')}
+                        {cat === 'archive' && t('storage.category_archives', activeLang, 'Archive')}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Dateien durchsuchen..."
+                      value={assetSearchQuery}
+                      onChange={(e) => setAssetSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 w-44"
+                    />
+                  </div>
+                </div>
+
+                {/* Assets Table */}
+                {(() => {
+                  const filteredAssets = storageAssetsList.filter((a) => {
+                    const matchesCat = assetCategoryFilter === 'all' || a.category === assetCategoryFilter;
+                    const matchesQuery = !assetSearchQuery || a.name.toLowerCase().includes(assetSearchQuery.toLowerCase());
+                    return matchesCat && matchesQuery;
+                  });
+
+                  if (filteredAssets.length === 0) {
+                    return (
+                      <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center space-y-2">
+                        <FolderOpen className="w-8 h-8 text-slate-400 mx-auto opacity-60" />
+                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {assetSearchQuery ? 'Keine passenden Dateien gefunden' : 'Noch keine Dateien im Speicher'}
+                        </div>
+                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                          Laden Sie Dateien aus lokalen Ordnern hoch oder ziehen Sie Dateien direkt per Drag &amp; Drop auf Desktop-Ordner.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-semibold">
+                          <tr>
+                            <th className="p-3">Datei</th>
+                            <th className="p-3">Größe</th>
+                            <th className="p-3">{t('storage.link_folder', activeLang, 'Verknüpfter Ordner')}</th>
+                            <th className="p-3">Herkunft</th>
+                            <th className="p-3 text-right">Aktionen</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                          {filteredAssets.map((asset) => {
+                            const linkedFolder = storageFoldersList.find((f) => f.id === asset.folderId);
+                            return (
+                              <tr key={asset.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
+                                      {asset.category === 'image' ? (
+                                        <ImageIcon className="w-4 h-4 text-violet-500" />
+                                      ) : asset.category === 'document' ? (
+                                        <FileText className="w-4 h-4 text-blue-500" />
+                                      ) : (
+                                        <HardDrive className="w-4 h-4 text-slate-500" />
+                                      )}
+                                    </div>
+                                    <div className="truncate max-w-[200px]">
+                                      <div className="font-semibold truncate text-slate-900 dark:text-white" title={asset.name}>
+                                        {asset.name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        {new Date(asset.createdAt).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-3 font-mono text-[11px] text-slate-500">
+                                  {formatFileSize(asset.size)}
+                                </td>
+                                <td className="p-3">
+                                  <select
+                                    value={asset.folderId || ''}
+                                    onChange={(e) => {
+                                      linkAssetToFolder(asset.id, e.target.value || null);
+                                      setStorageAssetsList(getStorageAssets());
+                                    }}
+                                    className="px-2 py-1 rounded-lg text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-hidden"
+                                  >
+                                    <option value="">{t('storage.no_folder', activeLang, 'Global (Kein Ordner)')}</option>
+                                    {storageFoldersList.map((f) => (
+                                      <option key={f.id} value={f.id}>
+                                        📁 {f.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="p-3 text-[11px] text-slate-400 truncate max-w-[160px]" title={asset.storageLocation || 'Lokal'}>
+                                  {asset.storageLocation || (linkedFolder ? `Ordner [${linkedFolder.name}]` : 'Desktop-Speicher')}
+                                </td>
+                                <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAssetForPreview(asset)}
+                                    title="Vorschau"
+                                    className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadStorageAsset(asset)}
+                                    title="Herunterladen"
+                                    className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      deleteStorageAsset(asset.id);
+                                      setStorageAssetsList(getStorageAssets());
+                                    }}
+                                    title="Löschen"
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {importError && (
                 <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
@@ -4143,6 +4379,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           onSelectLanguage={(lang) => {
             setLanguage(lang);
             handleSaveProfile({ language: lang });
+          }}
+        />
+      )}
+
+      {/* Storage Asset Preview Modal */}
+      {selectedAssetForPreview && (
+        <StorageAssetPreviewModal
+          asset={selectedAssetForPreview}
+          isOpen={Boolean(selectedAssetForPreview)}
+          onClose={() => setSelectedAssetForPreview(null)}
+          folders={storageFoldersList}
+          onLinkFolder={(assetId, folderId) => {
+            linkAssetToFolder(assetId, folderId);
+            setStorageAssetsList(getStorageAssets());
+            if (selectedAssetForPreview && selectedAssetForPreview.id === assetId) {
+              setSelectedAssetForPreview({ ...selectedAssetForPreview, folderId: folderId || undefined });
+            }
+          }}
+          onDelete={(assetId) => {
+            deleteStorageAsset(assetId);
+            setStorageAssetsList(getStorageAssets());
+            setSelectedAssetForPreview(null);
           }}
         />
       )}

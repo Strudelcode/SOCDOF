@@ -22,6 +22,7 @@ import {
   Sparkles, 
   Trash2,
   Folder,
+  FolderPlus,
   LayoutGrid,
   CheckCircle2,
   Monitor,
@@ -111,6 +112,7 @@ import { DesktopWidgetsLayer } from './DesktopWidgetsLayer';
 import { DesktopWidgetsModal } from './DesktopWidgetsModal';
 import { WidgetsModule } from './WidgetsModule';
 import { WidgetsIcon } from './WidgetsIcon';
+import { uploadFileFromStorage, getAssetsForFolder } from '../lib/storageAssets';
 
 interface DesktopWindowWorkspaceProps {
   contacts: Contact[];
@@ -400,12 +402,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setPinnedDesktop(nextPinned);
     try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
 
-    if (remainingMods.length <= 1) {
-      // Dissolve folder if 1 or 0 apps remaining
-      const otherMod = remainingMods[0];
-      const finalPinned = otherMod ? Array.from(new Set([...nextPinned, otherMod])) : nextPinned;
-      setPinnedDesktop(finalPinned);
-      try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(finalPinned)); } catch {}
+    const folderAssets = getAssetsForFolder(folderId);
+    if (remainingMods.length === 0 && folderAssets.length === 0) {
+      // Dissolve empty folder only if no apps AND no files remain
       saveDesktopFolders(desktopFolders.filter(f => f.id !== folderId));
       if (activeFolderModal?.id === folderId) setActiveFolderModal(null);
     } else {
@@ -415,6 +414,55 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         setActiveFolderModal({ ...targetFolder, modules: remainingMods });
       }
     }
+  };
+
+  // Create a new empty desktop folder (for apps & stored files)
+  const handleCreateNewDesktopFolder = (name?: string) => {
+    sounds.playSuccess();
+    const folderName = name || t('desktop.new_folder', currentLang, 'Neuer Ordner');
+    const newFolderId = `folder_${Date.now()}`;
+    const newFolder: DesktopFolder = {
+      id: newFolderId,
+      name: folderName,
+      modules: [],
+      createdAt: new Date().toISOString()
+    };
+
+    const count = pinnedDesktop.length + desktopFolders.length;
+    const col = count % 12;
+    const row = Math.floor(count / 12);
+    const newPos = { x: 24 + col * 96, y: 24 + row * 96 };
+
+    setDesktopPositions(prev => {
+      const next = { ...prev, [newFolderId]: newPos };
+      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    saveDesktopFolders([...desktopFolders, newFolder]);
+    setActiveFolderModal(newFolder);
+  };
+
+  // Handle files dropped from native OS / storage location directly onto a folder
+  const handleDropFilesOnFolder = async (folderId: string, files: FileList) => {
+    sounds.playPop();
+    const folder = desktopFolders.find(f => f.id === folderId);
+    for (let i = 0; i < files.length; i++) {
+      await uploadFileFromStorage(files[i], folderId, `Vom Dateisystem auf Ordner [${folder?.name || folderId}] abgelegt`);
+    }
+    sounds.playSuccess();
+    if (folder) {
+      setActiveFolderModal(folder);
+    }
+  };
+
+  // Handle files dropped from native OS / storage location onto the empty desktop
+  const handleDropFilesOnDesktop = async (files: FileList) => {
+    sounds.playPop();
+    for (let i = 0; i < files.length; i++) {
+      await uploadFileFromStorage(files[i], undefined, 'Direkt auf Desktop-Speicher abgelegt');
+    }
+    sounds.playSuccess();
   };
 
   // Dissolve folder completely
@@ -492,9 +540,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [desktopIconContextMenu, setDesktopIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
+  const [folderContextMenu, setFolderContextMenu] = useState<{ x: number; y: number; folder: DesktopFolder } | null>(null);
   const [startMenuIconContextMenu, setStartMenuIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
   const [taskbarIconContextMenu, setTaskbarIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
   const desktopCanvasRef = useRef<HTMLDivElement>(null);
+  const desktopUploadInputRef = useRef<HTMLInputElement>(null);
 
   // Desktop App Name Tooltip State with ~0.6s hover delay for truncated or full titles
   const [desktopTooltip, setDesktopTooltip] = useState<{
@@ -505,11 +555,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   } | null>(null);
   const tooltipTimeoutRef = useRef<number | null>(null);
 
-  const hasAnyContextMenu = !!(desktopContextMenu || desktopIconContextMenu || startMenuIconContextMenu || taskbarIconContextMenu);
+  const hasAnyContextMenu = !!(desktopContextMenu || desktopIconContextMenu || folderContextMenu || startMenuIconContextMenu || taskbarIconContextMenu);
 
   const closeAllContextMenus = () => {
     setDesktopContextMenu(null);
     setDesktopIconContextMenu(null);
+    setFolderContextMenu(null);
     setStartMenuIconContextMenu(null);
     setTaskbarIconContextMenu(null);
     if (tooltipTimeoutRef.current) {
@@ -622,6 +673,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     dragPreviewPosRef.current = null;
     setDragPreviewPos(null);
     setDragOverIconId(null);
+
+    // If files are dropped onto the desktop canvas from native OS / storage location
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleDropFilesOnDesktop(e.dataTransfer.files);
+      return;
+    }
+
     const rect = desktopCanvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -2153,6 +2211,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 if (isDraggingWidget) return;
                 e.preventDefault();
                 e.stopPropagation();
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  handleDropFilesOnFolder(folder.id, e.dataTransfer.files);
+                  setDragOverIconId(null);
+                  return;
+                }
                 const droppedModId = (e.dataTransfer.getData('text/plain') as ActiveModule) || (draggedDesktopItem?.id as ActiveModule);
                 if (droppedModId && draggedDesktopItem?.type === 'app') {
                   handleAddAppToExistingFolder(folder.id, droppedModId);
@@ -2181,7 +2244,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   sounds.playClick();
                   setActiveFolderModal(folder);
                 }}
-                onMouseEnter={(e) => !isDraggingWidget && handleIconMouseEnter(e, folder.name, `${folder.modules.length} Apps`)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closeAllContextMenus();
+                  setFolderContextMenu({
+                    x: Math.min(e.clientX, window.innerWidth - 260),
+                    y: Math.min(e.clientY, window.innerHeight - 240),
+                    folder
+                  });
+                }}
+                onMouseEnter={(e) => {
+                  if (isDraggingWidget) return;
+                  const assetsCount = getAssetsForFolder(folder.id).length;
+                  const subtext = `${folder.modules.length} Apps${assetsCount > 0 ? ` • ${assetsCount} Dateien` : ''}`;
+                  handleIconMouseEnter(e, folder.name, subtext);
+                }}
                 onMouseLeave={handleIconMouseLeave}
                 className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
                   isDraggingWidget ? 'pointer-events-none' : ''
@@ -2193,7 +2271,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               >
                 {/* Mini Apps Preview Squircle (iOS/macOS Liquid Glass Style) */}
                 <div className="relative w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800/90 p-1.5 flex items-center justify-center border border-white/60 dark:border-white/20 shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-transform duration-200">
-                  {folder.modules.length === 1 ? (
+                  {folder.modules.length === 0 ? (
+                    // Folder with 0 apps (e.g. storage files only)
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-2xs">
+                      <Folder className="w-4 h-4" />
+                    </div>
+                  ) : folder.modules.length === 1 ? (
                     // Single App: Centered large icon
                     (() => {
                       const mod = folder.modules[0];
@@ -3480,6 +3563,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onDissolveFolder={handleDissolveFolder}
         shortcutMeta={shortcutMeta}
         isDark={isDark}
+        allFolders={desktopFolders}
+      />
+
+      {/* Hidden File Input for Native File System Upload to Desktop Storage */}
+      <input
+        ref={desktopUploadInputRef}
+        type="file"
+        multiple
+        onChange={async (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            await handleDropFilesOnDesktop(e.target.files);
+          }
+          if (desktopUploadInputRef.current) desktopUploadInputRef.current.value = '';
+        }}
+        className="hidden"
       />
 
       {/* Windows Desktop Manager Modal */}
@@ -3604,6 +3702,27 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </button>
           <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
           <button
+            onClick={() => {
+              handleCreateNewDesktopFolder();
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer font-semibold"
+          >
+            <FolderPlus className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span>{t('desktop.new_folder', currentLang, '+ Neuer Ordner')}</span>
+          </button>
+          <button
+            onClick={() => {
+              desktopUploadInputRef.current?.click();
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+          >
+            <HardDrive className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <span>{t('storage.upload_from_location', currentLang, 'Vom Speicherort öffnen / hochladen')}</span>
+          </button>
+          <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+          <button
             onClick={handleAutoArrangeDesktop}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
           >
@@ -3720,6 +3839,75 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </div>
         );
       })()}
+
+      {/* 2.5 Desktop Folder Context Menu */}
+      {folderContextMenu && (
+        <div
+          data-context-menu="true"
+          style={{ left: `${folderContextMenu.x}px`, top: `${folderContextMenu.y}px` }}
+          className="fixed z-[99999] w-64 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-scale-up text-xs font-medium"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 shadow-xs">
+              <Folder className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200">{folderContextMenu.folder.name}</span>
+          </div>
+
+          <button
+            onClick={() => {
+              setActiveFolderModal(folderContextMenu.folder);
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"
+          >
+            <FolderOpen className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span>Ordner öffnen</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const f = folderContextMenu.folder;
+              closeAllContextMenus();
+              setActiveFolderModal(f);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+          >
+            <HardDrive className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <span>{t('storage.upload_from_location', currentLang, 'Vom Speicherort hochladen')}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const f = folderContextMenu.folder;
+              closeAllContextMenus();
+              const newName = prompt('Ordner umbenennen:', f.name);
+              if (newName && newName.trim()) {
+                handleRenameFolder(f.id, newName.trim());
+              }
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer"
+          >
+            <FolderPlus className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <span>Ordner umbenennen</span>
+          </button>
+
+          <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+          <button
+            onClick={() => {
+              handleDissolveFolder(folderContextMenu.folder.id);
+              sounds.playDelete();
+              closeAllContextMenus();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4 text-rose-500 flex-shrink-0" />
+            <span>Ordner auflösen</span>
+          </button>
+        </div>
+      )}
 
       {/* 3. Start Menu App Icon Context Menu */}
       {startMenuIconContextMenu && (() => {

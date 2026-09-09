@@ -6,7 +6,26 @@
 
 ## Completed Tasks Archive
 
-### 1. Automated GitHub Release to Discord Webhook Integration (v22.1.9)
+### 1. Universal Desktop Folder File Storage & Local Asset Management System (v22.2.0)
+- [x] **Local File Storage Architecture & Categorization**:
+  - [x] Defined `StorageAsset`, `StorageAssetCategory`, and extended `DesktopFolder` interfaces in `src/types.ts`.
+  - [x] Created `src/lib/storageAssets.ts` providing MIME type detection, file categorization (documents, images, sheets, archives, other), human-readable size formatting, Base64 conversion with safety limits, and custom reactive synchronization events.
+- [x] **Desktop Folder Modal Dual-Tab Workspace**:
+  - [x] Built dual-tab navigation ("Apps" & "Dateien") in `DesktopFolderModal.tsx`.
+  - [x] Added drag-and-drop zone and file picker to upload files directly into any active folder.
+  - [x] Added category filter chips, search input, and dynamic asset count indicators.
+  - [x] Added folder deletion safeguards preventing accidental deletion when files are stored inside.
+- [x] **Desktop Workspace Integration & Context Menus**:
+  - [x] Implemented native OS file drop support directly on desktop folder icons and canvas with visual drop targets.
+  - [x] Added "+ Neuer Ordner" and "Vom Speicherort öffnen / hochladen" to desktop and folder context menus.
+  - [x] Rendered clean folder icon and asset counts for folders containing only stored files.
+- [x] **Settings Module Storage & Asset Explorer**:
+  - [x] Added interactive "Lokale Dateien & Speicherorte" explorer in `SettingsModule.tsx` under Storage & Database.
+  - [x] Supported direct file uploads from storage locations, category filtering, keyword search, folder re-linking, file downloads, and previews via `StorageAssetPreviewModal.tsx`.
+- [x] **Universal 4-Language Localization**:
+  - [x] Localized all new storage, asset management, and folder labels in `src/lib/i18n.ts` for English, German, French, and Spanish.
+
+### 2. Automated GitHub Release to Discord Webhook Integration (v22.1.9)
 - [x] **GitHub Action Discord Webhook**:
   - [x] Created `.github/workflows/discord_release.yml` with triggers on `release: [published]`.
   - [x] Embedded dynamic Discord date and relative timestamps (`<t:{current_timestamp}:D>` and `<t:{current_timestamp}:R>`).

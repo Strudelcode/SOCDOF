@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.1.9';
+export const APP_VERSION = '22.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.2.0',
+    date: '2026-09-09',
+    title: 'Universal Desktop Folder File Storage & Local Asset Management System',
+    highlights: [
+      'Multi-Source File Upload & Storage: Upload local files directly from any disk storage location or drag-and-drop documents, images, and archives straight onto desktop folders or canvas.',
+      'Unified Desktop Folder Workspaces: Desktop folders now support dual-tab management for both launched Applications and stored Files with live asset counts, size formatting, and folder link assignment.',
+      'Universal Storage Asset Explorer & Previews: Full-screen file preview modal with instant download, folder re-linking, and a comprehensive Storage Assets Manager in Settings.',
+      'Zero-Loss Folder Dissolution & Safety Guardrails: Intelligent safeguards prevent accidental folder deletion when files are stored, with smooth folder dissolution retaining all assets.'
+    ]
+  },
   {
     version: '22.1.9',
     date: '2026-09-08',
