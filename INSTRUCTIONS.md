@@ -42,6 +42,9 @@ This document defines the core operational standards, versioning protocols, and 
 - **Release Documentation in `versions/releases/`**:
   - Whenever new features or major capabilities are added, update the corresponding release document in `versions/releases/` (e.g., `versions/releases/v20-release.md`).
   - This file serves as the official, comprehensive release overview detailing all functional capabilities, architecture updates, and user-facing features in English.
+- **Discord Release Webhook Automation (`.github/workflows/discord_release.yml`)**:
+  - All published GitHub releases automatically broadcast changelogs to Discord via the repository secret `DISCORD_WEBHOOK`.
+  - Changelog notes must always use structured markdown with clean bullet points and concise summaries so announcements render attractively in Discord channels without hitting message length caps.
 
 ---
 

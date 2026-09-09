@@ -76,26 +76,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const appActions = [
-    { label: 'Dashboard & Berichte öffnen', module: 'dashboard' as ActiveModule, icon: LayoutDashboard, category: 'Navigation' },
-    { label: 'Verkauf & Rechnungen öffnen', module: 'invoices' as ActiveModule, icon: Receipt, category: 'Navigation' },
-    { label: 'Abrechnung, BWA & Finanzen öffnen', module: 'accounting' as ActiveModule, icon: Calculator, category: 'Navigation' },
-    { label: 'CRM & Kontakte verwalten', module: 'contacts' as ActiveModule, icon: Users, category: 'Navigation' },
-    { label: 'Artikel & Produkte öffnen', module: 'products' as ActiveModule, icon: Package, category: 'Navigation' },
-    { label: 'Point of Sale (Kasse) starten', module: 'pos' as ActiveModule, icon: ShoppingBag, category: 'Navigation' },
-    { label: 'Restaurant & Speisekarte (Gastro POS)', module: 'restaurant' as ActiveModule, icon: Utensils, category: 'Navigation' },
-    { label: 'Einkauf & Beschaffung öffnen', module: 'purchases' as ActiveModule, icon: ShoppingCart, category: 'Navigation' },
-    { label: 'Lagerbuchungen anzeigen', module: 'stock' as ActiveModule, icon: Boxes, category: 'Navigation' },
-    { label: 'Handbuch & Dokumentation lesen', module: 'docs' as ActiveModule, icon: BookOpen, category: 'Navigation' },
-    { label: 'App Store & Module verwalten', module: 'appstore' as ActiveModule, icon: Boxes, category: 'Navigation' },
-    { label: 'Einstellungen & Backups', module: 'settings' as ActiveModule, icon: Settings, category: 'Navigation' },
+    { label: t('module.dashboard', currentLang, 'Dashboard & Berichte'), module: 'dashboard' as ActiveModule, icon: LayoutDashboard, category: 'Navigation' },
+    { label: t('module.invoices', currentLang, 'Verkauf & Rechnungen'), module: 'invoices' as ActiveModule, icon: Receipt, category: 'Navigation' },
+    { label: t('module.accounting', currentLang, 'Abrechnung & Finanzen'), module: 'accounting' as ActiveModule, icon: Calculator, category: 'Navigation' },
+    { label: t('module.contacts', currentLang, 'CRM & Kontakte'), module: 'contacts' as ActiveModule, icon: Users, category: 'Navigation' },
+    { label: t('module.products', currentLang, 'Artikel & Produkte'), module: 'products' as ActiveModule, icon: Package, category: 'Navigation' },
+    { label: t('module.pos', currentLang, 'Point of Sale (Kasse)'), module: 'pos' as ActiveModule, icon: ShoppingBag, category: 'Navigation' },
+    { label: t('module.restaurant', currentLang, 'Restaurant & Gastro POS'), module: 'restaurant' as ActiveModule, icon: Utensils, category: 'Navigation' },
+    { label: t('module.purchases', currentLang, 'Einkauf & Beschaffung'), module: 'purchases' as ActiveModule, icon: ShoppingCart, category: 'Navigation' },
+    { label: t('module.stock', currentLang, 'Lagerbuchungen & Bestände'), module: 'stock' as ActiveModule, icon: Boxes, category: 'Navigation' },
+    { label: t('module.docs', currentLang, 'Handbuch & Dokumentation'), module: 'docs' as ActiveModule, icon: BookOpen, category: 'Navigation' },
+    { label: t('module.appstore', currentLang, 'App Store & Module'), module: 'appstore' as ActiveModule, icon: Boxes, category: 'Navigation' },
+    { label: t('module.settings', currentLang, 'Einstellungen & Backups'), module: 'settings' as ActiveModule, icon: Settings, category: 'Navigation' },
   ];
 
   const quickActions = [
-    { label: 'Neue Ausgangsrechnung erstellen', action: 'new_invoice' as const, icon: Plus, category: 'Aktionen' },
-    { label: 'Neuen Kunden / Partner anlegen', action: 'new_contact' as const, icon: Plus, category: 'Aktionen' },
-    { label: 'Neuen Artikel / Produkt erfassen', action: 'new_product' as const, icon: Plus, category: 'Aktionen' },
-    { label: 'Wareneingang / Lagerbuchung tätigen', action: 'new_stock_move' as const, icon: Plus, category: 'Aktionen' },
-    { label: 'Lieferantenbestellung (Einkauf) anlegen', action: 'new_purchase' as const, icon: Plus, category: 'Aktionen' },
+    { label: t('action.new_invoice', currentLang, 'Neue Ausgangsrechnung erstellen'), action: 'new_invoice' as const, icon: Plus, category: 'Aktionen' },
+    { label: t('action.new_contact', currentLang, 'Neuen Kunden / Partner anlegen'), action: 'new_contact' as const, icon: Plus, category: 'Aktionen' },
+    { label: t('action.new_product', currentLang, 'Neuen Artikel / Produkt erfassen'), action: 'new_product' as const, icon: Plus, category: 'Aktionen' },
+    { label: t('action.new_stock_move', currentLang, 'Wareneingang / Lagerbuchung tätigen'), action: 'new_stock_move' as const, icon: Plus, category: 'Aktionen' },
+    { label: t('action.new_purchase', currentLang, 'Lieferantenbestellung (Einkauf) anlegen'), action: 'new_purchase' as const, icon: Plus, category: 'Aktionen' },
   ];
 
   const filteredApps = appActions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));
@@ -130,7 +130,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Befehl, App, Kunde, Artikel oder Rechnungsnummer suchen..."
+            placeholder={
+              currentLang === 'de' ? 'Befehl, App, Kunde, Artikel oder Rechnungsnummer suchen...' :
+              currentLang === 'fr' ? 'Rechercher commande, application, contact, article...' :
+              currentLang === 'es' ? 'Buscar comando, app, cliente, artículo o factura...' :
+              'Search command, app, customer, product, or invoice number...'
+            }
             className="w-full text-sm bg-transparent text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
             autoFocus
           />
@@ -153,7 +158,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {filteredQuick.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Schnellaktionen
+                {currentLang === 'de' ? 'Schnellaktionen' : currentLang === 'fr' ? 'Actions rapides' : currentLang === 'es' ? 'Acciones rápidas' : 'Quick Actions'}
               </div>
               <div className="space-y-1 mt-1">
                 {filteredQuick.map((qa, idx) => {
@@ -186,7 +191,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {filteredApps.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                SOCDOF Module
+                {currentLang === 'de' ? 'SOCDOF Module' : currentLang === 'fr' ? 'Modules SOCDOF' : currentLang === 'es' ? 'Módulos SOCDOF' : 'SOCDOF Modules'}
               </div>
               <div className="grid grid-cols-2 gap-1 mt-1">
                 {filteredApps.map((app, idx) => {
@@ -214,7 +219,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {matchingContacts.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Kontakte &amp; Kunden ({matchingContacts.length})
+                {currentLang === 'de' ? `Kontakte & Kunden (${matchingContacts.length})` :
+                 currentLang === 'fr' ? `Contacts & Clients (${matchingContacts.length})` :
+                 currentLang === 'es' ? `Contactos y clientes (${matchingContacts.length})` :
+                 `Contacts & Customers (${matchingContacts.length})`}
               </div>
               <div className="space-y-1 mt-1">
                 {matchingContacts.map((contact) => (
@@ -232,7 +240,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       {contact.company && <span className="text-slate-500 ml-2">({contact.company})</span>}
                     </div>
                     <span className="text-[11px] text-slate-400 font-mono">
-                      {contact.city || contact.email || 'Kunde'}
+                      {contact.city || contact.email || (currentLang === 'de' ? 'Kunde' : 'Contact')}
                     </span>
                   </button>
                 ))}
@@ -244,7 +252,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {matchingProducts.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Artikel &amp; Produkte ({matchingProducts.length})
+                {currentLang === 'de' ? `Artikel & Produkte (${matchingProducts.length})` :
+                 currentLang === 'fr' ? `Articles & Produits (${matchingProducts.length})` :
+                 currentLang === 'es' ? `Artículos y productos (${matchingProducts.length})` :
+                 `Products & Items (${matchingProducts.length})`}
               </div>
               <div className="space-y-1 mt-1">
                 {matchingProducts.map((prod) => (
@@ -274,7 +285,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {matchingInvoices.length > 0 && (
             <div>
               <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Rechnungen ({matchingInvoices.length})
+                {currentLang === 'de' ? `Rechnungen (${matchingInvoices.length})` :
+                 currentLang === 'fr' ? `Factures (${matchingInvoices.length})` :
+                 currentLang === 'es' ? `Facturas (${matchingInvoices.length})` :
+                 `Invoices (${matchingInvoices.length})`}
               </div>
               <div className="space-y-1 mt-1">
                 {matchingInvoices.map((inv) => (
@@ -303,7 +317,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Studio & System */}
           <div>
             <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              System &amp; Ansicht
+              {currentLang === 'de' ? 'System & Ansicht' :
+               currentLang === 'fr' ? 'Système & Affichage' :
+               currentLang === 'es' ? 'Sistema y vista' :
+               'System & View'}
             </div>
             <div className="grid grid-cols-2 gap-1 mt-1">
               <button
@@ -315,7 +332,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2.5 transition"
               >
                 <Sliders className="w-4 h-4 text-indigo-500" />
-                <span className="font-medium">SOCDOF Studio öffnen</span>
+                <span className="font-medium">
+                  {currentLang === 'de' ? 'SOCDOF Studio öffnen' :
+                   currentLang === 'fr' ? 'Ouvrir SOCDOF Studio' :
+                   currentLang === 'es' ? 'Abrir SOCDOF Studio' :
+                   'Open SOCDOF Studio'}
+                </span>
               </button>
               <button
                 onClick={() => {
@@ -326,7 +348,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2.5 transition"
               >
                 {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
-                <span className="font-medium">{isDark ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}</span>
+                <span className="font-medium">
+                  {isDark ? 
+                    (currentLang === 'de' ? 'Light Mode aktivieren' : currentLang === 'fr' ? 'Activer le mode clair' : currentLang === 'es' ? 'Activar modo claro' : 'Enable Light Mode') :
+                    (currentLang === 'de' ? 'Dark Mode aktivieren' : currentLang === 'fr' ? 'Activer le mode sombre' : currentLang === 'es' ? 'Activar modo oscuro' : 'Enable Dark Mode')
+                  }
+                </span>
               </button>
             </div>
           </div>

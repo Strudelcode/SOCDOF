@@ -6,7 +6,66 @@
 
 ## Completed Tasks Archive
 
-### 1. Smooth Desktop Widget Dragging Behind Fixed Apps & Dynamic Pointer-Events Isolation (v22.1.3)
+### 1. Automated GitHub Release to Discord Webhook Integration (v22.1.9)
+- [x] **GitHub Action Discord Webhook**:
+  - [x] Created `.github/workflows/discord_release.yml` with triggers on `release: [published]`.
+  - [x] Embedded dynamic Discord date and relative timestamps (`<t:{current_timestamp}:D>` and `<t:{current_timestamp}:R>`).
+  - [x] Added message length boundary safeguards with ellipsis handling and direct release URLs.
+  - [x] Configured clean SOCDOF avatar branding for webhook announcements.
+
+### 2. Purged Redundant Download Prompts & Localized Documentation Window Headers (v22.1.8)
+- [x] **Complete Purge of In-App Download Prompts**:
+  - [x] Eradicated all redundant "Download SOCDOF" cards and installer download buttons inside the documentation.
+  - [x] Renamed the documentation tab from "Download & Releases" to "Versions & Updates" and replaced the download icon with a `History` icon across all 4 languages.
+  - [x] Replaced download prompt with a clean workstation status badge (`✓ Installed & Active: SOCDOF Desktop Workstation`) confirming 100% offline local operation and providing a link to GitHub release notes.
+- [x] **Dynamic Documentation Window Title**:
+  - [x] Hardened the window header renderer so the title instantly matches the active language ("User Manual & Docs" in EN, "Handbuch & Dokumentation" in DE, "Manuel & Documentation" in FR, "Manual y documentación" in ES) without any stale fallback.
+
+### 2. Complete 4-Language Documentation & Workspace Localization, Theme Cohesion & Streamlined UI (v22.1.7)
+- [x] **Eliminated Hardcoded "Handbuch" Across Entire App**:
+  - [x] Replaced hardcoded "Handbuch" strings in `DesktopWindowWorkspace.tsx`, `AppLauncher.tsx`, `AppStoreModule.tsx`, and `WidgetSettingsModal.tsx` with dynamic `t()` calls.
+  - [x] Windows and apps now display "User Manual & Docs" (EN), "Manuel & Documentation" (FR), "Manual y documentación" (ES), or "Handbuch" (DE) based on the user's selected language.
+- [x] **Adaptive Documentation Portal Menu Bar**:
+  - [x] Fixed the top menu ribbon in `DocumentationApp.tsx` being permanently dark by converting it to adaptive light/dark theme styles (`bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800`).
+- [x] **Streamlined Documentation Workspace**:
+  - [x] Removed redundant promotional hero banner ("Modern business ERP..."), restoring valuable screen space for documentation and manual reading.
+- [x] **Eliminated Redundant Download Prompts**:
+  - [x] Replaced intrusive installer download boxes in `DocumentationApp.tsx` with an active system status card (`✓ Installed & Active: SOCDOF Desktop Workstation`), highlighting 100% offline data storage and clean GitHub release notes links.
+- [x] **Universal 4-Language Translations Audit**:
+  - [x] Audited and added translations for all missing keys across English, German, French, and Spanish in `src/lib/i18n.ts`.
+
+### 2. Instant Direct DOM Hardware Drag Transform & Intelligent Grid Swapping (v22.1.6)
+- [x] **Eliminated Animation Frame Starvation (`src/components/DesktopWindowWorkspace.tsx`)**:
+  - [x] Fixed the issue where `cancelAnimationFrame` cancelled pending preview renders during rapid continuous mouse motion, which caused the ghost preview to freeze behind the cursor until the mouse stopped.
+  - [x] Implemented direct DOM transform via `dragGhostRef.current.style.transform` (`translate3d`), rendering synchronous movements with zero React re-render overhead.
+  - [x] Replaced the debounced cancel/reschedule pattern with a non-cancelling animation frame throttle for smooth React state synchronization on display refresh.
+- [x] **Dynamic Viewport Grid & Intelligent Icon Swapping**:
+  - [x] Replaced the fixed 6-row constraint with canvas-based dynamic boundary calculations (`Math.floor((height - 40) / STEP)`).
+  - [x] Added clean swap logic when dropping an icon onto an occupied grid slot instead of kicking the existing item to the top-left of the canvas.
+
+### 2. Restored App Dragging Engine & Universal Multilingual UI Localization (v22.1.5)
+- [x] **Desktop App Dragging Restoration (`src/components/DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed `isBeingDragged ? 'none' : 'auto'` on active app and folder drag targets, eliminating browser HTML5 drag session cancellation and restoring full drag-and-drop movement.
+  - [x] Refactored `handleDesktopCanvasDragOver` to track dragged item coordinates from state and ref without depending on restricted `dataTransfer` text data during dragover.
+  - [x] Maintained instantaneous 0ms GPU-accelerated `translate3d` ghost placement preview without sluggish transitions.
+- [x] **Universal UI Multilingual Translation Sweep (`src/lib/i18n.ts`, components)**:
+  - [x] Localized `LanguageSelectionModal.tsx` view mode toggles (Dropdown/Grid), custom language folder explorer link, and reload button.
+  - [x] Localized `SettingsModule.tsx` Overview tab, Recent Searches items, profile card fallback labels, and action buttons.
+  - [x] Localized `DocumentationApp.tsx` portal ribbon header, all tab identifiers, and community Discord support section.
+  - [x] Implemented dynamic multilingual window titles that switch automatically across all 4 supported languages (`de`, `en`, `fr`, `es`).
+  - [x] Localized Web Preview badge and Power/Exit dialog prompt and advisory notes.
+
+### 2. Zero-Lag App Dragging & Instantaneous GPU Ghost Placement Preview Engine (v22.1.4)
+- [x] **Desktop App Drag Engine (`src/components/DesktopWindowWorkspace.tsx`)**:
+  - [x] Removed artificial `transition-all duration-75` and continuous `animate-pulse` causing delayed, sluggish preview following.
+  - [x] Switched preview placement indicator to `transform: translate3d(...)` with `willChange: 'transform'` for GPU-accelerated 0-reflow rendering.
+  - [x] Added grid comparison bail-out in `handleDesktopCanvasDragOver` to avoid redundant React state updates when moving within the same grid slot.
+  - [x] Batched preview position updates using `requestAnimationFrame` coalescing to sync with display refresh rates.
+  - [x] Initialized immediate snap coordinates in `onDragStart` so the preview appears with 0ms latency.
+  - [x] Added pointer events isolation (`pointerEvents: none`) on active dragged items and clean event bubbling to desktop canvas.
+  - [x] Ensured complete cleanup of animation frame handles and preview refs on drag end, drag leave, and drop.
+
+### 2. Smooth Desktop Widget Dragging Behind Fixed Apps & Dynamic Pointer-Events Isolation (v22.1.3)
 - [x] **Desktop Widget Drag Engine (`src/components/DesktopWidgetsLayer.tsx`, `src/components/DesktopWindowWorkspace.tsx`)**:
   - [x] Implemented global window pointer event listeners for high-frequency drag tracking.
   - [x] Refactored widget movement to use `dragRef` with `requestAnimationFrame` updates to eliminate lag and 60fps jitter.

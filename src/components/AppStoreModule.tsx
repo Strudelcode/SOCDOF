@@ -45,6 +45,7 @@ import {
 import { ActiveModule, StoreApp } from '../types';
 import { sounds } from '../lib/sound';
 import { WidgetsIcon } from './WidgetsIcon';
+import { useLanguage, t } from '../lib/i18n';
 
 interface AppStoreModuleProps {
   installedModules: ActiveModule[];
@@ -65,6 +66,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   onTogglePinTaskbar,
   onLaunchModule
 }) => {
+  const currentLang = useLanguage();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'installed' | 'uninstalled' | 'financial' | 'desktop'>('all');
@@ -102,7 +104,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   const allStoreApps: StoreApp[] = [
     {
       id: 'dashboard',
-      title: 'Übersicht & KPIs',
+      title: t('module.dashboard', currentLang, 'Übersicht & KPIs'),
       category: 'core',
       description: 'Zentrale Schaltzentrale mit Umsatzdiagrammen, offenen Rechnungen, KPIs und Schnellaktionen.',
       iconName: 'Boxes',
@@ -115,7 +117,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'invoices',
-      title: 'Rechnungen & DIN 5008',
+      title: t('module.invoices', currentLang, 'Rechnungen & DIN 5008'),
       category: 'finance',
       description: 'Gesetzeskonforme Fakturierung mit Briefkopf-Wasserzeichen, GoBD-Nummernkreis & PDF-Export.',
       iconName: 'Receipt',
@@ -129,7 +131,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'accounting',
-      title: 'Abrechnungen & BWA',
+      title: t('module.accounting', currentLang, 'Abrechnungen & BWA'),
       category: 'finance',
       description: 'Betriebswirtschaftliche Auswertung, Einnahmen-Überschuss-Rechnung (EÜR), UStVA Voranmeldung & Mahnwesen.',
       iconName: 'Calculator',
@@ -143,7 +145,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'contacts',
-      title: 'Kontakte & CRM',
+      title: t('module.contacts', currentLang, 'Kontakte & CRM'),
       category: 'sales',
       description: 'Kunden- & Lieferantenstamm mit Batch-Erstellung, vCard/CSV-Import und Kontakt-Historie.',
       iconName: 'Users',
@@ -156,7 +158,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'pos',
-      title: 'POS Touch-Kasse & Scanner',
+      title: t('module.pos', currentLang, 'POS Touch-Kasse & Scanner'),
       category: 'sales',
       description: 'Touchscreen-Kassensystem mit Barcode-Scanner-Anbindung, Wechselgeldrechner & Thermobon-Druck.',
       iconName: 'CreditCard',
@@ -170,7 +172,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'products',
-      title: 'Artikel & Preise',
+      title: t('module.products', currentLang, 'Artikel & Preise'),
       category: 'inventory',
       description: 'Produktkatalog mit Preisen, Barcodes, Mindestbeständen und mehrstufiger Kategorisierung.',
       iconName: 'Package',
@@ -183,7 +185,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'stock',
-      title: 'Lager & Bestände',
+      title: t('module.stock', currentLang, 'Lager & Bestände'),
       category: 'inventory',
       description: 'Doppelte Buchführung für Lagerbestände, Inventurverluste und Wareneingänge.',
       iconName: 'Layers',
@@ -196,7 +198,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'purchases',
-      title: 'Einkauf & Lieferanten',
+      title: t('module.purchases', currentLang, 'Einkauf & Lieferanten'),
       category: 'inventory',
       description: 'Angebotsanfragen (RFQ), Lieferantenbestellungen und Wareneingangs-Verbuchung.',
       iconName: 'ShoppingCart',
@@ -280,9 +282,9 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'docs',
-      title: 'Handbuch & Dokumentation',
+      title: t('module.docs', currentLang, 'Handbuch & Dokumentation'),
       category: 'productivity',
-      description: 'Vollständige interaktive Dokumentation mit Suchfunktion und Tastaturkürzeln.',
+      description: t('desc.docs', currentLang, 'Vollständige interaktive Dokumentation mit Suchfunktion und Tastaturkürzeln.'),
       iconName: 'BookOpen',
       badge: 'System-Basis',
       author: 'SOCDOF Docs',
@@ -294,7 +296,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'settings',
-      title: 'Einstellungen & System',
+      title: t('module.settings', currentLang, 'Einstellungen & System'),
       category: 'core',
       description: 'Briefkopf-Wasserzeichen, Firmendaten, Backups, Sounds, TSE & Speicherplatz-Monitor.',
       iconName: 'Settings',

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
+import { useLanguage, t } from '../lib/i18n';
 
 interface AppLauncherProps {
   onSelectModule: (module: ActiveModule) => void;
@@ -57,25 +58,26 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
   onToggleCleanMode,
   companyName
 }) => {
+  const currentLang = useLanguage();
   const [search, setSearch] = useState('');
   const [timeString, setTimeString] = useState('');
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setTimeString(now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setTimeString(now.toLocaleTimeString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentLang]);
 
   const apps: AppTile[] = [
     {
       id: 'dashboard',
-      name: 'Dashboard & Berichte',
-      category: 'Analytics & KPIs',
-      description: 'Echtzeit-Umsatz, Lagerwert & interaktive Finanz-Charts',
+      name: t('module.dashboard', currentLang, 'Dashboard & Berichte'),
+      category: t('cat.analytics', currentLang, 'Analytics & KPIs'),
+      description: t('desc.dashboard', currentLang, 'Echtzeit-Umsatz, Lagerwert & interaktive Finanz-Charts'),
       icon: <LayoutDashboard className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-indigo-500 to-indigo-700',
       badge: 'Live',
@@ -83,9 +85,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'contacts',
-      name: 'CRM & Kontakte',
-      category: 'Kunden & Partner',
-      description: 'Kunden, Lieferanten, Adressbuch & Umsatz-Historie',
+      name: t('module.contacts', currentLang, 'CRM & Kontakte'),
+      category: t('cat.crm', currentLang, 'Kunden & Partner'),
+      description: t('desc.contacts', currentLang, 'Kunden, Lieferanten, Adressbuch & Umsatz-Historie'),
       icon: <Users className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-teal-500 to-emerald-700',
       badge: `${contactCount}`,
@@ -93,9 +95,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'products',
-      name: 'Artikel & Produkte',
-      category: 'Katalog & Stammdaten',
-      description: 'Stammdaten, Preise, Barcodes & Mindestbestände',
+      name: t('module.products', currentLang, 'Artikel & Produkte'),
+      category: t('cat.catalog', currentLang, 'Katalog & Stammdaten'),
+      description: t('desc.products', currentLang, 'Stammdaten, Preise, Barcodes & Mindestbestände'),
       icon: <Package className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-amber-500 to-orange-600',
       badge: lowStockCount > 0 ? `${lowStockCount} knapp` : `${productCount}`,
@@ -103,9 +105,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'invoices',
-      name: 'Verkauf & Faktura',
-      category: 'Finanzen & Abrechnung',
-      description: 'Rechnungen, PDF-Druck nach DIN-5008 & Fake-SMTP Versand',
+      name: t('module.invoices', currentLang, 'Verkauf & Faktura'),
+      category: t('cat.billing', currentLang, 'Finanzen & Abrechnung'),
+      description: t('desc.invoices', currentLang, 'Rechnungen, PDF-Druck nach DIN-5008 & Fake-SMTP Versand'),
       icon: <ReceiptText className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-purple-600 to-indigo-900',
       badge: `${invoiceCount}`,
@@ -113,29 +115,29 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'accounting',
-      name: 'Abrechnung & BWA',
-      category: 'Finanzen & Steuern',
-      description: 'BWA, EÜR, UStVA Voranmeldung & Offene-Posten Mahnwesen',
+      name: t('module.accounting', currentLang, 'Abrechnung & BWA'),
+      category: t('cat.finance', currentLang, 'Finanzen & Steuern'),
+      description: t('desc.accounting', currentLang, 'BWA, EÜR, UStVA Voranmeldung & Offene-Posten Mahnwesen'),
       icon: <Calculator className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-emerald-600 to-teal-800',
-      badge: 'Neu',
+      badge: t('badge.new', currentLang, 'Neu'),
       badgeColor: 'bg-emerald-100 text-emerald-900 font-bold'
     },
     {
       id: 'pos',
-      name: 'Point of Sale (POS)',
-      category: 'Kasse & Barverkauf',
-      description: 'Touch-Kassenterminal, Barcode-Scan & Bondruck mit Kassenlade',
+      name: t('module.pos', currentLang, 'Point of Sale (POS)'),
+      category: t('cat.pos', currentLang, 'Kasse & Barverkauf'),
+      description: t('desc.pos', currentLang, 'Touch-Kassenterminal, Barcode-Scan & Bondruck mit Kassenlade'),
       icon: <ShoppingBag className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-pink-500 to-rose-600',
-      badge: 'Neu',
+      badge: t('badge.new', currentLang, 'Neu'),
       badgeColor: 'bg-pink-100 text-pink-800 font-bold'
     },
     {
       id: 'ios_billing',
-      name: 'iOS Kasse & Speisen',
+      name: t('module.ios_billing', currentLang, 'iOS Kasse & Speisen'),
       category: 'iOS POS & Billing',
-      description: 'iOS Kasse mit Beilagen (Kartoffelsalat etc.), Speisen-Status, Direkt-Kasse & Statistiken',
+      description: t('desc.ios_billing', currentLang, 'iOS Kasse mit Beilagen, Speisen-Status, Direkt-Kasse & Statistiken'),
       icon: <Utensils className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-indigo-500 to-indigo-700',
       badge: 'iOS Style',
@@ -143,9 +145,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'restaurant',
-      name: 'Restaurant & Speisekarte',
-      category: 'Gastronomie & KDS',
-      description: 'Digitale Speisekarte, Tischverwaltung, KDS Küchen-Display & GoBD Belege',
+      name: t('module.restaurant', currentLang, 'Restaurant & Speisekarte'),
+      category: t('cat.gastro', currentLang, 'Gastronomie & KDS'),
+      description: t('desc.restaurant', currentLang, 'Digitale Speisekarte, Tischverwaltung, KDS Küchen-Display & GoBD Belege'),
       icon: <Utensils className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-amber-500 to-orange-700',
       badge: 'Gastro',
@@ -153,9 +155,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'purchases',
-      name: 'Einkauf & Beschaffung',
-      category: 'Lieferantenbestellungen',
-      description: 'Preisanfragen, Bestellungen & Wareneingangs-Buchung',
+      name: t('module.purchases', currentLang, 'Einkauf & Beschaffung'),
+      category: t('cat.purchasing', currentLang, 'Lieferantenbestellungen'),
+      description: t('desc.purchases', currentLang, 'Preisanfragen, Bestellungen & Wareneingangs-Buchung'),
       icon: <ShoppingCart className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-cyan-600 to-blue-700',
       badge: 'Echtzeit',
@@ -163,9 +165,9 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'stock',
-      name: 'Lagerbuchung (Doppik)',
-      category: 'Logistik & Bestände',
-      description: 'Doppeltes Buchungssystem: Wareneingang, Auslieferung & Inventur',
+      name: t('module.stock', currentLang, 'Lagerbuchung (Doppik)'),
+      category: t('cat.inventory', currentLang, 'Logistik & Bestände'),
+      description: t('desc.stock', currentLang, 'Doppeltes Buchungssystem: Wareneingang, Auslieferung & Inventur'),
       icon: <Boxes className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-amber-600 to-amber-800',
       badge: `${stockMoveCount} Buchungen`,
@@ -173,17 +175,17 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'docs',
-      name: 'Handbuch & Docs',
-      category: 'Hilfe & Dokumentation',
-      description: 'Umfassendes Handbuch, Tastatur-Shortcuts und Leitfäden',
+      name: t('module.docs', currentLang, 'Handbuch & Docs'),
+      category: t('cat.help', currentLang, 'Hilfe & Dokumentation'),
+      description: t('desc.docs', currentLang, 'Umfassendes Handbuch, Tastatur-Shortcuts und Leitfäden'),
       icon: <BookOpen className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-sky-600 to-blue-800'
     },
     {
       id: 'settings',
-      name: 'Einstellungen & Backup',
-      category: 'System & Firmendaten',
-      description: 'Unternehmensprofil, IBAN/BIC, JSON-Backup & Soundeffekte',
+      name: t('module.settings', currentLang, 'Einstellungen & Backup'),
+      category: t('cat.system', currentLang, 'System & Firmendaten'),
+      description: t('desc.settings', currentLang, 'Unternehmensprofil, IBAN/BIC, JSON-Backup & Soundeffekte'),
       icon: <Settings className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-slate-600 to-slate-800'
     }
@@ -274,7 +276,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
             <input
               type="text"
               id="app-launcher-search"
-              placeholder="App oder Modul suchen... (z.B. Kasse, Rechnung, CRM, Lager)"
+              placeholder={currentLang === 'de' ? 'App oder Modul suchen... (z.B. Kasse, Rechnung, CRM, Lager)' : currentLang === 'fr' ? 'Rechercher une application... (ex. Caisse, Factures, CRM, Stocks)' : currentLang === 'es' ? 'Buscar aplicación... (ej. Caja, Facturación, CRM, Inventario)' : 'Search apps or modules... (e.g. POS, Invoices, CRM, Stock)'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-slate-800/90 border border-slate-700 text-white placeholder-slate-400 pl-12 pr-4 py-3.5 rounded-2xl shadow-xl focus:outline-none focus:ring-2 focus:ring-[#875A7B] focus:border-transparent transition-all text-sm"
@@ -317,7 +319,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
               </p>
 
               <div className="mt-4 pt-3 border-t border-slate-700/40 flex items-center justify-between text-xs text-slate-400 group-hover:text-purple-300">
-                <span>Öffnen</span>
+                <span>{currentLang === 'de' ? 'Öffnen' : currentLang === 'fr' ? 'Ouvrir' : currentLang === 'es' ? 'Abrir' : 'Open'}</span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
               </div>
             </button>
@@ -329,10 +331,10 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       <div className="max-w-6xl w-full mx-auto mt-12 pt-6 border-t border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>100% Lokale Datenspeicherung (IndexedDB) • Keine Cloud-Übertragung • DSGVO-konform</span>
+          <span>{currentLang === 'de' ? '100% Lokale Datenspeicherung (IndexedDB) • Keine Cloud-Übertragung • DSGVO-konform' : currentLang === 'fr' ? 'Stockage 100% local (IndexedDB) • Aucun transfert vers le cloud • Conforme RGPD' : currentLang === 'es' ? 'Almacenamiento 100% local (IndexedDB) • Sin transferencia a la nube • Cumple RGPD' : '100% Local Data Storage (IndexedDB) • Zero Cloud Transmission • GDPR Compliant'}</span>
         </div>
         <div className="flex items-center gap-4 text-slate-500">
-          <span>Drücken Sie jederzeit auf das SOCDOF-Logo oben links, um zum Launcher zurückzukehren</span>
+          <span>{currentLang === 'de' ? 'Drücken Sie jederzeit auf das SOCDOF-Logo oben links, um zum Launcher zurückzukehren' : currentLang === 'fr' ? 'Cliquez sur le logo SOCDOF en haut à gauche pour revenir au lanceur' : currentLang === 'es' ? 'Haz clic en el logotipo de SOCDOF arriba a la izquierda para volver al iniciador' : 'Click the SOCDOF logo in the top-left anytime to return to the launcher'}</span>
         </div>
       </div>
     </div>

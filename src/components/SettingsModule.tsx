@@ -542,14 +542,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   // Recent Searches / Quick Links list
-  const recentSearches = [
-    { id: 'personalization', title: 'Dunkelmodus & Design', category: 'Personalisierung', icon: Palette, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/60' },
-    { id: 'language', title: 'Sprache & Region', category: 'Sprache & Zeit', icon: Globe, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/60' },
-    { id: 'connections', title: 'Google Kalender & iCal', category: 'Verbindungen', icon: CalendarIcon, color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/60' },
-    { id: 'letterhead', title: 'Briefkopf & DIN 5008', category: 'Dokumente', icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
-    { id: 'general', title: 'Bankdaten & IBAN', category: 'Unternehmen', icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60' },
-    { id: 'storage', title: 'JSON Datensicherung', category: 'Speicher', icon: HardDrive, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60' },
-  ];
+  const recentSearches = useMemo(() => [
+    { id: 'personalization', title: t('settings.recent_darkmode_title', activeLang, 'Dark Mode & Design'), category: t('settings.recent_darkmode_cat', activeLang, 'Personalization'), icon: Palette, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/60' },
+    { id: 'language', title: t('settings.recent_language_title', activeLang, 'Language & Region'), category: t('settings.recent_language_cat', activeLang, 'Language & Time'), icon: Globe, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/60' },
+    { id: 'connections', title: t('settings.recent_calendar_title', activeLang, 'Google Calendar & iCal'), category: t('settings.recent_calendar_cat', activeLang, 'Connections'), icon: CalendarIcon, color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/60' },
+    { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
+    { id: 'general', title: t('settings.recent_bank_title', activeLang, 'Bank Details & IBAN'), category: t('settings.recent_bank_cat', activeLang, 'Company'), icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60' },
+    { id: 'storage', title: t('settings.recent_backup_title', activeLang, 'JSON Data Backup'), category: t('settings.recent_backup_cat', activeLang, 'Storage'), icon: HardDrive, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60' },
+  ], [activeLang]);
 
   useEffect(() => {
     loadStorageInfo();
@@ -1124,7 +1124,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
           >
             <Save className="w-4 h-4" />
-            <span>Einstellungen jetzt speichern</span>
+            <span>{t('settings.save_settings_now', activeLang, 'Save settings now')}</span>
           </button>
         </div>
 
@@ -1143,14 +1143,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       {profile.name ? profile.name.slice(0, 2).toUpperCase() : 'SO'}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">{profile.name || 'Ihr Unternehmen'}</h3>
-                      <p className="text-xs text-indigo-200">{profile.email || 'Keine E-Mail hinterlegt'} • {profile.city || 'Deutschland'}</p>
+                      <h3 className="text-lg font-bold text-white">{profile.name || t('settings.your_company', activeLang, 'Your Company')}</h3>
+                      <p className="text-xs text-indigo-200">{profile.email || t('settings.no_email_hint', activeLang, 'No email configured')} • {profile.city || t('settings.default_country', activeLang, 'Germany')}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                          100% Offline & Kostenlos
+                          {t('settings.offline_free_badge', activeLang, '100% Offline & Free')}
                         </span>
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-white">
-                          DIN 5008 bereit
+                          {t('settings.din5008_ready', activeLang, 'DIN 5008 Ready')}
                         </span>
                       </div>
                     </div>
@@ -1160,7 +1160,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     onClick={() => handleSelectSection('general')}
                     className="px-4 py-2 bg-white text-indigo-950 hover:bg-indigo-50 font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
                   >
-                    Profil anpassen
+                    {t('settings.customize_profile', activeLang, 'Customize Profile')}
                   </button>
                 </div>
               </div>
@@ -1170,10 +1170,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div>
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span>Zuletzt gesucht & Schnelleinstieg</span>
+                    <span>{t('settings.recent_quick_start', activeLang, 'Recent Searches & Quick Access')}</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Häufig verwendete Einstellungen und Personalisierungsoptionen auf einen Blick:
+                    {t('settings.recent_quick_start_desc', activeLang, 'Frequently used settings and personalization options at a glance:')}
                   </p>
                 </div>
 
@@ -1349,7 +1349,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       <span>{t('settings.category_overview', activeLang, 'Einstellungsbereiche & Module')}</span>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Strukturiert nach Unternehmensbereich, Benutzeroberfläche und Systemwartung.
+                      {t('settings.categories_desc', activeLang, 'Structured by business area, user interface, and system maintenance.')}
                     </p>
                   </div>
                 </div>

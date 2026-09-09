@@ -473,6 +473,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     col: number;
     row: number;
   } | null>(null);
+  const dragPreviewPosRef = useRef<{
+    x: number;
+    y: number;
+    col: number;
+    row: number;
+  } | null>(null);
+  const dragGhostRef = useRef<HTMLDivElement | null>(null);
+  const dragRafIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dragRafIdRef.current) {
+        cancelAnimationFrame(dragRafIdRef.current);
+      }
+    };
+  }, []);
 
   const [desktopContextMenu, setDesktopContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [desktopIconContextMenu, setDesktopIconContextMenu] = useState<{ x: number; y: number; modId: ActiveModule } | null>(null);
@@ -548,10 +564,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const rect = desktopCanvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const rawData = e.dataTransfer.getData('text/plain');
-    const itemId = draggedDesktopItem?.id || rawData;
-    if (!itemId) return;
-
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
@@ -561,48 +573,53 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const targetX = mouseX - offsetX;
     const targetY = mouseY - offsetY;
 
+    // Viewport-aware grid boundaries (supports all display resolutions)
+    const maxCols = Math.max(4, Math.floor((rect.width - 40) / DESKTOP_GRID_STEP_X));
+    const maxRows = Math.max(4, Math.floor((rect.height - 40) / DESKTOP_GRID_STEP_Y));
+
     // Snap to Grid coordinates
-    const snapCol = Math.max(0, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
-    const snapRow = Math.max(0, Math.min(DESKTOP_GRID_MAX_ROWS - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
-    const targetSlotKey = `${snapCol},${snapRow}`;
+    const snapCol = Math.max(0, Math.min(maxCols - 1, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X)));
+    const snapRow = Math.max(0, Math.min(maxRows - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
 
-    let nextX = DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X;
-    let nextY = DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y;
+    const nextX = DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X;
+    const nextY = DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y;
 
-    // Check if slot is occupied by another item (and not hovering to merge into a folder)
-    const occupiedByOther = Object.entries(desktopPositions).find(([id, rawPos]) => {
-      if (id === itemId) return false;
-      const pos = rawPos as { x: number; y: number };
-      const col = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
-      const row = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
-      return `${col},${row}` === targetSlotKey;
-    });
-
-    if (occupiedByOther && draggedDesktopItem?.type === 'folder') {
-      const occupiedSet = new Set<string>();
-      Object.entries(desktopPositions).forEach(([id, rawPos]) => {
-        if (id !== itemId) {
-          const pos = rawPos as { x: number; y: number };
-          const c = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
-          const r = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
-          occupiedSet.add(`${c},${r}`);
-        }
-      });
-      const freeSlot = findNextFreeDesktopSlot(occupiedSet);
-      nextX = freeSlot.x;
-      nextY = freeSlot.y;
+    // DIRECT GPU DOM TRANSFORM: True instantaneous hardware response without React state delays or RAF frame-starving
+    if (dragGhostRef.current) {
+      dragGhostRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+      dragGhostRef.current.style.opacity = dragOverIconId ? '0.35' : '1';
     }
 
-    setDragPreviewPos({
+    const cur = dragPreviewPosRef.current;
+    if (cur && cur.x === nextX && cur.y === nextY && cur.col === snapCol && cur.row === snapRow) {
+      return;
+    }
+
+    dragPreviewPosRef.current = {
       x: nextX,
       y: nextY,
       col: snapCol,
       row: snapRow
-    });
+    };
+
+    // Non-cancelling RAF throttle so React state syncs on display refresh without stalling during active motion
+    if (!dragRafIdRef.current) {
+      dragRafIdRef.current = requestAnimationFrame(() => {
+        if (dragPreviewPosRef.current) {
+          setDragPreviewPos(dragPreviewPosRef.current);
+        }
+        dragRafIdRef.current = null;
+      });
+    }
   };
 
   const handleDesktopCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (dragRafIdRef.current) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      dragRafIdRef.current = null;
+    }
+    dragPreviewPosRef.current = null;
     setDragPreviewPos(null);
     setDragOverIconId(null);
     const rect = desktopCanvasRef.current?.getBoundingClientRect();
@@ -626,9 +643,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const targetX = mouseX - offsetX;
     const targetY = mouseY - offsetY;
 
-    // Snap to Grid coordinates
-    const snapCol = Math.max(0, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
-    const snapRow = Math.max(0, Math.min(DESKTOP_GRID_MAX_ROWS - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
+    // Snap to Grid coordinates with canvas dimensions
+    const maxCols = Math.max(4, Math.floor((rect.width - 40) / DESKTOP_GRID_STEP_X));
+    const maxRows = Math.max(4, Math.floor((rect.height - 40) / DESKTOP_GRID_STEP_Y));
+    const snapCol = Math.max(0, Math.min(maxCols - 1, Math.round((targetX - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X)));
+    const snapRow = Math.max(0, Math.min(maxRows - 1, Math.round((targetY - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y)));
     const targetSlotKey = `${snapCol},${snapRow}`;
 
     setDesktopPositions(prev => {
@@ -644,20 +663,33 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       let nextX = DESKTOP_GRID_ORIGIN_X + snapCol * DESKTOP_GRID_STEP_X;
       let nextY = DESKTOP_GRID_ORIGIN_Y + snapRow * DESKTOP_GRID_STEP_Y;
 
-      // If slot is taken, find the nearest unoccupied slot so items NEVER overlap
+      // If slot is taken, intelligently swap positions with the occupying item!
       if (occupiedByOther) {
-        const occupiedSet = new Set<string>();
-        Object.entries(prev).forEach(([id, rawPos]) => {
-          if (id !== itemId) {
-            const pos = rawPos as { x: number; y: number };
-            const c = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
-            const r = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
-            occupiedSet.add(`${c},${r}`);
-          }
-        });
-        const freeSlot = findNextFreeDesktopSlot(occupiedSet);
-        nextX = freeSlot.x;
-        nextY = freeSlot.y;
+        const [occupiedId] = occupiedByOther;
+        const oldPos = prev[itemId];
+        if (oldPos) {
+          const next = {
+            ...prev,
+            [itemId]: { x: nextX, y: nextY },
+            [occupiedId]: oldPos
+          };
+          try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+          return next;
+        } else {
+          // New item without prior position: find next free slot
+          const occupiedSet = new Set<string>();
+          Object.entries(prev).forEach(([id, rawPos]) => {
+            if (id !== itemId) {
+              const pos = rawPos as { x: number; y: number };
+              const c = Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X);
+              const r = Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y);
+              occupiedSet.add(`${c},${r}`);
+            }
+          });
+          const freeSlot = findNextFreeDesktopSlot(occupiedSet);
+          nextX = freeSlot.x;
+          nextY = freeSlot.y;
+        }
       }
 
       const next = { ...prev, [itemId]: { x: nextX, y: nextY } };
@@ -1553,6 +1585,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         id: `win_${module}_${Date.now()}`,
         module,
         title,
+        customTitle: customTitle ? customTitle : undefined,
         iconName: 'Boxes',
         isMinimized: false,
         isMaximized,
@@ -1796,6 +1829,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onDragOver={handleDesktopCanvasDragOver}
         onDragLeave={(e) => {
           if (e.relatedTarget === null || !desktopCanvasRef.current?.contains(e.relatedTarget as Node)) {
+            if (dragRafIdRef.current) {
+              cancelAnimationFrame(dragRafIdRef.current);
+              dragRafIdRef.current = null;
+            }
+            dragPreviewPosRef.current = null;
             setDragPreviewPos(null);
           }
         }}
@@ -1809,18 +1847,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         }}
         className="relative z-1 w-full h-[calc(100vh-48px)] overflow-hidden select-none"
       >
-        {/* Semi-transparent App Placement Ghost Preview */}
+        {/* Semi-transparent App Placement Ghost Preview - Instant 0ms Snap with GPU Hardware Acceleration */}
         {draggedDesktopItem && dragPreviewPos && (
           <div
+            ref={dragGhostRef}
             style={{
               position: 'absolute',
-              left: `${dragPreviewPos.x}px`,
-              top: `${dragPreviewPos.y}px`,
-              zIndex: 35
+              transform: `translate3d(${dragPreviewPos.x}px, ${dragPreviewPos.y}px, 0)`,
+              top: 0,
+              left: 0,
+              zIndex: 35,
+              willChange: 'transform'
             }}
-            className="w-24 p-2 rounded-2xl pointer-events-none transition-all duration-75 flex flex-col items-center justify-center text-center animate-pulse"
+            className="w-24 p-2 rounded-2xl pointer-events-none transition-none flex flex-col items-center justify-center text-center select-none"
           >
-            <div className="relative w-12 h-12 rounded-2xl border-2 border-dashed border-indigo-500/80 dark:border-indigo-400 bg-indigo-500/20 dark:bg-indigo-400/25 backdrop-blur-xs flex items-center justify-center shadow-lg ring-4 ring-indigo-500/20">
+            <div className="relative w-12 h-12 rounded-2xl border-2 border-dashed border-indigo-500/90 dark:border-indigo-400 bg-indigo-500/25 dark:bg-indigo-400/30 backdrop-blur-xs flex items-center justify-center shadow-lg ring-4 ring-indigo-500/20">
               {draggedDesktopItem.type === 'folder' ? (
                 <div className="w-8 h-8 rounded-xl bg-white/40 dark:bg-slate-700/50 flex items-center justify-center">
                   <span className="text-[12px] opacity-80">📁</span>
@@ -1830,7 +1871,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   const m = shortcutMeta[draggedDesktopItem.id as ActiveModule];
                   const GhostIcon = m.icon;
                   return (
-                    <div className={`w-9 h-9 rounded-xl ${m.color} text-white flex items-center justify-center opacity-65 shadow-inner`}>
+                    <div className={`w-9 h-9 rounded-xl ${m.color} text-white flex items-center justify-center opacity-70 shadow-inner`}>
                       <GhostIcon className="w-4.5 h-4.5" />
                     </div>
                   );
@@ -1915,25 +1956,39 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 const offsetX = e.clientX - rect.left;
                 const offsetY = e.clientY - rect.top;
                 setDraggedDesktopItem({ id: modId, type: 'app', offsetX, offsetY });
+                const initSnap = {
+                  x: pos.x,
+                  y: pos.y,
+                  col: Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X),
+                  row: Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y),
+                };
+                dragPreviewPosRef.current = initSnap;
+                setDragPreviewPos(initSnap);
                 e.dataTransfer.setData('text/plain', modId);
                 e.dataTransfer.effectAllowed = 'move';
               }}
               onDragEnd={() => {
+                if (dragRafIdRef.current) {
+                  cancelAnimationFrame(dragRafIdRef.current);
+                  dragRafIdRef.current = null;
+                }
+                dragPreviewPosRef.current = null;
                 setDraggedDesktopItem(null);
                 setDragOverIconId(null);
+                setDragPreviewPos(null);
               }}
               onDragOver={(e) => {
                 if (isDraggingWidget) return;
                 e.preventDefault();
-                e.stopPropagation();
                 if (draggedDesktopItem && draggedDesktopItem.id !== modId && draggedDesktopItem.type === 'app') {
-                  setDragOverIconId(modId);
+                  if (dragOverIconId !== modId) {
+                    setDragOverIconId(modId);
+                  }
                 }
               }}
               onDragLeave={(e) => {
                 if (isDraggingWidget) return;
                 e.preventDefault();
-                e.stopPropagation();
                 if (dragOverIconId === modId) {
                   setDragOverIconId(null);
                 }
@@ -2057,25 +2112,39 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 const offsetX = e.clientX - rect.left;
                 const offsetY = e.clientY - rect.top;
                 setDraggedDesktopItem({ id: folder.id, type: 'folder', offsetX, offsetY });
+                const initSnap = {
+                  x: pos.x,
+                  y: pos.y,
+                  col: Math.round((pos.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X),
+                  row: Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y),
+                };
+                dragPreviewPosRef.current = initSnap;
+                setDragPreviewPos(initSnap);
                 e.dataTransfer.setData('text/plain', folder.id);
                 e.dataTransfer.effectAllowed = 'move';
               }}
               onDragEnd={() => {
+                if (dragRafIdRef.current) {
+                  cancelAnimationFrame(dragRafIdRef.current);
+                  dragRafIdRef.current = null;
+                }
+                dragPreviewPosRef.current = null;
                 setDraggedDesktopItem(null);
                 setDragOverIconId(null);
+                setDragPreviewPos(null);
               }}
               onDragOver={(e) => {
                 if (isDraggingWidget) return;
                 e.preventDefault();
-                e.stopPropagation();
                 if (draggedDesktopItem && draggedDesktopItem.id !== folder.id && draggedDesktopItem.type === 'app') {
-                  setDragOverIconId(folder.id);
+                  if (dragOverIconId !== folder.id) {
+                    setDragOverIconId(folder.id);
+                  }
                 }
               }}
               onDragLeave={(e) => {
                 if (isDraggingWidget) return;
                 e.preventDefault();
-                e.stopPropagation();
                 if (dragOverIconId === folder.id) {
                   setDragOverIconId(null);
                 }
@@ -2261,7 +2330,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <WindowIcon className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                  {win.title}
+                  {win.module === 'docs'
+                    ? (shortcutMeta['docs']?.title || t('module.docs', currentLang, 'User Manual & Docs'))
+                    : (win.customTitle && !['Dokumentation & Handbuch', 'Handbuch', 'Handbuch & Dokumentation', 'Handbuch & Showcase', 'User Manual', 'Documentation & Manual', 'Manuel d’utilisation', 'Manuel & Documentation', 'Manual de usuario', 'Documentación y manual'].includes(win.customTitle)) 
+                      ? win.customTitle 
+                      : (shortcutMeta[win.module]?.title || t(`module.${win.module}`, currentLang) || win.title)}
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
                   [{win.module.toUpperCase()}]
@@ -2637,7 +2710,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                       e.dataTransfer.effectAllowed = 'copyMove';
                     }}
                     onDragEnd={() => {
+                      if (dragRafIdRef.current) {
+                        cancelAnimationFrame(dragRafIdRef.current);
+                        dragRafIdRef.current = null;
+                      }
+                      dragPreviewPosRef.current = null;
                       setDraggedDesktopItem(null);
+                      setDragOverIconId(null);
+                      setDragPreviewPos(null);
                     }}
                     onClick={() => {
                       openWindow(modId, meta.title);
@@ -2683,11 +2763,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <span className="uppercase font-bold tracking-wider">{currentLang}</span>
             </button>
             <button
-              onClick={() => openWindow('docs', 'Dokumentation & Handbuch')}
+              onClick={() => openWindow('docs')}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Handbuch</span>
+              <span>{t('module.docs', currentLang, 'Handbuch')}</span>
             </button>
             <a
               href="https://github.com/Strudelcode/SOCDOF"
@@ -2760,7 +2840,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     setIsPowerMenuOpen(!isPowerMenuOpen);
                   }
                 }}
-                title={!isDesktopApp ? "Web-Vorschau verlassen & Vollversion herunterladen" : "Beenden & Energieoptionen"}
+                title={!isDesktopApp ? t('preview.leave_preview_title', currentLang, "Web-Vorschau verlassen & Vollversion herunterladen") : t('preview.exit_desktop_title', currentLang, "Beenden & Energieoptionen")}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300 transition"
               >
                 <Power className="w-4 h-4" />
@@ -2781,7 +2861,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-base">
-                    {!isDesktopApp ? 'Web-Vorschau beenden?' : 'SOCDOF beenden?'}
+                    {!isDesktopApp ? t('preview.exit_preview_prompt', currentLang, 'Web-Vorschau beenden?') : t('preview.exit_app_prompt', currentLang, 'SOCDOF beenden?')}
                   </h3>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     {!isDesktopApp ? 'Interaktive Online-Demo' : 'Desktop-Umgebung schließen'}
@@ -2800,10 +2880,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <div className="mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200 space-y-1.5 leading-relaxed">
                 <div className="font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Hinweis zur Web-Vorschau:</span>
+                  <span>{t('preview.notice_title', currentLang, 'Hinweis zur Web-Vorschau:')}</span>
                 </div>
                 <p>
-                  Dies ist nur die Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Laden Sie sich die vollständige Windows Desktop-App (.exe) für 100% lokalen Betrieb herunter.
+                  {t('preview.notice_body', currentLang, 'Dies ist nur die Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Laden Sie sich die vollständige Windows Desktop-App (.exe) für 100% lokalen Betrieb herunter.')}
                 </p>
               </div>
             ) : (
@@ -3018,7 +3098,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     onDragOver={(e) => {
                       if (isPinned) {
                         e.preventDefault();
-                        setDragOverTaskbarIdx(index);
+                        if (dragOverTaskbarIdx !== index) {
+                          setDragOverTaskbarIdx(index);
+                        }
                       }
                     }}
                     onDragLeave={() => {
@@ -3111,7 +3193,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {!isDesktopApp && (
             <button
               onClick={() => { sounds.playPop(); setIsWebPreviewModalOpen(true); }}
-              title="Web-Vorschau aktiv – Klick für Download der vollen Windows Desktop App (.exe)"
+              title={t('preview.taskbar_title', currentLang, 'Web-Vorschau aktiv – Klick für Download der vollen Windows Desktop App (.exe)')}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-pink-500/15 hover:from-indigo-500/25 hover:to-pink-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition shadow-xs group"
             >
               <span className="relative flex h-2 w-2">
@@ -3119,7 +3201,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
               </span>
               <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform" />
-              <span className="hidden sm:inline font-extrabold tracking-tight">Web-Vorschau</span>
+              <span className="hidden sm:inline font-extrabold tracking-tight">{t('preview.taskbar_badge', currentLang, 'Web-Vorschau')}</span>
             </button>
           )}
 

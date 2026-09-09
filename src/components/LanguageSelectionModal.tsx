@@ -288,10 +288,10 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
                 type="button"
                 onClick={() => setViewMode(v => v === 'cards' ? 'dropdown' : 'cards')}
                 className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition flex items-center gap-1"
-                title="Ansicht umschalten"
+                title={t('lang_modal.toggle_view', activeLangCode, 'Toggle view')}
               >
                 <SlidersHorizontal className="w-3 h-3" />
-                <span>{viewMode === 'cards' ? 'Dropdown' : 'Karten'}</span>
+                <span>{viewMode === 'cards' ? t('lang_modal.view_dropdown', activeLangCode, 'Dropdown') : t('lang_modal.view_cards', activeLangCode, 'Cards')}</span>
               </button>
 
               <button
@@ -299,7 +299,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition disabled:opacity-50"
-                title="Dateien neu einlesen"
+                title={t('lang_modal.refresh_files', activeLangCode, 'Reload language files')}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-sky-500' : ''}`} />
               </button>
@@ -313,7 +313,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
             /* COMPACT DROPDOWN SELECTION MODULE */
             <div className="space-y-3 py-2">
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Aktive Sprache aus Menü auswählen:
+                {t('lang_modal.select_from_menu', activeLangCode, 'Select active language from menu:')}
               </label>
               <div className="relative">
                 <select
@@ -439,7 +439,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <Laptop className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
                 <span className="truncate">
-                  Ordner: <code className="font-mono text-[10px] select-all">{resolvedFolderPath}</code>
+                  {t('lang_modal.folder_label', activeLangCode, 'Folder:')} <code className="font-mono text-[10px] select-all">{resolvedFolderPath}</code>
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -447,20 +447,20 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
                   type="button"
                   onClick={handleOpenFlagsFolder}
                   className="text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center gap-1 text-[11px]"
-                  title="Ordner für Flaggen-Bilder öffnen"
+                  title={t('lang_modal.open_flags_folder', activeLangCode, 'Open flags folder')}
                 >
                   <FolderOpen className="w-3 h-3" />
-                  <span>Flaggen-Ordner</span>
+                  <span>{t('lang_modal.flags_folder', activeLangCode, 'Flags Folder')}</span>
                 </button>
                 <span className="text-slate-300 dark:text-slate-600">•</span>
                 <button
                   type="button"
                   onClick={handleOpenLanguagesFolder}
                   className="text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center gap-1 text-[11px]"
-                  title="Sprachordner öffnen"
+                  title={t('lang_modal.open_languages_folder', activeLangCode, 'Open languages folder')}
                 >
                   <FolderOpen className="w-3 h-3" />
-                  <span>Sprachordner</span>
+                  <span>{t('lang_modal.languages_folder', activeLangCode, 'Languages Folder')}</span>
                 </button>
               </div>
             </div>

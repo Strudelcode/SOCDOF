@@ -505,6 +505,7 @@ export interface AppWindow {
   id: string;
   module: ActiveModule;
   title: string;
+  customTitle?: string;
   iconName: string;
   isMinimized: boolean;
   isMaximized: boolean;

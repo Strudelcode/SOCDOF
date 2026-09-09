@@ -181,9 +181,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     items.push({
       id: 'action_docs_showcase',
       category: 'actions',
-      categoryLabel: isGerman ? 'Schnellaktionen' : 'Quick Actions',
-      title: isGerman ? 'Handbuch, Showcase & Release-Notizen' : 'User Manual, Showcase & Release Notes',
-      subtitle: isGerman ? 'Dokumentation & Tastenkürzel' : 'Documentation & Keyboard Shortcuts',
+      categoryLabel: t('cmd.quick_actions', lang, isGerman ? 'Schnellaktionen' : 'Quick Actions'),
+      title: t('docs.quick_action_title', lang, 'Handbuch, Showcase & Release-Notizen'),
+      subtitle: t('docs.quick_action_sub', lang, 'Dokumentation & Tastenkürzel'),
       icon: BookOpen,
       iconColor: 'bg-sky-500',
       shortcutHint: 'F1',

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.1.3';
+export const APP_VERSION = '22.1.9';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,71 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.1.9',
+    date: '2026-09-08',
+    title: 'Automated GitHub Release to Discord Webhook Integration',
+    highlights: [
+      'Automated Discord Release Broadcasts: Added dedicated GitHub Action workflow (.github/workflows/discord_release.yml) to seamlessly push formatted changelogs to Discord upon new published releases.',
+      'Dynamic Discord Timestamp Integration: Formatted announcements with native Discord epoch timestamps (<t:...:D> and <t:...:R>) for localized date displays in server feeds.',
+      'Intelligent Message Chunking: Safeguards long changelog texts against Discord 2000-character payload constraints while providing direct deep-links to release assets.'
+    ]
+  },
+  {
+    version: '22.1.8',
+    date: '2026-09-08',
+    title: 'Purged Redundant Download Prompts & Installer References in In-App Documentation',
+    highlights: [
+      'Eliminated In-App Download Prompts: Completely purged legacy "Download SOCDOF" banners, installer buttons, and download tab icons from the documentation portal for installed desktop users.',
+      'Versions & Updates Tab: Renamed the documentation tab from "Download & Releases" to "Versions & Updates" with a contextual History icon.',
+      'Dynamic Localized Window Titles: Hardened title logic so the Documentation & User Manual window header dynamically displays "User Manual & Docs" (EN), "Handbuch & Dokumentation" (DE), "Manuel & Documentation" (FR), and "Manual y documentación" (ES) with zero stale fallback.'
+    ]
+  },
+  {
+    version: '22.1.7',
+    date: '2026-09-08',
+    title: 'Complete 4-Language Documentation & Workspace Localization, Theme Cohesion & Streamlined UI',
+    highlights: [
+      'Comprehensive Multi-Language Window Titles: Eliminated hardcoded "Handbuch" across Desktop Window Workspace, App Launcher, App Store, and Settings — now automatically rendered as "User Manual & Docs" (EN), "Manuel & Documentation" (FR), "Manual y documentación" (ES), and "Handbuch" (DE).',
+      'Adaptive Documentation Portal Ribbon: Fixed dark mode styling clash on light themes by refactoring the top navigation bar into dynamic light/dark responsive themes.',
+      'Streamlined Layout & Reclaimed Workspace: Completely removed redundant promotional hero banner, maximizing vertical documentation reading area.',
+      'Removed Redundant Download Promotions: Replaced disruptive installer download banners with an elegant system status card indicating active offline workstation mode with GitHub release notes link.',
+      'End-to-End Localization Audit: Verified and translated all remaining showcase cards, shortcut lists, and security/privacy descriptions across English, German, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.1.6',
+    date: '2026-09-04',
+    title: 'Instant Direct DOM Hardware Drag Transform & Intelligent Grid Swapping',
+    highlights: [
+      'Eliminated RAF Frame Starvation: Removed recursive cancelAnimationFrame debounce that previously froze the ghost preview during continuous mouse motion until movement stopped.',
+      'Direct DOM GPU Transform: Attached a direct hardware ref (dragGhostRef) to translate3d the placement preview synchronously on dragover with zero React re-render overhead.',
+      'Responsive Canvas Grid Bounds: Replaced the fixed 6-row limit with viewport-computed canvas boundaries, ensuring seamless dragging to the bottom of modern tall displays.',
+      'Intuitive Desktop Icon Swapping: Dragging onto an occupied slot now cleanly swaps icon positions rather than banishing the displaced item to the top-left corner.'
+    ]
+  },
+  {
+    version: '22.1.5',
+    date: '2026-09-04',
+    title: 'Restored App Dragging Engine & Universal Multilingual UI Localization',
+    highlights: [
+      'Restored Desktop Icon & Folder Dragging: Removed inadvertent pointer-events blocking on dragged desktop elements, restoring seamless HTML5 drag-and-drop capability and placement snapping.',
+      'Robust DragOver Handling: Refactored handleDesktopCanvasDragOver to reliably process dragged item IDs without relying on restricted dataTransfer text data during active motion.',
+      'Universal UI Translation Sweep: Fully localized previously hardcoded strings across SettingsModule (Overview, Recent Searches, profile cards), DocumentationApp (portal header, all tabs, community section), and LanguageSelectionModal (view modes, folder links) in all 4 supported languages (EN, DE, FR, ES).',
+      'Dynamic Localized Window Titles: Window titles now dynamically update upon language selection switch, ensuring a consistent multilingual experience across all open applications.'
+    ]
+  },
+  {
+    version: '22.1.4',
+    date: '2026-09-04',
+    title: 'Zero-Lag App Dragging & Instantaneous GPU Ghost Placement Preview Engine',
+    highlights: [
+      'Instantaneous 0ms Placement Ghost: The semi-transparent desktop ghost indicator now snaps instantly without the artificial 75ms transition delay or continuous DOM paint pulses.',
+      'High-Frequency Drag Over Bail-Out: Unnecessary React re-renders during dragover events are completely bypassed when the calculated grid coordinate has not changed.',
+      'RequestAnimationFrame Coordination: Synchronized desktop icon and folder drag preview positioning with display refresh cycles using requestAnimationFrame batching.',
+      'GPU Hardware-Accelerated Composite: The placement ghost now uses CSS transform translate3d for zero-reflow positioning directly on the GPU composite layer.'
+    ]
+  },
   {
     version: '22.1.3',
     date: '2026-09-04',

@@ -1,0 +1,72 @@
+name: Discord Release Changelog Notification
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-discord:
+    name: Send Release Notes to Discord
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Formatted Changelog to Discord Webhook
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "Error: DISCORD_WEBHOOK secret is missing! Please configure it in Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          python3 - << 'EOF'
+          import os
+          import json
+          import time
+          import urllib.request
+
+          webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
+          tag = os.environ.get("RELEASE_TAG", "")
+          name = os.environ.get("RELEASE_NAME", "") or tag
+          url = os.environ.get("RELEASE_URL", "")
+          body = os.environ.get("RELEASE_BODY", "").strip()
+          current_timestamp = int(time.time())
+
+          # Header with date timestamp
+          header = f"# 🚀 **SOCDOF Release {tag}**\n### Veröffentlicht am <t:{current_timestamp}:D> (<t:{current_timestamp}:R>)\n---\n## **{name}**\n\n"
+          footer = f"\n\n---\n🔗 **GitHub Release & Downloads:** [Hier ansehen]({url})"
+
+          # Discord message limit is 2000 chars for regular messages
+          max_body_len = 1900 - len(header) - len(footer)
+          if len(body) > max_body_len:
+              trimmed_body = body[:max_body_len].rsplit("\n", 1)[0] + f"\n\n*(...Vollständigen Changelog auf GitHub lesen)*"
+          else:
+              trimmed_body = body
+
+          content = f"{header}{trimmed_body}{footer}"
+
+          payload = {
+              "username": "SOCDOF Releases",
+              "avatar_url": "https://raw.githubusercontent.com/Strudelcode/SOCDOF/main/public/favicon.ico",
+              "content": content
+          }
+
+          req = urllib.request.Request(
+              webhook_url,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "User-Agent": "SOCDOF-GitHub-Actions"
+              }
+          )
+
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  print(f"Discord notification successfully sent! Status: {resp.status}")
+          except Exception as e:
+              print(f"Failed to post to Discord webhook: {e}")
+              raise e
+          EOF
