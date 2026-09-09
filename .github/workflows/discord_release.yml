@@ -3,6 +3,16 @@ name: Discord Release Changelog Notification
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      test_title:
+        description: 'Release Name / Titel (Test)'
+        required: false
+        default: 'Test Release Benachrichtigung'
+      test_body:
+        description: 'Changelog Text (Test)'
+        required: false
+        default: 'Das ist eine Testnachricht vom GitHub Actions Workflow Dispatch.'
 
 jobs:
   notify-discord:
@@ -12,13 +22,13 @@ jobs:
       - name: Send Formatted Changelog to Discord Webhook
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_NAME: ${{ github.event.release.name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
-          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || 'vTest' }}
+          RELEASE_NAME: ${{ github.event.release.name || inputs.test_title || 'Test Notification' }}
+          RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com' }}
+          RELEASE_BODY: ${{ github.event.release.body || inputs.test_body || 'Dies ist ein manueller Testaufruf des Discord Webhooks.' }}
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "Error: DISCORD_WEBHOOK secret is missing! Please configure it in Repository Settings -> Secrets and variables -> Actions."
+            echo "::error::DISCORD_WEBHOOK Secret fehlt oder ist leer! Bitte unter 'Repository Settings -> Secrets and variables -> Actions -> Repository secrets' als 'DISCORD_WEBHOOK' anlegen."
             exit 1
           fi
 
@@ -27,9 +37,10 @@ jobs:
           import json
           import time
           import urllib.request
+          import urllib.error
 
           webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
-          tag = os.environ.get("RELEASE_TAG", "")
+          tag = os.environ.get("RELEASE_TAG", "") or "vTest"
           name = os.environ.get("RELEASE_NAME", "") or tag
           url = os.environ.get("RELEASE_URL", "")
           body = os.environ.get("RELEASE_BODY", "").strip()
@@ -59,14 +70,18 @@ jobs:
               data=json.dumps(payload).encode("utf-8"),
               headers={
                   "Content-Type": "application/json",
-                  "User-Agent": "SOCDOF-GitHub-Actions"
+                  "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0; +https://github.com)"
               }
           )
 
           try:
               with urllib.request.urlopen(req) as resp:
                   print(f"Discord notification successfully sent! Status: {resp.status}")
+          except urllib.error.HTTPError as e:
+              err_body = e.read().decode('utf-8', errors='ignore')
+              print(f"::error::Discord Webhook HTTP Error: {e.code} - {err_body}")
+              raise e
           except Exception as e:
-              print(f"Failed to post to Discord webhook: {e}")
+              print(f"::error::Failed to post to Discord webhook: {e}")
               raise e
           EOF
