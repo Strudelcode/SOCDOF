@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Sparkles,
   Layers,
-  Globe
+  Globe,
+  Calculator
 } from 'lucide-react';
 import { DesktopWidget, DesktopWidgetType, Invoice, Product, CompanyProfile, ActiveModule, VirtualDesktop } from '../types';
 import { sounds } from '../lib/sound';
@@ -153,6 +154,18 @@ export const WidgetsModule: React.FC<WidgetsModuleProps> = ({
       defaultWidth: 260,
       defaultHeight: 210,
       tags: ['Notiz', 'Sticky', 'Gedanken', 'To-Do', 'Notes', 'Pense-bête', 'Notas']
+    },
+    {
+      type: 'calculator' as DesktopWidgetType,
+      kind: 'phone_widget' as const,
+      category: 'actions' as const,
+      title: t('widgets.calculator_title', currentLang, 'Schnell-Taschenrechner'),
+      desc: t('widgets.calculator_desc', currentLang, 'Kompakter Rechner für direkte Berechnungen und Zwischensummen auf dem Desktop.'),
+      icon: Calculator,
+      color: 'bg-emerald-600 text-white',
+      defaultWidth: 260,
+      defaultHeight: 320,
+      tags: ['Rechner', 'Taschenrechner', 'Mathe', 'Kalkulation', 'Calculator', 'Calculatrice', 'Calculadora']
     }
   ];
 

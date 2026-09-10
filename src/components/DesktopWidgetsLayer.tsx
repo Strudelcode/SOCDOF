@@ -35,6 +35,7 @@ import { DesktopWidget, Invoice, Product, ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
 import { t, useLanguage, formatSystemDate } from '../lib/i18n';
 import { WidgetSettingsModal, AVAILABLE_ACTION_MODULES, TIMEZONE_OPTIONS } from './WidgetSettingsModal';
+import { DesktopCalculatorWidget } from './DesktopCalculatorWidget';
 
 interface DesktopWidgetsLayerProps {
   widgets: DesktopWidget[];
@@ -719,6 +720,28 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 })}
               </div>
             </div>
+          );
+        }
+
+        // 7. PHONE-STYLE WIDGET: QUICK CALCULATOR
+        if (widget.type === 'calculator') {
+          return (
+            <DesktopCalculatorWidget
+              key={widget.id}
+              widget={widget}
+              zIndexValue={zIndexValue}
+              dragClass={dragClass}
+              cursorClass={cursorClass}
+              bgClass={bgClass}
+              fontClass={fontClass}
+              blurClass={blurClass}
+              textColClass={textColClass}
+              onMouseDown={(e) => handleMouseDownWidget(widget, e)}
+              onContextMenu={(e) => handleWidgetContextMenu(widget.id, e)}
+              onOpenCalculator={() => onOpenModule('calculator')}
+              renderHoverMicroActions={renderHoverMicroActions}
+              currentLang={currentLang}
+            />
           );
         }
 

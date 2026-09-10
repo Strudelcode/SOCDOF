@@ -535,6 +535,7 @@ export interface AppWindow {
   height: number;
   desktopId?: string; // Virtual desktop ID (or 'all' for pinned to all desktops)
   snapState?: 'left' | 'right' | 'maximize' | null;
+  isAlwaysOnTop?: boolean; // Keep window on top (Overlay mode)
 }
 
 export interface VirtualDesktop {
@@ -551,7 +552,8 @@ export type DesktopWidgetType =
   | 'system_clock' 
   | 'quick_actions'
   | 'stock_alert'
-  | 'cashflow';
+  | 'cashflow'
+  | 'calculator';
 
 export interface DesktopWidget {
   id: string;

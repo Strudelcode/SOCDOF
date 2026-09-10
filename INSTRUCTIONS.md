@@ -42,9 +42,14 @@ This document defines the core operational standards, versioning protocols, and 
 - **Release Documentation in `versions/releases/`**:
   - Whenever new features or major capabilities are added, update the corresponding release document in `versions/releases/` (e.g., `versions/releases/v20-release.md`).
   - This file serves as the official, comprehensive release overview detailing all functional capabilities, architecture updates, and user-facing features in English.
-- **Discord Release Webhook Automation (`.github/workflows/discord_release.yml`)**:
-  - All published GitHub releases automatically broadcast changelogs to Discord via the repository secret `DISCORD_WEBHOOK`.
-  - Changelog notes must always use structured markdown with clean bullet points and concise summaries so announcements render attractively in Discord channels without hitting message length caps.
+- **Discord Release Webhook & `CHANGELOG.md` Automation (`.github/workflows/discord_release.yml` & `build-windows-exe.yml`)**:
+  - Pending updates across versions are accumulated in `CHANGELOG.md` using concise, high-level bullets:
+    - 🚀 **Neu / What's New**: Core new capabilities or modules
+    - 🔄 **Geändert / Improved**: What was changed, updated, or improved
+    - 🛠️ **Behoben / Fixed**: What bugs or issues were resolved
+  - **No Overly Detailed Visual Essays**: Keep notes punchy and user-centric; do not write exhaustive layout/styling breakdowns or descriptions of every UI element.
+  - **Accumulation & Anti-Spam Workflow**: Updates accumulate across intermediate versions/commits without triggering unnecessary Discord notifications.
+  - **Automatic Reset upon Broadcast**: When the Discord GitHub Action broadcasts to the community via `DISCORD_WEBHOOK`, `CHANGELOG.md` is automatically wiped clean and committed with `[skip ci]` so new versions can accumulate for the next announcement. If `CHANGELOG.md` has no pending updates, Discord broadcasting is skipped automatically to avoid channel spam.
 
 ---
 

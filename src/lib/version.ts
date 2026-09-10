@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.4.0';
+export const APP_VERSION = '22.5.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.5.0',
+    date: '2026-09-10',
+    title: 'Desktop Calculator Widget, Rich Gradient Icon Visuals & App Store Workspace Harmonization',
+    highlights: [
+      'Interactive Desktop Calculator Widget: Added a new dedicated phone-style Desktop Widget for instant calculations, quick addition, copyable results, and one-click access to the full scientific calculator.',
+      'Desktop & App Store Icon Harmonization: Replaced flat solid desktop icon backgrounds with vibrant Tailwind gradient styling (`bg-gradient-to-br`) matching the modern App Store visual identity.',
+      'App Store Module Management Cleanup: Removed obsolete offline payment and card terminal banners from the App Store header for a clean, focused application management experience.',
+      'Clutter-Free Bundle Installation: Activating pre-configured bundles now installs apps into the system launcher and Start menu without auto-dumping unrequested shortcuts onto the desktop.',
+      'Calculator System Tool Designation: Marked the calculator as a core system tool in the App Store registry and desktop system layer.'
+    ]
+  },
   {
     version: '22.4.0',
     date: '2026-09-09',

@@ -18,7 +18,8 @@ import {
   Minus,
   Equal,
   Delete,
-  CornerDownLeft
+  CornerDownLeft,
+  Pin
 } from 'lucide-react';
 import { useLanguage, t } from '../lib/i18n';
 import { sounds } from '../lib/sound';
@@ -33,7 +34,17 @@ interface CalculationHistoryItem {
   timestamp: number;
 }
 
-export const CalculatorModule: React.FC = () => {
+export interface CalculatorModuleProps {
+  isAlwaysOnTop?: boolean;
+  onToggleAlwaysOnTop?: () => void;
+  isSystemMuted?: boolean;
+}
+
+export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
+  isAlwaysOnTop = false,
+  onToggleAlwaysOnTop,
+  isSystemMuted,
+}) => {
   const currentLang = useLanguage();
 
   // Settings State (persisted locally)
@@ -64,12 +75,16 @@ export const CalculatorModule: React.FC = () => {
     }
   });
 
+  // Sound feedback setting (User requirement: "ob der Sound standardmäßig abgepsielt werden soll hängt von den setting in den Einstellungen ab")
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('socdof_calc_sound');
-      return saved !== null ? saved === 'true' : true;
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      return isSystemMuted !== undefined ? !isSystemMuted : !sounds.isMuted();
     } catch {
-      return true;
+      return !sounds.isMuted();
     }
   });
 
@@ -127,9 +142,9 @@ export const CalculatorModule: React.FC = () => {
     } catch { /* ignore */ }
   }, [history]);
 
-  // Audio feedback helper
+  // Audio feedback helper (Respects both local toggle and global system audio setting)
   const playBeep = useCallback(() => {
-    if (soundEnabled) {
+    if (soundEnabled && !sounds.isMuted()) {
       sounds.playClick();
     }
   }, [soundEnabled]);
@@ -593,36 +608,34 @@ export const CalculatorModule: React.FC = () => {
   // Compute dynamic font size for large numbers
   const displayFontSize = useMemo(() => {
     const len = displayValue.length;
-    if (len <= 9) return 'text-4xl sm:text-5xl';
-    if (len <= 13) return 'text-3xl sm:text-4xl';
-    if (len <= 18) return 'text-2xl sm:text-3xl';
-    return 'text-xl sm:text-2xl';
+    if (len <= 7) return 'text-2xl sm:text-4xl md:text-5xl';
+    if (len <= 11) return 'text-xl sm:text-3xl md:text-4xl';
+    if (len <= 16) return 'text-lg sm:text-2xl md:text-3xl';
+    return 'text-base sm:text-xl md:text-2xl';
   }, [displayValue]);
 
   return (
     <div className="flex flex-col h-full w-full bg-slate-950 text-slate-100 select-none overflow-hidden relative font-sans">
       {/* Top Header / App Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-sm">
-            <CalcIcon className="w-4 h-4" />
+      <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md z-10 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-sm flex-shrink-0">
+            <CalcIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-white">
-                {t('module.calculator', currentLang, 'Taschenrechner')}
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
-                {mode === 'scientific' 
-                  ? t('calc.mode_scientific', currentLang, 'Wissenschaftlich') 
-                  : t('calc.mode_simple', currentLang, 'Einfach')}
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="font-semibold text-xs sm:text-sm tracking-tight text-white truncate">
+              {t('module.calculator', currentLang, 'Taschenrechner')}
+            </span>
+            <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60 truncate">
+              {mode === 'scientific' 
+                ? t('calc.mode_scientific', currentLang, 'Wissenschaftlich') 
+                : t('calc.mode_simple', currentLang, 'Einfach')}
+            </span>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
           {/* Scientific Quick Angle Pill */}
           {mode === 'scientific' && (
             <button
@@ -630,10 +643,31 @@ export const CalculatorModule: React.FC = () => {
                 playBeep();
                 setAngleUnit(prev => (prev === 'deg' ? 'rad' : 'deg'));
               }}
-              className="px-2 py-1 text-xs font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 transition-colors"
+              className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 transition-colors"
               title="Gradmaß / Bogenmaß umschalten"
             >
               {angleUnit.toUpperCase()}
+            </button>
+          )}
+
+          {/* Always on Top / Overlay Button (Windows Style) */}
+          {onToggleAlwaysOnTop && (
+            <button
+              onClick={() => {
+                playBeep();
+                onToggleAlwaysOnTop();
+              }}
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                isAlwaysOnTop 
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 ring-1 ring-emerald-500/30' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+              title={isAlwaysOnTop ? 'Immer im Vordergrund lösen' : 'Immer im Vordergrund halten (Overlay)'}
+            >
+              <Pin className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${isAlwaysOnTop ? 'rotate-45 text-emerald-400' : ''}`} />
+              <span className="text-[10px] font-bold hidden xs:inline">
+                {isAlwaysOnTop ? 'Overlay' : 'Overlay'}
+              </span>
             </button>
           )}
 
@@ -647,7 +681,7 @@ export const CalculatorModule: React.FC = () => {
             className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ${isHistoryOpen ? 'bg-slate-800 text-emerald-400' : ''}`}
             title={t('calc.history_title', currentLang, 'Rechenverlauf')}
           >
-            <History className="w-4 h-4" />
+            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
           {/* Sound Toggle */}
@@ -659,7 +693,11 @@ export const CalculatorModule: React.FC = () => {
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             title={soundEnabled ? 'Ton stummschalten' : 'Ton aktivieren'}
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+            {soundEnabled && !sounds.isMuted() ? (
+              <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+            )}
           </button>
 
           {/* Settings Button (Required by prompt: "wo es ein Settings zeichen gibt") */}
@@ -673,25 +711,25 @@ export const CalculatorModule: React.FC = () => {
             className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ${isSettingsOpen ? 'bg-slate-800 text-emerald-400 rotate-45' : ''}`}
             title={t('calc.settings_title', currentLang, 'Einstellungen & Modus')}
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
 
-      {/* Main Calculator Workspace */}
-      <div className="flex-1 flex flex-col p-4 sm:p-5 justify-between max-w-2xl mx-auto w-full">
+      {/* Main Calculator Workspace - dynamically stretches and shrinks with window resizing */}
+      <div className="flex-1 min-h-0 flex flex-col p-2 sm:p-3 justify-between w-full h-full gap-1 sm:gap-1.5">
         {/* Display Glass Card */}
-        <div className="w-full bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-inner flex flex-col justify-end min-h-[120px] sm:min-h-[140px] relative group mb-3">
+        <div className="w-full bg-slate-900/90 rounded-xl sm:rounded-2xl px-2.5 py-2 sm:px-4 sm:py-2.5 border border-slate-800 shadow-inner flex flex-col justify-end flex-shrink-0 relative group">
           {/* Memory & Angle indicator tags */}
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-0.5">
+            <div className="flex items-center gap-1.5">
               {memoryValue !== 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold border border-amber-500/30">
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] sm:text-[10px] font-bold border border-amber-500/30">
                   M = {formatResult(memoryValue)}
                 </span>
               )}
               {mode === 'scientific' && (
-                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[9px] sm:text-[10px] font-bold">
                   {angleUnit.toUpperCase()}
                 </span>
               )}
@@ -700,7 +738,7 @@ export const CalculatorModule: React.FC = () => {
             {/* Copy Button */}
             <button
               onClick={copyResult}
-              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white px-2 py-0.5 rounded hover:bg-slate-800/80 transition-colors opacity-80 group-hover:opacity-100"
+              className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 hover:text-white px-1.5 sm:px-2 py-0.5 rounded hover:bg-slate-800/80 transition-colors opacity-80 group-hover:opacity-100"
               title={t('calc.copy_result', currentLang, 'Ergebnis in Zwischenablage kopieren')}
             >
               {copiedToast ? (
@@ -711,54 +749,54 @@ export const CalculatorModule: React.FC = () => {
               ) : (
                 <>
                   <Copy className="w-3 h-3" />
-                  <span>{t('calc.copy_result', currentLang, 'Kopieren')}</span>
+                  <span className="hidden xs:inline">{t('calc.copy_result', currentLang, 'Kopieren')}</span>
                 </>
               )}
             </button>
           </div>
 
           {/* Formula Line */}
-          <div className="h-6 text-right text-sm sm:text-base text-slate-400 font-mono overflow-x-auto whitespace-nowrap scrollbar-none tracking-wide">
+          <div className="h-4 sm:h-5 text-right text-xs sm:text-sm text-slate-400 font-mono overflow-x-auto whitespace-nowrap scrollbar-none tracking-wide">
             {formulaExpression || '\u00A0'}
           </div>
 
-          {/* Result / Input Line */}
-          <div className={`text-right font-mono font-bold text-white tracking-tight overflow-x-auto whitespace-nowrap scrollbar-none transition-all py-1 ${displayFontSize}`}>
+          {/* Result / Input Line with dynamic fluid sizing */}
+          <div className={`text-right font-mono font-bold text-white tracking-tight overflow-x-auto whitespace-nowrap scrollbar-none transition-all py-0.5 ${displayFontSize}`}>
             {displayValue}
           </div>
         </div>
 
         {/* Memory Bar */}
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-3">
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 flex-shrink-0">
           <button
             onClick={memoryClear}
             disabled={memoryValue === 0}
-            className="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
           >
             MC
           </button>
           <button
             onClick={memoryRecall}
             disabled={memoryValue === 0}
-            className="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
           >
             MR
           </button>
           <button
             onClick={memoryAdd}
-            className="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
           >
             M+
           </button>
           <button
             onClick={memorySubtract}
-            className="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
           >
             M-
           </button>
           <button
             onClick={memoryStore}
-            className="py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors"
+            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
           >
             MS
           </button>
@@ -767,355 +805,356 @@ export const CalculatorModule: React.FC = () => {
         {/* Keypad Layout */}
         {mode === 'scientific' ? (
           /* SCIENTIFIC MODE KEYPAD */
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex-1 min-h-0 flex flex-col gap-1 sm:gap-1.5 w-full">
             {/* Scientific Function Grid (5 cols) */}
-            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-5 gap-1 sm:gap-1.5 flex-shrink-0">
               <button
                 onClick={() => setIsSecondFunction(prev => !prev)}
-                className={`py-2 text-xs font-bold rounded-xl border transition-all ${isSecondFunction ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm' : 'bg-slate-800/80 hover:bg-slate-700 text-amber-300 border-slate-700/70'}`}
+                className={`h-6 sm:h-7 text-[10px] sm:text-xs font-bold rounded-lg border transition-all flex items-center justify-center ${isSecondFunction ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm' : 'bg-slate-800/80 hover:bg-slate-700 text-amber-300 border-slate-700/70'}`}
               >
                 2nd
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'asin' : 'sin')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? 'sin⁻¹' : 'sin'}
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'acos' : 'cos')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? 'cos⁻¹' : 'cos'}
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'atan' : 'tan')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? 'tan⁻¹' : 'tan'}
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'expe' : 'ln')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? 'eˣ' : 'ln'}
               </button>
 
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'exp10' : 'log')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? '10ˣ' : 'log'}
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'cbrt' : 'sqrt')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? '³√x' : '√x'}
               </button>
               <button
                 onClick={() => applyScientificUnary(isSecondFunction ? 'cube' : 'sqr')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 {isSecondFunction ? 'x³' : 'x²'}
               </button>
               <button
                 onClick={() => performOperation('^')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 xʸ
               </button>
               <button
                 onClick={() => applyScientificUnary('reciprocal')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 1/x
               </button>
 
               <button
                 onClick={() => insertParenthesis('(')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 (
               </button>
               <button
                 onClick={() => insertParenthesis(')')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 )
               </button>
               <button
                 onClick={() => insertConstant('pi')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 π
               </button>
               <button
                 onClick={() => insertConstant('e')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 e
               </button>
               <button
                 onClick={() => applyScientificUnary('fact')}
-                className="py-2 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono"
+                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
               >
                 n!
               </button>
             </div>
 
-            {/* Arithmetic & Number Grid (4 cols) */}
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 flex-1">
+            {/* Arithmetic & Number Grid (4 cols, 5 rows) - expands proportionally */}
+            <div className="grid grid-cols-4 grid-rows-5 gap-1 xs:gap-1.5 sm:gap-2 flex-1 min-h-0 w-full">
               <button
                 onClick={clearAll}
-                className="py-2.5 sm:py-3 text-sm sm:text-base font-bold rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 AC
               </button>
               <button
                 onClick={backspace}
-                className="py-2.5 sm:py-3 text-sm sm:text-base font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
-                <Delete className="w-5 h-5" />
+                <Delete className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={applyPercent}
-                className="py-2.5 sm:py-3 text-sm sm:text-base font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 %
               </button>
               <button
                 onClick={() => performOperation('÷')}
-                className="py-2.5 sm:py-3 text-lg font-bold rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 ÷
               </button>
 
               <button
                 onClick={() => inputDigit('7')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 7
               </button>
               <button
                 onClick={() => inputDigit('8')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 8
               </button>
               <button
                 onClick={() => inputDigit('9')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 9
               </button>
               <button
                 onClick={() => performOperation('×')}
-                className="py-2.5 sm:py-3 text-lg font-bold rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 ×
               </button>
 
               <button
                 onClick={() => inputDigit('4')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 4
               </button>
               <button
                 onClick={() => inputDigit('5')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 5
               </button>
               <button
                 onClick={() => inputDigit('6')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 6
               </button>
               <button
                 onClick={() => performOperation('-')}
-                className="py-2.5 sm:py-3 text-lg font-bold rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 −
               </button>
 
               <button
                 onClick={() => inputDigit('1')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 1
               </button>
               <button
                 onClick={() => inputDigit('2')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 2
               </button>
               <button
                 onClick={() => inputDigit('3')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 3
               </button>
               <button
                 onClick={() => performOperation('+')}
-                className="py-2.5 sm:py-3 text-lg font-bold rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 +
               </button>
 
               <button
                 onClick={toggleSign}
-                className="py-2.5 sm:py-3 text-base font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 ±
               </button>
               <button
                 onClick={() => inputDigit('0')}
-                className="py-2.5 sm:py-3 text-lg font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 0
               </button>
               <button
                 onClick={inputDecimal}
-                className="py-2.5 sm:py-3 text-lg font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-bold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
               >
                 .
               </button>
               <button
                 onClick={computeFinalResult}
-                className="py-2.5 sm:py-3 text-xl font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.98]"
+                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg md:text-xl font-black rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.96]"
               >
                 =
               </button>
             </div>
           </div>
         ) : (
-          /* SIMPLE STANDARD KEYPAD */
-          <div className="grid grid-cols-4 gap-2 sm:gap-2.5 flex-1">
+          /* SIMPLE STANDARD KEYPAD (4 cols, 5 rows) - stretches and shrinks smoothly */
+          <div className="grid grid-cols-4 grid-rows-5 gap-1 xs:gap-1.5 sm:gap-2 flex-1 min-h-0 w-full">
             <button
               onClick={clearAll}
-              className="py-3 sm:py-4 text-base sm:text-lg font-bold rounded-2xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors"
+              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-bold rounded-xl sm:rounded-2xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               AC
             </button>
             <button
               onClick={backspace}
-              className="py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center"
+              className="w-full h-full min-h-[30px] text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
+              title="Rücktaste (Backspace)"
             >
-              <Delete className="w-5 h-5" />
+              <Delete className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={applyPercent}
-              className="py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors"
+              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               %
             </button>
             <button
               onClick={() => performOperation('÷')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-bold rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               ÷
             </button>
 
             <button
               onClick={() => inputDigit('7')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               7
             </button>
             <button
               onClick={() => inputDigit('8')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               8
             </button>
             <button
               onClick={() => inputDigit('9')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               9
             </button>
             <button
               onClick={() => performOperation('×')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-bold rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               ×
             </button>
 
             <button
               onClick={() => inputDigit('4')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               4
             </button>
             <button
               onClick={() => inputDigit('5')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               5
             </button>
             <button
               onClick={() => inputDigit('6')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               6
             </button>
             <button
               onClick={() => performOperation('-')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-bold rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               −
             </button>
 
             <button
               onClick={() => inputDigit('1')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               1
             </button>
             <button
               onClick={() => inputDigit('2')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               2
             </button>
             <button
               onClick={() => inputDigit('3')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               3
             </button>
             <button
               onClick={() => performOperation('+')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-bold rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors"
+              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               +
             </button>
 
             <button
               onClick={toggleSign}
-              className="py-3 sm:py-4 text-lg font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               ±
             </button>
             <button
               onClick={() => inputDigit('0')}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-semibold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               0
             </button>
             <button
               onClick={inputDecimal}
-              className="py-3 sm:py-4 text-xl sm:text-2xl font-bold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors"
+              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
             >
               .
             </button>
             <button
               onClick={computeFinalResult}
-              className="py-3 sm:py-4 text-2xl font-black rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.98]"
+              className="w-full h-full min-h-[30px] text-xl sm:text-2xl md:text-3xl font-black rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.96]"
             >
               =
             </button>
@@ -1242,25 +1281,65 @@ export const CalculatorModule: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. Tastentöne Toggle */}
+            {/* 4. Immer im Vordergrund (Overlay - Windows Style) */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
-              <div>
-                <div className="font-semibold text-sm text-white">
+              <div className="pr-2">
+                <div className="font-semibold text-sm text-white flex items-center gap-1.5">
+                  <Pin className={`w-4 h-4 ${isAlwaysOnTop ? 'rotate-45 text-emerald-400' : 'text-slate-400'}`} />
+                  {t('calc.always_on_top', currentLang, 'Immer im Vordergrund (Overlay)')}
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {t('calc.always_on_top_desc', currentLang, 'Hält den Rechner über allen anderen Fenstern geöffnet, genau wie in Windows.')}
+                </div>
+              </div>
+              {onToggleAlwaysOnTop && (
+                <button
+                  onClick={() => {
+                    playBeep();
+                    onToggleAlwaysOnTop();
+                  }}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 flex-shrink-0 ${isAlwaysOnTop ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                  title={isAlwaysOnTop ? 'Overlay lösen' : 'Overlay anheften'}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isAlwaysOnTop ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              )}
+            </div>
+
+            {/* 5. Tastentöne Toggle (Respects system sound setting) */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <div className="pr-2">
+                <div className="font-semibold text-sm text-white flex items-center gap-1.5">
+                  {soundEnabled && !sounds.isMuted() ? (
+                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <VolumeX className="w-4 h-4 text-slate-500" />
+                  )}
                   {t('calc.sound_feedback', currentLang, 'Tastentöne & Klicks')}
                 </div>
-                <div className="text-xs text-slate-400">
-                  Akustisches Feedback bei Tastendruck abspielen
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {t('calc.sound_system_hint', currentLang, 'Folgt standardmäßig den Audio-Einstellungen (Einstellungen -> Töne & Feedback)')}
+                </div>
+                <div className="text-[11px] mt-1">
+                  {sounds.isMuted() ? (
+                    <span className="text-amber-400 font-medium">⚠️ Haupteinstellung: Töne im System stummgeschaltet</span>
+                  ) : (
+                    <span className="text-emerald-400 font-medium">✓ Haupteinstellung: Töne im System aktiv</span>
+                  )}
                 </div>
               </div>
               <button
-                onClick={() => setSoundEnabled(prev => !prev)}
-                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 ${soundEnabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                onClick={() => {
+                  setSoundEnabled(prev => !prev);
+                  if (!soundEnabled) sounds.playClick();
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 flex-shrink-0 ${soundEnabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${soundEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
 
-            {/* 5. Tastatur-Tipps */}
+            {/* 6. Tastatur-Tipps */}
             <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 space-y-1.5">
               <div className="font-bold text-slate-300 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-emerald-400" />

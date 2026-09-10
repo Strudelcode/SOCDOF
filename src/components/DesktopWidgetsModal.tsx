@@ -13,7 +13,8 @@ import {
   Layers, 
   AlertTriangle, 
   Zap, 
-  ExternalLink 
+  ExternalLink,
+  Calculator 
 } from 'lucide-react';
 import { DesktopWidget, DesktopWidgetType, ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -91,6 +92,14 @@ export const DesktopWidgetsModal: React.FC<DesktopWidgetsModalProps> = ({
       icon: Zap,
       color: 'bg-violet-500 text-white',
       border: 'border-violet-200 dark:border-violet-800'
+    },
+    {
+      type: 'calculator' as DesktopWidgetType,
+      title: t('widgets.calculator_title', currentLang, 'Schnell-Taschenrechner'),
+      desc: t('widgets.calculator_desc', currentLang, 'Kompakter Rechner für direkte Berechnungen und Zwischensummen auf dem Desktop.'),
+      icon: Calculator,
+      color: 'bg-emerald-600 text-white',
+      border: 'border-emerald-200 dark:border-emerald-800'
     }
   ];
 

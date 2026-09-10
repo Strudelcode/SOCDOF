@@ -938,8 +938,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       title: options?.title,
       x: options?.x ?? (680 + (desktopWidgets.length % 4) * 25),
       y: options?.y ?? (50 + (desktopWidgets.length % 4) * 25),
-      width: options?.width ?? (type === 'revenue_kpi' ? 290 : type === 'calendar_agenda' ? 280 : type === 'system_clock' ? 240 : 280),
-      height: options?.height ?? (type === 'revenue_kpi' ? 170 : type === 'calendar_agenda' ? 180 : type === 'system_clock' ? 140 : 180),
+      width: options?.width ?? (type === 'revenue_kpi' ? 290 : type === 'calendar_agenda' ? 280 : type === 'system_clock' ? 240 : type === 'calculator' ? 260 : 280),
+      height: options?.height ?? (type === 'revenue_kpi' ? 170 : type === 'calendar_agenda' ? 180 : type === 'system_clock' ? 140 : type === 'calculator' ? 320 : 180),
       desktopId: options?.desktopId || activeDesktopId,
       color: options?.color,
       content: options?.content,
@@ -1297,8 +1297,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     if (toInstall.length > 0) {
       const nextInstalled = [...installedModules, ...toInstall];
       saveInstalled(nextInstalled);
-      const nextPinned = [...pinnedDesktop, ...toInstall.filter(m => !pinnedDesktop.includes(m))];
-      savePinnedDesktop(nextPinned);
+      // Modules are installed in the Start Menu ("Alle Apps") like in Windows, without auto-cluttering the desktop
       sounds.playInstall();
     }
   };
@@ -1373,22 +1372,25 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             let nextX = resizingWindow.initX;
             let nextY = resizingWindow.initY;
 
+            const minW = w.module === 'calculator' ? 260 : 520;
+            const minH = w.module === 'calculator' ? 320 : 380;
+
             // Horizontal resize
             if (dir.includes('e')) {
-              nextW = Math.max(520, Math.min(screenW - nextX, resizingWindow.initW + dx));
+              nextW = Math.max(minW, Math.min(screenW - nextX, resizingWindow.initW + dx));
             } else if (dir.includes('w')) {
               const proposedW = resizingWindow.initW - dx;
-              const clampedW = Math.max(520, Math.min(resizingWindow.initX + resizingWindow.initW, proposedW));
+              const clampedW = Math.max(minW, Math.min(resizingWindow.initX + resizingWindow.initW, proposedW));
               nextX = resizingWindow.initX + (resizingWindow.initW - clampedW);
               nextW = clampedW;
             }
 
             // Vertical resize
             if (dir.includes('s')) {
-              nextH = Math.max(380, Math.min(screenH - 48 - nextY, resizingWindow.initH + dy));
+              nextH = Math.max(minH, Math.min(screenH - 48 - nextY, resizingWindow.initH + dy));
             } else if (dir.includes('n')) {
               const proposedH = resizingWindow.initH - dy;
-              const clampedH = Math.max(380, Math.min(resizingWindow.initY + resizingWindow.initH, proposedH));
+              const clampedH = Math.max(minH, Math.min(resizingWindow.initY + resizingWindow.initH, proposedH));
               nextY = Math.max(0, resizingWindow.initY + (resizingWindow.initH - clampedH));
               nextH = clampedH;
             }
@@ -1484,26 +1486,26 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     };
   }, [draggedWindow, resizingWindow, snapPreview, windows]);
 
-  // Shortcut registry
+  // Shortcut registry with vibrant modern gradients matching App Store design
   const shortcutMeta: Record<ActiveModule, { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }>; color: string }> = useMemo(() => ({
-    dashboard: { title: t('module.dashboard', currentLang, 'Dashboard'), subtitle: t('desc.dashboard', currentLang, 'ERP Dashboard'), icon: Boxes, color: 'bg-purple-600' },
-    invoices: { title: t('module.invoices', currentLang, 'Rechnungen'), subtitle: t('desc.invoices', currentLang, 'Fakturierung & DIN-A4'), icon: Receipt, color: 'bg-indigo-600' },
-    ios_billing: { title: t('module.ios_billing', currentLang, 'Schnellkasse'), subtitle: t('desc.ios_billing', currentLang, 'Speisen, Beilagen & Billing'), icon: Utensils, color: 'bg-indigo-600' },
-    restaurant: { title: t('module.restaurant', currentLang, 'Restaurant'), subtitle: t('desc.restaurant', currentLang, 'Speisekarte & Tische'), icon: Utensils, color: 'bg-amber-600' },
-    accounting: { title: t('module.accounting', currentLang, 'Abrechnung'), subtitle: t('desc.accounting', currentLang, 'BWA, EÜR & Finanzen'), icon: Calculator, color: 'bg-emerald-600' },
-    contacts: { title: t('module.contacts', currentLang, 'Kontakte'), subtitle: t('desc.contacts', currentLang, 'Kunden & Lieferanten'), icon: Users, color: 'bg-teal-600' },
-    support_services: { title: t('module.support_services', currentLang, 'Support'), subtitle: t('desc.support_services', currentLang, 'Dienstleistungen & Zeiterfassung'), icon: Headphones, color: 'bg-cyan-600' },
-    products: { title: t('module.products', currentLang, 'Produkte'), subtitle: t('desc.products', currentLang, 'Produkte & Preise'), icon: Package, color: 'bg-blue-600' },
-    stock: { title: t('module.stock', currentLang, 'Lager'), subtitle: t('desc.stock', currentLang, 'Warenbewegungen'), icon: Layers, color: 'bg-amber-600' },
-    pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
-    purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
-    calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-blue-600' },
-    calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-emerald-600' },
-    widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-violet-600' },
-    appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
-    docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
-    settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-slate-700' },
-    launcher: { title: t('module.launcher', currentLang, 'App Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-indigo-600' }
+    dashboard: { title: t('module.dashboard', currentLang, 'Dashboard'), subtitle: t('desc.dashboard', currentLang, 'ERP Dashboard'), icon: Boxes, color: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
+    invoices: { title: t('module.invoices', currentLang, 'Rechnungen'), subtitle: t('desc.invoices', currentLang, 'Fakturierung & DIN-A4'), icon: Receipt, color: 'bg-gradient-to-br from-indigo-500 to-blue-600' },
+    ios_billing: { title: t('module.ios_billing', currentLang, 'Schnellkasse'), subtitle: t('desc.ios_billing', currentLang, 'Speisen, Beilagen & Billing'), icon: Utensils, color: 'bg-gradient-to-br from-indigo-600 to-purple-600' },
+    restaurant: { title: t('module.restaurant', currentLang, 'Restaurant'), subtitle: t('desc.restaurant', currentLang, 'Speisekarte & Tische'), icon: Utensils, color: 'bg-gradient-to-br from-amber-500 to-orange-600' },
+    accounting: { title: t('module.accounting', currentLang, 'Abrechnung'), subtitle: t('desc.accounting', currentLang, 'BWA, EÜR & Finanzen'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-600' },
+    contacts: { title: t('module.contacts', currentLang, 'Kontakte'), subtitle: t('desc.contacts', currentLang, 'Kunden & Lieferanten'), icon: Users, color: 'bg-gradient-to-br from-teal-500 to-cyan-600' },
+    support_services: { title: t('module.support_services', currentLang, 'Support'), subtitle: t('desc.support_services', currentLang, 'Dienstleistungen & Zeiterfassung'), icon: Headphones, color: 'bg-gradient-to-br from-cyan-500 to-blue-600' },
+    products: { title: t('module.products', currentLang, 'Produkte'), subtitle: t('desc.products', currentLang, 'Produkte & Preise'), icon: Package, color: 'bg-gradient-to-br from-blue-500 to-indigo-600' },
+    stock: { title: t('module.stock', currentLang, 'Lager'), subtitle: t('desc.stock', currentLang, 'Warenbewegungen'), icon: Layers, color: 'bg-gradient-to-br from-amber-500 to-yellow-600' },
+    pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-gradient-to-br from-violet-500 to-indigo-600' },
+    purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
+    calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-gradient-to-br from-blue-500 to-sky-600' },
+    calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
+    widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
+    appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-gradient-to-br from-fuchsia-500 to-pink-600' },
+    docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-gradient-to-br from-sky-500 to-blue-600' },
+    settings: { title: t('module.settings', currentLang, 'Einstellungen'), subtitle: t('desc.settings', currentLang, 'Briefkopf & Backup'), icon: Settings, color: 'bg-gradient-to-br from-slate-600 to-slate-800' },
+    launcher: { title: t('module.launcher', currentLang, 'App Launcher'), subtitle: t('desc.launcher', currentLang, 'App Launcher'), icon: LayoutGrid, color: 'bg-gradient-to-br from-indigo-500 to-indigo-700' }
   }), [currentLang]);
 
   // Calendar calculations for Windows 11 Calendar & Agenda Flyout
@@ -1664,14 +1666,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       let isMaximized = false;
 
       if (saved) {
-        startW = Math.min(screenW - 20, Math.max(340, saved.width || (module === 'calculator' ? 480 : 1000)));
-        startH = Math.min(screenH - 60, Math.max(350, saved.height || (module === 'calculator' ? 640 : 680)));
+        startW = Math.min(screenW - 20, Math.max(module === 'calculator' ? 260 : 340, saved.width || (module === 'calculator' ? 380 : 1000)));
+        startH = Math.min(screenH - 60, Math.max(module === 'calculator' ? 320 : 350, saved.height || (module === 'calculator' ? 560 : 680)));
         startX = Math.max(10, Math.min(screenW - startW - 10, saved.x ?? 40));
         startY = Math.max(10, Math.min(screenH - startH - 50, saved.y ?? 20));
         isMaximized = Boolean(saved.isMaximized);
       } else if (module === 'calculator') {
-        startW = Math.min(screenW - 40, 480);
-        startH = Math.min(screenH - 80, 640);
+        startW = Math.min(screenW - 40, 380);
+        startH = Math.min(screenH - 80, 560);
         startX = Math.max(20, Math.min(screenW - startW - 20, Math.floor((screenW - startW) / 2) + offset));
         startY = Math.max(20, Math.min(screenH - startH - 50, Math.floor((screenH - startH) / 2) + offset));
       } else {
@@ -1772,6 +1774,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         setActiveWindowId('');
       }
     }
+  };
+
+  const toggleAlwaysOnTop = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    sounds.playClick();
+    setWindows(prev => prev.map(w => {
+      if (w.id === id) {
+        return { ...w, isAlwaysOnTop: !w.isAlwaysOnTop };
+      }
+      return w;
+    }));
   };
 
   const startDrag = (id: string, e: React.MouseEvent | React.PointerEvent) => {
@@ -2413,7 +2426,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             key={win.id}
             onClick={() => !isDraggingWidget && focusWindow(win.id)}
             style={{
-              zIndex: win.zIndex,
+              zIndex: (win.isAlwaysOnTop ? 8000 : 0) + win.zIndex,
               width: win.isMaximized ? '100vw' : `${win.width}px`,
               height: win.isMaximized ? 'calc(100vh - 48px)' : `${win.height}px`,
               top: win.isMaximized ? 0 : `${win.y}px`,
@@ -2494,6 +2507,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <PanelRight className="w-3.5 h-3.5" />
                 </button>
 
+                {/* Always on Top (Overlay Mode) */}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => toggleAlwaysOnTop(win.id, e)}
+                  title={win.isAlwaysOnTop ? 'Immer im Vordergrund lösen' : 'Immer im Vordergrund anheften (Overlay)'}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                    win.isAlwaysOnTop 
+                      ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/70 ring-1 ring-emerald-500/40' 
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Pin className={`w-3.5 h-3.5 transition-transform ${win.isAlwaysOnTop ? 'rotate-45' : ''}`} />
+                </button>
+
                 <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
 
                 <button
@@ -2534,7 +2562,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             {/* Window Content Body with sleek inner scroll */}
             <div className={`flex-1 min-h-0 ${
-              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore'].includes(win.module)
+              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator'].includes(win.module)
                 ? 'overflow-hidden flex flex-col p-0'
                 : 'overflow-y-auto p-4 sm:p-6'
             } bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}>
@@ -2696,7 +2724,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               )}
 
               {win.module === 'calculator' && (
-                <CalculatorModule />
+                <CalculatorModule
+                  isAlwaysOnTop={win.isAlwaysOnTop}
+                  onToggleAlwaysOnTop={() => toggleAlwaysOnTop(win.id)}
+                  isSystemMuted={isMuted}
+                />
               )}
 
               {win.module === 'settings' && (

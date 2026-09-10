@@ -6,7 +6,37 @@
 
 ## Completed Tasks Archive
 
-### 1. School & Scientific Calculator Module with Dual-Mode Settings & School Bundle Integration (v22.4.0)
+### 1. Desktop Calculator Widget, Rich Gradient Icon Visuals & App Store Workspace Harmonization (v22.5.0)
+- [x] **Interactive Desktop Calculator Widget**:
+  - [x] Built `DesktopCalculatorWidget.tsx` and registered `calculator` in `DesktopWidgetType` in `types.ts`.
+  - [x] Implemented phone-style desktop widget with full arithmetic operations (`+`, `-`, `×`, `÷`), `±`, `%`, backspace, and result copying.
+  - [x] Added double-click and button escalation to open the full scientific calculator app.
+  - [x] Integrated into `DesktopWidgetsLayer.tsx`, `DesktopWidgetsModal.tsx`, `WidgetsModule.tsx`, and `WidgetSettingsModal.tsx` live preview.
+- [x] **Desktop & App Store Icon Harmonization**:
+  - [x] Replaced flat desktop icon backgrounds with vibrant Tailwind gradient classes (`bg-gradient-to-br`) matching the modern App Store visual identity.
+- [x] **App Store Cleanup & Clutter-Free Bundle Management**:
+  - [x] Removed obsolete offline card terminal/payment banner from `AppStoreModule.tsx`.
+  - [x] Refined bundle installation in `DesktopWindowWorkspace.tsx` to register apps into the launcher/Start menu without dumping shortcuts onto the desktop.
+  - [x] Designated the Calculator as a standard core system tool (`isSystem: true`).
+- [x] **4-Language Localization & Documentation**:
+  - [x] Added widget translation strings across German, English, French, and Spanish in `src/lib/i18n.ts`.
+  - [x] Documented in `CHANGELOG.md`, `versions/V22.md`, and `src/lib/version.ts`.
+
+### 2. Discord Release Workflow & CHANGELOG.md Accumulation Engine
+- [x] **Concise, High-Level Updates Format**:
+  - [x] Established strict formatting standard in `CHANGELOG.md`: updates summarize what is new (🚀 Neu), what changed (🔄 Geändert/Verbessert), and what was fixed (🛠️ Behoben) without verbose visual essays or layout breakdowns.
+- [x] **Accumulation & Anti-Spam Workflow**:
+  - [x] Changes accumulate in `CHANGELOG.md` across multiple development turns, commits, and versions so intermediate pushes do not spam Discord.
+  - [x] Workflows automatically check if `CHANGELOG.md` contains pending updates; if empty, Discord notification is skipped gracefully.
+- [x] **Automated Reset upon Broadcast**:
+  - [x] Built `scripts/discord_broadcast.py` to extract meaningful updates, format Discord payloads, enforce length limits, and post to `DISCORD_WEBHOOK`.
+  - [x] Upon successful broadcast, `CHANGELOG.md` is automatically wiped and reset with the clean template.
+  - [x] GitHub Action commits and pushes the cleared file back to the repository using `[skip ci]`.
+- [x] **Updated GitHub Actions Workflows & Guidelines**:
+  - [x] Modernized `.github/workflows/discord_release.yml` and `.github/workflows/build-windows-exe.yml` to use `scripts/discord_broadcast.py`.
+  - [x] Updated `AGENTS.md` and `INSTRUCTIONS.md` to document the new protocol for all future agent tasks.
+
+### 2. School & Scientific Calculator Module with Dual-Mode Settings & School Bundle Integration (v22.4.0)
 - [x] **Dual-Mode Calculator Engine**:
   - [x] Built `CalculatorModule.tsx` with dedicated Simple mode (4-function basic arithmetic) and Scientific mode (trigonometry, logarithms, powers, roots, factorials, parentheses).
   - [x] Implemented DEG/RAD angle switching for trigonometry with clear indicators and persistent preference.

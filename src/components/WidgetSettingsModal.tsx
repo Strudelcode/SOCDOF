@@ -24,7 +24,8 @@ import {
   BookOpen,
   Lock,
   Unlock,
-  Sliders
+  Sliders,
+  Calculator
 } from 'lucide-react';
 import { DesktopWidget, DesktopWidgetType, ActiveModule, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
@@ -415,6 +416,20 @@ export const WidgetSettingsModal: React.FC<WidgetSettingsModalProps> = ({
                       <span className="text-[10px] text-slate-400">{t('widgets.min_stock_check', currentLang, 'Mindestbestand-Prüfung')}</span>
                     </div>
                     <AlertTriangle className="w-4 h-4 text-emerald-500" />
+                  </div>
+                )}
+
+                {/* CALCULATOR PREVIEW */}
+                {widgetType === 'calculator' && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <Calculator className="w-3.5 h-3.5" /> {t('widgets.calculator_title', currentLang, 'Taschenrechner')}
+                      </span>
+                    </div>
+                    <div className={`text-xl font-black font-mono ${textColorClass}`}>
+                      42,00
+                    </div>
                   </div>
                 )}
               </div>

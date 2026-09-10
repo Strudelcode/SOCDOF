@@ -5,83 +5,58 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      test_title:
-        description: 'Release Name / Titel (Test)'
+      force_send:
+        description: 'Senden erzwingen, auch wenn CHANGELOG.md leer ist'
+        type: boolean
         required: false
-        default: 'Test Release Benachrichtigung'
-      test_body:
-        description: 'Changelog Text (Test)'
+        default: false
+      custom_body:
+        description: 'Optionaler manueller Changelog (falls leer, wird CHANGELOG.md verwendet)'
         required: false
-        default: 'Das ist eine Testnachricht vom GitHub Actions Workflow Dispatch.'
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   notify-discord:
     name: Send Release Notes to Discord
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Send Formatted Changelog to Discord Webhook
+        id: broadcast
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          RELEASE_TAG: ${{ github.event.release.tag_name || 'vTest' }}
-          RELEASE_NAME: ${{ github.event.release.name || inputs.test_title || 'Test Notification' }}
-          RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com' }}
-          RELEASE_BODY: ${{ github.event.release.body || inputs.test_body || 'Dies ist ein manueller Testaufruf des Discord Webhooks.' }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '1544004254417682442' }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
+          RELEASE_NAME: ${{ github.event.release.name || '' }}
+          RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com/Strudelcode/SOCDOF' }}
+          OVERRIDE_BODY: ${{ github.event.release.body || inputs.custom_body || '' }}
+          FORCE_SEND: ${{ inputs.force_send && 'true' || 'false' }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "::error::DISCORD_WEBHOOK Secret fehlt oder ist leer! Bitte unter 'Repository Settings -> Secrets and variables -> Actions -> Repository secrets' als 'DISCORD_WEBHOOK' anlegen."
-            exit 1
+          python3 scripts/discord_broadcast.py
+
+      - name: Commit and Push Reset CHANGELOG.md
+        if: steps.broadcast.outputs.broadcast_sent == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(changelog): reset CHANGELOG.md after Discord broadcast [skip ci]"
+            git push origin HEAD || echo "Push completed or branch up to date."
+          else
+            echo "CHANGELOG.md was already clean or unchanged."
           fi
 
-          python3 - << 'EOF'
-          import os
-          import json
-          import time
-          import urllib.request
-          import urllib.error
-
-          webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
-          tag = os.environ.get("RELEASE_TAG", "") or "vTest"
-          name = os.environ.get("RELEASE_NAME", "") or tag
-          url = os.environ.get("RELEASE_URL", "")
-          body = os.environ.get("RELEASE_BODY", "").strip()
-          current_timestamp = int(time.time())
-
-          # Header with date timestamp
-          header = f"# 🚀 **SOCDOF Release {tag}**\n### Veröffentlicht am <t:{current_timestamp}:D> (<t:{current_timestamp}:R>)\n---\n## **{name}**\n\n"
-          footer = f"\n\n---\n🔗 **GitHub Release & Downloads:** [Hier ansehen]({url})"
-
-          # Discord message limit is 2000 chars for regular messages
-          max_body_len = 1900 - len(header) - len(footer)
-          if len(body) > max_body_len:
-              trimmed_body = body[:max_body_len].rsplit("\n", 1)[0] + f"\n\n*(...Vollständigen Changelog auf GitHub lesen)*"
-          else:
-              trimmed_body = body
-
-          content = f"{header}{trimmed_body}{footer}"
-
-          payload = {
-              "username": "SOCDOF Releases",
-              "avatar_url": "https://raw.githubusercontent.com/Strudelcode/SOCDOF/main/public/favicon.ico",
-              "content": content
-          }
-
-          req = urllib.request.Request(
-              webhook_url,
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "Content-Type": "application/json",
-                  "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0; +https://github.com)"
-              }
-          )
-
-          try:
-              with urllib.request.urlopen(req) as resp:
-                  print(f"Discord notification successfully sent! Status: {resp.status}")
-          except urllib.error.HTTPError as e:
-              err_body = e.read().decode('utf-8', errors='ignore')
-              print(f"::error::Discord Webhook HTTP Error: {e.code} - {err_body}")
-              raise e
-          except Exception as e:
-              print(f"::error::Failed to post to Discord webhook: {e}")
-              raise e
-          EOF

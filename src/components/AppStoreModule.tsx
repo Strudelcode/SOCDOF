@@ -94,34 +94,6 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   // Bundle Feedback State (temporarily indicates folder creation)
   const [createdFolderBundleId, setCreatedFolderBundleId] = useState<string | null>(null);
 
-  // Unified Payment Config (Credit card & Cash mode toggle)
-  const [paymentConfig, setPaymentConfig] = useState<{
-    acceptCash: boolean;
-    acceptCard: boolean;
-    tseActive: boolean;
-    autoPrintReceipt: boolean;
-  }>(() => {
-    try {
-      const saved = localStorage.getItem('odoo_store_payment_config');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      acceptCash: true,
-      acceptCard: true,
-      tseActive: true,
-      autoPrintReceipt: false
-    };
-  });
-
-  const handleUpdatePaymentConfig = (updates: Partial<typeof paymentConfig>) => {
-    sounds.playClick();
-    setPaymentConfig(prev => {
-      const next = { ...prev, ...updates };
-      try { localStorage.setItem('odoo_store_payment_config', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-
   // Complete List of ERP Modules
   const allStoreApps: StoreApp[] = useMemo(() => [
     {
@@ -268,10 +240,10 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       iconName: 'Calculator',
       badge: 'Schule & Studium',
       author: 'Yuri / Strudel',
-      version: '22.3.0',
+      version: '22.5.0',
       isInstalled: installedModules.includes('calculator'),
       isFinancial: false,
-      isSystem: false,
+      isSystem: true,
       tags: ['Taschenrechner', 'Rechner', 'Schule', 'Mathematik', 'Wissenschaftlich', 'Calculator']
     },
     {
@@ -844,69 +816,6 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       {/* ========================================================================= */}
       {activeMainTab === 'apps' && (
         <div className="space-y-6">
-          {/* Payment & Cash Terminal Settings Banner */}
-          <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                    <CreditCard className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {t('appstore.payment_options', currentLang, 'Zahlungsarten & Kassen-Optionen')}
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-                  {t('appstore.payment_options_desc', currentLang, '100% kostenlos: Banküberweisungen mit QR-GiroCode und Barzahlung sind immer gebührenfrei. Kartenzahlung / Terminal flexibel zuschaltbar.')}
-                </p>
-              </div>
-
-              {/* Cash & Card Toggles */}
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => handleUpdatePaymentConfig({ acceptCash: !paymentConfig.acceptCash })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    paymentConfig.acceptCash
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <Banknote className="w-3.5 h-3.5" />
-                  <span>{t('appstore.payment_cash', currentLang, 'Bar & Kasse')}</span>
-                  {paymentConfig.acceptCash && <Check className="w-3.5 h-3.5" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleUpdatePaymentConfig({ acceptCard: !paymentConfig.acceptCard })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    paymentConfig.acceptCard
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>{t('appstore.payment_card', currentLang, 'Karte / Terminal')}</span>
-                  {paymentConfig.acceptCard && <Check className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Compliance Pills */}
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{t('appstore.sepa_active', currentLang, 'Kostenfreie SEPA QR-Rechnungen aktiv')}</span>
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{t('appstore.auto_cash_booking', currentLang, 'Automatische Kassenbuchung')}</span>
-              </span>
-            </div>
-          </div>
-
           {/* Filter Bar: Status Filters & Category Chips */}
           <div className="space-y-3">
             {/* Status Segmented Buttons */}
