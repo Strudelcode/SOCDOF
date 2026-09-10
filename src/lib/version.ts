@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.3.0';
+export const APP_VERSION = '22.4.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.4.0',
+    date: '2026-09-09',
+    title: 'School & Scientific Calculator Module with Dual-Mode Settings & School Bundle Integration',
+    highlights: [
+      'School & Scientific Calculator App: Introduced a dedicated Calculator module with simple and scientific calculation modes, trigonometry (sin, cos, tan), logarithms (log, ln), roots, powers, factorials, and parentheses.',
+      'Interactive Settings Icon & Mode Switcher: Integrated a prominent settings gear directly in the calculator header to seamlessly switch between Basic/Simple and Scientific modes, change angle units (DEG / RAD), set decimal precision, and toggle key sounds.',
+      'Calculation History & Memory Registers: Full calculation history drawer with one-click result copying and recall, plus memory functions (MC, MR, M+, M-, MS).',
+      'School Bundle & Universal System Integration: Fully integrated into the App Store, the curated School & Education Bundle, App Launcher / Start Menu, Command Palette, and Desktop Workspace with 4-language localization (DE, EN, FR, ES).'
+    ]
+  },
   {
     version: '22.3.0',
     date: '2026-09-09',

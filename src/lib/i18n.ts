@@ -1280,7 +1280,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.no_apps_found': 'No modules found matching your criteria',
     'appstore.reset_filters': 'Reset All Filters',
     'appstore.bundle_school_title': 'School & Education',
-    'appstore.bundle_school_tagline': 'Timetable, Sticky Notes, Knowledge Base & Appointments',
+    'appstore.bundle_school_tagline': 'Calculator, Timetable, Sticky Notes, Knowledge Base & Appointments',
     'appstore.bundle_school_desc': 'The all-in-one suite for school, training, and studies: Keep track of class schedules, jot down sticky notes, organize learning materials, and stay on schedule 100% offline.',
     'appstore.bundle_school_badge': 'Education',
     'appstore.bundle_school_folder': 'School & Education',
@@ -1298,7 +1298,30 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.bundle_office_tagline': 'Calendar, Sticky Notes, Support Tickets & Documentation',
     'appstore.bundle_office_desc': 'Work with zero distractions: 2-way Google Calendar synchronization, floating sticky notes on your desktop, and comprehensive offline documentation.',
     'appstore.bundle_office_badge': 'Productivity',
-    'appstore.bundle_office_folder': 'Office & Productivity'
+    'appstore.bundle_office_folder': 'Office & Productivity',
+
+    // Calculator & School Module Translations
+    'module.calculator': 'Calculator',
+    'desc.calculator': 'School & Scientific Calculator with Simple and Scientific modes, trigonometry, logarithms, and history',
+    'cat.school': 'School & Education',
+    'badge.school': 'School',
+    'calc.mode_simple': 'Basic / Simple',
+    'calc.mode_scientific': 'Scientific',
+    'calc.settings_title': 'Calculator Settings',
+    'calc.settings_mode_label': 'Calculation Mode',
+    'calc.angle_unit': 'Angle Unit (Trigonometry)',
+    'calc.deg': 'Degrees (DEG - 360°)',
+    'calc.rad': 'Radians (RAD - 2π)',
+    'calc.decimal_places': 'Rounding & Decimal Places',
+    'calc.auto_decimals': 'Auto',
+    'calc.sound_feedback': 'Keypad Sound & Clicks',
+    'calc.history_title': 'Calculation History',
+    'calc.history_clear': 'Clear History',
+    'calc.history_empty': 'No calculations recorded yet.',
+    'calc.copy_result': 'Copy Result',
+    'calc.copied': 'Copied!',
+    'calc.error_invalid': 'Invalid Input',
+    'calc.error_div_zero': 'Cannot divide by 0'
   },
 
   de: {
@@ -2563,7 +2586,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.no_apps_found': 'Keine Module für diese Filterung gefunden',
     'appstore.reset_filters': 'Alle Filter zurücksetzen',
     'appstore.bundle_school_title': 'Schule & Bildung',
-    'appstore.bundle_school_tagline': 'Stundenplan, Notizen, Wissensbasis & Termine',
+    'appstore.bundle_school_tagline': 'Taschenrechner, Stundenplan, Notizen, Wissensbasis & Termine',
     'appstore.bundle_school_desc': 'Das Rundum-Paket für Schule und Studium: Behalte deine Termine und Stundenpläne im Blick, erstelle Haftnotizen und verwalte Lernunterlagen komplett offline.',
     'appstore.bundle_school_badge': 'Bildung & Schule',
     'appstore.bundle_school_folder': 'Schule & Bildung',
@@ -2581,7 +2604,30 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.bundle_office_tagline': 'Kalender, Haftnotizen, Support & Dokumentation',
     'appstore.bundle_office_desc': 'Fokussiert arbeiten ohne Ablenkung: Termine planen, Google Kalender 2-Wege-Sync, Notizzettel auf dem Desktop und Dokumentationszugriff.',
     'appstore.bundle_office_badge': 'Produktivität',
-    'appstore.bundle_office_folder': 'Office & Organisation'
+    'appstore.bundle_office_folder': 'Office & Organisation',
+
+    // Calculator & School Module Translations
+    'module.calculator': 'Taschenrechner',
+    'desc.calculator': 'Schul- & Wissenschaftsrechner mit Einfach- und Wissenschaftsmodus, Trigonometrie, Logarithmen und Rechenverlauf',
+    'cat.school': 'Schule & Bildung',
+    'badge.school': 'Schule',
+    'calc.mode_simple': 'Einfach / Standard',
+    'calc.mode_scientific': 'Wissenschaftlich (Schule)',
+    'calc.settings_title': 'Rechner-Einstellungen',
+    'calc.settings_mode_label': 'Rechnermodus',
+    'calc.angle_unit': 'Winkeleinheit (Trigonometrie)',
+    'calc.deg': 'Gradmaß (DEG - 360°)',
+    'calc.rad': 'Bogenmaß (RAD - 2π)',
+    'calc.decimal_places': 'Rundung & Nachkommastellen',
+    'calc.auto_decimals': 'Auto',
+    'calc.sound_feedback': 'Tastentöne & Klicks',
+    'calc.history_title': 'Rechenverlauf',
+    'calc.history_clear': 'Verlauf leeren',
+    'calc.history_empty': 'Noch keine Rechnungen vorhanden.',
+    'calc.copy_result': 'Ergebnis kopieren',
+    'calc.copied': 'Kopiert!',
+    'calc.error_invalid': 'Ungültige Eingabe',
+    'calc.error_div_zero': 'Division durch 0 nicht möglich'
   },
 
   fr: {
@@ -3845,7 +3891,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.no_apps_found': 'Aucun module trouvé pour ces critères',
     'appstore.reset_filters': 'Réinitialiser les filtres',
     'appstore.bundle_school_title': 'École & Éducation',
-    'appstore.bundle_school_tagline': 'Emploi du temps, Notes adhésives, Base de connaissances & Rendez-vous',
+    'appstore.bundle_school_tagline': 'Calculatrice, Emploi du temps, Notes adhésives, Base de connaissances & Rendez-vous',
     'appstore.bundle_school_desc': 'La suite complète pour l’école et les études : gardez un œil sur votre emploi du temps, créez des notes et gérez vos supports pédagogiques 100% hors ligne.',
     'appstore.bundle_school_badge': 'Éducation & École',
     'appstore.bundle_school_folder': 'École & Éducation',
@@ -3863,7 +3909,30 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.bundle_office_tagline': 'Calendrier, Notes, Support & Documentation',
     'appstore.bundle_office_desc': 'Travaillez sans distractions : synchronisation Google Agenda, notes flottantes sur le bureau et documentation hors ligne complète.',
     'appstore.bundle_office_badge': 'Productivité',
-    'appstore.bundle_office_folder': 'Bureautique & Organisation'
+    'appstore.bundle_office_folder': 'Bureautique & Organisation',
+
+    // Calculator & School Module Translations
+    'module.calculator': 'Calculatrice',
+    'desc.calculator': 'Calculatrice scolaire et scientifique avec modes simple et scientifique, trigonométrie, logarithmes et historique',
+    'cat.school': 'École & Éducation',
+    'badge.school': 'École',
+    'calc.mode_simple': 'Simple / Standard',
+    'calc.mode_scientific': 'Scientifique',
+    'calc.settings_title': 'Paramètres de la calculatrice',
+    'calc.settings_mode_label': 'Mode de calcul',
+    'calc.angle_unit': 'Unité d\'angle (Trigonométrie)',
+    'calc.deg': 'Degrés (DEG - 360°)',
+    'calc.rad': 'Radians (RAD - 2π)',
+    'calc.decimal_places': 'Arrondi et décimales',
+    'calc.auto_decimals': 'Auto',
+    'calc.sound_feedback': 'Sons des touches & clics',
+    'calc.history_title': 'Historique de calcul',
+    'calc.history_clear': 'Effacer l\'historique',
+    'calc.history_empty': 'Aucun calcul enregistré pour le moment.',
+    'calc.copy_result': 'Copier le résultat',
+    'calc.copied': 'Copié !',
+    'calc.error_invalid': 'Entrée non valide',
+    'calc.error_div_zero': 'Division par 0 impossible'
   },
 
   es: {
@@ -5127,7 +5196,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.no_apps_found': 'No se encontraron módulos con estos criterios',
     'appstore.reset_filters': 'Restablecer filtros',
     'appstore.bundle_school_title': 'Escuela y Educación',
-    'appstore.bundle_school_tagline': 'Horario, Notas adhesivas, Base de conocimiento y Citas',
+    'appstore.bundle_school_tagline': 'Calculadora, Horario, Notas adhesivas, Base de conocimiento y Citas',
     'appstore.bundle_school_desc': 'La suite completa para la escuela y estudios: consulte horarios, cree notas adhesivas y organice materiales de estudio 100% fuera de línea.',
     'appstore.bundle_school_badge': 'Educación y Escuela',
     'appstore.bundle_school_folder': 'Escuela y Educación',
@@ -5145,7 +5214,30 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.bundle_office_tagline': 'Calendario, Notas, Soporte y Documentación',
     'appstore.bundle_office_desc': 'Trabaje sin distracciones: sincronización con Google Calendar, notas flotantes en el escritorio y documentación completa fuera de línea.',
     'appstore.bundle_office_badge': 'Productividad',
-    'appstore.bundle_office_folder': 'Oficina y Productividad'
+    'appstore.bundle_office_folder': 'Oficina y Productividad',
+
+    // Calculator & School Module Translations
+    'module.calculator': 'Calculadora',
+    'desc.calculator': 'Calculadora escolar y científica con modos simple y científico, trigonometría, logaritmos e historial',
+    'cat.school': 'Escuela y Educación',
+    'badge.school': 'Escuela',
+    'calc.mode_simple': 'Básico / Simple',
+    'calc.mode_scientific': 'Científica',
+    'calc.settings_title': 'Ajustes de la calculadora',
+    'calc.settings_mode_label': 'Modo de cálculo',
+    'calc.angle_unit': 'Unidad angular (Trigonometría)',
+    'calc.deg': 'Grados (DEG - 360°)',
+    'calc.rad': 'Radianes (RAD - 2π)',
+    'calc.decimal_places': 'Redondeo y decimales',
+    'calc.auto_decimals': 'Auto',
+    'calc.sound_feedback': 'Sonidos del teclado y clics',
+    'calc.history_title': 'Historial de cálculos',
+    'calc.history_clear': 'Borrar historial',
+    'calc.history_empty': 'Aún no hay cálculos registrados.',
+    'calc.copy_result': 'Copiar resultado',
+    'calc.copied': '¡Copiado!',
+    'calc.error_invalid': 'Entrada no válida',
+    'calc.error_div_zero': 'No se puede dividir por 0'
   },
 };
 

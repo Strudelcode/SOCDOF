@@ -174,6 +174,16 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       badgeColor: 'bg-amber-100 text-amber-800'
     },
     {
+      id: 'calculator',
+      name: t('module.calculator', currentLang, 'Taschenrechner (Schule & Wissenschaft)'),
+      category: t('cat.school', currentLang, 'Schule & Bildung'),
+      description: t('desc.calculator', currentLang, 'Einfacher und wissenschaftlicher Taschenrechner mit Trigonometrie, Logarithmen und Rechenverlauf'),
+      icon: <Calculator className="w-8 h-8 text-white" />,
+      color: 'bg-gradient-to-br from-emerald-600 to-teal-700',
+      badge: t('badge.school', currentLang, 'Schule'),
+      badgeColor: 'bg-emerald-100 text-emerald-900 font-bold'
+    },
+    {
       id: 'docs',
       name: t('module.docs', currentLang, 'Handbuch & Docs'),
       category: t('cat.help', currentLang, 'Hilfe & Dokumentation'),

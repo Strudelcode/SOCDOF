@@ -6,7 +6,25 @@
 
 ## Completed Tasks Archive
 
-### 1. Modern App Store Architecture with Apps, Curated Bundles & Desktop Folder Integration (v22.3.0)
+### 1. School & Scientific Calculator Module with Dual-Mode Settings & School Bundle Integration (v22.4.0)
+- [x] **Dual-Mode Calculator Engine**:
+  - [x] Built `CalculatorModule.tsx` with dedicated Simple mode (4-function basic arithmetic) and Scientific mode (trigonometry, logarithms, powers, roots, factorials, parentheses).
+  - [x] Implemented DEG/RAD angle switching for trigonometry with clear indicators and persistent preference.
+  - [x] Added rounding precision controls (Auto, 2, 4, 6 decimal places) and scientific notation format for large/tiny numbers.
+- [x] **Header Settings Icon & Mode Switcher**:
+  - [x] Integrated a prominent settings gear icon in the calculator toolbar opening a dedicated flyout settings panel.
+  - [x] Users can switch between "Simple" and "Scientific" modes with immediate layout and keyboard adjustment.
+  - [x] Added acoustic feedback toggle (clicks/chimes) and keyboard navigation guide.
+- [x] **Calculation History & Memory Functions**:
+  - [x] Slide-out history drawer storing past operations with timestamps, one-click recall to formula, and copy result.
+  - [x] Full memory registers: MC (Clear), MR (Recall), M+ (Add), M- (Subtract), MS (Store) with indicator badge.
+- [x] **App Store & System-Wide Integration**:
+  - [x] Added Calculator as an individual app in `AppStoreModule.tsx` and embedded it into the curated `school_bundle`.
+  - [x] Registered in `DesktopWindowWorkspace.tsx` with custom compact window dimensions and window manager rendering.
+  - [x] Added to App Launcher (`AppLauncher.tsx`) and Command Palette (`CommandPaletteModal.tsx`).
+  - [x] Translated all labels, descriptions, and settings options into all 4 languages (DE, EN, FR, ES) in `src/lib/i18n.ts`.
+
+### 2. Modern App Store Architecture with Apps, Curated Bundles & Desktop Folder Integration (v22.3.0)
 - [x] **Modern App Store Redesign & Contemporary Aesthetics**:
   - [x] Re-architected `AppStoreModule.tsx` with a dark gradient hero banner, live app metrics (total available, active modules, available bundles), and smooth squircle cards.
   - [x] Built an intuitive top-level tab switcher separating **"Apps & Module"** (all 15 individual modules) and **"Pakete & Bundles"** (curated multi-app suites).

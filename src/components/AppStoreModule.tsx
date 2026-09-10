@@ -261,6 +261,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Stundenplan', 'Fälligkeiten']
     },
     {
+      id: 'calculator',
+      title: t('module.calculator', currentLang, 'Taschenrechner (Schule & Wissenschaft)'),
+      category: 'productivity',
+      description: t('desc.calculator', currentLang, 'Einfacher und wissenschaftlicher Taschenrechner mit Trigonometrie, Logarithmen, Rechenverlauf und Tastaturunterstützung.'),
+      iconName: 'Calculator',
+      badge: 'Schule & Studium',
+      author: 'Yuri / Strudel',
+      version: '22.3.0',
+      isInstalled: installedModules.includes('calculator'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Taschenrechner', 'Rechner', 'Schule', 'Mathematik', 'Wissenschaftlich', 'Calculator']
+    },
+    {
       id: 'widgets',
       title: t('module.widgets', currentLang, 'Widgets & Notizen'),
       category: 'productivity',
@@ -346,7 +360,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       badgeFallback: 'Bildung & Schule',
       folderKey: 'appstore.bundle_school_folder',
       folderFallback: 'Schule & Bildung',
-      modules: ['calendar', 'widgets', 'docs', 'contacts'],
+      modules: ['calculator', 'calendar', 'widgets', 'docs', 'contacts'],
       icon: GraduationCap,
       gradient: 'from-blue-600 via-indigo-600 to-violet-700',
       accentBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
@@ -414,7 +428,8 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'invoices': return Receipt;
       case 'ios_billing':
       case 'restaurant': return Utensils;
-      case 'accounting': return Calculator;
+      case 'accounting': 
+      case 'calculator': return Calculator;
       case 'contacts': return Users;
       case 'support_services': return Headphones;
       case 'pos': return CreditCard;
@@ -436,6 +451,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'ios_billing': return 'bg-gradient-to-br from-indigo-600 to-purple-600';
       case 'restaurant': return 'bg-gradient-to-br from-amber-500 to-orange-600';
       case 'accounting': return 'bg-gradient-to-br from-emerald-500 to-teal-600';
+      case 'calculator': return 'bg-gradient-to-br from-emerald-500 to-teal-700';
       case 'contacts': return 'bg-gradient-to-br from-teal-500 to-cyan-600';
       case 'support_services': return 'bg-gradient-to-br from-cyan-500 to-blue-600';
       case 'pos': return 'bg-gradient-to-br from-violet-500 to-indigo-600';

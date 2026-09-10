@@ -308,7 +308,8 @@ export type ActiveModule =
   | 'restaurant'
   | 'ios_billing'
   | 'support_services'
-  | 'widgets';
+  | 'widgets'
+  | 'calculator';
 
 export interface SupportExpenseEntry {
   id: string;

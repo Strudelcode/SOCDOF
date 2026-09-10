@@ -112,6 +112,7 @@ import { DesktopWidgetsLayer } from './DesktopWidgetsLayer';
 import { DesktopWidgetsModal } from './DesktopWidgetsModal';
 import { WidgetsModule } from './WidgetsModule';
 import { WidgetsIcon } from './WidgetsIcon';
+import { CalculatorModule } from './CalculatorModule';
 import { uploadFileFromStorage, getAssetsForFolder } from '../lib/storageAssets';
 
 interface DesktopWindowWorkspaceProps {
@@ -143,7 +144,7 @@ interface DesktopShortcutItem {
 
 export const DEFAULT_STANDARD_MODULES: ActiveModule[] = [
   'dashboard', 'invoices', 'accounting', 'contacts', 
-  'products', 'stock', 'purchases', 'calendar', 'docs', 'settings', 'appstore'
+  'products', 'stock', 'purchases', 'calendar', 'calculator', 'docs', 'settings', 'appstore'
 ];
 
 export const DEFAULT_PINNED_DESKTOP: ActiveModule[] = [
@@ -1497,6 +1498,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     pos: { title: t('module.pos', currentLang, 'POS Kasse'), subtitle: t('desc.pos', currentLang, 'Point of Sale'), icon: CreditCard, color: 'bg-violet-600' },
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-orange-600' },
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-blue-600' },
+    calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-emerald-600' },
     widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-violet-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-fuchsia-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-sky-600' },
@@ -1662,11 +1664,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       let isMaximized = false;
 
       if (saved) {
-        startW = Math.min(screenW - 20, Math.max(450, saved.width || 1000));
-        startH = Math.min(screenH - 60, Math.max(350, saved.height || 680));
+        startW = Math.min(screenW - 20, Math.max(340, saved.width || (module === 'calculator' ? 480 : 1000)));
+        startH = Math.min(screenH - 60, Math.max(350, saved.height || (module === 'calculator' ? 640 : 680)));
         startX = Math.max(10, Math.min(screenW - startW - 10, saved.x ?? 40));
         startY = Math.max(10, Math.min(screenH - startH - 50, saved.y ?? 20));
         isMaximized = Boolean(saved.isMaximized);
+      } else if (module === 'calculator') {
+        startW = Math.min(screenW - 40, 480);
+        startH = Math.min(screenH - 80, 640);
+        startX = Math.max(20, Math.min(screenW - startW - 20, Math.floor((screenW - startW) / 2) + offset));
+        startY = Math.max(20, Math.min(screenH - startH - 50, Math.floor((screenH - startH) / 2) + offset));
       } else {
         startW = Math.max(920, Math.min(screenW - 60, 1140));
         startH = Math.max(620, Math.min(screenH - 90, 750));
@@ -2686,6 +2693,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   virtualDesktops={virtualDesktops}
                   activeDesktopId={activeDesktopId}
                 />
+              )}
+
+              {win.module === 'calculator' && (
+                <CalculatorModule />
               )}
 
               {win.module === 'settings' && (
