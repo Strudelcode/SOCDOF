@@ -6,7 +6,22 @@
 
 ## Completed Tasks Archive
 
-### 1. Universal Desktop Folder File Storage & Local Asset Management System (v22.2.0)
+### 1. Modern App Store Architecture with Apps, Curated Bundles & Desktop Folder Integration (v22.3.0)
+- [x] **Modern App Store Redesign & Contemporary Aesthetics**:
+  - [x] Re-architected `AppStoreModule.tsx` with a dark gradient hero banner, live app metrics (total available, active modules, available bundles), and smooth squircle cards.
+  - [x] Built an intuitive top-level tab switcher separating **"Apps & Module"** (all 15 individual modules) and **"Pakete & Bundles"** (curated multi-app suites).
+  - [x] Added dynamic status segmented filters (All, Active, Available, Financial Active, On Desktop) and Category chips with instant search and reset.
+- [x] **Pre-Configured Application Bundles & Suites**:
+  - [x] Created curated bundles: School & Education, Commerce & ERP Starter, Gastronomy & POS Register, and Office & Productivity.
+  - [x] Implemented live completion indicators (e.g. "3 / 4 installiert") with animated progress bars.
+  - [x] Displayed interactive mini-app chips inside each bundle card with status checkmarks and quick details.
+- [x] **One-Click Batch Installation & Desktop Folder Generation**:
+  - [x] Added single-click "Paket installieren" installing all apps in the bundle that aren't yet active.
+  - [x] Added "Als Desktop-Ordner anlegen" which creates a real Desktop Folder grouping all bundle applications together on the desktop workspace with visual confirmation.
+- [x] **Universal 4-Language Localization**:
+  - [x] Localized all new App Store tabs, bundle titles, taglines, descriptions, folder names, status badges, and action buttons in `src/lib/i18n.ts` for English, German, French, and Spanish.
+
+### 2. Universal Desktop Folder File Storage & Local Asset Management System (v22.2.0)
 - [x] **Local File Storage Architecture & Categorization**:
   - [x] Defined `StorageAsset`, `StorageAssetCategory`, and extended `DesktopFolder` interfaces in `src/types.ts`.
   - [x] Created `src/lib/storageAssets.ts` providing MIME type detection, file categorization (documents, images, sheets, archives, other), human-readable size formatting, Base64 conversion with safety limits, and custom reactive synchronization events.

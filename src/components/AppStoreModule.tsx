@@ -17,32 +17,22 @@ import {
   BookOpen, 
   Pin, 
   CheckCircle2, 
-  Sliders, 
-  Filter,
   Utensils,
-  ChefHat,
-  ShieldCheck,
   DollarSign,
-  TrendingUp,
-  Monitor,
-  Eye,
-  EyeOff,
-  RotateCcw,
-  Plus,
   Play,
-  Layers2,
   Banknote,
-  Smartphone,
-  Info,
   X,
-  Zap,
-  ArrowRight,
-  Shield,
-  FileCheck,
+  ShieldCheck,
   Headphones,
-  Calendar
+  Calendar,
+  LayoutGrid,
+  FolderPlus,
+  PackagePlus,
+  GraduationCap,
+  Briefcase,
+  FolderCheck
 } from 'lucide-react';
-import { ActiveModule, StoreApp } from '../types';
+import { ActiveModule, StoreApp, DesktopFolder } from '../types';
 import { sounds } from '../lib/sound';
 import { WidgetsIcon } from './WidgetsIcon';
 import { useLanguage, t } from '../lib/i18n';
@@ -55,25 +45,56 @@ interface AppStoreModuleProps {
   onTogglePinDesktop: (moduleId: ActiveModule) => void;
   onTogglePinTaskbar: (moduleId: ActiveModule) => void;
   onLaunchModule: (moduleId: ActiveModule) => void;
+  onInstallBundle?: (modules: ActiveModule[]) => void;
+  onCreateFolderFromBundle?: (folderName: string, modules: ActiveModule[]) => void;
+}
+
+interface StoreBundle {
+  id: string;
+  titleKey: string;
+  titleFallback: string;
+  taglineKey: string;
+  taglineFallback: string;
+  descKey: string;
+  descFallback: string;
+  badgeKey: string;
+  badgeFallback: string;
+  folderKey: string;
+  folderFallback: string;
+  modules: ActiveModule[];
+  gradient: string;
+  accentBg: string;
+  borderClass: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   installedModules,
   pinnedDesktopModules,
-  pinnedTaskbarModules,
+  pinnedTaskbarModules: _pinnedTaskbarModules,
   onToggleInstallModule,
   onTogglePinDesktop,
-  onTogglePinTaskbar,
-  onLaunchModule
+  onTogglePinTaskbar: _onTogglePinTaskbar,
+  onLaunchModule,
+  onInstallBundle,
+  onCreateFolderFromBundle
 }) => {
   const currentLang = useLanguage();
+
+  // Primary Tab Navigation: 'apps' or 'bundles'
+  const [activeMainTab, setActiveMainTab] = useState<'apps' | 'bundles'>('apps');
+
+  // Apps View State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'installed' | 'uninstalled' | 'financial' | 'desktop'>('all');
   const [showSystemApps, setShowSystemApps] = useState<boolean>(true);
   const [selectedAppDetail, setSelectedAppDetail] = useState<StoreApp | null>(null);
 
-  // Unified Payment Config (Kreditkarte & Bargeld zusammen in einem Modus)
+  // Bundle Feedback State (temporarily indicates folder creation)
+  const [createdFolderBundleId, setCreatedFolderBundleId] = useState<string | null>(null);
+
+  // Unified Payment Config (Credit card & Cash mode toggle)
   const [paymentConfig, setPaymentConfig] = useState<{
     acceptCash: boolean;
     acceptCard: boolean;
@@ -101,29 +122,30 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     });
   };
 
-  const allStoreApps: StoreApp[] = [
+  // Complete List of ERP Modules
+  const allStoreApps: StoreApp[] = useMemo(() => [
     {
       id: 'dashboard',
       title: t('module.dashboard', currentLang, 'Übersicht & KPIs'),
       category: 'core',
-      description: 'Zentrale Schaltzentrale mit Umsatzdiagrammen, offenen Rechnungen, KPIs und Schnellaktionen.',
+      description: t('desc.dashboard', currentLang, 'Zentrale Schaltzentrale mit Umsatzdiagrammen, offenen Rechnungen, KPIs und Schnellaktionen.'),
       iconName: 'Boxes',
       author: 'SOCDOF Core',
-      version: '18.0.1',
+      version: '22.2.0',
       isInstalled: installedModules.includes('dashboard'),
       isFinancial: false,
       isSystem: true,
-      tags: ['Dashboard', 'KPI', 'Übersicht', 'System']
+      tags: ['Dashboard', 'KPI', 'Analytics', 'System']
     },
     {
       id: 'invoices',
       title: t('module.invoices', currentLang, 'Rechnungen & DIN 5008'),
       category: 'finance',
-      description: 'Gesetzeskonforme Fakturierung mit Briefkopf-Wasserzeichen, GoBD-Nummernkreis & PDF-Export.',
+      description: t('desc.invoices', currentLang, 'Gesetzeskonforme Fakturierung mit Briefkopf-Wasserzeichen, GoBD-Nummernkreis & PDF-Export.'),
       iconName: 'Receipt',
       badge: 'Finanziell aktiv',
       author: 'SOCDOF Finance',
-      version: '18.2.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('invoices'),
       isFinancial: true,
       isSystem: false,
@@ -133,11 +155,11 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       id: 'accounting',
       title: t('module.accounting', currentLang, 'Abrechnungen & BWA'),
       category: 'finance',
-      description: 'Betriebswirtschaftliche Auswertung, Einnahmen-Überschuss-Rechnung (EÜR), UStVA Voranmeldung & Mahnwesen.',
+      description: t('desc.accounting', currentLang, 'Betriebswirtschaftliche Auswertung, Einnahmen-Überschuss-Rechnung (EÜR), UStVA Voranmeldung & Mahnwesen.'),
       iconName: 'Calculator',
       badge: 'Finanziell aktiv',
       author: 'SOCDOF Finance',
-      version: '18.1.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('accounting'),
       isFinancial: true,
       isSystem: false,
@@ -147,10 +169,10 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       id: 'contacts',
       title: t('module.contacts', currentLang, 'Kontakte & CRM'),
       category: 'sales',
-      description: 'Kunden- & Lieferantenstamm mit Batch-Erstellung, vCard/CSV-Import und Kontakt-Historie.',
+      description: t('desc.contacts', currentLang, 'Kunden- & Lieferantenstamm mit Batch-Erstellung, vCard/CSV-Import und Kontakt-Historie.'),
       iconName: 'Users',
       author: 'SOCDOF Sales',
-      version: '18.0.4',
+      version: '22.2.0',
       isInstalled: installedModules.includes('contacts'),
       isFinancial: false,
       isSystem: false,
@@ -160,24 +182,24 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       id: 'pos',
       title: t('module.pos', currentLang, 'POS Touch-Kasse & Scanner'),
       category: 'sales',
-      description: 'Touchscreen-Kassensystem mit Barcode-Scanner-Anbindung, Wechselgeldrechner & Thermobon-Druck.',
+      description: t('desc.pos', currentLang, 'Touchscreen-Kassensystem mit Barcode-Scanner-Anbindung, Wechselgeldrechner & Thermobon-Druck.'),
       iconName: 'CreditCard',
       badge: 'Finanziell aktiv',
       author: 'SOCDOF Retail',
-      version: '18.3.1',
+      version: '22.2.0',
       isInstalled: installedModules.includes('pos'),
       isFinancial: true,
       isSystem: false,
-      tags: ['POS', 'Kasse', 'Barcode', 'Einzelhandel', 'Finanzen', 'Bargeld & Karte']
+      tags: ['POS', 'Kasse', 'Barcode', 'Einzelhandel', 'Finanzen']
     },
     {
       id: 'products',
       title: t('module.products', currentLang, 'Artikel & Preise'),
       category: 'inventory',
-      description: 'Produktkatalog mit Preisen, Barcodes, Mindestbeständen und mehrstufiger Kategorisierung.',
+      description: t('desc.products', currentLang, 'Produktkatalog mit Preisen, Barcodes, Mindestbeständen und mehrstufiger Kategorisierung.'),
       iconName: 'Package',
       author: 'SOCDOF Inventory',
-      version: '18.0.2',
+      version: '22.2.0',
       isInstalled: installedModules.includes('products'),
       isFinancial: false,
       isSystem: false,
@@ -187,10 +209,10 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       id: 'stock',
       title: t('module.stock', currentLang, 'Lager & Bestände'),
       category: 'inventory',
-      description: 'Doppelte Buchführung für Lagerbestände, Inventurverluste und Wareneingänge.',
+      description: t('desc.stock', currentLang, 'Doppelte Buchführung für Lagerbestände, Inventurverluste und Wareneingänge.'),
       iconName: 'Layers',
       author: 'SOCDOF Inventory',
-      version: '18.1.5',
+      version: '22.2.0',
       isInstalled: installedModules.includes('stock'),
       isFinancial: false,
       isSystem: false,
@@ -200,11 +222,11 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       id: 'purchases',
       title: t('module.purchases', currentLang, 'Einkauf & Lieferanten'),
       category: 'inventory',
-      description: 'Angebotsanfragen (RFQ), Lieferantenbestellungen und Wareneingangs-Verbuchung.',
+      description: t('desc.purchases', currentLang, 'Angebotsanfragen (RFQ), Lieferantenbestellungen und Wareneingangs-Verbuchung.'),
       iconName: 'ShoppingCart',
       badge: 'Finanziell aktiv',
       author: 'SOCDOF Logistics',
-      version: '18.0.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('purchases'),
       isFinancial: true,
       isSystem: false,
@@ -212,73 +234,73 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
     },
     {
       id: 'support_services',
-      title: 'Kunden-Support & Dienstleistungen',
+      title: t('module.support_services', currentLang, 'Support & Dienstleistungen'),
       category: 'productivity',
-      description: 'Erfassung, Zeiterfassung und Dokumentation von Kunden-Support-Einsätzen, Servicezeiten und Tag-Verwaltung.',
+      description: t('desc.support_services', currentLang, 'Erfassung, Zeiterfassung und Dokumentation von Kunden-Support-Einsätzen, Servicezeiten und Tag-Verwaltung.'),
       iconName: 'Headphones',
       badge: 'Dienstleistungen',
       author: 'SOCDOF Productivity',
-      version: '19.0.5',
+      version: '22.2.0',
       isInstalled: installedModules.includes('support_services'),
       isFinancial: true,
       isSystem: false,
-      tags: ['Support', 'Service', 'Kunden', 'Zeiterfassung', 'Dienstleistung']
+      tags: ['Support', 'Service', 'Kunden', 'Zeiterfassung', 'Tickets']
+    },
+    {
+      id: 'calendar',
+      title: t('module.calendar', currentLang, 'Google Kalender & Termine'),
+      category: 'productivity',
+      description: t('desc.calendar', currentLang, 'Zwei-Wege Live-Synchronisierung mit Google Kalender, Fälligkeiten von Rechnungen und flexibler Monats-, Wochen- & Tagesansicht.'),
+      iconName: 'Calendar',
+      badge: 'Live-Sync & Termine',
+      author: 'Yuri / Strudel',
+      version: '22.2.0',
+      isInstalled: installedModules.includes('calendar'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Stundenplan', 'Fälligkeiten']
+    },
+    {
+      id: 'widgets',
+      title: t('module.widgets', currentLang, 'Widgets & Notizen'),
+      category: 'productivity',
+      description: t('desc.widgets', currentLang, 'Desktop-Widgets (Tagesumsatz, Termine, Uhr) und frei verschiebbare Haftnotizen für den Arbeitsbereich.'),
+      iconName: 'LayoutGrid',
+      badge: 'Desktop-Widgets',
+      author: 'Yuri / Strudel',
+      version: '22.2.0',
+      isInstalled: installedModules.includes('widgets'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Widgets', 'Notizen', 'Haftnotizen', 'Sticky Notes', 'Desktop']
     },
     {
       id: 'ios_billing',
-      title: 'iOS Gastro & Speisen-Kasse',
+      title: t('module.ios_billing', currentLang, 'iOS Gastro & Speisen-Kasse'),
       category: 'gastro',
-      description: 'Cupertino 1-Screen Gastro-Kasse mit Speisekarte, Beilagen-Optionen (Kartoffelsalat etc.), Schnellbon & Umsatz-Journal.',
+      description: t('desc.ios_billing', currentLang, 'Cupertino 1-Screen Gastro-Kasse mit Speisekarte, Beilagen-Optionen (Kartoffelsalat etc.), Schnellbon & Umsatz-Journal.'),
       iconName: 'Utensils',
-      badge: 'Optionales Gastro-Modul',
+      badge: 'Gastro-Modul',
       author: 'SOCDOF Hospitality',
-      version: '18.5.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('ios_billing'),
       isFinancial: true,
       isSystem: false,
-      tags: ['Gastro', 'Speisekarte', 'Kasse', 'Beilagen', 'Finanzen', 'Bon']
+      tags: ['Gastro', 'Speisekarte', 'Kasse', 'Beilagen', 'Finanzen']
     },
     {
       id: 'restaurant',
-      title: 'Restaurant, Tische & KDS',
+      title: t('module.restaurant', currentLang, 'Restaurant, Tische & KDS'),
       category: 'gastro',
-      description: 'Gastronomie-Modul mit digitaler Speisekarte, Tischverwaltung, KDS Küchen-Display und TSE Belegen.',
+      description: t('desc.restaurant', currentLang, 'Gastronomie-Modul mit digitaler Speisekarte, Tischverwaltung, KDS Küchen-Display und TSE Belegen.'),
       iconName: 'Utensils',
-      badge: 'Optionales Gastro-Modul',
+      badge: 'Gastro-Modul',
       author: 'SOCDOF Hospitality',
-      version: '18.4.2',
+      version: '22.2.0',
       isInstalled: installedModules.includes('restaurant'),
       isFinancial: true,
       isSystem: false,
       tags: ['Restaurant', 'Tische', 'Speisekarte', 'Küche', 'KDS', 'Gastro']
-    },
-    {
-      id: 'calendar',
-      title: 'Google Kalender & Termine',
-      category: 'productivity',
-      description: 'Zwei-Wege Live-Synchronisierung mit Google Kalender, Fälligkeiten von Rechnungen und flexibler Monats-, Wochen- & Tagesansicht.',
-      iconName: 'Calendar',
-      badge: 'Live-Sync & Termine',
-      author: 'Yuri / Strudel',
-      version: '21.0.0',
-      isInstalled: installedModules.includes('calendar'),
-      isFinancial: false,
-      isSystem: false,
-      tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Fälligkeiten', 'Produktivität']
-    },
-    {
-      id: 'widgets',
-      title: 'Widgets & Notizen',
-      category: 'productivity',
-      description: 'Desktop-Widgets (Tagesumsatz, Termine, Uhr) und frei verschiebbare Haftnotizen für den Arbeitsbereich.',
-      iconName: 'LayoutGrid',
-      badge: 'Desktop-Widgets',
-      author: 'Yuri / Strudel',
-      version: '21.8.2',
-      isInstalled: installedModules.includes('widgets'),
-      isFinancial: false,
-      isSystem: false,
-      tags: ['Widgets', 'Notizen', 'Kacheln', 'Sticky Notes', 'Dashboard', 'Uhr', 'Desktop']
     },
     {
       id: 'docs',
@@ -288,27 +310,103 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       iconName: 'BookOpen',
       badge: 'System-Basis',
       author: 'SOCDOF Docs',
-      version: '1.0.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('docs'),
       isFinancial: false,
       isSystem: true,
-      tags: ['Handbuch', 'Hilfe', 'Dokumentation', 'Tastenkürzel']
+      tags: ['Handbuch', 'Hilfe', 'Lernunterlagen', 'Dokumentation']
     },
     {
       id: 'settings',
       title: t('module.settings', currentLang, 'Einstellungen & System'),
       category: 'core',
-      description: 'Briefkopf-Wasserzeichen, Firmendaten, Backups, Sounds, TSE & Speicherplatz-Monitor.',
+      description: t('desc.settings', currentLang, 'Briefkopf-Wasserzeichen, Firmendaten, Backups, Sounds, TSE & Speicherplatz-Monitor.'),
       iconName: 'Settings',
       badge: 'System-Basis',
       author: 'SOCDOF System',
-      version: '18.0.0',
+      version: '22.2.0',
       isInstalled: installedModules.includes('settings'),
       isFinancial: false,
       isSystem: true,
       tags: ['Einstellungen', 'Briefkopf', 'Backup', 'System', 'TSE']
     }
-  ];
+  ], [currentLang, installedModules]);
+
+  // Curated Application Bundles
+  const storeBundles: StoreBundle[] = useMemo(() => [
+    {
+      id: 'school_bundle',
+      titleKey: 'appstore.bundle_school_title',
+      titleFallback: 'Schule & Bildung',
+      taglineKey: 'appstore.bundle_school_tagline',
+      taglineFallback: 'Stundenplan, Notizen, Wissensbasis & Termine',
+      descKey: 'appstore.bundle_school_desc',
+      descFallback: 'Das Rundum-Paket für Schule und Studium: Behalte deine Termine und Stundenpläne im Blick, erstelle Haftnotizen und verwalte Lernunterlagen komplett offline.',
+      badgeKey: 'appstore.bundle_school_badge',
+      badgeFallback: 'Bildung & Schule',
+      folderKey: 'appstore.bundle_school_folder',
+      folderFallback: 'Schule & Bildung',
+      modules: ['calendar', 'widgets', 'docs', 'contacts'],
+      icon: GraduationCap,
+      gradient: 'from-blue-600 via-indigo-600 to-violet-700',
+      accentBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      borderClass: 'border-blue-500/20'
+    },
+    {
+      id: 'business_bundle',
+      titleKey: 'appstore.bundle_business_title',
+      titleFallback: 'Handel & ERP Starter',
+      taglineKey: 'appstore.bundle_business_tagline',
+      taglineFallback: 'Rechnungen, Buchhaltung, CRM & Produktkatalog',
+      descKey: 'appstore.bundle_business_desc',
+      descFallback: 'Das essentielle Starterpaket für Selbstständige, KMU und Händler: DIN 5008 Rechnungen, Einnahmen-Überschuss-Rechnung, Kundenstamm und Inventar.',
+      badgeKey: 'appstore.bundle_business_badge',
+      badgeFallback: 'Handel & KMU',
+      folderKey: 'appstore.bundle_business_folder',
+      folderFallback: 'Handel & ERP',
+      modules: ['invoices', 'accounting', 'contacts', 'products', 'purchases'],
+      icon: Briefcase,
+      gradient: 'from-indigo-600 via-purple-600 to-pink-600',
+      accentBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      borderClass: 'border-indigo-500/20'
+    },
+    {
+      id: 'gastro_bundle',
+      titleKey: 'appstore.bundle_gastro_title',
+      titleFallback: 'Gastronomie & Kassensystem',
+      taglineKey: 'appstore.bundle_gastro_tagline',
+      taglineFallback: 'Touch-Kasse, Speisekarte, Restaurant-Tische & KDS',
+      descKey: 'appstore.bundle_gastro_desc',
+      descFallback: 'Vollständige Kassen- und Restaurantlösung mit Speisekarte, Barcode-Unterstützung, Küchen-Display, Tischreservierungen und TSE-Belegen.',
+      badgeKey: 'appstore.bundle_gastro_badge',
+      badgeFallback: 'Gastronomie & POS',
+      folderKey: 'appstore.bundle_gastro_folder',
+      folderFallback: 'Gastronomie & Kasse',
+      modules: ['restaurant', 'ios_billing', 'pos', 'stock'],
+      icon: Utensils,
+      gradient: 'from-amber-600 via-orange-600 to-rose-600',
+      accentBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      borderClass: 'border-amber-500/20'
+    },
+    {
+      id: 'office_bundle',
+      titleKey: 'appstore.bundle_office_title',
+      titleFallback: 'Office & Organisation',
+      taglineKey: 'appstore.bundle_office_tagline',
+      taglineFallback: 'Kalender, Haftnotizen, Support & Dokumentation',
+      descKey: 'appstore.bundle_office_desc',
+      descFallback: 'Fokussiert arbeiten ohne Ablenkung: Termine planen, Google Kalender 2-Wege-Sync, Notizzettel auf dem Desktop und Dokumentationszugriff.',
+      badgeKey: 'appstore.bundle_office_badge',
+      badgeFallback: 'Produktivität',
+      folderKey: 'appstore.bundle_office_folder',
+      folderFallback: 'Office & Organisation',
+      modules: ['calendar', 'widgets', 'support_services', 'docs'],
+      icon: LayoutGrid,
+      gradient: 'from-teal-600 via-cyan-600 to-blue-600',
+      accentBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+      borderClass: 'border-teal-500/20'
+    }
+  ], []);
 
   const getAppIcon = (id: ActiveModule) => {
     switch (id) {
@@ -333,35 +431,32 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
 
   const getAppColor = (id: ActiveModule) => {
     switch (id) {
-      case 'dashboard': return 'bg-purple-600';
-      case 'invoices': return 'bg-indigo-600';
-      case 'ios_billing': return 'bg-indigo-600';
-      case 'restaurant': return 'bg-amber-600';
-      case 'accounting': return 'bg-emerald-600';
-      case 'contacts': return 'bg-teal-600';
-      case 'support_services': return 'bg-cyan-600';
-      case 'pos': return 'bg-violet-600';
-      case 'products': return 'bg-blue-600';
-      case 'stock': return 'bg-amber-600';
-      case 'purchases': return 'bg-orange-600';
-      case 'calendar': return 'bg-blue-600';
-      case 'widgets': return 'bg-violet-600';
-      case 'docs': return 'bg-sky-600';
-      case 'settings': return 'bg-slate-700';
-      default: return 'bg-slate-800';
+      case 'dashboard': return 'bg-gradient-to-br from-purple-500 to-indigo-600';
+      case 'invoices': return 'bg-gradient-to-br from-indigo-500 to-blue-600';
+      case 'ios_billing': return 'bg-gradient-to-br from-indigo-600 to-purple-600';
+      case 'restaurant': return 'bg-gradient-to-br from-amber-500 to-orange-600';
+      case 'accounting': return 'bg-gradient-to-br from-emerald-500 to-teal-600';
+      case 'contacts': return 'bg-gradient-to-br from-teal-500 to-cyan-600';
+      case 'support_services': return 'bg-gradient-to-br from-cyan-500 to-blue-600';
+      case 'pos': return 'bg-gradient-to-br from-violet-500 to-indigo-600';
+      case 'products': return 'bg-gradient-to-br from-blue-500 to-indigo-600';
+      case 'stock': return 'bg-gradient-to-br from-amber-500 to-yellow-600';
+      case 'purchases': return 'bg-gradient-to-br from-orange-500 to-amber-600';
+      case 'calendar': return 'bg-gradient-to-br from-blue-500 to-sky-600';
+      case 'widgets': return 'bg-gradient-to-br from-violet-500 to-purple-600';
+      case 'docs': return 'bg-gradient-to-br from-sky-500 to-blue-600';
+      case 'settings': return 'bg-gradient-to-br from-slate-600 to-slate-800';
+      default: return 'bg-gradient-to-br from-slate-700 to-slate-900';
     }
   };
 
-  // Filtered Apps
+  // Filtered Apps for the 'apps' tab
   const filteredApps = useMemo(() => {
     return allStoreApps.filter(app => {
-      // System apps toggle
       if (!showSystemApps && app.isSystem) return false;
 
-      // Category filter
       const matchesCat = selectedCategory === 'all' || app.category === selectedCategory;
 
-      // Status filter
       let matchesStatus = true;
       if (statusFilter === 'installed') {
         matchesStatus = app.isInstalled;
@@ -373,13 +468,12 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
         matchesStatus = pinnedDesktopModules.includes(app.id);
       }
 
-      // Search query
       const query = searchQuery.toLowerCase().trim();
       const matchesSearch = !query || 
         app.title.toLowerCase().includes(query) ||
         app.description.toLowerCase().includes(query) ||
         app.category.toLowerCase().includes(query) ||
-        (app.tags && app.tags.some(t => t.toLowerCase().includes(query)));
+        (app.tags && app.tags.some(tg => tg.toLowerCase().includes(query)));
 
       return matchesCat && matchesStatus && matchesSearch;
     });
@@ -392,352 +486,714 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   const financialActiveCount = allStoreApps.filter(a => a.isFinancial && a.isInstalled).length;
   const desktopPinnedCount = pinnedDesktopModules.length;
 
+  // Handler to install all uninstalled apps of a bundle
+  const handleInstallBundleClick = (bundle: StoreBundle) => {
+    sounds.playSuccess();
+    if (onInstallBundle) {
+      onInstallBundle(bundle.modules);
+    } else {
+      const toInstall = bundle.modules.filter(m => !installedModules.includes(m));
+      toInstall.forEach(m => onToggleInstallModule(m));
+    }
+  };
+
+  // Handler to create a Desktop Folder containing this bundle's apps
+  const handleCreateDesktopFolderClick = (bundle: StoreBundle) => {
+    sounds.playSuccess();
+    const folderName = t(bundle.folderKey, currentLang, bundle.folderFallback);
+    if (onCreateFolderFromBundle) {
+      onCreateFolderFromBundle(folderName, bundle.modules);
+    } else {
+      // Fallback: install and store in localStorage
+      const toInstall = bundle.modules.filter(m => !installedModules.includes(m));
+      toInstall.forEach(m => onToggleInstallModule(m));
+      try {
+        const saved = localStorage.getItem('socdof_desktop_folders');
+        const folders: DesktopFolder[] = saved ? JSON.parse(saved) : [];
+        const newFolder: DesktopFolder = {
+          id: `bundle_folder_${Date.now()}`,
+          name: folderName,
+          modules: [...bundle.modules],
+          createdAt: new Date().toISOString()
+        };
+        folders.push(newFolder);
+        localStorage.setItem('socdof_desktop_folders', JSON.stringify(folders));
+      } catch {}
+    }
+
+    setCreatedFolderBundleId(bundle.id);
+    setTimeout(() => {
+      setCreatedFolderBundleId(null);
+    }, 3000);
+  };
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
-      {/* Top Banner & Quick Info */}
-      <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-indigo-900/40">
+      {/* Top Hero Banner with Modern Gradient */}
+      <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-indigo-900/40">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-violet-500/10 rounded-full blur-2xl pointer-events-none" />
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-2 border border-indigo-400/30">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>SOCDOF App Store & Modulverwaltung</span>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold border border-indigo-400/30 backdrop-blur-md">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{t('appstore.hero_title', currentLang, 'App Store & Modulverwaltung')}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-              ERP-Module anpassen & erweitern
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              {activeMainTab === 'apps' 
+                ? t('appstore.hero_title', currentLang, 'ERP-Module & Werkzeuge')
+                : t('appstore.bundles_hero_title', currentLang, 'Vorkonfigurierte App-Pakete')}
             </h2>
-            <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-              Aktivieren oder deaktivieren Sie ERP-Module mit einem Klick. Alle Module greifen nahtlos auf die gemeinsame Kunden-, Artikel- und Buchhaltungsdatenbank zu.
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+              {activeMainTab === 'apps'
+                ? t('appstore.hero_desc', currentLang, 'Passen Sie Ihren Offline-ERP-Arbeitsplatz individuell an. Aktivieren Sie einzelne Module oder installieren Sie komplette Pakete mit einem Klick.')
+                : t('appstore.bundles_hero_desc', currentLang, 'Installieren Sie perfekt abgestimmte Programmpakete für Schule, Handel, Gastronomie oder Büro-Organisation mit einem einzigen Klick.')}
             </p>
           </div>
 
-          {/* Clean Metric Counters */}
-          <div className="grid grid-cols-2 gap-3 text-center min-w-[200px]">
-            <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-              <span className="text-[11px] text-slate-300 block font-medium">Verfügbar</span>
-              <span className="text-xl font-bold text-white">{totalAppsCount}</span>
+          {/* Quick Metrics Bar */}
+          <div className="flex items-center gap-3">
+            <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/10 text-center min-w-[90px] backdrop-blur-md">
+              <span className="text-[11px] text-slate-300 block font-medium">Apps</span>
+              <span className="text-xl font-black text-white">{totalAppsCount}</span>
             </div>
-            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/20">
-              <span className="text-[11px] text-emerald-300 block font-medium">Aktiv</span>
-              <span className="text-xl font-bold text-emerald-400">{installedCount}</span>
+            <div className="p-3 sm:p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-center min-w-[90px] backdrop-blur-md">
+              <span className="text-[11px] text-emerald-300 block font-medium">{t('appstore.filter_installed', currentLang, 'Aktiv')}</span>
+              <span className="text-xl font-black text-emerald-400">{installedCount}</span>
+            </div>
+            <div className="p-3 sm:p-4 rounded-2xl bg-indigo-500/10 border border-indigo-400/20 text-center min-w-[90px] backdrop-blur-md">
+              <span className="text-[11px] text-indigo-300 block font-medium">{t('appstore.tab_bundles', currentLang, 'Pakete')}</span>
+              <span className="text-xl font-black text-indigo-400">{storeBundles.length}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Unified Payment & Terminal Configuration Box */}
-      <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Zahlungsarten & Kassen-Optionen
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-              100% kostenlos: Banküberweisungen mit QR-GiroCode und Barzahlung sind immer gebührenfrei nutzbar. Kartenzahlungen / Terminal können Sie bei Bedarf flexibel zuschalten.
-            </p>
-          </div>
+      {/* Main Switcher: Apps vs. Bundles */}
+      <div className="flex items-center justify-between gap-4 flex-wrap pb-1 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl">
+          {/* Tab 1: Apps */}
+          <button
+            type="button"
+            onClick={() => { sounds.playClick(); setActiveMainTab('apps'); }}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeMainTab === 'apps'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>{t('appstore.tab_apps', currentLang, 'Apps & Module')}</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              {totalAppsCount}
+            </span>
+          </button>
 
-          {/* Unified Payment Method Dual Toggle */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-            {/* Cash Option */}
-            <button
-              type="button"
-              onClick={() => handleUpdatePaymentConfig({ acceptCash: !paymentConfig.acceptCash })}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                paymentConfig.acceptCash
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Banknote className="w-3.5 h-3.5" />
-              <span>Bar & Kasse</span>
-              {paymentConfig.acceptCash && <Check className="w-3.5 h-3.5" />}
-            </button>
-
-            {/* Credit Card Option */}
-            <button
-              type="button"
-              onClick={() => handleUpdatePaymentConfig({ acceptCard: !paymentConfig.acceptCard })}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                paymentConfig.acceptCard
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Karte / Terminal</span>
-              {paymentConfig.acceptCard && <Check className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+          {/* Tab 2: Bundles */}
+          <button
+            type="button"
+            onClick={() => { sounds.playClick(); setActiveMainTab('bundles'); }}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all relative ${
+              activeMainTab === 'bundles'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <PackagePlus className="w-4 h-4 text-indigo-500" />
+            <span>{t('appstore.tab_bundles', currentLang, 'Pakete & Bundles')}</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold">
+              {storeBundles.length}
+            </span>
+          </button>
         </div>
 
-        {/* Status Pills */}
-        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Kostenfreie SEPA QR-Rechnungen aktiv</span>
-          </span>
-          <span>•</span>
-          <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Automatische Kassenbuchung</span>
-          </span>
-        </div>
-      </div>
-
-      {/* Filter Tabs: Status & Category Controls */}
-      <div className="space-y-3">
-        {/* 1. Status Filter Segmented Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-semibold overflow-x-auto max-w-full">
-            <button
-              onClick={() => { sounds.playClick(); setStatusFilter('all'); }}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
-                statusFilter === 'all'
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <span>Alle Module</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300">
-                {totalAppsCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => { sounds.playClick(); setStatusFilter('installed'); }}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
-                statusFilter === 'installed'
-                  ? 'bg-emerald-600 text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Aktiviert</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                statusFilter === 'installed' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-              }`}>
-                {installedCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => { sounds.playClick(); setStatusFilter('uninstalled'); }}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
-                statusFilter === 'uninstalled'
-                  ? 'bg-slate-700 text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <span>Verfügbar / Deaktiviert</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300">
-                {uninstalledCount}
-              </span>
-            </button>
-          </div>
-
-          {/* Search Box */}
+        {/* Quick Search on top right */}
+        {activeMainTab === 'apps' && (
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Module suchen..."
+              placeholder={t('appstore.search_placeholder', currentLang, 'Apps, Schlagwörter, Kategorien suchen...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
+              className="w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
             />
-          </div>
-        </div>
-
-        {/* 2. Category Chips Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-          {[
-            { id: 'all', label: 'Alle Kategorien' },
-            { id: 'finance', label: 'Finanzen & Rechnungen', icon: Calculator },
-            { id: 'sales', label: 'Verkauf & CRM', icon: Users },
-            { id: 'inventory', label: 'Lager & Einkauf', icon: Layers },
-            { id: 'gastro', label: 'Gastronomie', icon: Utensils },
-            { id: 'productivity', label: 'Dokumentation', icon: BookOpen },
-            { id: 'core', label: 'System & Verwaltung', icon: Settings }
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isSelected = selectedCategory === tab.id;
-            return (
+            {searchQuery && (
               <button
-                key={tab.id}
-                onClick={() => { sounds.playClick(); setSelectedCategory(tab.id); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
-                  isSelected 
-                    ? 'bg-indigo-600 text-white shadow-xs font-bold' 
-                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
-                {Icon && <Icon className="w-3.5 h-3.5" />}
-                <span>{tab.label}</span>
+                <X className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Apps Grid */}
-      {filteredApps.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 mx-auto flex items-center justify-center">
-            <Package className="w-6 h-6" />
-          </div>
-          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Keine Module für diese Filterung gefunden</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Versuchen Sie andere Suchbegriffe oder setzen Sie den Status- und Kategoriefilter zurück.
-          </p>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('all');
-              setStatusFilter('all');
-              setShowSystemApps(true);
-            }}
-            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-indigo-500 transition"
-          >
-            Alle Filter zurücksetzen
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredApps.map((app) => {
-            const Icon = getAppIcon(app.id);
-            const colorClass = getAppColor(app.id);
-            const isInstalled = app.isInstalled;
-            const isPinnedDesktop = pinnedDesktopModules.includes(app.id);
+      {/* ========================================================================= */}
+      {/* VIEW 1: BUNDLES & PAKETE                                                  */}
+      {/* ========================================================================= */}
+      {activeMainTab === 'bundles' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {storeBundles.map(bundle => {
+              const BundleIcon = bundle.icon;
+              const installedCountInBundle = bundle.modules.filter(m => installedModules.includes(m)).length;
+              const totalInBundle = bundle.modules.length;
+              const isFullyInstalled = installedCountInBundle === totalInBundle;
+              const isFolderCreated = createdFolderBundleId === bundle.id;
 
-            return (
-              <div
-                key={app.id}
-                onClick={() => setSelectedAppDetail(app)}
-                className={`p-5 rounded-3xl border transition-all flex flex-col justify-between cursor-pointer group ${
-                  isInstalled 
-                    ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700' 
-                    : 'bg-slate-50 dark:bg-slate-900/40 border-dashed border-slate-300 dark:border-slate-800 opacity-85 hover:opacity-100'
-                }`}
-              >
-                <div>
-                  {/* Card Header: Icon, Title, Status Badges */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-2xl ${colorClass} text-white flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform`}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
-                          <span>{app.title}</span>
-                          {app.isFinancial && isInstalled && (
-                            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 flex items-center gap-0.5 border border-amber-300/40">
-                              <DollarSign className="w-2.5 h-2.5" />
-                              <span>Finanziell aktiv</span>
-                            </span>
-                          )}
-                        </h4>
-                        <p className="text-[11px] text-slate-400">{app.author} • v{app.version}</p>
-                      </div>
-                    </div>
-
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 ${
-                      isInstalled 
-                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' 
-                        : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                    }`}>
-                      {isInstalled ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Aktiv</span>
-                        </>
-                      ) : (
-                        <span>Inaktiv</span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-                    {app.description}
-                  </p>
-
-                  {/* Tags */}
-                  {app.tags && app.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {app.tags.map(t => (
-                        <span key={t} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-md text-[10px] text-slate-500 font-medium">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer Actions: Launch & Toggle Activate */}
-                <div 
-                  onClick={(e) => e.stopPropagation()} 
-                  className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2"
+              return (
+                <div
+                  key={bundle.id}
+                  className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
                 >
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    {isInstalled ? 'Modul betriebsbereit' : 'Nicht installiert'}
-                  </span>
+                  <div>
+                    {/* Bundle Header Bar */}
+                    <div className={`p-6 bg-gradient-to-r ${bundle.gradient} text-white relative`}>
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-white/20 backdrop-blur-md text-white border border-white/30">
+                          {t(bundle.badgeKey, currentLang, bundle.badgeFallback)}
+                        </span>
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 text-white text-xs font-semibold backdrop-blur-md">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{installedCountInBundle} / {totalInBundle} {t('appstore.bundle_progress', currentLang, 'installiert')}</span>
+                        </div>
+                      </div>
 
-                  {/* Open & Activate/Deactivate actions */}
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    {app.isSystem ? (
-                      <button
-                        onClick={() => onLaunchModule(app.id)}
-                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                        <span>Öffnen</span>
-                      </button>
-                    ) : isInstalled ? (
-                      <>
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner shrink-0">
+                          <BundleIcon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-white tracking-tight">
+                            {t(bundle.titleKey, currentLang, bundle.titleFallback)}
+                          </h3>
+                          <p className="text-xs text-white/80 font-medium">
+                            {t(bundle.taglineKey, currentLang, bundle.taglineFallback)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bundle Body */}
+                    <div className="p-6 space-y-5">
+                      {/* Description */}
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {t(bundle.descKey, currentLang, bundle.descFallback)}
+                      </p>
+
+                      {/* Progress bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span>Installationsstatus</span>
+                          <span>{Math.round((installedCountInBundle / totalInBundle) * 100)}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${bundle.gradient}`}
+                            style={{ width: `${(installedCountInBundle / totalInBundle) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Included Apps Grid */}
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Enthaltene Apps ({totalInBundle})
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {bundle.modules.map(modId => {
+                            const modApp = allStoreApps.find(a => a.id === modId);
+                            const isModInstalled = installedModules.includes(modId);
+                            const ModIcon = getAppIcon(modId);
+                            const modColor = getAppColor(modId);
+
+                            return (
+                              <div
+                                key={modId}
+                                onClick={() => modApp && setSelectedAppDetail(modApp)}
+                                className={`p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
+                                  isModInstalled
+                                    ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'
+                                    : 'bg-white dark:bg-slate-900 border-dashed border-slate-200 dark:border-slate-800 opacity-75 hover:opacity-100'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-8 h-8 rounded-xl ${modColor} text-white flex items-center justify-center shrink-0 shadow-xs`}>
+                                    <ModIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                      {modApp?.title || modId}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 block truncate">
+                                      {isModInstalled ? t('appstore.filter_installed', currentLang, 'Aktiv') : t('appstore.filter_available', currentLang, 'Verfügbar')}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {isModInstalled ? (
+                                  <span className="p-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 shrink-0">
+                                    <Check className="w-3 h-3" />
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onToggleInstallModule(modId);
+                                    }}
+                                    className="p-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 shrink-0"
+                                    title="Einzeln installieren"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bundle Actions Footer */}
+                  <div className="p-6 pt-0 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800/80 mt-4">
+                    <div className="flex items-center gap-2">
+                      {isFullyInstalled ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <span>{t('appstore.bundle_installed', currentLang, 'Alle Apps aktiv')}</span>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => onLaunchModule(app.id)}
-                          className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+                          type="button"
+                          onClick={() => handleInstallBundleClick(bundle)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition active:scale-95 bg-gradient-to-r ${bundle.gradient} hover:opacity-90`}
                         >
-                          <Play className="w-3 h-3 fill-current" />
-                          <span>Öffnen</span>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{t('appstore.bundle_install_all', currentLang, 'Paket installieren')}</span>
                         </button>
-                        <button
-                          onClick={() => onToggleInstallModule(app.id)}
-                          title="Modul deaktivieren"
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 text-xs font-semibold transition flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Deaktivieren</span>
-                        </button>
-                      </>
-                    ) : (
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Create Desktop Folder Button */}
                       <button
-                        onClick={() => onToggleInstallModule(app.id)}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+                        type="button"
+                        onClick={() => handleCreateDesktopFolderClick(bundle)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
+                          isFolderCreated
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                        title="Erstellt einen neuen Ordner auf dem Desktop mit allen Apps dieses Pakets"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Aktivieren</span>
+                        {isFolderCreated ? (
+                          <>
+                            <FolderCheck className="w-3.5 h-3.5" />
+                            <span>{t('appstore.bundle_folder_created', currentLang, 'Desktop-Ordner angelegt!')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <FolderPlus className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{t('appstore.bundle_create_folder', currentLang, 'Als Desktop-Ordner anlegen')}</span>
+                          </>
+                        )}
                       </button>
-                    )}
+
+                      {/* Launch Main App Button */}
+                      <button
+                        type="button"
+                        onClick={() => onLaunchModule(bundle.modules[0])}
+                        className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
+                        title="Haupt-App öffnen"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* App Detail Modal / Configuration Drawer */}
+      {/* ========================================================================= */}
+      {/* VIEW 2: APPS & MODULES LIST                                               */}
+      {/* ========================================================================= */}
+      {activeMainTab === 'apps' && (
+        <div className="space-y-6">
+          {/* Payment & Cash Terminal Settings Banner */}
+          <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {t('appstore.payment_options', currentLang, 'Zahlungsarten & Kassen-Optionen')}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+                  {t('appstore.payment_options_desc', currentLang, '100% kostenlos: Banküberweisungen mit QR-GiroCode und Barzahlung sind immer gebührenfrei. Kartenzahlung / Terminal flexibel zuschaltbar.')}
+                </p>
+              </div>
+
+              {/* Cash & Card Toggles */}
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => handleUpdatePaymentConfig({ acceptCash: !paymentConfig.acceptCash })}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    paymentConfig.acceptCash
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>{t('appstore.payment_cash', currentLang, 'Bar & Kasse')}</span>
+                  {paymentConfig.acceptCash && <Check className="w-3.5 h-3.5" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleUpdatePaymentConfig({ acceptCard: !paymentConfig.acceptCard })}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    paymentConfig.acceptCard
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>{t('appstore.payment_card', currentLang, 'Karte / Terminal')}</span>
+                  {paymentConfig.acceptCard && <Check className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Compliance Pills */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>{t('appstore.sepa_active', currentLang, 'Kostenfreie SEPA QR-Rechnungen aktiv')}</span>
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{t('appstore.auto_cash_booking', currentLang, 'Automatische Kassenbuchung')}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Filter Bar: Status Filters & Category Chips */}
+          <div className="space-y-3">
+            {/* Status Segmented Buttons */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-semibold overflow-x-auto max-w-full">
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setStatusFilter('all'); }}
+                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                <span>{t('appstore.filter_all', currentLang, 'Alle Module')}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300">
+                  {totalAppsCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setStatusFilter('installed'); }}
+                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'installed'
+                    ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{t('appstore.filter_installed', currentLang, 'Aktiviert')}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  statusFilter === 'installed' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                }`}>
+                  {installedCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setStatusFilter('uninstalled'); }}
+                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'uninstalled'
+                    ? 'bg-slate-700 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                <span>{t('appstore.filter_available', currentLang, 'Verfügbar')}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300">
+                  {uninstalledCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setStatusFilter('financial'); }}
+                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'financial'
+                    ? 'bg-amber-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-amber-300" />
+                <span>{t('appstore.filter_financial', currentLang, 'Finanziell aktiv')}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                  {financialActiveCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { sounds.playClick(); setStatusFilter('desktop'); }}
+                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === 'desktop'
+                    ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                <Pin className="w-3.5 h-3.5" />
+                <span>{t('appstore.filter_desktop', currentLang, 'Auf Desktop')}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                  {desktopPinnedCount}
+                </span>
+              </button>
+            </div>
+
+            {/* Category Chips Bar */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+              {[
+                { id: 'all', label: t('appstore.filter_all', currentLang, 'Alle Kategorien') },
+                { id: 'finance', label: 'Finanzen & Rechnungen', icon: Calculator },
+                { id: 'sales', label: 'Verkauf & CRM', icon: Users },
+                { id: 'inventory', label: 'Lager & Einkauf', icon: Layers },
+                { id: 'gastro', label: 'Gastronomie', icon: Utensils },
+                { id: 'productivity', label: 'Produktivität & Schule', icon: BookOpen },
+                { id: 'core', label: 'System & Verwaltung', icon: Settings }
+              ].map(tab => {
+                const Icon = tab.icon;
+                const isSelected = selectedCategory === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => { sounds.playClick(); setSelectedCategory(tab.id); }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+                      isSelected 
+                        ? 'bg-indigo-600 text-white shadow-xs font-bold' 
+                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {Icon && <Icon className="w-3.5 h-3.5" />}
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Apps Grid */}
+          {filteredApps.length === 0 ? (
+            <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 mx-auto flex items-center justify-center">
+                <Package className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                {t('appstore.no_apps_found', currentLang, 'Keine Module für diese Filterung gefunden')}
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Versuchen Sie andere Suchbegriffe oder setzen Sie den Status- und Kategoriefilter zurück.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                  setStatusFilter('all');
+                  setShowSystemApps(true);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-indigo-500 transition"
+              >
+                {t('appstore.reset_filters', currentLang, 'Alle Filter zurücksetzen')}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredApps.map((app) => {
+                const Icon = getAppIcon(app.id);
+                const colorClass = getAppColor(app.id);
+                const isInstalled = app.isInstalled;
+                const isPinnedDesktop = pinnedDesktopModules.includes(app.id);
+
+                return (
+                  <div
+                    key={app.id}
+                    onClick={() => setSelectedAppDetail(app)}
+                    className={`p-5 rounded-3xl border transition-all flex flex-col justify-between cursor-pointer group ${
+                      isInstalled 
+                        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700' 
+                        : 'bg-slate-50/60 dark:bg-slate-900/40 border-dashed border-slate-300 dark:border-slate-800 opacity-85 hover:opacity-100'
+                    }`}
+                  >
+                    <div>
+                      {/* Card Header: Icon, Title, Status Badges, Pin Desktop */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-12 h-12 rounded-2xl ${colorClass} text-white flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform`}>
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
+                              <span>{app.title}</span>
+                              {app.isFinancial && isInstalled && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 flex items-center gap-0.5 border border-amber-300/40">
+                                  <DollarSign className="w-2.5 h-2.5" />
+                                  <span>{t('appstore.filter_financial', currentLang, 'Finanziell')}</span>
+                                </span>
+                              )}
+                            </h4>
+                            <p className="text-[11px] text-slate-400">{app.author} • v{app.version}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Desktop Pin Toggle */}
+                          {isInstalled && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTogglePinDesktop(app.id);
+                              }}
+                              className={`p-1.5 rounded-xl transition ${
+                                isPinnedDesktop
+                                  ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
+                                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                              }`}
+                              title={isPinnedDesktop ? t('appstore.unpin_desktop', currentLang, 'Vom Desktop lösen') : t('appstore.pin_desktop', currentLang, 'Auf Desktop pinnen')}
+                            >
+                              <Pin className={`w-3.5 h-3.5 ${isPinnedDesktop ? 'fill-current' : ''}`} />
+                            </button>
+                          )}
+
+                          {/* Status Pill */}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 ${
+                            isInstalled 
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' 
+                              : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                          }`}>
+                            {isInstalled ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>{t('appstore.status_active', currentLang, 'Aktiv')}</span>
+                              </>
+                            ) : (
+                              <span>{t('appstore.status_inactive', currentLang, 'Inaktiv')}</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3 line-clamp-2">
+                        {app.description}
+                      </p>
+
+                      {/* Tags */}
+                      {app.tags && app.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-4">
+                          {app.tags.slice(0, 4).map(tg => (
+                            <span key={tg} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-md text-[10px] text-slate-500 font-medium">
+                              {tg}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Actions: Launch & Toggle Install */}
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {isInstalled ? 'Betriebsbereit' : 'Verfügbar'}
+                      </span>
+
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        {app.isSystem ? (
+                          <button
+                            type="button"
+                            onClick={() => onLaunchModule(app.id)}
+                            className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            <span>{t('appstore.action_open', currentLang, 'Öffnen')}</span>
+                          </button>
+                        ) : isInstalled ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onLaunchModule(app.id)}
+                              className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>{t('appstore.action_open', currentLang, 'Öffnen')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onToggleInstallModule(app.id)}
+                              title={t('appstore.action_deactivate', currentLang, 'Modul deaktivieren')}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 text-xs font-semibold transition flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">{t('appstore.action_deactivate', currentLang, 'Deaktivieren')}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onToggleInstallModule(app.id)}
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{t('appstore.action_activate', currentLang, 'Aktivieren')}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* APP DETAIL MODAL / DRAWER                                                 */}
+      {/* ========================================================================= */}
       {selectedAppDetail && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-up"
+            className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
           >
             {/* Modal Header */}
             <div className="p-6 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between">
@@ -759,7 +1215,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                       selectedAppDetail.isInstalled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
                     }`}>
-                      {selectedAppDetail.isInstalled ? 'Aktiviert' : 'Deaktiviert'}
+                      {selectedAppDetail.isInstalled ? t('appstore.status_active', currentLang, 'Aktiviert') : t('appstore.status_inactive', currentLang, 'Deaktiviert')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -769,6 +1225,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
               </div>
 
               <button
+                type="button"
                 onClick={() => { sounds.playClick(); setSelectedAppDetail(null); }}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition"
               >
@@ -791,7 +1248,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                       <CreditCard className="w-4 h-4 text-indigo-500" />
-                      <span>Integrierte Zahlungsoptionen (Kreditkarte & Bargeld)</span>
+                      <span>{t('appstore.payment_options', currentLang, 'Integrierte Zahlungsoptionen (Kreditkarte & Bargeld)')}</span>
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                       Einheitlich
@@ -826,9 +1283,9 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                 <div>
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Funktions-Schlagwörter</h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedAppDetail.tags.map(tag => (
-                      <span key={tag} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300">
-                        {tag}
+                    {selectedAppDetail.tags.map(tg => (
+                      <span key={tg} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300">
+                        {tg}
                       </span>
                     ))}
                   </div>
@@ -840,7 +1297,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                 <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/40 rounded-2xl flex items-center gap-3">
                   <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
                   <div className="text-xs text-slate-700 dark:text-slate-300">
-                    <span className="font-bold text-indigo-700 dark:text-indigo-400 block">Geschützte Systemkomponente</span>
+                    <span className="font-bold text-indigo-700 dark:text-indigo-400 block">{t('appstore.status_system', currentLang, 'Geschützte Systemkomponente')}</span>
                     Dieses Modul ist das Fundament der SOCDOF-Systemarchitektur und kann nicht deaktiviert werden.
                   </div>
                 </div>
@@ -867,6 +1324,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
               <div className="flex items-center gap-2">
                 {!selectedAppDetail.isSystem && (
                   <button
+                    type="button"
                     onClick={() => {
                       onToggleInstallModule(selectedAppDetail.id);
                       setSelectedAppDetail(prev => prev ? { ...prev, isInstalled: !prev.isInstalled } : null);
@@ -878,12 +1336,13 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                     }`}
                   >
                     {selectedAppDetail.isInstalled ? <Trash2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-                    <span>{selectedAppDetail.isInstalled ? 'Deaktivieren' : 'Aktivieren'}</span>
+                    <span>{selectedAppDetail.isInstalled ? t('appstore.action_deactivate', currentLang, 'Deaktivieren') : t('appstore.action_activate', currentLang, 'Aktivieren')}</span>
                   </button>
                 )}
 
                 {selectedAppDetail.isInstalled && (
                   <button
+                    type="button"
                     onClick={() => {
                       onLaunchModule(selectedAppDetail.id);
                       setSelectedAppDetail(null);
@@ -891,7 +1350,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-95"
                   >
                     <Play className="w-4 h-4 fill-current" />
-                    <span>App öffnen</span>
+                    <span>{t('appstore.action_open', currentLang, 'App öffnen')}</span>
                   </button>
                 )}
               </div>

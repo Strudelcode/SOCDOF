@@ -1290,6 +1290,41 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     }
   };
 
+  const handleInstallBundle = (modules: ActiveModule[]) => {
+    sounds.playSuccess();
+    const toInstall = modules.filter(m => !installedModules.includes(m));
+    if (toInstall.length > 0) {
+      const nextInstalled = [...installedModules, ...toInstall];
+      saveInstalled(nextInstalled);
+      const nextPinned = [...pinnedDesktop, ...toInstall.filter(m => !pinnedDesktop.includes(m))];
+      savePinnedDesktop(nextPinned);
+      sounds.playInstall();
+    }
+  };
+
+  const handleCreateFolderFromBundle = (folderName: string, modules: ActiveModule[]) => {
+    sounds.playSuccess();
+    // 1. Ensure all modules in bundle are installed
+    const toInstall = modules.filter(m => !installedModules.includes(m));
+    if (toInstall.length > 0) {
+      const nextInstalled = [...installedModules, ...toInstall];
+      saveInstalled(nextInstalled);
+    }
+    // 2. Unpin from loose desktop so they live inside the folder
+    const nextPinnedDesktop = pinnedDesktop.filter(m => !modules.includes(m));
+    savePinnedDesktop(nextPinnedDesktop);
+    // 3. Create folder
+    const newFolderId = `bundle_folder_${Date.now()}`;
+    const newFolder: DesktopFolder = {
+      id: newFolderId,
+      name: folderName,
+      modules: [...modules],
+      createdAt: new Date().toISOString()
+    };
+    saveDesktopFolders([...desktopFolders, newFolder]);
+    sounds.playInstall();
+  };
+
   // Window drag & resize pointer/mouse event listeners
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent | MouseEvent) => {
@@ -2619,6 +2654,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onTogglePinDesktop={handleTogglePinDesktop}
                   onTogglePinTaskbar={handleTogglePinTaskbar}
                   onLaunchModule={(mod) => openWindow(mod)}
+                  onInstallBundle={handleInstallBundle}
+                  onCreateFolderFromBundle={handleCreateFolderFromBundle}
                 />
               )}
 

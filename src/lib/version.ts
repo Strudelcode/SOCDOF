@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.2.0';
+export const APP_VERSION = '22.3.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.3.0',
+    date: '2026-09-09',
+    title: 'Modern App Store Architecture with Apps, Curated Bundles & Desktop Folder Integration',
+    highlights: [
+      'Modern App Store Redesign: Overhauled the App Store with contemporary styling, dual-tab switcher (Apps vs. Bundles), smooth rounded squircle cards, category filters, and live metrics.',
+      'Curated Application Bundles: Introduced pre-configured app suites for School & Education, Commerce & ERP Starter, Gastronomy & POS, and Office & Productivity with one-click batch installation.',
+      'Direct Desktop Folder Creation: Users can automatically generate organized Desktop Folders containing all bundled applications directly from the App Store with one click.',
+      'Universal 4-Language Localization: Complete multi-language translation (DE, EN, FR, ES) for all App Store tabs, bundle descriptions, status badges, and action buttons via i18n.'
+    ]
+  },
   {
     version: '22.2.0',
     date: '2026-09-09',
