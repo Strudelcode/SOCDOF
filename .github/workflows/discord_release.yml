@@ -38,7 +38,7 @@ jobs:
         id: broadcast
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '1544004254417682442' }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '' }}
           RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
           RELEASE_NAME: ${{ github.event.release.name || '' }}
           RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com/Strudelcode/SOCDOF' }}

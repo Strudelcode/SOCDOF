@@ -61,8 +61,8 @@ def get_pkg_version() -> str:
     return "vLatest"
 
 def main():
-    webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
-    thread_id = os.environ.get("DISCORD_THREAD_ID", "1544004254417682442").strip()
+    raw_webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
+    thread_id = os.environ.get("DISCORD_THREAD_ID", "").strip()
     changelog_path = os.environ.get("CHANGELOG_PATH", "CHANGELOG.md")
     override_body = os.environ.get("OVERRIDE_BODY", "").strip()
     force_send = os.environ.get("FORCE_SEND", "false").lower() in ("true", "1", "yes")
@@ -72,10 +72,15 @@ def main():
     name = os.environ.get("RELEASE_NAME", "").strip() or f"SOCDOF {tag}"
     url = os.environ.get("RELEASE_URL", "").strip() or "https://github.com/Strudelcode/SOCDOF"
 
-    # If thread_id is specified and not already present in the query parameters, append it
-    if webhook_url and thread_id and "thread_id=" not in webhook_url:
-        delimiter = "&" if "?" in webhook_url else "?"
-        webhook_url = f"{webhook_url}{delimiter}thread_id={thread_id}"
+    # If thread_id is explicitly specified and not already present in the query parameters, append it
+    target_url = raw_webhook_url
+    has_thread_param = False
+    if raw_webhook_url and thread_id and "thread_id=" not in raw_webhook_url:
+        delimiter = "&" if "?" in raw_webhook_url else "?"
+        target_url = f"{raw_webhook_url}{delimiter}thread_id={thread_id}"
+        has_thread_param = True
+    elif "thread_id=" in raw_webhook_url:
+        has_thread_param = True
 
     # Read changelog file if present
     raw_changelog = ""
@@ -96,7 +101,7 @@ def main():
         sys.exit(0)
 
     # Check webhook URL
-    if not webhook_url:
+    if not raw_webhook_url:
         print("[discord_broadcast] Notice: DISCORD_WEBHOOK secret is not set or empty. Skipping Discord broadcast.")
         set_github_output("broadcast_sent", "false")
         sys.exit(0)
@@ -126,13 +131,15 @@ def main():
         "content": content
     }
 
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0; +https://github.com/Strudelcode/SOCDOF)"
+    }
+
     req = urllib.request.Request(
-        webhook_url,
+        target_url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0; +https://github.com/Strudelcode/SOCDOF)"
-        }
+        headers=headers
     )
 
     try:
@@ -141,8 +148,21 @@ def main():
     except urllib.error.HTTPError as e:
         err_body = e.read().decode('utf-8', errors='ignore')
         print(f"[discord_broadcast] Discord Webhook HTTP Error: {e.code} - {err_body}")
-        set_github_output("broadcast_sent", "false")
-        sys.exit(1)
+        # If error 10003 (Unknown Channel) occurred because of thread_id, fallback to base channel
+        if e.code == 400 and ("10003" in err_body or "Unknown Channel" in err_body) and has_thread_param and raw_webhook_url != target_url:
+            print(f"[discord_broadcast] Specified thread_id '{thread_id}' was not found in the webhook's channel (Error 10003).")
+            print("[discord_broadcast] Retrying broadcast directly to the webhook's base channel...")
+            try:
+                fallback_req = urllib.request.Request(raw_webhook_url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+                with urllib.request.urlopen(fallback_req) as fallback_resp:
+                    print(f"[discord_broadcast] Fallback broadcast delivered to base channel! HTTP Status: {fallback_resp.status}")
+            except Exception as e_fallback:
+                print(f"[discord_broadcast] Fallback to base channel also failed: {e_fallback}")
+                set_github_output("broadcast_sent", "false")
+                sys.exit(1)
+        else:
+            set_github_output("broadcast_sent", "false")
+            sys.exit(1)
     except Exception as e:
         print(f"[discord_broadcast] Failed to post to Discord webhook: {e}")
         set_github_output("broadcast_sent", "false")

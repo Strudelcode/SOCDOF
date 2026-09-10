@@ -83,7 +83,7 @@ jobs:
         if: success()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '1544004254417682442' }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '' }}
           RELEASE_TAG: ${{ steps.prep.outputs.version_tag }}
           RELEASE_NAME: SOCDOF ${{ steps.prep.outputs.version_tag }}
           RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.prep.outputs.version_tag }}

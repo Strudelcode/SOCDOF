@@ -6,7 +6,18 @@
 
 ## Completed Tasks Archive
 
-### 1. Desktop Calculator Widget, Rich Gradient Icon Visuals & App Store Workspace Harmonization (v22.5.0)
+### 1. App Store UI Refinement & Unified Button Row (v22.5.1)
+- [x] **App Store Header Polish**:
+  - [x] Removed redundant "Modulverwaltung" header pill badge that cluttered the hero banner.
+  - [x] Simplified titling to a clean, crisp "App Store" / "App-Pakete" heading with clear descriptive text.
+  - [x] Replaced awkward and repetitive terms ("Pakete & Bundles") with natural "Alle Apps" and "App-Pakete".
+- [x] **Single-Line Unified Card Action Alignment**:
+  - [x] Aligned bundle action buttons into a clean, level single horizontal row with unified `h-10` (40px) height.
+  - [x] Removed dangling unlabelled play button in bundle cards.
+  - [x] Balanced odd-numbered application grids inside bundle cards with full-width spanning (`sm:col-span-2`) for the last card.
+  - [x] Updated translations in `src/lib/i18n.ts` for DE, EN, FR, and ES.
+
+### 2. Desktop Calculator Widget, Rich Gradient Icon Visuals & App Store Workspace Harmonization (v22.5.0)
 - [x] **Interactive Desktop Calculator Widget**:
   - [x] Built `DesktopCalculatorWidget.tsx` and registered `calculator` in `DesktopWidgetType` in `types.ts`.
   - [x] Implemented phone-style desktop widget with full arithmetic operations (`+`, `-`, `×`, `÷`), `±`, `%`, backspace, and result copying.

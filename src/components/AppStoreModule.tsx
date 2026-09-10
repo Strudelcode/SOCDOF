@@ -518,40 +518,34 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       {/* Top Hero Banner with Modern Gradient */}
-      <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-indigo-900/40">
+      <div className="p-6 sm:p-7 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-indigo-900/40">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-violet-500/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold border border-indigo-400/30 backdrop-blur-md">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{t('appstore.hero_title', currentLang, 'App Store & Modulverwaltung')}</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              {activeMainTab === 'apps' 
-                ? t('appstore.hero_title', currentLang, 'ERP-Module & Werkzeuge')
-                : t('appstore.bundles_hero_title', currentLang, 'Vorkonfigurierte App-Pakete')}
+          <div className="space-y-1.5">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <span>{activeMainTab === 'apps' ? t('appstore.hero_title', currentLang, 'App Store') : t('appstore.bundles_hero_title', currentLang, 'App-Pakete')}</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
               {activeMainTab === 'apps'
-                ? t('appstore.hero_desc', currentLang, 'Passen Sie Ihren Offline-ERP-Arbeitsplatz individuell an. Aktivieren Sie einzelne Module oder installieren Sie komplette Pakete mit einem Klick.')
-                : t('appstore.bundles_hero_desc', currentLang, 'Installieren Sie perfekt abgestimmte Programmpakete für Schule, Handel, Gastronomie oder Büro-Organisation mit einem einzigen Klick.')}
+                ? t('appstore.hero_desc', currentLang, 'Entdecken, aktivieren und verwalten Sie alle Anwendungen für Ihren Arbeitsplatz.')
+                : t('appstore.bundles_hero_desc', currentLang, 'Installieren Sie abgestimmte Programmpakete für Schule, Handel, Gastronomie und Büro mit einem Klick.')}
             </p>
           </div>
 
           {/* Quick Metrics Bar */}
           <div className="flex items-center gap-3">
-            <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/10 text-center min-w-[90px] backdrop-blur-md">
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center min-w-[85px] backdrop-blur-md">
               <span className="text-[11px] text-slate-300 block font-medium">Apps</span>
               <span className="text-xl font-black text-white">{totalAppsCount}</span>
             </div>
-            <div className="p-3 sm:p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-center min-w-[90px] backdrop-blur-md">
+            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-center min-w-[85px] backdrop-blur-md">
               <span className="text-[11px] text-emerald-300 block font-medium">{t('appstore.filter_installed', currentLang, 'Aktiv')}</span>
               <span className="text-xl font-black text-emerald-400">{installedCount}</span>
             </div>
-            <div className="p-3 sm:p-4 rounded-2xl bg-indigo-500/10 border border-indigo-400/20 text-center min-w-[90px] backdrop-blur-md">
-              <span className="text-[11px] text-indigo-300 block font-medium">{t('appstore.tab_bundles', currentLang, 'Pakete')}</span>
+            <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-400/20 text-center min-w-[85px] backdrop-blur-md">
+              <span className="text-[11px] text-indigo-300 block font-medium">{t('appstore.tab_bundles_short', currentLang, 'Pakete')}</span>
               <span className="text-xl font-black text-indigo-400">{storeBundles.length}</span>
             </div>
           </div>
@@ -565,14 +559,14 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
           <button
             type="button"
             onClick={() => { sounds.playClick(); setActiveMainTab('apps'); }}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeMainTab === 'apps'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>{t('appstore.tab_apps', currentLang, 'Apps & Module')}</span>
+            <span>{t('appstore.tab_apps', currentLang, 'Alle Apps')}</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
               {totalAppsCount}
             </span>
@@ -582,14 +576,14 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
           <button
             type="button"
             onClick={() => { sounds.playClick(); setActiveMainTab('bundles'); }}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all relative ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
               activeMainTab === 'bundles'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <PackagePlus className="w-4 h-4 text-indigo-500" />
-            <span>{t('appstore.tab_bundles', currentLang, 'Pakete & Bundles')}</span>
+            <span>{t('appstore.tab_bundles', currentLang, 'App-Pakete')}</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold">
               {storeBundles.length}
             </span>
@@ -693,17 +687,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                           Enthaltene Apps ({totalInBundle})
                         </span>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {bundle.modules.map(modId => {
+                          {bundle.modules.map((modId, modIdx) => {
                             const modApp = allStoreApps.find(a => a.id === modId);
                             const isModInstalled = installedModules.includes(modId);
                             const ModIcon = getAppIcon(modId);
                             const modColor = getAppColor(modId);
+                            const isOddLast = bundle.modules.length % 2 !== 0 && modIdx === bundle.modules.length - 1;
 
                             return (
                               <div
                                 key={modId}
                                 onClick={() => modApp && setSelectedAppDetail(modApp)}
                                 className={`p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
+                                  isOddLast ? 'sm:col-span-2 ' : ''
+                                }${
                                   isModInstalled
                                     ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'
                                     : 'bg-white dark:bg-slate-900 border-dashed border-slate-200 dark:border-slate-800 opacity-75 hover:opacity-100'
@@ -748,61 +745,47 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
                     </div>
                   </div>
 
-                  {/* Bundle Actions Footer */}
-                  <div className="p-6 pt-0 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800/80 mt-4">
-                    <div className="flex items-center gap-2">
-                      {isFullyInstalled ? (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          <span>{t('appstore.bundle_installed', currentLang, 'Alle Apps aktiv')}</span>
-                        </div>
+                  {/* Bundle Actions Footer: Clean, unified single-line row */}
+                  <div className="p-4 sm:p-5 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
+                    {isFullyInstalled ? (
+                      <div className="flex-1 h-10 px-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="truncate">{t('appstore.bundle_installed', currentLang, 'Alle Apps installiert')}</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleInstallBundleClick(bundle)}
+                        className={`flex-1 h-10 px-3.5 rounded-xl text-xs font-bold text-white shadow-xs transition active:scale-[0.98] flex items-center justify-center gap-2 bg-gradient-to-r ${bundle.gradient} hover:opacity-90 cursor-pointer`}
+                      >
+                        <Download className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{t('appstore.bundle_install_all', currentLang, 'Paket installieren')}</span>
+                      </button>
+                    )}
+
+                    {/* Desktop Folder Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleCreateDesktopFolderClick(bundle)}
+                      className={`h-10 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shrink-0 border shadow-xs ${
+                        isFolderCreated
+                          ? 'bg-emerald-600 border-emerald-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                      title={t('appstore.bundle_create_folder', currentLang, 'Desktop-Ordner')}
+                    >
+                      {isFolderCreated ? (
+                        <>
+                          <FolderCheck className="w-4 h-4 text-white shrink-0" />
+                          <span>{t('appstore.bundle_folder_created', currentLang, 'Ordner angelegt')}</span>
+                        </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleInstallBundleClick(bundle)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition active:scale-95 bg-gradient-to-r ${bundle.gradient} hover:opacity-90`}
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>{t('appstore.bundle_install_all', currentLang, 'Paket installieren')}</span>
-                        </button>
+                        <>
+                          <FolderPlus className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span>{t('appstore.bundle_create_folder', currentLang, 'Desktop-Ordner')}</span>
+                        </>
                       )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {/* Create Desktop Folder Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleCreateDesktopFolderClick(bundle)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
-                          isFolderCreated
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-                        }`}
-                        title="Erstellt einen neuen Ordner auf dem Desktop mit allen Apps dieses Pakets"
-                      >
-                        {isFolderCreated ? (
-                          <>
-                            <FolderCheck className="w-3.5 h-3.5" />
-                            <span>{t('appstore.bundle_folder_created', currentLang, 'Desktop-Ordner angelegt!')}</span>
-                          </>
-                        ) : (
-                          <>
-                            <FolderPlus className="w-3.5 h-3.5 text-indigo-500" />
-                            <span>{t('appstore.bundle_create_folder', currentLang, 'Als Desktop-Ordner anlegen')}</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Launch Main App Button */}
-                      <button
-                        type="button"
-                        onClick={() => onLaunchModule(bundle.modules[0])}
-                        className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
-                        title="Haupt-App öffnen"
-                      >
-                        <Play className="w-4 h-4 fill-current" />
-                      </button>
-                    </div>
+                    </button>
                   </div>
                 </div>
               );

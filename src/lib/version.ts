@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.5.0';
+export const APP_VERSION = '22.5.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.5.1',
+    date: '2026-09-10',
+    title: 'App Store Cleanup & Unified Card Action Alignment',
+    highlights: [
+      'Removed redundant "Modulverwaltung" header pills and streamlined store titling to clean "App Store" and "App-Pakete"',
+      'Eliminated odd stray play button in bundle cards and unified all card actions into a clean, level single-line button row',
+      'Balanced odd app lists in bundle cards with full-width last rows to eliminate empty layout gaps',
+      'Refined 4-language i18n terminology across German, English, French, and Spanish'
+    ]
+  },
   {
     version: '22.5.0',
     date: '2026-09-10',

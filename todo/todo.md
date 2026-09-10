@@ -22,7 +22,25 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
-### 2.1 System Optimization & Continuous Polishing
+### 2.1 Multi-User Profiles & Windows-Style Authentication
+- [ ] **Windows-Style Lock Screen & User Profile Selection**:
+  - [ ] Implement a Windows-inspired startup/login screen with user avatar selection, PIN / password input, and account switching.
+  - [ ] Support adding multiple local user accounts with custom usernames, avatars, and security credentials.
+  - [ ] **Secure Credential Storage & Hashing**: Store passwords securely using cryptographic hashing (e.g. PBKDF2 / SHA-256 with salt) or secure vault mechanics rather than plaintext.
+  - [ ] **Per-User Profile Isolation**:
+    - [ ] Separate settings per user: personalized wallpaper, desktop widgets, taskbar layout, pinned apps, and language/theme preferences.
+    - [ ] Optional isolation of user-specific documents, notes, and local workspace data.
+  - [ ] Lock screen shortcut (`Win + L` equivalent or Start Menu lock button) to switch users quickly without closing running workspaces.
+
+### 2.2 Storage Inspector & Per-Module Disk Space Analyzer
+- [ ] **Granular Module & Feature Storage Breakdown**:
+  - [ ] Add a comprehensive "Storage & Data Footprint" inspector in the Settings module.
+  - [ ] Calculate and display the exact storage consumption (Bytes, KB, MB) per ERP module (Invoices, Products, Contacts, Stock, Accounting, Calendar, Notes/Widgets, Backups).
+  - [ ] Visualize storage distribution with clean interactive gauges or visual breakdown bars.
+  - [ ] **Multi-User Storage Usage**: Display how much storage is occupied by each individual user account and its respective configurations/files.
+  - [ ] Detail view showing which large records, attachments, or historical snapshots consume the most disk space, with quick optimization/cleanup tools.
+
+### 2.3 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
 
 

@@ -7,6 +7,12 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 🌟 Version 22.5.1 (App Store Bereinigung & Einzeilige Button-Anordnung)
+- 🔄 **Verbessert**: Bereinigter App Store Header – unschöne Badge-Pills ("Modulverwaltung") und doppelte Begriffe entfernt, klarer Fokus auf "App Store" und "App-Pakete".
+- 🔄 **Verbessert**: Perfekt ausgerichtete, einzeilige Button-Leiste in den Paket-Karten – einheitliche Höhe (`h-10`), harmonische Abstände und aufgeräumte Optik.
+- 🛠️ **Behoben**: Verwirrenden, losgelösten Play-Button in den Paketkarten entfernt.
+- 🛠️ **Behoben**: Ungerade App-Listen in Paket-Karten füllen nun die gesamte Zeile aus, sodass keine leeren Lücken mehr entstehen.
+
 ## 🌟 Version 22.5.0 (Taschenrechner-Widget, App Store Bereinigung & Desktop Farbverläufe)
 - 🚀 **Neu**: Interaktives Taschenrechner-Widget direkt auf dem Desktop für Sofortrechnungen, Kopieren per Klick und Schnellzugriff auf die Voll-App.
 - 🔄 **Verbessert**: Moderne Desktop-App-Icons mit lebendigen Farbverläufen (`bg-gradient-to-br`), identisch zum Design im App Store.
