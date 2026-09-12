@@ -536,6 +536,7 @@ export interface AppWindow {
   desktopId?: string; // Virtual desktop ID (or 'all' for pinned to all desktops)
   snapState?: 'left' | 'right' | 'maximize' | null;
   isAlwaysOnTop?: boolean; // Keep window on top (Overlay mode)
+  params?: Record<string, any>;
 }
 
 export interface VirtualDesktop {

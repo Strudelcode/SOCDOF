@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.5.1';
+export const APP_VERSION = '22.5.7';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,69 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.5.7',
+    date: '2026-09-12',
+    title: 'Invoice Creation Workflow & Window Parameter Orchestration',
+    highlights: [
+      'Fixed the "New Invoice" button in the invoices module to directly initialize and open the invoice draft creation modal',
+      'Enhanced window parameter orchestrator in DesktopWindowWorkspace so actions across contacts, products, and support tickets open the creation modal with prefilled data',
+      'Added fallback customer input in invoice creation modal allowing invoice generation even when no contacts exist yet in the database',
+      'Hardened stock moves module with self-contained modal state and optional callback handling'
+    ]
+  },
+  {
+    version: '22.5.6',
+    date: '2026-09-12',
+    title: 'Native Backup Wizard, Pre-Created /SOCDOF/backups & Unblocked Completion',
+    highlights: [
+      'Pre-creates and automatically prepares the Documents/SOCDOF/backups directory on app initialization for zero-friction backup setup',
+      'Integrated native Windows desktop folder selection dialog opening directly inside SOCDOF with the backups folder immediately visible',
+      'Redesigned backup onboarding wizard with prominent, one-click completion button so users can instantly finish setup without having to skip',
+      'Added direct disk file persistence and quick-launch Explorer opening for backup folders in desktop mode'
+    ]
+  },
+  {
+    version: '22.5.5',
+    date: '2026-09-12',
+    title: 'Installer Subdirectory Enforcement & Startup Hang Prevention',
+    highlights: [
+      'Configured custom NSIS script to guarantee destination folder always defaults and appends the dedicated /SOCDOF subfolder upon directory browsing',
+      'Added process single-instance lock to prevent Chromium profile deadlocks and window freezes when launching or completing installation',
+      'Implemented clean ready-to-show window rendering and deferred background services to ensure instant, fluid desktop responsiveness'
+    ]
+  },
+  {
+    version: '22.5.4',
+    date: '2026-09-12',
+    title: 'Professional Calculator UX Overhaul & Visual Structure Polish',
+    highlights: [
+      'Redesigned the top toolbar with a clean Windows-style mode selector popover (Standard vs. Scientific) eliminating redundant titles',
+      'Unified button design with elevated contrast, subtle border definitions, and visual hierarchy between digits, operators, and scientific functions',
+      'Streamlined memory toolbar into a sleek, minimal action strip inspired by modern desktop calculators',
+      'Added dynamic side-by-side wide layout toggle and responsive grid trays to enhance clarity on compact and wide displays alike'
+    ]
+  },
+  {
+    version: '22.5.3',
+    date: '2026-09-11',
+    title: 'Calculator Window Resize Bounds & Button Overlap Safeguard',
+    highlights: [
+      'Enforced strict minimum window bounds (320px width, 480px height) for the calculator to prevent over-shrinking and element collapse',
+      'Refactored scientific and arithmetic keypads with rigid grid row tracks and non-overflowing button heights to eliminate keypad overlapping',
+      'Guaranteed persistent window state integrity by automatically clamping saved window sizes to safe minimum dimensions'
+    ]
+  },
+  {
+    version: '22.5.2',
+    date: '2026-09-10',
+    title: 'Discord Forum & Channel Webhook Integration Hardening',
+    highlights: [
+      'Added automatic Discord forum post creation detection and intelligent retry mechanism for forum channels',
+      'Enhanced target webhook ID diagnostics and thread ID parameters in broadcast automation',
+      'Fixed channel routing resilience to ensure announcements deliver accurately to specified channels and forum posts'
+    ]
+  },
   {
     version: '22.5.1',
     date: '2026-09-10',

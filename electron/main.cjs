@@ -1,10 +1,18 @@
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const os = require('os');
 const { spawn } = require('child_process');
+
+// Single-instance lock: Enforce single process to prevent profile lock deadlocks and frozen windows
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  console.log('[SOCDOF Electron] Another instance is already running. Exiting smoothly.');
+  app.quit();
+  process.exit(0);
+}
 
 let mainWindow;
 let mobileSyncHttpServer = null;
@@ -147,6 +155,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
+    show: false, // Prevents white/black flashing and unresponsive initial frame detection
     title: 'SOCDOF - Strudel\'s Organization, Commerce & Documentation Offline Flow',
     icon: process.platform === 'win32'
       ? path.join(__dirname, '../public/socdof_icon.ico')
@@ -163,6 +172,13 @@ function createWindow() {
 
   // Ensure menu bar remains hidden
   mainWindow.setMenuBarVisibility(false);
+
+  // Reveal window once first paint is completed and DOM is ready
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) {
+      mainWindow.show();
+    }
+  });
 
   // Load the compiled Vite app
   const indexPath = path.join(__dirname, '../dist/index.html');
@@ -264,11 +280,14 @@ function getLanguagesDirectory() {
     }
   } catch {}
 
-  // 3. Check current working directory
+  // 3. Check current working directory safely (ignore system or root directories)
   try {
-    const cwdLangDir = path.join(process.cwd(), 'languages');
-    if (fs.existsSync(cwdLangDir)) {
-      return cwdLangDir;
+    const cwd = process.cwd();
+    if (cwd && !cwd.toLowerCase().includes('system32') && cwd.length > 3) {
+      const cwdLangDir = path.join(cwd, 'languages');
+      if (fs.existsSync(cwdLangDir)) {
+        return cwdLangDir;
+      }
     }
   } catch {}
 
@@ -623,11 +642,122 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
   }
 });
 
+// Backup directory manager - ensures Documents/SOCDOF/backups is pre-created and ready
+function getBackupDirectory() {
+  let documentsDir;
+  try {
+    documentsDir = app.getPath('documents');
+  } catch {
+    documentsDir = app.getPath('userData');
+  }
+
+  const socdofDir = path.join(documentsDir, 'SOCDOF');
+  const backupDir = path.join(socdofDir, 'backups');
+
+  try {
+    if (!fs.existsSync(socdofDir)) {
+      fs.mkdirSync(socdofDir, { recursive: true });
+    }
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Error preparing backup directories:', err);
+  }
+
+  return {
+    socdofDir,
+    backupDir
+  };
+}
+
+ipcMain.handle('socdof:get-backup-folder-path', () => {
+  return getBackupDirectory();
+});
+
+ipcMain.handle('socdof:select-backup-folder', async () => {
+  const { socdofDir, backupDir } = getBackupDirectory();
+  try {
+    if (!fs.existsSync(socdofDir)) fs.mkdirSync(socdofDir, { recursive: true });
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win, {
+      title: 'SOCDOF - Sicherungsordner auswählen',
+      defaultPath: socdofDir, // Opens directly inside SOCDOF where "backups" is immediately visible!
+      properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    return { canceled: false, folderPath: result.filePaths[0] };
+  } catch (err) {
+    console.error('[SOCDOF Electron] Folder picker error:', err);
+    return { canceled: false, folderPath: backupDir, error: err.message };
+  }
+});
+
+ipcMain.handle('socdof:open-backup-folder', async (_event, customPath) => {
+  const { backupDir } = getBackupDirectory();
+  const target = customPath && fs.existsSync(customPath) ? customPath : backupDir;
+  try {
+    await shell.openPath(target);
+    return { success: true, path: target };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('socdof:save-backup-file-to-disk', async (_event, payload) => {
+  try {
+    const { folderPath, fileName, content } = payload || {};
+    const { backupDir } = getBackupDirectory();
+    const targetDir = folderPath && fs.existsSync(folderPath) ? folderPath : backupDir;
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const fullPath = path.join(targetDir, fileName);
+    fs.writeFileSync(fullPath, content, 'utf8');
+    return { success: true, fullPath };
+  } catch (err) {
+    console.warn('[SOCDOF Electron] saveBackupFileToDisk error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+app.on('second-instance', () => {
+  // If user tries to run a second instance (e.g. from installer or shortcut), focus existing window
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
-  ensureDefaultLanguageFiles();
-  setupLanguagesFolderWatcher();
-  startMobileSyncServer(3000);
+
+  // Defer background language seed & backup folder readiness so the UI thread renders immediately
+  setImmediate(() => {
+    try {
+      getBackupDirectory();
+      ensureDefaultLanguageFiles();
+      setupLanguagesFolderWatcher();
+    } catch (e) {
+      console.warn('Background init error:', e);
+    }
+  });
+
+  // Defer mobile sync background HTTP server to avoid firewall / socket stalls during startup
+  setTimeout(() => {
+    try {
+      startMobileSyncServer(3000);
+    } catch (e) {
+      console.warn('Mobile sync background server init error:', e);
+    }
+  }, 1200);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

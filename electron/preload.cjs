@@ -27,5 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('socdof:mobile-sync-received', listener);
     return () => ipcRenderer.removeListener('socdof:mobile-sync-received', listener);
-  }
+  },
+  getBackupFolderPath: () => ipcRenderer.invoke('socdof:get-backup-folder-path'),
+  selectBackupFolder: () => ipcRenderer.invoke('socdof:select-backup-folder'),
+  openBackupFolder: (targetPath) => ipcRenderer.invoke('socdof:open-backup-folder', targetPath),
+  saveBackupFileToDisk: (payload) => ipcRenderer.invoke('socdof:save-backup-file-to-disk', payload)
 });

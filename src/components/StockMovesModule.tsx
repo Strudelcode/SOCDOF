@@ -26,21 +26,38 @@ interface StockMovesModuleProps {
   stockMoves: StockMove[];
   products: Product[];
   onRefresh: () => void;
-  isTransferModalOpen: boolean;
+  isTransferModalOpen?: boolean;
   preselectedProductId?: number;
-  onCloseTransferModal: () => void;
-  onOpenTransferModal: (productId?: number) => void;
+  onCloseTransferModal?: () => void;
+  onOpenTransferModal?: (productId?: number) => void;
 }
 
 export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
   stockMoves,
   products,
   onRefresh,
-  isTransferModalOpen,
+  isTransferModalOpen = false,
   preselectedProductId,
   onCloseTransferModal,
   onOpenTransferModal
 }) => {
+  const [localTransferOpen, setLocalTransferOpen] = useState(false);
+  const isModalOpen = isTransferModalOpen || localTransferOpen;
+
+  const handleOpenTransferModal = (productId?: number) => {
+    sounds.playClick();
+    if (productId) {
+      setTransferData(prev => ({ ...prev, product_id: productId }));
+    }
+    setLocalTransferOpen(true);
+    onOpenTransferModal?.(productId);
+  };
+
+  const handleCloseTransferModal = () => {
+    setLocalTransferOpen(false);
+    onCloseTransferModal?.();
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('all');
 
@@ -154,7 +171,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
       });
 
       sounds.playSuccess();
-      onCloseTransferModal();
+      handleCloseTransferModal();
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -242,11 +259,9 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               <span className="hidden sm:inline">{t('stock.btn_print', undefined, 'Print')}</span>
             </button>
             <button
-              onClick={() => {
-                sounds.playClick();
-                onOpenTransferModal();
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 whitespace-nowrap transition"
+              type="button"
+              onClick={() => handleOpenTransferModal()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/30 whitespace-nowrap transition cursor-pointer"
             >
               <ArrowLeftRight className="w-4 h-4" />
               <span>{t('stock.btn_record_move', undefined, 'Record Stock Move')}</span>
@@ -457,7 +472,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
       </div>
 
       {/* Stock Transfer Modal */}
-      {isTransferModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -468,7 +483,8 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
                 </h3>
               </div>
               <button
-                onClick={onCloseTransferModal}
+                type="button"
+                onClick={handleCloseTransferModal}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
@@ -624,7 +640,7 @@ export const StockMovesModule: React.FC<StockMovesModuleProps> = ({
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={onCloseTransferModal}
+                  onClick={handleCloseTransferModal}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                 >
                   {t('stock.modal_btn_cancel', undefined, 'Cancel')}

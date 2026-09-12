@@ -134,9 +134,27 @@ export async function createDatabaseBackup(
     console.warn('LocalStorage full or error storing snapshot payload:', err);
   }
 
-  // If requested, download file directly to user's disk
+  // If requested, download file directly to user's disk (browser)
   if (downloadDirectly) {
     downloadBackupFile(jsonStr, meta.timestamp, company);
+  }
+
+  // If running in Desktop / Electron, also automatically write file directly to disk in backup folder
+  if (typeof window !== 'undefined' && window.electronAPI?.saveBackupFileToDisk) {
+    try {
+      const dateFormatted = nowIso.split('T')[0];
+      const timeFormatted = nowIso.split('T')[1].replace(/:/g, '-').slice(0, 5);
+      const cleanName = (company.name || 'SOCDOF').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${cleanName}_Backup_${dateFormatted}_${timeFormatted}.socdof.json`;
+
+      await window.electronAPI.saveBackupFileToDisk({
+        folderPath: company.backup_folder_path,
+        fileName,
+        content: jsonStr
+      });
+    } catch (diskErr) {
+      console.warn('Could not save backup directly to disk in Electron:', diskErr);
+    }
   }
 
   return meta;

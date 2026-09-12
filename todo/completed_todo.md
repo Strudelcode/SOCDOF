@@ -6,7 +6,47 @@
 
 ## Completed Tasks Archive
 
-### 1. App Store UI Refinement & Unified Button Row (v22.5.1)
+### 1. Invoice Creation Workflow & Window Parameter Orchestration (v22.5.7)
+- [x] **New Invoice Button Activation**:
+  - [x] Connected "Neue Rechnung" (New Invoice) buttons in the header toolbar and the empty journal state to trigger `initNewInvoice()`.
+  - [x] Pre-fills next sequential number (`getNextInvoiceNumber`), calculates default item pricing, and displays the modal.
+  - [x] Added zero-contact fallback allowing direct customer name entry so the user is never blocked even without prior CRM entries.
+- [x] **Desktop Window Parameter Orchestration**:
+  - [x] Added `params` mapping to `AppWindow` and updated `openWindow()` in `DesktopWindowWorkspace.tsx`.
+  - [x] Integrated seamless invoice modal triggers from Contacts ("Rechnung für Kunde erstellen"), Stock ("Lagerbuchung"), and Support Tickets ("Rechnung für Service").
+  - [x] Hardened StockMovesModule modal state with self-contained local state and optional callback handling.
+
+### 2. Native Backup Setup Wizard & Pre-Created /SOCDOF/backups (v22.5.6)
+- [x] **Pre-Created Documents/SOCDOF/backups Folder**:
+  - [x] Implemented `getBackupDirectory()` in `electron/main.cjs` to automatically initialize `Documents/SOCDOF` and `Documents/SOCDOF/backups` upon application start.
+  - [x] Configured native folder selection (`socdof:select-backup-folder`) to default directly to `Documents/SOCDOF`, displaying the `backups` folder immediately for the user.
+- [x] **Unblocked Setup Completion**:
+  - [x] Redesigned `BackupSetupModal.tsx` with a primary "Einrichtung abschließen & Backups aktivieren" button that allows instant completion with either the default or selected folder.
+  - [x] Replaced web directory picker prompts with native Electron `dialog.showOpenDialog` preventing browser prompt hangs and non-responsive states.
+  - [x] Added "Open in Explorer" quick action in both the wizard and the Settings module.
+  - [x] Added direct backup writing to disk (`socdof:save-backup-file-to-disk`) in `src/lib/backupManager.ts`.
+  - [x] Synchronized all new backup wizard translation keys across German, English, French, and Spanish in `src/lib/i18n.ts`.
+
+### 2. Installer /SOCDOF Subfolder Enforcement & Startup Hang Prevention (v22.5.5)
+- [x] **Automatic /SOCDOF Installation Directory Enforcing**:
+  - [x] Created `build/installer.nsh` with `InstallDir "$PROGRAMFILES64\SOCDOF"`.
+  - [x] Configured NSIS directory browsing so whenever the user clicks "Durchsuchen..." and selects a drive or directory (e.g. `D:\apps`), NSIS automatically appends `\SOCDOF` into the destination field.
+  - [x] Linked custom include via `electron-builder.json` (`include: "build/installer.nsh"`).
+  - [x] Added `preInit` macro to terminate any stale running instance of `SOCDOF.exe` before file extraction.
+- [x] **Startup Hang & "Reagiert nicht" Prevention**:
+  - [x] Integrated `app.requestSingleInstanceLock()` in `electron/main.cjs` to eliminate Chromium profile lock deadlocks on finish/launch.
+  - [x] Configured BrowserWindow with `show: false` and `ready-to-show` presentation to prevent Windows Desktop Window Manager from marking the startup frame as unresponsive.
+  - [x] Deferred background services (`setImmediate` for language init, 1.2s delay for mobile sync HTTP server) so initial launch renders instantly.
+  - [x] Throttled i18n background synchronization to eliminate redundant disk I/O and JSON parsing on startup.
+
+### 2. Professional Calculator UX Overhaul & Visual Polish (v22.5.4)
+- [x] **Toolbar & Mode Selector Redesign**:
+  - [x] Replaced cluttered header badges with an elegant Windows-style mode selector popover (Standard vs. Scientific).
+  - [x] Removed repetitive title text and clutter from the calculator header.
+- [x] **Keypad Visual Hierarchy & Memory Bar**:
+  - [x] Upgraded buttons with high-contrast digits, distinct operator tints, and rounded-xl borders.
+  - [x] Streamlined memory toolbar into a modern, compact action strip (`MC`, `MR`, `M+`, `M-`, `MS`).
+  - [x] Added dynamic wide side-by-side toggle and responsive keypad grids.
 - [x] **App Store Header Polish**:
   - [x] Removed redundant "Modulverwaltung" header pill badge that cluttered the hero banner.
   - [x] Simplified titling to a clean, crisp "App Store" / "App-Pakete" heading with clear descriptive text.

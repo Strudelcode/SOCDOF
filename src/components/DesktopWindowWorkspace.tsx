@@ -302,8 +302,15 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   });
 
   const saveWindowState = (module: ActiveModule, state: { x: number; y: number; width: number; height: number; isMaximized: boolean }) => {
+    const minW = module === 'calculator' ? 320 : 520;
+    const minH = module === 'calculator' ? 480 : 380;
+    const clampedState = {
+      ...state,
+      width: Math.max(minW, state.width),
+      height: Math.max(minH, state.height)
+    };
     setSavedWindowStates(prev => {
-      const next = { ...prev, [module]: state };
+      const next = { ...prev, [module]: clampedState };
       try {
         localStorage.setItem('odoo_window_geometry_states', JSON.stringify(next));
       } catch {}
@@ -1372,8 +1379,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             let nextX = resizingWindow.initX;
             let nextY = resizingWindow.initY;
 
-            const minW = w.module === 'calculator' ? 260 : 520;
-            const minH = w.module === 'calculator' ? 320 : 380;
+            const minW = w.module === 'calculator' ? 320 : 520;
+            const minH = w.module === 'calculator' ? 480 : 380;
 
             // Horizontal resize
             if (dir.includes('e')) {
@@ -1638,7 +1645,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     openWindow('settings', t('desktop.system_settings', currentLang, 'System-Einstellungen'));
   };
 
-  const openWindow = (module: ActiveModule, customTitle?: string) => {
+  const openWindow = (module: ActiveModule, customTitle?: string, params?: Record<string, any>) => {
     closeAllContextMenus();
     sounds.playWindowOpen();
     setIsStartMenuOpen(false);
@@ -1650,7 +1657,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const title = customTitle || meta.title;
 
     if (existing) {
-      setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, isMinimized: false, zIndex: maxZ, desktopId: activeDesktopId } : w));
+      setWindows(prev => prev.map(w => w.id === existing.id ? { 
+        ...w, 
+        isMinimized: false, 
+        zIndex: maxZ, 
+        desktopId: activeDesktopId,
+        params: params ? { ...w.params, ...params } : w.params
+      } : w));
       setActiveWindowId(existing.id);
     } else {
       const offset = (windows.length % 6) * 25;
@@ -1666,8 +1679,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       let isMaximized = false;
 
       if (saved) {
-        startW = Math.min(screenW - 20, Math.max(module === 'calculator' ? 260 : 340, saved.width || (module === 'calculator' ? 380 : 1000)));
-        startH = Math.min(screenH - 60, Math.max(module === 'calculator' ? 320 : 350, saved.height || (module === 'calculator' ? 560 : 680)));
+        startW = Math.min(screenW - 20, Math.max(module === 'calculator' ? 320 : 340, saved.width || (module === 'calculator' ? 380 : 1000)));
+        startH = Math.min(screenH - 60, Math.max(module === 'calculator' ? 480 : 350, saved.height || (module === 'calculator' ? 560 : 680)));
         startX = Math.max(10, Math.min(screenW - startW - 10, saved.x ?? 40));
         startY = Math.max(10, Math.min(screenH - startH - 50, saved.y ?? 20));
         isMaximized = Boolean(saved.isMaximized);
@@ -1696,7 +1709,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         y: startY,
         width: startW,
         height: startH,
-        desktopId: activeDesktopId
+        desktopId: activeDesktopId,
+        params
       };
       setWindows(prev => [...prev, newWin]);
       setActiveWindowId(newWin.id);
@@ -2576,9 +2590,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   posOrders={posOrders}
                   company={company}
                   onNavigate={(mod) => openWindow(mod)}
-                  onOpenNewInvoice={() => openWindow('invoices', 'Rechnungen & Fakturierung')}
+                  onOpenNewInvoice={() => openWindow('invoices', 'Rechnungen & Fakturierung', { isCreateOpen: true })}
                   onOpenNewContact={() => openWindow('contacts', 'Kontakte & Kunden')}
-                  onOpenStockTransfer={() => openWindow('stock', 'Lager & Warenbewegungen')}
+                  onOpenStockTransfer={() => openWindow('stock', 'Lager & Warenbewegungen', { isTransferModalOpen: true })}
                   currency={company.currency}
                 />
               )}
@@ -2590,9 +2604,20 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   products={products}
                   company={company}
                   onRefresh={onRefreshData}
-                  isCreateOpen={false}
-                  onCloseCreate={() => {}}
-                  onOpenCreate={() => {}}
+                  isCreateOpen={Boolean(win.params?.isCreateOpen)}
+                  preselectedContactId={win.params?.contactId}
+                  onCloseCreate={() => {
+                    setWindows(prev => prev.map(w => w.id === win.id ? {
+                      ...w,
+                      params: { ...w.params, isCreateOpen: false }
+                    } : w));
+                  }}
+                  onOpenCreate={(contactId) => {
+                    setWindows(prev => prev.map(w => w.id === win.id ? {
+                      ...w,
+                      params: { ...w.params, isCreateOpen: true, contactId }
+                    } : w));
+                  }}
                   onOpenSettings={() => handleOpenSettings('general')}
                 />
               )}
@@ -2612,7 +2637,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   invoices={invoices}
                   company={company}
                   onRefresh={onRefreshData}
-                  onCreateInvoiceForContact={(c) => openWindow('invoices', `Rechnung für ${c.name}`)}
+                  onCreateInvoiceForContact={(c) => openWindow('invoices', `Rechnung für ${c.name}`, { isCreateOpen: true, contactId: c.id })}
                   currency={company.currency}
                 />
               )}
@@ -2623,7 +2648,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   invoices={invoices}
                   stockMoves={stockMoves}
                   onRefresh={onRefreshData}
-                  onOpenStockTransfer={() => openWindow('stock', 'Lagerbuchung')}
+                  onOpenStockTransfer={() => openWindow('stock', 'Lagerbuchung', { isTransferModalOpen: true })}
                   currency={company.currency}
                 />
               )}
@@ -2633,9 +2658,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   stockMoves={stockMoves}
                   products={products}
                   onRefresh={onRefreshData}
-                  isTransferModalOpen={false}
-                  onCloseTransferModal={() => {}}
-                  onOpenTransferModal={() => {}}
+                  isTransferModalOpen={Boolean(win.params?.isTransferModalOpen)}
+                  onCloseTransferModal={() => {
+                    setWindows(prev => prev.map(w => w.id === win.id ? {
+                      ...w,
+                      params: { ...w.params, isTransferModalOpen: false }
+                    } : w));
+                  }}
+                  onOpenTransferModal={(productId) => {
+                    setWindows(prev => prev.map(w => w.id === win.id ? {
+                      ...w,
+                      params: { ...w.params, isTransferModalOpen: true, productId }
+                    } : w));
+                  }}
                 />
               )}
 
@@ -2676,7 +2711,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <SupportServicesModule
                   contacts={contacts}
                   companyProfile={company}
-                  onCreateInvoiceForService={(ticket) => openWindow('invoices', `Rechnung für ${ticket.contact_name}`)}
+                  onCreateInvoiceForService={(ticket) => openWindow('invoices', `Rechnung für ${ticket.contact_name}`, { isCreateOpen: true, contactId: ticket.contact_id })}
                 />
               )}
 
@@ -2728,6 +2763,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   isAlwaysOnTop={win.isAlwaysOnTop}
                   onToggleAlwaysOnTop={() => toggleAlwaysOnTop(win.id)}
                   isSystemMuted={isMuted}
+                  isWideWindow={win.width >= 480}
+                  onToggleWideWindow={() => {
+                    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+                    const nextW = win.width >= 480 ? 360 : Math.min(screenW - 40, 620);
+                    const nextH = Math.max(win.height, 540);
+                    setWindows(prev => prev.map(w => w.id === win.id ? { ...w, width: nextW, height: nextH } : w));
+                    saveWindowState('calculator', { x: win.x, y: win.y, width: nextW, height: nextH, isMaximized: win.isMaximized });
+                  }}
                 />
               )}
 

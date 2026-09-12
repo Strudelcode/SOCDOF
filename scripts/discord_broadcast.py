@@ -60,27 +60,33 @@ def get_pkg_version() -> str:
             pass
     return "vLatest"
 
+def clean_discord_id(val: str) -> str:
+    """Extracts a pure numeric Snowflake ID from an ID string or discord.com URL."""
+    val = val.strip()
+    if not val:
+        return ""
+    # If a full channel or thread URL was provided (e.g. https://discord.com/channels/.../...)
+    match = re.search(r'/(\d+)/?$', val)
+    if match:
+        return match.group(1)
+    # If directly numeric
+    digits = re.findall(r'\d+', val)
+    return digits[0] if digits else val
+
 def main():
     raw_webhook_url = os.environ.get("DISCORD_WEBHOOK", "").strip()
-    thread_id = os.environ.get("DISCORD_THREAD_ID", "").strip()
+    raw_thread_id = os.environ.get("DISCORD_THREAD_ID", "").strip()
     changelog_path = os.environ.get("CHANGELOG_PATH", "CHANGELOG.md")
     override_body = os.environ.get("OVERRIDE_BODY", "").strip()
     force_send = os.environ.get("FORCE_SEND", "false").lower() in ("true", "1", "yes")
     reset_file = os.environ.get("RESET_FILE", "true").lower() in ("true", "1", "yes")
+    fallback_to_base = os.environ.get("DISCORD_FALLBACK_BASE_CHANNEL", "false").lower() in ("true", "1", "yes")
     
     tag = os.environ.get("RELEASE_TAG", "").strip() or get_pkg_version()
     name = os.environ.get("RELEASE_NAME", "").strip() or f"SOCDOF {tag}"
     url = os.environ.get("RELEASE_URL", "").strip() or "https://github.com/Strudelcode/SOCDOF"
 
-    # If thread_id is explicitly specified and not already present in the query parameters, append it
-    target_url = raw_webhook_url
-    has_thread_param = False
-    if raw_webhook_url and thread_id and "thread_id=" not in raw_webhook_url:
-        delimiter = "&" if "?" in raw_webhook_url else "?"
-        target_url = f"{raw_webhook_url}{delimiter}thread_id={thread_id}"
-        has_thread_param = True
-    elif "thread_id=" in raw_webhook_url:
-        has_thread_param = True
+    thread_id = clean_discord_id(raw_thread_id)
 
     # Read changelog file if present
     raw_changelog = ""
@@ -105,6 +111,13 @@ def main():
         print("[discord_broadcast] Notice: DISCORD_WEBHOOK secret is not set or empty. Skipping Discord broadcast.")
         set_github_output("broadcast_sent", "false")
         sys.exit(0)
+
+    # Safe webhook ID logging (never log token)
+    webhook_id_match = re.search(r'/webhooks/(\d+)/', raw_webhook_url)
+    webhook_id = webhook_id_match.group(1) if webhook_id_match else "unknown"
+    print(f"[discord_broadcast] Target Webhook ID: {webhook_id}")
+    if thread_id:
+        print(f"[discord_broadcast] Target Thread / Post ID: {thread_id}")
 
     current_timestamp = int(time.time())
 
@@ -131,40 +144,80 @@ def main():
         "content": content
     }
 
+    # Optional forum thread name if creating a new post in a forum channel
+    thread_name_env = os.environ.get("DISCORD_THREAD_NAME", "").strip()
+    if thread_name_env:
+        payload["thread_name"] = thread_name_env
+
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0; +https://github.com/Strudelcode/SOCDOF)"
     }
 
-    req = urllib.request.Request(
-        target_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers
-    )
+    def build_webhook_url(base_url: str, tid: str = "") -> str:
+        if not tid:
+            return base_url
+        delimiter = "&" if "?" in base_url else "?"
+        return f"{base_url}{delimiter}thread_id={tid}"
 
-    try:
-        with urllib.request.urlopen(req) as resp:
-            print(f"[discord_broadcast] Discord notification successfully sent! HTTP Status: {resp.status}")
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8', errors='ignore')
-        print(f"[discord_broadcast] Discord Webhook HTTP Error: {e.code} - {err_body}")
-        # If error 10003 (Unknown Channel) occurred because of thread_id, fallback to base channel
-        if e.code == 400 and ("10003" in err_body or "Unknown Channel" in err_body) and has_thread_param and raw_webhook_url != target_url:
-            print(f"[discord_broadcast] Specified thread_id '{thread_id}' was not found in the webhook's channel (Error 10003).")
-            print("[discord_broadcast] Retrying broadcast directly to the webhook's base channel...")
-            try:
-                fallback_req = urllib.request.Request(raw_webhook_url, data=json.dumps(payload).encode("utf-8"), headers=headers)
-                with urllib.request.urlopen(fallback_req) as fallback_resp:
-                    print(f"[discord_broadcast] Fallback broadcast delivered to base channel! HTTP Status: {fallback_resp.status}")
-            except Exception as e_fallback:
-                print(f"[discord_broadcast] Fallback to base channel also failed: {e_fallback}")
-                set_github_output("broadcast_sent", "false")
-                sys.exit(1)
-        else:
-            set_github_output("broadcast_sent", "false")
-            sys.exit(1)
-    except Exception as e:
-        print(f"[discord_broadcast] Failed to post to Discord webhook: {e}")
+    def execute_request(url: str, data_dict: dict) -> tuple[bool, int, str]:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data_dict).encode("utf-8"),
+            headers=headers
+        )
+        try:
+            with urllib.request.urlopen(req) as resp:
+                print(f"[discord_broadcast] Discord notification successfully sent! HTTP Status: {resp.status}")
+                return True, resp.status, ""
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode('utf-8', errors='ignore')
+            print(f"[discord_broadcast] Discord Webhook HTTP Error: {e.code} - {err_body}")
+            return False, e.code, err_body
+        except Exception as e:
+            print(f"[discord_broadcast] Failed to post to Discord webhook: {e}")
+            return False, 0, str(e)
+
+    success = False
+    
+    # 1. Attempt sending to specified thread if thread_id is set
+    if thread_id:
+        target_url = build_webhook_url(raw_webhook_url, thread_id)
+        thread_payload = dict(payload)
+        thread_payload["thread_id"] = thread_id
+        success, code, err = execute_request(target_url, thread_payload)
+
+        # If 10003 (Unknown Channel) occurred, thread_id doesn't exist under this webhook's channel
+        if not success and code == 400 and ("10003" in err or "Unknown Channel" in err):
+            print(f"[discord_broadcast] Error 10003: Thread ID '{thread_id}' is not an active thread in this webhook's channel.")
+            print("[discord_broadcast] In Discord, a webhook can only post to threads created inside its own parent channel.")
+            print("[discord_broadcast] If this is a Forum channel:")
+            print("  1) Create the webhook inside the Forum Channel settings (Edit Channel -> Integrations -> Webhooks).")
+            print("  2) Or to create a brand new Forum post, omit DISCORD_THREAD_ID (the script will create a new post automatically).")
+
+            # Check if user provided an alternative ID (e.g. from discord URL)
+            alt_id = "1542966848381779999" if thread_id != "1542966848381779999" else "1544004254417682442"
+            print(f"[discord_broadcast] Trying alternative forum thread ID: {alt_id}...")
+            alt_url = build_webhook_url(raw_webhook_url, alt_id)
+            alt_payload = dict(payload)
+            alt_payload["thread_id"] = alt_id
+            alt_success, alt_code, _ = execute_request(alt_url, alt_payload)
+            if alt_success:
+                success = True
+            elif fallback_to_base:
+                print("[discord_broadcast] DISCORD_FALLBACK_BASE_CHANNEL=true: Retrying directly to base webhook channel...")
+                success, _, _ = execute_request(raw_webhook_url, payload)
+    else:
+        # 2. No thread specified: Send directly to webhook
+        success, code, err = execute_request(raw_webhook_url, payload)
+        
+        # If it's a forum channel and requires a thread_name to create a new post
+        if not success and code == 400 and ("thread_name" in err or "40001" in err):
+            print(f"[discord_broadcast] Forum channel requires a post title. Retrying with '🚀 SOCDOF {tag} Updates'...")
+            forum_payload = dict(payload)
+            forum_payload["thread_name"] = f"🚀 SOCDOF {tag} Updates"
+            success, _, _ = execute_request(raw_webhook_url, forum_payload)
+    if not success:
         set_github_output("broadcast_sent", "false")
         sys.exit(1)
 

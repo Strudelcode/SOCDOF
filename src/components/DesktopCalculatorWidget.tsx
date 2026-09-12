@@ -222,10 +222,10 @@ export const DesktopCalculatorWidget: React.FC<DesktopCalculatorWidgetProps> = (
                 ? 'bg-emerald-500 text-white' 
                 : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
             }`}
-            title={copied ? t('widgets.calc_copied', currentLang, 'Kopiert!') : 'Ergebnis kopieren'}
+            title={copied ? t('calc.copied', currentLang, 'Kopiert!') : t('calc.copy_result', currentLang, 'Ergebnis kopieren')}
           >
             {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied && <span>{t('widgets.calc_copied', currentLang, 'Kopiert!')}</span>}
+            {copied && <span>{t('calc.copied', currentLang, 'Kopiert!')}</span>}
           </button>
 
           <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white truncate">
@@ -375,7 +375,7 @@ export const DesktopCalculatorWidget: React.FC<DesktopCalculatorWidgetProps> = (
           type="button"
           onClick={handleBackspace}
           className="h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/70 dark:hover:bg-slate-700 active:scale-95 text-slate-500 dark:text-slate-400 font-bold text-xs transition flex items-center justify-center cursor-pointer shadow-2xs"
-          title="Backspace"
+          title={t('calc.backspace', currentLang, 'Backspace')}
         >
           <Delete className="w-3.5 h-3.5" />
         </button>

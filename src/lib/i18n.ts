@@ -276,8 +276,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'backup.wizard_desc': 'Would you like to enable automatic local backups to protect your invoices, contacts, and accounting records regularly?',
     'backup.default_label': 'Default Setting:',
     'backup.default_desc': 'Backups are stored by default in your local browser Downloads directory or can be pointed to any directory of your choice (e.g. hard drive, USB stick).',
+    'backup.selected_folder_label': 'Selected Backup Directory:',
+    'backup.default_folder_hint': 'Automatically created in Documents/SOCDOF/backups',
+    'backup.folder_ready_badge': 'Ready for automatic backups',
+    'backup.btn_finish_setup': 'Complete Setup & Enable Backups',
+    'backup.btn_change_folder': 'Choose Another Folder...',
+    'backup.btn_open_folder': 'Open in Explorer',
     'backup.btn_enable_and_pick': 'Enable Backups & Choose Folder',
     'backup.btn_skip_default': 'Skip (Keep Default Downloads Folder)',
+    'backup.btn_skip_later': 'Continue without Backups (Set up later)',
     'backup.btn_disable': 'Disable Automatic Backups',
     'backup.note_change_later': 'You can change this anytime in Settings > Backup & Storage.',
     'backup.section_title': 'Backup Storage Location',
@@ -1329,7 +1336,25 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calc.always_on_top_desc': 'Keep calculator visible above all other windows, just like Windows.',
     'calc.sound_system_hint': 'Defaults to system sound preferences (Settings -> Sounds & Feedback)',
     'calc.error_invalid': 'Invalid Input',
-    'calc.error_div_zero': 'Cannot divide by 0'
+    'calc.error_div_zero': 'Cannot divide by 0',
+    'calc.mode_simple_desc': 'Basic arithmetic (+, −, ×, ÷), percentages, and signs. Ideal for quick everyday tasks.',
+    'calc.mode_scientific_desc': 'Trigonometry (sin/cos/tan), logarithms, powers, roots, factorials, and parentheses for STEM & education.',
+    'calc.places_2': '2 Decimals',
+    'calc.places_4': '4 Decimals',
+    'calc.places_6': '6 Decimals',
+    'calc.sound_muted_system': 'System audio is muted',
+    'calc.sound_active_system': 'System audio is active',
+    'calc.keyboard_guide_title': 'Keyboard Support (School & Workplace)',
+    'calc.keyboard_guide_desc': 'Numpad 0-9, operators + - * /, calculate with Enter or =, clear with Esc, and correct with Backspace.',
+    'calc.done': 'Done',
+    'calc.angle_toggle_tooltip': 'Toggle Degrees / Radians',
+    'calc.pin_overlay': 'Keep on top (Overlay)',
+    'calc.unpin_overlay': 'Release overlay',
+    'calc.mute_sound': 'Mute sound',
+    'calc.unmute_sound': 'Enable sound',
+    'calc.backspace': 'Backspace',
+    'calc.overlay': 'Overlay',
+    'calc.history_desc': 'Executed calculations are archived here for homework and reference.'
   },
 
   de: {
@@ -1590,8 +1615,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'backup.wizard_desc': 'Möchten Sie automatische Backups aktivieren, um Ihre Rechnungen, Kontakte und Buchungen regelmäßig lokal abzusichern?',
     'backup.default_label': 'Standardeinstellung:',
     'backup.default_desc': 'Backups werden standardmäßig lokal in Ihrem Browser-Download-Ordner abgelegt oder können direkt in ein Verzeichnis Ihrer Wahl (z. B. Festplatte, USB-Laufwerk) gespeichert werden.',
+    'backup.selected_folder_label': 'Ausgewählter Sicherungsordner:',
+    'backup.default_folder_hint': 'Automatisch in Dokumente/SOCDOF/backups vorbereitet',
+    'backup.folder_ready_badge': 'Bereit für automatische Sicherungen',
+    'backup.btn_finish_setup': 'Einrichtung abschließen & Backups aktivieren',
+    'backup.btn_change_folder': 'Anderen Ordner wählen...',
+    'backup.btn_open_folder': 'Im Explorer öffnen',
     'backup.btn_enable_and_pick': 'Backups aktivieren & Ordner wählen',
     'backup.btn_skip_default': 'Überspringen (Standardverzeichnis beibehalten)',
+    'backup.btn_skip_later': 'Ohne Backups fortfahren (später einrichten)',
     'backup.btn_disable': 'Backups deaktivieren',
     'backup.note_change_later': 'Sie können diese Einstellung jederzeit im Modul Einstellungen > Backup & Speicher anpassen.',
     'backup.section_title': 'Backup-Speicherort',
@@ -2643,7 +2675,25 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calc.always_on_top_desc': 'Hält den Rechner über allen anderen Fenstern geöffnet, genau wie in Windows.',
     'calc.sound_system_hint': 'Folgt standardmäßig den Audio-Einstellungen (Einstellungen -> Töne & Feedback)',
     'calc.error_invalid': 'Ungültige Eingabe',
-    'calc.error_div_zero': 'Division durch 0 nicht möglich'
+    'calc.error_div_zero': 'Division durch 0 nicht möglich',
+    'calc.mode_simple_desc': 'Grundrechenarten (+, −, ×, ÷), Prozentrechnung und Vorzeichen. Ideal für den schnellen Alltag.',
+    'calc.mode_scientific_desc': 'Trigonometrie (sin/cos/tan), Logarithmen, Potenzen, Wurzeln, Fakultäten und Klammern für Schule & Studium.',
+    'calc.places_2': '2 Stellen',
+    'calc.places_4': '4 Stellen',
+    'calc.places_6': '6 Stellen',
+    'calc.sound_muted_system': 'Haupteinstellung: Töne im System stummgeschaltet',
+    'calc.sound_active_system': 'Haupteinstellung: Töne im System aktiv',
+    'calc.keyboard_guide_title': 'Tastatur-Unterstützung (Schule & Arbeitsplatz)',
+    'calc.keyboard_guide_desc': 'Zahlenblock 0-9, Rechenzeichen + - * /, Ergebnis mit Enter oder =, Löschen mit Esc und Korrektur mit Backspace.',
+    'calc.done': 'Fertig',
+    'calc.angle_toggle_tooltip': 'Gradmaß / Bogenmaß umschalten',
+    'calc.pin_overlay': 'Immer im Vordergrund halten (Overlay)',
+    'calc.unpin_overlay': 'Immer im Vordergrund lösen',
+    'calc.mute_sound': 'Ton stummschalten',
+    'calc.unmute_sound': 'Ton aktivieren',
+    'calc.backspace': 'Rücktaste (Backspace)',
+    'calc.overlay': 'Overlay',
+    'calc.history_desc': 'Ausgeführte Rechnungen werden hier für Hausaufgaben & Nachvollziehbarkeit archiviert.'
   },
 
   fr: {
@@ -2904,8 +2954,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'backup.wizard_desc': 'Souhaitez-vous activer les sauvegardes automatiques locales pour protéger régulièrement vos factures, contacts et écritures comptables ?',
     'backup.default_label': 'Paramètre par défaut :',
     'backup.default_desc': 'Les sauvegardes sont enregistrées par défaut dans votre dossier Téléchargements ou peuvent être stockées dans un dossier de votre choix (ex. disque dur, clé USB).',
+    'backup.selected_folder_label': 'Dossier de sauvegarde sélectionné :',
+    'backup.default_folder_hint': 'Créé automatiquement dans Documents/SOCDOF/backups',
+    'backup.folder_ready_badge': 'Prêt pour les sauvegardes automatiques',
+    'backup.btn_finish_setup': 'Terminer la configuration & Activer',
+    'backup.btn_change_folder': 'Choisir un autre dossier...',
+    'backup.btn_open_folder': 'Ouvrir dans l’explorateur',
     'backup.btn_enable_and_pick': 'Activer les sauvegardes et choisir un dossier',
     'backup.btn_skip_default': 'Passer (Conserver le dossier Téléchargements par défaut)',
+    'backup.btn_skip_later': 'Continuer sans sauvegardes (configurer plus tard)',
     'backup.btn_disable': 'Désactiver les sauvegardes automatiques',
     'backup.note_change_later': 'Vous pouvez modifier ce paramètre à tout moment dans Paramètres > Sauvegarde & Stockage.',
     'backup.section_title': 'Emplacement de sauvegarde',
@@ -3956,7 +4013,25 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calc.always_on_top_desc': 'Garde la calculatrice visible au-dessus de toutes les fenêtres, comme sous Windows.',
     'calc.sound_system_hint': 'Suit par défaut les préférences audio du système (Paramètres -> Sons & Retours)',
     'calc.error_invalid': 'Entrée non valide',
-    'calc.error_div_zero': 'Division par 0 impossible'
+    'calc.error_div_zero': 'Division par 0 impossible',
+    'calc.mode_simple_desc': 'Arithmétique de base (+, −, ×, ÷), pourcentages et signes. Idéal pour le quotidien.',
+    'calc.mode_scientific_desc': 'Trigonométrie (sin/cos/tan), logarithmes, puissances, racines, factorielles et parenthèses pour l\'école et les sciences.',
+    'calc.places_2': '2 décimales',
+    'calc.places_4': '4 décimales',
+    'calc.places_6': '6 décimales',
+    'calc.sound_muted_system': 'Paramètre principal : sons du système coupés',
+    'calc.sound_active_system': 'Paramètre principal : sons du système actifs',
+    'calc.keyboard_guide_title': 'Prise en charge du clavier (École & Travail)',
+    'calc.keyboard_guide_desc': 'Pavé numérique 0-9, opérateurs + - * /, calculer avec Entrée ou =, effacer avec Échap, corriger avec Retour arrière.',
+    'calc.done': 'Terminé',
+    'calc.angle_toggle_tooltip': 'Basculer Degrés / Radians',
+    'calc.pin_overlay': 'Toujours au premier plan (Overlay)',
+    'calc.unpin_overlay': 'Détacher le premier plan',
+    'calc.mute_sound': 'Couper le son',
+    'calc.unmute_sound': 'Activer le son',
+    'calc.backspace': 'Retour arrière (Backspace)',
+    'calc.overlay': 'Overlay',
+    'calc.history_desc': 'Les calculs sont archivés ici pour les devoirs et le suivi.'
   },
 
   es: {
@@ -4217,8 +4292,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'backup.wizard_desc': '¿Desea activar copias de seguridad locales automáticas para proteger periódicamente sus facturas, contactos y asientos contables?',
     'backup.default_label': 'Ajuste predeterminado:',
     'backup.default_desc': 'Las copias de seguridad se guardan de forma predeterminada en su carpeta Descargas o pueden guardarse directamente en la carpeta que elija (ej. disco duro, memoria USB).',
+    'backup.selected_folder_label': 'Carpeta de copia de seguridad seleccionada:',
+    'backup.default_folder_hint': 'Creado automáticamente en Documentos/SOCDOF/backups',
+    'backup.folder_ready_badge': 'Listo para copias de seguridad automáticas',
+    'backup.btn_finish_setup': 'Finalizar configuración y activar copias',
+    'backup.btn_change_folder': 'Elegir otra carpeta...',
+    'backup.btn_open_folder': 'Abrir en el Explorador',
     'backup.btn_enable_and_pick': 'Activar copias y elegir carpeta',
     'backup.btn_skip_default': 'Omitir (Conservar carpeta Descargas predeterminada)',
+    'backup.btn_skip_later': 'Continuar sin copias (configurar más tarde)',
     'backup.btn_disable': 'Desactivar copias automáticas',
     'backup.note_change_later': 'Puede cambiar esta configuración en cualquier momento en Configuración > Copia de seguridad y almacenamiento.',
     'backup.section_title': 'Ubicación de copia de seguridad',
@@ -5269,7 +5351,25 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'calc.always_on_top_desc': 'Mantiene la calculadora visible sobre todas las ventanas, igual que en Windows.',
     'calc.sound_system_hint': 'Sigue por defecto los ajustes de sonido del sistema (Ajustes -> Sonidos)',
     'calc.error_invalid': 'Entrada no válida',
-    'calc.error_div_zero': 'No se puede dividir por 0'
+    'calc.error_div_zero': 'No se puede dividir por 0',
+    'calc.mode_simple_desc': 'Aritmética básica (+, −, ×, ÷), porcentajes y signos. Ideal para el día a día.',
+    'calc.mode_scientific_desc': 'Trigonometría (sin/cos/tan), logaritmos, potencias, raíces, factoriales y paréntesis para estudio y ciencia.',
+    'calc.places_2': '2 decimales',
+    'calc.places_4': '4 decimales',
+    'calc.places_6': '6 decimales',
+    'calc.sound_muted_system': 'Ajuste principal: sonidos del sistema silenciados',
+    'calc.sound_active_system': 'Ajuste principal: sonidos del sistema activos',
+    'calc.keyboard_guide_title': 'Compatibilidad con teclado (Escuela y Trabajo)',
+    'calc.keyboard_guide_desc': 'Teclado numérico 0-9, operadores + - * /, calcular con Enter o =, borrar con Esc y corregir con Retroceso.',
+    'calc.done': 'Listo',
+    'calc.angle_toggle_tooltip': 'Cambiar Grados / Radianes',
+    'calc.pin_overlay': 'Mantener en primer plano (Superposición)',
+    'calc.unpin_overlay': 'Liberar superposición',
+    'calc.mute_sound': 'Silenciar sonido',
+    'calc.unmute_sound': 'Activar sonido',
+    'calc.backspace': 'Retroceso (Backspace)',
+    'calc.overlay': 'Superposición',
+    'calc.history_desc': 'Los cálculos se archivan aquí para tareas y seguimiento.'
   },
 };
 
@@ -5618,10 +5718,12 @@ if (typeof window !== 'undefined') {
       }
     } catch {}
 
-    // 3. Fallback continuous polling (every 3.5s) to guarantee zero-lag update
-    setInterval(() => {
-      syncDesktopLanguageFiles();
-    }, 3500);
+    // 3. Fallback continuous polling (only when native watcher or SSE are unavailable)
+    if (!electronAPI?.onLanguagesFolderChanged) {
+      setInterval(() => {
+        syncDesktopLanguageFiles();
+      }, 10000);
+    }
   }, 100);
 }
 
@@ -5633,7 +5735,7 @@ export function exportLanguageTemplate(): string {
       author: 'User / Community',
       language_name: 'Custom Language',
       language_code: 'custom',
-      app_version: '22.0.0',
+      app_version: '22.5.2',
       created_at: new Date().toISOString()
     },
     translations: { ...translations.en }
@@ -5648,7 +5750,7 @@ export function exportLanguagePack(lang: LanguageCode): string {
       title: `SOCDOF Language Pack (${langName})`,
       language_name: langName,
       language_code: lang,
-      app_version: '22.0.0',
+      app_version: '22.5.2',
       exported_at: new Date().toISOString()
     },
     translations: { ...(translations[lang] || translations.en) }

@@ -90,7 +90,7 @@ import {
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
-import { GITHUB_RELEASES_URL, GITHUB_REPO_URL } from '../lib/platform';
+import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
 import { checkForAppUpdates, UpdateInfo } from '../lib/updateChecker';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import {
@@ -476,12 +476,25 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const handlePickBackupFolder = async () => {
     sounds.playClick();
     try {
-      // 1. Modern File System Access API (supported in Chromium / Windows Desktop / Edge)
+      // 1. Native Desktop Electron file picker (opens directly in Documents/SOCDOF with backups visible)
+      if (typeof window !== 'undefined' && window.electronAPI?.selectBackupFolder) {
+        const result = await window.electronAPI.selectBackupFolder();
+        if (!result.canceled && result.folderPath) {
+          const fullPath = result.folderPath;
+          setProfile(prev => ({ ...prev, backup_folder_path: fullPath }));
+          await handleSaveProfile({ backup_folder_path: fullPath });
+          sounds.playSuccess();
+          return;
+        }
+        if (result.canceled) return;
+      }
+
+      // 2. Modern Web File System Access API
       if ('showDirectoryPicker' in window) {
         const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
         if (dirHandle && dirHandle.name) {
           const pickedName = dirHandle.name;
-          const fullPath = `C:\\${pickedName}\\SOCDOF_Backups`;
+          const fullPath = `Documents/SOCDOF/${pickedName}`;
           setProfile(prev => ({ ...prev, backup_folder_path: fullPath }));
           await handleSaveProfile({ backup_folder_path: fullPath });
           sounds.playSuccess();
@@ -3351,6 +3364,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       <FolderOpen className="w-4 h-4" />
                       <span>{t('backup.btn_choose_folder')}</span>
                     </button>
+                    {isElectron() && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.electronAPI?.openBackupFolder) {
+                            await window.electronAPI.openBackupFolder(profile.backup_folder_path);
+                          }
+                        }}
+                        title={t('backup.btn_open_folder')}
+                        className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shrink-0"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>{t('backup.btn_open_folder')}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

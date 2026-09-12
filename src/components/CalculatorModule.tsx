@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Calculator as CalcIcon,
+  Calculator,
+  FlaskConical,
+  ChevronDown,
   Settings,
   History,
   Trash2,
@@ -19,7 +21,9 @@ import {
   Equal,
   Delete,
   CornerDownLeft,
-  Pin
+  Pin,
+  Columns,
+  LayoutGrid
 } from 'lucide-react';
 import { useLanguage, t } from '../lib/i18n';
 import { sounds } from '../lib/sound';
@@ -38,12 +42,16 @@ export interface CalculatorModuleProps {
   isAlwaysOnTop?: boolean;
   onToggleAlwaysOnTop?: () => void;
   isSystemMuted?: boolean;
+  isWideWindow?: boolean;
+  onToggleWideWindow?: () => void;
 }
 
 export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
   isAlwaysOnTop = false,
   onToggleAlwaysOnTop,
   isSystemMuted,
+  isWideWindow,
+  onToggleWideWindow,
 }) => {
   const currentLang = useLanguage();
 
@@ -91,8 +99,24 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
   // UI Panels
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [isSecondFunction, setIsSecondFunction] = useState(false);
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node)) {
+        setIsModeMenuOpen(false);
+      }
+    };
+    if (isModeMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isModeMenuOpen]);
 
   // Calculation Engine State
   const [displayValue, setDisplayValue] = useState<string>('0');
@@ -605,33 +629,410 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inputDigit, inputDecimal, performOperation, computeFinalResult, backspace, clearAll, insertParenthesis, applyPercent]);
 
-  // Compute dynamic font size for large numbers
+  // Measure container dimensions for responsive fluid scaling (avoids viewport media query limitations)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerDims, setContainerDims] = useState<{ width: number; height: number }>({ width: 420, height: 520 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setContainerDims({ width: Math.round(width), height: Math.round(height) });
+        }
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Check if calculator is dragged wide enough for ergonomic side-by-side scientific layout
+  const isWideLayout = mode === 'scientific' && (containerDims.width >= 480 || !!isWideWindow);
+
+  // Compute dynamic font size for large numbers in display
   const displayFontSize = useMemo(() => {
     const len = displayValue.length;
-    if (len <= 7) return 'text-2xl sm:text-4xl md:text-5xl';
-    if (len <= 11) return 'text-xl sm:text-3xl md:text-4xl';
-    if (len <= 16) return 'text-lg sm:text-2xl md:text-3xl';
-    return 'text-base sm:text-xl md:text-2xl';
-  }, [displayValue]);
+    if (containerDims.width < 360) {
+      if (len <= 7) return 'text-xl';
+      if (len <= 11) return 'text-lg';
+      return 'text-base';
+    }
+    if (containerDims.width >= 750 || containerDims.height >= 650) {
+      if (len <= 7) return 'text-5xl md:text-6xl';
+      if (len <= 11) return 'text-4xl md:text-5xl';
+      if (len <= 16) return 'text-3xl md:text-4xl';
+      return 'text-2xl md:text-3xl';
+    }
+    if (len <= 7) return 'text-3xl md:text-4xl';
+    if (len <= 11) return 'text-2xl md:text-3xl';
+    if (len <= 16) return 'text-xl md:text-2xl';
+    return 'text-lg md:text-xl';
+  }, [displayValue, containerDims.width, containerDims.height]);
+
+  // Dynamically scalable text sizes for scientific functions (2nd, sin, cos, tan, ln, log, etc.)
+  const sciBtnTextSize = useMemo(() => {
+    let colWidth: number;
+    let rowHeight: number;
+
+    if (isWideLayout) {
+      colWidth = (containerDims.width * 0.55) / 5;
+      rowHeight = Math.max(28, (containerDims.height - 140) / 3);
+    } else {
+      colWidth = containerDims.width / 5;
+      rowHeight = Math.max(28, ((containerDims.height - 140) * 0.38) / 3);
+    }
+
+    const cellSize = Math.min(colWidth, rowHeight);
+
+    if (cellSize >= 75) return 'text-2xl font-bold';
+    if (cellSize >= 60) return 'text-xl font-bold';
+    if (cellSize >= 48) return 'text-lg font-bold';
+    if (cellSize >= 38) return 'text-base font-semibold';
+    if (cellSize >= 30) return 'text-sm font-semibold';
+    return 'text-xs font-semibold';
+  }, [containerDims.width, containerDims.height, isWideLayout]);
+
+  // Dynamically scalable text sizes for standard digits and basic arithmetic operators
+  const numBtnTextSize = useMemo(() => {
+    let colWidth: number;
+    let rowHeight: number;
+
+    if (mode === 'scientific') {
+      if (isWideLayout) {
+        colWidth = (containerDims.width * 0.45) / 4;
+        rowHeight = Math.max(28, (containerDims.height - 140) / 5);
+      } else {
+        colWidth = containerDims.width / 4;
+        rowHeight = Math.max(28, ((containerDims.height - 140) * 0.62) / 5);
+      }
+    } else {
+      // Simple mode - 4 columns, 5 rows full height
+      colWidth = containerDims.width / 4;
+      rowHeight = Math.max(30, (containerDims.height - 140) / 5);
+    }
+
+    const cellSize = Math.min(colWidth, rowHeight);
+
+    if (cellSize >= 85) return 'text-4xl font-black';
+    if (cellSize >= 68) return 'text-3xl font-bold';
+    if (cellSize >= 52) return 'text-2xl font-bold';
+    if (cellSize >= 40) return 'text-xl font-bold';
+    if (cellSize >= 32) return 'text-lg font-semibold';
+    return 'text-base font-semibold';
+  }, [containerDims.width, containerDims.height, mode, isWideLayout]);
+
+  // Dynamically scalable icon sizing
+  const actionIconSize = useMemo(() => {
+    const minDim = Math.min(containerDims.width, containerDims.height);
+    if (minDim >= 700) return 'w-7 h-7';
+    if (minDim >= 520) return 'w-6 h-6';
+    if (minDim >= 400) return 'w-5 h-5';
+    return 'w-4 h-4';
+  }, [containerDims.width, containerDims.height]);
+
+  const renderScientificKeypad = (isWide: boolean) => (
+    <div className={`grid grid-cols-5 [grid-template-rows:repeat(3,minmax(0,1fr))] gap-1 xs:gap-1.5 sm:gap-2 ${isWide ? 'flex-[5] min-h-0 h-full' : 'min-h-0 w-full overflow-hidden'}`}>
+      <button
+        onClick={() => {
+          playBeep();
+          setIsSecondFunction(prev => !prev);
+        }}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl border transition-all flex items-center justify-center select-none active:scale-[0.96] font-semibold shadow-sm cursor-pointer ${
+          isSecondFunction 
+            ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-amber-500/20 shadow-md' 
+            : 'bg-slate-900/90 hover:bg-slate-800 text-amber-300/90 border-slate-800/80 hover:border-slate-700/80'
+        }`}
+      >
+        2nd
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'asin' : 'sin')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? 'sin⁻¹' : 'sin'}
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'acos' : 'cos')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? 'cos⁻¹' : 'cos'}
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'atan' : 'tan')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? 'tan⁻¹' : 'tan'}
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'expe' : 'ln')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? 'eˣ' : 'ln'}
+      </button>
+
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'exp10' : 'log')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? '10ˣ' : 'log'}
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'cbrt' : 'sqrt')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? '³√x' : '√x'}
+      </button>
+      <button
+        onClick={() => applyScientificUnary(isSecondFunction ? 'cube' : 'sqr')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        {isSecondFunction ? 'x³' : 'x²'}
+      </button>
+      <button
+        onClick={() => performOperation('^')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        xʸ
+      </button>
+      <button
+        onClick={() => applyScientificUnary('reciprocal')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        1/x
+      </button>
+
+      <button
+        onClick={() => insertParenthesis('(')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        (
+      </button>
+      <button
+        onClick={() => insertParenthesis(')')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        )
+      </button>
+      <button
+        onClick={() => insertConstant('pi')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        π
+      </button>
+      <button
+        onClick={() => insertConstant('e')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        e
+      </button>
+      <button
+        onClick={() => applyScientificUnary('fact')}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 text-slate-200 hover:text-white border border-slate-800/80 hover:border-slate-700/80 transition-all font-mono font-medium flex items-center justify-center select-none active:scale-[0.96] shadow-sm cursor-pointer`}
+      >
+        n!
+      </button>
+    </div>
+  );
+
+  const renderArithmeticKeypad = (isWide: boolean, isSimpleMode?: boolean) => (
+    <div className={`grid grid-cols-4 [grid-template-rows:repeat(5,minmax(0,1fr))] gap-1 xs:gap-1.5 sm:gap-2 ${isSimpleMode ? 'flex-1 min-h-0 w-full' : isWide ? 'flex-[4] min-h-0 h-full' : 'flex-1 min-h-0 w-full overflow-hidden'}`}>
+      <button
+        onClick={clearAll}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/90 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 border border-slate-700/50 hover:border-rose-800/50 font-semibold shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        AC
+      </button>
+      <button
+        onClick={backspace}
+        className={`w-full h-full min-h-0 ${sciBtnTextSize} rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+        title={t('calc.backspace', currentLang, 'Rücktaste (Backspace)')}
+      >
+        <Delete className={actionIconSize} />
+      </button>
+      <button
+        onClick={applyPercent}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        %
+      </button>
+      <button
+        onClick={() => performOperation('÷')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 font-bold border border-slate-700/60 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        ÷
+      </button>
+
+      <button
+        onClick={() => inputDigit('7')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        7
+      </button>
+      <button
+        onClick={() => inputDigit('8')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        8
+      </button>
+      <button
+        onClick={() => inputDigit('9')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        9
+      </button>
+      <button
+        onClick={() => performOperation('×')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 font-bold border border-slate-700/60 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        ×
+      </button>
+
+      <button
+        onClick={() => inputDigit('4')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        4
+      </button>
+      <button
+        onClick={() => inputDigit('5')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        5
+      </button>
+      <button
+        onClick={() => inputDigit('6')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        6
+      </button>
+      <button
+        onClick={() => performOperation('-')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 font-bold border border-slate-700/60 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        −
+      </button>
+
+      <button
+        onClick={() => inputDigit('1')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        1
+      </button>
+      <button
+        onClick={() => inputDigit('2')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        2
+      </button>
+      <button
+        onClick={() => inputDigit('3')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        3
+      </button>
+      <button
+        onClick={() => performOperation('+')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 font-bold border border-slate-700/60 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        +
+      </button>
+
+      <button
+        onClick={toggleSign}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-slate-300 hover:text-white border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        ±
+      </button>
+      <button
+        onClick={() => inputDigit('0')}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        0
+      </button>
+      <button
+        onClick={inputDecimal}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-650 text-white font-semibold border border-slate-700/50 shadow-sm transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        .
+      </button>
+      <button
+        onClick={computeFinalResult}
+        className={`w-full h-full min-h-0 ${numBtnTextSize} font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-md shadow-emerald-950/50 border border-emerald-500/40 transition-all flex items-center justify-center active:scale-[0.96] select-none cursor-pointer`}
+      >
+        =
+      </button>
+    </div>
+  );
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-950 text-slate-100 select-none overflow-hidden relative font-sans">
-      {/* Top Header / App Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md z-10 flex-shrink-0">
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-sm flex-shrink-0">
-            <CalcIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <span className="font-semibold text-xs sm:text-sm tracking-tight text-white truncate">
-              {t('module.calculator', currentLang, 'Taschenrechner')}
-            </span>
-            <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60 truncate">
+    <div ref={containerRef} className="flex flex-col h-full w-full bg-slate-950 text-slate-100 select-none overflow-hidden relative font-sans">
+      {/* Top Header / App Toolbar (Unified, sleek, no duplicate window titles) */}
+      <div className="flex items-center justify-between px-2.5 py-1.5 sm:px-3 sm:py-2 bg-slate-900/90 border-b border-slate-800/80 backdrop-blur-md z-20 flex-shrink-0">
+        {/* Mode Dropdown Selector */}
+        <div className="relative" ref={modeMenuRef}>
+          <button
+            onClick={() => {
+              playBeep();
+              setIsModeMenuOpen(prev => !prev);
+            }}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-white border border-slate-700/60 transition-colors cursor-pointer"
+          >
+            {mode === 'scientific' ? (
+              <FlaskConical className="w-4 h-4 text-cyan-400" />
+            ) : (
+              <Calculator className="w-4 h-4 text-emerald-400" />
+            )}
+            <span className="font-semibold text-xs sm:text-sm">
               {mode === 'scientific' 
                 ? t('calc.mode_scientific', currentLang, 'Wissenschaftlich') 
-                : t('calc.mode_simple', currentLang, 'Einfach')}
+                : t('calc.mode_simple', currentLang, 'Standard')}
             </span>
-          </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isModeMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Mode Dropdown Popover */}
+          {isModeMenuOpen && (
+            <div className="absolute left-0 top-full mt-1.5 w-56 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl z-40 p-1.5 animate-in fade-in slide-in-from-top-2">
+              <button
+                onClick={() => {
+                  setMode('simple');
+                  setIsModeMenuOpen(false);
+                  playBeep();
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors cursor-pointer ${
+                  mode === 'simple'
+                    ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Calculator className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold">{t('calc.mode_simple', currentLang, 'Standard')}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{t('calc.mode_simple_desc', currentLang, 'Grundrechenarten & Alltag')}</div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setMode('scientific');
+                  setIsModeMenuOpen(false);
+                  playBeep();
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors mt-1 cursor-pointer ${
+                  mode === 'scientific'
+                    ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <FlaskConical className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold">{t('calc.mode_scientific', currentLang, 'Wissenschaftlich')}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{t('calc.mode_scientific_desc', currentLang, 'Trigonometrie, Potenzen, Wurzeln')}</div>
+                </div>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Action Controls */}
@@ -643,31 +1044,24 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
                 playBeep();
                 setAngleUnit(prev => (prev === 'deg' ? 'rad' : 'deg'));
               }}
-              className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 transition-colors"
-              title="Gradmaß / Bogenmaß umschalten"
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700/80 transition-colors cursor-pointer"
+              title={t('calc.angle_toggle_tooltip', currentLang, 'Gradmaß / Bogenmaß umschalten')}
             >
               {angleUnit.toUpperCase()}
             </button>
           )}
 
-          {/* Always on Top / Overlay Button (Windows Style) */}
-          {onToggleAlwaysOnTop && (
+          {/* Scientific Wide / Side-by-Side Toggle Button */}
+          {mode === 'scientific' && onToggleWideWindow && (
             <button
               onClick={() => {
                 playBeep();
-                onToggleAlwaysOnTop();
+                onToggleWideWindow();
               }}
-              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                isAlwaysOnTop 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 ring-1 ring-emerald-500/30' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-              title={isAlwaysOnTop ? 'Immer im Vordergrund lösen' : 'Immer im Vordergrund halten (Overlay)'}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title={isWideLayout ? 'Kompakt-Ansicht (360px)' : 'Breite Ansicht (Nebeneinander - 620px)'}
             >
-              <Pin className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${isAlwaysOnTop ? 'rotate-45 text-emerald-400' : ''}`} />
-              <span className="text-[10px] font-bold hidden xs:inline">
-                {isAlwaysOnTop ? 'Overlay' : 'Overlay'}
-              </span>
+              {isWideLayout ? <LayoutGrid className="w-4 h-4 text-cyan-400" /> : <Columns className="w-4 h-4" />}
             </button>
           )}
 
@@ -678,10 +1072,10 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               setIsHistoryOpen(prev => !prev);
               if (isSettingsOpen) setIsSettingsOpen(false);
             }}
-            className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ${isHistoryOpen ? 'bg-slate-800 text-emerald-400' : ''}`}
+            className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ${isHistoryOpen ? 'bg-slate-800 text-emerald-400' : ''}`}
             title={t('calc.history_title', currentLang, 'Rechenverlauf')}
           >
-            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <History className="w-4 h-4" />
           </button>
 
           {/* Sound Toggle */}
@@ -690,17 +1084,17 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               setSoundEnabled(prev => !prev);
               if (!soundEnabled) sounds.playClick();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title={soundEnabled ? 'Ton stummschalten' : 'Ton aktivieren'}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title={soundEnabled && !sounds.isMuted() ? t('calc.mute_sound', currentLang, 'Ton stummschalten') : t('calc.unmute_sound', currentLang, 'Ton aktivieren')}
           >
             {soundEnabled && !sounds.isMuted() ? (
-              <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+              <Volume2 className="w-4 h-4 text-emerald-400" />
             ) : (
-              <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+              <VolumeX className="w-4 h-4 text-slate-500" />
             )}
           </button>
 
-          {/* Settings Button (Required by prompt: "wo es ein Settings zeichen gibt") */}
+          {/* Settings Button */}
           <button
             id="calc-settings-button"
             onClick={() => {
@@ -708,29 +1102,24 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               setIsSettingsOpen(prev => !prev);
               if (isHistoryOpen) setIsHistoryOpen(false);
             }}
-            className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ${isSettingsOpen ? 'bg-slate-800 text-emerald-400 rotate-45' : ''}`}
+            className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ${isSettingsOpen ? 'bg-slate-800 text-emerald-400 rotate-45' : ''}`}
             title={t('calc.settings_title', currentLang, 'Einstellungen & Modus')}
           >
-            <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Main Calculator Workspace - dynamically stretches and shrinks with window resizing */}
-      <div className="flex-1 min-h-0 flex flex-col p-2 sm:p-3 justify-between w-full h-full gap-1 sm:gap-1.5">
+      <div className="flex-1 min-h-0 flex flex-col p-2 sm:p-3 justify-between w-full h-full gap-1.5 sm:gap-2">
         {/* Display Glass Card */}
-        <div className="w-full bg-slate-900/90 rounded-xl sm:rounded-2xl px-2.5 py-2 sm:px-4 sm:py-2.5 border border-slate-800 shadow-inner flex flex-col justify-end flex-shrink-0 relative group">
-          {/* Memory & Angle indicator tags */}
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-0.5">
+        <div className="w-full bg-slate-900/90 rounded-2xl px-3.5 py-2 sm:px-4 sm:py-2.5 border border-slate-800/80 shadow-inner flex flex-col justify-end flex-shrink-0 relative group">
+          {/* Memory indicator & Copy button */}
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-0.5 min-h-[20px]">
             <div className="flex items-center gap-1.5">
               {memoryValue !== 0 && (
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] sm:text-[10px] font-bold border border-amber-500/30">
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold border border-amber-500/30">
                   M = {formatResult(memoryValue)}
-                </span>
-              )}
-              {mode === 'scientific' && (
-                <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[9px] sm:text-[10px] font-bold">
-                  {angleUnit.toUpperCase()}
                 </span>
               )}
             </div>
@@ -738,7 +1127,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
             {/* Copy Button */}
             <button
               onClick={copyResult}
-              className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 hover:text-white px-1.5 sm:px-2 py-0.5 rounded hover:bg-slate-800/80 transition-colors opacity-80 group-hover:opacity-100"
+              className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 hover:text-white px-2 py-0.5 rounded hover:bg-slate-800/80 transition-colors opacity-80 group-hover:opacity-100 cursor-pointer"
               title={t('calc.copy_result', currentLang, 'Ergebnis in Zwischenablage kopieren')}
             >
               {copiedToast ? (
@@ -756,7 +1145,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
           </div>
 
           {/* Formula Line */}
-          <div className="h-4 sm:h-5 text-right text-xs sm:text-sm text-slate-400 font-mono overflow-x-auto whitespace-nowrap scrollbar-none tracking-wide">
+          <div className="h-5 text-right text-xs sm:text-sm text-slate-400 font-mono overflow-x-auto whitespace-nowrap scrollbar-none tracking-wide">
             {formulaExpression || '\u00A0'}
           </div>
 
@@ -766,37 +1155,41 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
           </div>
         </div>
 
-        {/* Memory Bar */}
-        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 flex-shrink-0">
+        {/* Memory Bar - sleek minimal text buttons like Windows 11 */}
+        <div className="flex items-center justify-between px-1 py-0.5 flex-shrink-0">
           <button
             onClick={memoryClear}
             disabled={memoryValue === 0}
-            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
+            className="px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors select-none cursor-pointer disabled:cursor-not-allowed"
           >
             MC
           </button>
           <button
             onClick={memoryRecall}
             disabled={memoryValue === 0}
-            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
+            className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors select-none cursor-pointer disabled:cursor-not-allowed ${
+              memoryValue !== 0 
+                ? 'text-amber-400 font-bold hover:bg-amber-500/10' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400'
+            }`}
           >
             MR
           </button>
           <button
             onClick={memoryAdd}
-            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
+            className="px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors select-none cursor-pointer"
           >
             M+
           </button>
           <button
             onClick={memorySubtract}
-            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
+            className="px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors select-none cursor-pointer"
           >
             M-
           </button>
           <button
             onClick={memoryStore}
-            className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60 transition-colors flex items-center justify-center"
+            className="px-2.5 py-1 text-xs font-semibold rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors select-none cursor-pointer"
           >
             MS
           </button>
@@ -804,360 +1197,31 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
 
         {/* Keypad Layout */}
         {mode === 'scientific' ? (
-          /* SCIENTIFIC MODE KEYPAD */
-          <div className="flex-1 min-h-0 flex flex-col gap-1 sm:gap-1.5 w-full">
-            {/* Scientific Function Grid (5 cols) */}
-            <div className="grid grid-cols-5 gap-1 sm:gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => setIsSecondFunction(prev => !prev)}
-                className={`h-6 sm:h-7 text-[10px] sm:text-xs font-bold rounded-lg border transition-all flex items-center justify-center ${isSecondFunction ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm' : 'bg-slate-800/80 hover:bg-slate-700 text-amber-300 border-slate-700/70'}`}
-              >
-                2nd
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'asin' : 'sin')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? 'sin⁻¹' : 'sin'}
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'acos' : 'cos')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? 'cos⁻¹' : 'cos'}
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'atan' : 'tan')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? 'tan⁻¹' : 'tan'}
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'expe' : 'ln')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? 'eˣ' : 'ln'}
-              </button>
-
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'exp10' : 'log')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? '10ˣ' : 'log'}
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'cbrt' : 'sqrt')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? '³√x' : '√x'}
-              </button>
-              <button
-                onClick={() => applyScientificUnary(isSecondFunction ? 'cube' : 'sqr')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                {isSecondFunction ? 'x³' : 'x²'}
-              </button>
-              <button
-                onClick={() => performOperation('^')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                xʸ
-              </button>
-              <button
-                onClick={() => applyScientificUnary('reciprocal')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                1/x
-              </button>
-
-              <button
-                onClick={() => insertParenthesis('(')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                (
-              </button>
-              <button
-                onClick={() => insertParenthesis(')')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                )
-              </button>
-              <button
-                onClick={() => insertConstant('pi')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                π
-              </button>
-              <button
-                onClick={() => insertConstant('e')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                e
-              </button>
-              <button
-                onClick={() => applyScientificUnary('fact')}
-                className="h-6 sm:h-7 text-[10px] sm:text-xs font-semibold rounded-lg bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-slate-700/70 transition-colors font-mono flex items-center justify-center"
-              >
-                n!
-              </button>
+          isWideLayout ? (
+            /* Wide Screen Scientific Mode (Side-by-Side: Scientific on Left, Arithmetic on Right) */
+            <div className="flex-1 min-h-0 flex flex-row gap-2 w-full">
+              <div className="flex-[5] min-h-0 h-full bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/60 shadow-inner flex flex-col">
+                {renderScientificKeypad(true)}
+              </div>
+              <div className="flex-[4] min-h-0 h-full flex flex-col">
+                {renderArithmeticKeypad(true, false)}
+              </div>
             </div>
-
-            {/* Arithmetic & Number Grid (4 cols, 5 rows) - expands proportionally */}
-            <div className="grid grid-cols-4 grid-rows-5 gap-1 xs:gap-1.5 sm:gap-2 flex-1 min-h-0 w-full">
-              <button
-                onClick={clearAll}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                AC
-              </button>
-              <button
-                onClick={backspace}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                <Delete className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <button
-                onClick={applyPercent}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                %
-              </button>
-              <button
-                onClick={() => performOperation('÷')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                ÷
-              </button>
-
-              <button
-                onClick={() => inputDigit('7')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                7
-              </button>
-              <button
-                onClick={() => inputDigit('8')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                8
-              </button>
-              <button
-                onClick={() => inputDigit('9')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                9
-              </button>
-              <button
-                onClick={() => performOperation('×')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                ×
-              </button>
-
-              <button
-                onClick={() => inputDigit('4')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                4
-              </button>
-              <button
-                onClick={() => inputDigit('5')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                5
-              </button>
-              <button
-                onClick={() => inputDigit('6')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                6
-              </button>
-              <button
-                onClick={() => performOperation('-')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                −
-              </button>
-
-              <button
-                onClick={() => inputDigit('1')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                1
-              </button>
-              <button
-                onClick={() => inputDigit('2')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                2
-              </button>
-              <button
-                onClick={() => inputDigit('3')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                3
-              </button>
-              <button
-                onClick={() => performOperation('+')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg font-bold rounded-lg sm:rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                +
-              </button>
-
-              <button
-                onClick={toggleSign}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                ±
-              </button>
-              <button
-                onClick={() => inputDigit('0')}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                0
-              </button>
-              <button
-                onClick={inputDecimal}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-sm sm:text-base md:text-lg font-bold rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-              >
-                .
-              </button>
-              <button
-                onClick={computeFinalResult}
-                className="w-full h-full min-h-[26px] sm:min-h-[30px] text-base sm:text-lg md:text-xl font-black rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.96]"
-              >
-                =
-              </button>
+          ) : (
+            /* Compact Scientific Mode (Function Tray on Top, Numeric Keypad on Bottom) */
+            <div className="flex-1 min-h-0 flex flex-col gap-1.5 w-full">
+              <div className="flex-[3] min-h-0 w-full bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800/70 shadow-inner flex flex-col">
+                {renderScientificKeypad(false)}
+              </div>
+              <div className="flex-[5] min-h-0 w-full flex flex-col">
+                {renderArithmeticKeypad(false, false)}
+              </div>
             </div>
-          </div>
+          )
         ) : (
-          /* SIMPLE STANDARD KEYPAD (4 cols, 5 rows) - stretches and shrinks smoothly */
-          <div className="grid grid-cols-4 grid-rows-5 gap-1 xs:gap-1.5 sm:gap-2 flex-1 min-h-0 w-full">
-            <button
-              onClick={clearAll}
-              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-bold rounded-xl sm:rounded-2xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/50 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              AC
-            </button>
-            <button
-              onClick={backspace}
-              className="w-full h-full min-h-[30px] text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
-              title="Rücktaste (Backspace)"
-            >
-              <Delete className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            <button
-              onClick={applyPercent}
-              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              %
-            </button>
-            <button
-              onClick={() => performOperation('÷')}
-              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              ÷
-            </button>
-
-            <button
-              onClick={() => inputDigit('7')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              7
-            </button>
-            <button
-              onClick={() => inputDigit('8')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              8
-            </button>
-            <button
-              onClick={() => inputDigit('9')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              9
-            </button>
-            <button
-              onClick={() => performOperation('×')}
-              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              ×
-            </button>
-
-            <button
-              onClick={() => inputDigit('4')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              4
-            </button>
-            <button
-              onClick={() => inputDigit('5')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              5
-            </button>
-            <button
-              onClick={() => inputDigit('6')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              6
-            </button>
-            <button
-              onClick={() => performOperation('-')}
-              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              −
-            </button>
-
-            <button
-              onClick={() => inputDigit('1')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              1
-            </button>
-            <button
-              onClick={() => inputDigit('2')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              2
-            </button>
-            <button
-              onClick={() => inputDigit('3')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              3
-            </button>
-            <button
-              onClick={() => performOperation('+')}
-              className="w-full h-full min-h-[30px] text-lg sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              +
-            </button>
-
-            <button
-              onClick={toggleSign}
-              className="w-full h-full min-h-[30px] text-sm sm:text-base md:text-lg font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              ±
-            </button>
-            <button
-              onClick={() => inputDigit('0')}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-semibold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              0
-            </button>
-            <button
-              onClick={inputDecimal}
-              className="w-full h-full min-h-[30px] text-base sm:text-xl md:text-2xl font-bold rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 transition-colors flex items-center justify-center active:scale-[0.96]"
-            >
-              .
-            </button>
-            <button
-              onClick={computeFinalResult}
-              className="w-full h-full min-h-[30px] text-xl sm:text-2xl md:text-3xl font-black rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all flex items-center justify-center active:scale-[0.96]"
-            >
-              =
-            </button>
+          /* Simple Standard Keypad (Full Height) */
+          <div className="flex-1 min-h-0 flex flex-col gap-1 xs:gap-1.5 sm:gap-2 w-full">
+            {renderArithmeticKeypad(false, true)}
           </div>
         )}
       </div>
@@ -1202,7 +1266,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
                     {mode === 'simple' && <Check className="w-4 h-4 text-emerald-400" />}
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Grundrechenarten (+, −, ×, ÷), Prozentrechnung und Vorzeichen. Ideal für den schnellen Alltag.
+                    {t('calc.mode_simple_desc', currentLang, 'Grundrechenarten (+, −, ×, ÷), Prozentrechnung und Vorzeichen. Ideal für den schnellen Alltag.')}
                   </p>
                 </button>
 
@@ -1222,7 +1286,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
                     {mode === 'scientific' && <Check className="w-4 h-4 text-emerald-400" />}
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Trigonometrie (sin/cos/tan), Logarithmen, Potenzen, Wurzeln, Fakultäten und Klammern für Schule & Studium.
+                    {t('calc.mode_scientific_desc', currentLang, 'Trigonometrie (sin/cos/tan), Logarithmen, Potenzen, Wurzeln, Fakultäten und Klammern für Schule & Studium.')}
                   </p>
                 </button>
               </div>
@@ -1263,9 +1327,9 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { val: -1, label: t('calc.auto_decimals', currentLang, 'Auto') },
-                  { val: 2, label: '2 Stellen' },
-                  { val: 4, label: '4 Stellen' },
-                  { val: 6, label: '6 Stellen' }
+                  { val: 2, label: t('calc.places_2', currentLang, '2 Stellen') },
+                  { val: 4, label: t('calc.places_4', currentLang, '4 Stellen') },
+                  { val: 6, label: t('calc.places_6', currentLang, '6 Stellen') }
                 ].map(opt => (
                   <button
                     key={opt.val}
@@ -1299,7 +1363,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
                     onToggleAlwaysOnTop();
                   }}
                   className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-1 flex-shrink-0 ${isAlwaysOnTop ? 'bg-emerald-600' : 'bg-slate-700'}`}
-                  title={isAlwaysOnTop ? 'Overlay lösen' : 'Overlay anheften'}
+                  title={isAlwaysOnTop ? t('calc.unpin_overlay', currentLang, 'Overlay lösen') : t('calc.pin_overlay', currentLang, 'Overlay anheften')}
                 >
                   <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isAlwaysOnTop ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
@@ -1322,9 +1386,9 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
                 </div>
                 <div className="text-[11px] mt-1">
                   {sounds.isMuted() ? (
-                    <span className="text-amber-400 font-medium">⚠️ Haupteinstellung: Töne im System stummgeschaltet</span>
+                    <span className="text-amber-400 font-medium">⚠️ {t('calc.sound_muted_system', currentLang, 'Haupteinstellung: Töne im System stummgeschaltet')}</span>
                   ) : (
-                    <span className="text-emerald-400 font-medium">✓ Haupteinstellung: Töne im System aktiv</span>
+                    <span className="text-emerald-400 font-medium">✓ {t('calc.sound_active_system', currentLang, 'Haupteinstellung: Töne im System aktiv')}</span>
                   )}
                 </div>
               </div>
@@ -1343,9 +1407,9 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
             <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 space-y-1.5">
               <div className="font-bold text-slate-300 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-emerald-400" />
-                Tastatur-Unterstützung (Schule & Arbeitsplatz)
+                {t('calc.keyboard_guide_title', currentLang, 'Tastatur-Unterstützung (Schule & Arbeitsplatz)')}
               </div>
-              <p>Zahlenblock <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">0-9</kbd>, Rechenzeichen <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">+ - * /</kbd>, Ergebnis mit <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">Enter</kbd> oder <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">=</kbd>, Löschen mit <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">Esc</kbd> und Korrektur mit <kbd className="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono">Backspace</kbd>.</p>
+              <p>{t('calc.keyboard_guide_desc', currentLang, 'Zahlenblock 0-9, Rechenzeichen + - * /, Ergebnis mit Enter oder =, Löschen mit Esc und Korrektur mit Backspace.')}</p>
             </div>
           </div>
 
@@ -1357,7 +1421,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               }}
               className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white shadow-md transition-colors"
             >
-              Fertig
+              {t('calc.done', currentLang, 'Fertig')}
             </button>
           </div>
         </div>
@@ -1402,7 +1466,7 @@ export const CalculatorModule: React.FC<CalculatorModuleProps> = ({
               <div className="h-full flex flex-col items-center justify-center text-center text-slate-500 text-xs py-8">
                 <History className="w-8 h-8 mb-2 opacity-40" />
                 <p>{t('calc.history_empty', currentLang, 'Noch keine Rechnungen vorhanden.')}</p>
-                <p className="text-[11px] text-slate-600 mt-1">Ausgeführte Rechnungen werden hier für Hausaufgaben & Nachvollziehbarkeit archiviert.</p>
+                <p className="text-[11px] text-slate-600 mt-1">{t('calc.history_desc', currentLang, 'Ausgeführte Rechnungen werden hier für Hausaufgaben & Nachvollziehbarkeit archiviert.')}</p>
               </div>
             ) : (
               history.map(item => (

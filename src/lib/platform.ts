@@ -11,6 +11,20 @@ export interface ElectronAPI {
   quitApp: () => Promise<void>;
   downloadAndInstallUpdate: (payload: { downloadUrl: string; version: string }) => Promise<{ success: boolean; error?: string }>;
   onUpdateDownloadProgress: (callback: (data: { percent: number; downloadedBytes?: number; totalBytes?: number; isFinished?: boolean }) => void) => () => void;
+  getNetworkIps?: () => Promise<{ ips: string[]; port: number; primaryIp: string }>;
+  getLanguagesFolderPath?: () => Promise<{ path: string; exists: boolean }>;
+  openLanguagesFolder?: () => Promise<{ success: boolean; path?: string }>;
+  getFlagsFolderPath?: () => Promise<{ path: string; exists: boolean }>;
+  openFlagsFolder?: () => Promise<{ success: boolean; path?: string }>;
+  getAvailableFlags?: () => Promise<Array<{ code: string; filename: string; url: string; hasFlag: boolean }>>;
+  readLocalLanguages?: () => Promise<{ success: boolean; languages: Record<string, any>; error?: string }>;
+  saveLocalLanguageFile?: (payload: { languageCode: string; data: Record<string, any> }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+  onLanguagesFolderChanged?: (callback: () => void) => () => void;
+  onMobileSyncReceived?: (callback: (data: any) => void) => () => void;
+  getBackupFolderPath?: () => Promise<{ socdofDir: string; backupDir: string }>;
+  selectBackupFolder?: () => Promise<{ canceled: boolean; folderPath?: string; error?: string }>;
+  openBackupFolder?: (targetPath?: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+  saveBackupFileToDisk?: (payload: { folderPath?: string; fileName: string; content: string }) => Promise<{ success: boolean; fullPath?: string; error?: string }>;
 }
 
 declare global {

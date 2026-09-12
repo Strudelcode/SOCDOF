@@ -47,10 +47,10 @@ interface InvoicesModuleProps {
   products: Product[];
   company: CompanyProfile;
   onRefresh: () => void;
-  isCreateOpen: boolean;
+  isCreateOpen?: boolean;
   preselectedContactId?: number;
-  onCloseCreate: () => void;
-  onOpenCreate: (contactId?: number) => void;
+  onCloseCreate?: () => void;
+  onOpenCreate?: (contactId?: number) => void;
   onOpenSettings?: () => void;
 }
 
@@ -60,7 +60,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   products,
   company,
   onRefresh,
-  isCreateOpen,
+  isCreateOpen = false,
   preselectedContactId,
   onCloseCreate,
   onOpenCreate,
@@ -250,58 +250,67 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   }, [isCreateOpen, preselectedContactId]);
 
   const initNewInvoice = async (contactId?: number) => {
-    const nextNumber = await getNextInvoiceNumber();
-    const today = new Date().toISOString().split('T')[0];
-    const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    try {
+      let nextNumber = `INV/${new Date().getFullYear()}/0001`;
+      try {
+        nextNumber = await getNextInvoiceNumber();
+      } catch (err) {
+        console.warn('Could not query next invoice number, using fallback:', err);
+      }
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const defaultContact = contactId 
-      ? contacts.find(c => c.id === contactId) 
-      : contacts.find(c => c.type === 'customer' || c.type === 'both') || contacts[0];
+      const defaultContact = contactId 
+        ? contacts.find(c => c.id === contactId) 
+        : contacts.find(c => c.type === 'customer' || c.type === 'both') || contacts[0];
 
-    const defaultProduct = products[0];
+      const defaultProduct = products[0];
 
-    const initialItem: InvoiceItem = defaultProduct ? {
-      id: `item_${Date.now()}`,
-      product_id: defaultProduct.id || 1,
-      product_name: defaultProduct.name,
-      sku: defaultProduct.sku,
-      qty: 1,
-      unit_price: defaultProduct.sale_price || 0,
-      tax_rate: company.default_tax_rate || 19,
-      discount: 0,
-      subtotal: defaultProduct.sale_price || 0
-    } : {
-      id: `item_${Date.now()}`,
-      product_id: 1,
-      product_name: 'Standard-Artikel',
-      sku: 'PRD-001',
-      qty: 1,
-      unit_price: 100,
-      tax_rate: 19,
-      discount: 0,
-      subtotal: 100
-    };
+      const initialItem: InvoiceItem = defaultProduct ? {
+        id: `item_${Date.now()}`,
+        product_id: defaultProduct.id || 1,
+        product_name: defaultProduct.name,
+        sku: defaultProduct.sku,
+        qty: 1,
+        unit_price: defaultProduct.sale_price || 0,
+        tax_rate: company.default_tax_rate ?? 19,
+        discount: 0,
+        subtotal: defaultProduct.sale_price || 0
+      } : {
+        id: `item_${Date.now()}`,
+        product_id: 1,
+        product_name: 'Standard-Artikel',
+        sku: 'PRD-001',
+        qty: 1,
+        unit_price: 100,
+        tax_rate: company.default_tax_rate ?? 19,
+        discount: 0,
+        subtotal: 100
+      };
 
-    setEditingInvoice({
-      number: nextNumber,
-      contact_id: defaultContact?.id || 1,
-      contact_name: defaultContact?.name || '',
-      contact_email: defaultContact?.email || '',
-      contact_company: defaultContact?.company || '',
-      contact_address: defaultContact?.street ? `${defaultContact.street}, ${defaultContact.zip} ${defaultContact.city}` : '',
-      date: today,
-      due_date: dueDate,
-      subject: company.letterhead_default_subject || 'Rechnung für Lieferungen und Leistungen',
-      status: 'draft',
-      type: 'out_invoice',
-      items: [initialItem],
-      subtotal: initialItem.subtotal,
-      tax_total: (initialItem.subtotal * (company.default_tax_rate || 19)) / 100,
-      total: initialItem.subtotal + (initialItem.subtotal * (company.default_tax_rate || 19)) / 100,
-      notes: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
-      payment_terms: '14 Tage netto',
-      stock_moved: false
-    });
+      setEditingInvoice({
+        number: nextNumber,
+        contact_id: defaultContact?.id || (contacts.length > 0 ? contacts[0].id : undefined),
+        contact_name: defaultContact?.name || (contacts.length > 0 ? contacts[0].name : ''),
+        contact_email: defaultContact?.email || (contacts.length > 0 ? contacts[0].email : ''),
+        contact_company: defaultContact?.company || '',
+        contact_address: defaultContact?.street ? `${defaultContact.street}, ${defaultContact.zip || ''} ${defaultContact.city || ''}` : '',
+        date: today,
+        due_date: dueDate,
+        subject: company.letterhead_default_subject || 'Rechnung für Lieferungen und Leistungen',
+        status: 'draft',
+        type: 'out_invoice',
+        items: [initialItem],
+        subtotal: initialItem.subtotal,
+        tax_total: (initialItem.subtotal * (company.default_tax_rate ?? 19)) / 100,
+        total: initialItem.subtotal + (initialItem.subtotal * (company.default_tax_rate ?? 19)) / 100,
+        notes: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+        payment_terms: '14 Tage netto',
+        stock_moved: false
+      });
+    } catch (err) {
+      console.error('Failed to init new invoice:', err);
+    }
   };
 
   // Recalculate totals whenever items change
@@ -419,7 +428,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
       }
       sounds.playSuccess();
       setEditingInvoice(null);
-      onCloseCreate();
+      onCloseCreate?.();
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -466,7 +475,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
       sounds.playSuccess();
       setEditingInvoice(null);
-      onCloseCreate();
+      onCloseCreate?.();
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -675,11 +684,13 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
           </label>
 
           <button
+            type="button"
             onClick={() => {
               sounds.playClick();
-              onOpenCreate();
+              initNewInvoice(preselectedContactId);
+              onOpenCreate?.(preselectedContactId);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>{t('invoice.new_invoice', undefined, 'Neue Rechnung')}</span>
@@ -723,8 +734,22 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
-                    {t('invoice.empty_list', undefined, 'Keine Rechnungen in diesem Filter vorhanden.')}
+                  <td colSpan={7} className="p-10 text-center text-slate-400">
+                    <p className="text-sm font-medium mb-3">
+                      {t('invoice.empty_list', undefined, 'Keine Rechnungen in diesem Filter vorhanden.')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sounds.playClick();
+                        initNewInvoice(preselectedContactId);
+                        onOpenCreate?.(preselectedContactId);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{t('invoice.new_invoice', undefined, 'Neue Rechnung')}</span>
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -991,9 +1016,10 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setEditingInvoice(null);
-                  onCloseCreate();
+                  onCloseCreate?.();
                 }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -1030,17 +1056,32 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     {t('invoice.modal_customer_select', undefined, 'Kunde / Empfänger auswählen *')}
                   </label>
-                  <select
-                    value={editingInvoice.contact_id}
-                    onChange={(e) => handleContactChange(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-                  >
-                    {contacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.company ? `(${c.company})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  {contacts.length > 0 ? (
+                    <select
+                      value={editingInvoice.contact_id || ''}
+                      onChange={(e) => handleContactChange(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                    >
+                      {contacts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.company ? `(${c.company})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="Kunde / Firmenname (z. B. Muster GmbH)"
+                        value={editingInvoice.contact_name || ''}
+                        onChange={(e) => setEditingInvoice(prev => prev ? ({ ...prev, contact_name: e.target.value, contact_company: e.target.value }) : null)}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        Noch keine Kontakte im Adressbuch angelegt.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1332,7 +1373,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 type="button"
                 onClick={() => {
                   setEditingInvoice(null);
-                  onCloseCreate();
+                  onCloseCreate?.();
                 }}
                 className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition"
               >
