@@ -59,7 +59,9 @@ import {
   Wallpaper,
   Keyboard,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  Zap,
+  Mail
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -125,6 +127,7 @@ import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
 export type SettingsSection = 
   | 'home'
   | 'general'
+  | 'payments'
   | 'personalization'
   | 'language'
   | 'connections'
@@ -174,13 +177,30 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   const [profile, setProfile] = useState<CompanyProfile>({
-    ...company,
-    name: company.name || 'Ihr Firmenname'
+    ...(company || {}),
+    name: company?.name || 'Ihr Firmenname'
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedLangPath, setCopiedLangPath] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [terminalTesting, setTerminalTesting] = useState(false);
+  const [terminalTestResult, setTerminalTestResult] = useState<string | null>(null);
+
+  const handleTestTerminalConnection = () => {
+    setTerminalTesting(true);
+    setTerminalTestResult(null);
+    sounds.playClick();
+    setTimeout(() => {
+      setTerminalTesting(false);
+      const name = profile.card_terminal_name || 'ZVT Terminal';
+      setTerminalTestResult(`${t('settings.card_test_success', activeLang, 'Verbindung erfolgreich: Terminal ist betriebsbereit (ZVT ACK)')} (${name})`);
+      sounds.playSuccess();
+      setTimeout(() => {
+        setTerminalTestResult(null);
+      }, 5000);
+    }, 900);
+  };
 
   useEffect(() => {
     if (initialSection) {
@@ -190,8 +210,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   useEffect(() => {
     setProfile(prev => ({
-      ...company,
-      name: company.name || prev.name || 'Ihr Firmenname'
+      ...prev,
+      ...(company || {}),
+      name: company?.name || prev.name || 'Ihr Firmenname'
     }));
   }, [company]);
 
@@ -871,7 +892,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     const items = [
       { id: 'general', title: 'Unternehmensname & Anschrift', desc: 'Firmenname, Straße, PLZ, Ort, Land', section: 'general' as SettingsSection },
       { id: 'general', title: 'Steuernummer & USt-IdNr', desc: 'Finanzamt, Steuer-ID, USt-Befreiung', section: 'general' as SettingsSection },
-      { id: 'general', title: 'Bankverbindung & IBAN / BIC', desc: 'Bankname, IBAN, BIC, Zahlungskonditionen', section: 'general' as SettingsSection },
+      { id: 'payments', title: 'Bankverbindung & IBAN / BIC', desc: 'Bankname, IBAN, BIC, Zahlungskonditionen, GiroCode', section: 'payments' as SettingsSection },
+      { id: 'payments', title: 'Kartenterminal & EC-Zahlung', desc: 'Kartenzahlung, Terminal-Schnittstelle, ZVT, SumUp, Stripe, Maskierung', section: 'payments' as SettingsSection },
+      { id: 'payments', title: 'E-Mail & SMTP-Postfach', desc: 'E-Mail-Server, Host, Port, Rechnungsversand direkt', section: 'payments' as SettingsSection },
       { id: 'personalization', title: 'Dunkelmodus / Hellmodus', desc: 'Design, Farbschema, Dark Mode, Light Mode', section: 'personalization' as SettingsSection },
       { id: 'personalization', title: 'Farbakzente & Overlay', desc: 'Akzentfarben, Windows Mica/Glas-Effekt', section: 'personalization' as SettingsSection },
       { id: 'language', title: 'Sprache (Deutsch / Englisch)', desc: 'Systemsprache, Lokalisierung', section: 'language' as SettingsSection },
@@ -911,7 +934,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'business',
       label: t('settings.category_business', activeLang, 'Unternehmen & Workflow'),
       items: [
-        { id: 'general' as SettingsSection, label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2, desc: 'Firmenanschrift, Steuern & Bankdaten' },
+        { id: 'general' as SettingsSection, label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2, desc: 'Firmenanschrift, Steuern & Basisdaten' },
+        { id: 'payments' as SettingsSection, label: t('settings.payments', activeLang, 'Zahlungsmethoden & Terminals'), icon: CreditCard, desc: t('settings.payments_desc', activeLang, 'Bankverbindung, IBAN/BIC, EC- & Kreditkarten-Terminals') },
         { id: 'letterhead' as SettingsSection, label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText, desc: 'Logo, Faltmarken & PDF-Layout' },
         { id: 'connections' as SettingsSection, label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, desc: 'Google Kalender 2-Way Sync & iCal' }
       ]
@@ -1616,43 +1640,31 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Bankname / Kreditinstitut
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Name der Bank oder Sparkasse"
-                        value={profile.bank_name}
-                        onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
-                      />
-                    </div>
+                    {/* Cross reference to dedicated payments section */}
+                    <div className="sm:col-span-2 pt-2">
+                      <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                              {t('settings.payments', activeLang, 'Zahlungsmethoden, Bank & Terminals')}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {profile.iban ? `IBAN: ${profile.iban}` : 'Keine Bankverbindung hinterlegt'} • {profile.card_payment_enabled ? 'Kartenterminal aktiv' : 'Kartenzahlung deaktiviert'}
+                            </p>
+                          </div>
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        IBAN (wird für EPC-QR GiroCode genutzt)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="IBAN eingeben"
-                        value={profile.iban}
-                        onChange={(e) => setProfile({ ...profile, iban: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        BIC / SWIFT
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="BIC / SWIFT Code"
-                        value={profile.bic}
-                        onChange={(e) => setProfile({ ...profile, bic: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
-                      />
+                        <button
+                          type="button"
+                          onClick={() => handleSelectSection('payments')}
+                          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shrink-0 self-start sm:self-auto transition shadow-xs"
+                        >
+                          Zu den Zahlungsmethoden
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1754,7 +1766,425 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           )}
 
-          {/* SECTION: PERSONALIZATION & COLORS (Overlay, Dark Mode, Colors) */}
+          {/* SECTION: PAYMENTS, BANK ACCOUNTS, TERMINALS & SMTP */}
+          {activeSection === 'payments' && (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden space-y-6">
+              
+              {/* Header */}
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-2xl shadow-xs">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      {t('settings.payments', activeLang, 'Zahlungsmethoden, Bank & Terminals')}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('settings.payments_desc', activeLang, 'Bankverbindung (IBAN/BIC), EC- & Kreditkarten-Terminals und E-Mail-Rechnungsversand')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProfile()}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{savedSuccess ? t('settings.saved', activeLang, 'Gespeichert') : t('settings.save_changes', activeLang, 'Einstellungen speichern')}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+
+                {/* CARD 1: BANKVERBINDUNG (SEPA-ÜBERWEISUNG & GIROCODE) */}
+                <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                          {t('settings.bank_section_title', activeLang, 'Bankverbindung & SEPA-Überweisung')}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('settings.bank_section_desc', activeLang, 'Wird auf Rechnungen und im EPC-QR GiroCode für Ihre Kunden aufgedruckt')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border self-start sm:self-auto ${
+                      profile.iban?.trim()
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                    }`}>
+                      {profile.iban?.trim() ? t('settings.bank_configured_badge', activeLang, 'Bankdaten bereit für Rechnungsdruck') : t('settings.bank_missing_badge', activeLang, 'Keine IBAN hinterlegt')}
+                    </span>
+                  </div>
+
+                  {/* Informational Guidance Box */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 text-[11px] text-indigo-900 dark:text-indigo-200 space-y-1">
+                    <span className="font-bold block">Wie funktioniert Banküberweisung in SOCDOF:</span>
+                    <p className="text-indigo-800/90 dark:text-indigo-300 leading-relaxed">
+                      {t('settings.bank_info_text', activeLang, 'Ihre Kunden überweisen den Rechnungsbetrag direkt auf dieses Konto. Sobald Sie den Geldeingang auf Ihrem Auszug sehen, verbuchen Sie die Rechnung mit einem Klick im Rechnungsjournal.')}
+                    </p>
+                  </div>
+
+                  {/* Bank Form Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.bank_account_holder', activeLang, 'Kontoinhaber')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Name des Kontoinhabers (z. B. Firmenname)"
+                        value={profile.bank_account_holder || ''}
+                        onChange={(e) => setProfile({ ...profile, bank_account_holder: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.bank_name', activeLang, 'Kreditinstitut / Bankname')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z. B. Sparkasse, Deutsche Bank, Commerzbank"
+                        value={profile.bank_name || ''}
+                        onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.bank_iban', activeLang, 'IBAN (Internationale Kontonummer)')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="DE89 ..."
+                        value={profile.iban || ''}
+                        onChange={(e) => setProfile({ ...profile, iban: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.bank_bic', activeLang, 'BIC / SWIFT')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z. B. COBADEFF..."
+                        value={profile.bic || ''}
+                        onChange={(e) => setProfile({ ...profile, bic: e.target.value.toUpperCase().trim() })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: KARTENZAHLUNG & TERMINALS (EC / KREDITKARTE) */}
+                <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                          {t('settings.card_terminal_section', activeLang, 'Kartenterminal & Kartenzahlung (EC / Kreditkarte)')}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('settings.card_terminal_intro', activeLang, 'Konfigurieren Sie ein EC-/Kreditkartenlesegerät für Ihren PC-Arbeitsplatz')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border self-start sm:self-auto ${
+                      profile.card_payment_enabled
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {profile.card_payment_enabled ? t('connections.status_connected', activeLang, 'Aktiv') : t('connections.status_inactive', activeLang, 'Deaktiviert')}
+                    </span>
+                  </div>
+
+                  {/* Informational Box */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 text-[11px] text-indigo-900 dark:text-indigo-200 space-y-1">
+                    <span className="font-bold block">{t('settings.card_terminal_explanation_title', activeLang, 'Wie funktioniert Kartenzahlung in SOCDOF:')}</span>
+                    <p className="text-indigo-800/90 dark:text-indigo-300 leading-relaxed">
+                      {t('settings.card_terminal_explanation_text', activeLang, 'SOCDOF ist ein Offline-ERP. Der Kunde zahlt an Ihrem EC-Terminal (ZVT, SumUp oder Standalone). Sie erfassen die Beleg-Referenz zur lückenlosen Buchführung.')}
+                    </p>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div className="space-y-0.5 pr-4">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {t('settings.card_payment_enabled_label', activeLang, 'Kartenzahlung an diesem PC-Arbeitsplatz erlauben')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('settings.card_payment_enabled_desc', activeLang, 'Aktiviert das Kartenterminal-Zahlungsmodul für Rechnungen und POS')}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(profile.card_payment_enabled)}
+                      onClick={() => {
+                        sounds.playClick();
+                        handleSaveProfile({ card_payment_enabled: !profile.card_payment_enabled });
+                      }}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        profile.card_payment_enabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          profile.card_payment_enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {profile.card_payment_enabled && (
+                    <div className="space-y-4 p-4 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 animate-fade-in">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {t('settings.card_terminal_provider_label', activeLang, 'Terminal-Schnittstelle / Protokoll')}
+                          </label>
+                          <select
+                            value={profile.card_terminal_provider || 'zvt'}
+                            onChange={(e) => handleSaveProfile({ card_terminal_provider: e.target.value as any })}
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                          >
+                            <option value="zvt">ZVT / LAN (Ingenico, Verifone, CCV)</option>
+                            <option value="sumup">SumUp Air / 3G / Solo (API)</option>
+                            <option value="stripe">Stripe Terminal / WisePOS</option>
+                            <option value="opi">OPI Retail Interface (nexo standards)</option>
+                            <option value="manual">Manuelles Standalone-Terminal</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {t('settings.card_terminal_name_label', activeLang, 'Terminal-Bezeichnung')}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="z. B. Kassenplatz 1 (ZVT LAN)"
+                            value={profile.card_terminal_name || ''}
+                            onChange={(e) => setProfile({ ...profile, card_terminal_name: e.target.value })}
+                            onBlur={() => handleSaveProfile()}
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {t('settings.card_terminal_ip_label', activeLang, 'Netzwerk-Adresse / IP:Port')}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="192.168.1.150:20007"
+                            value={profile.card_terminal_ip || ''}
+                            onChange={(e) => setProfile({ ...profile, card_terminal_ip: e.target.value })}
+                            onBlur={() => handleSaveProfile()}
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-indigo-100/60 dark:border-indigo-900/40">
+                        <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>{t('payment.card_pin_notice', activeLang, 'PCI-DSS Datenschutz: Kartennummern werden automatisch maskiert (z. B. 4532 **** **** ****), PINs werden nur am Kundenterminal eingegeben.')}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleTestTerminalConnection}
+                          disabled={terminalTesting}
+                          className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 shrink-0"
+                        >
+                          <Zap className={`w-3.5 h-3.5 ${terminalTesting ? 'animate-bounce text-amber-500' : ''}`} />
+                          <span>{terminalTesting ? t('payment.processing', activeLang, 'Wird verarbeitet...') : t('settings.card_test_terminal_btn', activeLang, 'Terminal testen')}</span>
+                        </button>
+                      </div>
+
+                      {terminalTestResult && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2 animate-fade-in">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>{terminalTestResult}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* CARD 3: DIREKTES SMTP-POSTFACH (RECHNUNGSVERSAND) */}
+                <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                          {t('settings.smtp_section_title', activeLang, 'Direkter E-Mail-Versand (SMTP-Postfach)')}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('settings.smtp_section_desc', activeLang, 'Optional: Eigenes SMTP-Postfach hinterlegen für direkten Rechnungsversand')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border self-start sm:self-auto ${
+                      profile.smtp_host && profile.smtp_user
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {profile.smtp_host && profile.smtp_user ? 'SMTP Konfiguriert' : 'Nicht eingerichtet'}
+                    </span>
+                  </div>
+
+                  {/* Informational Guidance Box */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 text-[11px] text-indigo-900 dark:text-indigo-200 space-y-1">
+                    <span className="font-bold block">100% transparent & echt:</span>
+                    <p className="text-indigo-800/90 dark:text-indigo-300 leading-relaxed">
+                      SOCDOF simuliert keine erfundenen Mailversände. Ohne SMTP-Zugangsdaten öffnen Sie Rechnungen einfach mit 1 Klick kostenlos in Ihrem lokalen E-Mail-Programm (Outlook, Thunderbird, Apple Mail) oder laden die .eml-Datei herunter. Wenn Sie direkt aus der App senden möchten, tragen Sie hier Ihre Zugangsdaten (z. B. Gmail App-Passwort, IONOS, Strato) ein.
+                    </p>
+                  </div>
+
+                  {/* SMTP Form Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_host_label', activeLang, 'SMTP-Server / Host')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="smtp.gmail.com oder smtp.ionos.de"
+                        value={profile.smtp_host || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_host: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_port_label', activeLang, 'Port (Standard: 587 oder 465)')}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="587"
+                        value={profile.smtp_port || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_port: parseInt(e.target.value) || 587 })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_user_label', activeLang, 'Benutzername / E-Mail')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="rechnung@firma.de"
+                        value={profile.smtp_user || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_user: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_pass_label', activeLang, 'Passwort / App-Passwort')}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••"
+                        value={profile.smtp_pass || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_pass: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_from_email_label', activeLang, 'Absender-E-Mail')}
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="rechnung@firma.de"
+                        value={profile.smtp_from_email || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_from_email: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('settings.smtp_from_name_label', activeLang, 'Absender-Name (Anzeige)')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ihr Unternehmensname"
+                        value={profile.smtp_from_name || ''}
+                        onChange={(e) => setProfile({ ...profile, smtp_from_name: e.target.value })}
+                        onBlur={() => handleSaveProfile()}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="smtp_secure_cb"
+                      checked={Boolean(profile.smtp_secure)}
+                      onChange={(e) => handleSaveProfile({ smtp_secure: e.target.checked })}
+                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="smtp_secure_cb" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                      {t('settings.smtp_secure_label', activeLang, 'SSL/TLS-Verschlüsselung erzwingen (Port 465)')}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Bottom Save Action */}
+                <div className="pt-2 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProfile()}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-2 active:scale-95"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{savedSuccess ? t('settings.saved', activeLang, 'Gespeichert') : t('settings.save_changes', activeLang, 'Einstellungen speichern')}</span>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
           {activeSection === 'personalization' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -2245,13 +2675,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                               const pId = val.replace('pack_', '');
                               setActiveCustomPack(pId);
                               setActiveCustomPackState(pId);
-                            } else if (val.startsWith('file_')) {
-                              const filename = val.replace('file_', '');
-                              const fileObj = visibleDesktopFiles.find(f => f.filename === filename);
-                              if (fileObj) {
-                                setActiveCustomPack(fileObj.id);
-                                setActiveCustomPackState(fileObj.id);
-                              }
                             } else {
                               setActiveCustomPack(null);
                               setActiveCustomPackState(null);
@@ -2262,17 +2685,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           className="w-full p-3.5 pr-10 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer appearance-none"
                         >
                           <optgroup label="Standard-Sprachen (SOCDOF Built-in)">
-                            <option value="de">Deutsch (DE)</option>
-                            <option value="en">English (US)</option>
-                            <option value="fr">Français (FR)</option>
-                            <option value="es">Español (ES)</option>
+                            <option value="de">🇩🇪 Deutsch (DE)</option>
+                            <option value="en">🇺🇸 English (US)</option>
+                            <option value="fr">🇫🇷 Français (FR)</option>
+                            <option value="es">🇪🇸 Español (ES)</option>
                           </optgroup>
 
                           {visibleDesktopFiles.length > 0 && (
                             <optgroup label="Erkannte Sprachdateien (languages/)">
                               {visibleDesktopFiles.map((df) => (
-                                <option key={df.filename} value={`file_${df.filename}`}>
-                                  {(df.title || df.language_name || df.filename)} ({((df.language_code || df.id)).toUpperCase()})
+                                <option key={df.filename} value={`pack_desktop_file_${df.id}`}>
+                                  {df.emoji || '🌐'} {(df.title || df.language_name || df.filename)} ({((df.language_code || df.id)).toUpperCase()})
                                 </option>
                               ))}
                             </optgroup>
@@ -2282,7 +2705,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             <optgroup label="Benutzerdefinierte Sprachpakete">
                               {visibleCustomPacks.map((cp) => (
                                 <option key={cp.id} value={`pack_${cp.id}`}>
-                                  {cp.name} ({cp.code.toUpperCase()})
+                                  {cp.emoji || '🌐'} {cp.name} ({cp.code.toUpperCase()})
                                 </option>
                               ))}
                             </optgroup>

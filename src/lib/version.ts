@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.5.7';
+export const APP_VERSION = '22.6.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,58 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.3',
+    date: '2026-09-13',
+    title: 'Dual Line Item Freedom: Custom Manual Free-Text Entry & Direct Warehouse Stock Selection',
+    highlights: [
+      'Flexible Line Item Mode: Users can now type free-text descriptions, services, consultation fees, or custom goods directly into invoice line items without being forced to pick from stock',
+      'Direct Warehouse Selection: Dedicated dropdown allows instant selection from warehouse inventory with automated price, SKU, and name pre-population',
+      'Intelligent Stock Movement Guard: Free-text items are safely skipped during stock movement execution, while inventory-linked items deduct physical warehouse stock automatically upon invoice posting',
+      'Quad-Language Support: Updated all UI labels, placeholders, and tooltips in German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '22.6.2',
+    date: '2026-09-13',
+    title: 'Resolution of Target Container DOM Element Error & Defensive Root Mounting',
+    highlights: [
+      'Resolved Uncaught Error: "Target container is not a DOM element" in ProductsModule by supplying missing document.body portal target container',
+      'Defensive Root Mounting: Hardened main entry point to safely await DOM ready state before calling createRoot, preventing race conditions during hydration'
+    ]
+  },
+  {
+    version: '22.6.1',
+    date: '2026-09-13',
+    title: 'Defensive Null Safety Hardening for Product QR Labels, Modals & Start Menu',
+    highlights: [
+      'Resolved Uncaught TypeError: Eliminated "Cannot read properties of null (reading \'name\')" by guarding ProductLabelModal to safely accept null or unselected products with conditional rendering',
+      'Defensive QR & Barcode Generation: ProductLabelModal now safely skips QRCode payload encoding and early returns when no product is currently active or selected',
+      'Settings & Desktop Start Menu Resilience: Applied defensive optional chaining to company profile state initializers and Start Menu header to guard against asynchronous database hydration gaps'
+    ]
+  },
+  {
+    version: '22.6.0',
+    date: '2026-09-13',
+    title: 'Dedicated Payment & Terminal Hub, Real-Time Settings Propagation, Direct SMTP & Transparent Workflows',
+    highlights: [
+      'Dedicated Payment Settings Hub: Established a dedicated "Payment Methods & Terminals" category in Settings housing Bank / SEPA accounts, POS Card Terminals, and Direct SMTP E-Mail configuration with clean card layouts, badges, and responsive controls',
+      'Real-Time Settings Propagation: All changes saved in company settings propagate immediately to InvoicesModule, payment dialogs, and GiroCode generation without requiring an application reload',
+      'Authentic & Transparent Dispatch: Eliminated simulated email sending; invoices are dispatched via system default mail client (mailto:), standard .eml download, or real user-configured SMTP credentials',
+      'Multilingual Parity: All payment settings, terminal toggles, explanatory guides, and invoice payment modals fully translated across German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '22.5.8',
+    date: '2026-09-12',
+    title: 'Dynamic Language Sync, Dropdown Selection Module, Authentic Flag Handling & Payment Privacy',
+    highlights: [
+      'Live Language File Synchronization: Real-time file system observation across native Electron watchers, SSE, window focus events, and rapid background polling ensures updates to language files in languages/ take effect immediately',
+      'Dynamic Selection Module & Dropdown: Integrated selection dropdown module across the TopBar, SettingsModule, and LanguageSelectionModal supporting all dynamic language files alongside built-in languages',
+      'Authentic Flag Representation: Purged AI-generated flag graphics; priorities now resolve from custom flag images in languages/flags/ (e.g. it.png), to standard country emojis, and clean black flag with question mark as the universal fallback',
+      'Payment Privacy & Masking: Enforced PCI-DSS compliant credit card masking (1234 ******) on invoice payments and suppressed card payment options unless explicitly enabled in company settings'
+    ]
+  },
   {
     version: '22.5.7',
     date: '2026-09-12',

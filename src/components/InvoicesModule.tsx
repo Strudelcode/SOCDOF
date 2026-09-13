@@ -25,13 +25,15 @@ import {
   Upload,
   FileSpreadsheet,
   AlertTriangle,
-  Copy
+  Copy,
+  Package,
+  Edit3
 } from 'lucide-react';
 import { Invoice, InvoiceItem, InvoiceStatus, Contact, Product, CompanyProfile } from '../types';
 import { db, executeStockMove, getNextInvoiceNumber } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { InvoicePrintModal } from './InvoicePrintModal';
-import { FakeSmtpModal } from './FakeSmtpModal';
+import { InvoiceEmailModal } from './InvoiceEmailModal';
 import { PaymentModal } from './PaymentModal';
 import { t, formatSystemDate } from '../lib/i18n';
 import { generateInvoiceEml } from '../lib/emlGenerator';
@@ -268,7 +270,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
       const initialItem: InvoiceItem = defaultProduct ? {
         id: `item_${Date.now()}`,
-        product_id: defaultProduct.id || 1,
+        product_id: defaultProduct.id || 0,
         product_name: defaultProduct.name,
         sku: defaultProduct.sku,
         qty: 1,
@@ -278,14 +280,14 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
         subtotal: defaultProduct.sale_price || 0
       } : {
         id: `item_${Date.now()}`,
-        product_id: 1,
-        product_name: 'Standard-Artikel',
-        sku: 'PRD-001',
+        product_id: 0,
+        product_name: 'Dienstleistung / Freie Position',
+        sku: '',
         qty: 1,
-        unit_price: 100,
+        unit_price: 50,
         tax_rate: company.default_tax_rate ?? 19,
         discount: 0,
-        subtotal: 100
+        subtotal: 50
       };
 
       setEditingInvoice({
@@ -357,19 +359,29 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     }) : null);
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (fromWarehouse = false) => {
     sounds.playClick();
-    const prod = products[0];
-    const newItem: InvoiceItem = {
+    const prod = fromWarehouse && products.length > 0 ? products[0] : null;
+    const newItem: InvoiceItem = prod ? {
       id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      product_id: prod?.id || 1,
-      product_name: prod?.name || 'Neuer Artikel',
-      sku: prod?.sku || 'SKU-001',
+      product_id: prod.id || 0,
+      product_name: prod.name,
+      sku: prod.sku,
       qty: 1,
-      unit_price: prod?.sale_price || 50,
+      unit_price: prod.sale_price || 0,
       tax_rate: company.default_tax_rate || 19,
       discount: 0,
-      subtotal: prod?.sale_price || 50
+      subtotal: prod.sale_price || 0
+    } : {
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      product_id: 0,
+      product_name: '',
+      sku: '',
+      qty: 1,
+      unit_price: 0,
+      tax_rate: company.default_tax_rate || 19,
+      discount: 0,
+      subtotal: 0
     };
 
     const currentItems = editingInvoice?.items || [];
@@ -383,24 +395,71 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
     updateInvoiceItems(currentItems.filter(i => i.id !== itemId));
   };
 
-  const handleItemProductChange = (itemId: string, productId: number) => {
+  const handleItemProductSelect = (itemId: string, productId: number) => {
+    const currentItems = editingInvoice?.items || [];
+    if (!productId || productId === 0) {
+      // Switched to custom free text item
+      const updated = currentItems.map(item => {
+        if (item.id === itemId) {
+          return {
+            ...item,
+            product_id: 0
+          };
+        }
+        return item;
+      });
+      updateInvoiceItems(updated);
+      return;
+    }
+
     const prod = products.find(p => p.id === productId);
     if (!prod) return;
 
-    const currentItems = editingInvoice?.items || [];
     const updated = currentItems.map(item => {
       if (item.id === itemId) {
+        const itemQty = item.qty || 1;
+        const price = prod.sale_price || 0;
+        const discount = item.discount || 0;
         return {
           ...item,
-          product_id: prod.id || 1,
+          product_id: prod.id || 0,
           product_name: prod.name,
           sku: prod.sku,
-          unit_price: prod.sale_price || 0
+          unit_price: price,
+          subtotal: itemQty * price * (1 - discount / 100)
         };
       }
       return item;
     });
 
+    updateInvoiceItems(updated);
+  };
+
+  const handleItemNameChange = (itemId: string, name: string) => {
+    const currentItems = editingInvoice?.items || [];
+    const updated = currentItems.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          product_name: name
+        };
+      }
+      return item;
+    });
+    updateInvoiceItems(updated);
+  };
+
+  const handleItemSkuChange = (itemId: string, sku: string) => {
+    const currentItems = editingInvoice?.items || [];
+    const updated = currentItems.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          sku: sku
+        };
+      }
+      return item;
+    });
     updateInvoiceItems(updated);
   };
 
@@ -421,10 +480,18 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const handleSaveDraft = async () => {
     if (!editingInvoice) return;
     try {
-      if (editingInvoice.id) {
-        await db.invoices.update(editingInvoice.id, editingInvoice);
+      const sanitizedItems = (editingInvoice.items || []).map((item, idx) => ({
+        ...item,
+        product_name: item.product_name?.trim() || `Position ${idx + 1}`
+      }));
+      const invoiceToSave = {
+        ...editingInvoice,
+        items: sanitizedItems
+      };
+      if (invoiceToSave.id) {
+        await db.invoices.update(invoiceToSave.id, invoiceToSave);
       } else {
-        await db.invoices.add(editingInvoice as Invoice);
+        await db.invoices.add(invoiceToSave as Invoice);
       }
       sounds.playSuccess();
       setEditingInvoice(null);
@@ -444,6 +511,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
       // 1. Move stock from Physical/Warehouse to Virtual/Customers if not already moved
       if (!target.stock_moved && target.items?.length) {
         for (const item of target.items) {
+          if (!item.product_id || item.product_id === 0) continue;
           // Check if it's a physical product (not digital license or service with 999 qty)
           const prod = products.find(p => p.id === item.product_id);
           if (prod && prod.category !== 'Software & Lizenzen' && prod.category !== 'Dienstleistung') {
@@ -894,13 +962,13 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                           <FileCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         </button>
 
-                        {/* Send via Fake SMTP */}
+                        {/* Send via Real E-Mail Client / Dispatch Modal */}
                         <button
                           onClick={() => {
                             sounds.playClick();
                             setMailInvoice(inv);
                           }}
-                          title={t('invoice.btn_mail_tooltip', undefined, 'Per E-Mail versenden (Fake-SMTP)')}
+                          title={t('email.modal_title', undefined, 'Rechnung per E-Mail versenden')}
                           className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                         >
                           <Mail className="w-4 h-4" />
@@ -1127,25 +1195,42 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
 
               {/* Dynamic Line Items Editor */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    {t('invoice.modal_items_title', undefined, 'Rechnungspositionen')}
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{t('invoice.modal_add_item', undefined, 'Position hinzufügen')}</span>
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      {t('invoice.modal_items_title', undefined, 'Rechnungspositionen')}
+                    </h4>
+                    <span className="text-[10px] text-slate-400">
+                      {t('invoice.modal_col_position_desc', undefined, 'Bezeichnung / Freitext / Dienstleistung')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAddItem(false)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800/60 px-2.5 py-1 rounded-lg transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{t('invoice.modal_add_item_custom', undefined, 'Freie Position')}</span>
+                    </button>
+                    {products.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddItem(true)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-lg transition"
+                      >
+                        <Package className="w-3.5 h-3.5" />
+                        <span>{t('invoice.modal_select_from_warehouse', undefined, 'Artikel aus Lager')}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
-                        <th className="p-3">{t('invoice.modal_col_product', undefined, 'Produkt')}</th>
+                        <th className="p-3 min-w-[240px]">{t('invoice.modal_col_product', undefined, 'Produkt')} / {t('invoice.modal_col_position_desc', undefined, 'Bezeichnung')}</th>
                         <th className="p-3 w-20 text-center">{t('invoice.modal_col_qty', undefined, 'Menge')}</th>
                         <th className="p-3 w-28 text-right">{t('invoice.modal_col_unit_price', undefined, 'Einzelpreis')} ({company.currency})</th>
                         <th className="p-3 w-20 text-center">{t('invoice.modal_col_discount', undefined, 'Rabatt (%)')}</th>
@@ -1157,21 +1242,72 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {editingInvoice.items?.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="p-2">
-                            <select
-                              value={item.product_id}
-                              onChange={(e) => handleItemProductChange(item.id, parseInt(e.target.value))}
-                              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                            >
-                              {products.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} ({p.sku}) - {p.sale_price} {company.currency}
-                                </option>
-                              ))}
-                            </select>
+                          <td className="p-2.5">
+                            <div className="space-y-1.5">
+                              {/* 1. Direct editable Position Name / Description */}
+                              <input
+                                type="text"
+                                required
+                                placeholder={t('invoice.modal_item_placeholder', undefined, 'Positionsbezeichnung (z. B. Beratung, Montage, Freitext-Artikel)...')}
+                                value={item.product_name || ''}
+                                onChange={(e) => handleItemNameChange(item.id, e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                              />
+
+                              {/* 2. Warehouse Picker & Mode Bar */}
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                <div className="flex-1 min-w-[160px]">
+                                  <select
+                                    value={item.product_id || 0}
+                                    onChange={(e) => handleItemProductSelect(item.id, parseInt(e.target.value))}
+                                    className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500"
+                                  >
+                                    <option value={0}>
+                                      {t('invoice.modal_free_item_option', undefined, '✏️ Freie Position / Manuelle Eingabe')}
+                                    </option>
+                                    {products.length > 0 && (
+                                      <optgroup label={t('invoice.modal_select_from_warehouse', undefined, '📦 Aus Lagerbestand übernehmen:')}>
+                                        {products.map(p => (
+                                          <option key={p.id} value={p.id}>
+                                            {p.name} ({p.sku}) — {p.sale_price} {company.currency} ({t('invoice.modal_stock_available', undefined, 'Bestand')}: {p.qty_available})
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                  </select>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    placeholder={t('invoice.modal_sku_placeholder', undefined, 'Art.-Nr. / SKU')}
+                                    value={item.sku || ''}
+                                    onChange={(e) => handleItemSkuChange(item.id, e.target.value)}
+                                    className="w-24 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-slate-600 dark:text-slate-400 font-mono text-[10px] focus:outline-none focus:border-indigo-500"
+                                  />
+                                  {item.product_id && item.product_id > 0 ? (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                      title="Verknüpft mit Lagerbestand – wird beim Buchen ausgebucht"
+                                    >
+                                      <Package className="w-3 h-3" />
+                                      {t('invoice.modal_badge_warehouse', undefined, 'Lagerartikel')}
+                                    </span>
+                                  ) : (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                                      title="Freie Dienstleistung oder Einmalartikel ohne Lagerabzug"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                      {t('invoice.modal_badge_custom', undefined, 'Freitext')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </td>
 
-                          <td className="p-2">
+                          <td className="p-2.5 align-top">
                             <input
                               type="number"
                               min="1"
@@ -1181,7 +1317,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             />
                           </td>
 
-                          <td className="p-2">
+                          <td className="p-2.5 align-top">
                             <input
                               type="number"
                               step="0.01"
@@ -1192,7 +1328,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             />
                           </td>
 
-                          <td className="p-2">
+                          <td className="p-2.5 align-top">
                             <input
                               type="number"
                               min="0"
@@ -1203,7 +1339,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             />
                           </td>
 
-                          <td className="p-2">
+                          <td className="p-2.5 align-top">
                             <select
                               value={item.tax_rate}
                               onChange={(e) => handleItemFieldChange(item.id, 'tax_rate', parseFloat(e.target.value) || 0)}
@@ -1215,16 +1351,16 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                             </select>
                           </td>
 
-                          <td className="p-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          <td className="p-2.5 align-top text-right font-mono font-bold text-slate-900 dark:text-white pt-3.5">
                             {formatCurrency(item.subtotal)}
                           </td>
 
-                          <td className="p-2 text-center">
+                          <td className="p-2.5 align-top text-center pt-3.5">
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(item.id)}
                               disabled={(editingInvoice.items?.length || 0) <= 1}
-                              className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                              className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-30 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1408,6 +1544,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
           invoice={payingInvoice}
           company={company}
           onClose={() => setPayingInvoice(null)}
+          onOpenSettings={onOpenSettings}
           onPaymentSuccess={() => {
             onRefresh();
           }}
@@ -1423,10 +1560,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
         />
       )}
 
-      {/* Fake SMTP Mail Modal */}
+      {/* Real E-Mail Dispatch Modal */}
       {mailInvoice && (
-        <FakeSmtpModal
+        <InvoiceEmailModal
           invoice={mailInvoice}
+          company={company}
           onSuccess={async () => {
             if (mailInvoice.id) {
               await db.invoices.update(mailInvoice.id, {
@@ -1436,6 +1574,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
             }
           }}
           onClose={() => setMailInvoice(null)}
+          onOpenSettings={onOpenSettings}
         />
       )}
 

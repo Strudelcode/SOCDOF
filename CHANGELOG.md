@@ -7,6 +7,33 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 🌟 Version 22.6.3 (Freie Rechnungspositionen & Direktauswahl aus Lagerbestand)
+- 🚀 **Neu**: Volle Flexibilität bei Rechnungspositionen – Positionen können nun als freier Text (z. B. Beratung, Montage, individuelle Dienstleistungen) direkt eingetippt oder wahlweise aus dem Warenlager mit Live-Bestandsanzeige übernommen werden.
+- 🚀 **Neu**: Schnell-Aktionsbuttons im Positionseditor: `+ Freie Position` und `+ Artikel aus Lager` für blitzschnelles Hinzufügen.
+- 🔄 **Verbessert**: Intelligente Bestandsbuchung – Freitext-Positionen werden beim Festschreiben der Rechnung automatisch ohne Lagerabzug verbucht, während mit dem Lager verknüpfte Artikel weiterhin automatisch ausgebucht werden.
+- 🛠️ **Behoben**: Vollständige Viersprachigkeit (Deutsch, Englisch, Französisch, Spanisch) für alle neuen Positionsfelder, Platzhalter und Statushinweise.
+
+## 🌟 Version 22.6.2 (Behebung des DOM-Portal-Fehlers & Sicheres Root-Mounting)
+- 🛠️ **Behoben**: Fehler `Target container is not a DOM element` im Artikelmodul (`ProductsModule`) behoben – fehlendes `document.body`-Ziel beim Erstellen/Bearbeiten von Artikeln per Portal ergänzt.
+- 🔄 **Verbessert**: Sicheres Einhängen des React-Roots (`main.tsx`) mit Prüfung auf DOM-Bereitschaft zur Vermeidung von Hydrations-Konflikten.
+
+## 🌟 Version 22.6.1 (Null-Safety Härtung für QR-Etiketten, Modale & Startmenü)
+- 🛠️ **Behoben**: Laufzeitfehler `Cannot read properties of null (reading 'name')` vollständig behoben – Modaldialog zur QR- & Barcode-Etikettenerstellung (`ProductLabelModal`) stürzt bei nicht ausgewähltem Artikel nicht mehr ab.
+- 🔄 **Verbessert**: Defensive Null-Prüfung bei der QR-Code-Generierung und bedingtes Rendering im Artikelmodul (`ProductsModule`).
+- 🛠️ **Behoben**: Zusätzliche Absicherung gegen noch nicht initialisierte Unternehmensdaten (`company?.name`) im Einstellungsmenü und im Desktop-Startmenü.
+
+## 🌟 Version 22.6.0 (Zahlungs-Hub, Live-Synchronisation, SMTP & Transparenter Rechnungsversand)
+- 🚀 **Neu**: Eigene Kategorie "Zahlungsmethoden & Terminals" in den Einstellungen – Bankverbindung, Kartenterminals und E-Mail-Konfiguration übersichtlich gebündelt statt im allgemeinen Profil versteckt.
+- 🔄 **Verbessert**: Sofortige Live-Aktualisierung in der gesamten App – Änderungen an Bankverbindung oder Kartenterminal werden beim Speichern unmittelbar in Rechnungen, Zahlungsdialoge und EPC-QR GiroCodes übernommen.
+- 🔄 **Verbessert**: Transparenter, echter Rechnungsversand – keine Schein-Versandbestätigungen mehr; Rechnungen werden wahlweise über das lokale E-Mail-Programm (`mailto:`), als `.eml`-Datei oder über hinterlegte eigene SMTP-Zugangsdaten übermittelt.
+- 🛠️ **Behoben**: Vollständige Viersprachigkeit (Deutsch, Englisch, Französisch, Spanisch) für alle neuen Zahlungsoptionen, Statushinweise und Erklärungen.
+
+## 🌟 Version 22.5.8 (Dynamische Sprachsynchronisation, Dropdown-Auswahlmodul & Zahlungsdatenschutz)
+- 🚀 **Neu**: Dynamische Live-Erkennung für Sprachdateien – Änderungen an `.json`-Dateien im Ordner `languages/` werden sofort ohne Neustart in SOCDOF geladen und im Dropdown zur Verfügung gestellt.
+- 🚀 **Neu**: Ergonomisches Sprachauswahl-Modul mit Dropdown in der oberen Menüleiste (TopBar), im Einstellungsmenü und im modalen Sprachdialog.
+- 🔄 **Verbessert**: Authentische Flaggen-Darstellung ohne KI-Grafiken – Priorisierung von benutzerdefinierten Flaggenbildern im Ordner `languages/flags/`, echten Länder-Emojis und einer schwarzen Flagge mit Fragezeichen als Standard-Fallback.
+- 🛠️ **Behoben**: Maskierung sensibler Kartendaten (`1234 ******`) im Rechnungszahlungs-Dialog; Kartenzahlung wird erst angezeigt, wenn sie in den Einstellungen aktiviert wurde.
+
 ## 🌟 Version 22.5.7 (Rechnungserstellung & Fenster-Parameter-Orchestrierung)
 - 🛠️ **Behoben**: Der Button "Neue Rechnung" öffnet nun sofort das Erstellungsfenster und generiert automatisch die nächste fortlaufende Rechnungsnummer.
 - 🔄 **Verbessert**: Fenster-Orchestrierung im Desktop-Workspace erweitert – "Rechnung erstellen" aus Kontakten, Lagerbuchungen oder Support-Tickets öffnet das Rechnungsmodul direkt mit vorausgewählten Kundendaten.

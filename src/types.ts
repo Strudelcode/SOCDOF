@@ -257,6 +257,23 @@ export interface CompanyProfile {
   google_cal_last_sync_time?: string;
   ical_export_enabled?: boolean;
 
+  // Card Payment & POS Terminal Settings
+  card_payment_enabled?: boolean;
+  card_terminal_provider?: 'zvt' | 'sumup' | 'stripe' | 'opi' | 'manual';
+  card_terminal_name?: string;
+  card_terminal_ip?: string;
+  card_masking_enabled?: boolean;
+  bank_account_holder?: string;
+
+  // E-Mail & SMTP Settings for Invoicing
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_pass?: string;
+  smtp_secure?: boolean;
+  smtp_from_email?: string;
+  smtp_from_name?: string;
+
   // Italian E-Invoicing (FatturaPA & SdI)
   sdi_transmitter_country?: string; // Default 'IT'
   sdi_transmitter_vat?: string;

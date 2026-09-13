@@ -16,12 +16,14 @@ import { sounds } from '../lib/sound';
 import { t } from '../lib/i18n';
 
 interface ProductLabelModalProps {
-  product: Product;
+  isOpen?: boolean;
+  product: Product | null;
   currency: string;
   onClose: () => void;
 }
 
 export const ProductLabelModal: React.FC<ProductLabelModalProps> = ({
+  isOpen = true,
   product,
   currency,
   onClose
@@ -31,15 +33,19 @@ export const ProductLabelModal: React.FC<ProductLabelModalProps> = ({
   const [copied, setCopied] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const qrPayload = JSON.stringify({
-    name: product.name,
-    sku: product.sku,
-    price: product.sale_price,
-    asin: product.asin,
+  const qrPayload = product ? JSON.stringify({
+    name: product.name || '',
+    sku: product.sku || '',
+    price: product.sale_price || 0,
+    asin: product.asin || '',
     currency
-  });
+  }) : '';
 
   useEffect(() => {
+    if (!qrPayload) {
+      setQrDataUrl('');
+      return;
+    }
     QRCode.toDataURL(
       qrPayload,
       {
@@ -57,6 +63,10 @@ export const ProductLabelModal: React.FC<ProductLabelModalProps> = ({
       }
     );
   }, [qrPayload]);
+
+  if (!isOpen || !product) {
+    return null;
+  }
 
   const handlePrint = () => {
     sounds.playClick();

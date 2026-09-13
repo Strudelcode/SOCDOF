@@ -22,9 +22,20 @@ if (typeof window !== 'undefined') {
   window.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+function mountApp() {
+  const container = document.getElementById('root');
+  if (container) {
+    createRoot(container).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountApp);
+} else {
+  mountApp();
+}
 

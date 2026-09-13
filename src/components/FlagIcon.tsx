@@ -10,107 +10,63 @@ interface FlagIconProps {
   title?: string;
 }
 
-// Built-in crisp vector flags for standard languages
-const BuiltInFlags: Record<string, React.FC<{ className?: string }>> = {
-  de: ({ className }) => (
-    <svg viewBox="0 0 5 3" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="5" height="3" fill="#000000" />
-      <rect width="5" height="2" y="1" fill="#DD0000" />
-      <rect width="5" height="1" y="2" fill="#FFCE00" />
-    </svg>
-  ),
-  ger: ({ className }) => (
-    <svg viewBox="0 0 5 3" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="5" height="3" fill="#000000" />
-      <rect width="5" height="2" y="1" fill="#DD0000" />
-      <rect width="5" height="1" y="2" fill="#FFCE00" />
-    </svg>
-  ),
-  fr: ({ className }) => (
-    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="1" height="2" x="0" fill="#002654" />
-      <rect width="1" height="2" x="1" fill="#FFFFFF" />
-      <rect width="1" height="2" x="2" fill="#ED2939" />
-    </svg>
-  ),
-  fra: ({ className }) => (
-    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="1" height="2" x="0" fill="#002654" />
-      <rect width="1" height="2" x="1" fill="#FFFFFF" />
-      <rect width="1" height="2" x="2" fill="#ED2939" />
-    </svg>
-  ),
-  es: ({ className }) => (
-    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="3" height="2" fill="#AA151B" />
-      <rect width="3" height="1" y="0.5" fill="#F1BF00" />
-    </svg>
-  ),
-  esp: ({ className }) => (
-    <svg viewBox="0 0 3 2" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="3" height="2" fill="#AA151B" />
-      <rect width="3" height="1" y="0.5" fill="#F1BF00" />
-    </svg>
-  ),
-  en: ({ className }) => (
-    <svg viewBox="0 0 19 10" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="19" height="10" fill="#B22234" />
-      <path d="M0,1.54H19M0,3.08H19M0,4.62H19M0,6.15H19M0,7.69H19M0,9.23H19" stroke="#fff" strokeWidth="0.77" />
-      <rect width="7.6" height="5.38" fill="#3C3B6E" />
-      <g fill="#fff" opacity="0.9">
-        <circle cx="1.3" cy="0.9" r="0.25" /><circle cx="2.6" cy="0.9" r="0.25" /><circle cx="3.9" cy="0.9" r="0.25" /><circle cx="5.2" cy="0.9" r="0.25" /><circle cx="6.5" cy="0.9" r="0.25" />
-        <circle cx="1.9" cy="1.8" r="0.25" /><circle cx="3.2" cy="1.8" r="0.25" /><circle cx="4.5" cy="1.8" r="0.25" /><circle cx="5.8" cy="1.8" r="0.25" />
-        <circle cx="1.3" cy="2.7" r="0.25" /><circle cx="2.6" cy="2.7" r="0.25" /><circle cx="3.9" cy="2.7" r="0.25" /><circle cx="5.2" cy="2.7" r="0.25" /><circle cx="6.5" cy="2.7" r="0.25" />
-        <circle cx="1.9" cy="3.6" r="0.25" /><circle cx="3.2" cy="3.6" r="0.25" /><circle cx="4.5" cy="3.6" r="0.25" /><circle cx="5.8" cy="3.6" r="0.25" />
-        <circle cx="1.3" cy="4.5" r="0.25" /><circle cx="2.6" cy="4.5" r="0.25" /><circle cx="3.9" cy="4.5" r="0.25" /><circle cx="5.2" cy="4.5" r="0.25" /><circle cx="6.5" cy="4.5" r="0.25" />
-      </g>
-    </svg>
-  ),
-  us: ({ className }) => (
-    <svg viewBox="0 0 19 10" className={className} xmlns="http://www.w3.org/2000/svg">
-      <rect width="19" height="10" fill="#B22234" />
-      <path d="M0,1.54H19M0,3.08H19M0,4.62H19M0,6.15H19M0,7.69H19M0,9.23H19" stroke="#fff" strokeWidth="0.77" />
-      <rect width="7.6" height="5.38" fill="#3C3B6E" />
-      <g fill="#fff" opacity="0.9">
-        <circle cx="1.3" cy="0.9" r="0.25" /><circle cx="2.6" cy="0.9" r="0.25" /><circle cx="3.9" cy="0.9" r="0.25" /><circle cx="5.2" cy="0.9" r="0.25" /><circle cx="6.5" cy="0.9" r="0.25" />
-        <circle cx="1.9" cy="1.8" r="0.25" /><circle cx="3.2" cy="1.8" r="0.25" /><circle cx="4.5" cy="1.8" r="0.25" /><circle cx="5.8" cy="1.8" r="0.25" />
-        <circle cx="1.3" cy="2.7" r="0.25" /><circle cx="2.6" cy="2.7" r="0.25" /><circle cx="3.9" cy="2.7" r="0.25" /><circle cx="5.2" cy="2.7" r="0.25" /><circle cx="6.5" cy="2.7" r="0.25" />
-        <circle cx="1.9" cy="3.6" r="0.25" /><circle cx="3.2" cy="3.6" r="0.25" /><circle cx="4.5" cy="3.6" r="0.25" /><circle cx="5.8" cy="3.6" r="0.25" />
-        <circle cx="1.3" cy="4.5" r="0.25" /><circle cx="2.6" cy="4.5" r="0.25" /><circle cx="3.9" cy="4.5" r="0.25" /><circle cx="5.2" cy="4.5" r="0.25" /><circle cx="6.5" cy="4.5" r="0.25" />
-      </g>
-    </svg>
-  ),
-  gb: ({ className }) => (
-    <svg viewBox="0 0 60 30" className={className} xmlns="http://www.w3.org/2000/svg">
-      <clipPath id="s_clip"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
-      <clipPath id="t_clip"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
-      <g clipPath="url(#s_clip)">
-        <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
-        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
-        <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#t_clip)" stroke="#C8102E" strokeWidth="4"/>
-        <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
-        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
-      </g>
-    </svg>
-  ),
-  uk: ({ className }) => (
-    <svg viewBox="0 0 60 30" className={className} xmlns="http://www.w3.org/2000/svg">
-      <clipPath id="s_clip_uk"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
-      <clipPath id="t_clip_uk"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
-      <g clipPath="url(#s_clip_uk)">
-        <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
-        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
-        <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#t_clip_uk)" stroke="#C8102E" strokeWidth="4"/>
-        <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
-        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
-      </g>
-    </svg>
-  )
+// Crisp standard Unicode flag emojis for languages/regions
+const LANGUAGE_EMOJIS: Record<string, string> = {
+  de: '🇩🇪',
+  ger: '🇩🇪',
+  en: '🇺🇸',
+  us: '🇺🇸',
+  gb: '🇬🇧',
+  uk: '🇬🇧',
+  fr: '🇫🇷',
+  fra: '🇫🇷',
+  es: '🇪🇸',
+  esp: '🇪🇸',
+  it: '🇮🇹',
+  ita: '🇮🇹',
+  nl: '🇳🇱',
+  nld: '🇳🇱',
+  pl: '🇵🇱',
+  pol: '🇵🇱',
+  pt: '🇵🇹',
+  por: '🇵🇹',
+  tr: '🇹🇷',
+  tur: '🇹🇷',
+  ru: '🇷🇺',
+  rus: '🇷🇺',
+  ja: '🇯🇵',
+  jpn: '🇯🇵',
+  zh: '🇨🇳',
+  chi: '🇨🇳',
+  zho: '🇨🇳',
+  ko: '🇰🇷',
+  kor: '🇰🇷',
+  sv: '🇸🇪',
+  swe: '🇸🇪',
+  no: '🇳🇴',
+  nor: '🇳🇴',
+  da: '🇩🇰',
+  dan: '🇩🇰',
+  fi: '🇫🇮',
+  fin: '🇫🇮',
+  cs: '🇨🇿',
+  ces: '🇨🇿',
+  el: '🇬🇷',
+  ell: '🇬🇷',
+  ro: '🇷🇴',
+  ron: '🇷🇴',
+  hu: '🇭🇺',
+  hun: '🇭🇺',
+  ua: '🇺🇦',
+  ukr: '🇺🇦',
+  at: '🇦🇹',
+  ch: '🇨🇭'
 };
 
 export const FlagIcon: React.FC<FlagIconProps> = ({ 
   code, 
   customImage, 
+  emoji,
   className = '', 
   size = 'md',
   title
@@ -125,16 +81,16 @@ export const FlagIcon: React.FC<FlagIconProps> = ({
   }, []);
 
   const sizeDimensions = {
-    sm: { box: 'w-4 h-3', text: 'text-[9px]', img: 'w-4 h-3' },
-    md: { box: 'w-6 h-4', text: 'text-[11px]', img: 'w-6 h-4' },
-    lg: { box: 'w-8 h-5.5', text: 'text-xs', img: 'w-8 h-5.5' },
-    xl: { box: 'w-10 h-7', text: 'text-sm', img: 'w-10 h-7' }
+    sm: { box: 'w-5 h-3.5', text: 'text-[9px]', img: 'w-5 h-3.5', emoji: 'text-sm' },
+    md: { box: 'w-6 h-4', text: 'text-[10px]', img: 'w-6 h-4', emoji: 'text-base' },
+    lg: { box: 'w-8 h-5.5', text: 'text-xs', img: 'w-8 h-5.5', emoji: 'text-lg' },
+    xl: { box: 'w-10 h-7', text: 'text-sm', img: 'w-10 h-7', emoji: 'text-2xl' }
   };
 
   const selectedSize = sizeDimensions[size] || sizeDimensions.md;
   const cleanCode = (code || '').toLowerCase().trim();
 
-  // 1. Check if a custom image was provided directly or discovered in languages/flags/
+  // 1. Priority 1: Check if a custom image was dropped into languages/flags/ folder
   const resolvedImage = customImage || getCustomFlagImage(cleanCode);
 
   if (resolvedImage) {
@@ -151,27 +107,35 @@ export const FlagIcon: React.FC<FlagIconProps> = ({
     );
   }
 
-  // 2. Check for built-in vector flag (de, en, us, gb, fr, es)
-  const BuiltInComponent = BuiltInFlags[cleanCode];
-  if (BuiltInComponent) {
+  // 2. Priority 2: Use authentic Unicode Flag Emoji (from prop or recognized country code)
+  const resolvedEmoji = emoji || LANGUAGE_EMOJIS[cleanCode];
+  if (resolvedEmoji) {
     return (
-      <div
-        className={`rounded-[3px] overflow-hidden shadow-xs border border-slate-200/80 dark:border-slate-700/80 shrink-0 flex items-center justify-center ${selectedSize.box} ${className}`}
+      <span 
+        role="img" 
+        aria-label={title || code}
         title={title || code.toUpperCase()}
+        className={`inline-flex items-center justify-center leading-none select-none shrink-0 ${selectedSize.emoji} ${className}`}
       >
-        <BuiltInComponent className="w-full h-full object-cover" />
-      </div>
+        {resolvedEmoji}
+      </span>
     );
   }
 
-  // 3. Fallback: If no flag image exists in flags/ folder, display a clean "?"
+  // 3. Fallback / Standard: Black flag with a question mark (?)
   return (
     <div 
-      className={`rounded-[3px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 select-none ${selectedSize.box} ${className}`}
-      title={title || code.toUpperCase()}
-      aria-label={title || code.toUpperCase()}
+      className={`rounded-[3px] bg-slate-950 text-white font-bold border border-slate-700/80 flex items-center justify-center shrink-0 select-none overflow-hidden relative ${selectedSize.box} ${className}`}
+      title={title || (code ? `${code.toUpperCase()} (?)` : '?')}
+      aria-label={title || (code ? `${code.toUpperCase()} (?)` : '?')}
     >
-      <span className={`${selectedSize.text} font-black leading-none select-none`}>?</span>
+      <svg viewBox="0 0 20 14" className="w-full h-full text-black fill-current" preserveAspectRatio="none">
+        <rect width="20" height="14" fill="#090d16" />
+        <path d="M2 1h16l-2.5 6 2.5 6H2V1z" fill="#1e293b" />
+      </svg>
+      <span className={`absolute inset-0 flex items-center justify-center ${selectedSize.text} font-black text-amber-300 dark:text-amber-200 leading-none select-none pl-0.5`}>
+        ?
+      </span>
     </div>
   );
 };

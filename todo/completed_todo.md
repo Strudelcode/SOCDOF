@@ -6,7 +6,21 @@
 
 ## Completed Tasks Archive
 
-### 1. Invoice Creation Workflow & Window Parameter Orchestration (v22.5.7)
+### 1. Dynamic Language Live Sync, Selection Dropdown Module, Authentic Flags & Payment Privacy (v22.5.8)
+- [x] **Instant Dynamic Language Synchronization**:
+  - [x] Live detection of added or updated `.json` language files in `languages/` (`%APPDATA%/socdof/languages/` or local directory) using Electron directory watchers, SSE, window focus listeners, and background polling.
+  - [x] Immediate reload and UI availability of newly added languages without requiring application restart or browser refresh.
+- [x] **Language Selection Dropdown Module**:
+  - [x] Ergonomic dropdown selection module added to `TopBar.tsx`, `SettingsModule.tsx`, and `LanguageSelectionModal.tsx`.
+  - [x] Clean display of language name, uppercase language code, translated key metrics, and custom badge tag.
+- [x] **Authentic Flag Handling & Removal of AI-Generated Graphics**:
+  - [x] Deleted synthetic AI-generated SVG flag graphics from `public/languages/flags/`.
+  - [x] Implemented a 3-tier priority flag system in `FlagIcon.tsx`: (1) Custom images placed in `languages/flags/` (e.g. `it.png`, `pl.svg`), (2) Standard authentic country flag emojis, (3) Clean black flag with question mark as the standard fallback.
+- [x] **Invoice Payment Privacy & Card Settings Gating**:
+  - [x] Masked credit card numbers in compliance with PCI-DSS (`1234 ******`) in `PaymentModal.tsx`.
+  - [x] Gated card payment options to only be displayed when explicitly enabled in company settings (`company.card_payment_enabled`).
+
+### 2. Invoice Creation Workflow & Window Parameter Orchestration (v22.5.7)
 - [x] **New Invoice Button Activation**:
   - [x] Connected "Neue Rechnung" (New Invoice) buttons in the header toolbar and the empty journal state to trigger `initNewInvoice()`.
   - [x] Pre-fills next sequential number (`getNextInvoiceNumber`), calculates default item pricing, and displays the modal.

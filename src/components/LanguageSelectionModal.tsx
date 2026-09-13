@@ -62,6 +62,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'dropdown'>('dropdown');
   const [resolvedFolderPath, setResolvedFolderPath] = useState<string>('languages/');
+  const [isCustomDropdownOpen, setIsCustomDropdownOpen] = useState(false);
 
   // Subscribe to live desktop language files updates
   useEffect(() => {
@@ -312,58 +313,141 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
           {viewMode === 'dropdown' ? (
             /* COMPACT DROPDOWN SELECTION MODULE */
             <div className="space-y-3 py-2">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                {t('lang_modal.select_from_menu', activeLangCode, 'Select active language from menu:')}
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedId}
-                  onChange={(e) => handleChoose(e.target.value)}
-                  className="w-full p-3.5 pr-10 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none"
-                >
-                  {availableLanguages.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.code.toUpperCase()}) {item.badge ? `[${item.badge}]` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{t('lang_modal.select_from_menu', activeLangCode, 'Sprache aus Auswahlliste wählen:')}</span>
+                </label>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {availableLanguages.length} {t('lang_modal.languages_available', activeLangCode, 'verfügbar')}
+                </span>
               </div>
 
-              {/* Selected Item Preview Box */}
-              {(() => {
-                const currentItem = availableLanguages.find(l => l.id === selectedId);
-                if (!currentItem) return null;
+              {/* Custom Interactive Dropdown Button & Options */}
+              <div className="relative">
+                {(() => {
+                  const currentItem = availableLanguages.find(l => l.id === selectedId) || availableLanguages[0];
+                  return (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomDropdownOpen(!isCustomDropdownOpen)}
+                        className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 text-slate-900 dark:text-white transition flex items-center justify-between gap-3 shadow-xs cursor-pointer text-left"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="shrink-0 p-1 bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700">
+                            <FlagIcon 
+                              code={currentItem?.code || 'custom'} 
+                              customImage={currentItem?.flagImage} 
+                              emoji={currentItem?.emoji} 
+                              size="lg" 
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                              <span className="truncate">{currentItem?.name}</span>
+                              <span className="text-xs font-mono uppercase text-slate-400">({currentItem?.code})</span>
+                              {currentItem?.badge && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 shrink-0">
+                                  {currentItem.badge}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              {currentItem?.subtitle}
+                            </div>
+                          </div>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isCustomDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
 
-                return (
-                  <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="shrink-0 p-1 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/60 dark:border-slate-700/60">
-                        <FlagIcon 
-                          code={currentItem.code} 
-                          customImage={currentItem.flagImage} 
-                          emoji={currentItem.emoji} 
-                          size="xl" 
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                          <span className="truncate">{currentItem.name}</span>
-                          {currentItem.badge && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 shrink-0">
-                              {currentItem.badge}
-                            </span>
-                          )}
+                      {isCustomDropdownOpen && (
+                        <div 
+                          className="absolute left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-1.5 z-50 space-y-1 animate-scale-up"
+                        >
+                          {availableLanguages.map((item) => {
+                            const isSelected = selectedId === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  handleChoose(item.id);
+                                  setIsCustomDropdownOpen(false);
+                                }}
+                                className={`w-full p-2.5 rounded-xl text-left flex items-center justify-between gap-2.5 transition cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 font-bold'
+                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="shrink-0">
+                                    <FlagIcon 
+                                      code={item.code} 
+                                      customImage={item.flagImage} 
+                                      emoji={item.emoji} 
+                                      size="md" 
+                                    />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-semibold flex items-center gap-1.5 truncate">
+                                      <span className="truncate">{item.name}</span>
+                                      <span className="text-[10px] font-mono opacity-60 uppercase">({item.code})</span>
+                                      {item.badge && (
+                                        <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                          {item.badge}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 truncate">
+                                      {item.subtitle}
+                                    </div>
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                          {currentItem.subtitle || currentItem.code.toUpperCase()}
-                        </div>
-                      </div>
+                      )}
                     </div>
-                    <Check className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+              </div>
+
+              {/* Informative Instructions Banner */}
+              <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 rounded-xl text-[11px] text-amber-900 dark:text-amber-300/90 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <span>{t('lang_modal.auto_detect_banner_title', activeLangCode, '⚡ Automatische Übernahme von Sprachdateien & Flaggen')}</span>
+                </div>
+                <p className="text-[10px] leading-relaxed text-amber-800 dark:text-amber-400">
+                  {t('lang_modal.auto_detect_banner_desc', activeLangCode, 'Sobald eine Sprachdatei (.json) im Ordner languages/ aktualisiert wird, übernimmt SOCDOF diese direkt. Eigene Flaggenbilder können im Unterordner flags/ hinterlegt werden; standardmäßig wird das Länder-Emoji oder die Flagge mit Fragezeichen verwendet.')}
+                </p>
+              </div>
+
+              {/* Native Select element for accessibility & keyboard navigation */}
+              <div className="pt-1">
+                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                  {t('lang_modal.fast_menu_select', activeLangCode, 'Schnellauswahl per Standard-Dropdown:')}
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedId}
+                    onChange={(e) => handleChoose(e.target.value)}
+                    className="w-full p-2.5 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none"
+                  >
+                    {availableLanguages.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.code.toUpperCase()}) {item.badge ? `[${item.badge}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
             </div>
           ) : (
             /* EXPANDED CARDS SELECTION MODULE */

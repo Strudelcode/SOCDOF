@@ -656,12 +656,14 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
       />
 
       {/* Product Barcode & QR Label Printing Modal */}
-      <ProductLabelModal
-        isOpen={!!selectedLabelProduct}
-        onClose={() => setSelectedLabelProduct(null)}
-        product={selectedLabelProduct}
-        currency={currency}
-      />
+      {selectedLabelProduct && (
+        <ProductLabelModal
+          isOpen={!!selectedLabelProduct}
+          onClose={() => setSelectedLabelProduct(null)}
+          product={selectedLabelProduct}
+          currency={currency}
+        />
+      )}
 
       {/* Customer Allocation Detail Modal */}
       {selectedProductDetail && createPortal(
@@ -1040,7 +1042,8 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -73,7 +73,12 @@ export const defaultCompanyProfile: CompanyProfile = {
   auto_backup_enabled: true,
   backup_interval_minutes: 120, // 2 hours default
   backup_max_keep_count: 10,
-  backup_notify_on_success: true
+  backup_notify_on_success: true,
+  card_payment_enabled: false,
+  card_terminal_provider: 'zvt',
+  card_terminal_name: '',
+  card_terminal_ip: '',
+  card_masking_enabled: true
 };
 
 // Initial Database Setup (Starts clean without dummy data by default)

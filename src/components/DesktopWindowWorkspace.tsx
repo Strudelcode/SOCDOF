@@ -2866,7 +2866,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className="flex items-center gap-2.5 pb-3.5 border-b border-slate-200 dark:border-slate-800">
             <SocdofLogo size="md" className="shadow-md flex-shrink-0" />
             <div className="min-w-0">
-              <h4 className="font-bold text-sm truncate">{company.name || 'SOCDOF'}</h4>
+              <h4 className="font-bold text-sm truncate">{company?.name || 'SOCDOF'}</h4>
             </div>
           </div>
 
@@ -3012,11 +3012,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform"
                 style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
               >
-                {company.name ? company.name.charAt(0).toUpperCase() : <User className="w-4 h-4 text-white" />}
+                {company?.name ? company.name.charAt(0).toUpperCase() : <User className="w-4 h-4 text-white" />}
               </div>
               <div className="min-w-0 flex flex-col">
                 <span className="text-xs font-bold truncate max-w-[130px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {company.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
+                  {company?.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
                 </span>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
