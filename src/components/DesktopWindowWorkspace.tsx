@@ -2591,7 +2591,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                       params: { ...w.params, isCreateOpen: true, contactId }
                     } : w));
                   }}
-                  onOpenSettings={() => handleOpenSettings('general')}
+                  onOpenSettings={(section) => handleOpenSettings(section || 'payments')}
                 />
               )}
 
@@ -2684,6 +2684,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <SupportServicesModule
                   contacts={contacts}
                   companyProfile={company}
+                  onRefreshContacts={onRefreshData}
                   onCreateInvoiceForService={(ticket) => openWindow('invoices', `Rechnung für ${ticket.contact_name}`, { isCreateOpen: true, contactId: ticket.contact_id })}
                 />
               )}

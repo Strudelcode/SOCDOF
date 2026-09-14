@@ -312,7 +312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* ZERO STATE ONBOARDING (When database is clean with 0 records) */}
       {isZeroState && (
-        <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/70 dark:from-slate-850 dark:via-slate-900 dark:to-indigo-950/30 border border-indigo-200/80 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/30 border border-indigo-200/80 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
           <div className="max-w-3xl mx-auto text-center space-y-3">
             <div className="flex items-center justify-center mx-auto">
               {company?.letterhead_photo_url ? (

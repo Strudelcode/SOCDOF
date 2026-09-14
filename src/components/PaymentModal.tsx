@@ -305,14 +305,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     sounds.playClick();
                     setMethod('card');
                   }}
-                  className={`flex flex-col sm:flex-row items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs transition ${
+                  className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-bold text-xs transition relative ${
                     method === 'card'
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/60 dark:border-slate-700/60'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      : isCardConfigured
+                        ? 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                   }`}
                 >
                   <CreditCard className="w-4 h-4 shrink-0" />
-                  <span>Kartenterminal</span>
+                  <span className="truncate">
+                    {isCardConfigured ? t('payment.tab_card', undefined, 'Kartenterminal') : t('payment.tab_card_unconfigured', undefined, 'Kartenterminal (Erst in Settings machen!)')}
+                  </span>
+                  {!isCardConfigured && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shrink-0 font-bold">
+                      {t('payment.badge_settings_required', undefined, 'In Settings')}
+                    </span>
+                  )}
                 </button>
               </div>
 
@@ -482,16 +491,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               {method === 'card' && (
                 <div className="space-y-4 animate-fade-in text-xs">
                   {!isCardConfigured ? (
-                    <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
-                        <CreditCard className="w-6 h-6" />
+                    <div className="p-6 rounded-3xl bg-amber-50/70 dark:bg-amber-950/30 border-2 border-dashed border-amber-300 dark:border-amber-800 text-center space-y-4 animate-fade-in">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center shadow-xs">
+                        <Lock className="w-7 h-7" />
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                          {t('payment.card_not_configured_title', undefined, 'Kartenzahlung an diesem PC nicht aktiviert')}
+                      <div className="space-y-1.5">
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                          {t('payment.card_not_configured_title', undefined, 'Kartenzahlung nicht eingerichtet')}
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-                          {t('payment.card_not_configured_desc', undefined, 'Auf diesem PC-Arbeitsplatz ist aktuell kein EC-Kartenterminal konfiguriert. Bitte aktivieren und konfigurieren Sie Ihr Terminal zuerst in den Einstellungen.')}
+                        <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
+                          {t('payment.card_pc_explanation', undefined, 'Auf einem PC kann man nicht direkt wie im Webshop mit Karte zahlen, da am PC kein Kartenschlitz vorhanden ist. Stattdessen wird ein externes EC-/Kreditkartenterminal (z. B. per ZVT über LAN/WLAN oder SumUp) angebunden. Der Kunde steckt seine Karte am Terminal ein und tippt die PIN direkt dort ein.')}
+                        </p>
+                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300 pt-1">
+                          {t('payment.card_must_enable_settings', undefined, '👉 Bitte erst in den Einstellungen unter „Zahlungsmethoden & Terminals“ aktivieren!')}
                         </p>
                       </div>
                       {onOpenSettings && (
@@ -501,24 +513,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             onClose();
                             onOpenSettings('payments');
                           }}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-xs"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md hover:shadow-lg active:scale-95"
                         >
-                          {t('payment.btn_configure_settings', undefined, 'In den Einstellungen einrichten')}
+                          <Settings className="w-4 h-4" />
+                          <span>{t('payment.btn_configure_settings', undefined, 'In den Einstellungen einrichten')}</span>
                         </button>
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 animate-fade-in">
                       
                       {/* Step 1 & 2 Explanation */}
                       <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-1">
                         <span className="font-bold text-indigo-900 dark:text-indigo-200 block">
-                          Ablauf der Kartenzahlung:
+                          Ablauf der Kartenzahlung am PC:
                         </span>
                         <p className="text-[11px] text-indigo-800/90 dark:text-indigo-300 leading-relaxed">
-                          1. Lassen Sie Ihren Kunden den Betrag von {formatCurrency(invoice.total)} am EC-Terminal ({company.card_terminal_name || company.card_terminal_provider?.toUpperCase()}) begleichen.
+                          1. Der Kunde bezahlt den Betrag von {formatCurrency(invoice.total)} am EC-Terminal ({company.card_terminal_name || company.card_terminal_provider?.toUpperCase() || 'ZVT Terminal'}).
                           <br />
-                          2. Erfassen Sie anschließend die Beleg-Referenz zur lückenlosen Buchführung.
+                          2. Erfassen Sie anschließend die Beleg-Referenz (Trace-Nr.) vom Ausdruck für die GoBD-Buchhaltung.
                         </p>
                       </div>
 
@@ -578,6 +591,34 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         </div>
                       </div>
 
+                      {/* Realistic Masked Card Preview (PCI-DSS Compliant) */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white border border-slate-700 shadow-md space-y-3 font-mono">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] tracking-widest text-slate-400 uppercase font-sans font-bold">
+                            {company.card_terminal_name || 'Kartenterminal'} • PCI-DSS
+                          </span>
+                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 font-sans">
+                            {cardType === 'girocard' ? '💳 Girocard / EC' : cardType === 'visa' ? '🔵 Visa' : cardType === 'mastercard' ? '🔴 Mastercard' : '📱 Apple / Google Pay'}
+                          </span>
+                        </div>
+
+                        {/* Masked Card Number with asterisks (always kept when switching card types) */}
+                        <div className="text-lg sm:text-xl font-black tracking-widest text-slate-100 py-1">
+                          {cardNumber}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-slate-700/80 font-sans">
+                          <div>
+                            <span className="text-slate-400 block">{t('payment.card_pin_label', undefined, 'Kundenterminal-PIN:')}</span>
+                            <span className="font-mono text-emerald-400 font-bold text-xs">•••• (PCI-DSS)</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-400 block">{t('payment.card_pin_only_terminal', undefined, 'Wird nur am Terminal eingegeben')}</span>
+                            <span className="text-slate-300 font-semibold">{company.card_terminal_provider?.toUpperCase() || 'ZVT'}</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Terminal Receipt Reference Input */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -595,7 +636,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       {/* PCI-DSS Security & Privacy Notice */}
                       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400">
                         <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>{t('payment.card_pin_notice', undefined, 'PIN-Eingabe erfolgt geschützt am Kundenterminal (PCI-DSS konform).')} {t('payment.card_masked_notice', undefined, 'Kartennummer wird zum Datenschutz automatisch maskiert.')}</span>
+                        <span>{t('payment.card_pin_notice', undefined, 'PIN-Eingabe erfolgt geschützt am Kundenterminal (PCI-DSS konform).')} {t('payment.card_pin_masked_info', undefined, 'PIN-Eingabe erfolgt ausschließlich am Kundenterminal (PCI-DSS) – am PC wird niemals eine PIN eingegeben oder angezeigt.')}</span>
                       </div>
                     </div>
                   )}

@@ -229,7 +229,7 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({
                     onSelectWindow(win);
                     onClose();
                   }}
-                  className="group relative bg-slate-900/90 hover:bg-slate-850 rounded-2xl border border-slate-700/70 hover:border-indigo-500/80 p-3 flex flex-col gap-2.5 cursor-pointer shadow-xl hover:shadow-2xl hover:scale-[1.02] transition duration-150 overflow-hidden"
+                  className="group relative bg-slate-900/90 hover:bg-slate-800 rounded-2xl border border-slate-700/70 hover:border-indigo-500/80 p-3 flex flex-col gap-2.5 cursor-pointer shadow-xl hover:shadow-2xl hover:scale-[1.02] transition duration-150 overflow-hidden"
                 >
                   {/* Card Titlebar */}
                   <div className="flex items-center justify-between gap-2 min-w-0">

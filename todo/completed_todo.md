@@ -6,6 +6,58 @@
 
 ## Completed Tasks Archive
 
+### Clean Contact Modal Styling & Standard Hourly Rate Legibility (v22.6.10)
+- [x] **Harmonized Hourly Rate Card Styling**:
+  - [x] Removed distracting multi-color background gradient from the Standard Hourly Rate section in `ContactEditModal`.
+  - [x] Adopted the clean card styling (`bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl`) consistent with the rest of the modal.
+  - [x] Fixed invalid Tailwind dark mode class and eliminated the bright white mid-gradient artifact in dark mode.
+  - [x] Styled input, currency suffix, and description with optimal contrast and readability in both dark and light modes.
+
+### Customer Editing, Standard Hourly Rate Configuration & Support Automation (v22.6.9)
+- [x] **Customer Editing Modal (`ContactEditModal`)**:
+  - [x] Unified modal replacing legacy inline edit/creation in ContactsModule with complete field coverage (name, company, tax ID, email, phone, address, notes, and default hourly rate).
+  - [x] Accessible from Contacts module, CustomerPickerModal, and directly from ticket customer cards.
+- [x] **Customer Standard Hourly Rate (`default_hourly_rate`)**:
+  - [x] Added `default_hourly_rate` numeric property to Contact data structure.
+  - [x] Form input with clear description and currency symbol matching active company profile.
+  - [x] Persisted in LocalStorage and synchronized across app sessions.
+- [x] **Automatic Rate Inheritance in Support & Service Tickets**:
+  - [x] When a customer is assigned or changed in `SupportServicesModule`, their configured `default_hourly_rate` is automatically applied to the ticket's `hourlyRate`.
+  - [x] System logs an activity audit entry recording the customer assignment and applied hourly rate.
+  - [x] Visual badge on ticket customer card displaying the client's rate with 1-click sync/override action.
+- [x] **Customer Directory Quick Actions & Rate Visibility**:
+  - [x] Added `+ New Contact` button directly inside `CustomerPickerModal` to create clients on the fly without leaving the ticket workflow.
+  - [x] Added inline edit button on every customer card in the directory to quickly update contact details or hourly rate.
+  - [x] Clock rate badge on customer cards showing their standard hourly rate at a glance.
+- [x] **Full 4-Language Localization**:
+  - [x] Added all translation keys across English, German, French, and Spanish via `src/lib/i18n.ts`.
+
+### Customer Directory Dark Theme Contrast & Invisible Text Fix (v22.6.8)
+- [x] **Dark Theme Contrast in Customer Selection Modal**:
+  - [x] Fixed invalid Tailwind dark mode utility class in `CustomerPickerModal.tsx` (`dark:bg-slate-800/90`), eliminating the white card background bug on dark theme.
+  - [x] Restored high-contrast white text (`dark:text-white`) against dark slate card surfaces.
+  - [x] Added recessed container background (`bg-slate-50/50 dark:bg-slate-900/60`) for improved visual hierarchy.
+  - [x] Implemented robust name fallback (`c.name || c.company || Unnamed Contact`) preventing blank spaces when only company name exists.
+  - [x] Audited and corrected invalid dark utility classes across all modules (`StudioDrawer`, `ProductLabelModal`, `Dashboard`, `CommandPalette`, `TaskViewModal`).
+
+### Support Customer Directory Modal, Contact Autofill & Default Hidden Logbook (v22.6.7)
+- [x] **In-App Customer Selection Popup Modal (`CustomerPickerModal`)**:
+  - [x] Implemented dedicated modal allowing search across hundreds or thousands of contacts without cramped UI limitations.
+  - [x] Live multi-field search (name, company, email, phone, city, street, tax ID) with instant query clearing.
+  - [x] Contact type quick-filter pills (All Contacts, Customers, Suppliers) with real-time counters.
+  - [x] Clean empty states for zero contacts or zero search results with filter reset button.
+  - [x] One-click customer assignment and unassignment with sound feedback.
+- [x] **Robust Customer Selection & Field Autofill**:
+  - [x] Fixed contact assignment pipeline in `SupportServicesModule.tsx` so selecting a contact reliably synchronizes `contact_name`, `contact_email`, `contact_phone`, and `contact_company` into the ticket.
+  - [x] Removed forced auto-assignment of the first contact (`contacts[0]`) upon new ticket creation, ensuring a clean empty initial state in accordance with Rule 2.
+  - [x] High-contrast customer card showing initials avatar, name, company, CRM badge, and direct "Change" modal trigger or "Remove" button.
+  - [x] Maintained quick `<select>` dropdown alongside the modal for rapid keyboard selection.
+- [x] **Default Hidden Logbook / Chatter**:
+  - [x] Set initial logbook state to hidden (`isChatterVisible: false`) with LocalStorage persistence (`socdof_support_chatter_visible`), freeing full screen width for ticket details and timesheets.
+  - [x] Top action ribbon toggle button with logged activity counter badge when collapsed.
+- [x] **Quad-Language Synchronization**:
+  - [x] Full i18n support in German, English, French, and Spanish via `src/lib/i18n.ts`.
+
 ### 1. Dynamic Language Live Sync, Selection Dropdown Module, Authentic Flags & Payment Privacy (v22.5.8)
 - [x] **Instant Dynamic Language Synchronization**:
   - [x] Live detection of added or updated `.json` language files in `languages/` (`%APPDATA%/socdof/languages/` or local directory) using Electron directory watchers, SSE, window focus listeners, and background polling.

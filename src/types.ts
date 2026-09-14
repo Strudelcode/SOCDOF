@@ -18,6 +18,7 @@ export interface Contact {
   is_public_admin?: boolean;
   notes?: string;
   avatar_color?: string;
+  default_hourly_rate?: number;
   createdAt: string;
 }
 

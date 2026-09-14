@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.5';
+export const APP_VERSION = '22.6.10';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,64 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.10',
+    date: '2026-09-14',
+    title: 'Clean Contact Modal Styling & Standard Hourly Rate Legibility',
+    highlights: [
+      'Clean Contact Modal Aesthetics: Removed unneeded background gradient in the standard hourly rate card, replacing it with the unified modal card design (bg-slate-50 / dark:bg-slate-800/50).',
+      'Consistent Form Inputs: Styled the standard hourly rate input identically to all other modal inputs with proper dark mode contrast and emerald focus ring.',
+      'Crystal Clear Contrast: Eliminated the bright white mid-gradient artifact in dark mode, ensuring flawless readability for label, currency unit, and description.'
+    ]
+  },
+  {
+    version: '22.6.9',
+    date: '2026-09-14',
+    title: 'Customer Editing, Standard Hourly Rate Configuration & Ticket Rate Automation',
+    highlights: [
+      'Customer Edit Modal: Replaced legacy contact modal with unified ContactEditModal featuring clean editing for all CRM contact details and standard hourly rate configuration.',
+      'Standard Hourly Rate per Customer: Users can define a default hourly rate for each client (e.g. 95,00 € / hr) which is automatically applied to new and assigned Support & Service tickets.',
+      'Automated Support Ticket Rate Inheritance: Selecting or changing a customer on a support ticket instantly applies their individual standard rate and logs a system activity event.',
+      'Customer Directory Quick Actions: Added direct "+ New Contact" creation and inline "Edit Contact & Rate" buttons inside the CustomerPickerModal, complete with real-time hourly rate badges.',
+      'Detail View Rate Synchronization: Added visual customer rate badge and 1-click rate sync button in the ticket detail form and hourly rate input field.'
+    ]
+  },
+  {
+    version: '22.6.8',
+    date: '2026-09-14',
+    title: 'Dark Theme Contrast & Invisible Text Fix in Customer Directory Modal',
+    highlights: [
+      'Customer Directory Dark Mode Fix: Resolved GUI issue where contact cards rendered with white backgrounds and white text in dark mode due to invalid Tailwind classes, restoring high-contrast dark card styling.',
+      'Robust Contact Name Fallbacks: Added automatic fallback chaining (c.name || c.company || Unnamed Contact) ensuring customer names and company badges always render clearly under all configurations.',
+      'Enhanced Card Hierarchy: Added recessed subtle container backdrop and high-contrast badges for contact type and company names.',
+      'Universal Class Audit: Audited and corrected invalid dark theme utility classes across Studio Drawer, Product Label Modal, Command Palette, Task View, and Dashboard.'
+    ]
+  },
+  {
+    version: '22.6.7',
+    date: '2026-09-14',
+    title: 'Support Customer Directory Modal, Contact Autofill & Default Hidden Logbook',
+    highlights: [
+      'In-App Customer Selection Modal: Built a scalable popup modal allowing users to search across hundreds or thousands of contacts with real-time text matching (name, company, email, phone, city) and quick type filters.',
+      'Robust Contact Selection & Autofill: Fixed ticket customer assignment to automatically populate all contact details (name, email, phone, company) directly into the ticket form.',
+      'Default Hidden Logbook / Chatter: Support activity logbook and internal notes are now cleanly collapsed by default, freeing up 100% of workspace for the form, with one-click toggling and notification count badge.',
+      'Dedicated Customer Card & State: High-contrast customer card with avatar initials, company badge, quick change modal trigger, and clear assignment action alongside fast dropdown selection.',
+      'Quad-Language i18n: All new customer modal and selection labels fully synchronized in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.6.6',
+    date: '2026-09-14',
+    title: 'PCI-DSS Card Masking, PC Terminal Architecture & Support Timesheet Inline Editing',
+    highlights: [
+      'Strict Card Masking: Card numbers are strictly formatted with asterisks (e.g. 4532 **** **** ****) across all card types (Girocard, Visa, Mastercard, Apple/Google Pay).',
+      'PCI-DSS Terminal Explanation: Clear guidance explaining why PCs lack card slots and require external POS terminals, preventing confusion.',
+      'Unconfigured Warning & Direct Navigation: If card payment is inactive in settings, tab displays a warning badge and a direct one-click button to open Settings > Payments.',
+      'PIN Security Notice: Customer PIN is strictly marked as terminal-only (PCI-DSS) and never displayed or entered on the PC.',
+      'Timesheet Inline Editing: Support tickets allow inline editing of date, staff, description, and hours directly in the table.',
+      'Solo Mode & Slim Splitters: Added support solo mode toggle and slimmed down resizable splitter bars.'
+    ]
+  },
   {
     version: '22.6.5',
     date: '2026-09-13',

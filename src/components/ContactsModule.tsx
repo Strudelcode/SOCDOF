@@ -26,7 +26,8 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Share2,
-  CreditCard
+  CreditCard,
+  Clock
 } from 'lucide-react';
 import { Contact, ContactType, Invoice, CompanyProfile } from '../types';
 import { db } from '../lib/db';
@@ -34,6 +35,7 @@ import { sounds } from '../lib/sound';
 import { t, useLanguage, formatSystemDate } from '../lib/i18n';
 import { generateContactEml } from '../lib/emlGenerator';
 import { downloadVCard } from '../lib/vcardGenerator';
+import { ContactEditModal } from './ContactEditModal';
 
 interface ContactsModuleProps {
   contacts: Contact[];
@@ -95,19 +97,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
 
   const handleOpenCreateModal = () => {
     sounds.playClick();
-    setEditingContact({
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      type: 'customer',
-      street: '',
-      zip: '',
-      city: '',
-      country: 'Deutschland',
-      taxId: '',
-      notes: ''
-    });
+    setEditingContact(null);
     setIsEditModalOpen(true);
   };
 
@@ -116,49 +106,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     sounds.playClick();
     setEditingContact({ ...c });
     setIsEditModalOpen(true);
-  };
-
-  const handleSaveContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingContact?.name || !editingContact?.email) {
-      sounds.playError();
-      return;
-    }
-
-    try {
-      if (editingContact.id) {
-        await db.contacts.update(editingContact.id, editingContact);
-        if (selectedContact?.id === editingContact.id) {
-          setSelectedContact(editingContact as Contact);
-        }
-      } else {
-        const newId = await db.contacts.add({
-          name: editingContact.name,
-          company: editingContact.company || '',
-          email: editingContact.email,
-          phone: editingContact.phone || '',
-          type: (editingContact.type as ContactType) || 'customer',
-          street: editingContact.street || '',
-          zip: editingContact.zip || '',
-          city: editingContact.city || '',
-          country: editingContact.country || 'Deutschland',
-          taxId: editingContact.taxId || '',
-          notes: editingContact.notes || '',
-          avatar_color: 'bg-indigo-600',
-          createdAt: new Date().toISOString()
-        });
-        const created = await db.contacts.get(newId);
-        if (created) setSelectedContact(created);
-      }
-
-      sounds.playSuccess();
-      setIsEditModalOpen(false);
-      setEditingContact(null);
-      onRefresh();
-    } catch (err) {
-      console.error(err);
-      sounds.playError();
-    }
   };
 
   // Batch multiple contacts handler
@@ -507,12 +454,28 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                         </div>
                       </div>
 
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${c.type === 'customer' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' : c.type === 'vendor' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' : 'bg-amber-100 text-amber-800'}`}>
-                        {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${c.type === 'customer' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' : c.type === 'vendor' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' : 'bg-amber-100 text-amber-800'}`}>
+                          {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditModal(c, e)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                          title={t('contact.edit_contact', currentLang, 'Edit Contact')}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-3 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                      {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
+                        <div className="flex items-center gap-1.5 font-bold font-mono text-cyan-700 dark:text-cyan-400">
+                          <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                          <span>{c.default_hourly_rate.toFixed(2)} {currency} / h</span>
+                        </div>
+                      )}
                       {c.email && (
                         <div className="flex items-center gap-1.5 truncate">
                           <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
@@ -697,6 +660,22 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                   </div>
                 )}
 
+                {selectedContact.default_hourly_rate !== undefined && selectedContact.default_hourly_rate > 0 && (
+                  <div className="p-2.5 rounded-xl bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-cyan-800 dark:text-cyan-300 uppercase block">
+                        {t('contact.field_default_hourly_rate', currentLang, 'Standard-Stundensatz')}
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('contact.field_default_hourly_rate_sub', currentLang, 'Wird für Support- & Service-Aufträge übernommen')}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold font-mono text-cyan-800 dark:text-cyan-200">
+                      {selectedContact.default_hourly_rate.toFixed(2)} {currency} / h
+                    </span>
+                  </div>
+                )}
+
                 {selectedContact.fiscal_code && (
                   <div>
                     <span className="text-[10px] text-slate-400 block font-semibold">Codice Fiscale</span>
@@ -792,270 +771,23 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       </div>
 
       {/* 4. Single Edit / Create Contact Modal */}
-      {isEditModalOpen && editingContact && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                  {editingContact.id ? <Edit2 className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                    {editingContact.id 
-                      ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
-                      : t('contact.modal_create_title', currentLang, 'Create New Contact')}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {t('contact.title', currentLang, 'Contacts & Address Book')}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveContact} className="space-y-3.5 overflow-y-auto pr-1 flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_name', currentLang, 'Full Name *')}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={t('contact.modal_name_placeholder', currentLang, 'e.g. Dr. Alex Weber')}
-                    value={editingContact.name || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_company', currentLang, 'Company / Business')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={t('contact.modal_company_placeholder', currentLang, 'e.g. Tech Solutions AG')}
-                    value={editingContact.company || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, company: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_email', currentLang, 'Email Address *')}
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder={t('contact.modal_email_placeholder', currentLang, 'contact@domain.com')}
-                    value={editingContact.email || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_phone', currentLang, 'Phone Number')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={t('contact.modal_phone_placeholder', currentLang, '+1 (555) 000-0000')}
-                    value={editingContact.phone || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_street', currentLang, 'Street & House No.')}
-                  </label>
-                  <input
-                    type="text"
-                    value={editingContact.street || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, street: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_type', currentLang, 'Contact Type')}
-                  </label>
-                  <select
-                    value={editingContact.type || 'customer'}
-                    onChange={(e) => setEditingContact({ ...editingContact, type: e.target.value as ContactType })}
-                    className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  >
-                    <option value="customer">{t('contact.type_customer', currentLang, 'Customer')}</option>
-                    <option value="vendor">{t('contact.type_vendor', currentLang, 'Supplier / Vendor')}</option>
-                    <option value="both">{t('contact.type_both', currentLang, 'Both')}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_zip', currentLang, 'Postal Code / ZIP')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="10115"
-                    value={editingContact.zip || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, zip: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_city', currentLang, 'City / Town')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Berlin"
-                    value={editingContact.city || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, city: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_country', currentLang, 'Country')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Deutschland"
-                    value={editingContact.country || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, country: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="DE 000000000 / IT01234567890"
-                    value={editingContact.taxId || ''}
-                    onChange={(e) => setEditingContact({ ...editingContact, taxId: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                  />
-                </div>
-              </div>
-
-              {/* Italian E-Invoicing / SdI Fields */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
-                    🇮🇹 Italienische E-Rechnung (FatturaPA / SdI)
-                  </span>
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingContact.is_public_admin || false}
-                      onChange={(e) => setEditingContact({ ...editingContact, is_public_admin: e.target.checked })}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>Öffentliche Verwaltung (PA)</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                      Codice Fiscale
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="z.B. RSSMRA80A01H501U"
-                      value={editingContact.fiscal_code || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, fiscal_code: e.target.value.toUpperCase() })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                      Codice Destinatario
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={7}
-                      placeholder={editingContact.is_public_admin ? 'z.B. UF6Z01 (6 Zeichen)' : '0000000 (7 Zeichen)'}
-                      value={editingContact.sdi_recipient_code || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, sdi_recipient_code: e.target.value.toUpperCase() })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                      PEC E-Mail
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="kunde@pec.it"
-                      value={editingContact.pec || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, pec: e.target.value })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {t('contact.modal_notes', currentLang, 'Internal Notes & Remarks')}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={t('contact.notes_placeholder', currentLang, 'Optional customer notes, terms or contact person...')}
-                  value={editingContact.notes || ''}
-                  onChange={(e) => setEditingContact({ ...editingContact, notes: e.target.value })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
-                >
-                  {t('contact.btn_cancel', currentLang, 'Cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition"
-                >
-                  {t('contact.btn_save', currentLang, 'Save Contact')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ContactEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingContact(null);
+        }}
+        contact={editingContact}
+        currency={currency}
+        onSaveSuccess={(savedContact) => {
+          if (selectedContact?.id === savedContact.id || !selectedContact) {
+            setSelectedContact(savedContact);
+          }
+          setIsEditModalOpen(false);
+          setEditingContact(null);
+          onRefresh();
+        }}
+      />
 
       {/* 5. Batch Multiple Contacts Modal */}
       {isBatchModalOpen && createPortal(

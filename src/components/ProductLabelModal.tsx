@@ -234,7 +234,7 @@ export const ProductLabelModal: React.FC<ProductLabelModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-850/50">
+        <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
           {qrDataUrl ? (
             <a
               href={qrDataUrl}

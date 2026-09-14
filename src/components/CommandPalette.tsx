@@ -360,7 +360,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between px-4">
+        <div className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between px-4">
           <span>
             {currentLang === 'de' ? 'Tipp: Drücken Sie ' : currentLang === 'fr' ? 'Astuce : Appuyez sur ' : currentLang === 'es' ? 'Consejo: Presione ' : 'Tip: Press '}
             <kbd className="font-mono bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">

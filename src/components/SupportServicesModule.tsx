@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Headphones, 
   Plus, 
@@ -14,6 +14,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Edit2, 
+  Pencil,
   Trash2, 
   X, 
   ArrowUpRight, 
@@ -51,12 +52,15 @@ import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, S
 import { sounds } from '../lib/sound';
 import { useLanguage, t, formatSystemDate, formatSystemTime } from '../lib/i18n';
 import { MobileCompanionImportModal } from './MobileCompanionImportModal';
+import { CustomerPickerModal } from './CustomerPickerModal';
+import { ContactEditModal } from './ContactEditModal';
 import { Smartphone, QrCode } from 'lucide-react';
 
 interface SupportServicesModuleProps {
   contacts: Contact[];
   companyProfile: CompanyProfile;
   onCreateInvoiceForService?: (ticket: SupportServiceTicket) => void;
+  onRefreshContacts?: () => void;
 }
 
 interface SupportSettings {
@@ -65,6 +69,7 @@ interface SupportSettings {
   defaultHourlyRate: number;
   defaultTeam: string;
   defaultStaff: string;
+  disableTeams?: boolean;
 }
 
 const STORAGE_KEY = 'socdof_support_services_tickets_v2';
@@ -82,7 +87,8 @@ const DEFAULT_STAFF: string[] = [];
 export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   contacts,
   companyProfile,
-  onCreateInvoiceForService
+  onCreateInvoiceForService,
+  onRefreshContacts
 }) => {
   // Subscribe to active language state for real-time reactivity
   const lang = useLanguage();
@@ -95,7 +101,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     nextNumber: 1001,
     defaultHourlyRate: 95,
     defaultTeam: 'Standard',
-    defaultStaff: companyRoleName
+    defaultStaff: companyRoleName,
+    disableTeams: false
   }), [companyRoleName]);
 
   // Support Settings (e.g. ticket prefix, default rate)
@@ -121,7 +128,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           nextNumber: parsed.nextNumber || 1001,
           defaultHourlyRate: parsed.defaultHourlyRate || 95,
           defaultTeam: parsed.defaultTeam || 'Standard',
-          defaultStaff: parsed.defaultStaff || companyProfile.name || 'Firma'
+          defaultStaff: parsed.defaultStaff || companyProfile.name || 'Firma',
+          disableTeams: typeof parsed.disableTeams === 'boolean' ? parsed.disableTeams : false
         };
       }
     } catch (e) {
@@ -132,7 +140,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       nextNumber: 1001,
       defaultHourlyRate: 95,
       defaultTeam: 'Standard',
-      defaultStaff: companyProfile.name || 'Firma'
+      defaultStaff: companyProfile.name || 'Firma',
+      disableTeams: false
     };
   });
 
@@ -225,7 +234,22 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [isMobileSyncOpen, setIsMobileSyncOpen] = useState(false);
-  const [isChatterVisible, setIsChatterVisible] = useState(true);
+
+  // Chatter / Logbook Visibility (Default: false / hidden as requested, with localStorage persistence)
+  const [isChatterVisible, setIsChatterVisible] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_support_chatter_visible');
+      if (saved !== null) return saved === 'true';
+    } catch {}
+    return false;
+  });
+
+  // Customer In-App Picker Modal State
+  const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
+
+  // Direct Contact Edit Modal State
+  const [isDirectContactEditOpen, setIsDirectContactEditOpen] = useState(false);
+  const [directContactToEdit, setDirectContactToEdit] = useState<Contact | null>(null);
 
   // Status helper mapping
   const getStatusLabel = (st: SupportServiceTicket['status']) => {
@@ -239,13 +263,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     }
   };
 
-  // Kanban status columns with color identities
+  // Kanban status columns with cohesive professional identities
   const kanbanColumns = useMemo(() => [
-    { key: 'new', label: getStatusLabel('new'), dotColor: 'bg-sky-500', badgeColor: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
-    { key: 'in_progress', label: getStatusLabel('in_progress'), dotColor: 'bg-amber-500', badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-    { key: 'waiting', label: getStatusLabel('waiting'), dotColor: 'bg-purple-500', badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
-    { key: 'resolved', label: getStatusLabel('resolved'), dotColor: 'bg-teal-500', badgeColor: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300' },
-    { key: 'closed', label: getStatusLabel('closed'), dotColor: 'bg-emerald-500', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' }
+    { key: 'new', label: getStatusLabel('new'), dotColor: 'bg-blue-500', badgeColor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700' },
+    { key: 'in_progress', label: getStatusLabel('in_progress'), dotColor: 'bg-sky-500', badgeColor: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800' },
+    { key: 'waiting', label: getStatusLabel('waiting'), dotColor: 'bg-amber-500', badgeColor: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800' },
+    { key: 'resolved', label: getStatusLabel('resolved'), dotColor: 'bg-emerald-500', badgeColor: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' },
+    { key: 'closed', label: getStatusLabel('closed'), dotColor: 'bg-slate-400', badgeColor: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700' }
   ], [lang]);
 
   const activeKanbanColumns = useMemo(() => {
@@ -280,6 +304,75 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
   // Live Timer elapsed time tracker (in seconds)
   const [timerSeconds, setTimerSeconds] = useState(0);
+
+  // Resizable Modules Split Ratio (Module 1 vs Module 2) (persisted)
+  const [formModulesRatio, setFormModulesRatio] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_support_form_modules_ratio');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 25 && val <= 75) return val;
+      }
+    } catch {}
+    return 50;
+  });
+  const [isDraggingModulesSplitter, setIsDraggingModulesSplitter] = useState(false);
+  const modulesContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleModulesSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingModulesSplitter(true);
+    const startX = e.clientX;
+    const startRatio = formModulesRatio;
+    const container = modulesContainerRef.current;
+    const containerWidth = container ? container.getBoundingClientRect().width : 800;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const deltaX = ev.clientX - startX;
+      const deltaRatio = (deltaX / containerWidth) * 100;
+      const newRatio = Math.min(75, Math.max(25, startRatio + deltaRatio));
+      setFormModulesRatio(newRatio);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingModulesSplitter(false);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      setFormModulesRatio(current => {
+        try {
+          localStorage.setItem('socdof_support_form_modules_ratio', current.toString());
+        } catch {}
+        return current;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Live Timer custom work description
+  const [liveTimerDescription, setLiveTimerDescription] = useState('');
+
+  // Timesheet inline editing state
+  const [editingTimesheetId, setEditingTimesheetId] = useState<string | null>(null);
+  const [editTsDate, setEditTsDate] = useState('');
+  const [editTsStaff, setEditTsStaff] = useState('');
+  const [editTsDesc, setEditTsDesc] = useState('');
+  const [editTsHours, setEditTsHours] = useState('');
+
+  const handleStartEditTimesheet = (ts: SupportTimesheetEntry) => {
+    sounds.playClick();
+    setEditingTimesheetId(ts.id);
+    setEditTsDate(ts.date || new Date().toISOString().split('T')[0]);
+    setEditTsStaff(ts.staff || selectedTicket?.assignedStaff || companyRoleName);
+    setEditTsDesc(ts.description || '');
+    setEditTsHours(ts.hours.toString());
+  };
+
+  const handleCancelEditTimesheet = () => {
+    sounds.playClick();
+    setEditingTimesheetId(null);
+  };
 
   // Resizable Chatter / Logbook Column Width (persisted)
   const [chatterWidth, setChatterWidth] = useState<number>(() => {
@@ -369,6 +462,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return tickets.find(t => t.id === selectedTicketId) || null;
   }, [tickets, selectedTicketId]);
 
+  const assignedContact = useMemo(() => {
+    if (!selectedTicket?.contact_id) return undefined;
+    return contacts.find(c => String(c.id) === String(selectedTicket.contact_id));
+  }, [contacts, selectedTicket?.contact_id]);
+
   // Global background running ticket (if any)
   const activeRunningTicket = useMemo(() => {
     return tickets.find(t => t.isTimerRunning && t.timerStartedAt);
@@ -433,9 +531,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     const num = (settings.nextNumber || 1001) + tickets.length;
     const newTicketNumber = `${prefix}${num}`;
     
-    // Auto-select first contact if available
-    const initialContact = contacts.length > 0 ? contacts[0] : null;
-
+    // Clean initial state without prefilling first contact
     const newTicket: SupportServiceTicket = {
       id: newId,
       ticketNumber: newTicketNumber,
@@ -444,11 +540,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       assignedStaff: settings.defaultStaff || staffList[0] || 'Support Agent',
       priority: 1,
       tags: ['Support'],
-      contact_id: initialContact?.id,
-      contact_name: initialContact?.name || '',
-      contact_email: initialContact?.email || '',
-      contact_phone: initialContact?.phone || '',
-      contact_company: initialContact?.company || '',
+      contact_id: undefined,
+      contact_name: '',
+      contact_email: '',
+      contact_phone: '',
+      contact_company: '',
       status: 'new',
       description: '',
       hourlyRate: settings.defaultHourlyRate || 95,
@@ -588,11 +684,16 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     const durationHours = Math.max(0.05, Number((totalSec / 3600).toFixed(2)));
     const formattedDur = formatDetailedTimer(totalSec, lang);
 
+    const customDesc = liveTimerDescription.trim();
+    const entryDescription = customDesc 
+      ? `${customDesc} [${formattedDur}]` 
+      : `${t('support.timesheet_live_timer_title', undefined, '1-Click Live-Timer (Work Time)')} [${formattedDur}]`;
+
     const newEntry: SupportTimesheetEntry = {
       id: `ts_${Date.now()}`,
       ticket_id: selectedTicket.id,
       staff: selectedTicket.assignedStaff || companyRoleName,
-      description: `${t('support.timesheet_live_timer_title', undefined, '1-Click Live-Timer (Work Time)')} [${formattedDur}]`,
+      description: entryDescription,
       hours: durationHours,
       hourlyRate: selectedTicket.hourlyRate || settings.defaultHourlyRate || 95,
       billable: selectedTicket.billable,
@@ -605,7 +706,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       id: `act_${Date.now()}`,
       author: selectedTicket.assignedStaff || companyRoleName,
       type: 'activity',
-      content: `${t('support.act_timer_stopped', undefined, 'Live-Timer stopped & recorded:')} ${durationHours} h (${formattedDur}).`,
+      content: `${t('support.act_timer_stopped', undefined, 'Live-Timer stopped & recorded:')} ${durationHours} h (${entryDescription}).`,
       createdAt: new Date().toISOString()
     };
 
@@ -617,6 +718,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       timesheets: [newEntry, ...selectedTicket.timesheets],
       activities: [newActivity, ...selectedTicket.activities]
     });
+    setLiveTimerDescription('');
     sounds.playSuccess();
   };
 
@@ -629,6 +731,40 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       timerAccumulatedSeconds: 0,
       timerPausedAt: undefined
     });
+  };
+
+  // Save edited timesheet entry
+  const handleSaveEditTimesheet = (tsId: string) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const parsedHours = Math.max(0.05, parseFloat(editTsHours) || 0.25);
+    const updatedTimesheets = selectedTicket.timesheets.map(t => {
+      if (t.id === tsId) {
+        return {
+          ...t,
+          date: editTsDate,
+          staff: editTsStaff.trim() || companyRoleName,
+          description: editTsDesc.trim() || t('support.tab_timesheets', undefined, 'Work Hours'),
+          hours: parsedHours
+        };
+      }
+      return t;
+    });
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: companyRoleName,
+      type: 'activity',
+      content: `${t('support.timesheet_editing_title', undefined, 'Timesheet updated')}: ${editTsStaff} – "${editTsDesc}" (${parsedHours} h)`,
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      timesheets: updatedTimesheets,
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+    setEditingTimesheetId(null);
+    sounds.playSuccess();
   };
 
   // Add Manual Timesheet Entry
@@ -718,18 +854,57 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   };
 
   // Select Contact from CRM & Autofill
-  const handleSelectContact = (contactId: string) => {
+  const handleSelectContact = (contactIdOrContact: string | number | Contact | null | undefined) => {
     if (!selectedTicket) return;
     sounds.playClick();
-    const found = contacts.find(c => c.id === contactId);
-    if (found) {
+    if (!contactIdOrContact || contactIdOrContact === '') {
       updateCurrentTicket({
-        contact_id: found.id,
+        contact_id: undefined,
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
+        contact_company: ''
+      });
+      return;
+    }
+
+    // Direct Contact object passed from CustomerPickerModal or ID passed from select
+    let found: Contact | undefined;
+    if (typeof contactIdOrContact === 'object' && 'id' in contactIdOrContact) {
+      found = contactIdOrContact;
+    } else {
+      found = contacts.find(c => String(c.id) === String(contactIdOrContact));
+    }
+
+    if (found) {
+      const hasRate = found.default_hourly_rate !== undefined && found.default_hourly_rate > 0;
+      const rateInfo = hasRate 
+        ? ` (${t('support.applied_customer_rate', undefined, 'Kunden-Stundensatz übernommen: {rate} / Std.').replace('{rate}', `${found.default_hourly_rate?.toFixed(2)} ${companyProfile.currency || '€'}`)})` 
+        : '';
+
+      const newActivity: SupportActivityEntry = {
+        id: `act_${Date.now()}`,
+        author: selectedTicket.assignedStaff || companyRoleName,
+        type: 'system',
+        content: `${t('support.act_customer_assigned', undefined, 'Kunde zugewiesen:')} ${found.name || found.company}${rateInfo}`,
+        createdAt: new Date().toISOString()
+      };
+
+      const patch: Partial<SupportServiceTicket> = {
+        contact_id: typeof found.id === 'number' ? found.id : Number(found.id) || undefined,
         contact_name: found.name || '',
         contact_email: found.email || '',
         contact_phone: found.phone || '',
-        contact_company: found.company || ''
-      });
+        contact_company: found.company || '',
+        activities: [newActivity, ...selectedTicket.activities]
+      };
+
+      // Automatically apply customer's standard hourly rate if configured
+      if (hasRate && found.default_hourly_rate) {
+        patch.hourlyRate = found.default_hourly_rate;
+      }
+
+      updateCurrentTicket(patch);
     } else {
       updateCurrentTicket({
         contact_id: undefined,
@@ -807,8 +982,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
         
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
-            <Headphones className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shadow-xs shrink-0 border border-slate-700/60 dark:border-slate-700">
+            <Headphones className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -816,7 +991,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 {t('support.title', undefined, 'Customer Support & Service')}
               </h2>
               {selectedTicket && viewMode === 'detail' && (
-                <span className="px-2 py-0.5 rounded-md bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800">
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 font-mono text-xs font-bold border border-slate-200 dark:border-slate-700">
                   {selectedTicket.ticketNumber}
                 </span>
               )}
@@ -835,7 +1010,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               sounds.playClick();
               setIsMobileSyncOpen(true);
             }}
-            className="px-3.5 py-1.5 text-xs font-bold rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-600/10 via-blue-600/10 to-indigo-600/10 hover:from-cyan-600/20 hover:to-blue-600/20 text-cyan-700 dark:text-cyan-300 transition flex items-center gap-1.5 shadow-2xs"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs"
             title={t('support.mobile_sync_tooltip', undefined, 'Daten von der mobilen App (TimeTracking / Außendienst) per QR-Code oder JSON importieren')}
           >
             <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
@@ -915,14 +1090,14 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
       {/* Active Timer Running Persistent Banner (Crash recovery / Session notification) */}
       {activeRunningTicket && (selectedTicketId !== activeRunningTicket.id || viewMode !== 'detail') && (
-        <div className="bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white px-4 py-2.5 text-xs font-semibold flex flex-wrap items-center justify-between gap-2 shadow-md shrink-0 border-b border-rose-700">
+        <div className="bg-slate-900 dark:bg-slate-950 text-white px-4 py-2 text-xs font-semibold flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-            <Clock className="w-4 h-4 text-white animate-pulse" />
-            <span>
-              {t('support.timer_running', undefined, 'Live-Timer running')}: <strong className="underline underline-offset-2">{activeRunningTicket.ticketNumber} – {activeRunningTicket.title}</strong>
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <Clock className="w-4 h-4 text-slate-400" />
+            <span className="text-slate-200">
+              {t('support.timer_running', undefined, 'Live-Timer running')}: <strong className="text-white font-medium">{activeRunningTicket.ticketNumber} – {activeRunningTicket.title}</strong>
             </span>
-            <span className="font-mono bg-black/30 text-rose-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+            <span className="font-mono bg-slate-800 text-cyan-300 px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-slate-700">
               {formatDetailedTimer(calculateTicketTimerSeconds(activeRunningTicket), lang)}
             </span>
           </div>
@@ -933,7 +1108,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               setViewMode('detail');
               setActiveTab('timesheets');
             }}
-            className="px-3 py-1 bg-white text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1"
+            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1"
           >
             <span>{t('support.open_ticket', undefined, 'Open ticket')}</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -962,30 +1137,32 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
-              {/* Team Filter */}
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Filter className="w-3.5 h-3.5" />
-                <select
-                  value={selectedTeamFilter}
-                  onChange={(e) => setSelectedTeamFilter(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium"
-                >
-                  <option value="all">{t('support.filter_all_teams', undefined, 'All Teams')} ({teams.length})</option>
-                  {teams.map(team => (
-                    <option key={team} value={team}>{team}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Team Filter - Hidden in Solo Mode */}
+              {!settings.disableTeams && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Filter className="w-3.5 h-3.5" />
+                  <select
+                    value={selectedTeamFilter}
+                    onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                    className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium"
+                  >
+                    <option value="all">{t('support.filter_all_teams', undefined, 'All Teams')} ({teams.length})</option>
+                    {teams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Status Quick Filter Bar - Directly visible, responsive, and click-to-filter */}
               <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300/60 dark:border-slate-700 max-w-full overflow-x-auto scrollbar-thin">
                 {[
                   { key: 'all', label: t('support.filter_all_statuses', undefined, 'All Statuses'), count: tickets.length, color: 'bg-slate-400' },
-                  { key: 'new', label: getStatusLabel('new'), count: tickets.filter(t => t.status === 'new').length, color: 'bg-sky-500' },
-                  { key: 'in_progress', label: getStatusLabel('in_progress'), count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-amber-500' },
-                  { key: 'waiting', label: getStatusLabel('waiting'), count: tickets.filter(t => t.status === 'waiting').length, color: 'bg-purple-500' },
-                  { key: 'resolved', label: getStatusLabel('resolved'), count: tickets.filter(t => t.status === 'resolved').length, color: 'bg-teal-500' },
-                  { key: 'closed', label: getStatusLabel('closed'), count: tickets.filter(t => t.status === 'closed').length, color: 'bg-emerald-500' }
+                  { key: 'new', label: getStatusLabel('new'), count: tickets.filter(t => t.status === 'new').length, color: 'bg-blue-500' },
+                  { key: 'in_progress', label: getStatusLabel('in_progress'), count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-sky-500' },
+                  { key: 'waiting', label: getStatusLabel('waiting'), count: tickets.filter(t => t.status === 'waiting').length, color: 'bg-amber-500' },
+                  { key: 'resolved', label: getStatusLabel('resolved'), count: tickets.filter(t => t.status === 'resolved').length, color: 'bg-emerald-500' },
+                  { key: 'closed', label: getStatusLabel('closed'), count: tickets.filter(t => t.status === 'closed').length, color: 'bg-slate-400' }
                 ].map(phase => {
                   const isActive = selectedStatusFilter === phase.key;
                   return (
@@ -1046,9 +1223,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     <thead className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
                       <tr>
                         <th className="py-3 px-4">{t('support.th_ticket_title', undefined, 'Ticket No. & Title')}</th>
-                        <th className="py-3 px-4">{t('support.th_team', undefined, 'Team')}</th>
+                        {!settings.disableTeams && <th className="py-3 px-4">{t('support.th_team', undefined, 'Team')}</th>}
                         <th className="py-3 px-4">{t('support.th_customer', undefined, 'Customer (CRM)')}</th>
-                        <th className="py-3 px-4">{t('support.th_assignee', undefined, 'Assignee')}</th>
+                        {!settings.disableTeams && <th className="py-3 px-4">{t('support.th_assignee', undefined, 'Assignee')}</th>}
                         <th className="py-3 px-4">{t('support.th_status', undefined, 'Status')}</th>
                         <th className="py-3 px-4 text-right">{t('support.th_timesheet', undefined, 'Timesheet')}</th>
                         <th className="py-3 px-4 text-right">{t('support.th_actions', undefined, 'Actions')}</th>
@@ -1083,9 +1260,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               </div>
                             </td>
 
-                            <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                              {ticket.team}
-                            </td>
+                            {!settings.disableTeams && (
+                              <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                                {ticket.team}
+                              </td>
+                            )}
 
                             <td className="py-3.5 px-4">
                               <div className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
@@ -1098,22 +1277,31 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                              <div className="flex items-center gap-1.5">
-                                <User className="w-3.5 h-3.5 text-slate-400" />
-                                <span>{ticket.assignedStaff || '–'}</span>
-                              </div>
-                            </td>
+                            {!settings.disableTeams && (
+                              <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                                <div className="flex items-center gap-1.5">
+                                  <User className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{ticket.assignedStaff || '–'}</span>
+                                </div>
+                              </td>
+                            )}
 
                             <td className="py-3.5 px-4">
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${
-                                ticket.status === 'new' ? 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300' :
-                                ticket.status === 'in_progress' ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300' :
-                                ticket.status === 'waiting' ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300' :
-                                ticket.status === 'resolved' ? 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300' :
-                                'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${
+                                ticket.status === 'new' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700' :
+                                ticket.status === 'in_progress' ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800' :
+                                ticket.status === 'waiting' ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
+                                ticket.status === 'resolved' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                               }`}>
-                                {getStatusLabel(ticket.status)}
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  ticket.status === 'new' ? 'bg-blue-500' :
+                                  ticket.status === 'in_progress' ? 'bg-sky-500' :
+                                  ticket.status === 'waiting' ? 'bg-amber-500' :
+                                  ticket.status === 'resolved' ? 'bg-emerald-500' :
+                                  'bg-slate-400'
+                                }`} />
+                                <span>{getStatusLabel(ticket.status)}</span>
                               </span>
                             </td>
 
@@ -1256,7 +1444,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         <div className={`flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 ${isDraggingSplitter ? 'select-none cursor-col-resize' : ''}`}>
           
           {/* Left Column: Ticket Main Form */}
-          <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 min-h-0 min-w-0">
+          <div className={`flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 ${!isChatterVisible ? 'border-r border-slate-200/80 dark:border-slate-800' : ''} min-h-0 min-w-0`}>
             
             {/* Top Action Ribbon & Status Stepper */}
             <div className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 shrink-0 sticky top-0 z-10 backdrop-blur-md shadow-2xs">
@@ -1270,18 +1458,24 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   </span>
 
                   {/* Active Status Badge */}
-                  <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs ${
+                  <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs border ${
                     selectedTicket.status === 'new'
-                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-300 dark:border-sky-800'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                       : selectedTicket.status === 'in_progress'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                      ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
                       : selectedTicket.status === 'waiting'
-                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300 dark:border-purple-800'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                       : selectedTicket.status === 'resolved'
-                      ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-300 dark:border-teal-800'
-                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   }`}>
-                    <span className="w-2 h-2 rounded-full bg-current animate-pulse shrink-0" />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      selectedTicket.status === 'new' ? 'bg-blue-500' :
+                      selectedTicket.status === 'in_progress' ? 'bg-sky-500' :
+                      selectedTicket.status === 'waiting' ? 'bg-amber-500' :
+                      selectedTicket.status === 'resolved' ? 'bg-emerald-500' :
+                      'bg-slate-400'
+                    }`} />
                     <span>{getStatusLabel(selectedTicket.status)}</span>
                   </div>
 
@@ -1333,9 +1527,15 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   <button
                     onClick={() => {
                       sounds.playClick();
-                      setIsChatterVisible(!isChatterVisible);
+                      setIsChatterVisible(prev => {
+                        const next = !prev;
+                        try {
+                          localStorage.setItem('socdof_support_chatter_visible', String(next));
+                        } catch {}
+                        return next;
+                      });
                     }}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
                       isChatterVisible
                         ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300'
                         : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -1343,11 +1543,16 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
+                    <span>
                       {isChatterVisible 
                         ? t('support.hide_chatter', undefined, 'Hide Logbook') 
                         : t('support.show_chatter', undefined, 'Show Logbook')}
                     </span>
+                    {!isChatterVisible && selectedTicket.activities && selectedTicket.activities.length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300">
+                        {selectedTicket.activities.length}
+                      </span>
+                    )}
                   </button>
 
                   {/* Delete Button */}
@@ -1365,11 +1570,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               <div className="px-3 sm:px-4 py-2 bg-slate-100/70 dark:bg-slate-900/50 overflow-x-auto no-scrollbar">
                 <div className="flex items-center min-w-max gap-1">
                   {[
-                    { key: 'new', step: '1', label: getStatusLabel('new'), color: 'bg-sky-500' },
-                    { key: 'in_progress', step: '2', label: getStatusLabel('in_progress'), color: 'bg-amber-500' },
-                    { key: 'waiting', step: '3', label: getStatusLabel('waiting'), color: 'bg-purple-500' },
-                    { key: 'resolved', step: '4', label: getStatusLabel('resolved'), color: 'bg-teal-500' },
-                    { key: 'closed', step: '5', label: getStatusLabel('closed'), color: 'bg-emerald-500' }
+                    { key: 'new', step: '1', label: getStatusLabel('new'), color: 'bg-blue-500' },
+                    { key: 'in_progress', step: '2', label: getStatusLabel('in_progress'), color: 'bg-sky-500' },
+                    { key: 'waiting', step: '3', label: getStatusLabel('waiting'), color: 'bg-amber-500' },
+                    { key: 'resolved', step: '4', label: getStatusLabel('resolved'), color: 'bg-emerald-500' },
+                    { key: 'closed', step: '5', label: getStatusLabel('closed'), color: 'bg-slate-400' }
                   ].map((phase, idx, arr) => {
                     const isCurrent = selectedTicket.status === phase.key;
                     return (
@@ -1415,128 +1620,139 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               </div>
 
               {/* 2-Column Form Fields (Labels above inputs to eliminate any overlap) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-xs">
+              {/* 2-Column Form Fields with Draggable Resizer between the two modules */}
+              <div 
+                ref={modulesContainerRef}
+                style={{ '--m1-width': `${formModulesRatio}%` } as React.CSSProperties}
+                className="flex flex-col md:flex-row gap-0 text-xs border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/40 dark:bg-slate-900/30 shadow-2xs"
+              >
                 
-                {/* Column 1: Assignment, Team & Priority */}
-                <div className="space-y-4">
-                  {/* Kundendienstteam */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="font-semibold text-slate-700 dark:text-slate-300">
-                        {t('support.label_team', undefined, 'Support Team')}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSettingsActiveTab('teams');
-                          setIsSettingsModalOpen(true);
-                        }}
-                        className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
-                      >
-                        <Settings className="w-3 h-3" />
-                        <span>{t('support.btn_manage_teams', undefined, 'Manage Teams')}</span>
-                      </button>
-                    </div>
-                    <select
-                      value={selectedTicket.team}
-                      onChange={(e) => updateCurrentTicket({ team: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
-                    >
-                      {teams.map(team => (
-                        <option key={team} value={team}>{team}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Zugewiesen an (Dropdown or Custom Free-Text Input) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="font-semibold text-slate-700 dark:text-slate-300">
-                        {t('support.label_assignee', undefined, 'Assigned to')}
-                      </label>
-                      <div className="flex items-center gap-2">
+                {/* Column 1 / Module 1: Assignment, Team & Priority */}
+                <div 
+                  className="p-4 sm:p-5 space-y-4 min-w-0 w-full md:w-[var(--m1-width)] md:shrink-0"
+                >
+                  {/* Kundendienstteam - Hidden in Solo Mode */}
+                  {!settings.disableTeams && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">
+                          {t('support.label_team', undefined, 'Support Team')}
+                        </label>
                         <button
                           type="button"
                           onClick={() => {
-                            setSettingsActiveTab('staff');
+                            setSettingsActiveTab('teams');
                             setIsSettingsModalOpen(true);
                           }}
                           className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                         >
-                          <Plus className="w-3 h-3" />
-                          <span>{t('support.btn_add_role_staff', undefined, 'Rollen / Mitarbeiter')}</span>
-                        </button>
-                        <span className="text-slate-300 dark:text-slate-700">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomAssigneeMode(!isCustomAssigneeMode)}
-                          className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
-                        >
-                          {isCustomAssigneeMode ? (
-                            <>
-                              <List className="w-3 h-3" />
-                              <span>{t('support.btn_switch_list', undefined, 'Choose from list')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <PenTool className="w-3 h-3" />
-                              <span>{t('support.btn_switch_freetext', undefined, 'Custom name')}</span>
-                            </>
-                          )}
+                          <Settings className="w-3 h-3" />
+                          <span>{t('support.btn_manage_teams', undefined, 'Manage Teams')}</span>
                         </button>
                       </div>
-                    </div>
-
-                    {isCustomAssigneeMode ? (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          value={selectedTicket.assignedStaff}
-                          onChange={(e) => updateCurrentTicket({ assignedStaff: e.target.value })}
-                          placeholder={t('support.placeholder_custom_staff', undefined, 'Enter staff name (e.g. Alex Miller)...')}
-                          className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (selectedTicket.assignedStaff.trim() && !staffList.includes(selectedTicket.assignedStaff.trim())) {
-                              const updated = [...staffList, selectedTicket.assignedStaff.trim()];
-                              saveStaffList(updated);
-                              sounds.playSuccess();
-                            }
-                          }}
-                          className="px-2.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-[10px] font-bold"
-                          title={t('support.btn_add_to_roster_tooltip', undefined, 'Save this name to permanent staff list')}
-                        >
-                          {t('support.btn_add_to_roster', undefined, '+ To list')}
-                        </button>
-                      </div>
-                    ) : (
                       <select
-                        value={selectedTicket.assignedStaff}
-                        onChange={(e) => {
-                          if (e.target.value === '__custom_mode__') {
-                            setIsCustomAssigneeMode(true);
-                          } else if (e.target.value === '__manage_staff__') {
-                            setSettingsActiveTab('staff');
-                            setIsSettingsModalOpen(true);
-                          } else {
-                            updateCurrentTicket({ assignedStaff: e.target.value });
-                          }
-                        }}
+                        value={selectedTicket.team}
+                        onChange={(e) => updateCurrentTicket({ team: e.target.value })}
                         className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
                       >
-                        {effectiveStaffList.map(staff => (
-                          <option key={staff} value={staff}>{staff}</option>
+                        {teams.map(team => (
+                          <option key={team} value={team}>{team}</option>
                         ))}
-                        {selectedTicket.assignedStaff && !effectiveStaffList.includes(selectedTicket.assignedStaff) && (
-                          <option value={selectedTicket.assignedStaff}>{selectedTicket.assignedStaff}</option>
-                        )}
-                        <option value="__custom_mode__">✏️ {t('support.btn_switch_freetext', undefined, 'Custom name (Free text)...')}</option>
-                        <option value="__manage_staff__">⚙️ + {t('support.btn_manage_staff', undefined, 'Rollen & Mitarbeiter verwalten...')}</option>
                       </select>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Zugewiesen an - Hidden in Solo Mode */}
+                  {!settings.disableTeams && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">
+                          {t('support.label_assignee', undefined, 'Assigned to')}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsActiveTab('staff');
+                              setIsSettingsModalOpen(true);
+                            }}
+                            className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>{t('support.btn_add_role_staff', undefined, 'Rollen / Mitarbeiter')}</span>
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-700">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomAssigneeMode(!isCustomAssigneeMode)}
+                            className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            {isCustomAssigneeMode ? (
+                              <>
+                                <List className="w-3 h-3" />
+                                <span>{t('support.btn_switch_list', undefined, 'Choose from list')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <PenTool className="w-3 h-3" />
+                                <span>{t('support.btn_switch_freetext', undefined, 'Custom name')}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isCustomAssigneeMode ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={selectedTicket.assignedStaff}
+                            onChange={(e) => updateCurrentTicket({ assignedStaff: e.target.value })}
+                            placeholder={t('support.placeholder_custom_staff', undefined, 'Enter staff name (e.g. Alex Miller)...')}
+                            className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedTicket.assignedStaff.trim() && !staffList.includes(selectedTicket.assignedStaff.trim())) {
+                                const updated = [...staffList, selectedTicket.assignedStaff.trim()];
+                                saveStaffList(updated);
+                                sounds.playSuccess();
+                              }
+                            }}
+                            className="px-2.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-[10px] font-bold"
+                            title={t('support.btn_add_to_roster_tooltip', undefined, 'Save this name to permanent staff list')}
+                          >
+                            {t('support.btn_add_to_roster', undefined, '+ To list')}
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedTicket.assignedStaff}
+                          onChange={(e) => {
+                            if (e.target.value === '__custom_mode__') {
+                              setIsCustomAssigneeMode(true);
+                            } else if (e.target.value === '__manage_staff__') {
+                              setSettingsActiveTab('staff');
+                              setIsSettingsModalOpen(true);
+                            } else {
+                              updateCurrentTicket({ assignedStaff: e.target.value });
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                        >
+                          {effectiveStaffList.map(staff => (
+                            <option key={staff} value={staff}>{staff}</option>
+                          ))}
+                          {selectedTicket.assignedStaff && !effectiveStaffList.includes(selectedTicket.assignedStaff) && (
+                            <option value={selectedTicket.assignedStaff}>{selectedTicket.assignedStaff}</option>
+                          )}
+                          <option value="__custom_mode__">✏️ {t('support.btn_switch_freetext', undefined, 'Custom name (Free text)...')}</option>
+                          <option value="__manage_staff__">⚙️ + {t('support.btn_manage_staff', undefined, 'Rollen & Mitarbeiter verwalten...')}</option>
+                        </select>
+                      )}
+                    </div>
+                  )}
 
                   {/* Priorität */}
                   <div>
@@ -1600,25 +1816,196 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   </div>
                 </div>
 
-                {/* Column 2: Customer Contact Info & Billing Rate */}
-                <div className="space-y-4">
-                  {/* Kunde (CRM) */}
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {t('support.label_customer', undefined, 'Customer (CRM / Address Book)')}
-                    </label>
+                {/* Draggable Splitter Line between Module 1 and Module 2 (Slim & Minimal) */}
+                <div
+                  onMouseDown={handleModulesSplitterMouseDown}
+                  className={`hidden md:flex items-center justify-center w-[3px] cursor-col-resize group shrink-0 select-none transition-colors relative z-10 ${
+                    isDraggingModulesSplitter
+                      ? 'bg-cyan-500'
+                      : 'bg-slate-200 hover:bg-cyan-500/80 dark:bg-slate-800 dark:hover:bg-cyan-500/80'
+                  }`}
+                  title={t('support.drag_resize_modules', undefined, 'Drag to resize form modules')}
+                >
+                  <div className="w-full h-8 rounded-full bg-slate-400/60 group-hover:bg-cyan-400 dark:bg-slate-600 transition-colors" />
+                </div>
+
+                {/* Column 2 / Module 2: Customer Contact Info & Billing Rate */}
+                <div className="p-4 sm:p-5 space-y-4 min-w-0 flex-1 border-t md:border-t-0 border-slate-200/80 dark:border-slate-800">
+                  {/* Kunde (CRM / Address Book) Section */}
+                  <div className="space-y-2">
+                    {/* Header Label & Modal Trigger Button */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300">
+                        {t('support.label_customer', undefined, 'Customer (CRM / Address Book)')}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomerPickerOpen(true)}
+                        className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer transition"
+                      >
+                        <Search className="w-3 h-3" />
+                        <span>{contacts.length} {t('support.contacts_found_count', undefined, 'Contacts')}</span>
+                      </button>
+                    </div>
+
+                    {/* Customer Selection Card: Assigned vs Unassigned */}
+                    {(() => {
+                      const hasAssigned = Boolean(assignedContact || selectedTicket.contact_id || selectedTicket.contact_name);
+
+                      if (hasAssigned) {
+                        const displayName = assignedContact?.name || selectedTicket.contact_name || selectedTicket.contact_company || 'Customer';
+                        const displayCompany = selectedTicket.contact_company || assignedContact?.company;
+                        const initials = displayName.substring(0, 2).toUpperCase();
+
+                        return (
+                          <div className="p-3 rounded-2xl border border-cyan-200 dark:border-cyan-800/80 bg-gradient-to-br from-cyan-50/70 to-white dark:from-cyan-950/30 dark:to-slate-900 shadow-2xs space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-9 h-9 rounded-xl ${assignedContact?.avatar_color || 'bg-cyan-600'} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
+                                  {initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                      {displayName}
+                                    </h4>
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-100 dark:bg-cyan-900/80 text-cyan-800 dark:text-cyan-200 font-semibold uppercase">
+                                      {assignedContact?.type || 'CRM'}
+                                    </span>
+                                  </div>
+                                  {displayCompany && (
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                                      <Building2 className="w-3 h-3 shrink-0 text-slate-400" />
+                                      <span>{displayCompany}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    sounds.playClick();
+                                    setDirectContactToEdit(assignedContact || null);
+                                    setIsDirectContactEditOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-cyan-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition shadow-2xs cursor-pointer"
+                                  title={t('support.btn_edit_contact', undefined, 'Edit Contact & Rate')}
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCustomerPickerOpen(true)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                                  title={t('support.btn_change_customer', undefined, 'Change customer')}
+                                >
+                                  <Search className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                                  <span className="hidden sm:inline">{t('support.btn_change_customer', undefined, 'Change')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectContact('')}
+                                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900 cursor-pointer"
+                                  title={t('support.btn_clear_customer', undefined, 'Remove customer assignment')}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Customer Standard Hourly Rate Badge & Sync */}
+                            {assignedContact?.default_hourly_rate !== undefined && assignedContact.default_hourly_rate > 0 ? (
+                              <div className="flex items-center justify-between pt-2 border-t border-cyan-100/80 dark:border-cyan-900/40 text-[11px]">
+                                <div className="flex items-center gap-1.5 font-semibold text-cyan-800 dark:text-cyan-300">
+                                  <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                                  <span>{t('support.customer_standard_rate', undefined, 'Kunden-Stundensatz')}:</span>
+                                  <span className="font-mono font-bold">{assignedContact.default_hourly_rate.toFixed(2)} {companyProfile.currency || '€'} / Std.</span>
+                                </div>
+                                {selectedTicket.hourlyRate !== assignedContact.default_hourly_rate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      sounds.playClick();
+                                      updateCurrentTicket({ hourlyRate: assignedContact.default_hourly_rate });
+                                    }}
+                                    className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 underline cursor-pointer"
+                                    title="Stundensatz des Kunden in diesen Auftrag übernehmen"
+                                  >
+                                    Übernehmen
+                                  </button>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div 
+                          onClick={() => setIsCustomerPickerOpen(true)}
+                          className="p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 hover:border-cyan-300 dark:hover:border-cyan-700 transition flex items-center justify-between gap-3 cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-950/80 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 flex items-center justify-center shrink-0 transition">
+                              <Users className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition truncate">
+                                {t('support.no_customer_assigned_title', undefined, 'No customer assigned')}
+                              </p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                {t('support.no_customer_assigned_desc', undefined, 'Click to open the customer directory')}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsCustomerPickerOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-2xs transition active:scale-95 cursor-pointer"
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                            <span>{t('support.btn_choose_customer', undefined, 'Select Customer')}</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Quick Dropdown Selector for Fast Selection */}
                     <select
-                      value={selectedTicket.contact_id || ''}
+                      value={selectedTicket.contact_id !== undefined && selectedTicket.contact_id !== null ? String(selectedTicket.contact_id) : ''}
                       onChange={(e) => handleSelectContact(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
                     >
                       <option value="">{t('support.customer_none', undefined, '– No customer assigned –')}</option>
                       {contacts.map(c => (
-                        <option key={c.id} value={c.id}>
+                        <option key={String(c.id)} value={String(c.id)}>
                           {c.name} {c.company ? `(${c.company})` : ''}
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Contact Person / Name */}
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {t('support.customer_name', undefined, 'Contact Person / Name')}
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        value={selectedTicket.contact_name || ''}
+                        onChange={(e) => updateCurrentTicket({ contact_name: e.target.value })}
+                        placeholder={t('support.customer_name', undefined, 'Contact Person / Name')}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
+                      />
+                    </div>
                   </div>
 
                   {/* E-Mail Address */}
@@ -1702,17 +2089,26 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                   {/* Stundensatz */}
                   <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {t('support.label_hourly_rate', undefined, 'Hourly Rate (€ / hr)')}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block text-xs">
+                        {t('support.label_hourly_rate', undefined, 'Hourly Rate')}
+                      </label>
+                      {assignedContact?.default_hourly_rate !== undefined && assignedContact.default_hourly_rate > 0 && (
+                        <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-semibold flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>Kunde: {assignedContact.default_hourly_rate.toFixed(2)} {companyProfile.currency || '€'}</span>
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type="number"
-                        value={selectedTicket.hourlyRate || 95}
+                        step="0.5"
+                        value={selectedTicket.hourlyRate ?? 95}
                         onChange={(e) => updateCurrentTicket({ hourlyRate: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                        className="w-full px-3 py-2 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
                       />
-                      <span className="absolute right-3 top-2.5 text-slate-400 font-mono">€</span>
+                      <span className="absolute right-3 top-2.5 text-slate-400 font-mono text-xs">{companyProfile.currency || '€'}</span>
                     </div>
                   </div>
 
@@ -1772,118 +2168,128 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 {activeTab === 'timesheets' && (
                   <div className="space-y-4">
                     
-                    {/* Integrated Live Timer Control Bar */}
-                    <div className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                      selectedTicket.isTimerRunning
-                        ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/80 shadow-md ring-2 ring-rose-500/20'
-                        : (selectedTicket.timerAccumulatedSeconds || 0) > 0
-                        ? 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/80 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
-                    }`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-xs shrink-0 ${
-                          selectedTicket.isTimerRunning ? 'bg-rose-600 animate-pulse' : (selectedTicket.timerAccumulatedSeconds || 0) > 0 ? 'bg-amber-600' : 'bg-emerald-600'
-                        }`}>
-                          <Clock className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                              {selectedTicket.isTimerRunning 
-                                ? t('support.timer_running', undefined, 'Live-Timer läuft...') 
-                                : (selectedTicket.timerAccumulatedSeconds || 0) > 0
-                                ? t('support.timer_paused', undefined, 'Live-Timer pausiert')
-                                : t('support.timesheet_live_timer_title', undefined, '1-Klick Live-Timer (Arbeitszeit-Erfassung)')}
-                            </span>
-                            <span className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-bold ${
-                              selectedTicket.isTimerRunning 
-                                ? 'bg-rose-600 text-white shadow-xs animate-pulse' 
-                                : (selectedTicket.timerAccumulatedSeconds || 0) > 0
-                                ? 'bg-amber-500 text-white'
-                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                            }`}>
-                              {formatTimerDisplay(timerSeconds)}
-                            </span>
-                            {timerSeconds > 0 && (
-                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                                ({(timerSeconds / 3600).toFixed(2)} h)
+                    {/* Integrated Professional Live-Timer Widget */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shadow-2xs space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs shrink-0 transition-colors ${
+                            selectedTicket.isTimerRunning
+                              ? 'bg-rose-600'
+                              : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                              ? 'bg-amber-600'
+                              : 'bg-slate-700 dark:bg-slate-700'
+                          }`}>
+                            <Clock className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                {selectedTicket.isTimerRunning 
+                                  ? t('support.timer_running', undefined, 'Live-Timer läuft...') 
+                                  : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                                  ? t('support.timer_paused', undefined, 'Live-Timer pausiert')
+                                  : t('support.timesheet_live_timer_title', undefined, '1-Klick Live-Timer')}
                               </span>
-                            )}
+                              <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-bold tracking-wider ${
+                                selectedTicket.isTimerRunning 
+                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800' 
+                                  : (selectedTicket.timerAccumulatedSeconds || 0) > 0
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                              }`}>
+                                {formatTimerDisplay(timerSeconds)}
+                              </span>
+                              {timerSeconds > 0 && (
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                                  ({(timerSeconds / 3600).toFixed(2)} h)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                              {formatDetailedTimer(timerSeconds, lang)}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono mt-0.5">
-                            {formatDetailedTimer(timerSeconds, lang)}
-                          </div>
+                        </div>
+
+                        {/* Timer Action Buttons */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {selectedTicket.isTimerRunning ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handlePauseTimer}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition active:scale-95"
+                                title={t('support.btn_pause_timer', undefined, 'Pausieren')}
+                              >
+                                <Pause className="w-3.5 h-3.5" />
+                                <span>{t('support.btn_pause_timer', undefined, 'Pausieren')}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleStopAndBookTimer}
+                                className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition active:scale-95"
+                              >
+                                <Square className="w-3.5 h-3.5 fill-current" />
+                                <span>{t('support.btn_stop_timer', undefined, 'Stoppen & buchen')}</span>
+                              </button>
+                            </>
+                          ) : (selectedTicket.timerAccumulatedSeconds || 0) > 0 ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleResumeTimer}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>{t('support.btn_resume_timer', undefined, 'Fortsetzen')}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleStopAndBookTimer}
+                                className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs transition active:scale-95"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{t('support.btn_stop_timer', undefined, 'Zeit buchen')}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleResetTimer}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition"
+                                title={t('support.btn_reset_timer', undefined, 'Zurücksetzen')}
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleStartTimer}
+                              className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>{t('support.btn_start_timer', undefined, 'Live-Timer starten')}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {/* Timer Action Buttons */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {selectedTicket.isTimerRunning ? (
-                          <>
-                            {/* Pause */}
-                            <button
-                              type="button"
-                              onClick={handlePauseTimer}
-                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition active:scale-95"
-                              title={t('support.btn_pause_timer', undefined, 'Pausieren')}
-                            >
-                              <Pause className="w-3.5 h-3.5" />
-                              <span>{t('support.btn_pause_timer', undefined, 'Pausieren')}</span>
-                            </button>
-                            {/* Stop & Book */}
-                            <button
-                              type="button"
-                              onClick={handleStopAndBookTimer}
-                              className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition active:scale-95"
-                            >
-                              <Square className="w-3.5 h-3.5 fill-current" />
-                              <span>{t('support.btn_stop_timer', undefined, 'Stoppen & buchen')} ({formatTimerDisplay(timerSeconds)})</span>
-                            </button>
-                          </>
-                        ) : (selectedTicket.timerAccumulatedSeconds || 0) > 0 ? (
-                          <>
-                            {/* Resume */}
-                            <button
-                              type="button"
-                              onClick={handleResumeTimer}
-                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              <span>{t('support.btn_resume_timer', undefined, 'Fortsetzen')}</span>
-                            </button>
-                            {/* Stop & Book */}
-                            <button
-                              type="button"
-                              onClick={handleStopAndBookTimer}
-                              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs transition active:scale-95"
-                            >
-                              <Square className="w-3.5 h-3.5 fill-current" />
-                              <span>{t('support.btn_stop_timer', undefined, 'Zeit buchen')} ({formatTimerDisplay(timerSeconds)})</span>
-                            </button>
-                            {/* Reset */}
-                            <button
-                              type="button"
-                              onClick={handleResetTimer}
-                              className="px-2.5 py-2 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
-                              title={t('support.btn_reset_timer', undefined, 'Zurücksetzen')}
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleStartTimer}
-                            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95"
-                          >
-                            <Play className="w-4 h-4 fill-current" />
-                            <span>{t('support.btn_start_timer', undefined, 'Live-Timer starten')}</span>
-                          </button>
-                        )}
+                      {/* Work Description field for the Live Timer */}
+                      <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 flex items-center gap-1">
+                          <Type className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          <span>{t('support.label_work_description', undefined, 'Tätigkeitsbeschreibung / Work Description')}:</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={liveTimerDescription}
+                          onChange={(e) => setLiveTimerDescription(e.target.value)}
+                          placeholder={t('support.live_timer_description_placeholder', undefined, 'Woran wird gearbeitet? (z.B. Fehlerdiagnose, Server-Patch, Vor-Ort Montage)...')}
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                        />
                       </div>
                     </div>
 
-                    {/* Timesheets Table */}
+                    {/* Timesheets Table with Inline Editing */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
@@ -1903,25 +2309,112 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               </td>
                             </tr>
                           ) : (
-                            selectedTicket.timesheets.map(ts => (
-                              <tr key={ts.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                <td className="py-2.5 px-3 font-mono">{formatDate(ts.date)}</td>
-                                <td className="py-2.5 px-3 font-medium">{ts.staff}</td>
-                                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{ts.description}</td>
-                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">
-                                  {Number(ts.hours).toFixed(2)} h
-                                </td>
-                                <td className="py-2.5 px-3 text-right">
-                                  <button
-                                    onClick={() => handleDeleteTimesheet(ts.id)}
-                                    className="p-1 hover:text-rose-600 text-slate-400"
-                                    title="Delete Entry"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
+                            selectedTicket.timesheets.map(ts => {
+                              const isEditing = editingTimesheetId === ts.id;
+                              return (
+                                <tr key={ts.id} className={isEditing ? "bg-cyan-50/50 dark:bg-cyan-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}>
+                                  {isEditing ? (
+                                    <>
+                                      <td className="py-2 px-2">
+                                        <input
+                                          type="date"
+                                          value={editTsDate}
+                                          onChange={(e) => setEditTsDate(e.target.value)}
+                                          className="w-full px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-xs font-mono"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-2">
+                                        <input
+                                          type="text"
+                                          value={editTsStaff}
+                                          onChange={(e) => setEditTsStaff(e.target.value)}
+                                          list={`staff-list-edit-${ts.id}`}
+                                          placeholder={t('support.th_staff', undefined, 'Staff')}
+                                          className="w-full px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-xs font-medium"
+                                        />
+                                        <datalist id={`staff-list-edit-${ts.id}`}>
+                                          {effectiveStaffList.map(s => (
+                                            <option key={s} value={s} />
+                                          ))}
+                                        </datalist>
+                                      </td>
+                                      <td className="py-2 px-2">
+                                        <input
+                                          type="text"
+                                          value={editTsDesc}
+                                          onChange={(e) => setEditTsDesc(e.target.value)}
+                                          placeholder={t('support.th_work_done', undefined, 'Work description...')}
+                                          className="w-full px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-xs"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-2 text-right">
+                                        <input
+                                          type="number"
+                                          step="0.25"
+                                          min="0.05"
+                                          value={editTsHours}
+                                          onChange={(e) => setEditTsHours(e.target.value)}
+                                          className="w-20 px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-xs font-mono text-right"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveEditTimesheet(ts.id)}
+                                            className="p-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
+                                            title={t('support.save_edit', undefined, 'Speichern')}
+                                          >
+                                            <Check className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={handleCancelEditTimesheet}
+                                            className="p-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition"
+                                            title={t('support.cancel_edit', undefined, 'Abbrechen')}
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="py-2.5 px-3 font-mono">{formatDate(ts.date)}</td>
+                                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                                        {ts.staff || <span className="text-slate-400 italic">–</span>}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                                        {ts.description || <span className="text-slate-400 italic">–</span>}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">
+                                        {Number(ts.hours).toFixed(2)} h
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleStartEditTimesheet(ts)}
+                                            className="p-1 hover:text-cyan-600 text-slate-400 transition"
+                                            title={t('support.edit_timesheet', undefined, 'Eintrag bearbeiten')}
+                                          >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteTimesheet(ts.id)}
+                                            className="p-1 hover:text-rose-600 text-slate-400 transition"
+                                            title={t('support.delete_timesheet', undefined, 'Eintrag löschen')}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                         <tfoot className="bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 font-semibold">
@@ -2027,22 +2520,18 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             </div>
           </div>
 
-          {/* Draggable Splitter Handle between Form and Chatter */}
+          {/* Draggable Splitter Handle between Form and Chatter (Slim & Clean) */}
           {isChatterVisible && (
             <div
               onMouseDown={handleSplitterMouseDown}
-              className={`hidden md:flex flex-col items-center justify-center w-2.5 -mx-1 z-20 cursor-col-resize group shrink-0 select-none transition-colors ${
+              className={`hidden md:flex items-center justify-center w-[3px] cursor-col-resize group shrink-0 select-none transition-colors relative z-20 ${
                 isDraggingSplitter
-                  ? 'bg-cyan-500 shadow-sm'
-                  : 'hover:bg-cyan-500/70 bg-slate-200/80 dark:bg-slate-800 border-x border-slate-300/60 dark:border-slate-700/60'
+                  ? 'bg-cyan-500'
+                  : 'bg-slate-200 hover:bg-cyan-500/80 dark:bg-slate-800 dark:hover:bg-cyan-500/80'
               }`}
               title={t('support.drag_resize_chatter', undefined, 'Drag to resize logbook and notes')}
             >
-              <div className="flex flex-col gap-1 items-center justify-center pointer-events-none py-2">
-                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
-                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
-                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
-              </div>
+              <div className="w-full h-8 rounded-full bg-slate-400/60 group-hover:bg-cyan-400 dark:bg-slate-600 transition-colors" />
             </div>
           )}
 
@@ -2050,7 +2539,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           {isChatterVisible && (
             <div 
               style={{ width: `${chatterWidth}px` }}
-              className="w-full max-w-full md:max-w-[70%] bg-slate-50 dark:bg-slate-950 flex flex-col border-t md:border-t-0 md:border-l border-slate-200/80 dark:border-slate-800 min-h-0 shrink-0"
+              className="w-full max-w-full md:max-w-[70%] bg-slate-50 dark:bg-slate-950 flex flex-col border-t md:border-t-0 border-slate-200/80 dark:border-slate-800 min-h-0 shrink-0"
             >
               
               {/* Customer Quick Mail Action Bar */}
@@ -2211,8 +2700,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
               {[
                 { key: 'general', label: t('support.settings_tab_general', undefined, 'Prefix & Values'), icon: Sliders },
-                { key: 'teams', label: `${t('support.settings_tab_teams', undefined, 'Teams')} (${teams.length})`, icon: Users },
-                { key: 'staff', label: `${t('support.settings_tab_staff', undefined, 'Staff')} (${staffList.length})`, icon: User }
+                ...(!tempSettings.disableTeams ? [
+                  { key: 'teams', label: `${t('support.settings_tab_teams', undefined, 'Teams')} (${teams.length})`, icon: Users },
+                  { key: 'staff', label: `${t('support.settings_tab_staff', undefined, 'Staff')} (${staffList.length})`, icon: User }
+                ] : [])
               ].map(tab => {
                 const Icon = tab.icon;
                 const isActive = settingsActiveTab === tab.key;
@@ -2289,37 +2780,63 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     </div>
                   </div>
 
-                  {/* Default Team */}
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {t('support.settings_default_team_label', undefined, 'Default Team')}
+                  {/* Solo Mode / Keine Teams Toggle */}
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <User className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                        <span>{t('support.solo_mode_toggle_title', undefined, 'Solo-Modus / Keine Teams (Nur ich)')}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('support.solo_mode_toggle_desc', undefined, 'Deaktiviert Teams & Mitarbeiter für eine kompakte Ansicht ohne Team-Overhead.')}
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={tempSettings.disableTeams || false}
+                        onChange={(e) => setTempSettings({ ...tempSettings, disableTeams: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-cyan-600"></div>
                     </label>
-                    <select
-                      value={tempSettings.defaultTeam}
-                      onChange={(e) => setTempSettings({ ...tempSettings, defaultTeam: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
-                    >
-                      {teams.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
                   </div>
 
-                  {/* Default Staff */}
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {t('support.settings_default_staff_label', undefined, 'Default Staff')}
-                    </label>
-                    <select
-                      value={tempSettings.defaultStaff}
-                      onChange={(e) => setTempSettings({ ...tempSettings, defaultStaff: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
-                    >
-                      {effectiveStaffList.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Default Team (Hidden in Solo Mode) */}
+                  {!tempSettings.disableTeams && (
+                    <div>
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                        {t('support.settings_default_team_label', undefined, 'Default Team')}
+                      </label>
+                      <select
+                        value={tempSettings.defaultTeam}
+                        onChange={(e) => setTempSettings({ ...tempSettings, defaultTeam: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                      >
+                        {teams.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Default Staff (Hidden in Solo Mode) */}
+                  {!tempSettings.disableTeams && (
+                    <div>
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                        {t('support.settings_default_staff_label', undefined, 'Default Staff')}
+                      </label>
+                      <select
+                        value={tempSettings.defaultStaff}
+                        onChange={(e) => setTempSettings({ ...tempSettings, defaultStaff: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                      >
+                        {effectiveStaffList.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2596,6 +3113,39 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           if (newTickets.length > 0) {
             setSelectedTicketId(newTickets[0].id);
             setViewMode('detail');
+          }
+        }}
+      />
+
+      {/* Searchable In-App Customer Picker Modal */}
+      <CustomerPickerModal
+        isOpen={isCustomerPickerOpen}
+        onClose={() => setIsCustomerPickerOpen(false)}
+        contacts={contacts}
+        selectedContactId={selectedTicket?.contact_id}
+        onSelectContact={(contact) => {
+          handleSelectContact(contact);
+        }}
+        onContactsChange={onRefreshContacts}
+        currency={companyProfile.currency || '€'}
+      />
+
+      {/* Direct Contact Edit/Create Modal from Ticket View */}
+      <ContactEditModal
+        isOpen={isDirectContactEditOpen}
+        onClose={() => {
+          setIsDirectContactEditOpen(false);
+          setDirectContactToEdit(null);
+        }}
+        contact={directContactToEdit}
+        currency={companyProfile.currency || '€'}
+        onSaveSuccess={(savedContact) => {
+          setIsDirectContactEditOpen(false);
+          setDirectContactToEdit(null);
+          onRefreshContacts?.();
+          // Update the selected ticket's contact info and hourly rate if this is the assigned contact
+          if (selectedTicket && (!selectedTicket.contact_id || String(selectedTicket.contact_id) === String(savedContact.id))) {
+            handleSelectContact(savedContact);
           }
         }}
       />
