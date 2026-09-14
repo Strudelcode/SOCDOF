@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   UserPlus, 
@@ -10,7 +10,12 @@ import {
   Phone, 
   MapPin, 
   Save, 
-  Sparkles 
+  Sparkles,
+  Layers,
+  CheckCircle2,
+  ArrowRight,
+  ListPlus,
+  Check
 } from 'lucide-react';
 import { Contact, ContactType } from '../types';
 import { db } from '../lib/db';
@@ -23,6 +28,8 @@ export interface ContactEditModalProps {
   contact?: Partial<Contact> | null;
   onSaveSuccess: (savedContact: Contact) => void;
   currency?: string;
+  initialSequentialMode?: boolean;
+  onBatchComplete?: (count: number) => void;
 }
 
 export const ContactEditModal: React.FC<ContactEditModalProps> = ({
@@ -30,7 +37,9 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   onClose,
   contact,
   onSaveSuccess,
-  currency = '€'
+  currency = '€',
+  initialSequentialMode = false,
+  onBatchComplete
 }) => {
   const currentLang = useLanguage();
   const [formData, setFormData] = useState<Partial<Contact>>({
@@ -53,10 +62,17 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showItalianFields, setShowItalianFields] = useState(false);
+  const [isSequentialMode, setIsSequentialMode] = useState(false);
+  const [createdInBatch, setCreatedInBatch] = useState<Contact[]>([]);
+  const [lastSavedName, setLastSavedName] = useState<string | null>(null);
+
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const formScrollRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       if (contact) {
+        setIsSequentialMode(false);
         setFormData({
           ...contact,
           country: contact.country || 'Deutschland',
@@ -69,6 +85,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           setShowItalianFields(false);
         }
       } else {
+        setIsSequentialMode(Boolean(initialSequentialMode));
         setFormData({
           name: '',
           company: '',
@@ -88,29 +105,58 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           default_hourly_rate: undefined
         });
         setShowItalianFields(false);
+        setLastSavedName(null);
+        setCreatedInBatch([]);
       }
-    }
-  }, [isOpen, contact]);
 
-  // Handle ESC key to close
+      // Auto-focus the Name field
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 80);
+    }
+  }, [isOpen, contact, initialSequentialMode]);
+
+  // Handle keyboard shortcuts (ESC to close, Ctrl+Enter / Alt+S to save & continue)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen && !isSubmitting) {
-        onClose();
+        if (isSequentialMode && createdInBatch.length > 0) {
+          handleFinishBatch();
+        } else {
+          onClose();
+        }
+        return;
+      }
+
+      // Ctrl+Enter or Cmd+Enter: Save
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && isOpen && !isSubmitting) {
+        e.preventDefault();
+        if (isSequentialMode) {
+          handleSaveContact(true);
+        } else {
+          handleSaveContact(false);
+        }
+      }
+
+      // Alt+S: Save & Next in sequential mode
+      if (e.altKey && (e.key === 's' || e.key === 'S') && isOpen && !isSubmitting && isSequentialMode) {
+        e.preventDefault();
+        handleSaveContact(true);
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen, isSubmitting, isSequentialMode, createdInBatch, formData]);
 
   if (!isOpen) return null;
 
   const isEditing = Boolean(formData.id);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveContact = async (keepOpenForNext: boolean) => {
     if (!formData.name?.trim() || !formData.email?.trim()) {
       sounds.playError();
+      nameInputRef.current?.focus();
       return;
     }
 
@@ -145,6 +191,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         const saved = await db.contacts.get(formData.id);
         sounds.playSuccess();
         onSaveSuccess(saved || { ...(formData as Contact), ...updatePayload });
+        onClose();
       } else {
         const newRecord: Omit<Contact, 'id'> = {
           name: formData.name.trim(),
@@ -163,23 +210,85 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           is_public_admin: formData.is_public_admin || false,
           notes: formData.notes?.trim() || '',
           default_hourly_rate: parsedHourlyRate && parsedHourlyRate > 0 ? parsedHourlyRate : undefined,
-          avatar_color: 'bg-indigo-600',
+          avatar_color: (createdInBatch.length % 2 === 0) ? 'bg-indigo-600' : 'bg-emerald-600',
           createdAt: new Date().toISOString()
         };
 
         const newId = await db.contacts.add(newRecord as Contact);
         const saved = await db.contacts.get(newId);
+        const savedContact = saved || ({ ...newRecord, id: newId } as Contact);
+
         sounds.playSuccess();
-        if (saved) {
-          onSaveSuccess(saved);
+        onSaveSuccess(savedContact);
+
+        if (keepOpenForNext) {
+          setCreatedInBatch(prev => [savedContact, ...prev]);
+          setLastSavedName(savedContact.name);
+
+          // Reset form for next contact while maintaining type and country
+          setFormData({
+            name: '',
+            company: '',
+            email: '',
+            phone: '',
+            type: formData.type || 'customer',
+            street: '',
+            zip: '',
+            city: '',
+            country: formData.country || 'Deutschland',
+            taxId: '',
+            fiscal_code: '',
+            sdi_recipient_code: '',
+            pec: '',
+            is_public_admin: false,
+            notes: '',
+            default_hourly_rate: undefined
+          });
+
+          // Scroll back to top & re-focus name input
+          if (formScrollRef.current) {
+            formScrollRef.current.scrollTop = 0;
+          }
+          setTimeout(() => {
+            nameInputRef.current?.focus();
+          }, 60);
+        } else {
+          if (onBatchComplete && createdInBatch.length > 0) {
+            onBatchComplete(createdInBatch.length + 1);
+          }
+          onClose();
         }
       }
-      onClose();
     } catch (err) {
       console.error('Failed to save contact:', err);
       sounds.playError();
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFinishBatch = () => {
+    // If user filled in name & email, ask if they want to save it first
+    if (formData.name?.trim() && formData.email?.trim()) {
+      const wantSave = confirm(t('contacts.confirm_save_current_before_exit', currentLang, 'Möchten Sie den aktuell eingegebenen Kontakt vor dem Beenden noch speichern?'));
+      if (wantSave) {
+        handleSaveContact(false);
+        return;
+      }
+    }
+    sounds.playClick();
+    if (onBatchComplete && createdInBatch.length > 0) {
+      onBatchComplete(createdInBatch.length);
+    }
+    onClose();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSequentialMode) {
+      handleSaveContact(true);
+    } else {
+      handleSaveContact(false);
     }
   };
 
@@ -198,34 +307,124 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shadow-2xs">
-              {isEditing ? <Edit2 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+            <div className={`w-10 h-10 rounded-2xl ${isSequentialMode ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'} flex items-center justify-center font-bold shadow-2xs transition`}>
+              {isEditing ? (
+                <Edit2 className="w-5 h-5" />
+              ) : isSequentialMode ? (
+                <Layers className="w-5 h-5" />
+              ) : (
+                <UserPlus className="w-5 h-5" />
+              )}
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                {isEditing 
-                  ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
-                  : t('contact.modal_create_title', currentLang, 'Create New Contact')}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                  {isEditing 
+                    ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
+                    : isSequentialMode
+                      ? t('contacts.sequential_mode_title', currentLang, 'Mehrere Kontakte anlegen (Serienerfassung)')
+                      : t('contact.modal_create_title', currentLang, 'Create New Contact')}
+                </h3>
+                {isSequentialMode && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-700/60">
+                    {t('contacts.sequential_mode_badge', currentLang, 'Serienerfassung aktiv')}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isEditing && (formData.company || formData.name)
                   ? `${formData.name || ''} ${formData.company ? `(${formData.company})` : ''}`
-                  : t('contact.title', currentLang, 'Contacts & Address Book')}
+                  : isSequentialMode
+                    ? `${t('contacts.sequential_counter', currentLang, 'In dieser Serie erfasst:')} ${createdInBatch.length}`
+                    : t('contact.title', currentLang, 'Contacts & Address Book')}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsSequentialMode(!isSequentialMode);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                  isSequentialMode 
+                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' 
+                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                }`}
+                title={t('contacts.toggle_sequential', currentLang, 'Fortlaufend erfassen (nach Speichern nächsten öffnen)')}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {isSequentialMode ? 'Serienmodus: AN' : 'Serienmodus: AUS'}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={isSequentialMode && createdInBatch.length > 0 ? handleFinishBatch : onClose}
+              disabled={isSubmitting}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="space-y-3.5 overflow-y-auto pr-1 flex-1">
+        <form ref={formScrollRef} onSubmit={handleSubmit} className="space-y-3.5 overflow-y-auto pr-1 flex-1">
+          {/* Sequential Mode Banner & Feedback */}
+          {isSequentialMode && (
+            <div className="space-y-2">
+              {lastSavedName ? (
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>
+                      <strong>„{lastSavedName}“</strong> {t('contacts.sequential_success_toast', currentLang, 'Kontakt gespeichert! Nächsten Kontakt erfassen...')}
+                    </span>
+                  </div>
+                  <span className="font-bold text-[11px] px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-800/50">
+                    #{createdInBatch.length}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-300 text-xs">
+                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                      {t('contacts.sequential_mode_banner', currentLang, 'Tragen Sie alle Kontaktdaten vollständig ein. Nach dem Speichern wird das Formular sofort für den nächsten Kontakt bereitgestellt, bis Sie auf „Alle eingetragen“ klicken.')}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Tipp: Nutzen Sie <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]">Strg + Enter</kbd> oder den Button unten, um blitzschnell fortlaufend zu erfassen.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* History pills of contacts saved in current session */}
+              {createdInBatch.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="font-medium shrink-0">{t('contacts.sequential_counter', currentLang, 'In dieser Serie erfasst:')} ({createdInBatch.length}):</span>
+                  {createdInBatch.slice(0, 5).map((c, i) => (
+                    <span key={c.id || i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 shrink-0 border border-slate-200/60 dark:border-slate-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {c.name}
+                    </span>
+                  ))}
+                  {createdInBatch.length > 5 && (
+                    <span className="text-[10px] text-slate-400 shrink-0">
+                      +{createdInBatch.length - 5}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Row 1: Name & Company */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -233,6 +432,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 {t('contact.modal_name', currentLang, 'Full Name *')}
               </label>
               <input
+                ref={nameInputRef}
                 type="text"
                 required
                 placeholder={t('contact.modal_name_placeholder', currentLang, 'e.g. Dr. Alex Weber')}
@@ -498,27 +698,86 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           </div>
 
           {/* Modal Footer Buttons */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
-            >
-              {t('contact.btn_cancel', currentLang, 'Cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>
-                {isSubmitting 
-                  ? '...' 
-                  : (isEditing ? t('contact.btn_save', currentLang, 'Save Contact') : t('contacts.btn_new', currentLang, 'Create Contact'))}
-              </span>
-            </button>
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+            {/* Left action / Done button */}
+            <div className="flex items-center gap-2">
+              {isSequentialMode && createdInBatch.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleFinishBatch}
+                  className="px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{t('contacts.btn_all_entered', currentLang, 'Alle eingetragen (Fertigstellen)')} ({createdInBatch.length})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  {t('contact.btn_cancel', currentLang, 'Cancel')}
+                </button>
+              )}
+            </div>
+
+            {/* Right actions */}
+            <div className="flex items-center gap-2 justify-end">
+              {isSequentialMode ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveContact(false)}
+                    disabled={isSubmitting}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{t('contacts.btn_save_and_finish', currentLang, 'Speichern & Fertigstellen')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveContact(true)}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Kontakt speichern und Formular für nächsten Kontakt öffnen (Strg + Enter)"
+                  >
+                    <ListPlus className="w-4 h-4" />
+                    <span>{t('contacts.btn_save_and_next', currentLang, 'Speichern & Nächster Kontakt')}</span>
+                    <ArrowRight className="w-3.5 h-3.5 opacity-80" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveContact(true)}
+                      disabled={isSubmitting}
+                      className="px-3 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title={t('contacts.btn_save_and_next', currentLang, 'Speichern & Nächster Kontakt')}
+                    >
+                      <ListPlus className="w-3.5 h-3.5" />
+                      <span>{t('contacts.btn_save_and_next', currentLang, 'Speichern & Weiter')}</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>
+                      {isSubmitting 
+                        ? '...' 
+                        : (isEditing ? t('contact.btn_save', currentLang, 'Save Contact') : t('contacts.btn_new', currentLang, 'Create Contact'))}
+                    </span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </form>
       </div>

@@ -6,6 +6,25 @@
 
 ## Completed Tasks Archive
 
+### Edge-to-Edge Fullscreen Mode & F11 Keyboard Navigation (v22.6.12)
+- [x] **Edge-to-Edge Fullscreen Display Mode**:
+  - [x] Fullscreen capability expanding SOCDOF across the entire monitor canvas without window borders or title bars.
+  - [x] Global `F11` keyboard shortcut to toggle and exit fullscreen, plus `Esc` handling.
+  - [x] Electron IPC bridge (`socdof:toggle-fullscreen` / `socdof:is-fullscreen`) for native Windows desktop app window management.
+  - [x] HTML5 Fullscreen API integration for web browsers with helpful sandbox fallback tips.
+  - [x] Dedicated UI triggers in Taskbar System Tray, Start Menu footer, Desktop Context Menu, Spotlight Command Palette (`Ctrl+K`), and Settings Hub.
+  - [x] Floating Fullscreen Mode Status HUD Toast with live feedback.
+  - [x] 4-language localization (DE, EN, FR, ES) across all labels, tooltips, and shortcut guides.
+
+### In-App Contact Detail Modal & CRM Quick Actions (v22.6.11)
+- [x] **In-App Contact Detail Popup (`ContactDetailModal`)**:
+  - [x] Replaced the legacy bottom-opening split-view panel with a centered, high-performance modal rendered via `createPortal` to `document.body`.
+  - [x] Solved the problem where users had to scroll all the way down long contact lists to read customer details.
+  - [x] Modal header with initials avatar, contact name, company, type badge, hourly rate, 1-click edit, delete with confirmation, and close button.
+  - [x] Integrated 360° CRM Hub with Master Data, linked Invoices with status pills, itemized Purchased Products with quantities, and customer Notes.
+  - [x] Direct quick actions inside modal: Create Invoice for contact, generate .eml email draft for desktop mail clients, and download .vcf vCard.
+  - [x] Upgraded Contacts directory to a responsive 1 to 4 column card grid across the full window width.
+
 ### Clean Contact Modal Styling & Standard Hourly Rate Legibility (v22.6.10)
 - [x] **Harmonized Hourly Rate Card Styling**:
   - [x] Removed distracting multi-color background gradient from the Standard Hourly Rate section in `ContactEditModal`.

@@ -85,12 +85,14 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
     contactInvoices.forEach(inv => {
       if (inv.items && Array.isArray(inv.items)) {
         inv.items.forEach(item => {
-          const key = item.description || 'Artikel';
+          const key = item.product_name || (item as any).description || 'Artikel';
           const existing = productMap.get(key);
-          const itemTotal = (item.quantity || 1) * (item.unitPrice || 0);
+          const qty = Number(item.qty ?? (item as any).quantity ?? 1);
+          const unitPrice = Number(item.unit_price ?? (item as any).unitPrice ?? (item as any).price ?? 0);
+          const itemTotal = Number(item.subtotal ?? (item as any).amount ?? (qty * unitPrice));
 
           if (existing) {
-            existing.quantity += (item.quantity || 1);
+            existing.quantity += qty;
             existing.totalAmount += itemTotal;
             if (new Date(inv.date) > new Date(existing.lastDate)) {
               existing.lastDate = inv.date;
@@ -98,7 +100,7 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
           } else {
             productMap.set(key, {
               name: key,
-              quantity: item.quantity || 1,
+              quantity: qty,
               totalAmount: itemTotal,
               lastDate: inv.date
             });

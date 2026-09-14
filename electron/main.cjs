@@ -264,6 +264,22 @@ ipcMain.handle('socdof:quit-app', () => {
   app.quit();
 });
 
+ipcMain.handle('socdof:toggle-fullscreen', () => {
+  if (mainWindow) {
+    const isNowFullscreen = !mainWindow.isFullScreen();
+    mainWindow.setFullScreen(isNowFullscreen);
+    return isNowFullscreen;
+  }
+  return false;
+});
+
+ipcMain.handle('socdof:is-fullscreen', () => {
+  if (mainWindow) {
+    return mainWindow.isFullScreen();
+  }
+  return false;
+});
+
 // Languages directory manager - dynamically resolves path based on installation & execution context
 function getLanguagesDirectory() {
   // 1. Check custom environment variable

@@ -31,5 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupFolderPath: () => ipcRenderer.invoke('socdof:get-backup-folder-path'),
   selectBackupFolder: () => ipcRenderer.invoke('socdof:select-backup-folder'),
   openBackupFolder: (targetPath) => ipcRenderer.invoke('socdof:open-backup-folder', targetPath),
-  saveBackupFileToDisk: (payload) => ipcRenderer.invoke('socdof:save-backup-file-to-disk', payload)
+  saveBackupFileToDisk: (payload) => ipcRenderer.invoke('socdof:save-backup-file-to-disk', payload),
+  toggleFullscreen: () => ipcRenderer.invoke('socdof:toggle-fullscreen'),
+  isFullscreen: () => ipcRenderer.invoke('socdof:is-fullscreen')
 });

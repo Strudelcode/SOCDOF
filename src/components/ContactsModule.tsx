@@ -36,6 +36,7 @@ import { t, useLanguage, formatSystemDate } from '../lib/i18n';
 import { generateContactEml } from '../lib/emlGenerator';
 import { downloadVCard } from '../lib/vcardGenerator';
 import { ContactEditModal } from './ContactEditModal';
+import { ContactDetailModal } from './ContactDetailModal';
 
 interface ContactsModuleProps {
   contacts: Contact[];
@@ -58,13 +59,13 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'customer' | 'vendor'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [contactDetailTab, setContactDetailTab] = useState<'info' | 'invoices' | 'products' | 'notes'>('info');
   
-  // Single Edit / Create Modal
+  // Single Edit / Create Modal & Sequential Batch Mode
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSequentialCreate, setIsSequentialCreate] = useState(false);
   const [editingContact, setEditingContact] = useState<Partial<Contact> | null>(null);
 
-  // Batch Multiple Contacts Modal
+  // Batch Multiple Contacts Modal (Fast matrix table)
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchRows, setBatchRows] = useState<Array<{ name: string; email: string; company: string; phone: string; type: ContactType }>>([
     { name: '', email: '', company: '', phone: '', type: 'customer' },
@@ -98,12 +99,21 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   const handleOpenCreateModal = () => {
     sounds.playClick();
     setEditingContact(null);
+    setIsSequentialCreate(false);
+    setIsEditModalOpen(true);
+  };
+
+  const handleOpenBatchCreateModal = () => {
+    sounds.playClick();
+    setEditingContact(null);
+    setIsSequentialCreate(true);
     setIsEditModalOpen(true);
   };
 
   const handleOpenEditModal = (c: Contact, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     sounds.playClick();
+    setIsSequentialCreate(false);
     setEditingContact({ ...c });
     setIsEditModalOpen(true);
   };
@@ -265,15 +275,17 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     sounds.playSuccess();
   };
 
-  const handleDeleteContact = async (id: number, e?: React.MouseEvent) => {
+  const handleDeleteContact = async (id: number | string, skipConfirm = false, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    sounds.playWarning();
-    if (!confirm('Diesen Kontakt wirklich unwiderruflich aus der Datenbank löschen?')) return;
+    if (!skipConfirm) {
+      sounds.playWarning();
+      if (!confirm(t('contact.delete_confirm', currentLang, 'Diesen Kontakt wirklich unwiderruflich aus der Datenbank löschen?'))) return;
+    }
 
     try {
-      await db.contacts.delete(id);
+      await db.contacts.delete(Number(id));
       sounds.playDelete();
-      if (selectedContact?.id === id) {
+      if (selectedContact?.id === Number(id)) {
         setSelectedContact(null);
       }
       onRefresh();
@@ -282,43 +294,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       sounds.playError();
     }
   };
-
-  // Invoices linked to currently selected contact
-  const contactInvoices = selectedContact 
-    ? invoices.filter(inv => inv.contact_id === selectedContact.id)
-    : [];
-
-  const contactTotalRevenue = contactInvoices
-    .filter(inv => inv.status === 'paid')
-    .reduce((sum, inv) => sum + inv.total, 0);
-
-  const contactOpenReceivables = contactInvoices
-    .filter(inv => inv.status === 'posted')
-    .reduce((sum, inv) => sum + inv.total, 0);
-
-  // Purchased products by this contact
-  const contactPurchasedProducts = React.useMemo(() => {
-    if (!selectedContact) return [];
-    const itemMap = new Map<string, { name: string; quantity: number; totalAmount: number; lastDate: string }>();
-    contactInvoices.forEach(inv => {
-      (inv.items || []).forEach(item => {
-        const existing = itemMap.get(item.description);
-        if (existing) {
-          existing.quantity += item.quantity;
-          existing.totalAmount += (item.amount || (item.price * item.quantity));
-          if (inv.date > existing.lastDate) existing.lastDate = inv.date;
-        } else {
-          itemMap.set(item.description, {
-            name: item.description,
-            quantity: item.quantity,
-            totalAmount: item.amount || (item.price * item.quantity),
-            lastDate: inv.date
-          });
-        }
-      });
-    });
-    return Array.from(itemMap.values());
-  }, [selectedContact, contactInvoices]);
 
   return (
     <div className="space-y-6 max-w-7xl animate-fade-in">
@@ -349,11 +324,12 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
           </button>
 
           <button
-            onClick={() => { sounds.playClick(); setIsBatchModalOpen(true); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition"
+            onClick={handleOpenBatchCreateModal}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition cursor-pointer"
+            title={t('contacts.sequential_mode_banner', currentLang, 'Mehrere Kontakte nacheinander mit allen Details anlegen')}
           >
             <Layers className="w-4 h-4 text-emerald-600" />
-            <span>{t('contacts.btn_batch', currentLang, '+ Batch Add')}</span>
+            <span>{t('contacts.btn_batch', currentLang, '+ Mehrere anlegen')}</span>
           </button>
 
           <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition">
@@ -412,379 +388,134 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
         </div>
       </div>
 
-      {/* 3. Main Split View: Contact Cards / Table & Detail View */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Contact List / Cards Grid */}
-        <div className={`${selectedContact ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-3`}>
-          {filteredContacts.length === 0 ? (
-            <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400">
-              <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
-              <p className="text-xs font-medium">{t('contacts.empty_list', currentLang, 'No contacts found.')}</p>
-              <button
-                onClick={handleOpenCreateModal}
-                className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
-              >
-                {t('contacts.btn_create_first', currentLang, '+ Create First Contact Now')}
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {filteredContacts.map((c) => {
-                const isSelected = selectedContact?.id === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => { sounds.playClick(); setSelectedContact(c); }}
-                    className={`p-4 rounded-2xl border transition cursor-pointer text-left ${isSelected ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-500 shadow-md ring-1 ring-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800'}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl ${c.avatar_color || 'bg-indigo-600'} text-white flex items-center justify-center font-bold text-xs shadow-xs`}>
-                          {c.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
-                            {c.name}
-                          </h4>
-                          {c.company && (
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
-                              {c.company}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${c.type === 'customer' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' : c.type === 'vendor' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' : 'bg-amber-100 text-amber-800'}`}>
-                          {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEditModal(c, e)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                          title={t('contact.edit_contact', currentLang, 'Edit Contact')}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                      {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
-                        <div className="flex items-center gap-1.5 font-bold font-mono text-cyan-700 dark:text-cyan-400">
-                          <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-                          <span>{c.default_hourly_rate.toFixed(2)} {currency} / h</span>
-                        </div>
-                      )}
-                      {c.email && (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span className="truncate">{c.email}</span>
-                        </div>
-                      )}
-                      {c.phone && (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span>{c.phone}</span>
-                        </div>
-                      )}
-                      {c.city && (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span>{c.city}, {c.country}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* 3. Contact Cards Grid (Full-Width Responsive Grid) */}
+      {filteredContacts.length === 0 ? (
+        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400">
+          <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
+          <p className="text-xs font-medium">{t('contacts.empty_list', currentLang, 'No contacts found.')}</p>
+          <button
+            onClick={handleOpenCreateModal}
+            className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+          >
+            {t('contacts.btn_create_first', currentLang, '+ Create First Contact Now')}
+          </button>
         </div>
-
-        {/* Contact Detail Panel */}
-        {selectedContact && (
-          <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 space-y-5 animate-fade-in">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-2xl ${selectedContact.avatar_color || 'bg-emerald-600'} text-white flex items-center justify-center font-extrabold text-sm shadow-md`}>
-                  {selectedContact.name.substring(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    {selectedContact.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {selectedContact.company || t('contacts.individual_customer', currentLang, 'Individual Customer')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => handleOpenEditModal(selectedContact, e)}
-                  className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => handleDeleteContact(selectedContact.id!, e)}
-                  className="p-2 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setSelectedContact(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="space-y-2">
-              <button
-                onClick={() => onCreateInvoiceForContact(selectedContact)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition"
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+          {filteredContacts.map((c) => {
+            return (
+              <div
+                key={c.id}
+                onClick={() => { sounds.playClick(); setSelectedContact(c); }}
+                className="group p-4 rounded-2xl border transition cursor-pointer text-left bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
               >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>{t('contacts.btn_create_invoice', currentLang, 'Create Invoice')}</span>
-              </button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    sounds.playSuccess();
-                    generateContactEml(selectedContact, company);
-                  }}
-                  title="Vorformatierte .eml Datei für Outlook / Thunderbird / Apple Mail herunterladen"
-                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition"
-                >
-                  <Mail className="w-3.5 h-3.5 text-indigo-500" />
-                  <span className="truncate">{t('contacts.btn_generate_eml', currentLang, 'E-Mail-Entwurf (.eml)')}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    sounds.playSuccess();
-                    downloadVCard(selectedContact);
-                  }}
-                  title="Elektronische Visitenkarte (.vcf) für Smartphone & Outlook herunterladen"
-                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition"
-                >
-                  <Share2 className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="truncate">{t('contacts.btn_export_vcf', currentLang, 'vCard (.vcf)')}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Financial KPIs for this contact */}
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_paid_total', currentLang, 'Total Paid')}</span>
-                <div className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                  {contactTotalRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
-                </div>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('contacts.kpi_open_receivables', currentLang, 'Open Receivables')}</span>
-                <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
-                  {contactOpenReceivables.toLocaleString('de-DE', { minimumFractionDigits: 2 })} {currency}
-                </div>
-              </div>
-            </div>
-
-            {/* 360 CRM Hub Tabs */}
-            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => { sounds.playClick(); setContactDetailTab('info'); }}
-                className={`py-1.5 px-2 rounded-lg text-center transition ${contactDetailTab === 'info' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-              >
-                Stammdaten
-              </button>
-              <button
-                type="button"
-                onClick={() => { sounds.playClick(); setContactDetailTab('invoices'); }}
-                className={`py-1.5 px-2 rounded-lg text-center transition flex items-center justify-center gap-1 ${contactDetailTab === 'invoices' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-              >
-                <span>Rechnungen</span>
-                <span className="text-[10px] px-1 rounded-full bg-slate-200 dark:bg-slate-700">{contactInvoices.length}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { sounds.playClick(); setContactDetailTab('products'); }}
-                className={`py-1.5 px-2 rounded-lg text-center transition flex items-center justify-center gap-1 ${contactDetailTab === 'products' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-              >
-                <span>Produkte</span>
-                <span className="text-[10px] px-1 rounded-full bg-slate-200 dark:bg-slate-700">{contactPurchasedProducts.length}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { sounds.playClick(); setContactDetailTab('notes'); }}
-                className={`py-1.5 px-2 rounded-lg text-center transition ${contactDetailTab === 'notes' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-              >
-                Notizen
-              </button>
-            </div>
-
-            {/* TAB 1: INFO & STAMMDATEN */}
-            {contactDetailTab === 'info' && (
-              <div className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 animate-fade-in">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_email', currentLang, 'Email Address')}</span>
-                  <a href={`mailto:${selectedContact.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
-                    {selectedContact.email}
-                  </a>
-                </div>
-
-                {selectedContact.phone && (
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_phone', currentLang, 'Phone Number')}</span>
-                    <span>{selectedContact.phone}</span>
-                  </div>
-                )}
-
-                {selectedContact.street && (
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contacts.field_address', currentLang, 'Address')}</span>
-                    <span>{selectedContact.street}, {selectedContact.zip} {selectedContact.city}</span>
-                  </div>
-                )}
-
-                {selectedContact.taxId && (
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">{t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}</span>
-                    <span className="font-mono">{selectedContact.taxId}</span>
-                  </div>
-                )}
-
-                {selectedContact.default_hourly_rate !== undefined && selectedContact.default_hourly_rate > 0 && (
-                  <div className="p-2.5 rounded-xl bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-bold text-cyan-800 dark:text-cyan-300 uppercase block">
-                        {t('contact.field_default_hourly_rate', currentLang, 'Standard-Stundensatz')}
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {t('contact.field_default_hourly_rate_sub', currentLang, 'Wird für Support- & Service-Aufträge übernommen')}
-                      </span>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl ${c.avatar_color || 'bg-indigo-600'} text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0`}>
+                      {c.name ? c.name.substring(0, 2).toUpperCase() : (c.company ? c.company.substring(0, 2).toUpperCase() : 'KD')}
                     </div>
-                    <span className="text-sm font-bold font-mono text-cyan-800 dark:text-cyan-200">
-                      {selectedContact.default_hourly_rate.toFixed(2)} {currency} / h
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[140px] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {c.name || c.company || t('contact.individual_customer', currentLang, 'Individual Customer')}
+                      </h4>
+                      {c.company && c.name && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
+                          {c.company}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                      c.type === 'customer' 
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' 
+                        : c.type === 'vendor' 
+                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' 
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
+                    }`}>
+                      {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenEditModal(c, e)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                      title={t('contact.edit_contact', currentLang, 'Edit Contact')}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {selectedContact.fiscal_code && (
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">Codice Fiscale</span>
-                    <span className="font-mono">{selectedContact.fiscal_code}</span>
-                  </div>
-                )}
-
-                {(selectedContact.sdi_recipient_code || selectedContact.pec) && (
-                  <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase block mb-1">
-                      Italienische E-Rechnung (SdI)
-                    </span>
-                    {selectedContact.sdi_recipient_code && (
-                      <div className="text-[11px] flex items-center justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Codice Destinatario:</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white">{selectedContact.sdi_recipient_code}</span>
-                      </div>
-                    )}
-                    {selectedContact.pec && (
-                      <div className="text-[11px] flex items-center justify-between mt-0.5">
-                        <span className="text-slate-500 dark:text-slate-400">PEC-Adresse:</span>
-                        <span className="font-mono text-indigo-600 dark:text-indigo-400">{selectedContact.pec}</span>
-                      </div>
-                    )}
-                    {selectedContact.is_public_admin && (
-                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded">
-                        🏛️ Pubblica Amministrazione (FPA12)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 2: INVOICES LIST */}
-            {contactDetailTab === 'invoices' && (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 animate-fade-in">
-                {contactInvoices.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">Keine Rechnungen für diesen Kontakt vorhanden.</p>
-                ) : (
-                  contactInvoices.map(inv => (
-                    <div key={inv.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
-                      <div>
-                        <div className="font-mono font-bold text-slate-900 dark:text-white">{inv.number}</div>
-                        <div className="text-[10px] text-slate-400">{formatSystemDate(inv.date)}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-bold text-slate-900 dark:text-white">{inv.total.toFixed(2)} {currency}</div>
-                        <span className={`inline-block text-[9px] font-bold px-1.5 py-0.2 rounded-md ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : inv.status === 'posted' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                          {inv.status === 'paid' ? 'Bezahlt' : inv.status === 'posted' ? 'Offen' : 'Entwurf'}
-                        </span>
-                      </div>
+                <div className="mt-3 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                  {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
+                    <div className="flex items-center gap-1.5 font-bold font-mono text-cyan-700 dark:text-cyan-400">
+                      <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                      <span>{c.default_hourly_rate.toFixed(2)} {currency} / h</span>
                     </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* TAB 3: PURCHASED PRODUCTS */}
-            {contactDetailTab === 'products' && (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 animate-fade-in">
-                {contactPurchasedProducts.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">Bisher wurden keine Produkte abgerechnet.</p>
-                ) : (
-                  contactPurchasedProducts.map((prod, pIdx) => (
-                    <div key={pIdx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
-                      <div className="min-w-0">
-                        <div className="font-bold text-slate-900 dark:text-white truncate">{prod.name}</div>
-                        <div className="text-[10px] text-slate-400">Menge: {prod.quantity} &bull; Letzter Kauf: {formatSystemDate(prod.lastDate)}</div>
-                      </div>
-                      <div className="text-right font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
-                        {prod.totalAmount.toFixed(2)} {currency}
-                      </div>
+                  )}
+                  {c.email && (
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{c.email}</span>
                     </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* TAB 4: NOTES */}
-            {contactDetailTab === 'notes' && (
-              <div className="space-y-3 animate-fade-in text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold mb-1">Kunden-Notizen &amp; Vereinbarungen</span>
-                  <p className="text-slate-600 dark:text-slate-300 text-xs bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 min-h-[80px] whitespace-pre-wrap">
-                    {selectedContact.notes || 'Keine Notizen hinterlegt. Klicken Sie oben auf Bearbeiten, um Notizen zu erfassen.'}
-                  </p>
+                  )}
+                  {c.phone && (
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{c.phone}</span>
+                    </div>
+                  )}
+                  {c.city && (
+                    <div className="flex items-center gap-1.5 truncate">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{c.city}{c.country ? `, ${c.country}` : ''}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
-      {/* 4. Single Edit / Create Contact Modal */}
+      {/* Contact Detail In-App Popup Modal */}
+      <ContactDetailModal
+        isOpen={!!selectedContact}
+        onClose={() => setSelectedContact(null)}
+        contact={selectedContact}
+        invoices={invoices}
+        company={company}
+        currency={currency}
+        onEdit={(contactToEdit) => {
+          handleOpenEditModal(contactToEdit);
+        }}
+        onDelete={(id) => {
+          handleDeleteContact(id, true);
+        }}
+        onCreateInvoice={(contactForInv) => {
+          onCreateInvoiceForContact(contactForInv);
+        }}
+      />
+
+      {/* 4. Single Edit / Create / Sequential Batch Contact Modal */}
       <ContactEditModal
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
+          setIsSequentialCreate(false);
           setEditingContact(null);
         }}
         contact={editingContact}
         currency={currency}
+        initialSequentialMode={isSequentialCreate}
         onSaveSuccess={(savedContact) => {
           if (selectedContact?.id === savedContact.id || !selectedContact) {
             setSelectedContact(savedContact);
           }
-          setIsEditModalOpen(false);
-          setEditingContact(null);
+          onRefresh();
+        }}
+        onBatchComplete={() => {
           onRefresh();
         }}
       />
@@ -800,13 +531,25 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                   {t('contacts.batch_modal_title', currentLang, 'Create Multiple Contacts at Once')}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsBatchModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBatchModalOpen(false);
+                    handleOpenBatchCreateModal();
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg transition"
+                >
+                  {t('contacts.sequential_mode_badge', currentLang, 'Serienerfassung')} →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBatchModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSaveBatch} className="space-y-3">

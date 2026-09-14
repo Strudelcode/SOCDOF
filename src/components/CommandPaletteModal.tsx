@@ -25,7 +25,9 @@ import {
   ArrowRight, 
   Command, 
   CornerDownLeft,
-  X
+  X,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { ActiveModule, Contact, Product, Invoice } from '../types';
 import { useLanguage, t, LanguageCode } from '../lib/i18n';
@@ -45,6 +47,8 @@ interface CommandPaletteModalProps {
   onToggleSound: () => void;
   onOpenLanguageModal: () => void;
   currency: string;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 interface PaletteItem {
@@ -72,7 +76,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   isMuted,
   onToggleSound,
   onOpenLanguageModal,
-  currency
+  currency,
+  onToggleFullscreen,
+  isFullscreen = false
 }) => {
   const lang = useLanguage();
   const isGerman = lang === 'de';
@@ -193,6 +199,25 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         onClose();
       }
     });
+
+    if (onToggleFullscreen) {
+      items.push({
+        id: 'action_toggle_fullscreen',
+        category: 'actions',
+        categoryLabel: t('cmd.quick_actions', lang, isGerman ? 'Schnellaktionen' : 'Quick Actions'),
+        title: isFullscreen 
+          ? t('desktop.exit_fullscreen', lang, 'Vollbildmodus beenden') 
+          : t('desktop.enter_fullscreen', lang, 'Vollbildmodus aktivieren'),
+        subtitle: t('desktop.fullscreen_desc', lang, 'SOCDOF nahtlos über den gesamten physischen Monitor ohne Titelleisten anzeigen.'),
+        icon: isFullscreen ? Minimize2 : Maximize2,
+        iconColor: isFullscreen ? 'bg-emerald-500' : 'bg-indigo-600',
+        shortcutHint: 'F11',
+        onSelect: () => {
+          onClose();
+          setTimeout(onToggleFullscreen, 50);
+        }
+      });
+    }
 
     // 3. Data Entities (Contacts, Invoices, Products)
     if (query.trim().length >= 2) {

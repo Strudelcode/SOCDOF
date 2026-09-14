@@ -7,6 +7,24 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 🌟 Version 22.6.13 (Serienerfassung für Kontakte & Bildschirmfüllendes Support-Layout)
+- 🚀 **Neu**: Serienerfassung für Kontakte ("Mehrere anlegen") – beim Anlegen mehrerer Kontakte öffnet sich direkt das strukturierte Kontakt-Formular. Nach jedem Speichern wird der Kontakt sofort gesichert, der Zähler aktualisiert und ein neues Formular geöffnet, bis man auf "Fertigstellen" klickt.
+- 🛠️ **Behoben**: Bildschirmfüllendes Support-Layout – die Status-Spalten (Neu, In Bearbeitung, In Warteschlange, Gelöst, Abgeschlossen) passen sich nun automatisch an die Bildschirmbreite an und verschwinden nicht mehr nach rechts aus dem Sichtbereich.
+- 🔄 **Verbessert**: Layout-Umschaltung im Support-Modul – per Klick in der Kopfzeile lässt sich flexibel zwischen "An Bildschirm anpassen" (5 Spalten nebeneinander) und "Feste Breite" (klassisches horizontales Scrollen) wechseln.
+- 🔄 **Verbessert**: Unabhängiges Spalten-Scrollen – jede Kanban-Phase besitzt einen eigenen vertikalen Scrollbereich, sodass lange Ticketlisten bequem durchgescrollt werden können.
+
+## 🌟 Version 22.6.12 (Vollbildmodus bis zu den Bildschirmrändern & F11-Steuerung)
+- 🚀 **Neu**: Randloser Vollbildmodus – SOCDOF kann nun mit einem Klick oder Tastendruck nahtlos über den gesamten physischen Monitor ohne Titelleiste, Fensterränder oder Browser-Leisten maximiert werden.
+- 🚀 **Neu**: Globales Tastenkürzel `F11` – Vollbildmodus lässt sich jederzeit systemweit mit F11 umschalten und per `F11` oder `Esc` wieder beenden.
+- 🔄 **Verbessert**: Vielseitige Schnellsteuerung – Vollbild-Schaltflächen in der Taskleiste (System-Tray), im Startmenü-Footer, im Desktop-Rechtsklickmenü, in der Spotlight-Befehlspalette (`Ctrl+K`) und in den System-Einstellungen.
+- 🛠️ **Behoben**: Desktop & Web Parität – native IPC-Steuerung für die Windows Desktop-App (`mainWindow.setFullScreen`) und saubere HTML5-Vollbild-API im Browser mit Hinweisen bei eingeschränktem iframe-Vorschaurahmen.
+
+## 🌟 Version 22.6.11 (In-App Kunden-Detailmodal & Direkt-Aktionen)
+- 🚀 **Neu**: In-App Detail-Popup (`ContactDetailModal`) – beim Klick auf einen Kontakt öffnet sich jetzt ein zentrales, übersichtliches Pop-up-Fenster auf Augenhöhe, anstatt am Bildschirmrand nach unten scrollen zu müssen.
+- 🔄 **Verbessert**: Großzügige, responsive Kontaktkarten-Übersicht – die Hauptansicht nutzt nun die volle Bildschirmbreite mit 1 bis 4 Spalten für optimale Ergonomie bei vielen Kunden.
+- 🚀 **Neu**: Vollwertiger 360°-CRM-Hub im Modal mit Stammdaten, Rechnungsübersicht mit Status-Badges, gekauften Produkten und Notizen.
+- 🔄 **Verbessert**: Schnellaktionen direkt im Pop-up – Rechnung für Kontakt erstellen, `.eml`-E-Mail-Entwurf generieren und `.vcf`-Visitenkarte mit einem Klick exportieren.
+
 ## 🌟 Version 22.6.10 (Bereinigung Farbverlauf & Lesbarkeit im Kunden-Dialog)
 - 🛠️ **Behoben**: Farbverlauf im Kunden-Bearbeiten-Dialog entfernt – der störende Farbverlauf und der im Dark-Mode entstandene weiße Streifen im Bereich "Standard-Stundensatz" wurden vollständig durch das einheitliche, saubere Kartendesign (`bg-slate-50 / dark:bg-slate-800/50`) ersetzt.
 - 🔄 **Verbessert**: Perfekter Kontrast & Lesbarkeit – Eingabefeld, Währungssuffix und Hilfetext fügen sich nun nahtlos und augenfreundlich in das dunkle wie helle Erscheinungsbild des Dialogs ein.

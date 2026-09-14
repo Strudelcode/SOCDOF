@@ -1007,6 +1007,17 @@ export const DocumentationApp: React.FC = () => {
                     </span>
                     <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]">F1</kbd>
                   </div>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {getLoc({
+                        de: 'Vollbildmodus umschalten (bis zu den Rändern)',
+                        en: 'Toggle Fullscreen Mode (Edge-to-Edge)',
+                        fr: 'Basculer en plein écran (Sans bordures)',
+                        es: 'Alternar pantalla completa (Borde a borde)'
+                      })}
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">F11</kbd>
+                  </div>
                   <div className="flex items-center justify-between py-1.5">
                     <span className="text-slate-700 dark:text-slate-300">
                       {getLoc({

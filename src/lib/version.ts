@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.10';
+export const APP_VERSION = '22.6.13';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,39 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.13',
+    date: '2026-09-14',
+    title: 'Sequential Multi-Contact Entry & Adaptive Support Screen-Fit Layout',
+    highlights: [
+      'Sequential Contact Creation Flow ("Serienerfassung"): Upgraded the Contacts module "+ Batch Add" action to launch a streamlined sequential flow using the full structured Contact modal. Saving an entry automatically saves it, increments the counter, and immediately opens a fresh form for the next contact until "Finish Batch" is clicked.',
+      'Adaptive Support Kanban Screen-Fit Layout: Eliminated horizontal clipping where ticket phase columns (Neu, In Bearbeitung, In Warteschlange, Gelöst, Abgeschlossen) were pushed off-screen. Kanban columns now intelligently adapt to the screen layout with responsive grid scaling and independent vertical scrolling.',
+      'Kanban Layout Toggle: Added a 1-click header switcher between "Fit to Screen" (all phases visible side-by-side) and "Fixed Width" (classic horizontal scroll mode) with full multilingual translations (DE, EN, FR, ES).',
+      'Adaptive Detail Stepper & Quick Status Filters: Re-engineered status filter buttons and the detail view workflow pipeline stepper with responsive wrapping to prevent layout clipping on any screen resolution.'
+    ]
+  },
+  {
+    version: '22.6.12',
+    date: '2026-09-14',
+    title: 'Edge-to-Edge Fullscreen Mode & F11 Keyboard Navigation',
+    highlights: [
+      'Edge-to-Edge Fullscreen Mode: Seamlessly expand SOCDOF across the entire physical monitor without borders, title bars, or OS clutter for an immersive desktop workstation experience.',
+      'Global F11 Keyboard Shortcut: Toggle fullscreen anytime with F11 or exit with Esc / F11, with responsive fallback detection for iframe sandboxes.',
+      'Multi-Point Controls: Added dedicated fullscreen toggles to the Taskbar System Tray, Start Menu footer, Desktop Context Menu, Command Palette (Ctrl+K), and Settings Hub.',
+      'Electron Desktop & Web Parity: Native IPC bridge (`socdof:toggle-fullscreen` / `socdof:is-fullscreen`) for the Windows desktop app, paired with HTML5 Fullscreen API for web browser deployments.'
+    ]
+  },
+  {
+    version: '22.6.11',
+    date: '2026-09-14',
+    title: 'In-App Contact Detail Modal & CRM Quick Actions',
+    highlights: [
+      'In-App Contact Detail Popup: Replaced the bottom-opening split-view panel with a centered, high-performance in-app modal (`ContactDetailModal`) rendered via portal for effortless contact browsing without scrolling down long contact lists.',
+      'Full-Width Responsive Directory Grid: The main contacts screen now displays contacts in an adaptive 1 to 4 column responsive card grid with prominent hourly rate tags, contact details, and quick edit triggers.',
+      'Comprehensive 360° CRM Tabs: Includes Master Data, Invoices history with status badges, Purchased Products summary with aggregated quantities, and Customer Notes.',
+      'Quick Export & Invoicing: Features 1-click Invoice creation, .eml email draft generation for desktop mail clients, and .vcf vCard export directly from the modal.'
+    ]
+  },
   {
     version: '22.6.10',
     date: '2026-09-14',

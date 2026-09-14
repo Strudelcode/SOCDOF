@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Minus, 
   Square, 
@@ -572,6 +572,156 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setDesktopTooltip(null);
   };
 
+  // Fullscreen state and edge-to-edge monitor support
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+    }
+    return false;
+  });
+
+  const [fullscreenToast, setFullscreenToast] = useState<{
+    message: string;
+    subtext?: string;
+    type: 'success' | 'warning' | 'info';
+  } | null>(null);
+  const fullscreenToastTimerRef = useRef<number | null>(null);
+
+  const showFullscreenToast = useCallback((message: string, subtext?: string, type: 'success' | 'warning' | 'info' = 'info') => {
+    if (fullscreenToastTimerRef.current) {
+      clearTimeout(fullscreenToastTimerRef.current);
+    }
+    setFullscreenToast({ message, subtext, type });
+    fullscreenToastTimerRef.current = window.setTimeout(() => {
+      setFullscreenToast(null);
+      fullscreenToastTimerRef.current = null;
+    }, 3200);
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    sounds.playClick();
+    try {
+      // 1. Electron Desktop Window
+      if (typeof (window as any).electronAPI?.toggleFullscreen === 'function') {
+        const isNowFull = await (window as any).electronAPI.toggleFullscreen();
+        setIsFullscreen(!!isNowFull);
+        if (isNowFull) {
+          showFullscreenToast(
+            t('desktop.fullscreen_toast_enter', currentLang, 'Vollbildmodus aktiviert (Drücken Sie F11 oder Esc zum Beenden)'),
+            t('desktop.fullscreen_desc', currentLang, 'SOCDOF nahtlos über den gesamten physischen Monitor ohne Titelleisten anzeigen.'),
+            'success'
+          );
+        } else {
+          showFullscreenToast(
+            t('desktop.fullscreen_toast_exit', currentLang, 'Vollbildmodus beendet'),
+            undefined,
+            'info'
+          );
+        }
+        return;
+      }
+
+      // 2. Web Browser Fullscreen API
+      const doc = document as any;
+      const isCurrentlyFull = !!(
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement
+      );
+
+      if (!isCurrentlyFull) {
+        const docEl = document.documentElement as any;
+        let p: Promise<void> | undefined;
+        if (docEl.requestFullscreen) {
+          p = docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          p = docEl.webkitRequestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          p = docEl.mozRequestFullScreen();
+        } else if (docEl.msRequestFullscreen) {
+          p = docEl.msRequestFullscreen();
+        }
+
+        if (p) {
+          p.then(() => {
+            setIsFullscreen(true);
+            showFullscreenToast(
+              t('desktop.fullscreen_toast_enter', currentLang, 'Vollbildmodus aktiviert (Drücken Sie F11 oder Esc zum Beenden)'),
+              t('desktop.fullscreen_desc', currentLang, 'SOCDOF nahtlos über den gesamten physischen Monitor ohne Titelleisten anzeigen.'),
+              'success'
+            );
+          }).catch((err) => {
+            console.warn('Fullscreen request blocked by browser/iframe:', err);
+            showFullscreenToast(
+              t('desktop.fullscreen_toast_blocked', currentLang, 'Vollbild ist im Browser-Vorschaurahmen eingeschränkt.'),
+              'Tipp: Öffnen Sie die App in einem neuen Tab für echtes Vollbild bis zu den Bildschirmrändern.',
+              'warning'
+            );
+          });
+        }
+      } else {
+        let ep: Promise<void> | undefined;
+        if (doc.exitFullscreen) {
+          ep = doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          ep = doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          ep = doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          ep = doc.msExitFullscreen();
+        }
+
+        if (ep) {
+          ep.then(() => {
+            setIsFullscreen(false);
+            showFullscreenToast(
+              t('desktop.fullscreen_toast_exit', currentLang, 'Vollbildmodus beendet'),
+              undefined,
+              'info'
+            );
+          }).catch((err) => {
+            console.warn('Exit fullscreen error:', err);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle error:', err);
+    }
+  }, [currentLang, showFullscreenToast]);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isCurrentlyFull = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isCurrentlyFull);
+    };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    document.addEventListener('mozfullscreenchange', handleFsChange);
+    document.addEventListener('MSFullscreenChange', handleFsChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+      document.removeEventListener('mozfullscreenchange', handleFsChange);
+      document.removeEventListener('MSFullscreenChange', handleFsChange);
+      if (fullscreenToastTimerRef.current) {
+        clearTimeout(fullscreenToastTimerRef.current);
+      }
+    };
+  }, []);
+
   const getDesktopPosition = (id: string, index: number) => {
     if (desktopPositions[id]) {
       return desktopPositions[id];
@@ -1102,6 +1252,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         sounds.playClick();
         closeAllContextMenus();
         openWindow('docs');
+        return;
+      }
+
+      // 2b. F11: Toggle Fullscreen Mode
+      if (e.key === 'F11') {
+        e.preventDefault();
+        closeAllContextMenus();
+        handleToggleFullscreen();
         return;
       }
 
@@ -2760,6 +2918,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   invoices={invoices}
                   onOpenWindowsModal={() => setIsWindowsModalOpen(true)}
                   initialSection={settingsInitialSection}
+                  onToggleFullscreen={handleToggleFullscreen}
+                  isFullscreen={isFullscreen}
                 />
               )}
             </div>
@@ -3000,9 +3160,24 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             <div className="flex items-center gap-1">
               <button
+                onClick={handleToggleFullscreen}
+                title={isFullscreen 
+                  ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` 
+                  : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`
+                }
+                className={`p-2 rounded-xl transition cursor-pointer ${
+                  isFullscreen 
+                    ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' 
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+
+              <button
                 onClick={onToggleTheme}
                 title="Design wechseln"
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
               >
                 {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
               </button>
@@ -3407,9 +3582,25 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <button
             onClick={onToggleTheme}
             title={isDark ? 'Zu hellem Design wechseln' : 'Zu dunklem Design wechseln'}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+          </button>
+
+          {/* Fullscreen Toggle (F11) */}
+          <button
+            onClick={handleToggleFullscreen}
+            title={isFullscreen 
+              ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` 
+              : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`
+            }
+            className={`p-1.5 rounded-lg transition active:scale-95 cursor-pointer ${
+              isFullscreen 
+                ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' 
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
           {/* Live Digital Clock & Calendar Trigger */}
@@ -3853,6 +4044,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             <Settings className="w-4 h-4 text-slate-500 flex-shrink-0" />
             <span>{t('desktop.system_settings', currentLang, 'System-Einstellungen')}</span>
           </button>
+          <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+          <button
+            onClick={() => {
+              closeAllContextMenus();
+              handleToggleFullscreen();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition cursor-pointer font-medium"
+          >
+            <div className="flex items-center gap-2.5">
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+              )}
+              <span>
+                {isFullscreen 
+                  ? t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden') 
+                  : t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700">
+              F11
+            </span>
+          </button>
         </div>
       )}
 
@@ -4241,7 +4456,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onToggleSound={onToggleSound}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         currency={company.currency || 'EUR'}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
       />
+
+      {/* 6. Fullscreen Mode Status HUD Toast */}
+      {fullscreenToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] pointer-events-none px-4 py-2.5 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white shadow-2xl border border-slate-700/80 backdrop-blur-xl animate-fade-in flex items-center gap-3 select-none">
+          <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            fullscreenToast.type === 'success' 
+              ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30' 
+              : fullscreenToast.type === 'warning' 
+                ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30' 
+                : 'bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30'
+          }`}>
+            {isFullscreen ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-white">{fullscreenToast.message}</span>
+            {fullscreenToast.subtext && (
+              <span className="text-[11px] text-slate-300 font-normal">{fullscreenToast.subtext}</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

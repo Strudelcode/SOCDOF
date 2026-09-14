@@ -46,7 +46,9 @@ import {
   ShieldCheck,
   AlertTriangle,
   PenTool,
-  Type
+  Type,
+  LayoutGrid,
+  Columns
 } from 'lucide-react';
 import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
 import { sounds } from '../lib/sound';
@@ -276,6 +278,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     if (selectedStatusFilter === 'all') return kanbanColumns;
     return kanbanColumns.filter(c => c.key === selectedStatusFilter);
   }, [kanbanColumns, selectedStatusFilter]);
+
+  // Adaptive Kanban layout state (true = fits neatly into the screen width without pushing columns off-screen)
+  const [kanbanFitScreen, setKanbanFitScreen] = useState(true);
 
   // Detail / Edit Form state
   const [activeTab, setActiveTab] = useState<'description' | 'timesheets'>('description');
@@ -1073,6 +1078,28 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 <Kanban className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{t('support.view_kanban', undefined, 'Kanban')}</span>
               </button>
+
+              {viewMode === 'kanban' && (
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setKanbanFitScreen(prev => !prev);
+                  }}
+                  className={`ml-1 pl-2 pr-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border-l border-slate-300 dark:border-slate-700 transition cursor-pointer ${
+                    kanbanFitScreen 
+                      ? 'text-cyan-700 dark:text-cyan-400 font-bold' 
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                  }`}
+                  title={t('support.kanban_layout_tooltip', undefined, 'Layout zwischen Bildschirmfüllend und horizontalem Scrollen umschalten')}
+                >
+                  {kanbanFitScreen ? <LayoutGrid className="w-3.5 h-3.5" /> : <Columns className="w-3.5 h-3.5" />}
+                  <span className="hidden lg:inline">
+                    {kanbanFitScreen 
+                      ? t('support.kanban_fit_screen', undefined, 'An Bildschirm anpassen') 
+                      : t('support.kanban_fixed_width', undefined, 'Feste Breite')}
+                  </span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1172,7 +1199,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         sounds.playClick();
                         setSelectedStatusFilter(phase.key);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition cursor-pointer ${
                         isActive
                           ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs ring-1 ring-slate-300 dark:ring-slate-700'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/40 dark:hover:bg-slate-700/40'
@@ -1354,13 +1381,31 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
           {/* KANBAN BOARD VIEW */}
           {viewMode === 'kanban' && (
-            <div className="flex-1 overflow-x-auto p-3 sm:p-4 md:p-5 flex gap-3 sm:gap-4 min-h-0 h-full scrollbar-thin">
+            <div className={`flex-1 p-2.5 sm:p-3.5 md:p-4 min-h-0 h-full ${
+              kanbanFitScreen
+                ? `grid gap-2.5 sm:gap-3.5 h-full min-h-0 overflow-y-auto lg:overflow-y-hidden overflow-x-hidden ${
+                    activeKanbanColumns.length === 5
+                      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
+                      : activeKanbanColumns.length === 4
+                        ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
+                        : activeKanbanColumns.length === 3
+                          ? 'grid-cols-1 sm:grid-cols-3'
+                          : activeKanbanColumns.length === 2
+                            ? 'grid-cols-1 sm:grid-cols-2'
+                            : 'grid-cols-1 max-w-xl mx-auto w-full'
+                  }`
+                : 'flex gap-3 sm:gap-4 overflow-x-auto min-h-0 h-full scrollbar-thin'
+            }`}>
               {activeKanbanColumns.map(column => {
                 const columnTickets = filteredTickets.filter(t => t.status === column.key);
                 return (
                   <div 
                     key={column.key}
-                    className="flex-1 min-w-[220px] max-w-[340px] shrink-0 xl:shrink flex flex-col h-full min-h-0 bg-slate-200/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs"
+                    className={`${
+                      kanbanFitScreen
+                        ? 'w-full min-w-0 flex flex-col h-full min-h-[300px] lg:min-h-0'
+                        : 'flex-1 min-w-[220px] max-w-[340px] shrink-0 xl:shrink flex flex-col h-full min-h-0'
+                    } bg-slate-200/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs`}
                   >
                     <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs shrink-0">
                       <div className="flex items-center gap-2">
@@ -1567,8 +1612,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               </div>
 
               {/* Row 2: Workflow Pipeline Stepper across full width */}
-              <div className="px-3 sm:px-4 py-2 bg-slate-100/70 dark:bg-slate-900/50 overflow-x-auto no-scrollbar">
-                <div className="flex items-center min-w-max gap-1">
+              <div className="px-3 sm:px-4 py-2 bg-slate-100/70 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-800/80 overflow-x-auto">
+                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
                   {[
                     { key: 'new', step: '1', label: getStatusLabel('new'), color: 'bg-blue-500' },
                     { key: 'in_progress', step: '2', label: getStatusLabel('in_progress'), color: 'bg-sky-500' },

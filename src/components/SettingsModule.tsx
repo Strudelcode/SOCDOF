@@ -61,7 +61,9 @@ import {
   RefreshCw,
   ChevronDown,
   Zap,
-  Mail
+  Mail,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -148,6 +150,8 @@ interface SettingsModuleProps {
   invoices?: Invoice[];
   onOpenWindowsModal?: () => void;
   initialSection?: SettingsSection;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({
@@ -160,7 +164,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onToggleSound,
   invoices = [],
   onOpenWindowsModal,
-  initialSection
+  initialSection,
+  onToggleFullscreen,
+  isFullscreen = false
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
   const [searchQuery, setSearchQuery] = useState('');
@@ -4498,6 +4504,59 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     >
                       <Terminal className="w-4 h-4 text-indigo-500" />
                       <span>Windows Starter &amp; Scripts</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 1b: Fullscreen & Edge-to-Edge Display Control */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isFullscreen ? (
+                      <Minimize2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    )}
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {t('desktop.fullscreen_tooltip', currentLang, 'Vollbildmodus & Bildschirmränder (F11)')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      isFullscreen 
+                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {isFullscreen ? t('desktop.fullscreen_active', currentLang, 'Vollbild aktiv') : 'Fenster-Modus'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      F11
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {t('desktop.fullscreen_desc', currentLang, 'SOCDOF nahtlos über den gesamten physischen Monitor ohne Titelleisten oder Fensterränder anzeigen. Nutzen Sie die Taste F11 jederzeit zum Umschalten.')}
+                </p>
+
+                <div className="flex items-center gap-3 pt-1">
+                  {onToggleFullscreen && (
+                    <button
+                      onClick={onToggleFullscreen}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer ${
+                        isFullscreen
+                          ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      }`}
+                    >
+                      {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                      <span>
+                        {isFullscreen
+                          ? t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')
+                          : t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')}
+                      </span>
+                      <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20 text-white/90">F11</kbd>
                     </button>
                   )}
                 </div>
