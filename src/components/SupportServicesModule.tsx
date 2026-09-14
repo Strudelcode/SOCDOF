@@ -281,6 +281,47 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   // Live Timer elapsed time tracker (in seconds)
   const [timerSeconds, setTimerSeconds] = useState(0);
 
+  // Resizable Chatter / Logbook Column Width (persisted)
+  const [chatterWidth, setChatterWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_support_chatter_width');
+      return saved ? Math.max(280, Math.min(800, parseInt(saved, 10))) : 400;
+    } catch {
+      return 400;
+    }
+  });
+  const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
+
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSplitter(true);
+    const startX = e.clientX;
+    const startWidth = chatterWidth;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      // Dragging mouse left expands chatter width; dragging right shrinks it
+      const deltaX = startX - ev.clientX;
+      const maxAllowed = typeof window !== 'undefined' ? window.innerWidth * 0.65 : 800;
+      const newWidth = Math.max(280, Math.min(maxAllowed, startWidth + deltaX));
+      setChatterWidth(Math.round(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplitter(false);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      setChatterWidth(current => {
+        try {
+          localStorage.setItem('socdof_support_chatter_width', current.toString());
+        } catch {}
+        return current;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
   // Formatted date helper matching settings format
   const formatDate = (dateInput: Date | string | number | undefined | null) => {
     if (!dateInput) return '';
@@ -781,7 +822,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-              {t('support.subtitle', undefined, 'Tickets, assignments, timesheets & activities (SOCDOF standard)')}
+              {t('support.subtitle', undefined, 'Tickets, field service, timesheets & activities')}
             </p>
           </div>
         </div>
@@ -1212,116 +1253,148 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         </div>
       ) : selectedTicket ? (
         /* DETAIL VIEW: Modern Support / CRM Form with 2-Column Split (Form & Internal Logbook) */
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+        <div className={`flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 ${isDraggingSplitter ? 'select-none cursor-col-resize' : ''}`}>
           
           {/* Left Column: Ticket Main Form */}
-          <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 min-h-0">
+          <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 min-h-0 min-w-0">
             
-            {/* Top Action Ribbon & Status Pipeline */}
-            <div className="p-3 sm:p-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-slate-50/90 dark:bg-slate-900/90 shrink-0 sticky top-0 z-10 backdrop-blur-md">
+            {/* Top Action Ribbon & Status Stepper */}
+            <div className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 shrink-0 sticky top-0 z-10 backdrop-blur-md shadow-2xs">
               
-              {/* Left Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800 shrink-0">
-                  {selectedTicket.ticketNumber}
-                </span>
+              {/* Row 1: Ticket Metadata & Primary Action Toolbar */}
+              <div className="p-3 sm:px-4 sm:py-3 flex items-center justify-between gap-3 flex-wrap border-b border-slate-200/60 dark:border-slate-800/60">
+                {/* Left: Ticket Identifier & Current Status Badge */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-200 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800/80 shadow-2xs">
+                    {selectedTicket.ticketNumber}
+                  </span>
 
-                {/* In Rechnung stellen */}
-                {onCreateInvoiceForService && (
+                  {/* Active Status Badge */}
+                  <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs ${
+                    selectedTicket.status === 'new'
+                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-300 dark:border-sky-800'
+                      : selectedTicket.status === 'in_progress'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                      : selectedTicket.status === 'waiting'
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300 dark:border-purple-800'
+                      : selectedTicket.status === 'resolved'
+                      ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-300 dark:border-teal-800'
+                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                  }`}>
+                    <span className="w-2 h-2 rounded-full bg-current animate-pulse shrink-0" />
+                    <span>{getStatusLabel(selectedTicket.status)}</span>
+                  </div>
+
+                  {/* Creation Date */}
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">
+                    {formatDate(selectedTicket.created_at)}
+                  </span>
+                </div>
+
+                {/* Right: Actions Group */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Create Invoice */}
+                  {onCreateInvoiceForService && (
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        onCreateInvoiceForService(selectedTicket);
+                      }}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs"
+                      title={t('support.btn_invoice_tooltip', undefined, 'Create invoice from recorded times')}
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span className="hidden sm:inline">{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
+                    </button>
+                  )}
+
+                  {/* Close / Reopen */}
+                  {selectedTicket.status !== 'closed' ? (
+                    <button
+                      onClick={() => handleStatusChange('closed')}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 dark:border-emerald-800 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95"
+                      title={t('support.btn_close', undefined, 'Close Ticket')}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{t('support.btn_close', undefined, 'Close Ticket')}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleStatusChange('in_progress')}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95"
+                      title={t('support.btn_reopen', undefined, 'Reopen')}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{t('support.btn_reopen', undefined, 'Reopen')}</span>
+                    </button>
+                  )}
+
+                  {/* Toggle Chatter Logbook Button */}
                   <button
                     onClick={() => {
                       sounds.playClick();
-                      onCreateInvoiceForService(selectedTicket);
+                      setIsChatterVisible(!isChatterVisible);
                     }}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs"
-                    title={t('support.btn_invoice_tooltip', undefined, 'Create invoice from recorded times')}
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs ${
+                      isChatterVisible
+                        ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                    title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
                   >
-                    <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span className="hidden sm:inline">{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      {isChatterVisible 
+                        ? t('support.hide_chatter', undefined, 'Hide Logbook') 
+                        : t('support.show_chatter', undefined, 'Show Logbook')}
+                    </span>
                   </button>
-                )}
 
-                {/* Ticket abschließen / Wiedereröffnen */}
-                {selectedTicket.status !== 'closed' ? (
+                  {/* Delete Button */}
                   <button
-                    onClick={() => handleStatusChange('closed')}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition shadow-2xs"
-                    title={t('support.btn_close', undefined, 'Close Ticket')}
+                    onClick={() => setTicketToDelete(selectedTicket)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
+                    title={t('support.btn_delete', undefined, 'Delete Ticket')}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>{t('support.btn_close', undefined, 'Close Ticket')}</span>
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                ) : (
-                  <button
-                    onClick={() => handleStatusChange('in_progress')}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center gap-1.5 transition shadow-2xs"
-                    title={t('support.btn_reopen', undefined, 'Reopen')}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>{t('support.btn_reopen', undefined, 'Reopen')}</span>
-                  </button>
-                )}
-
-                {/* Toggle Chatter Logbook Button */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setIsChatterVisible(!isChatterVisible);
-                  }}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs ${
-                    isChatterVisible
-                      ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                  title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">
-                    {isChatterVisible 
-                      ? t('support.hide_chatter', undefined, 'Hide Logbook') 
-                      : t('support.show_chatter', undefined, 'Show Logbook')}
-                  </span>
-                </button>
-
-                {/* Ticket löschen */}
-                <button
-                  onClick={() => setTicketToDelete(selectedTicket)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
-                  title={t('support.btn_delete', undefined, 'Delete Ticket')}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                </div>
               </div>
 
-              {/* Status Workflow Pipeline - Proportional grid that adapts directly to screen layout */}
-              <div className="w-full md:w-auto md:min-w-[340px] lg:min-w-[390px]">
-                <div className="grid grid-cols-5 bg-slate-200/80 dark:bg-slate-800 rounded-xl p-0.5 sm:p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700 shadow-2xs gap-0.5 sm:gap-1">
+              {/* Row 2: Workflow Pipeline Stepper across full width */}
+              <div className="px-3 sm:px-4 py-2 bg-slate-100/70 dark:bg-slate-900/50 overflow-x-auto no-scrollbar">
+                <div className="flex items-center min-w-max gap-1">
                   {[
-                    { key: 'new', label: getStatusLabel('new'), color: 'bg-sky-500' },
-                    { key: 'in_progress', label: getStatusLabel('in_progress'), color: 'bg-amber-500' },
-                    { key: 'waiting', label: getStatusLabel('waiting'), color: 'bg-purple-500' },
-                    { key: 'resolved', label: getStatusLabel('resolved'), color: 'bg-teal-500' },
-                    { key: 'closed', label: getStatusLabel('closed'), color: 'bg-emerald-500' }
-                  ].map((phase) => {
+                    { key: 'new', step: '1', label: getStatusLabel('new'), color: 'bg-sky-500' },
+                    { key: 'in_progress', step: '2', label: getStatusLabel('in_progress'), color: 'bg-amber-500' },
+                    { key: 'waiting', step: '3', label: getStatusLabel('waiting'), color: 'bg-purple-500' },
+                    { key: 'resolved', step: '4', label: getStatusLabel('resolved'), color: 'bg-teal-500' },
+                    { key: 'closed', step: '5', label: getStatusLabel('closed'), color: 'bg-emerald-500' }
+                  ].map((phase, idx, arr) => {
                     const isCurrent = selectedTicket.status === phase.key;
                     return (
-                      <button
-                        key={phase.key}
-                        onClick={() => handleStatusChange(phase.key as any)}
-                        className={`py-1.5 px-1 sm:px-2 rounded-lg transition text-[10px] sm:text-[11px] font-semibold text-center truncate flex items-center justify-center gap-1 ${
-                          isCurrent
-                            ? 'bg-cyan-600 text-white shadow-xs font-bold'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/50 dark:hover:bg-slate-700/50'
-                        }`}
-                        title={phase.label}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCurrent ? 'bg-white animate-pulse' : phase.color}`} />
-                        <span className="truncate">{phase.label}</span>
-                      </button>
+                      <React.Fragment key={phase.key}>
+                        <button
+                          onClick={() => handleStatusChange(phase.key as any)}
+                          className={`px-3 py-1.5 rounded-xl transition text-xs font-medium flex items-center gap-2 border cursor-pointer ${
+                            isCurrent
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs font-bold'
+                              : 'bg-white dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300'
+                          }`}
+                          title={phase.label}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${isCurrent ? 'bg-white animate-pulse' : phase.color}`} />
+                          <span className="font-semibold whitespace-nowrap">{phase.label}</span>
+                        </button>
+                        {idx < arr.length - 1 && (
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 mx-0.5" />
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </div>
               </div>
+
             </div>
 
             {/* Main Form Fields: Structured 2-Column Responsive Layout without squashing */}
@@ -1548,54 +1621,63 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     </select>
                   </div>
 
-                  {/* E-Mail & Telefon in 2-Spalten */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                        {t('support.customer_email', undefined, 'Email')}
-                      </label>
-                      <div className="flex items-center gap-1">
+                  {/* E-Mail Address */}
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {t('support.customer_email', undefined, 'Email')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Mail className="w-4 h-4" />
+                        </div>
                         <input
                           type="email"
                           value={selectedTicket.contact_email || ''}
                           onChange={(e) => updateCurrentTicket({ contact_email: e.target.value })}
                           placeholder={t('support.customer_email', undefined, 'Email')}
-                          className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
                         />
-                        {selectedTicket.contact_email && (
-                          <a
-                            href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
-                            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition"
-                            title="Open Email"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                          </a>
-                        )}
                       </div>
+                      {selectedTicket.contact_email && (
+                        <a
+                          href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
+                          className="p-2.5 rounded-xl border border-cyan-200 dark:border-cyan-800/80 bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition shrink-0 shadow-2xs"
+                          title="Open Email"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                        {t('support.customer_phone', undefined, 'Phone')}
-                      </label>
-                      <div className="flex items-center gap-1">
+                  {/* Phone Number */}
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {t('support.customer_phone', undefined, 'Phone')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Phone className="w-4 h-4" />
+                        </div>
                         <input
                           type="tel"
                           value={selectedTicket.contact_phone || ''}
                           onChange={(e) => updateCurrentTicket({ contact_phone: e.target.value })}
                           placeholder={t('support.customer_phone', undefined, 'Phone')}
-                          className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
                         />
-                        {selectedTicket.contact_phone && (
-                          <a
-                            href={`tel:${selectedTicket.contact_phone}`}
-                            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
-                            title="Call"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                          </a>
-                        )}
                       </div>
+                      {selectedTicket.contact_phone && (
+                        <a
+                          href={`tel:${selectedTicket.contact_phone}`}
+                          className="p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition shrink-0 shadow-2xs"
+                          title="Call"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
                   </div>
 
@@ -1604,13 +1686,18 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                       {t('support.customer_company', undefined, 'Company / Organization')}
                     </label>
-                    <input
-                      type="text"
-                      value={selectedTicket.contact_company || ''}
-                      onChange={(e) => updateCurrentTicket({ contact_company: e.target.value })}
-                      placeholder={t('support.customer_company', undefined, 'Company')}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500"
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        value={selectedTicket.contact_company || ''}
+                        onChange={(e) => updateCurrentTicket({ contact_company: e.target.value })}
+                        placeholder={t('support.customer_company', undefined, 'Company')}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 text-xs"
+                      />
+                    </div>
                   </div>
 
                   {/* Stundensatz */}
@@ -1940,9 +2027,31 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             </div>
           </div>
 
-          {/* Right Column: SOCDOF Internal Logbook & Activity Chatter */}
+          {/* Draggable Splitter Handle between Form and Chatter */}
           {isChatterVisible && (
-            <div className="w-full md:w-[320px] lg:w-[360px] xl:w-[400px] bg-slate-50 dark:bg-slate-950 flex flex-col border-t md:border-t-0 md:border-l border-slate-200/80 dark:border-slate-800 min-h-0 shrink-0">
+            <div
+              onMouseDown={handleSplitterMouseDown}
+              className={`hidden md:flex flex-col items-center justify-center w-2.5 -mx-1 z-20 cursor-col-resize group shrink-0 select-none transition-colors ${
+                isDraggingSplitter
+                  ? 'bg-cyan-500 shadow-sm'
+                  : 'hover:bg-cyan-500/70 bg-slate-200/80 dark:bg-slate-800 border-x border-slate-300/60 dark:border-slate-700/60'
+              }`}
+              title={t('support.drag_resize_chatter', undefined, 'Drag to resize logbook and notes')}
+            >
+              <div className="flex flex-col gap-1 items-center justify-center pointer-events-none py-2">
+                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
+                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
+                <div className="w-1 h-1 rounded-full bg-slate-400 group-hover:bg-white dark:bg-slate-500 transition-colors" />
+              </div>
+            </div>
+          )}
+
+          {/* Right Column: Internal Logbook & Activity Chatter */}
+          {isChatterVisible && (
+            <div 
+              style={{ width: `${chatterWidth}px` }}
+              className="w-full max-w-full md:max-w-[70%] bg-slate-50 dark:bg-slate-950 flex flex-col border-t md:border-t-0 md:border-l border-slate-200/80 dark:border-slate-800 min-h-0 shrink-0"
+            >
               
               {/* Customer Quick Mail Action Bar */}
               {selectedTicket.contact_email && (
@@ -1993,8 +2102,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   </button>
                 </div>
 
-                <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">
-                  SOCDOF
+                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80" title="Total Entries">
+                  {selectedTicket.activities.length} {selectedTicket.activities.length === 1 ? 'entry' : 'entries'}
                 </span>
               </div>
 

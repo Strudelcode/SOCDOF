@@ -425,7 +425,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Customer Support & Service Module
     'support.title': 'Customer Support & Service',
-    'support.subtitle': 'Tickets, field service, timesheets & activities (SOCDOF standard)',
+    'support.subtitle': 'Tickets, field service, timesheets & activities',
     'support.settings_btn': 'Settings',
     'support.settings_tooltip': 'Configure support settings, teams, assignees & prefix',
     'support.back_to_list': 'Back to list',
@@ -445,6 +445,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.show_chatter': 'Show Logbook',
     'support.hide_chatter': 'Hide Logbook',
     'support.phase_pipeline_title': 'Ticket Status Pipeline',
+    'support.drag_resize_chatter': 'Drag to resize logbook and notes',
+    'support.active_status': 'Current Status',
     'support.th_ticket_title': 'Ticket No. & Title',
     'support.th_team': 'Team',
     'support.th_customer': 'Customer (CRM)',
@@ -1862,7 +1864,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Customer Support & Service Module
     'support.title': 'Kundendienst & Support',
-    'support.subtitle': 'Tickets, Einsätze, Zeiterfassung & Aktivitäten nach SOCDOF-Standard',
+    'support.subtitle': 'Tickets, Einsätze, Zeiterfassung & Aktivitäten',
     'support.settings_btn': 'Einstellungen',
     'support.settings_tooltip': 'Support-Einstellungen, Teams, Bearbeiter & Präfix konfigurieren',
     'support.back_to_list': 'Zurück zur Liste',
@@ -1882,6 +1884,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.show_chatter': 'Logbuch anzeigen',
     'support.hide_chatter': 'Logbuch ausblenden',
     'support.phase_pipeline_title': 'Ticket-Status-Ablauf',
+    'support.drag_resize_chatter': 'Ziehen, um Logbuch & Notizen in der Breite anzupassen',
+    'support.active_status': 'Aktueller Status',
     'support.th_ticket_title': 'Ticket-Nr. & Titel',
     'support.th_team': 'Team',
     'support.th_customer': 'Kunde (CRM)',
@@ -3298,7 +3302,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Customer Support & Service Module
     'support.title': 'Service Client & Support',
-    'support.subtitle': 'Tickets, interventions, feuilles de temps et activités (norme SOCDOF)',
+    'support.subtitle': 'Tickets, interventions, feuilles de temps et activités',
     'support.settings_btn': 'Paramètres',
     'support.settings_tooltip': 'Configurer les paramètres de support, équipes, agents et préfixe',
     'support.back_to_list': 'Retour à la liste',
@@ -3318,6 +3322,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.show_chatter': 'Afficher journal',
     'support.hide_chatter': 'Masquer journal',
     'support.phase_pipeline_title': 'Progression du ticket',
+    'support.drag_resize_chatter': 'Faire glisser pour redimensionner le journal et les notes',
+    'support.active_status': 'Statut actuel',
     'support.th_ticket_title': 'N° de ticket & Titre',
     'support.th_team': 'Équipe',
     'support.th_customer': 'Client (CRM)',
@@ -4734,7 +4740,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
     // Customer Support & Service Module
     'support.title': 'Atención al Cliente y Soporte',
-    'support.subtitle': 'Tickets, intervenciones, partes de horas y actividades (estándar SOCDOF)',
+    'support.subtitle': 'Tickets, intervenciones, partes de horas y actividades',
     'support.settings_btn': 'Configuración',
     'support.settings_tooltip': 'Configurar soporte, equipos, agentes y prefijo',
     'support.back_to_list': 'Volver a la lista',
@@ -4754,6 +4760,8 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'support.show_chatter': 'Mostrar registro',
     'support.hide_chatter': 'Ocultar registro',
     'support.phase_pipeline_title': 'Progreso del ticket',
+    'support.drag_resize_chatter': 'Arrastrar para redimensionar el registro y notas',
+    'support.active_status': 'Estado actual',
     'support.th_ticket_title': 'Nº de ticket y Título',
     'support.th_team': 'Equipo',
     'support.th_customer': 'Cliente (CRM)',

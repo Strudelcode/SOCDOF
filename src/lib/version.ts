@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.4';
+export const APP_VERSION = '22.6.5';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.5',
+    date: '2026-09-13',
+    title: 'Support Workspace Redesign: Draggable Splitter, Overlap Elimination & Refined Workflow Pipeline',
+    highlights: [
+      'Interactive Draggable Splitter: Added intuitive drag handle between ticket form and logbook/notes chatter, enabling custom width resizing with local persistence',
+      'Overlapping Fields Resolved: Re-engineered customer email, phone, and company contact inputs into spacious, dedicated rows with icons and quick actions',
+      'Refined Header & Status Stepper: Modernized top action ribbon with full-width workflow pipeline, clear stage indicators, and distinct status badges',
+      'Clean Workspace Typography: Removed redundant "SOCDOF standard" subtitles and internal branding from the chatter header for a focused, distraction-free environment',
+      'Quad-Language Localization: Fully synchronized all new labels and tooltips in German, English, French, and Spanish'
+    ]
+  },
   {
     version: '22.6.4',
     date: '2026-09-13',
