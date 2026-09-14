@@ -38,6 +38,7 @@ import {
   ChevronRight,
   MoreHorizontal,
   Settings,
+  MessageSquare,
   FolderPlus,
   RotateCcw,
   Sliders,
@@ -224,6 +225,33 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [isMobileSyncOpen, setIsMobileSyncOpen] = useState(false);
+  const [isChatterVisible, setIsChatterVisible] = useState(true);
+
+  // Status helper mapping
+  const getStatusLabel = (st: SupportServiceTicket['status']) => {
+    switch (st) {
+      case 'new': return t('support.status_new', undefined, 'New');
+      case 'in_progress': return t('support.status_in_progress', undefined, 'In Progress');
+      case 'waiting': return t('support.status_waiting', undefined, 'Queued / Waiting');
+      case 'resolved': return t('support.status_resolved', undefined, 'Resolved');
+      case 'closed': return t('support.status_closed', undefined, 'Closed');
+      default: return st;
+    }
+  };
+
+  // Kanban status columns with color identities
+  const kanbanColumns = useMemo(() => [
+    { key: 'new', label: getStatusLabel('new'), dotColor: 'bg-sky-500', badgeColor: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
+    { key: 'in_progress', label: getStatusLabel('in_progress'), dotColor: 'bg-amber-500', badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+    { key: 'waiting', label: getStatusLabel('waiting'), dotColor: 'bg-purple-500', badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
+    { key: 'resolved', label: getStatusLabel('resolved'), dotColor: 'bg-teal-500', badgeColor: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300' },
+    { key: 'closed', label: getStatusLabel('closed'), dotColor: 'bg-emerald-500', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' }
+  ], [lang]);
+
+  const activeKanbanColumns = useMemo(() => {
+    if (selectedStatusFilter === 'all') return kanbanColumns;
+    return kanbanColumns.filter(c => c.key === selectedStatusFilter);
+  }, [kanbanColumns, selectedStatusFilter]);
 
   // Detail / Edit Form state
   const [activeTab, setActiveTab] = useState<'description' | 'timesheets'>('description');
@@ -257,18 +285,6 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const formatDate = (dateInput: Date | string | number | undefined | null) => {
     if (!dateInput) return '';
     return formatSystemDate(dateInput, companyProfile.date_format || 'DD.MM.YYYY');
-  };
-
-  // Status helper mapping
-  const getStatusLabel = (st: SupportServiceTicket['status']) => {
-    switch (st) {
-      case 'new': return t('support.status_new', undefined, 'New');
-      case 'in_progress': return t('support.status_in_progress', undefined, 'In Progress');
-      case 'waiting': return t('support.status_waiting', undefined, 'Queued / Waiting');
-      case 'resolved': return t('support.status_resolved', undefined, 'Resolved');
-      case 'closed': return t('support.status_closed', undefined, 'Closed');
-      default: return st;
-    }
   };
 
   // Save to LocalStorage
@@ -904,7 +920,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {/* Team Filter */}
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                 <Filter className="w-3.5 h-3.5" />
@@ -920,19 +936,39 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 </select>
               </div>
 
-              {/* Status Filter */}
-              <select
-                value={selectedStatusFilter}
-                onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium"
-              >
-                <option value="all">{t('support.filter_all_statuses', undefined, 'All Statuses')} ({tickets.length})</option>
-                <option value="new">{getStatusLabel('new')}</option>
-                <option value="in_progress">{getStatusLabel('in_progress')}</option>
-                <option value="waiting">{getStatusLabel('waiting')}</option>
-                <option value="resolved">{getStatusLabel('resolved')}</option>
-                <option value="closed">{getStatusLabel('closed')}</option>
-              </select>
+              {/* Status Quick Filter Bar - Directly visible, responsive, and click-to-filter */}
+              <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300/60 dark:border-slate-700 max-w-full overflow-x-auto scrollbar-thin">
+                {[
+                  { key: 'all', label: t('support.filter_all_statuses', undefined, 'All Statuses'), count: tickets.length, color: 'bg-slate-400' },
+                  { key: 'new', label: getStatusLabel('new'), count: tickets.filter(t => t.status === 'new').length, color: 'bg-sky-500' },
+                  { key: 'in_progress', label: getStatusLabel('in_progress'), count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-amber-500' },
+                  { key: 'waiting', label: getStatusLabel('waiting'), count: tickets.filter(t => t.status === 'waiting').length, color: 'bg-purple-500' },
+                  { key: 'resolved', label: getStatusLabel('resolved'), count: tickets.filter(t => t.status === 'resolved').length, color: 'bg-teal-500' },
+                  { key: 'closed', label: getStatusLabel('closed'), count: tickets.filter(t => t.status === 'closed').length, color: 'bg-emerald-500' }
+                ].map(phase => {
+                  const isActive = selectedStatusFilter === phase.key;
+                  return (
+                    <button
+                      key={phase.key}
+                      onClick={() => {
+                        sounds.playClick();
+                        setSelectedStatusFilter(phase.key);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition ${
+                        isActive
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs ring-1 ring-slate-300 dark:ring-slate-700'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/40 dark:hover:bg-slate-700/40'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${phase.color}`} />
+                      <span>{phase.label}</span>
+                      <span className={`text-[10px] px-1 rounded-full ${isActive ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold' : 'text-slate-400'}`}>
+                        {phase.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
           </div>
@@ -1089,22 +1125,17 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
           {/* KANBAN BOARD VIEW */}
           {viewMode === 'kanban' && (
-            <div className="flex-1 overflow-x-auto p-4 sm:p-6 flex gap-4">
-              {[
-                { key: 'new', label: getStatusLabel('new'), color: 'sky' },
-                { key: 'in_progress', label: getStatusLabel('in_progress'), color: 'amber' },
-                { key: 'waiting', label: getStatusLabel('waiting'), color: 'purple' },
-                { key: 'resolved', label: getStatusLabel('resolved'), color: 'teal' },
-                { key: 'closed', label: getStatusLabel('closed'), color: 'emerald' }
-              ].map(column => {
+            <div className="flex-1 overflow-x-auto p-3 sm:p-4 md:p-5 flex gap-3 sm:gap-4 min-h-0 h-full scrollbar-thin">
+              {activeKanbanColumns.map(column => {
                 const columnTickets = filteredTickets.filter(t => t.status === column.key);
                 return (
                   <div 
                     key={column.key}
-                    className="w-72 shrink-0 flex flex-col bg-slate-200/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden"
+                    className="flex-1 min-w-[220px] max-w-[340px] shrink-0 xl:shrink flex flex-col h-full min-h-0 bg-slate-200/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs"
                   >
-                    <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white/70 dark:bg-slate-900/80">
+                    <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs shrink-0">
                       <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                           {column.label}
                         </span>
@@ -1114,58 +1145,64 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
-                      {columnTickets.map(ticket => (
-                        <div
-                          key={ticket.id}
-                          onClick={() => {
-                            sounds.playClick();
-                            setSelectedTicketId(ticket.id);
-                            setViewMode('detail');
-                          }}
-                          className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:border-cyan-500 cursor-pointer transition space-y-2 group"
-                        >
-                          <div className="flex items-center justify-between text-[10px]">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                                {ticket.ticketNumber}
-                              </span>
-                              {ticket.isTimerRunning && (
-                                <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-mono text-[9px] font-bold animate-pulse flex items-center gap-0.5">
-                                  <Clock className="w-2.5 h-2.5" />
-                                  <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-slate-400 font-medium">{ticket.team}</span>
-                          </div>
-
-                          <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 line-clamp-2">
-                            {ticket.title}
-                          </h4>
-
-                          <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                            <span className="truncate max-w-[130px] font-medium text-slate-700 dark:text-slate-300">
-                              {ticket.contact_name || '–'}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
-                                {ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0).toFixed(1)} h
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTicketToDelete(ticket);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition"
-                                title={t('support.btn_delete', undefined, 'Delete Ticket')}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
+                    <div className="flex-1 overflow-y-auto min-h-0 p-2 sm:p-2.5 space-y-2 sm:space-y-2.5 scrollbar-thin">
+                      {columnTickets.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-28 text-center p-3 text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-300/70 dark:border-slate-700/60 rounded-xl">
+                          <span className="italic">{t('support.no_tickets_in_status', undefined, 'No tickets in this phase')}</span>
                         </div>
-                      ))}
+                      ) : (
+                        columnTickets.map(ticket => (
+                          <div
+                            key={ticket.id}
+                            onClick={() => {
+                              sounds.playClick();
+                              setSelectedTicketId(ticket.id);
+                              setViewMode('detail');
+                            }}
+                            className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:border-cyan-500 cursor-pointer transition space-y-2 group"
+                          >
+                            <div className="flex items-center justify-between text-[10px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                                  {ticket.ticketNumber}
+                                </span>
+                                {ticket.isTimerRunning && (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-mono text-[9px] font-bold animate-pulse flex items-center gap-0.5">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-slate-400 font-medium">{ticket.team}</span>
+                            </div>
+
+                            <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 line-clamp-2">
+                              {ticket.title}
+                            </h4>
+
+                            <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                              <span className="truncate max-w-[130px] font-medium text-slate-700 dark:text-slate-300">
+                                {ticket.contact_name || '–'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                                  {ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0).toFixed(1)} h
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTicketToDelete(ticket);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition"
+                                  title={t('support.btn_delete', undefined, 'Delete Ticket')}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 );
@@ -1175,16 +1212,20 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         </div>
       ) : selectedTicket ? (
         /* DETAIL VIEW: Modern Support / CRM Form with 2-Column Split (Form & Internal Logbook) */
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           
           {/* Left Column: Ticket Main Form */}
           <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 min-h-0">
             
             {/* Top Action Ribbon & Status Pipeline */}
-            <div className="p-3.5 sm:p-4 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/60 shrink-0 sticky top-0 z-10 backdrop-blur-md">
+            <div className="p-3 sm:p-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-slate-50/90 dark:bg-slate-900/90 shrink-0 sticky top-0 z-10 backdrop-blur-md">
               
               {/* Left Action Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800 shrink-0">
+                  {selectedTicket.ticketNumber}
+                </span>
+
                 {/* In Rechnung stellen */}
                 {onCreateInvoiceForService && (
                   <button
@@ -1192,11 +1233,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       sounds.playClick();
                       onCreateInvoiceForService(selectedTicket);
                     }}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs"
                     title={t('support.btn_invoice_tooltip', undefined, 'Create invoice from recorded times')}
                   >
                     <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
+                    <span className="hidden sm:inline">{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
                   </button>
                 )}
 
@@ -1204,7 +1245,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 {selectedTicket.status !== 'closed' ? (
                   <button
                     onClick={() => handleStatusChange('closed')}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition shadow-2xs"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition shadow-2xs"
                     title={t('support.btn_close', undefined, 'Close Ticket')}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -1213,13 +1254,34 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 ) : (
                   <button
                     onClick={() => handleStatusChange('in_progress')}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center gap-1.5 transition shadow-2xs"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center gap-1.5 transition shadow-2xs"
                     title={t('support.btn_reopen', undefined, 'Reopen')}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>{t('support.btn_reopen', undefined, 'Reopen')}</span>
                   </button>
                 )}
+
+                {/* Toggle Chatter Logbook Button */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setIsChatterVisible(!isChatterVisible);
+                  }}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs ${
+                    isChatterVisible
+                      ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                  title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {isChatterVisible 
+                      ? t('support.hide_chatter', undefined, 'Hide Logbook') 
+                      : t('support.show_chatter', undefined, 'Show Logbook')}
+                  </span>
+                </button>
 
                 {/* Ticket löschen */}
                 <button
@@ -1231,27 +1293,34 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 </button>
               </div>
 
-              {/* Right Status Workflow Pipeline */}
-              <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 rounded-xl p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700 max-w-full overflow-x-auto no-scrollbar">
-                {[
-                  { key: 'new', label: getStatusLabel('new') },
-                  { key: 'in_progress', label: getStatusLabel('in_progress') },
-                  { key: 'waiting', label: getStatusLabel('waiting') },
-                  { key: 'resolved', label: getStatusLabel('resolved') },
-                  { key: 'closed', label: getStatusLabel('closed') }
-                ].map((phase) => (
-                  <button
-                    key={phase.key}
-                    onClick={() => handleStatusChange(phase.key as any)}
-                    className={`px-2.5 sm:px-3 py-1 rounded-lg transition text-[11px] whitespace-nowrap ${
-                      selectedTicket.status === phase.key
-                        ? 'bg-cyan-600 text-white font-semibold shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    {phase.label}
-                  </button>
-                ))}
+              {/* Status Workflow Pipeline - Proportional grid that adapts directly to screen layout */}
+              <div className="w-full md:w-auto md:min-w-[340px] lg:min-w-[390px]">
+                <div className="grid grid-cols-5 bg-slate-200/80 dark:bg-slate-800 rounded-xl p-0.5 sm:p-1 text-xs font-medium border border-slate-300/60 dark:border-slate-700 shadow-2xs gap-0.5 sm:gap-1">
+                  {[
+                    { key: 'new', label: getStatusLabel('new'), color: 'bg-sky-500' },
+                    { key: 'in_progress', label: getStatusLabel('in_progress'), color: 'bg-amber-500' },
+                    { key: 'waiting', label: getStatusLabel('waiting'), color: 'bg-purple-500' },
+                    { key: 'resolved', label: getStatusLabel('resolved'), color: 'bg-teal-500' },
+                    { key: 'closed', label: getStatusLabel('closed'), color: 'bg-emerald-500' }
+                  ].map((phase) => {
+                    const isCurrent = selectedTicket.status === phase.key;
+                    return (
+                      <button
+                        key={phase.key}
+                        onClick={() => handleStatusChange(phase.key as any)}
+                        className={`py-1.5 px-1 sm:px-2 rounded-lg transition text-[10px] sm:text-[11px] font-semibold text-center truncate flex items-center justify-center gap-1 ${
+                          isCurrent
+                            ? 'bg-cyan-600 text-white shadow-xs font-bold'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/50 dark:hover:bg-slate-700/50'
+                        }`}
+                        title={phase.label}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCurrent ? 'bg-white animate-pulse' : phase.color}`} />
+                        <span className="truncate">{phase.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -1872,126 +1941,128 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           </div>
 
           {/* Right Column: SOCDOF Internal Logbook & Activity Chatter */}
-          <div className="w-full lg:w-[380px] xl:w-[420px] bg-slate-50 dark:bg-slate-950 flex flex-col border-t lg:border-t-0 border-slate-200/80 dark:border-slate-800 min-h-0">
-            
-            {/* Customer Quick Mail Action Bar */}
-            {selectedTicket.contact_email && (
-              <div className="p-2.5 bg-cyan-50/80 dark:bg-cyan-950/40 border-b border-cyan-100 dark:border-cyan-900/50 flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-1.5 text-cyan-800 dark:text-cyan-200 truncate">
-                  <Mail className="w-3.5 h-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
-                  <span className="truncate">{selectedTicket.contact_email}</span>
-                </div>
-                <a
-                  href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
-                  className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition shrink-0"
-                >
-                  <span>{t('support.customer_email', undefined, 'Email')}</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                </a>
-              </div>
-            )}
-
-            {/* Chatter Action Tabs (High Contrast in both Light and Dark mode) */}
-            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setChatterTab('note');
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs transition ${
-                    chatterTab === 'note'
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-xs'
-                      : 'bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 font-semibold'
-                  }`}
-                >
-                  {t('support.tab_internal_note', undefined, 'Internal Note')}
-                </button>
-
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setChatterTab('activity');
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs transition ${
-                    chatterTab === 'activity'
-                      ? 'bg-cyan-600 hover:bg-cyan-700 text-white font-bold shadow-xs'
-                      : 'bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 font-semibold'
-                  }`}
-                >
-                  {t('support.tab_activity', undefined, 'Activity & Protocol')}
-                </button>
-              </div>
-
-              <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">
-                SOCDOF
-              </span>
-            </div>
-
-            {/* Chatter Input Box */}
-            <div className="p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800">
-              <form onSubmit={handleAddChatter} className="space-y-2">
-                <textarea
-                  rows={3}
-                  value={chatterInput}
-                  onChange={(e) => setChatterInput(e.target.value)}
-                  placeholder={
-                    chatterTab === 'note' 
-                      ? t('support.placeholder_note', undefined, 'Write internal note, memo or technical comment...') 
-                      : t('support.placeholder_activity', undefined, 'Document activity, call, email update or progress...')
-                  }
-                  className="w-full p-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={!chatterInput.trim()}
-                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+          {isChatterVisible && (
+            <div className="w-full md:w-[320px] lg:w-[360px] xl:w-[400px] bg-slate-50 dark:bg-slate-950 flex flex-col border-t md:border-t-0 md:border-l border-slate-200/80 dark:border-slate-800 min-h-0 shrink-0">
+              
+              {/* Customer Quick Mail Action Bar */}
+              {selectedTicket.contact_email && (
+                <div className="p-2.5 bg-cyan-50/80 dark:bg-cyan-950/40 border-b border-cyan-100 dark:border-cyan-900/50 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-cyan-800 dark:text-cyan-200 truncate">
+                    <Mail className="w-3.5 h-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                    <span className="truncate">{selectedTicket.contact_email}</span>
+                  </div>
+                  <a
+                    href={`mailto:${selectedTicket.contact_email}?subject=${encodeURIComponent(`[${selectedTicket.ticketNumber}] ${selectedTicket.title}`)}`}
+                    className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition shrink-0"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{t('support.btn_post_entry', undefined, 'Post Entry')}</span>
+                    <span>{t('support.customer_email', undefined, 'Email')}</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+
+              {/* Chatter Action Tabs (High Contrast in both Light and Dark mode) */}
+              <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setChatterTab('note');
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs transition ${
+                      chatterTab === 'note'
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-xs'
+                        : 'bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 font-semibold'
+                    }`}
+                  >
+                    {t('support.tab_internal_note', undefined, 'Internal Note')}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setChatterTab('activity');
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs transition ${
+                      chatterTab === 'activity'
+                        ? 'bg-cyan-600 hover:bg-cyan-700 text-white font-bold shadow-xs'
+                        : 'bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 font-semibold'
+                    }`}
+                  >
+                    {t('support.tab_activity', undefined, 'Activity & Protocol')}
                   </button>
                 </div>
-              </form>
-            </div>
 
-            {/* Chatter Feed / Timeline */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-              <div className="text-[11px] font-semibold text-slate-400 text-center uppercase tracking-wider">
-                {t('support.logbook_title', undefined, 'Internal Logbook & Activities')}
+                <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">
+                  SOCDOF
+                </span>
               </div>
 
-              {selectedTicket.activities.length === 0 ? (
-                <div className="text-center text-slate-400 text-xs py-8">
-                  {t('support.log_empty', undefined, 'No notes or activities recorded yet.')}
-                </div>
-              ) : (
-                selectedTicket.activities.map((act) => (
-                  <div key={act.id} className="flex gap-2.5 items-start text-xs">
-                    {/* Avatar Badge */}
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 text-white shadow-2xs ${
-                      act.type === 'note' ? 'bg-amber-500' :
-                      act.type === 'activity' ? 'bg-cyan-600' :
-                      'bg-slate-600'
-                    }`}>
-                      {act.author ? act.author[0].toUpperCase() : 'S'}
-                    </div>
-
-                    <div className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">{act.author}</span>
-                        <span className="text-slate-400">{formatTimeAgo(act.createdAt)}</span>
-                      </div>
-                      <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
-                        {act.content}
-                      </p>
-                    </div>
+              {/* Chatter Input Box */}
+              <div className="p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800">
+                <form onSubmit={handleAddChatter} className="space-y-2">
+                  <textarea
+                    rows={3}
+                    value={chatterInput}
+                    onChange={(e) => setChatterInput(e.target.value)}
+                    placeholder={
+                      chatterTab === 'note' 
+                        ? t('support.placeholder_note', undefined, 'Write internal note, memo or technical comment...') 
+                        : t('support.placeholder_activity', undefined, 'Document activity, call, email update or progress...')
+                    }
+                    className="w-full p-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!chatterInput.trim()}
+                      className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{t('support.btn_post_entry', undefined, 'Post Entry')}</span>
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
+                </form>
+              </div>
 
-          </div>
+              {/* Chatter Feed / Timeline */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                <div className="text-[11px] font-semibold text-slate-400 text-center uppercase tracking-wider">
+                  {t('support.logbook_title', undefined, 'Internal Logbook & Activities')}
+                </div>
+
+                {selectedTicket.activities.length === 0 ? (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    {t('support.log_empty', undefined, 'No notes or activities recorded yet.')}
+                  </div>
+                ) : (
+                  selectedTicket.activities.map((act) => (
+                    <div key={act.id} className="flex gap-2.5 items-start text-xs">
+                      {/* Avatar Badge */}
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 text-white shadow-2xs ${
+                        act.type === 'note' ? 'bg-amber-500' :
+                        act.type === 'activity' ? 'bg-cyan-600' :
+                        'bg-slate-600'
+                      }`}>
+                        {act.author ? act.author[0].toUpperCase() : 'S'}
+                      </div>
+
+                      <div className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{act.author}</span>
+                          <span className="text-slate-400">{formatTimeAgo(act.createdAt)}</span>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
+                          {act.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+            </div>
+          )}
 
         </div>
       ) : null}

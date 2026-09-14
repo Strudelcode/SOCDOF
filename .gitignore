@@ -1,5 +1,4 @@
 node_modules/
-build/
 dist/
 release/
 release_notes.md
@@ -8,3 +7,5 @@ coverage/
 *.log
 .env*
 !.env.example
+!build/
+!build/**

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.3';
+export const APP_VERSION = '22.6.4';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,19 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.4',
+    date: '2026-09-13',
+    title: 'Support Services Layout Optimization: Adaptive Kanban Alignment, Filter Bar & Viewport Responsiveness',
+    highlights: [
+      'Eliminated Layout Overflow in Support Module: Resolved issue where Kanban columns and status ribbon pushed content off-screen and caused excessive horizontal/vertical scrolling lag',
+      'Proportional Status Filter Bar: Integrated a modern, multi-segment status bar in the module ribbon that provides one-click filtering for all ticket phases',
+      'Adaptive Detail Workflow Ribbon: Designed a structured 5-stage status pipeline in the ticket detail view that stays crisp and accessible on both desktop and compact window sizes',
+      'Collapsible Chatter & Notes Log: Added interactive toggle button for the internal logbook and activity chatter, allowing focused full-screen ticket editing',
+      'Windows NSIS Packaging Fix: Restored build/installer.nsh and updated .gitignore to ensure seamless automated Windows .exe builds in CI/CD pipeline',
+      'Multilingual Completeness: Localized all status pipeline and layout controls across German, English, French, and Spanish'
+    ]
+  },
   {
     version: '22.6.3',
     date: '2026-09-13',

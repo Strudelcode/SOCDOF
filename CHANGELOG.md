@@ -7,6 +7,15 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 🌟 Version 22.6.4 (Support-Layout-Optimierung, Kanban-Anpassung & Status-Workflow)
+- 🛠️ **Behoben**: Initialisierungsreihenfolge im Support-Modul behoben (`ReferenceError: Cannot access 'getStatusLabel' before initialization`), indem die Status-Hilfsfunktion vor der Kanban-Spaltenberechnung deklariert wird.
+- 🛠️ **Behoben**: Windows-Setup-Build (`electron-builder`) in GitHub Actions behoben – `build/installer.nsh` bereitgestellt und `.gitignore` korrigiert, sodass NSIS-Build-Ressourcen zuverlässig im Git-Repository versioniert werden.
+- 🛠️ **Behoben**: Layout-Überlauf im Support-Modul behoben – die Statusspalten im Kanban-Board und die Detailansicht bleiben nun sauber innerhalb der Fenstergrenzen und scrollen intern, ohne nach hinten abzudriften.
+- 🚀 **Neu**: Ergonomische Status-Filterleiste im Filterband zum direkten Umschalten nach Ticket-Phasen mit Zähleranzeige.
+- 🔄 **Verbessert**: Adaptive 5-Stufen-Statuspipeline im Ticket-Kopf mit sichtbaren Statuspunkten und flexibler Anpassung an die Fensterbreite.
+- 🚀 **Neu**: Ein- und Ausblend-Funktion für das interne Logbuch und Aktivitäts-Chatter im Support-Ticket, um bei Bedarf die gesamte Arbeitsfläche für das Formular freizugeben.
+- 🛠️ **Behoben**: Viersprachige Lokalisierung (DE, EN, FR, ES) für alle neuen Steuerelemente und Tooltips.
+
 ## 🌟 Version 22.6.3 (Freie Rechnungspositionen & Direktauswahl aus Lagerbestand)
 - 🚀 **Neu**: Volle Flexibilität bei Rechnungspositionen – Positionen können nun als freier Text (z. B. Beratung, Montage, individuelle Dienstleistungen) direkt eingetippt oder wahlweise aus dem Warenlager mit Live-Bestandsanzeige übernommen werden.
 - 🚀 **Neu**: Schnell-Aktionsbuttons im Positionseditor: `+ Freie Position` und `+ Artikel aus Lager` für blitzschnelles Hinzufügen.

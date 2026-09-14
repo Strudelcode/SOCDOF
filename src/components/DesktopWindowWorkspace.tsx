@@ -523,12 +523,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     offsetY: number;
   } | null>(null);
 
-  const [dragPreviewPos, setDragPreviewPos] = useState<{
-    x: number;
-    y: number;
-    col: number;
-    row: number;
-  } | null>(null);
   const dragPreviewPosRef = useRef<{
     x: number;
     y: number;
@@ -649,27 +643,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       dragGhostRef.current.style.opacity = dragOverIconId ? '0.35' : '1';
     }
 
-    const cur = dragPreviewPosRef.current;
-    if (cur && cur.x === nextX && cur.y === nextY && cur.col === snapCol && cur.row === snapRow) {
-      return;
-    }
-
     dragPreviewPosRef.current = {
       x: nextX,
       y: nextY,
       col: snapCol,
       row: snapRow
     };
-
-    // Non-cancelling RAF throttle so React state syncs on display refresh without stalling during active motion
-    if (!dragRafIdRef.current) {
-      dragRafIdRef.current = requestAnimationFrame(() => {
-        if (dragPreviewPosRef.current) {
-          setDragPreviewPos(dragPreviewPosRef.current);
-        }
-        dragRafIdRef.current = null;
-      });
-    }
   };
 
   const handleDesktopCanvasDrop = (e: React.DragEvent) => {
@@ -679,7 +658,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       dragRafIdRef.current = null;
     }
     dragPreviewPosRef.current = null;
-    setDragPreviewPos(null);
     setDragOverIconId(null);
 
     // If files are dropped onto the desktop canvas from native OS / storage location
@@ -1961,7 +1939,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               dragRafIdRef.current = null;
             }
             dragPreviewPosRef.current = null;
-            setDragPreviewPos(null);
           }
         }}
         onDrop={handleDesktopCanvasDrop}
@@ -1975,12 +1952,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         className="relative z-1 w-full h-[calc(100vh-48px)] overflow-hidden select-none"
       >
         {/* Semi-transparent App Placement Ghost Preview - Instant 0ms Snap with GPU Hardware Acceleration */}
-        {draggedDesktopItem && dragPreviewPos && (
+        {draggedDesktopItem && (
           <div
             ref={dragGhostRef}
             style={{
               position: 'absolute',
-              transform: `translate3d(${dragPreviewPos.x}px, ${dragPreviewPos.y}px, 0)`,
+              transform: `translate3d(${dragPreviewPosRef.current?.x ?? DESKTOP_GRID_ORIGIN_X}px, ${dragPreviewPosRef.current?.y ?? DESKTOP_GRID_ORIGIN_Y}px, 0)`,
               top: 0,
               left: 0,
               zIndex: 35,
@@ -2090,7 +2067,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   row: Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y),
                 };
                 dragPreviewPosRef.current = initSnap;
-                setDragPreviewPos(initSnap);
                 e.dataTransfer.setData('text/plain', modId);
                 e.dataTransfer.effectAllowed = 'move';
               }}
@@ -2102,7 +2078,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 dragPreviewPosRef.current = null;
                 setDraggedDesktopItem(null);
                 setDragOverIconId(null);
-                setDragPreviewPos(null);
               }}
               onDragOver={(e) => {
                 if (isDraggingWidget) return;
@@ -2246,7 +2221,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   row: Math.round((pos.y - DESKTOP_GRID_ORIGIN_Y) / DESKTOP_GRID_STEP_Y),
                 };
                 dragPreviewPosRef.current = initSnap;
-                setDragPreviewPos(initSnap);
                 e.dataTransfer.setData('text/plain', folder.id);
                 e.dataTransfer.effectAllowed = 'move';
               }}
@@ -2258,7 +2232,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 dragPreviewPosRef.current = null;
                 setDraggedDesktopItem(null);
                 setDragOverIconId(null);
-                setDragPreviewPos(null);
               }}
               onDragOver={(e) => {
                 if (isDraggingWidget) return;
@@ -2923,7 +2896,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                       dragPreviewPosRef.current = null;
                       setDraggedDesktopItem(null);
                       setDragOverIconId(null);
-                      setDragPreviewPos(null);
                     }}
                     onClick={() => {
                       openWindow(modId, meta.title);
