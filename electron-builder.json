@@ -37,7 +37,6 @@
     "createStartMenuShortcut": true,
     "shortcutName": "SOCDOF Desktop",
     "artifactName": "${productName}-Setup-${version}.${ext}",
-    "runAfterFinish": true,
-    "include": "build/installer.nsh"
+    "runAfterFinish": true
   }
 }

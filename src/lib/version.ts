@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.13';
+export const APP_VERSION = '22.6.17';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,52 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.17',
+    date: '2026-09-14',
+    title: 'Storage Inspector & Per-Module Disk Space Analyzer',
+    highlights: [
+      'Comprehensive Storage Inspector: Added high-performance Storage & Data Footprint analyzer to Settings > Storage & Backups, calculating precise byte sizes across IndexedDB database tables, local snapshots, asset files, and support tickets.',
+      'Apple/Windows-Style Segmented Bar: Interactive visual storage bar with color-coded module segments, real-time percentages, and hover tooltips.',
+      'KPI Metrics & Browser Quota: Displays total app disk footprint, overall database records count, available browser storage quota, and quota utilization percentage.',
+      'Multi-User Footprint Breakdown: Tabular inspection of individual user profiles, desktop configurations, personal preferences, and session data sizes.',
+      'Largest Storage Consumers: Identifies heavy individual objects (large database snapshots, PDF receipts, image assets) for targeted optimization.',
+      '1-Click Storage Optimizers: Instant actions to prune older backup snapshots (keeping the latest 5 versions) and purge temporary UI caches and calculation flags.',
+      'Universal Quad-Language Support: Fully localized all inspector metrics, table headers, cleanup buttons, and tooltips in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.6.16',
+    date: '2026-09-14',
+    title: 'Searchable In-App Customer Picker for Invoices & Comprehensive Preview Card',
+    highlights: [
+      'In-App Customer Directory Picker: Replaced standard <select> dropdown in the invoice creation modal with the rich, high-performance CustomerPickerModal, allowing seamless real-time search across hundreds of contacts by name, company, email, phone, and city.',
+      'Comprehensive Selected Customer Card: Displays customer avatar initials, company name, VAT/Tax ID, formatted street and city address, email, phone, and Italian SdI recipient parameters directly in the invoice workspace.',
+      'Quick Switch & Clear Actions: Easily change customer with 1-click ("Kunde wechseln") or clear selection ("Kunde entfernen") to revert to the searchable empty state.',
+      'One-Off Manual Entry Fallback: Quick toggle allows entering ad-hoc custom recipient details directly without cluttering the contacts database.',
+      'Universal Quad-Language Localization: Fully synchronized all new customer selection labels, buttons, and badges in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.6.15',
+    date: '2026-09-14',
+    title: 'Streamlined Batch Contact Creation & Universal Multilingual Parity',
+    highlights: [
+      'Eliminated Redundant Toggle Button: Removed the ambiguous header toggle ("Serienmodus AN/AUS") in ContactEditModal. Clicking "+ Batch Add Multiple" directly enters the structured sequential creation mode as intended.',
+      'Comprehensive Multilingual Parity: Replaced all untranslated German strings (e.g. keyboard shortcut tip, Italian e-invoicing toggle, public admin tag, hourly rate placeholders) with full 4-language coverage (DE, EN, FR, ES) via src/lib/i18n.ts.',
+      'Synchronized Standalone Language Packs: Regenerated template_en.json, en.json, de.json, fr.json, and es.json in /languages and /public/languages.'
+    ]
+  },
+  {
+    version: '22.6.14',
+    date: '2026-09-14',
+    title: 'Electron Builder NSIS Packaging Resilience & Automated CI Safeguard',
+    highlights: [
+      'Resilient NSIS Configuration: Removed hardcoded mandatory "include" path in electron-builder.json to prevent packaging failures ("cannot find specified resource build/installer.nsh") across dynamic build environments.',
+      'Automated CI/CD Build Safeguard: Extended scripts/prepare-release.cjs to verify and auto-generate the build directory and installer.nsh with 64-bit registry view initialization prior to packaging.',
+      'Preserved NSIS Scripting: Ensured build/installer.nsh is maintained in the project with preInit and customInit hooks while enabling seamless automated Windows installer builds.'
+    ]
+  },
   {
     version: '22.6.13',
     date: '2026-09-14',

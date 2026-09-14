@@ -322,12 +322,12 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   {isEditing 
                     ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
                     : isSequentialMode
-                      ? t('contacts.sequential_mode_title', currentLang, 'Mehrere Kontakte anlegen (Serienerfassung)')
+                      ? t('contacts.sequential_mode_title', currentLang, 'Batch Create Contacts (Sequential Entry)')
                       : t('contact.modal_create_title', currentLang, 'Create New Contact')}
                 </h3>
                 {isSequentialMode && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-700/60">
-                    {t('contacts.sequential_mode_badge', currentLang, 'Serienerfassung aktiv')}
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-700/60">
+                    {t('contacts.sequential_mode_badge', currentLang, 'Batch Entry Active')}
                   </span>
                 )}
               </div>
@@ -335,39 +335,19 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 {isEditing && (formData.company || formData.name)
                   ? `${formData.name || ''} ${formData.company ? `(${formData.company})` : ''}`
                   : isSequentialMode
-                    ? `${t('contacts.sequential_counter', currentLang, 'In dieser Serie erfasst:')} ${createdInBatch.length}`
+                    ? `${t('contacts.sequential_counter', currentLang, 'Created in this batch:')} ${createdInBatch.length}`
                     : t('contact.title', currentLang, 'Contacts & Address Book')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {!isEditing && (
-              <button
-                type="button"
-                onClick={() => {
-                  sounds.playClick();
-                  setIsSequentialMode(!isSequentialMode);
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition border ${
-                  isSequentialMode 
-                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' 
-                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                }`}
-                title={t('contacts.toggle_sequential', currentLang, 'Fortlaufend erfassen (nach Speichern nächsten öffnen)')}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">
-                  {isSequentialMode ? 'Serienmodus: AN' : 'Serienmodus: AUS'}
-                </span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={isSequentialMode && createdInBatch.length > 0 ? handleFinishBatch : onClose}
               disabled={isSubmitting}
               className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              title={isSequentialMode && createdInBatch.length > 0 ? t('contacts.btn_all_entered', currentLang, 'All Entered (Finish)') : t('contact.btn_close', currentLang, 'Close')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -384,7 +364,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>
-                      <strong>„{lastSavedName}“</strong> {t('contacts.sequential_success_toast', currentLang, 'Kontakt gespeichert! Nächsten Kontakt erfassen...')}
+                      <strong>„{lastSavedName}“</strong> {t('contacts.sequential_success_toast', currentLang, 'Contact saved! Enter next contact...')}
                     </span>
                   </div>
                   <span className="font-bold text-[11px] px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-800/50">
@@ -396,10 +376,10 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold text-slate-800 dark:text-slate-200">
-                      {t('contacts.sequential_mode_banner', currentLang, 'Tragen Sie alle Kontaktdaten vollständig ein. Nach dem Speichern wird das Formular sofort für den nächsten Kontakt bereitgestellt, bis Sie auf „Alle eingetragen“ klicken.')}
+                      {t('contacts.sequential_mode_banner', currentLang, 'Enter contacts one after another with full details. After saving, the form is immediately refreshed for the next contact until you click "All Entered".')}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Tipp: Nutzen Sie <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]">Strg + Enter</kbd> oder den Button unten, um blitzschnell fortlaufend zu erfassen.
+                      {t('contacts.sequential_tip', currentLang, 'Tip: Use Ctrl + Enter or the button below to capture contacts in quick succession.')}
                     </p>
                   </div>
                 </div>
@@ -408,7 +388,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
               {/* History pills of contacts saved in current session */}
               {createdInBatch.length > 0 && (
                 <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span className="font-medium shrink-0">{t('contacts.sequential_counter', currentLang, 'In dieser Serie erfasst:')} ({createdInBatch.length}):</span>
+                  <span className="font-medium shrink-0">{t('contacts.sequential_counter', currentLang, 'Created in this batch:')} ({createdInBatch.length}):</span>
                   {createdInBatch.slice(0, 5).map((c, i) => (
                     <span key={c.id || i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 shrink-0 border border-slate-200/60 dark:border-slate-700">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -494,7 +474,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 <span>{t('contact.modal_hourly_rate', currentLang, 'Standard Hourly Rate')}</span>
               </label>
               <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
-                Support & Service
+                {t('contact.modal_hourly_rate_tag', currentLang, 'Support & Service')}
               </span>
             </div>
 
@@ -503,7 +483,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 type="number"
                 step="0.5"
                 min="0"
-                placeholder="z.B. 95.00"
+                placeholder={t('contact.modal_hourly_rate_placeholder', currentLang, 'e.g. 95.00')}
                 value={formData.default_hourly_rate ?? ''}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -590,7 +570,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="Deutschland"
+                placeholder={t('contact.modal_country_placeholder', currentLang, 'e.g. Germany')}
                 value={formData.country || ''}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
@@ -618,7 +598,10 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
               onClick={() => setShowItalianFields(!showItalianFields)}
               className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>🇮🇹 {showItalianFields ? 'Italienische E-Rechnung (FatturaPA / SdI) ausblenden' : 'Italienische E-Rechnung (FatturaPA / SdI) einblenden'}</span>
+              <span>🇮🇹 {showItalianFields 
+                ? t('contact.italian_einvoice_hide', currentLang, 'Hide Italian Electronic Invoicing (FatturaPA / SdI)') 
+                : t('contact.italian_einvoice_show', currentLang, 'Show Italian Electronic Invoicing (FatturaPA / SdI)')}
+              </span>
             </button>
 
             {showItalianFields && (
@@ -634,7 +617,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                       onChange={(e) => setFormData({ ...formData, is_public_admin: e.target.checked })}
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>Öffentliche Verwaltung (PA)</span>
+                    <span>{t('contact.italian_public_admin', currentLang, 'Public Administration (PA)')}</span>
                   </label>
                 </div>
 
@@ -645,7 +628,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="z.B. RSSMRA80A01H501U"
+                      placeholder={t('contact.fiscal_code_placeholder', currentLang, 'e.g. RSSMRA80A01H501U')}
                       value={formData.fiscal_code || ''}
                       onChange={(e) => setFormData({ ...formData, fiscal_code: e.target.value.toUpperCase() })}
                       className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono focus:outline-none focus:border-emerald-500"
@@ -708,7 +691,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   className="px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{t('contacts.btn_all_entered', currentLang, 'Alle eingetragen (Fertigstellen)')} ({createdInBatch.length})</span>
+                  <span>{t('contacts.btn_all_entered', currentLang, 'All Entered (Finish)')} ({createdInBatch.length})</span>
                 </button>
               ) : (
                 <button
@@ -733,7 +716,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                     className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>{t('contacts.btn_save_and_finish', currentLang, 'Speichern & Fertigstellen')}</span>
+                    <span>{t('contacts.btn_save_and_finish', currentLang, 'Save & Finish')}</span>
                   </button>
 
                   <button
@@ -741,41 +724,26 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                     onClick={() => handleSaveContact(true)}
                     disabled={isSubmitting}
                     className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    title="Kontakt speichern und Formular für nächsten Kontakt öffnen (Strg + Enter)"
+                    title={t('contacts.btn_save_and_next_tooltip', currentLang, 'Save contact and open form for next contact (Ctrl + Enter)')}
                   >
                     <ListPlus className="w-4 h-4" />
-                    <span>{t('contacts.btn_save_and_next', currentLang, 'Speichern & Nächster Kontakt')}</span>
+                    <span>{t('contacts.btn_save_and_next', currentLang, 'Save & Next Contact')}</span>
                     <ArrowRight className="w-3.5 h-3.5 opacity-80" />
                   </button>
                 </>
               ) : (
-                <>
-                  {!isEditing && (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveContact(true)}
-                      disabled={isSubmitting}
-                      className="px-3 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title={t('contacts.btn_save_and_next', currentLang, 'Speichern & Nächster Kontakt')}
-                    >
-                      <ListPlus className="w-3.5 h-3.5" />
-                      <span>{t('contacts.btn_save_and_next', currentLang, 'Speichern & Weiter')}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>
-                      {isSubmitting 
-                        ? '...' 
-                        : (isEditing ? t('contact.btn_save', currentLang, 'Save Contact') : t('contacts.btn_new', currentLang, 'Create Contact'))}
-                    </span>
-                  </button>
-                </>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>
+                    {isSubmitting 
+                      ? '...' 
+                      : (isEditing ? t('contact.btn_save', currentLang, 'Save Contact') : t('contacts.btn_new', currentLang, 'Create Contact'))}
+                  </span>
+                </button>
               )}
             </div>
           </div>

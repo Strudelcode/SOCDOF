@@ -57,6 +57,36 @@ function main() {
     releaseBody = `## SOCDOF ${versionTag}\n\nAutomated build for SOCDOF ${versionTag}.`;
   }
 
+  // Ensure build directory and installer.nsh exist for electron-builder NSIS packaging
+  const buildDir = path.join(process.cwd(), 'build');
+  const installerNshPath = path.join(buildDir, 'installer.nsh');
+  if (!fs.existsSync(buildDir)) {
+    fs.mkdirSync(buildDir, { recursive: true });
+  }
+  if (!fs.existsSync(installerNshPath)) {
+    const defaultNsh = [
+      '; SOCDOF Windows NSIS Installer Customization Script',
+      '; Copyright (c) 2026 Strudelcode - Yuri / Strudel',
+      '',
+      '!macro preInit',
+      '  SetRegView 64',
+      '!macroend',
+      '',
+      '!macro customInit',
+      '  SetRegView 64',
+      '!macroend',
+      '',
+      '!macro customInstall',
+      '!macroend',
+      '',
+      '!macro customUnInstall',
+      '!macroend',
+      ''
+    ].join('\n');
+    fs.writeFileSync(installerNshPath, defaultNsh, 'utf-8');
+    console.log('[prepare-release] Created missing build/installer.nsh safeguard.');
+  }
+
   // Write release notes to file for GitHub Actions to use
   const releaseNotesPath = path.join(process.cwd(), 'release_notes.md');
   fs.writeFileSync(releaseNotesPath, releaseBody, 'utf-8');

@@ -59,15 +59,12 @@
   - [ ] Support "extending" (`Erweitern`) SOCDOF workspaces across multiple monitors (e.g. popping windows out to secondary screens or multi-screen desktop spanning in Electron).
   - [ ] Per-monitor window positioning memory (remembering which monitor an app window was last placed on).
 
-### 2.3 Storage Inspector & Per-Module Disk Space Analyzer
-- [ ] **Granular Module & Feature Storage Breakdown**:
-  - [ ] Add a comprehensive "Storage & Data Footprint" inspector in the Settings module.
-  - [ ] Calculate and display the exact storage consumption (Bytes, KB, MB) per ERP module (Invoices, Products, Contacts, Stock, Accounting, Calendar, Notes/Widgets, Backups).
-  - [ ] Visualize storage distribution with clean interactive gauges or visual breakdown bars.
-  - [ ] **Multi-User Storage Usage**: Display how much storage is occupied by each individual user account and its respective configurations/files.
-  - [ ] Detail view showing which large records, attachments, or historical snapshots consume the most disk space, with quick optimization/cleanup tools.
+### 2.3 Support & Service Workflow Customization
+- [ ] **Global Default Visibility for Activity Logbook / Protocol**:
+  - [ ] Add a global configuration option in Settings (under Company Profile / Support Workflow preferences) to configure the default state of the ticket activity logbook / internal notes chatter (Collapsed by default vs. Expanded by default).
+  - [ ] Retain individual ticket toggle flexibility while respecting the user's preferred default for all newly opened ticket workspaces.
 
-### 2.3 System Optimization & Continuous Polishing
+### 2.4 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
 
 

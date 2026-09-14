@@ -7,6 +7,30 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 🌟 Version 22.6.17 (Speicher-Inspektor & Daten-Fußabdruck-Analyzer pro Modul)
+- 🚀 **Neu**: Speicher-Inspektor in den Einstellungen ("Speicher & Backups") – vollständige Visualisierung des Speicherbedarfs (Bytes, KB, MB) aller ERP-Module, Tabellen, Datensätze und Mediendateien.
+- 🚀 **Neu**: Apple/Windows-Segmentierungsbalken – interaktive visuelle Speicherverteilung mit Farblegende, Prozentangaben und Tooltips.
+- 🚀 **Neu**: Multi-User & System-Footprint – Aufschlüsselung des belegten Speichers pro Benutzerkonto, Arbeitsbereichskonfiguration und Sitzungszustand sowie Anzeige des Browser-Kontingents (Quota).
+- 🚀 **Neu**: Größte Speicherfresser auf einen Blick – Identifikation speicherintensiver Einzelobjekte (vollständige Backups, Scans, Bild-Assets).
+- 🔄 **Verbessert**: 1-Klick Optimierungs-Werkzeuge – direkte Schaltflächen zum Bereinigen alter Snapshots (behält die 5 neuesten Versionen) und Leeren temporärer UI-Caches.
+- 🔄 **Verbessert**: Vollständige 4-sprachige Lokalisierung (DE, EN, FR, ES) – alle Kennzahlen, Spalten, Tooltips und Bereinigungs-Dialoge sind synchron übersetzt.
+
+## 🌟 Version 22.6.16 (In-App Kundenauswahl mit Live-Suche für Rechnungen & Detail-Vorschaukarte)
+- 🚀 **Neu**: In-App Kundenauswahl-Modal (`CustomerPickerModal`) für Rechnungen – das alte Standard-Dropdown `<select>` wurde durch das moderne Kundenauswahl-Popup mit blitzschneller Live-Suche nach Name, Firma, E-Mail, Telefon und Ort ersetzt.
+- 🔄 **Verbessert**: Umfassende Stammdaten-Übernahme – beim Auswählen eines Kunden werden Name, Firma, vollständige Anschrift (Straße, PLZ, Ort), E-Mail, Telefon, USt-IdNr. sowie italienische E-Rechnungsdaten (SdI-Empfängercode, PEC-Adresse) automatisch in die Rechnung eingetragen.
+- 🚀 **Neu**: Kontrastreiche Kunden-Vorschaukarte – ausgewählte Kunden werden direkt im Rechnungsformular mit Initialen-Avatar, Firmen-Tag, Steuernummer, vollständiger Anschrift und Ein-Klick-Aktionen ("Kunde wechseln" / "Kunde entfernen") dargestellt.
+- 🔄 **Verbessert**: Manueller Ad-hoc-Fallback – für schnelle Einzelrechnungen ohne Adressbucheintrag steht ein aufklappbares Feld zur direkten manuellen Empfängereingabe bereit.
+- 🔄 **Verbessert**: 4-Sprachige Synchronisation (DE, EN, FR, ES) – alle neuen Bezeichnungen und Dialogtexte sind vollständig in Deutsch, Englisch, Französisch und Spanisch hinterlegt und exportiert.
+
+## 🌟 Version 22.6.15 (Optimierte Kontakte-Serienerfassung & Vollständige Mehrsprachigkeit)
+- 🔄 **Geändert**: Direkte Kontakte-Serienerfassung – der redundante Schalter ("Serienmodus AN/AUS") in der Kopfzeile des Kontaktformulars wurde entfernt. Wer auf "+ Mehrere anlegen" klickt, ist direkt im fortlaufenden Erfassungsmodus; im normalen Kontaktformular gibt es keine verwirrenden Moduswechsel mehr.
+- 🔄 **Verbessert**: Vollständige Mehrsprachigkeit (DE, EN, FR, ES) – alle zuvor hardcodierten Texte (Shortcut-Tipp, FatturaPA-Umschalter, Öffentliche Verwaltung, Stundensatz-Badges und Platzhalter) wurden über `src/lib/i18n.ts` in alle 4 Sprachen übersetzt und in den Sprachpaketen aktualisiert.
+- 🛠️ **Behoben**: Bereinigtes Einzelerfassungs-Menü – klare Schaltflächenstruktur für das Anlegen und Bearbeiten einzelner Kontakte ohne doppelte oder unpassende Buttons.
+
+## 🌟 Version 22.6.14 (Electron-Builder Setup & CI-Build Safeguard)
+- 🛠️ **Behoben**: Windows NSIS-Installer Packaging (`electron-builder`) – Fehlermeldung `cannot find specified resource "build/installer.nsh"` behoben, indem die starre Pfadvorgabe in `electron-builder.json` entfernt wurde und die automatische NSIS-Erkennung genutzt wird.
+- 🔄 **Verbessert**: Automatische Build-Absicherung in CI/CD – `scripts/prepare-release.cjs` überprüft vor jedem GitHub Actions Build das Vorhandensein von `build/installer.nsh` und erstellt es bei Bedarf automatisch mit 64-Bit-Registry-Initialisierung (`SetRegView 64`).
+
 ## 🌟 Version 22.6.13 (Serienerfassung für Kontakte & Bildschirmfüllendes Support-Layout)
 - 🚀 **Neu**: Serienerfassung für Kontakte ("Mehrere anlegen") – beim Anlegen mehrerer Kontakte öffnet sich direkt das strukturierte Kontakt-Formular. Nach jedem Speichern wird der Kontakt sofort gesichert, der Zähler aktualisiert und ein neues Formular geöffnet, bis man auf "Fertigstellen" klickt.
 - 🛠️ **Behoben**: Bildschirmfüllendes Support-Layout – die Status-Spalten (Neu, In Bearbeitung, In Warteschlange, Gelöst, Abgeschlossen) passen sich nun automatisch an die Bildschirmbreite an und verschwinden nicht mehr nach rechts aus dem Sichtbereich.

@@ -123,6 +123,7 @@ import {
   downloadStorageAsset, 
   linkAssetToFolder 
 } from '../lib/storageAssets';
+import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
 
@@ -3640,27 +3641,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               )}
 
-              {/* Storage Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                  <span className="text-[11px] text-slate-500 block">Speicherplatz</span>
-                  <span className="text-base font-bold text-slate-900 dark:text-white">{storageStats.sizeKB} KB</span>
-                </div>
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                  <span className="text-[11px] text-slate-500 block">Gesamteinträge</span>
-                  <span className="text-base font-bold text-slate-900 dark:text-white">{storageStats.totalRecords}</span>
-                </div>
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                  <span className="text-[11px] text-slate-500 block">Gespeicherte Snapshots</span>
-                  <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">{storedSnapshots.length}</span>
-                </div>
-                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60">
-                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block">Auto-Backup Status</span>
-                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                    {profile.auto_backup_enabled !== false ? 'Aktiviert' : 'Deaktiviert'}
-                  </span>
-                </div>
-              </div>
+              {/* 1. Comprehensive Storage Inspector & Data Footprint Analyzer */}
+              <StorageInspectorView 
+                activeOwnerName={profile.backup_owner || company?.name}
+                onRefreshParentStorage={loadStorageInfo}
+                lang={activeLang}
+              />
 
               {/* 1. Automated Backup Configuration Card */}
               <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 space-y-4">

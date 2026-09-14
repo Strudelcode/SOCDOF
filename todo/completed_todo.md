@@ -6,6 +6,60 @@
 
 ## Completed Tasks Archive
 
+### Storage Inspector & Per-Module Disk Space Analyzer (v22.6.17)
+- [x] **Granular Module & Feature Storage Breakdown**:
+  - [x] Built `src/lib/storageInspector.ts` calculating precise byte footprint across all IndexedDB tables (Invoices, Products, Contacts, Stock, POS Receipts, Calendar) and LocalStorage keys (Snapshots, Asset Files, Support Tickets, Language Packs, Desktop Settings).
+  - [x] Implemented browser quota detection using `navigator.storage.estimate` to display total device storage, allocated quota, and utilization percentage.
+- [x] **Interactive Storage Inspector View (`StorageInspectorView.tsx`)**:
+  - [x] Added modern Apple/Windows-style color-coded segmented storage distribution bar with module tooltips and percentages.
+  - [x] Implemented KPI metrics grid: Total App Size, Total Records, Browser Quota, and Quota Utilization.
+  - [x] Built multi-tab inspector: ERP Modules & Tables, Multi-User Footprint Breakdown, and Largest Storage Consumers.
+- [x] **1-Click Optimization & Cleanup Tools**:
+  - [x] Added `pruneOldSnapshots` action keeping the 5 most recent snapshots and safely purging older versions with freed-bytes reporting.
+  - [x] Added `clearTemporaryCaches` action purging transient calculation flags and UI caches without affecting business records.
+- [x] **Universal Quad-Language Localization**:
+  - [x] Synchronized all inspector metrics, table headers, cleanup buttons, and tooltips in German, English, French, and Spanish via `src/lib/i18n.ts`.
+
+### Searchable In-App Customer Picker Modal for Invoices & Quotes (v22.6.16)
+- [x] **Integrated `CustomerPickerModal` into Invoicing Workflow**:
+  - [x] Replaced the standard `<select>` dropdown in `InvoicesModule` creation modal with the rich `CustomerPickerModal` popup.
+  - [x] Integrated real-time customer search (name, company, email, phone, city) across hundreds or thousands of contacts without dropdown lag.
+  - [x] Automated comprehensive contact details transfer into the invoice draft: name, company, formatted postal address, email, phone, tax ID, and Italian SdI electronic invoicing parameters (`FPA12` / `FPR12`, recipient code, PEC).
+- [x] **High-Contrast Selected Customer Card & Clear/Change Triggers**:
+  - [x] Visual customer summary card showing initials avatar, full client name, company tag, VAT/Tax ID badge, SdI badge, formatted address, email, and phone.
+  - [x] Quick actions to change customer via picker (`Kunde wechseln`) or clear selection (`Kunde entfernen`).
+  - [x] Ergonomic dashed empty state (`Kunde auswählen`) inviting quick search directory opening with 1 click.
+  - [x] Expandable manual recipient fallback for quick ad-hoc or one-off invoices without polluting the contacts database.
+- [x] **Universal Quad-Language Localization**:
+  - [x] Synchronized all new UI labels, tooltips, and placeholders across German, English, French, and Spanish via `src/lib/i18n.ts`.
+  - [x] Regenerated external standalone language JSON packs in `/languages` and `/public/languages`.
+
+### Streamlined Batch Contact Creation & Universal Multilingual Parity (v22.6.15)
+- [x] **Direct Sequential Batch Creation**:
+  - [x] Removed redundant header toggle button ("Serienmodus AN/AUS") in `ContactEditModal` to eliminate mode confusion. Clicking "+ Mehrere anlegen" enters the continuous sequential capture workflow directly.
+  - [x] Simplified single contact creation and edit actions to clean `Save Contact` / `Cancel` states.
+- [x] **Full 4-Language Coverage (DE, EN, FR, ES)**:
+  - [x] Replaced all hardcoded German labels in `ContactEditModal` with localized translation keys in `src/lib/i18n.ts`: sequential capture tip, hourly rate tags and hints, Italian e-invoicing toggle, PA checkbox, fiscal code placeholder, and button labels.
+  - [x] Regenerated external standalone language JSON files via `scripts/export_languages.ts`.
+
+### Electron Builder NSIS Packaging Resilience & Automated CI Safeguard (v22.6.14)
+- [x] **Resilient NSIS Configuration in Electron Builder**:
+  - [x] Removed explicit `"include": "build/installer.nsh"` dependency from `electron-builder.json`, preventing build failures (`cannot find specified resource "build/installer.nsh"`).
+  - [x] Retained native auto-discovery of `build/installer.nsh` when present while preventing fatal build crashes if absent.
+- [x] **Automated CI/CD Build Safeguard**:
+  - [x] Enhanced `scripts/prepare-release.cjs` to automatically verify and generate `build/installer.nsh` with 64-bit registry view macros before packaging in GitHub Actions.
+  - [x] Verified build stability in local and automated workflow environments.
+
+### Sequential Multi-Contact Entry & Adaptive Support Screen-Fit Layout (v22.6.13)
+- [x] **Sequential Contact Creation Flow ("Serienerfassung")**:
+  - [x] Upgraded "+ Batch Add" action in Contacts module to launch sequential flow using full structured `ContactEditModal`.
+  - [x] "Save & Next" automatically saves contact, increments counter badge, and immediately opens a fresh form until "Finish Batch" is clicked.
+- [x] **Adaptive Support Kanban Screen-Fit Layout**:
+  - [x] Eliminated horizontal clipping where ticket phase columns overflowed beyond the viewport.
+  - [x] Kanban columns adapt to available screen width with responsive grid scaling and independent column vertical scrolling.
+  - [x] Added 1-click header switcher between "Fit to Screen" and "Fixed Width" modes with full translations (DE, EN, FR, ES).
+  - [x] Responsive status filter ribbon and detail workflow pipeline stepper preventing layout clipping.
+
 ### Edge-to-Edge Fullscreen Mode & F11 Keyboard Navigation (v22.6.12)
 - [x] **Edge-to-Edge Fullscreen Display Mode**:
   - [x] Fullscreen capability expanding SOCDOF across the entire monitor canvas without window borders or title bars.
