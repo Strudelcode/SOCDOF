@@ -52,6 +52,7 @@ import {
   Plus,
   Github,
   MessageSquare,
+  LifeBuoy,
   FolderTree,
   LayoutGrid,
   Save,
@@ -1756,6 +1757,68 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         onChange={(e) => setProfile({ ...profile, sdi_pec: e.target.value })}
                         className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Support & Service Workflow Section */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <LifeBuoy className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>{t('settings.support_workflow_title', activeLang, 'Support- & Kundendienst-Workflow')}</span>
+                  </h4>
+
+                  <div className="p-4 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/50 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            {t('settings.support_default_chatter_label', activeLang, 'Standard-Sichtbarkeit des Aktivitäten-Protokolls')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+                          {t('settings.support_default_chatter_desc', activeLang, 'Legt fest, ob das Aktivitäten-Protokoll & Notizen-Chatter beim Öffnen eines Ticket-Arbeitsbereichs standardmäßig aus- oder eingeklappt ist. In jedem Ticket kann es weiterhin individuell umgeschaltet werden.')}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            handleSaveProfile({ support_default_chatter_expanded: false });
+                            try {
+                              localStorage.setItem('socdof_support_default_chatter_expanded', 'false');
+                            } catch {}
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                            !profile.support_default_chatter_expanded
+                              ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs font-bold ring-2 ring-cyan-500/20'
+                              : 'border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <span>{t('settings.support_chatter_collapsed', activeLang, 'Eingeklappt (Standard)')}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            handleSaveProfile({ support_default_chatter_expanded: true });
+                            try {
+                              localStorage.setItem('socdof_support_default_chatter_expanded', 'true');
+                            } catch {}
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                            profile.support_default_chatter_expanded
+                              ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs font-bold ring-2 ring-cyan-500/20'
+                              : 'border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <span>{t('settings.support_chatter_expanded', activeLang, 'Ausgeklappt')}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

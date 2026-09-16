@@ -37,6 +37,8 @@ import {
   Filter,
   Users,
   ChevronRight,
+  ChevronDown,
+  ArrowLeft,
   MoreHorizontal,
   Settings,
   MessageSquare,
@@ -63,6 +65,7 @@ interface SupportServicesModuleProps {
   companyProfile: CompanyProfile;
   onCreateInvoiceForService?: (ticket: SupportServiceTicket) => void;
   onRefreshContacts?: () => void;
+  onUpdateCompany?: (updated: CompanyProfile) => void;
 }
 
 interface SupportSettings {
@@ -72,6 +75,7 @@ interface SupportSettings {
   defaultTeam: string;
   defaultStaff: string;
   disableTeams?: boolean;
+  defaultChatterExpanded?: boolean;
 }
 
 const STORAGE_KEY = 'socdof_support_services_tickets_v2';
@@ -90,7 +94,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   contacts,
   companyProfile,
   onCreateInvoiceForService,
-  onRefreshContacts
+  onRefreshContacts,
+  onUpdateCompany
 }) => {
   // Subscribe to active language state for real-time reactivity
   const lang = useLanguage();
@@ -98,14 +103,26 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   // Standard company fallback label
   const companyRoleName = companyProfile.name?.trim() || t('support.default_company_role', undefined, 'Firma (Eigener Betrieb)');
 
+  const initialDefaultChatter = (() => {
+    if (typeof companyProfile.support_default_chatter_expanded === 'boolean') {
+      return companyProfile.support_default_chatter_expanded;
+    }
+    try {
+      const saved = localStorage.getItem('socdof_support_default_chatter_expanded');
+      if (saved !== null) return saved === 'true';
+    } catch {}
+    return false;
+  })();
+
   const defaultSettingsObj: SupportSettings = useMemo(() => ({
     ticketPrefix: 'SUP-',
     nextNumber: 1001,
     defaultHourlyRate: 95,
     defaultTeam: 'Standard',
     defaultStaff: companyRoleName,
-    disableTeams: false
-  }), [companyRoleName]);
+    disableTeams: false,
+    defaultChatterExpanded: initialDefaultChatter
+  }), [companyRoleName, initialDefaultChatter]);
 
   // Support Settings (e.g. ticket prefix, default rate)
   const [settings, setSettings] = useState<SupportSettings>(() => {
@@ -131,7 +148,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           defaultHourlyRate: parsed.defaultHourlyRate || 95,
           defaultTeam: parsed.defaultTeam || 'Standard',
           defaultStaff: parsed.defaultStaff || companyProfile.name || 'Firma',
-          disableTeams: typeof parsed.disableTeams === 'boolean' ? parsed.disableTeams : false
+          disableTeams: typeof parsed.disableTeams === 'boolean' ? parsed.disableTeams : false,
+          defaultChatterExpanded: typeof parsed.defaultChatterExpanded === 'boolean'
+            ? parsed.defaultChatterExpanded
+            : initialDefaultChatter
         };
       }
     } catch (e) {
@@ -143,9 +163,24 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       defaultHourlyRate: 95,
       defaultTeam: 'Standard',
       defaultStaff: companyProfile.name || 'Firma',
-      disableTeams: false
+      disableTeams: false,
+      defaultChatterExpanded: initialDefaultChatter
     };
   });
+
+  // Keep settings synchronized if companyProfile preference changes externally
+  useEffect(() => {
+    if (typeof companyProfile.support_default_chatter_expanded === 'boolean') {
+      setSettings(prev => {
+        if (prev.defaultChatterExpanded === companyProfile.support_default_chatter_expanded) return prev;
+        const updated = { ...prev, defaultChatterExpanded: companyProfile.support_default_chatter_expanded };
+        try {
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+  }, [companyProfile.support_default_chatter_expanded]);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'teams' | 'staff'>('general');
@@ -237,14 +272,33 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [isMobileSyncOpen, setIsMobileSyncOpen] = useState(false);
 
-  // Chatter / Logbook Visibility (Default: false / hidden as requested, with localStorage persistence)
-  const [isChatterVisible, setIsChatterVisible] = useState<boolean>(() => {
+  // Per-ticket chatter visibility override state (tracks individual ticket toggles during the session)
+  const [ticketChatterOverrides, setTicketChatterOverrides] = useState<Record<string, boolean>>({});
+
+  // Effective Global Default Visibility for Activity Logbook / Chatter (from companyProfile or settings)
+  const isGlobalDefaultChatterExpanded = useMemo(() => {
+    if (typeof companyProfile.support_default_chatter_expanded === 'boolean') {
+      return companyProfile.support_default_chatter_expanded;
+    }
+    if (typeof settings.defaultChatterExpanded === 'boolean') {
+      return settings.defaultChatterExpanded;
+    }
     try {
-      const saved = localStorage.getItem('socdof_support_chatter_visible');
+      const saved = localStorage.getItem('socdof_support_default_chatter_expanded');
       if (saved !== null) return saved === 'true';
     } catch {}
     return false;
-  });
+  }, [companyProfile.support_default_chatter_expanded, settings.defaultChatterExpanded]);
+
+  // Active chatter visibility for the current ticket workspace:
+  // If the user manually toggled it for this ticket in this session, respect that; otherwise respect global default
+  const isChatterVisible = useMemo(() => {
+    if (!selectedTicketId) return isGlobalDefaultChatterExpanded;
+    if (selectedTicketId in ticketChatterOverrides) {
+      return ticketChatterOverrides[selectedTicketId];
+    }
+    return isGlobalDefaultChatterExpanded;
+  }, [selectedTicketId, ticketChatterOverrides, isGlobalDefaultChatterExpanded]);
 
   // Customer In-App Picker Modal State
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
@@ -252,6 +306,22 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   // Direct Contact Edit Modal State
   const [isDirectContactEditOpen, setIsDirectContactEditOpen] = useState(false);
   const [directContactToEdit, setDirectContactToEdit] = useState<Contact | null>(null);
+
+  // Compact Ticket Status Dropdown in Detail Header
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setIsStatusDropdownOpen(false);
+      }
+    };
+    if (isStatusDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isStatusDropdownOpen]);
 
   // Status helper mapping
   const getStatusLabel = (st: SupportServiceTicket['status']) => {
@@ -458,8 +528,17 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     setSettings(newSet);
     try {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSet));
+      if (typeof newSet.defaultChatterExpanded === 'boolean') {
+        localStorage.setItem('socdof_support_default_chatter_expanded', String(newSet.defaultChatterExpanded));
+      }
     } catch (e) {
       console.error(e);
+    }
+    if (onUpdateCompany && typeof newSet.defaultChatterExpanded === 'boolean') {
+      onUpdateCompany({
+        ...companyProfile,
+        support_default_chatter_expanded: newSet.defaultChatterExpanded
+      });
     }
   };
 
@@ -983,79 +1062,63 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none overflow-hidden">
       
-      {/* Top Application Ribbon / Header */}
-      <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shadow-xs shrink-0 border border-slate-700/60 dark:border-slate-700">
-            <Headphones className="w-5 h-5 text-cyan-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-                {t('support.title', undefined, 'Customer Support & Service')}
-              </h2>
-              {selectedTicket && viewMode === 'detail' && (
-                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 font-mono text-xs font-bold border border-slate-200 dark:border-slate-700">
-                  {selectedTicket.ticketNumber}
-                </span>
-              )}
+      {/* Top Application Ribbon / Header (Only visible on start screen: List & Kanban view) */}
+      {viewMode !== 'detail' && (
+        <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shadow-xs shrink-0 border border-slate-700/60 dark:border-slate-700">
+              <Headphones className="w-5 h-5 text-cyan-400" />
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-              {t('support.subtitle', undefined, 'Tickets, field service, timesheets & activities')}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {t('support.title', undefined, 'Customer Support & Service')}
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                {t('support.subtitle', undefined, 'Tickets, field service, timesheets & activities')}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Header Action Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Mobile Companion QR-Import Button */}
-          <button
-            onClick={() => {
-              sounds.playClick();
-              setIsMobileSyncOpen(true);
-            }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs"
-            title={t('support.mobile_sync_tooltip', undefined, 'Daten von der mobilen App (TimeTracking / Außendienst) per QR-Code oder JSON importieren')}
-          >
-            <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <span>{t('support.mobile_sync_btn', undefined, 'Mobile App Sync')}</span>
-          </button>
-
-          {/* Support Settings Button */}
-          <button
-            onClick={() => {
-              sounds.playClick();
-              setTempSettings(settings);
-              setIsSettingsModalOpen(true);
-            }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs"
-            title={t('support.settings_tooltip', undefined, 'Configure support settings, teams, staff and prefix')}
-          >
-            <Settings className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <span className="hidden sm:inline">{t('support.settings_btn', undefined, 'Settings')}</span>
-          </button>
-
-          {/* View Toggle / Back Button */}
-          {viewMode === 'detail' ? (
+          {/* Header Action Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Mobile Companion QR-Import Button */}
             <button
               onClick={() => {
                 sounds.playClick();
-                setViewMode('list');
+                setIsMobileSyncOpen(true);
               }}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title={t('support.mobile_sync_tooltip', undefined, 'Daten von der mobilen App (TimeTracking / Außendienst) per QR-Code oder JSON importieren')}
             >
-              <List className="w-4 h-4" />
-              <span>{t('support.back_to_list', undefined, 'Back to list')}</span>
+              <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <span>{t('support.mobile_sync_btn', undefined, 'Mobile App Sync')}</span>
             </button>
-          ) : (
+
+            {/* Support Settings Button */}
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setTempSettings(settings);
+                setIsSettingsModalOpen(true);
+              }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title={t('support.settings_tooltip', undefined, 'Configure support settings, teams, staff and prefix')}
+            >
+              <Settings className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <span className="hidden sm:inline">{t('support.settings_btn', undefined, 'Settings')}</span>
+            </button>
+
+            {/* View Switcher: List / Kanban */}
             <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 rounded-xl p-1 border border-slate-300/60 dark:border-slate-700">
               <button
                 onClick={() => {
                   sounds.playClick();
                   setViewMode('list');
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   viewMode === 'list' 
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
@@ -1069,7 +1132,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   sounds.playClick();
                   setViewMode('kanban');
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   viewMode === 'kanban' 
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
@@ -1101,19 +1164,19 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 </button>
               )}
             </div>
-          )}
 
-          {/* New Ticket Primary Button */}
-          <button
-            onClick={handleCreateNewTicket}
-            className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 flex items-center gap-1.5 transition active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t('support.new_ticket', undefined, 'New Ticket')}</span>
-          </button>
+            {/* New Ticket Primary Button */}
+            <button
+              onClick={handleCreateNewTicket}
+              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t('support.new_ticket', undefined, 'New Ticket')}</span>
+            </button>
+          </div>
+
         </div>
-
-      </div>
+      )}
 
       {/* Active Timer Running Persistent Banner (Crash recovery / Session notification) */}
       {activeRunningTicket && (selectedTicketId !== activeRunningTicket.id || viewMode !== 'detail') && (
@@ -1485,170 +1548,198 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           )}
         </div>
       ) : selectedTicket ? (
-        /* DETAIL VIEW: Modern Support / CRM Form with 2-Column Split (Form & Internal Logbook) */
-        <div className={`flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 ${isDraggingSplitter ? 'select-none cursor-col-resize' : ''}`}>
+        /* DETAIL VIEW: Ultra-Compact Modern Support Workspace */
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           
-          {/* Left Column: Ticket Main Form */}
-          <div className={`flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 ${!isChatterVisible ? 'border-r border-slate-200/80 dark:border-slate-800' : ''} min-h-0 min-w-0`}>
-            
-            {/* Top Action Ribbon & Status Stepper */}
-            <div className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 shrink-0 sticky top-0 z-10 backdrop-blur-md shadow-2xs">
-              
-              {/* Row 1: Ticket Metadata & Primary Action Toolbar */}
-              <div className="p-3 sm:px-4 sm:py-3 flex items-center justify-between gap-3 flex-wrap border-b border-slate-200/60 dark:border-slate-800/60">
-                {/* Left: Ticket Identifier & Current Status Badge */}
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="px-2.5 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-200 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800/80 shadow-2xs">
-                    {selectedTicket.ticketNumber}
+          {/* Ultra-Compact Unified Ticket Header Bar */}
+          <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2.5 shrink-0 z-20 shadow-2xs">
+            {/* Left: Back Button with arrow, Ticket ID & Title Preview */}
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setViewMode('list');
+                }}
+                className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer group shrink-0"
+                title={t('support.back_to_list', undefined, 'Back to list')}
+              >
+                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-cyan-600 dark:text-cyan-400" />
+                <span className="text-xs font-semibold hidden sm:inline">{t('support.back_to_list_short', undefined, 'Zurück')}</span>
+              </button>
+
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 hidden sm:block" />
+
+              <span className="px-2.5 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-200 font-mono text-xs font-bold border border-cyan-200 dark:border-cyan-800/80 shadow-2xs shrink-0">
+                {selectedTicket.ticketNumber}
+              </span>
+
+              <div className="min-w-0 flex items-center gap-1.5 text-xs">
+                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[120px] sm:max-w-[200px] md:max-w-[280px] lg:max-w-md">
+                  {selectedTicket.title || t('support.untitled_ticket', undefined, 'Ohne Titel')}
+                </span>
+                {selectedTicket.contact_name && (
+                  <span className="text-slate-400 dark:text-slate-500 text-[11px] truncate hidden md:inline">
+                    • {selectedTicket.contact_name}
                   </span>
-
-                  {/* Active Status Badge */}
-                  <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs border ${
-                    selectedTicket.status === 'new'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                      : selectedTicket.status === 'in_progress'
-                      ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                      : selectedTicket.status === 'waiting'
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                      : selectedTicket.status === 'resolved'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${
-                      selectedTicket.status === 'new' ? 'bg-blue-500' :
-                      selectedTicket.status === 'in_progress' ? 'bg-sky-500' :
-                      selectedTicket.status === 'waiting' ? 'bg-amber-500' :
-                      selectedTicket.status === 'resolved' ? 'bg-emerald-500' :
-                      'bg-slate-400'
-                    }`} />
-                    <span>{getStatusLabel(selectedTicket.status)}</span>
-                  </div>
-
-                  {/* Creation Date */}
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">
-                    {formatDate(selectedTicket.created_at)}
-                  </span>
-                </div>
-
-                {/* Right: Actions Group */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Create Invoice */}
-                  {onCreateInvoiceForService && (
-                    <button
-                      onClick={() => {
-                        sounds.playClick();
-                        onCreateInvoiceForService(selectedTicket);
-                      }}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs"
-                      title={t('support.btn_invoice_tooltip', undefined, 'Create invoice from recorded times')}
-                    >
-                      <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span className="hidden sm:inline">{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
-                    </button>
-                  )}
-
-                  {/* Close / Reopen */}
-                  {selectedTicket.status !== 'closed' ? (
-                    <button
-                      onClick={() => handleStatusChange('closed')}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 dark:border-emerald-800 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95"
-                      title={t('support.btn_close', undefined, 'Close Ticket')}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{t('support.btn_close', undefined, 'Close Ticket')}</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleStatusChange('in_progress')}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95"
-                      title={t('support.btn_reopen', undefined, 'Reopen')}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>{t('support.btn_reopen', undefined, 'Reopen')}</span>
-                    </button>
-                  )}
-
-                  {/* Toggle Chatter Logbook Button */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setIsChatterVisible(prev => {
-                        const next = !prev;
-                        try {
-                          localStorage.setItem('socdof_support_chatter_visible', String(next));
-                        } catch {}
-                        return next;
-                      });
-                    }}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-                      isChatterVisible
-                        ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                    title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>
-                      {isChatterVisible 
-                        ? t('support.hide_chatter', undefined, 'Hide Logbook') 
-                        : t('support.show_chatter', undefined, 'Show Logbook')}
-                    </span>
-                    {!isChatterVisible && selectedTicket.activities && selectedTicket.activities.length > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300">
-                        {selectedTicket.activities.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => setTicketToDelete(selectedTicket)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
-                    title={t('support.btn_delete', undefined, 'Delete Ticket')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
-
-              {/* Row 2: Workflow Pipeline Stepper across full width */}
-              <div className="px-3 sm:px-4 py-2 bg-slate-100/70 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-800/80 overflow-x-auto">
-                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
-                  {[
-                    { key: 'new', step: '1', label: getStatusLabel('new'), color: 'bg-blue-500' },
-                    { key: 'in_progress', step: '2', label: getStatusLabel('in_progress'), color: 'bg-sky-500' },
-                    { key: 'waiting', step: '3', label: getStatusLabel('waiting'), color: 'bg-amber-500' },
-                    { key: 'resolved', step: '4', label: getStatusLabel('resolved'), color: 'bg-emerald-500' },
-                    { key: 'closed', step: '5', label: getStatusLabel('closed'), color: 'bg-slate-400' }
-                  ].map((phase, idx, arr) => {
-                    const isCurrent = selectedTicket.status === phase.key;
-                    return (
-                      <React.Fragment key={phase.key}>
-                        <button
-                          onClick={() => handleStatusChange(phase.key as any)}
-                          className={`px-3 py-1.5 rounded-xl transition text-xs font-medium flex items-center gap-2 border cursor-pointer ${
-                            isCurrent
-                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs font-bold'
-                              : 'bg-white dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300'
-                          }`}
-                          title={phase.label}
-                        >
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${isCurrent ? 'bg-white animate-pulse' : phase.color}`} />
-                          <span className="font-semibold whitespace-nowrap">{phase.label}</span>
-                        </button>
-                        {idx < arr.length - 1 && (
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 mx-0.5" />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-
             </div>
 
-            {/* Main Form Fields: Structured 2-Column Responsive Layout without squashing */}
-            <div className="p-4 sm:p-6 space-y-6 flex-1">
+            {/* Right: Compact Status Selector & Action Group */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              
+              {/* Compact Status Selector Dropdown */}
+              <div className="relative" ref={statusDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsStatusDropdownOpen(prev => !prev)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs border transition cursor-pointer ${
+                    selectedTicket.status === 'new'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60'
+                      : selectedTicket.status === 'in_progress'
+                      ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/60'
+                      : selectedTicket.status === 'waiting'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60'
+                      : selectedTicket.status === 'resolved'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                  title={t('support.change_status_tooltip', undefined, 'Status ändern')}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    selectedTicket.status === 'new' ? 'bg-blue-500' :
+                    selectedTicket.status === 'in_progress' ? 'bg-sky-500' :
+                    selectedTicket.status === 'waiting' ? 'bg-amber-500' :
+                    selectedTicket.status === 'resolved' ? 'bg-emerald-500' :
+                    'bg-slate-400'
+                  }`} />
+                  <span className="font-semibold">{getStatusLabel(selectedTicket.status)}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isStatusDropdownOpen && (
+                  <div className="absolute right-0 mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 space-y-0.5">
+                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {t('support.status_pipeline_title', undefined, 'Ticket Status')}
+                    </div>
+                    {[
+                      { key: 'new', label: getStatusLabel('new'), color: 'bg-blue-500' },
+                      { key: 'in_progress', label: getStatusLabel('in_progress'), color: 'bg-sky-500' },
+                      { key: 'waiting', label: getStatusLabel('waiting'), color: 'bg-amber-500' },
+                      { key: 'resolved', label: getStatusLabel('resolved'), color: 'bg-emerald-500' },
+                      { key: 'closed', label: getStatusLabel('closed'), color: 'bg-slate-400' }
+                    ].map(phase => {
+                      const isCurrent = selectedTicket.status === phase.key;
+                      return (
+                        <button
+                          key={phase.key}
+                          type="button"
+                          onClick={() => {
+                            handleStatusChange(phase.key as any);
+                            setIsStatusDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-1.5 text-xs flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer ${
+                            isCurrent ? 'font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50/60 dark:bg-cyan-950/40' : 'text-slate-700 dark:text-slate-200'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${phase.color}`} />
+                            <span>{phase.label}</span>
+                          </span>
+                          {isCurrent && <Check className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Close / Reopen */}
+              {selectedTicket.status !== 'closed' ? (
+                <button
+                  onClick={() => handleStatusChange('closed')}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 dark:border-emerald-800 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95 cursor-pointer"
+                  title={t('support.btn_close', undefined, 'Close Ticket')}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">{t('support.btn_close', undefined, 'Close Ticket')}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleStatusChange('in_progress')}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition shadow-2xs active:scale-95 cursor-pointer"
+                  title={t('support.btn_reopen', undefined, 'Reopen')}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">{t('support.btn_reopen', undefined, 'Reopen')}</span>
+                </button>
+              )}
+
+              {/* Create Invoice */}
+              {onCreateInvoiceForService && (
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    onCreateInvoiceForService(selectedTicket);
+                  }}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                  title={t('support.btn_invoice_tooltip', undefined, 'Create invoice from recorded times')}
+                >
+                  <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="hidden lg:inline">{t('support.btn_invoice', undefined, 'Create Invoice')}</span>
+                </button>
+              )}
+
+              {/* Toggle Chatter Logbook Button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  if (selectedTicketId) {
+                    setTicketChatterOverrides(prev => ({
+                      ...prev,
+                      [selectedTicketId]: !isChatterVisible
+                    }));
+                  }
+                }}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+                  isChatterVisible
+                    ? 'border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title={t('support.toggle_chatter', undefined, 'Toggle Activity & Notes Log')}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {isChatterVisible 
+                    ? t('support.hide_chatter', undefined, 'Hide Logbook') 
+                    : t('support.show_chatter', undefined, 'Show Logbook')}
+                </span>
+                {selectedTicket.activities && selectedTicket.activities.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300">
+                    {selectedTicket.activities.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Delete Button */}
+              <button
+                onClick={() => setTicketToDelete(selectedTicket)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900 cursor-pointer"
+                title={t('support.btn_delete', undefined, 'Delete Ticket')}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 2-Column Split Body (Left Form & Right Chatter Logbook) */}
+          <div className={`flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 ${isDraggingSplitter ? 'select-none cursor-col-resize' : ''}`}>
+            
+            {/* Left Column: Ticket Main Form */}
+            <div className={`flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-900 ${!isChatterVisible ? 'border-r border-slate-200/80 dark:border-slate-800' : ''} min-h-0 min-w-0`}>
+              
+              {/* Main Form Fields: Structured 2-Column Responsive Layout without squashing */}
+              <div className="p-4 sm:p-6 space-y-6 flex-1">
               
               {/* Ticket Title Input */}
               <div>
@@ -2708,6 +2799,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           )}
 
         </div>
+      </div>
       ) : null}
 
       {/* Support Settings Modal (General, Teams, Staff) */}
@@ -2845,6 +2937,45 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       />
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-cyan-600"></div>
                     </label>
+                  </div>
+
+                  {/* Default Activity Logbook / Protocol Visibility */}
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 space-y-2">
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 text-xs">
+                        <MessageSquare className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                        <span>{t('support.settings_chatter_default_label', undefined, 'Standard-Status des Aktivitäten-Protokolls')}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('support.settings_chatter_default_desc', undefined, 'Legen Sie fest, ob neu geöffnete Ticket-Arbeitsbereiche das Aktivitäten-Protokoll standardmäßig ein- oder ausgeklappt darstellen')}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setTempSettings({ ...tempSettings, defaultChatterExpanded: false })}
+                        className={`px-3 py-2 rounded-xl text-xs font-semibold border transition text-left cursor-pointer ${
+                          !tempSettings.defaultChatterExpanded
+                            ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 ring-2 ring-cyan-500/20 font-bold shadow-2xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {t('support.settings_chatter_collapsed', undefined, 'Standardmäßig eingeklappt (Kompakt)')}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTempSettings({ ...tempSettings, defaultChatterExpanded: true })}
+                        className={`px-3 py-2 rounded-xl text-xs font-semibold border transition text-left cursor-pointer ${
+                          tempSettings.defaultChatterExpanded
+                            ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 ring-2 ring-cyan-500/20 font-bold shadow-2xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {t('support.settings_chatter_expanded', undefined, 'Standardmäßig ausgeklappt (Verlauf)')}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Default Team (Hidden in Solo Mode) */}

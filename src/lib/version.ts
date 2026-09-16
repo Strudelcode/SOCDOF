@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.17';
+export const APP_VERSION = '22.6.19';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,29 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.19',
+    date: '2026-09-15',
+    title: 'Ultra-Compact Support Ticket Header & Start-Screen Scoped Navigation',
+    highlights: [
+      'Ultra-Compact Unified Ticket Header: Eliminated unnecessary double-ribbons and full-width pipeline bars in the ticket detail view, freeing up massive vertical space for editing descriptions, checklists, time entries, and spare parts.',
+      'Start-Screen Scoped Top Ribbon: The large module header (Customer Support & Service branding, Mobile App Sync, Settings, and New Ticket button) is now strictly scoped to the List and Kanban overview screens.',
+      'One-Click Arrow Navigation: Replaced verbose text button with a sleek, space-saving ArrowLeft icon button in the top left corner of the ticket view.',
+      'Compact Status Selector Dropdown: Replaced the bulky full-width workflow stepper with a compact, color-coded status badge dropdown in the top right, allowing instant phase transitions without consuming vertical screen real estate.',
+      'Universal Quad-Language Parity: Added localized strings for quick back navigation, status selector dropdown, and ticket fallbacks across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.6.18',
+    date: '2026-09-15',
+    title: 'Global Default Visibility Configuration for Support Ticket Activity Logbook',
+    highlights: [
+      'Global Default Chatter State: Added global setting in Settings > General (Support & Service Workflow) and Support Desk Settings to choose whether ticket workspaces open with the activity logbook & chatter collapsed or expanded by default.',
+      'Maximized Ticket Workspace by Default: Default collapsed state maximizes screen real estate for ticket descriptions, time bookings, and phase assignments while keeping all history 1 click away.',
+      'Per-Ticket Session Memory: Respects manual toggle changes for specific tickets during the active session without overwriting the global default preference.',
+      'Universal Quad-Language Parity: Localized all setting labels, options, descriptions, and tooltips in German, English, French, and Spanish via src/lib/i18n.ts and updated JSON language packs.'
+    ]
+  },
   {
     version: '22.6.17',
     date: '2026-09-14',

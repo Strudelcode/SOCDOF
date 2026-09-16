@@ -2843,6 +2843,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   contacts={contacts}
                   companyProfile={company}
                   onRefreshContacts={onRefreshData}
+                  onUpdateCompany={onUpdateCompany}
                   onCreateInvoiceForService={(ticket) => openWindow('invoices', `Rechnung für ${ticket.contact_name}`, { isCreateOpen: true, contactId: ticket.contact_id })}
                 />
               )}

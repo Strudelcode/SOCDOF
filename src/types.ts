@@ -305,6 +305,9 @@ export interface CompanyProfile {
   backup_max_keep_count?: number; // default 10
   last_backup_timestamp?: string;
   backup_notify_on_success?: boolean;
+
+  // Support & Service Workflow Preferences
+  support_default_chatter_expanded?: boolean; // Default state for Activity Logbook / Protocol (false: collapsed, true: expanded)
 }
 
 export type ViewMode = 'kanban' | 'list' | 'pivot' | 'form';
@@ -364,6 +367,23 @@ export interface SupportActivityEntry {
   content: string;
   createdAt: string;
   audioUrl?: string;
+}
+
+export type StatusColorPreset = 
+  | 'blue' 
+  | 'sky' 
+  | 'indigo' 
+  | 'purple' 
+  | 'amber' 
+  | 'emerald' 
+  | 'rose' 
+  | 'orange' 
+  | 'teal' 
+  | 'slate';
+
+export interface CustomStatusConfig {
+  label?: string;
+  color?: StatusColorPreset;
 }
 
 export interface SupportServiceTicket {

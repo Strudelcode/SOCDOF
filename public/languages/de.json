@@ -4,7 +4,7 @@
     "language_name": "Deutsch",
     "language_code": "de",
     "app_version": "22.5.2",
-    "exported_at": "2026-09-14T18:33:13.922Z"
+    "exported_at": "2026-09-15T13:03:07.440Z"
   },
   "translations": {
     "app.name": "SOCDOF",
@@ -536,7 +536,17 @@
     "support.single_user_mode_desc": "Deaktiviert Teams und Mitarbeiter-Zuweisung. Formulare und Filter werden für Einzelunternehmer auf das Wesentliche reduziert.",
     "support.single_user_mode_active_badge": "Solo-Modus aktiv",
     "support.settings_tab_solo_notice": "Teams und Mitarbeiter-Zuweisungen sind im Solo-Modus deaktiviert.",
+    "support.settings_chatter_default_label": "Standard-Status des Aktivitäten-Protokolls",
+    "support.settings_chatter_default_desc": "Legen Sie fest, ob neu geöffnete Ticket-Arbeitsbereiche das Aktivitäten-Protokoll standardmäßig ein- oder ausgeklappt darstellen",
+    "support.settings_chatter_collapsed": "Standardmäßig eingeklappt (Kompakt, maximaler Platz für Ticketdetails)",
+    "support.settings_chatter_expanded": "Standardmäßig ausgeklappt (Direkte Einsicht in Notizen, Timer-Logs & Verlauf)",
     "support.save_changes": "Änderungen speichern",
+    "settings.support_workflow_title": "Support- & Kundendienst-Workflow",
+    "settings.support_workflow_desc": "Standardverhalten, Protokoll-Sichtbarkeit und Arbeitsbereich-Einstellungen für Kundendienst-Tickets",
+    "settings.support_default_chatter_label": "Standard-Sichtbarkeit des Aktivitäten-Protokolls",
+    "settings.support_default_chatter_desc": "Legt fest, ob das Aktivitäten-Protokoll & Notizen-Chatter beim Öffnen eines Ticket-Arbeitsbereichs standardmäßig aus- oder eingeklappt ist. In jedem Ticket kann es weiterhin individuell umgeschaltet werden.",
+    "settings.support_chatter_collapsed": "Standardmäßig eingeklappt (Kompakt, maximaler Platz für Ticketdetails)",
+    "settings.support_chatter_expanded": "Standardmäßig ausgeklappt (Direkte Einsicht in Notizen, Timer-Logs & Verlauf)",
     "invoice.title": "Rechnungen & Fakturierung",
     "invoice.new_invoice": "Neue Rechnung",
     "invoice.edit_invoice": "Rechnung bearbeiten",

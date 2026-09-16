@@ -4,7 +4,7 @@
     "language_name": "English",
     "language_code": "en",
     "app_version": "22.5.2",
-    "exported_at": "2026-09-14T18:33:13.920Z"
+    "exported_at": "2026-09-15T13:03:07.434Z"
   },
   "translations": {
     "app.name": "SOCDOF",
@@ -536,7 +536,17 @@
     "support.single_user_mode_desc": "Deactivates team selection and staff assignment. Streamlines ticket forms and filters for solo entrepreneurs.",
     "support.single_user_mode_active_badge": "Solo Mode active",
     "support.settings_tab_solo_notice": "Teams and staff assignments are currently disabled in Solo Mode.",
+    "support.settings_chatter_default_label": "Default Activity Logbook / Protocol State",
+    "support.settings_chatter_default_desc": "Choose whether newly opened ticket workspaces display the activity logbook collapsed or expanded by default",
+    "support.settings_chatter_collapsed": "Collapsed by default (Clean & compact, maximizes ticket workspace)",
+    "support.settings_chatter_expanded": "Expanded by default (Instant view of notes, timer logs & timeline)",
     "support.save_changes": "Save Changes",
+    "settings.support_workflow_title": "Support & Service Workflow",
+    "settings.support_workflow_desc": "Configure ticket logbook visibility and service desk workspace defaults",
+    "settings.support_default_chatter_label": "Default Activity Logbook / Protocol Visibility",
+    "settings.support_default_chatter_desc": "Specifies whether the activity logbook & internal notes chatter is expanded or collapsed by default when opening any ticket workspace. You can still toggle it individually at any time.",
+    "settings.support_chatter_collapsed": "Collapsed by default (Clean & compact, maximizes ticket workspace)",
+    "settings.support_chatter_expanded": "Expanded by default (Instant view of notes, timer logs & timeline)",
     "invoice.title": "Invoices & Billing",
     "invoice.new_invoice": "New Invoice",
     "invoice.edit_invoice": "Edit Invoice",

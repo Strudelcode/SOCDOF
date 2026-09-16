@@ -59,12 +59,7 @@
   - [ ] Support "extending" (`Erweitern`) SOCDOF workspaces across multiple monitors (e.g. popping windows out to secondary screens or multi-screen desktop spanning in Electron).
   - [ ] Per-monitor window positioning memory (remembering which monitor an app window was last placed on).
 
-### 2.3 Support & Service Workflow Customization
-- [ ] **Global Default Visibility for Activity Logbook / Protocol**:
-  - [ ] Add a global configuration option in Settings (under Company Profile / Support Workflow preferences) to configure the default state of the ticket activity logbook / internal notes chatter (Collapsed by default vs. Expanded by default).
-  - [ ] Retain individual ticket toggle flexibility while respecting the user's preferred default for all newly opened ticket workspaces.
-
-### 2.4 System Optimization & Continuous Polishing
+### 2.3 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
 
 

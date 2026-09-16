@@ -4,7 +4,7 @@
     "language_name": "Español",
     "language_code": "es",
     "app_version": "22.5.2",
-    "exported_at": "2026-09-14T18:33:13.927Z"
+    "exported_at": "2026-09-15T13:03:07.444Z"
   },
   "translations": {
     "app.name": "SOCDOF",
@@ -535,7 +535,17 @@
     "support.single_user_mode_desc": "Desactiva equipos y asignación de personal. Simplifica formularios para autónomos.",
     "support.single_user_mode_active_badge": "Modo individual activo",
     "support.settings_tab_solo_notice": "Los equipos y asignaciones de personal están desactivados en modo individual.",
+    "support.settings_chatter_default_label": "Estado predeterminado del registro de actividades / protocolo",
+    "support.settings_chatter_default_desc": "Elija si las áreas de trabajo de tickets se abren con el registro de actividades colapsado o expandido por defecto",
+    "support.settings_chatter_collapsed": "Colapsado por defecto (Compacto, maximiza el espacio del ticket)",
+    "support.settings_chatter_expanded": "Expandido por defecto (Acceso directo a notas, registros de tiempo y cronología)",
     "support.save_changes": "Guardar cambios",
+    "settings.support_workflow_title": "Flujo de trabajo de Soporte y Servicio",
+    "settings.support_workflow_desc": "Configuración de visibilidad del registro y preferencias de tickets de soporte",
+    "settings.support_default_chatter_label": "Visibilidad predeterminada del registro de actividades y notas",
+    "settings.support_default_chatter_desc": "Define si el registro de actividades y notas se muestra expandido o colapsado de forma predeterminada al abrir un ticket. Puede alternarlo individualmente en cualquier momento.",
+    "settings.support_chatter_collapsed": "Colapsado por defecto (Compacto, maximiza el espacio del ticket)",
+    "settings.support_chatter_expanded": "Expandido por defecto (Acceso directo a notas, registros de tiempo y cronología)",
     "invoice.title": "Facturas & Facturación",
     "invoice.new_invoice": "Nueva factura",
     "invoice.edit_invoice": "Editar factura",

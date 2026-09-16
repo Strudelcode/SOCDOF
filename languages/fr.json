@@ -4,7 +4,7 @@
     "language_name": "Français",
     "language_code": "fr",
     "app_version": "22.5.2",
-    "exported_at": "2026-09-14T18:33:13.924Z"
+    "exported_at": "2026-09-15T13:03:07.442Z"
   },
   "translations": {
     "app.name": "SOCDOF",
@@ -535,7 +535,17 @@
     "support.single_user_mode_desc": "Désactive les équipes et l’attribution du personnel. Simplifie les formulaires pour les indépendants.",
     "support.single_user_mode_active_badge": "Mode solo actif",
     "support.settings_tab_solo_notice": "Les équipes et affectations sont désactivées en mode solo.",
+    "support.settings_chatter_default_label": "État par défaut du journal d’activités / protocole",
+    "support.settings_chatter_default_desc": "Définissez si les espaces de travail de tickets s’ouvrent avec le journal replié ou développé par défaut",
+    "support.settings_chatter_collapsed": "Replié par défaut (Compact, maximise l’espace du ticket)",
+    "support.settings_chatter_expanded": "Développé par défaut (Accès immédiat aux notes, temps et historique)",
     "support.save_changes": "Enregistrer les modifications",
+    "settings.support_workflow_title": "Flux de travail Support & Service",
+    "settings.support_workflow_desc": "Visibilité par défaut du journal d’activités et préférences d’assistance",
+    "settings.support_default_chatter_label": "Visibilité par défaut du journal d’activités & notes",
+    "settings.support_default_chatter_desc": "Définit si le journal d’activités et notes est développé ou replié par défaut à l’ouverture d’un ticket. Vous pouvez toujours le basculer individuellement à tout moment.",
+    "settings.support_chatter_collapsed": "Replié par défaut (Compact, maximise l’espace du ticket)",
+    "settings.support_chatter_expanded": "Développé par défaut (Accès immédiat aux notes, temps et historique)",
     "invoice.title": "Factures & Facturation",
     "invoice.new_invoice": "Nouvelle facture",
     "invoice.edit_invoice": "Modifier la facture",

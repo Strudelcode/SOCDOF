@@ -6,6 +6,28 @@
 
 ## Completed Tasks Archive
 
+### Ultra-Compact Support Ticket Header & Start-Screen Scoped Navigation (v22.6.19)
+- [x] **Ultra-Compact Support Ticket Workspace**:
+  - [x] Streamlined the ticket detail view into a single ultra-compact unified header bar, removing repetitive multi-row headers and saving substantial vertical space for ticket content.
+  - [x] Scoped global branding, "Mobile App Sync", "Settings", and "New Ticket" buttons to the start screen (List & Kanban views) only.
+  - [x] Replaced verbose "Back to list" text button with a space-saving `ArrowLeft` icon button in the top left.
+  - [x] Replaced the full-width horizontal workflow stepper with a compact, color-coded status dropdown badge in the top right.
+- [x] **Quad-Language Localization**:
+  - [x] Added all required UI strings and tooltips to `src/lib/i18n.ts` in German, English, French, and Spanish.
+
+### Global Default Visibility Configuration for Support Ticket Activity Logbook (v22.6.18)
+- [x] **Global Default Activity Logbook / Protocol Visibility**:
+  - [x] Added `support_default_chatter_expanded` preference to `CompanyProfile` and `SupportSettings`.
+  - [x] Built dual-surface configuration interface:
+    - In **Settings > General**, added the "Support & Service Workflow" card with a segmented toggle between "Collapsed by default (Clean & compact)" and "Expanded by default (Instant view of timeline & notes)".
+    - In the **Support Desk Settings Modal**, added the same default visibility control with instant synchronization across local storage and company profile.
+  - [x] Streamlined ticket workspace: default collapsed state maximizes editing space for ticket descriptions, time bookings, and phase assignments while keeping all history 1 click away.
+- [x] **Per-Ticket Session Memory**:
+  - [x] Integrated `ticketChatterOverrides` ensuring that when a user manually toggles the logbook for a specific ticket during a work session, that ticket remembers its toggled state without overwriting the global default for other tickets.
+- [x] **Universal Quad-Language Parity (DE, EN, FR, ES)**:
+  - [x] Localized all UI keys across German, English, French, and Spanish in `src/lib/i18n.ts`.
+  - [x] Regenerated external standalone language JSON packs in `/languages` and `/public/languages` via `scripts/export_languages.ts`.
+
 ### Storage Inspector & Per-Module Disk Space Analyzer (v22.6.17)
 - [x] **Granular Module & Feature Storage Breakdown**:
   - [x] Built `src/lib/storageInspector.ts` calculating precise byte footprint across all IndexedDB tables (Invoices, Products, Contacts, Stock, POS Receipts, Calendar) and LocalStorage keys (Snapshots, Asset Files, Support Tickets, Language Packs, Desktop Settings).
