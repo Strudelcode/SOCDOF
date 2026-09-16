@@ -50,15 +50,33 @@ import {
   PenTool,
   Type,
   LayoutGrid,
-  Columns
+  Columns,
+  Palette,
+  Printer,
+  CheckSquare,
+  ListTodo
 } from 'lucide-react';
-import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry } from '../types';
+import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry, SupportWorkItem, CustomStatusConfig, StatusColorPreset } from '../types';
 import { sounds } from '../lib/sound';
 import { useLanguage, t, formatSystemDate, formatSystemTime } from '../lib/i18n';
 import { MobileCompanionImportModal } from './MobileCompanionImportModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
 import { ContactEditModal } from './ContactEditModal';
+import { SupportTicketPrintModal } from './SupportTicketPrintModal';
 import { Smartphone, QrCode } from 'lucide-react';
+
+export const STATUS_COLOR_OPTIONS: { id: StatusColorPreset; label: string; hex: string; dot: string; badge: string; bgLight: string; text: string; border: string }[] = [
+  { id: 'blue', label: 'Blue', hex: '#3b82f6', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800', bgLight: 'bg-blue-50 dark:bg-blue-950/60', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
+  { id: 'sky', label: 'Sky', hex: '#0ea5e9', dot: 'bg-sky-500', badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800', bgLight: 'bg-sky-50 dark:bg-sky-950/60', text: 'text-sky-700 dark:text-sky-300', border: 'border-sky-200 dark:border-sky-800' },
+  { id: 'indigo', label: 'Indigo', hex: '#6366f1', dot: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800', bgLight: 'bg-indigo-50 dark:bg-indigo-950/60', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
+  { id: 'purple', label: 'Purple', hex: '#a855f7', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800', bgLight: 'bg-purple-50 dark:bg-purple-950/60', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' },
+  { id: 'amber', label: 'Amber', hex: '#f59e0b', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800', bgLight: 'bg-amber-50 dark:bg-amber-950/60', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
+  { id: 'emerald', label: 'Emerald', hex: '#10b981', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800', bgLight: 'bg-emerald-50 dark:bg-emerald-950/60', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
+  { id: 'rose', label: 'Rose', hex: '#f43f5e', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800', bgLight: 'bg-rose-50 dark:bg-rose-950/60', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' },
+  { id: 'orange', label: 'Orange', hex: '#f97316', dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-800', bgLight: 'bg-orange-50 dark:bg-orange-950/60', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-800' },
+  { id: 'teal', label: 'Teal', hex: '#14b8a6', dot: 'bg-teal-500', badge: 'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800', bgLight: 'bg-teal-50 dark:bg-teal-950/60', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-800' },
+  { id: 'slate', label: 'Slate', hex: '#94a3b8', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700', bgLight: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700' }
+];
 
 interface SupportServicesModuleProps {
   contacts: Contact[];
@@ -76,6 +94,8 @@ interface SupportSettings {
   defaultStaff: string;
   disableTeams?: boolean;
   defaultChatterExpanded?: boolean;
+  enableWorkItems?: boolean;
+  customStatuses?: Partial<Record<'new' | 'in_progress' | 'waiting' | 'resolved' | 'closed', CustomStatusConfig>>;
 }
 
 const STORAGE_KEY = 'socdof_support_services_tickets_v2';
@@ -121,7 +141,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     defaultTeam: 'Standard',
     defaultStaff: companyRoleName,
     disableTeams: false,
-    defaultChatterExpanded: initialDefaultChatter
+    defaultChatterExpanded: initialDefaultChatter,
+    enableWorkItems: true
   }), [companyRoleName, initialDefaultChatter]);
 
   // Support Settings (e.g. ticket prefix, default rate)
@@ -151,7 +172,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           disableTeams: typeof parsed.disableTeams === 'boolean' ? parsed.disableTeams : false,
           defaultChatterExpanded: typeof parsed.defaultChatterExpanded === 'boolean'
             ? parsed.defaultChatterExpanded
-            : initialDefaultChatter
+            : initialDefaultChatter,
+          customStatuses: parsed.customStatuses || {}
         };
       }
     } catch (e) {
@@ -164,7 +186,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       defaultTeam: 'Standard',
       defaultStaff: companyProfile.name || 'Firma',
       disableTeams: false,
-      defaultChatterExpanded: initialDefaultChatter
+      defaultChatterExpanded: initialDefaultChatter,
+      customStatuses: {}
     };
   });
 
@@ -183,8 +206,21 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   }, [companyProfile.support_default_chatter_expanded]);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'teams' | 'staff'>('general');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'teams' | 'staff' | 'statuses'>('general');
   const [tempSettings, setTempSettings] = useState<SupportSettings>(settings);
+  const [isFirstRunOnboarding, setIsFirstRunOnboarding] = useState(false);
+
+  // Auto-open settings wizard if first time opening support module
+  useEffect(() => {
+    try {
+      const hasOnboarded = localStorage.getItem('socdof_support_onboarded_v1');
+      if (!hasOnboarded) {
+        setIsFirstRunOnboarding(true);
+        setTempSettings(settings);
+        setIsSettingsModalOpen(true);
+      }
+    } catch {}
+  }, []);
 
   // Support Teams state (customizable by user)
   const [teams, setTeams] = useState<string[]>(() => {
@@ -265,7 +301,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return [];
   });
 
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'detail'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'gallery' | 'detail'>('list');
+  const [lastListMode, setLastListMode] = useState<'list' | 'kanban' | 'gallery'>('list');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
@@ -323,8 +360,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     }
   }, [isStatusDropdownOpen]);
 
-  // Status helper mapping
-  const getStatusLabel = (st: SupportServiceTicket['status']) => {
+  // Status helper mapping with custom name support
+  const getStatusLabel = (st: SupportServiceTicket['status'], overrideSettings?: SupportSettings) => {
+    const activeSettings = overrideSettings || settings;
+    const custom = activeSettings.customStatuses?.[st]?.label;
+    if (custom && custom.trim().length > 0) {
+      return custom.trim();
+    }
     switch (st) {
       case 'new': return t('support.status_new', undefined, 'New');
       case 'in_progress': return t('support.status_in_progress', undefined, 'In Progress');
@@ -335,14 +377,38 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     }
   };
 
-  // Kanban status columns with cohesive professional identities
+  // Full status config helper (label + color preset + Tailwind utility classes)
+  const getStatusConfig = (st: SupportServiceTicket['status'], overrideSettings?: SupportSettings) => {
+    const activeSettings = overrideSettings || settings;
+    const custom = activeSettings.customStatuses?.[st];
+    const label = (custom?.label && custom.label.trim().length > 0) ? custom.label.trim() : getStatusLabel(st, activeSettings);
+    const defaultColor: StatusColorPreset = 
+      st === 'new' ? 'blue' :
+      st === 'in_progress' ? 'sky' :
+      st === 'waiting' ? 'amber' :
+      st === 'resolved' ? 'emerald' : 'slate';
+    const colorPreset: StatusColorPreset = custom?.color || defaultColor;
+    const colorOpt = STATUS_COLOR_OPTIONS.find(c => c.id === colorPreset) || STATUS_COLOR_OPTIONS[0];
+    return {
+      key: st,
+      label,
+      colorPreset,
+      dotColor: colorOpt.dot,
+      badgeColor: colorOpt.badge,
+      bgLight: colorOpt.bgLight,
+      text: colorOpt.text,
+      border: colorOpt.border
+    };
+  };
+
+  // Kanban status columns with cohesive professional identities & user-customized colors/names
   const kanbanColumns = useMemo(() => [
-    { key: 'new', label: getStatusLabel('new'), dotColor: 'bg-blue-500', badgeColor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700' },
-    { key: 'in_progress', label: getStatusLabel('in_progress'), dotColor: 'bg-sky-500', badgeColor: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800' },
-    { key: 'waiting', label: getStatusLabel('waiting'), dotColor: 'bg-amber-500', badgeColor: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800' },
-    { key: 'resolved', label: getStatusLabel('resolved'), dotColor: 'bg-emerald-500', badgeColor: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' },
-    { key: 'closed', label: getStatusLabel('closed'), dotColor: 'bg-slate-400', badgeColor: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700' }
-  ], [lang]);
+    { key: 'new', label: getStatusConfig('new').label, dotColor: getStatusConfig('new').dotColor, badgeColor: getStatusConfig('new').badgeColor },
+    { key: 'in_progress', label: getStatusConfig('in_progress').label, dotColor: getStatusConfig('in_progress').dotColor, badgeColor: getStatusConfig('in_progress').badgeColor },
+    { key: 'waiting', label: getStatusConfig('waiting').label, dotColor: getStatusConfig('waiting').dotColor, badgeColor: getStatusConfig('waiting').badgeColor },
+    { key: 'resolved', label: getStatusConfig('resolved').label, dotColor: getStatusConfig('resolved').dotColor, badgeColor: getStatusConfig('resolved').badgeColor },
+    { key: 'closed', label: getStatusConfig('closed').label, dotColor: getStatusConfig('closed').dotColor, badgeColor: getStatusConfig('closed').badgeColor }
+  ], [lang, settings.customStatuses]);
 
   const activeKanbanColumns = useMemo(() => {
     if (selectedStatusFilter === 'all') return kanbanColumns;
@@ -353,9 +419,24 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [kanbanFitScreen, setKanbanFitScreen] = useState(true);
 
   // Detail / Edit Form state
-  const [activeTab, setActiveTab] = useState<'description' | 'timesheets'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'work_items' | 'timesheets'>('description');
   const [chatterTab, setChatterTab] = useState<'note' | 'activity'>('note');
   const [chatterInput, setChatterInput] = useState('');
+
+  // Work Items / Positions state
+  const [newWorkItemTitle, setNewWorkItemTitle] = useState('');
+  const [newWorkItemDesc, setNewWorkItemDesc] = useState('');
+  const [newWorkItemPrice, setNewWorkItemPrice] = useState('');
+  const [newWorkItemCompleted, setNewWorkItemCompleted] = useState(false);
+  const [editingWorkItemId, setEditingWorkItemId] = useState<string | null>(null);
+  const [editWorkItemTitle, setEditWorkItemTitle] = useState('');
+  const [editWorkItemDesc, setEditWorkItemDesc] = useState('');
+  const [editWorkItemPrice, setEditWorkItemPrice] = useState('');
+  const [workItemFilter, setWorkItemFilter] = useState<'all' | 'open' | 'completed'>('all');
+  const workItemTitleInputRef = useRef<HTMLInputElement>(null);
+
+  // Print / PDF Modal state
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   
   // Custom Free-Text Assignee Mode
   const [isCustomAssigneeMode, setIsCustomAssigneeMode] = useState(false);
@@ -568,6 +649,12 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     return base;
   };
 
+  // Helper to calculate total booked timesheet hours for any ticket
+  const calculateTicketHours = (tItem: SupportServiceTicket | null) => {
+    if (!tItem || !tItem.timesheets) return 0;
+    return tItem.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0);
+  };
+
   // Live Timer Interval with session & crash-recovery persistence
   useEffect(() => {
     let interval: any = null;
@@ -663,6 +750,123 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       return t;
     });
     saveTickets(updated);
+  };
+
+  // Work Items / Tasks Handlers
+  const handleToggleWorkItem = (itemId: string) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const currentItems = selectedTicket.workItems || [];
+    const toggledItem = currentItems.find(i => i.id === itemId);
+    const updatedItems = currentItems.map(item => {
+      if (item.id === itemId) {
+        const nextCompleted = !item.isCompleted;
+        return {
+          ...item,
+          isCompleted: nextCompleted,
+          completedAt: nextCompleted ? new Date().toISOString() : undefined
+        };
+      }
+      return item;
+    });
+
+    const newStatusText = toggledItem && !toggledItem.isCompleted 
+      ? t('support.work_item_marked_done', undefined, 'als erledigt markiert') 
+      : t('support.work_item_marked_open', undefined, 'wieder geöffnet');
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: companyRoleName,
+      type: 'activity',
+      content: `${t('support.work_item_activity', undefined, 'Aufgabe')}: "${toggledItem?.title || ''}" ${newStatusText}.`,
+      createdAt: new Date().toISOString()
+    };
+
+    updateCurrentTicket({
+      workItems: updatedItems,
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+  };
+
+  const handleSaveNewWorkItem = (keepOpenForNext: boolean = false) => {
+    if (!selectedTicket || !newWorkItemTitle.trim()) return;
+    sounds.playClick();
+
+    const cleanPriceStr = newWorkItemPrice.replace(',', '.').trim();
+    const parsedPrice = cleanPriceStr ? Math.max(0, parseFloat(cleanPriceStr) || 0) : undefined;
+    const newItem: SupportWorkItem = {
+      id: `wi_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: newWorkItemTitle.trim(),
+      description: newWorkItemDesc.trim() || undefined,
+      price: parsedPrice && parsedPrice > 0 ? parsedPrice : undefined,
+      isCompleted: newWorkItemCompleted,
+      completedAt: newWorkItemCompleted ? new Date().toISOString() : undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    const newActivity: SupportActivityEntry = {
+      id: `act_${Date.now()}`,
+      author: companyRoleName,
+      type: 'activity',
+      content: `${t('support.work_item_added', undefined, 'Neue Aufgabe hinzugefügt')}: "${newItem.title}"${newItem.price ? ` (${newItem.price.toFixed(2)} €)` : ''}.`,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedWorkItems = [...(selectedTicket.workItems || []), newItem];
+
+    updateCurrentTicket({
+      workItems: updatedWorkItems,
+      activities: [newActivity, ...selectedTicket.activities]
+    });
+
+    // Reset inputs
+    setNewWorkItemTitle('');
+    setNewWorkItemDesc('');
+    setNewWorkItemPrice('');
+    setNewWorkItemCompleted(false);
+
+    if (keepOpenForNext) {
+      setTimeout(() => {
+        workItemTitleInputRef.current?.focus();
+      }, 50);
+    }
+  };
+
+  const handleStartEditWorkItem = (item: SupportWorkItem) => {
+    sounds.playClick();
+    setEditingWorkItemId(item.id);
+    setEditWorkItemTitle(item.title);
+    setEditWorkItemDesc(item.description || '');
+    setEditWorkItemPrice(item.price !== undefined ? String(item.price) : '');
+  };
+
+  const handleSaveEditWorkItem = (itemId: string) => {
+    if (!selectedTicket || !editWorkItemTitle.trim()) return;
+    sounds.playClick();
+    const cleanPriceStr = editWorkItemPrice.replace(',', '.').trim();
+    const parsedPrice = cleanPriceStr ? Math.max(0, parseFloat(cleanPriceStr) || 0) : undefined;
+
+    const updatedItems = (selectedTicket.workItems || []).map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          title: editWorkItemTitle.trim(),
+          description: editWorkItemDesc.trim() || undefined,
+          price: parsedPrice && parsedPrice > 0 ? parsedPrice : undefined
+        };
+      }
+      return item;
+    });
+
+    updateCurrentTicket({ workItems: updatedItems });
+    setEditingWorkItemId(null);
+  };
+
+  const handleDeleteWorkItem = (itemId: string) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+    const updatedItems = (selectedTicket.workItems || []).filter(item => item.id !== itemId);
+    updateCurrentTicket({ workItems: updatedItems });
   };
 
   // Delete ticket with verification
@@ -815,6 +1019,63 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       timerAccumulatedSeconds: 0,
       timerPausedAt: undefined
     });
+  };
+
+  // Toggle timer on any ticket from cards (Gallery, Kanban, etc.)
+  const handleToggleTimer = (targetTicket: SupportServiceTicket) => {
+    sounds.playClick();
+    const nowIso = new Date().toISOString();
+    if (targetTicket.isTimerRunning) {
+      const currentElapsed = targetTicket.timerStartedAt 
+        ? Math.max(0, Math.floor((Date.now() - new Date(targetTicket.timerStartedAt).getTime()) / 1000))
+        : 0;
+      const newAccumulated = (targetTicket.timerAccumulatedSeconds || 0) + currentElapsed;
+      const newActivity: SupportActivityEntry = {
+        id: `act_${Date.now()}`,
+        author: targetTicket.assignedStaff || companyRoleName,
+        type: 'system',
+        content: `${t('support.timer_paused', undefined, 'Live-Timer paused:')} ${formatDetailedTimer(newAccumulated, lang)}.`,
+        createdAt: nowIso
+      };
+      setTickets(prev => prev.map(t => t.id === targetTicket.id ? {
+        ...t,
+        isTimerRunning: false,
+        timerStartedAt: undefined,
+        timerAccumulatedSeconds: newAccumulated,
+        timerPausedAt: nowIso,
+        activities: [newActivity, ...(t.activities || [])]
+      } : t));
+    } else {
+      const newActivity: SupportActivityEntry = {
+        id: `act_${Date.now()}`,
+        author: targetTicket.assignedStaff || companyRoleName,
+        type: 'system',
+        content: t('support.act_timer_started', undefined, 'Live-Timer started.'),
+        createdAt: nowIso
+      };
+      setTickets(prev => prev.map(t => {
+        if (t.id === targetTicket.id) {
+          return {
+            ...t,
+            isTimerRunning: true,
+            timerStartedAt: nowIso,
+            status: t.status === 'new' ? 'in_progress' : t.status,
+            activities: [newActivity, ...(t.activities || [])]
+          };
+        }
+        if (t.isTimerRunning && t.timerStartedAt) {
+          const currentElapsed = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
+          return {
+            ...t,
+            isTimerRunning: false,
+            timerStartedAt: undefined,
+            timerAccumulatedSeconds: (t.timerAccumulatedSeconds || 0) + currentElapsed,
+            timerPausedAt: nowIso
+          };
+        }
+        return t;
+      }));
+    }
   };
 
   // Save edited timesheet entry
@@ -1117,12 +1378,14 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 onClick={() => {
                   sounds.playClick();
                   setViewMode('list');
+                  setLastListMode('list');
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   viewMode === 'list' 
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
                 }`}
+                title={t('support.view_list', undefined, 'List')}
               >
                 <List className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{t('support.view_list', undefined, 'List')}</span>
@@ -1131,15 +1394,33 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 onClick={() => {
                   sounds.playClick();
                   setViewMode('kanban');
+                  setLastListMode('kanban');
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   viewMode === 'kanban' 
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
                 }`}
+                title={t('support.view_kanban', undefined, 'Kanban')}
               >
                 <Kanban className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{t('support.view_kanban', undefined, 'Kanban')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setViewMode('gallery');
+                  setLastListMode('gallery');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                  viewMode === 'gallery' 
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                }`}
+                title={t('support.view_gallery', undefined, 'Galerie')}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">{t('support.view_gallery', undefined, 'Galerie')}</span>
               </button>
 
               {viewMode === 'kanban' && (
@@ -1207,7 +1488,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       )}
 
       {/* Main Module Content */}
-      {viewMode === 'list' || viewMode === 'kanban' ? (
+      {viewMode === 'list' || viewMode === 'kanban' || viewMode === 'gallery' ? (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           
           {/* Filter Ribbon & Search Bar */}
@@ -1248,11 +1529,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300/60 dark:border-slate-700 max-w-full overflow-x-auto scrollbar-thin">
                 {[
                   { key: 'all', label: t('support.filter_all_statuses', undefined, 'All Statuses'), count: tickets.length, color: 'bg-slate-400' },
-                  { key: 'new', label: getStatusLabel('new'), count: tickets.filter(t => t.status === 'new').length, color: 'bg-blue-500' },
-                  { key: 'in_progress', label: getStatusLabel('in_progress'), count: tickets.filter(t => t.status === 'in_progress').length, color: 'bg-sky-500' },
-                  { key: 'waiting', label: getStatusLabel('waiting'), count: tickets.filter(t => t.status === 'waiting').length, color: 'bg-amber-500' },
-                  { key: 'resolved', label: getStatusLabel('resolved'), count: tickets.filter(t => t.status === 'resolved').length, color: 'bg-emerald-500' },
-                  { key: 'closed', label: getStatusLabel('closed'), count: tickets.filter(t => t.status === 'closed').length, color: 'bg-slate-400' }
+                  { key: 'new', label: getStatusConfig('new').label, count: tickets.filter(t => t.status === 'new').length, color: getStatusConfig('new').dotColor },
+                  { key: 'in_progress', label: getStatusConfig('in_progress').label, count: tickets.filter(t => t.status === 'in_progress').length, color: getStatusConfig('in_progress').dotColor },
+                  { key: 'waiting', label: getStatusConfig('waiting').label, count: tickets.filter(t => t.status === 'waiting').length, color: getStatusConfig('waiting').dotColor },
+                  { key: 'resolved', label: getStatusConfig('resolved').label, count: tickets.filter(t => t.status === 'resolved').length, color: getStatusConfig('resolved').dotColor },
+                  { key: 'closed', label: getStatusConfig('closed').label, count: tickets.filter(t => t.status === 'closed').length, color: getStatusConfig('closed').dotColor }
                 ].map(phase => {
                   const isActive = selectedStatusFilter === phase.key;
                   return (
@@ -1377,22 +1658,15 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                             )}
 
                             <td className="py-3.5 px-4">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${
-                                ticket.status === 'new' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700' :
-                                ticket.status === 'in_progress' ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800' :
-                                ticket.status === 'waiting' ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
-                                ticket.status === 'resolved' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
-                                'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                              }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  ticket.status === 'new' ? 'bg-blue-500' :
-                                  ticket.status === 'in_progress' ? 'bg-sky-500' :
-                                  ticket.status === 'waiting' ? 'bg-amber-500' :
-                                  ticket.status === 'resolved' ? 'bg-emerald-500' :
-                                  'bg-slate-400'
-                                }`} />
-                                <span>{getStatusLabel(ticket.status)}</span>
-                              </span>
+                              {(() => {
+                                const stCfg = getStatusConfig(ticket.status);
+                                return (
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${stCfg.badgeColor}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
+                                    <span>{stCfg.label}</span>
+                                  </span>
+                                );
+                              })()}
                             </td>
 
                             <td className="py-3.5 px-4 text-right font-mono">
@@ -1546,6 +1820,173 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               })}
             </div>
           )}
+
+          {/* GALLERY / GRID CARDS VIEW */}
+          {viewMode === 'gallery' && (
+            <div className="flex-1 p-3 sm:p-4 md:p-5 overflow-y-auto min-h-0">
+              {filteredTickets.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/40 dark:bg-slate-900/40">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-3">
+                    <LayoutGrid className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                    {t('support.no_tickets_found', undefined, 'Keine Tickets gefunden')}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-sm mt-1">
+                    {searchQuery || selectedTeamFilter !== 'all' || selectedStatusFilter !== 'all'
+                      ? t('support.no_tickets_matching', undefined, 'Keine Tickets entsprechen Ihren aktuellen Suchkriterien.')
+                      : t('support.empty_state_desc', undefined, 'Erstellen Sie Ihr erstes Support-Ticket über die Schaltfläche oben.')}
+                  </p>
+                  <button
+                    onClick={handleCreateNewTicket}
+                    className="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 inline mr-1" />
+                    <span>{t('support.new_ticket', undefined, 'Neues Ticket')}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {filteredTickets.map(ticket => {
+                    const stCfg = getStatusConfig(ticket.status);
+                    const hours = calculateTicketHours(ticket);
+                    const isRunning = ticket.isTimerRunning;
+
+                    return (
+                      <div
+                        key={ticket.id}
+                        onClick={() => {
+                          sounds.playClick();
+                          setSelectedTicketId(ticket.id);
+                          setViewMode('detail');
+                        }}
+                        className={`group p-4 rounded-2xl border transition-all duration-150 cursor-pointer flex flex-col justify-between relative bg-white dark:bg-slate-900 hover:shadow-lg hover:-translate-y-0.5 ${
+                          isRunning 
+                            ? 'border-cyan-500/80 ring-2 ring-cyan-500/20 shadow-md shadow-cyan-500/10' 
+                            : 'border-slate-200/90 dark:border-slate-800 hover:border-cyan-300 dark:hover:border-cyan-700 shadow-xs'
+                        }`}
+                      >
+                        <div>
+                          {/* Card Top: Ticket No, Priority, Status Badge */}
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-2 py-0.5 rounded-lg border border-cyan-200/60 dark:border-cyan-800/60">
+                                {ticket.ticketNumber}
+                              </span>
+                              {ticket.priority === 'urgent' && (
+                                <span className="p-1 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300" title="Dringend">
+                                  <AlertCircle className="w-3 h-3" />
+                                </span>
+                              )}
+                            </div>
+
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${stCfg.badgeColor}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
+                              <span>{stCfg.label}</span>
+                            </span>
+                          </div>
+
+                          {/* Card Title */}
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-2 mb-2">
+                            {ticket.title || t('support.untitled_ticket', undefined, 'Ohne Titel')}
+                          </h4>
+
+                          {/* Customer Name */}
+                          {ticket.contact_name ? (
+                            <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium mb-1.5 truncate">
+                              <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{ticket.contact_name}</span>
+                              {ticket.contact_company && (
+                                <span className="text-slate-400 text-[11px] truncate">({ticket.contact_company})</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 mb-1.5 italic">
+                              <User className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                              <span>{t('support.no_customer_assigned_title', undefined, 'Kein Kunde')}</span>
+                            </div>
+                          )}
+
+                          {/* Tags if any */}
+                          {ticket.tags && ticket.tags.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap mt-2 mb-2">
+                              {ticket.tags.slice(0, 3).map(tg => (
+                                <span key={tg} className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-medium flex items-center gap-1">
+                                  <Tag className="w-2.5 h-2.5" />
+                                  <span>{tg}</span>
+                                </span>
+                              ))}
+                              {ticket.tags.length > 3 && (
+                                <span className="text-[10px] text-slate-400">+{ticket.tags.length - 3}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card Bottom: Team / Assignee + Timer & Hours */}
+                        <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            {!settings.disableTeams && ticket.team && (
+                              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate block">
+                                {ticket.team} {ticket.assignedStaff ? `• ${ticket.assignedStaff}` : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isRunning ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sounds.playClick();
+                                  handleToggleTimer(ticket);
+                                }}
+                                className="px-2 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-mono text-[10px] font-bold animate-pulse flex items-center gap-1 transition cursor-pointer"
+                                title="Timer stoppen"
+                              >
+                                <Pause className="w-3 h-3" />
+                                <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sounds.playClick();
+                                  handleToggleTimer(ticket);
+                                }}
+                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-cyan-600 transition cursor-pointer"
+                                title="Timer starten"
+                              >
+                                <Play className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {hours.toFixed(1)} h
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTicketToDelete(ticket);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                              title={t('support.btn_delete', undefined, 'Delete Ticket')}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : selectedTicket ? (
         /* DETAIL VIEW: Ultra-Compact Modern Support Workspace */
@@ -1558,7 +1999,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               <button
                 onClick={() => {
                   sounds.playClick();
-                  setViewMode('list');
+                  setViewMode(lastListMode);
                 }}
                 className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer group shrink-0"
                 title={t('support.back_to_list', undefined, 'Back to list')}
@@ -1590,52 +2031,36 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               
               {/* Compact Status Selector Dropdown */}
               <div className="relative" ref={statusDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsStatusDropdownOpen(prev => !prev)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs border transition cursor-pointer ${
-                    selectedTicket.status === 'new'
-                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60'
-                      : selectedTicket.status === 'in_progress'
-                      ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/60'
-                      : selectedTicket.status === 'waiting'
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60'
-                      : selectedTicket.status === 'resolved'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                  title={t('support.change_status_tooltip', undefined, 'Status ändern')}
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${
-                    selectedTicket.status === 'new' ? 'bg-blue-500' :
-                    selectedTicket.status === 'in_progress' ? 'bg-sky-500' :
-                    selectedTicket.status === 'waiting' ? 'bg-amber-500' :
-                    selectedTicket.status === 'resolved' ? 'bg-emerald-500' :
-                    'bg-slate-400'
-                  }`} />
-                  <span className="font-semibold">{getStatusLabel(selectedTicket.status)}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
+                {(() => {
+                  const currentStCfg = getStatusConfig(selectedTicket.status);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setIsStatusDropdownOpen(prev => !prev)}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs border transition cursor-pointer ${currentStCfg.bgLight} ${currentStCfg.text} ${currentStCfg.border} hover:opacity-90`}
+                      title={t('support.change_status_tooltip', undefined, 'Status ändern')}
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${currentStCfg.dotColor}`} />
+                      <span className="font-semibold">{currentStCfg.label}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  );
+                })()}
 
                 {isStatusDropdownOpen && (
                   <div className="absolute right-0 mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 space-y-0.5">
                     <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       {t('support.status_pipeline_title', undefined, 'Ticket Status')}
                     </div>
-                    {[
-                      { key: 'new', label: getStatusLabel('new'), color: 'bg-blue-500' },
-                      { key: 'in_progress', label: getStatusLabel('in_progress'), color: 'bg-sky-500' },
-                      { key: 'waiting', label: getStatusLabel('waiting'), color: 'bg-amber-500' },
-                      { key: 'resolved', label: getStatusLabel('resolved'), color: 'bg-emerald-500' },
-                      { key: 'closed', label: getStatusLabel('closed'), color: 'bg-slate-400' }
-                    ].map(phase => {
-                      const isCurrent = selectedTicket.status === phase.key;
+                    {(['new', 'in_progress', 'waiting', 'resolved', 'closed'] as SupportServiceTicket['status'][]).map(phaseKey => {
+                      const phaseCfg = getStatusConfig(phaseKey);
+                      const isCurrent = selectedTicket.status === phaseKey;
                       return (
                         <button
-                          key={phase.key}
+                          key={phaseKey}
                           type="button"
                           onClick={() => {
-                            handleStatusChange(phase.key as any);
+                            handleStatusChange(phaseKey);
                             setIsStatusDropdownOpen(false);
                           }}
                           className={`w-full px-3 py-1.5 text-xs flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer ${
@@ -1643,8 +2068,8 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                           }`}
                         >
                           <span className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${phase.color}`} />
-                            <span>{phase.label}</span>
+                            <span className={`w-2 h-2 rounded-full ${phaseCfg.dotColor}`} />
+                            <span>{phaseCfg.label}</span>
                           </span>
                           {isCurrent && <Check className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />}
                         </button>
@@ -1690,6 +2115,19 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 </button>
               )}
 
+              {/* PDF / Print Service Report */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setIsPrintModalOpen(true);
+                }}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                title={t('support.btn_print_report', undefined, 'Servicebericht drucken / als PDF speichern')}
+              >
+                <Printer className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span className="hidden md:inline">{t('support.btn_print_short', undefined, 'PDF / Druck')}</span>
+              </button>
+
               {/* Toggle Chatter Logbook Button */}
               <button
                 onClick={() => {
@@ -1719,6 +2157,19 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     {selectedTicket.activities.length}
                   </span>
                 )}
+              </button>
+
+              {/* Support Settings Button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setTempSettings(settings);
+                  setIsSettingsModalOpen(true);
+                }}
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
+                title={t('support.settings_tooltip', undefined, 'Configure support settings, teams, staff and prefix')}
+              >
+                <Settings className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               </button>
 
               {/* Delete Button */}
@@ -1760,12 +2211,12 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               <div 
                 ref={modulesContainerRef}
                 style={{ '--m1-width': `${formModulesRatio}%` } as React.CSSProperties}
-                className="flex flex-col md:flex-row gap-0 text-xs border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/40 dark:bg-slate-900/30 shadow-2xs"
+                className={`flex flex-col ${isChatterVisible ? 'xl:flex-row' : 'md:flex-row'} gap-0 text-xs border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/40 dark:bg-slate-900/30 shadow-2xs`}
               >
                 
                 {/* Column 1 / Module 1: Assignment, Team & Priority */}
                 <div 
-                  className="p-4 sm:p-5 space-y-4 min-w-0 w-full md:w-[var(--m1-width)] md:shrink-0"
+                  className={`p-4 sm:p-5 space-y-4 min-w-0 w-full ${isChatterVisible ? 'xl:w-[var(--m1-width)] xl:shrink-0' : 'md:w-[var(--m1-width)] md:shrink-0'}`}
                 >
                   {/* Kundendienstteam - Hidden in Solo Mode */}
                   {!settings.disableTeams && (
@@ -1955,7 +2406,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 {/* Draggable Splitter Line between Module 1 and Module 2 (Slim & Minimal) */}
                 <div
                   onMouseDown={handleModulesSplitterMouseDown}
-                  className={`hidden md:flex items-center justify-center w-[3px] cursor-col-resize group shrink-0 select-none transition-colors relative z-10 ${
+                  className={`${isChatterVisible ? 'hidden xl:flex' : 'hidden md:flex'} items-center justify-center w-[3px] cursor-col-resize group shrink-0 select-none transition-colors relative z-10 ${
                     isDraggingModulesSplitter
                       ? 'bg-cyan-500'
                       : 'bg-slate-200 hover:bg-cyan-500/80 dark:bg-slate-800 dark:hover:bg-cyan-500/80'
@@ -1966,11 +2417,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 </div>
 
                 {/* Column 2 / Module 2: Customer Contact Info & Billing Rate */}
-                <div className="p-4 sm:p-5 space-y-4 min-w-0 flex-1 border-t md:border-t-0 border-slate-200/80 dark:border-slate-800">
+                <div className={`p-4 sm:p-5 space-y-4 min-w-0 flex-1 border-t ${isChatterVisible ? 'xl:border-t-0 xl:border-l' : 'md:border-t-0 md:border-l'} border-slate-200/80 dark:border-slate-800`}>
                   {/* Kunde (CRM / Address Book) Section */}
                   <div className="space-y-2">
                     {/* Header Label & Modal Trigger Button */}
-                    <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 text-xs">
                       <label className="font-semibold text-slate-700 dark:text-slate-300">
                         {t('support.label_customer', undefined, 'Customer (CRM / Address Book)')}
                       </label>
@@ -1995,12 +2446,12 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                         return (
                           <div className="p-3 rounded-2xl border border-cyan-200 dark:border-cyan-800/80 bg-gradient-to-br from-cyan-50/70 to-white dark:from-cyan-950/30 dark:to-slate-900 shadow-2xs space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-start sm:items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className={`w-9 h-9 rounded-xl ${assignedContact?.avatar_color || 'bg-cyan-600'} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
                                   {initials}
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                                       {displayName}
@@ -2017,7 +2468,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2080,13 +2531,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       return (
                         <div 
                           onClick={() => setIsCustomerPickerOpen(true)}
-                          className="p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 hover:border-cyan-300 dark:hover:border-cyan-700 transition flex items-center justify-between gap-3 cursor-pointer group"
+                          className="p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 hover:border-cyan-300 dark:hover:border-cyan-700 transition flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 cursor-pointer group"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-950/80 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 flex items-center justify-center shrink-0 transition">
                               <Users className="w-4 h-4" />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition truncate">
                                 {t('support.no_customer_assigned_title', undefined, 'No customer assigned')}
                               </p>
@@ -2101,7 +2552,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               e.stopPropagation();
                               setIsCustomerPickerOpen(true);
                             }}
-                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-2xs transition active:scale-95 cursor-pointer"
+                            className="w-full sm:w-auto px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 shadow-2xs transition active:scale-95 cursor-pointer"
                           >
                             <Search className="w-3.5 h-3.5" />
                             <span>{t('support.btn_choose_customer', undefined, 'Select Customer')}</span>
@@ -2225,7 +2676,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                   {/* Stundensatz */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 mb-1">
                       <label className="font-semibold text-slate-700 dark:text-slate-300 block text-xs">
                         {t('support.label_hourly_rate', undefined, 'Hourly Rate')}
                       </label>
@@ -2252,15 +2703,15 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
               </div>
 
-              {/* Lower Tabbed Section: Beschreibung & Zeiterfassung */}
+              {/* Lower Tabbed Section: Beschreibung & Zeiterfassung & Aufgaben */}
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 mb-4">
+                <div className="flex items-center gap-3 sm:gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 mb-4 overflow-x-auto">
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setActiveTab('description');
                     }}
-                    className={`pb-1.5 text-xs font-bold border-b-2 transition ${
+                    className={`pb-1.5 text-xs font-bold border-b-2 transition whitespace-nowrap cursor-pointer ${
                       activeTab === 'description'
                         ? 'border-cyan-600 text-cyan-600 dark:text-cyan-400'
                         : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -2269,17 +2720,44 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     {t('support.tab_description', undefined, 'Description & Details')}
                   </button>
 
+                  {settings.enableWorkItems !== false && (
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setActiveTab('work_items');
+                      }}
+                      className={`pb-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer ${
+                        activeTab === 'work_items'
+                          ? 'border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                          : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      <span>{t('support.tab_work_items', undefined, 'Aufgaben & Positionen')}</span>
+                      {selectedTicket.workItems && selectedTicket.workItems.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                          selectedTicket.workItems.every(w => w.isCompleted)
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-400'
+                        }`}>
+                          {selectedTicket.workItems.filter(w => w.isCompleted).length}/{selectedTicket.workItems.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setActiveTab('timesheets');
                     }}
-                    className={`pb-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition ${
+                    className={`pb-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer ${
                       activeTab === 'timesheets'
                         ? 'border-cyan-600 text-cyan-600 dark:text-cyan-400'
                         : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
+                    <Clock className="w-3.5 h-3.5" />
                     <span>{t('support.tab_timesheets', undefined, 'Timesheets (Work Hours)')}</span>
                     <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-mono font-bold">
                       {totalHours.toFixed(1)} h
@@ -2297,6 +2775,342 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       placeholder={t('support.placeholder_description', undefined, 'Detailed issue description, customer requirements, serial numbers...')}
                       className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 focus:outline-hidden leading-relaxed"
                     />
+                  </div>
+                )}
+
+                {/* Tab: Aufgaben & Positionen (Work Items) */}
+                {activeTab === 'work_items' && (
+                  <div className="space-y-4">
+                    {/* Header & Stats Banner */}
+                    {selectedTicket.workItems && selectedTicket.workItems.length > 0 && (() => {
+                      const items = selectedTicket.workItems;
+                      const completedCount = items.filter(w => w.isCompleted).length;
+                      const totalCount = items.length;
+                      const pct = Math.round((completedCount / totalCount) * 100);
+                      const totalPrices = items.reduce((sum, w) => sum + (Number(w.price) || 0), 0);
+
+                      return (
+                        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                {completedCount} / {totalCount} {t('support.work_items_progress', undefined, 'Aufgaben erledigt')}
+                              </span>
+                              <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">
+                                ({pct}%)
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              {totalPrices > 0 && (
+                                <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/80 flex items-center gap-1">
+                                  <span>{t('support.work_items_total_amount', undefined, 'Gesamtbetrag Positionen')}:</span>
+                                  <span className="font-mono font-bold">{totalPrices.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {companyProfile.currency || '€'}</span>
+                                </div>
+                              )}
+
+                              {/* Filter pills */}
+                              <div className="flex items-center bg-slate-200/80 dark:bg-slate-700/80 p-0.5 rounded-lg text-[11px] font-medium">
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkItemFilter('all')}
+                                  className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'all' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  Alle ({totalCount})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkItemFilter('open')}
+                                  className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'open' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  Offen ({totalCount - completedCount})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkItemFilter('completed')}
+                                  className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'completed' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  Erledigt ({completedCount})
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${pct === 100 ? 'bg-emerald-500' : 'bg-cyan-600'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Creation Card for new work step / position */}
+                    <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/80 rounded-xl border border-cyan-500/30 dark:border-cyan-500/20 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                          <span>{t('support.work_items_title', undefined, 'Service-Positionen & Arbeitsschritte')}</span>
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">
+                          {t('support.work_items_subtitle', undefined, 'Erfassen Sie einzelne Arbeitsschritte, Notizen und optionale Pauschalbeträge für dieses Ticket')}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                        {/* Title */}
+                        <div className="md:col-span-5">
+                          <input
+                            ref={workItemTitleInputRef}
+                            type="text"
+                            value={newWorkItemTitle}
+                            onChange={(e) => setNewWorkItemTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveNewWorkItem(true);
+                              }
+                            }}
+                            placeholder={t('support.work_item_title_placeholder', undefined, 'z.B. Hardware-Diagnose, Displaytausch, Windows neu aufsetzen...')}
+                            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                          />
+                        </div>
+
+                        {/* Description / Notes */}
+                        <div className="md:col-span-4">
+                          <input
+                            type="text"
+                            value={newWorkItemDesc}
+                            onChange={(e) => setNewWorkItemDesc(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveNewWorkItem(true);
+                              }
+                            }}
+                            placeholder={t('support.work_item_notes_placeholder', undefined, 'Details, Notizen, Seriennr., Ergebnisse...')}
+                            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                          />
+                        </div>
+
+                        {/* Custom Amount / Price */}
+                        <div className="md:col-span-3 relative">
+                          <input
+                            type="text"
+                            value={newWorkItemPrice}
+                            onChange={(e) => setNewWorkItemPrice(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveNewWorkItem(true);
+                              }
+                            }}
+                            placeholder={t('support.work_item_price_placeholder', undefined, '0,00')}
+                            className="w-full pl-3 pr-8 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
+                          />
+                          <span className="absolute right-3 top-2 text-slate-400 font-mono text-xs">{companyProfile.currency || '€'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={newWorkItemCompleted}
+                            onChange={(e) => setNewWorkItemCompleted(e.target.checked)}
+                            className="rounded text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
+                          />
+                          <span>{t('support.work_item_mark_done', undefined, 'Bereits erledigt')}</span>
+                        </label>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveNewWorkItem(false)}
+                            disabled={!newWorkItemTitle.trim()}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>{t('support.btn_add_work_item', undefined, 'Position hinzufügen')}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSaveNewWorkItem(true)}
+                            disabled={!newWorkItemTitle.trim()}
+                            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
+                            title="Speichern und direkt den nächsten Arbeitsschritt eingeben"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{t('support.btn_add_and_next', undefined, 'Speichern & Weiteres anlegen')}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Work Items List */}
+                    {(() => {
+                      const items = selectedTicket.workItems || [];
+                      const filtered = items.filter(w => {
+                        if (workItemFilter === 'open') return !w.isCompleted;
+                        if (workItemFilter === 'completed') return w.isCompleted;
+                        return true;
+                      });
+
+                      if (items.length === 0) {
+                        return (
+                          <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-900/30">
+                            <ListTodo className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              {t('support.work_items_empty', undefined, 'Noch keine Service-Positionen erfasst.')}
+                            </p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                              Erfassen Sie oben einzelne Aufgaben, Materialkosten oder Arbeitsschritte.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-2">
+                          {filtered.map((item) => {
+                            const isEditing = editingWorkItemId === item.id;
+
+                            if (isEditing) {
+                              return (
+                                <div key={item.id} className="p-3 bg-cyan-50/50 dark:bg-cyan-950/30 rounded-xl border border-cyan-300 dark:border-cyan-800 space-y-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                    <div className="sm:col-span-5">
+                                      <input
+                                        type="text"
+                                        value={editWorkItemTitle}
+                                        onChange={(e) => setEditWorkItemTitle(e.target.value)}
+                                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                      />
+                                    </div>
+                                    <div className="sm:col-span-4">
+                                      <input
+                                        type="text"
+                                        value={editWorkItemDesc}
+                                        onChange={(e) => setEditWorkItemDesc(e.target.value)}
+                                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                      />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                      <input
+                                        type="text"
+                                        value={editWorkItemPrice}
+                                        onChange={(e) => setEditWorkItemPrice(e.target.value)}
+                                        className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingWorkItemId(null)}
+                                      className="px-2.5 py-1 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 rounded-lg cursor-pointer"
+                                    >
+                                      {t('action.cancel', undefined, 'Abbrechen')}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEditWorkItem(item.id)}
+                                      className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs rounded-lg shadow-2xs cursor-pointer"
+                                    >
+                                      {t('action.save', undefined, 'Speichern')}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={item.id}
+                                className={`p-3 rounded-xl border transition-all flex items-start gap-3 group ${
+                                  item.isCompleted
+                                    ? 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 text-slate-500'
+                                    : 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700/80 shadow-2xs text-slate-900 dark:text-slate-100'
+                                }`}
+                              >
+                                {/* Checkbox */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleWorkItem(item.id)}
+                                  className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition shrink-0 cursor-pointer ${
+                                    item.isCompleted
+                                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                                      : 'border-slate-300 dark:border-slate-600 hover:border-cyan-500 bg-white dark:bg-slate-900'
+                                  }`}
+                                  title={item.isCompleted ? 'Als offen markieren' : 'Als erledigt markieren'}
+                                >
+                                  {item.isCompleted && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                                </button>
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`font-semibold text-xs leading-snug ${
+                                      item.isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'
+                                    }`}>
+                                      {item.title}
+                                    </span>
+
+                                    {item.isCompleted ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                                        {t('support.work_item_done_badge', undefined, 'Erledigt')}
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                        {t('support.work_item_open_badge', undefined, 'Offen')}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {item.description && (
+                                    <p className={`text-[11px] mt-1 leading-relaxed ${
+                                      item.isCompleted ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'
+                                    }`}>
+                                      {item.description}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Price pill */}
+                                {item.price !== undefined && item.price > 0 && (
+                                  <div className="shrink-0 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-mono font-bold">
+                                    + {item.price.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {companyProfile.currency || '€'}
+                                  </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditWorkItem(item)}
+                                    className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition cursor-pointer"
+                                    title="Bearbeiten"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteWorkItem(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                    title="Löschen"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -2834,9 +3648,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             </div>
 
             {/* Settings Navigation Tabs */}
-            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 flex-wrap">
               {[
                 { key: 'general', label: t('support.settings_tab_general', undefined, 'Prefix & Values'), icon: Sliders },
+                { key: 'statuses', label: t('support.settings_tab_statuses', undefined, 'Statuses & Colors'), icon: Palette },
                 ...(!tempSettings.disableTeams ? [
                   { key: 'teams', label: `${t('support.settings_tab_teams', undefined, 'Teams')} (${teams.length})`, icon: Users },
                   { key: 'staff', label: `${t('support.settings_tab_staff', undefined, 'Staff')} (${staffList.length})`, icon: User }
@@ -3188,6 +4003,144 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: STATUS PIPELINE & COLOR CUSTOMIZATION */}
+              {settingsActiveTab === 'statuses' && (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Palette className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                        <span>{t('support.settings_tab_statuses', undefined, 'Statuses & Colors')}</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {t('support.settings_statuses_desc', undefined, 'Customize names, colors, and badge appearance for ticket workflow phases.')}
+                      </p>
+                    </div>
+                    {Object.keys(tempSettings.customStatuses || {}).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sounds.playClick();
+                          setTempSettings({ ...tempSettings, customStatuses: {} });
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition border border-rose-200 dark:border-rose-900/60 shrink-0 cursor-pointer"
+                        title={t('support.status_reset_all', undefined, 'Reset all statuses to default')}
+                      >
+                        {t('support.status_reset_all', undefined, 'Reset All')}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {(['new', 'in_progress', 'waiting', 'resolved', 'closed'] as SupportServiceTicket['status'][]).map(st => {
+                      const currentCfg = getStatusConfig(st, tempSettings);
+                      const customEntry = tempSettings.customStatuses?.[st];
+                      const isCustomized = Boolean(customEntry?.label?.trim() || customEntry?.color);
+
+                      return (
+                        <div
+                          key={st}
+                          className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 shadow-2xs"
+                        >
+                          {/* Header: Key & Live Badge Preview */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded">
+                                {st}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {t('support.status_preview', undefined, 'Badge Preview')}:
+                              </span>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${currentCfg.badgeColor} shadow-2xs`}>
+                                <span className={`w-2 h-2 rounded-full ${currentCfg.dotColor}`} />
+                                <span>{currentCfg.label}</span>
+                              </span>
+                            </div>
+
+                            {isCustomized && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sounds.playClick();
+                                  const updated = { ...(tempSettings.customStatuses || {}) };
+                                  delete updated[st];
+                                  setTempSettings({ ...tempSettings, customStatuses: updated });
+                                }}
+                                className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-1 cursor-pointer transition"
+                                title={t('support.status_reset_default', undefined, 'Reset to default')}
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>{t('support.status_reset_default', undefined, 'Reset')}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Inputs: Label & Color Palette */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            {/* Custom Label Input */}
+                            <div>
+                              <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
+                                {t('support.status_custom_label', undefined, 'Display Name')}
+                              </label>
+                              <input
+                                type="text"
+                                value={customEntry?.label ?? ''}
+                                onChange={(e) => {
+                                  const updated = { ...(tempSettings.customStatuses || {}) };
+                                  updated[st] = {
+                                    ...(updated[st] || {}),
+                                    label: e.target.value
+                                  };
+                                  setTempSettings({ ...tempSettings, customStatuses: updated });
+                                }}
+                                placeholder={getStatusLabel(st, { ...tempSettings, customStatuses: {} })}
+                                className="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-cyan-500"
+                              />
+                            </div>
+
+                            {/* Color Palette Selector */}
+                            <div>
+                              <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
+                                {t('support.status_custom_color', undefined, 'Color Palette')}
+                              </label>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {STATUS_COLOR_OPTIONS.map(cOpt => {
+                                  const isSelected = currentCfg.colorPreset === cOpt.id;
+                                  return (
+                                    <button
+                                      key={cOpt.id}
+                                      type="button"
+                                      onClick={() => {
+                                        sounds.playClick();
+                                        const updated = { ...(tempSettings.customStatuses || {}) };
+                                        updated[st] = {
+                                          ...(updated[st] || {}),
+                                          color: cOpt.id
+                                        };
+                                        setTempSettings({ ...tempSettings, customStatuses: updated });
+                                      }}
+                                      className={`w-6 h-6 rounded-lg transition-transform flex items-center justify-center cursor-pointer ${
+                                        isSelected 
+                                          ? 'ring-2 ring-cyan-500 ring-offset-2 dark:ring-offset-slate-800 scale-110' 
+                                          : 'hover:scale-105 opacity-80 hover:opacity-100'
+                                      }`}
+                                      style={{ backgroundColor: cOpt.hex }}
+                                      title={cOpt.label}
+                                    >
+                                      {isSelected && <Check className="w-3.5 h-3.5 text-white drop-shadow-xs" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

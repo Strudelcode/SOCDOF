@@ -386,6 +386,16 @@ export interface CustomStatusConfig {
   color?: StatusColorPreset;
 }
 
+export interface SupportWorkItem {
+  id: string;
+  title: string;
+  description?: string;
+  price?: number;
+  isCompleted: boolean;
+  completedAt?: string;
+  createdAt: string;
+}
+
 export interface SupportServiceTicket {
   id: string;
   ticketNumber: string;
@@ -401,6 +411,7 @@ export interface SupportServiceTicket {
   contact_company?: string;
   status: 'new' | 'in_progress' | 'waiting' | 'resolved' | 'closed' | 'invoiced';
   description: string;
+  workItems?: SupportWorkItem[];
   timesheets: SupportTimesheetEntry[];
   activities: SupportActivityEntry[];
   expenses?: SupportExpenseEntry[];

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.19';
+export const APP_VERSION = '22.6.20';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,19 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.6.20',
+    date: '2026-09-16',
+    title: 'Support Desk Gallery View, Customizable Status Pipeline & Responsive Splitter',
+    highlights: [
+      'Interactive Gallery View Mode: Added a 3-way view mode switcher (List, Kanban, Gallery) with card-based layout showcasing ticket priority, status badges, customer details, tags, 1-click live timer start/pause button, and booked hours.',
+      'Customizable Ticket Status Pipeline: Configurable status display names and 8 distinct color palette presets (Blue, Sky, Emerald, Amber, Purple, Rose, Slate, Indigo) under Support Settings > Statuses & Colors.',
+      'Real-Time Status Badge Preview & Reset Controls: Live badge preview in settings modal with per-status reset and global reset to restore default workflow phases.',
+      'Responsive Dual-Module Splitter: Dynamically shifts from horizontal side-by-side to stacked layout on medium viewports when the activity chatter sidebar is opened, preventing content cramping and text truncation.',
+      'Direct Detail Settings Access: Integrated dedicated configuration button inside the ultra-compact ticket detail header for instant access to team, staff, status, and numbering settings.',
+      'Universal Quad-Language Parity: Full i18n support in German, English, French, and Spanish in src/lib/i18n.ts.'
+    ]
+  },
   {
     version: '22.6.19',
     date: '2026-09-15',
