@@ -21,7 +21,7 @@ import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { BackupSetupModal } from './components/BackupSetupModal';
 import { applyAccentColor } from './lib/accent';
-import { getLanguage, setLanguage } from './lib/i18n';
+import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
 
 export default function App() {
@@ -137,7 +137,16 @@ export default function App() {
         if (comp.accent_color) {
           applyAccentColor(comp.accent_color);
         }
-        if (comp.language) {
+        
+        // Prioritize user's saved language preference (from localStorage / Electron) over old seeded db values
+        const explicitSavedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_language') : null;
+        if (explicitSavedLang && (explicitSavedLang === 'de' || explicitSavedLang === 'en' || explicitSavedLang === 'fr' || explicitSavedLang === 'es')) {
+          setLanguage(explicitSavedLang as LanguageCode);
+          if (comp.language !== explicitSavedLang) {
+            comp.language = explicitSavedLang as LanguageCode;
+            await db.settings.put({ key: 'company_profile', value: comp });
+          }
+        } else if (comp.language) {
           setLanguage(comp.language);
         } else {
           const current = getLanguage();
@@ -204,6 +213,24 @@ export default function App() {
     }
   };
 
+  const handleUpdateCompany = async (updated: CompanyProfile) => {
+    setCompany(updated);
+    try {
+      await db.settings.put({ key: 'company_profile', value: updated });
+      if (updated.language) {
+        setLanguage(updated.language);
+      }
+      if (updated.accent_color) {
+        applyAccentColor(updated.accent_color);
+      }
+      if (updated.font_scale) {
+        document.documentElement.style.fontSize = `${updated.font_scale}%`;
+      }
+    } catch (err) {
+      console.error('Failed to persist company profile:', err);
+    }
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden font-sans">
       <DesktopWindowWorkspace
@@ -215,7 +242,7 @@ export default function App() {
         posOrders={posOrders}
         company={company}
         onRefreshData={refreshData}
-        onUpdateCompany={(c) => setCompany(c)}
+        onUpdateCompany={handleUpdateCompany}
         isDark={isDark}
         onToggleTheme={handleToggleTheme}
         isMuted={isMuted}
@@ -252,7 +279,7 @@ export default function App() {
         currentLanguage={getLanguage()}
         onSelectLanguage={(lang) => {
           setLanguage(lang);
-          setCompany(prev => ({ ...prev, language: lang }));
+          handleUpdateCompany({ ...company, language: lang });
         }}
       />
 
@@ -261,7 +288,7 @@ export default function App() {
         isOpen={isBackupModalOpen && !isLanguageModalOpen}
         onClose={() => setIsBackupModalOpen(false)}
         company={company}
-        onUpdateCompany={(updated) => setCompany(updated)}
+        onUpdateCompany={handleUpdateCompany}
       />
     </div>
   );

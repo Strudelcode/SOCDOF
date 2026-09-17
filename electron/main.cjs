@@ -609,6 +609,49 @@ ipcMain.handle('socdof:save-local-language-file', async (_event, payload) => {
   }
 });
 
+// Persistent Desktop Preferences (%APPDATA%/socdof/preferences.json)
+function getPreferencesFilePath() {
+  const userDataDir = app.getPath('userData');
+  if (!fs.existsSync(userDataDir)) {
+    try { fs.mkdirSync(userDataDir, { recursive: true }); } catch {}
+  }
+  return path.join(userDataDir, 'preferences.json');
+}
+
+function readDesktopPreferences() {
+  try {
+    const p = getPreferencesFilePath();
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Could not read preferences:', err);
+  }
+  return {};
+}
+
+function saveDesktopPreferences(prefs) {
+  try {
+    const p = getPreferencesFilePath();
+    const current = readDesktopPreferences();
+    const updated = { ...current, ...(prefs || {}) };
+    fs.writeFileSync(p, JSON.stringify(updated, null, 2), 'utf8');
+    return { success: true, preferences: updated };
+  } catch (err) {
+    console.error('[SOCDOF Electron] Failed to save preferences:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+ipcMain.handle('socdof:get-preferences', () => {
+  return readDesktopPreferences();
+});
+
+ipcMain.handle('socdof:save-preferences', (_event, prefs) => {
+  return saveDesktopPreferences(prefs);
+});
+
 ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => {
   try {
     const { downloadUrl, version } = payload || {};

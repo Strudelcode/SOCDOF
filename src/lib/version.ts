@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.9.5';
+export const APP_VERSION = '22.9.9';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,49 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.9.9',
+    date: '2026-09-17',
+    title: 'Products Full Localization & Multi-Language Desktop Title Sync',
+    highlights: [
+      'Comprehensive 4-Language Products Localization: Added complete translation dictionary entries across English, German, French, and Spanish for all catalog components (category dropdown, search placeholder, table headers, action tooltips, modals).',
+      'Dynamic Desktop Window Title Bar: Updated window header title synchronization so that standard application windows instantly adapt to the active language (e.g. Products, Rechnungen, Contacts) when the user changes language.',
+      'Reorder & Allocation Tooltips: Localized row-level actions, customer allocation headers, and deletion confirmation dialogs across all 4 supported languages.'
+    ]
+  },
+  {
+    version: '22.9.8',
+    date: '2026-09-17',
+    title: 'Products Header Polish & Compact Responsive Navigation',
+    highlights: [
+      'Responsive Category Dropdown: Integrated a sleek Category selection dropdown menu for smaller desktop windows and mobile/tablet screens, switching to horizontal pills on wide displays to prevent wrapping.',
+      'Streamlined Reorder Button: Compacted the "Nachbestellen" button label and layout to prevent crowding the top navigation bar, while maintaining quick access and low-stock badge indicators.',
+      'Expanded Search Field: Enhanced the live search bar with flexible width and better spacing so product searches and SKU lookups remain comfortable across all window sizes.',
+      'Dark Mode Footer Rectification: Fixed the modal action footer background styling to seamlessly blend with dark mode themes.'
+    ]
+  },
+  {
+    version: '22.9.7',
+    date: '2026-09-17',
+    title: 'Desktop Language Persistence Fix & Product Modal UI Overhaul',
+    highlights: [
+      'Desktop Language Persistence: Fixed an issue where restarting SOCDOF on desktop would revert the language to English. Language preference is now persistently retained via Electron file-based preferences and synchronized with IndexedDB.',
+      'Product Modal UI & Field Harmony: Re-architected the product dialog with a fixed header, scrollable body, and sticky action footer so Save/Cancel buttons are always in view.',
+      'Field Layout & Barcode Support: Added dedicated Barcode/EAN/GTIN input field, cleanly grouped SKU, Category, and Unit into a balanced 3-column row, and fixed the dark mode reorder checkbox.',
+      'Search Input Styling: Ensured high-contrast text and placeholder styling for the live product catalog search bar across both themes.'
+    ]
+  },
+  {
+    version: '22.9.6',
+    date: '2026-09-17',
+    title: 'Product Creator Selection Menus, Emoji & Template Picker & Color Harmony',
+    highlights: [
+      'Top-Left Selection Menu: Added an interactive Icon & Emoji picker dropdown and quick product template selector in the New Product modal.',
+      'Categorized Emoji Library: Instant 1-click selection across 8 distinct categories (Standard, IT & Tech, Tools, Gastro, Fashion, Office, Mobility, Misc) with custom emoji keyboard input.',
+      'Color Harmony & Dark Mode Polish: Harmonized all input backgrounds, borders, and checkmark contrasts across both dark and light modes, fixing background color inconsistencies in the ASIN, unit, and link import sections.',
+      'Category Datalist Autocomplete: Instant suggestions of all existing product catalog categories when typing or clicking the category input.'
+    ]
+  },
   {
     version: '22.9.5',
     date: '2026-09-17',

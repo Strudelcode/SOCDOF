@@ -2282,12 +2282,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 onClick={() => {
                   if (isDraggingWidget) return;
                   handleIconMouseLeave();
-                  openWindow(modId, meta.title);
+                  openWindow(modId);
                 }}
                 onDoubleClick={() => {
                   if (isDraggingWidget) return;
                   handleIconMouseLeave();
-                  openWindow(modId, meta.title);
+                  openWindow(modId);
                 }}
                 onMouseEnter={(e) => !isDraggingWidget && handleIconMouseEnter(e, meta.title, meta.subtitle)}
                 onMouseLeave={handleIconMouseLeave}
@@ -2613,11 +2613,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <WindowIcon className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                  {win.module === 'docs'
-                    ? (shortcutMeta['docs']?.title || t('module.docs', currentLang, 'User Manual & Docs'))
-                    : (win.customTitle && !['Dokumentation & Handbuch', 'Handbuch', 'Handbuch & Dokumentation', 'Handbuch & Showcase', 'User Manual', 'Documentation & Manual', 'Manuel d’utilisation', 'Manuel & Documentation', 'Manual de usuario', 'Documentación y manual'].includes(win.customTitle)) 
-                      ? win.customTitle 
-                      : (shortcutMeta[win.module]?.title || t(`module.${win.module}`, currentLang) || win.title)}
+                  {(() => {
+                    const metaTitle = shortcutMeta[win.module]?.title;
+                    if (!win.customTitle) return metaTitle || t(`module.${win.module}`, currentLang) || win.title;
+                    const isGenericModuleTitle = [
+                      'Produkte', 'Products', 'Produits', 'Productos', 'Produkte & Preise',
+                      'Rechnungen', 'Invoices', 'Factures', 'Facturas', 'Rechnungen & Fakturierung',
+                      'Dashboard', 'POS Kasse', 'Point of Sale', 'POS', 'Lager', 'Stock', 'Inventario', 'Lager & Bestände',
+                      'Kontakte', 'Contacts', 'Contactos', 'Kontakte & Kunden', 'Kunden & Lieferanten',
+                      'Abrechnung', 'Accounting', 'Comptabilité', 'Contabilidad', 'BWA, EÜR & Finanzen',
+                      'Einkauf', 'Purchases', 'Achats', 'Compras', 'Lieferantenbestellungen',
+                      'Kalender', 'Calendar', 'Calendrier', 'Calendario', 'Termine',
+                      'Taschenrechner', 'Calculator', 'Calculatrice', 'Calculadora',
+                      'Support', 'Support & Tickets', 'Dienstleistungen & Zeiterfassung',
+                      'Widgets', 'Widgets & Notizen', 'Desktop-Widgets & Notizen', 'App Store', 'Module verwalten',
+                      'Einstellungen', 'Settings', 'Paramètres', 'Configuración', 'System-Einstellungen', 'Briefkopf & Backup',
+                      'Dokumentation & Handbuch', 'Handbuch', 'Handbuch & Dokumentation', 'Handbuch & Showcase', 'User Manual', 'Documentation & Manual', 'Manuel d’utilisation', 'Manuel & Documentation', 'Manual de usuario', 'Documentación y manual'
+                    ].includes(win.customTitle.trim());
+
+                    if (isGenericModuleTitle && metaTitle) {
+                      return metaTitle;
+                    }
+                    return win.customTitle || metaTitle || t(`module.${win.module}`, currentLang) || win.title;
+                  })()}
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
                   [{win.module.toUpperCase()}]
@@ -3060,7 +3078,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                       setDragOverIconId(null);
                     }}
                     onClick={() => {
-                      openWindow(modId, meta.title);
+                      openWindow(modId);
                       setIsStartMenuOpen(false);
                     }}
                     onContextMenu={(e) => {
@@ -3432,7 +3450,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   } else if (openWinAny) {
                     focusWindow(openWinAny.id);
                   } else {
-                    openWindow(modId, meta.title);
+                    openWindow(modId);
                   }
                 };
 
@@ -4095,7 +4113,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             <button
               onClick={() => {
-                openWindow(desktopIconContextMenu.modId, meta.title);
+                openWindow(desktopIconContextMenu.modId);
                 closeAllContextMenus();
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"
@@ -4245,7 +4263,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             <button
               onClick={() => {
-                openWindow(startMenuIconContextMenu.modId, meta.title);
+                openWindow(startMenuIconContextMenu.modId);
                 setIsStartMenuOpen(false);
                 closeAllContextMenus();
               }}
@@ -4393,7 +4411,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             {!openWin && (
               <button
                 onClick={() => {
-                  openWindow(taskbarIconContextMenu.modId, meta.title);
+                  openWindow(taskbarIconContextMenu.modId);
                   closeAllContextMenus();
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition font-semibold cursor-pointer"

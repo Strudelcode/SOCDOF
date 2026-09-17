@@ -7,6 +7,44 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+### v22.9.9
+🚀 **Neu / What's New**:
+- **Vollständige 4-Sprachen-Lokalisierung für das Produkte-Modul**: Alle Komponenten der Produktverwaltung (Kategorie-Auswahlmenü, Suchplatzhalter, Tabellenspalten, Aktions-Tooltips und Dialogfenster) wurden vollständig in Englisch (`en`), Deutsch (`de`), Französisch (`fr`) und Spanisch (`es`) übersetzt.
+- **Sprachsynchrone Fenstertitel im Fenstermanager**: Standard-Fenster passen ihre Titelzeile nun sofort an die ausgewählte Sprache an (z. B. "Products" bei englischer Sprache, "Produits" bei Französisch usw.).
+
+🛠️ **Behoben / Fixed**:
+- **Englische Übersetzung im Produktkatalog**: Fehlende Übersetzungsschlüssel und statische Fallback-Texte in der Kategorieauswahl, im Tabellenkopf und bei den Aktionen wurden behoben, sodass die Benutzeroberfläche bei englischer Sprache nahtlos auf Englisch angezeigt wird.
+
+### v22.9.8
+🚀 **Neu / What's New**:
+- **Kategorie-Auswahlmenü bei kleineren Bildschirmen**: Auf kleineren Bildschirmen und schmaleren Fenstern wird die Kategoriefilterung platzsparend als Ausklappmenü (`<select>`) dargestellt, während auf großen Bildschirmen die Leiste mit Tabs/Pills sichtbar bleibt.
+
+🔄 **Geändert / Improved**:
+- **Kompakterer Nachbestellen-Button**: Die Beschriftung wurde auf das Wesentliche („Nachbestellen“) gekürzt, wodurch die Navigationsleiste deutlich aufgeräumter wirkt und das Suchfeld mehr Platz erhält.
+- **Mehr Platz für die Suche**: Das Suchfeld passt sich flexibel an und wird nicht mehr durch überlange Schaltflächen gequetscht.
+
+### v22.9.7
+🚀 **Neu / What's New**:
+- **Barcode / EAN Feld im Produktdialog**: Ein eigenes Barcode-Feld (mit Scanner-Icon) ergänzt nun SKU und ASIN zur lückenlosen Artikelidentifikation.
+- **Fixierte Aktionsleiste (Sticky Footer)**: Speichern- und Abbrechen-Buttons bleiben im Produktfenster dauerhaft im Sichtfeld verankert, ohne nach unten scrollen zu müssen.
+
+🔄 **Geändert / Improved**:
+- **Aufgeräumtes Layout im Produkt-Creator**: SKU, Kategorie und Einheit sind übersichtlich in einer 3-Spalten-Zeile angeordnet. Die Schnellvorlagen-Auswahl ist prominent und geräteübergreifend platziert.
+
+🛠️ **Behoben / Fixed**:
+- **Dark Mode Footer im Produktdialog**: Die fixierte Fußzeile mit „Abbrechen“ und „Produkt erstellen“ wird im Dark Mode nun nahtlos dunkel (`dark:bg-slate-900`) statt grellweiß dargestellt.
+- **Sprachspeicherung beim Desktop-Neustart**: Das Zurücksetzen auf Englisch beim Schließen und erneuten Öffnen der Windows-App wurde behoben. Die gewählte Sprache wird über den Electron-Präferenzspeicher dauerhaft gesichert und beim Start direkt geladen.
+- **GUI- & Darstellungsfehler in Produktfeldern**: Unpassende Standard-Checkboxen, Kontrastprobleme in Such- und Texteingabefeldern im Dark Mode sowie Feldüberlappungen wurden behoben.
+
+### v22.9.6
+🚀 **Neu / What's New**:
+- **Auswahlmenü für Produkt-Icon & Emojis**: Oben links im Produktdialog steht nun ein interaktives Auswahlmenü mit über 90 kategorisierten Emojis (Standard, IT & Tech, Werkzeuge, Gastro, Mode, Büro, Mobilität, Diverses) und eigenem Emoji-Eingabefeld bereit.
+- **Schnellvorlagen-Auswahl**: Über ein neues Vorlagen-Menü in der Kopfzeile des Dialogs lassen sich Kategorie, Einheit und Icon für gängige Produktarten (Hardware, Dienstleistung, Software, Ersatzteil etc.) mit einem Klick vorbesetzen.
+- **Kategorie-Vorschlagsliste (`<datalist>`)**: Beim Eintippen einer Kategorie werden vorhandene Katalog-Kategorien und Standardwerte automatisch zur Schnellauswahl vorgeschlagen.
+
+🛠️ **Behoben / Fixed**:
+- **Farbanpassungen & Kontraste im Produktdialog korrigiert**: Inkonsistente weiße Eingabefelder im Dark Mode (ASIN, Einheit und Weblink-Feld) wurden harmonisiert. Alle Felder nutzen nun das einheitliche, augenschonende Slate-Design mit sauberem Textkontrast.
+
 ### v22.9.5
 🔄 **Geändert / Improved**:
 - **Verbessertes Preisfeld für Aufgaben & Positionen**: Das optionale Preisfeld für Service-Positionen ist bei neu geöffneten Aufgaben nun standardmäßig aufgeräumt (mit dezentem Platzhalter `0,00`), sodass kein störender `0`-Wert mehr mühsam weggelöscht werden muss.
