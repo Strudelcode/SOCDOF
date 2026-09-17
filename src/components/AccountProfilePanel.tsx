@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BriefcaseBusiness, Check, ImagePlus, Palette, UserRound, X } from 'lucide-react';
-import { applyAccentColor } from '../lib/accent';
+import { applyAccentColor, getAccentPreset } from '../lib/accent';
 import { getLanguage, setLanguage, SUPPORTED_LANGUAGES, t, type LanguageCode } from '../lib/i18n';
 import { updateUserPreferences, updateUser, type AccountType, type UserAccount } from '../lib/auth';
 
@@ -145,9 +145,10 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500"><Palette size={14} />{t('settings.accent_system_title')}</div>
             <div className="grid grid-cols-5 gap-2">
-              {PRESET_ACCENTS.map((accent) => (
-                <button key={accent} type="button" onClick={() => setAccentColor(accent)} className={`h-9 rounded-xl border ${accentColor === accent ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200 dark:border-white/10'}`} style={{ background: `var(--accent, ${accent})` }} aria-label={t('settings.accent_system_title')} title={t('settings.accent_system_title')} />
-              ))}
+              {PRESET_ACCENTS.map((accent) => {
+                const preset = getAccentPreset(accent);
+                return <button key={accent} type="button" onClick={() => setAccentColor(accent)} className={`h-9 rounded-xl border ${accentColor === accent ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200 dark:border-white/10'}`} style={{ background: preset.hex }} aria-label={t('settings.accent_system_title')} title={t('settings.accent_system_title')} />;
+              })}
             </div>
           </div>
 
