@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.6.20';
+export const APP_VERSION = '22.9.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,45 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.9.0',
+    date: '2026-09-17',
+    title: 'Robust Contact Import & Export Engine, Guestbook / Address Book Filter & Outlook/CSV/vCard Support',
+    highlights: [
+      'Intelligent Contact Import Engine: RFC 4180-compliant CSV and vCard (.vcf) parser with smart column recognition, multi-line quoted field handling, and automatic delimiter sniffing (semicolon, comma, tab).',
+      'No Artificial Placeholder Emails: Name-only or company-only contacts are cleanly imported without forcing dummy placeholder emails (e.g. kontakt_@import.local).',
+      'Guestbook / Private Address Book Mode: Added dedicated "guest" contact category and filter tab with teal badge styling, ideal for private contacts, personal guestbooks, and non-commercial address book entries.',
+      'Flexible Contact Export: Export contacts with one click to CSV/Excel or vCard (.vcf), with support for exporting all contacts or only the active filtered view.',
+      'Legacy Contact Sanitization: Automatic background cleanup of past faulty imports, removing dummy email addresses while preserving actual names, companies, and phone numbers.',
+      'Category Selection in Import Preview: Technicians can choose whether imported contacts are assigned to the Guestbook, Customers, or Suppliers with individual row removal.'
+    ]
+  },
+  {
+    version: '22.8.0',
+    date: '2026-09-17',
+    title: 'Support Work Item & Document Modals, Drag & Drop Attachments, In-App PDF Viewer & Timesheet Receipts',
+    highlights: [
+      'Comprehensive Work Item & Position Modal: Dedicated pop-up dialog for adding and editing service tasks and work items with customer assignment, title, description, flat-rate pricing, completion toggle, and document mode.',
+      'Document / Attachment Only Mode: Option to add items as pure document tasks (e.g. schematic, inspection protocol, delivery note) with immediate "Dokument anzeigen" (View Document) action in the task list.',
+      'In-App Document & PDF Viewer Modal: Responsive in-app document viewer with built-in PDF rendering (`<object>` / `<iframe>`), high-resolution image zoom, text preview, download button, and file metadata display.',
+      'Timesheet & Receipt Modal: Popup modal for tracking work hours and attaching diagnostic receipts, service proofs, or timesheet photos with drag & drop file upload.',
+      'Direct Drag & Drop File Upload: Seamless dropzone supporting PDFs, images, text files, and spreadsheets with file size safeguards and removable attachment chips.',
+      'Unified German & Multilingual Terminology: Fixed translation inconsistency by standardizing "Tätigkeitsbeschreibung" for work descriptions across German UI, live timers, and tables, with consistent EN, FR, and ES localizations.'
+    ]
+  },
+  {
+    version: '22.7.0',
+    date: '2026-09-17',
+    title: 'Support Ticket Work Items, Flat-Rate Positions, DIN-A4 Service Report PDF & First-Run Setup',
+    highlights: [
+      'Multi-Step Work Items & Service Positions: Dedicated "Work Items & Positions" tab in support tickets allowing technicians to record multiple distinct sub-tasks, notes, findings, and optional custom flat-rate prices.',
+      'Batch Creation Workflow: Intuitive creation card with rapid "Save & Add Another" (Enter key supported) workflow, progress bar, filter pills (All/Open/Completed), completion checkboxes, and inline editing.',
+      'DIN-A4 Service Report PDF Export & Print: Comprehensive printable customer service report dialog with official DIN 5008 fold marks, company details, customer contact info, work items list with prices, timesheet breakdown, tax calculation, and signature lines.',
+      'Auto First-Run Settings Onboarding: Automatically opens the support configuration modal with a friendly welcome banner on first visit, introducing prefixes, hourly rates, teams, and feature toggles.',
+      'Configurable Work Items Toggle: Option in Support Settings > General to enable or disable service work items according to company workflow needs.',
+      'Universal Quad-Language Parity: Full internationalization across all new dialogs, buttons, and badges in German, English, French, and Spanish.'
+    ]
+  },
   {
     version: '22.6.20',
     date: '2026-09-16',

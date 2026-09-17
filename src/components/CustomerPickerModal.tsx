@@ -167,7 +167,7 @@ export const CustomerPickerModal: React.FC<CustomerPickerModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 cursor-pointer"
-              title={t('action.cancel', undefined, 'Close')}
+              title={t('action.close', undefined, 'Close')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -431,7 +431,7 @@ export const CustomerPickerModal: React.FC<CustomerPickerModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition cursor-pointer"
           >
-            {t('action.cancel', undefined, 'Close')}
+            {t('action.close', undefined, 'Close')}
           </button>
         </div>
       </div>

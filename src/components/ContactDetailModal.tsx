@@ -148,12 +148,16 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' 
                     : contact.type === 'vendor' 
                     ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' 
+                    : contact.type === 'guest'
+                    ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-400'
                     : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
                 }`}>
                   {contact.type === 'customer' 
                     ? t('contact.type_customer', currentLang, 'Customer') 
                     : contact.type === 'vendor' 
                     ? t('contact.type_vendor', currentLang, 'Supplier') 
+                    : contact.type === 'guest'
+                    ? t('contact.type_guest', currentLang, 'Gästebuch / Privat')
                     : t('contacts.type_partner', currentLang, 'Partner')}
                 </span>
               </div>

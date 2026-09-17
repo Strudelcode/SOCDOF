@@ -54,15 +54,20 @@ import {
   Palette,
   Printer,
   CheckSquare,
-  ListTodo
+  ListTodo,
+  Paperclip,
+  Eye
 } from 'lucide-react';
-import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry, SupportWorkItem, CustomStatusConfig, StatusColorPreset } from '../types';
+import { Contact, CompanyProfile, SupportServiceTicket, SupportTimesheetEntry, SupportActivityEntry, SupportWorkItem, SupportWorkAttachment, CustomStatusConfig, StatusColorPreset } from '../types';
 import { sounds } from '../lib/sound';
 import { useLanguage, t, formatSystemDate, formatSystemTime } from '../lib/i18n';
 import { MobileCompanionImportModal } from './MobileCompanionImportModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
 import { ContactEditModal } from './ContactEditModal';
 import { SupportTicketPrintModal } from './SupportTicketPrintModal';
+import { SupportWorkItemModal } from './SupportWorkItemModal';
+import { SupportTimesheetModal } from './SupportTimesheetModal';
+import { SupportDocumentViewerModal } from './SupportDocumentViewerModal';
 import { Smartphone, QrCode } from 'lucide-react';
 
 export const STATUS_COLOR_OPTIONS: { id: StatusColorPreset; label: string; hex: string; dot: string; badge: string; bgLight: string; text: string; border: string }[] = [
@@ -437,6 +442,17 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
   // Print / PDF Modal state
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+  // Support Work Item & Document Attachment Modal
+  const [isWorkItemModalOpen, setIsWorkItemModalOpen] = useState(false);
+  const [editingWorkItemForModal, setEditingWorkItemForModal] = useState<SupportWorkItem | null>(null);
+
+  // Support Timesheet & Receipt Attachment Modal
+  const [isTimesheetModalOpen, setIsTimesheetModalOpen] = useState(false);
+  const [editingTimesheetForModal, setEditingTimesheetForModal] = useState<SupportTimesheetEntry | null>(null);
+
+  // In-App Document Preview Modal
+  const [activeViewingAttachment, setActiveViewingAttachment] = useState<SupportWorkAttachment | null>(null);
   
   // Custom Free-Text Assignee Mode
   const [isCustomAssigneeMode, setIsCustomAssigneeMode] = useState(false);
@@ -867,6 +883,142 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     sounds.playClick();
     const updatedItems = (selectedTicket.workItems || []).filter(item => item.id !== itemId);
     updateCurrentTicket({ workItems: updatedItems });
+  };
+
+  // Support Work Item & Attachment Modal Handlers
+  const handleOpenNewWorkItemModal = () => {
+    sounds.playClick();
+    setEditingWorkItemForModal(null);
+    setIsWorkItemModalOpen(true);
+  };
+
+  const handleOpenEditWorkItemModal = (item: SupportWorkItem) => {
+    sounds.playClick();
+    setEditingWorkItemForModal(item);
+    setIsWorkItemModalOpen(true);
+  };
+
+  const handleSaveWorkItemFromModal = (itemData: Partial<SupportWorkItem>, newCustomerId?: string) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+
+    let updatedContactId = selectedTicket.contact_id;
+    let activityEntries = [...selectedTicket.activities];
+
+    // Check if customer was changed within the work item modal
+    if (newCustomerId !== undefined && newCustomerId !== selectedTicket.contact_id) {
+      updatedContactId = newCustomerId;
+      const matchedContact = contacts.find(c => c.id === newCustomerId);
+      const contactLabel = matchedContact 
+        ? `${matchedContact.name}${matchedContact.company ? ` (${matchedContact.company})` : ''}` 
+        : t('support.no_customer_assigned', undefined, 'Kein Kunde');
+      activityEntries = [{
+        id: `act_${Date.now()}_cust`,
+        author: companyRoleName,
+        type: 'activity',
+        content: `${t('support.act_customer_assigned', undefined, 'Kunde zugewiesen:')} ${contactLabel}.`,
+        createdAt: new Date().toISOString()
+      }, ...activityEntries];
+    }
+
+    let updatedWorkItems = [...(selectedTicket.workItems || [])];
+
+    if (editingWorkItemForModal) {
+      // Edit existing item
+      updatedWorkItems = updatedWorkItems.map(w => {
+        if (w.id === editingWorkItemForModal.id) {
+          return {
+            ...w,
+            ...itemData
+          } as SupportWorkItem;
+        }
+        return w;
+      });
+    } else {
+      // Create new work item
+      const newItem: SupportWorkItem = {
+        id: `wi_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: itemData.title?.trim() || t('support.work_item_default_title', undefined, 'Service-Position'),
+        description: itemData.description?.trim() || undefined,
+        price: itemData.price !== undefined && itemData.price > 0 ? itemData.price : undefined,
+        isCompleted: !!itemData.isCompleted,
+        completedAt: itemData.isCompleted ? new Date().toISOString() : undefined,
+        isDocumentOnly: !!itemData.isDocumentOnly,
+        attachments: itemData.attachments || [],
+        createdAt: new Date().toISOString()
+      };
+
+      updatedWorkItems.push(newItem);
+
+      // Log activity
+      const newActivity: SupportActivityEntry = {
+        id: `act_${Date.now()}_wi`,
+        author: companyRoleName,
+        type: 'activity',
+        content: `${t('support.work_item_added', undefined, 'Neue Aufgabe hinzugefügt')}: "${newItem.title}"${newItem.price ? ` (${newItem.price.toFixed(2)} €)` : ''}${newItem.isDocumentOnly ? ` [${t('support.work_item_badge_doc_only', undefined, 'Dokument')}]` : ''}.`,
+        createdAt: new Date().toISOString()
+      };
+      activityEntries = [newActivity, ...activityEntries];
+    }
+
+    updateCurrentTicket({
+      workItems: updatedWorkItems,
+      contact_id: updatedContactId,
+      activities: activityEntries
+    });
+
+    setIsWorkItemModalOpen(false);
+    setEditingWorkItemForModal(null);
+  };
+
+  // Support Timesheet & Receipt Modal Handlers
+  const handleOpenNewTimesheetModal = () => {
+    sounds.playClick();
+    setEditingTimesheetForModal(null);
+    setIsTimesheetModalOpen(true);
+  };
+
+  const handleOpenEditTimesheetModal = (entry: SupportTimesheetEntry) => {
+    sounds.playClick();
+    setEditingTimesheetForModal(entry);
+    setIsTimesheetModalOpen(true);
+  };
+
+  const handleSaveTimesheetFromModal = (entryData: Partial<SupportTimesheetEntry>) => {
+    if (!selectedTicket) return;
+    sounds.playClick();
+
+    let updatedTimesheets = [...selectedTicket.timesheets];
+
+    if (editingTimesheetForModal) {
+      updatedTimesheets = updatedTimesheets.map(ts => {
+        if (ts.id === editingTimesheetForModal.id) {
+          return {
+            ...ts,
+            ...entryData
+          } as SupportTimesheetEntry;
+        }
+        return ts;
+      });
+    } else {
+      const newTs: SupportTimesheetEntry = {
+        id: `ts_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        date: entryData.date || new Date().toISOString().split('T')[0],
+        staff: entryData.staff || companyRoleName,
+        description: entryData.description || '',
+        hours: entryData.hours || 1,
+        hourlyRate: entryData.hourlyRate || selectedTicket.defaultHourlyRate || 85,
+        attachments: entryData.attachments || []
+      };
+      updatedTimesheets.push(newTs);
+    }
+
+    updateCurrentTicket({
+      timesheets: updatedTimesheets
+    });
+
+    setIsTimesheetModalOpen(false);
+    setEditingTimesheetForModal(null);
   };
 
   // Delete ticket with verification
@@ -2517,9 +2669,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                       updateCurrentTicket({ hourlyRate: assignedContact.default_hourly_rate });
                                     }}
                                     className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 underline cursor-pointer"
-                                    title="Stundensatz des Kunden in diesen Auftrag übernehmen"
+                                    title={t('support.apply_customer_rate_tooltip', undefined, 'Apply customer hourly rate to this ticket')}
                                   >
-                                    Übernehmen
+                                    {t('support.btn_apply_rate', undefined, 'Apply')}
                                   </button>
                                 )}
                               </div>
@@ -2816,21 +2968,21 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                   onClick={() => setWorkItemFilter('all')}
                                   className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'all' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
                                 >
-                                  Alle ({totalCount})
+                                  {t('support.filter_all', undefined, 'All')} ({totalCount})
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setWorkItemFilter('open')}
                                   className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'open' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
                                 >
-                                  Offen ({totalCount - completedCount})
+                                  {t('support.filter_open', undefined, 'Open')} ({totalCount - completedCount})
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setWorkItemFilter('completed')}
                                   className={`px-2 py-0.5 rounded-md transition cursor-pointer ${workItemFilter === 'completed' ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 font-bold shadow-2xs' : 'text-slate-600 dark:text-slate-300'}`}
                                 >
-                                  Erledigt ({completedCount})
+                                  {t('support.filter_completed', undefined, 'Completed')} ({completedCount})
                                 </button>
                               </div>
                             </div>
@@ -2849,14 +3001,25 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                     {/* Creation Card for new work step / position */}
                     <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/80 rounded-xl border border-cyan-500/30 dark:border-cyan-500/20 shadow-2xs space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                           <Plus className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                           <span>{t('support.work_items_title', undefined, 'Service-Positionen & Arbeitsschritte')}</span>
                         </span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">
-                          {t('support.work_items_subtitle', undefined, 'Erfassen Sie einzelne Arbeitsschritte, Notizen und optionale Pauschalbeträge für dieses Ticket')}
-                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleOpenNewWorkItemModal}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>{t('support.work_item_btn_add_modal', undefined, 'Neuen Eintrag / Beilage hinzufügen...')}</span>
+                          </button>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden xl:inline">
+                            {t('support.work_items_subtitle', undefined, 'Erfassen Sie einzelne Arbeitsschritte, Notizen und optionale Pauschalbeträge für dieses Ticket')}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
@@ -2941,7 +3104,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                             onClick={() => handleSaveNewWorkItem(true)}
                             disabled={!newWorkItemTitle.trim()}
                             className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
-                            title="Speichern und direkt den nächsten Arbeitsschritt eingeben"
+                            title={t('support.btn_add_and_next_title', undefined, 'Save and immediately enter the next work step')}
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>{t('support.btn_add_and_next', undefined, 'Speichern & Weiteres anlegen')}</span>
@@ -2967,7 +3130,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                               {t('support.work_items_empty', undefined, 'Noch keine Service-Positionen erfasst.')}
                             </p>
                             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                              Erfassen Sie oben einzelne Aufgaben, Materialkosten oder Arbeitsschritte.
+                              {t('support.work_items_empty_subtitle', undefined, 'Record individual tasks, material costs, or work steps above.')}
                             </p>
                           </div>
                         );
@@ -3045,7 +3208,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                       ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
                                       : 'border-slate-300 dark:border-slate-600 hover:border-cyan-500 bg-white dark:bg-slate-900'
                                   }`}
-                                  title={item.isCompleted ? 'Als offen markieren' : 'Als erledigt markieren'}
+                                  title={item.isCompleted ? t('support.mark_as_open', undefined, 'Mark as open') : t('support.mark_as_done', undefined, 'Mark as completed')}
                                 >
                                   {item.isCompleted && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
                                 </button>
@@ -3058,6 +3221,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                     }`}>
                                       {item.title}
                                     </span>
+
+                                    {item.isDocumentOnly && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                                        <FileText className="w-2.5 h-2.5" />
+                                        {t('support.work_item_badge_doc_only', undefined, 'Dokument')}
+                                      </span>
+                                    )}
 
                                     {item.isCompleted ? (
                                       <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
@@ -3077,6 +3247,40 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                       {item.description}
                                     </p>
                                   )}
+
+                                  {/* Document Preview Action Button */}
+                                  {item.isDocumentOnly && item.attachments && item.attachments.length > 0 && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveViewingAttachment(item.attachments![0])}
+                                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>{t('support.work_item_btn_view_doc', undefined, 'Dokument anzeigen')}</span>
+                                        <span className="text-[10px] text-indigo-400 font-mono">({(item.attachments[0].size / 1024).toFixed(1)} KB)</span>
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Attachment Chips List */}
+                                  {!item.isDocumentOnly && item.attachments && item.attachments.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                      {item.attachments.map(att => (
+                                        <button
+                                          key={att.id}
+                                          type="button"
+                                          onClick={() => setActiveViewingAttachment(att)}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/50 hover:text-cyan-600 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+                                          title={`${att.name} (${(att.size / 1024).toFixed(1)} KB)`}
+                                        >
+                                          <Paperclip className="w-2.5 h-2.5 text-cyan-600 dark:text-cyan-400" />
+                                          <span className="truncate max-w-[150px]">{att.name}</span>
+                                          <Eye className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Price pill */}
@@ -3090,9 +3294,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                 <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
                                   <button
                                     type="button"
-                                    onClick={() => handleStartEditWorkItem(item)}
+                                    onClick={() => handleOpenEditWorkItemModal(item)}
                                     className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition cursor-pointer"
-                                    title="Bearbeiten"
+                                    title={t('action.edit', undefined, 'Edit')}
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
@@ -3100,7 +3304,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                     type="button"
                                     onClick={() => handleDeleteWorkItem(item.id)}
                                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                                    title="Löschen"
+                                    title={t('action.delete', undefined, 'Delete')}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -3227,7 +3431,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center gap-2">
                         <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 flex items-center gap-1">
                           <Type className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                          <span>{t('support.label_work_description', undefined, 'Tätigkeitsbeschreibung / Work Description')}:</span>
+                          <span>{t('support.th_description', undefined, 'Tätigkeitsbeschreibung')}:</span>
                         </label>
                         <input
                           type="text"
@@ -3246,7 +3450,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                           <tr>
                             <th className="py-2.5 px-3">{t('support.th_date', undefined, 'Date')}</th>
                             <th className="py-2.5 px-3">{t('support.th_staff', undefined, 'Staff')}</th>
-                            <th className="py-2.5 px-3">{t('support.th_work_done', undefined, 'Work Done / Description')}</th>
+                            <th className="py-2.5 px-3">{t('support.th_work_done', undefined, 'Tätigkeitsbeschreibung')}</th>
                             <th className="py-2.5 px-3 text-right">{t('support.th_hours', undefined, 'Hours')}</th>
                             <th className="py-2.5 px-3 text-right">{t('support.th_actions', undefined, 'Action')}</th>
                           </tr>
@@ -3293,7 +3497,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                           type="text"
                                           value={editTsDesc}
                                           onChange={(e) => setEditTsDesc(e.target.value)}
-                                          placeholder={t('support.th_work_done', undefined, 'Work description...')}
+                                          placeholder={t('support.th_work_done', undefined, 'Tätigkeitsbeschreibung')}
                                           className="w-full px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-xs"
                                         />
                                       </td>
@@ -3313,7 +3517,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                             type="button"
                                             onClick={() => handleSaveEditTimesheet(ts.id)}
                                             className="p-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
-                                            title={t('support.save_edit', undefined, 'Speichern')}
+                                            title={t('action.save', undefined, 'Save')}
                                           >
                                             <Check className="w-3.5 h-3.5" />
                                           </button>
@@ -3321,7 +3525,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                             type="button"
                                             onClick={handleCancelEditTimesheet}
                                             className="p-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition"
-                                            title={t('support.cancel_edit', undefined, 'Abbrechen')}
+                                            title={t('action.cancel', undefined, 'Cancel')}
                                           >
                                             <X className="w-3.5 h-3.5" />
                                           </button>
@@ -3335,7 +3539,26 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                         {ts.staff || <span className="text-slate-400 italic">–</span>}
                                       </td>
                                       <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                                        {ts.description || <span className="text-slate-400 italic">–</span>}
+                                        <div className="flex flex-col gap-1">
+                                          <span>{ts.description || <span className="text-slate-400 italic">–</span>}</span>
+                                          {ts.attachments && ts.attachments.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-0.5">
+                                              {ts.attachments.map(att => (
+                                                <button
+                                                  key={att.id}
+                                                  type="button"
+                                                  onClick={() => setActiveViewingAttachment(att)}
+                                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition cursor-pointer"
+                                                  title={`${att.name} (${(att.size / 1024).toFixed(1)} KB)`}
+                                                >
+                                                  <Paperclip className="w-2.5 h-2.5" />
+                                                  <span className="truncate max-w-[120px]">{att.name}</span>
+                                                  <Eye className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">
                                         {Number(ts.hours).toFixed(2)} h
@@ -3344,9 +3567,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                                         <div className="flex items-center justify-end gap-1">
                                           <button
                                             type="button"
-                                            onClick={() => handleStartEditTimesheet(ts)}
+                                            onClick={() => handleOpenEditTimesheetModal(ts)}
                                             className="p-1 hover:text-cyan-600 text-slate-400 transition"
-                                            title={t('support.edit_timesheet', undefined, 'Eintrag bearbeiten')}
+                                            title={t('action.edit', undefined, 'Edit')}
                                           >
                                             <Pencil className="w-3.5 h-3.5" />
                                           </button>
@@ -3381,16 +3604,30 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       </table>
                     </div>
 
-                    {/* Add Timesheet Row */}
-                    {!isAddingTimesheet ? (
+                    {/* Timesheet Actions: Modal Button + Quick Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                       <button
-                        onClick={() => setIsAddingTimesheet(true)}
-                        className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                        type="button"
+                        onClick={handleOpenNewTimesheetModal}
+                        className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>{t('support.btn_manual_entry', undefined, 'Manuelle Zeiterfassung')}</span>
+                        <span>{t('support.timesheet_modal_create_title', undefined, 'Zeiteintrag erfassen (mit Beleg)...')}</span>
                       </button>
-                    ) : (
+
+                      {!isAddingTimesheet ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingTimesheet(true)}
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-cyan-600 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{t('support.btn_manual_entry', undefined, 'Manuelle Schnelleingabe')}</span>
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {isAddingTimesheet && (
                       <form onSubmit={handleAddTimesheetEntry} className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
                         <div className="font-semibold text-xs text-slate-700 dark:text-slate-300">
                           {t('support.timesheet_add_title', undefined, 'Add Manual Work Time')}
@@ -3639,6 +3876,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
               <button
                 onClick={() => {
                   sounds.playClick();
+                  try {
+                    localStorage.setItem('socdof_support_onboarded_v1', 'true');
+                  } catch {}
+                  setIsFirstRunOnboarding(false);
                   setIsSettingsModalOpen(false);
                 }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -3646,6 +3887,23 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Onboarding Welcome Callout (First-Run) */}
+            {isFirstRunOnboarding && (
+              <div className="p-3 bg-gradient-to-r from-cyan-500/10 via-sky-500/10 to-indigo-500/10 rounded-2xl border border-cyan-500/30 flex items-start gap-3">
+                <div className="p-1.5 bg-cyan-600 text-white rounded-xl shrink-0 mt-0.5 shadow-2xs">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">
+                    {t('support.onboarding_welcome_title', undefined, 'Willkommen im Support & Kundendienst!')}
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5 leading-relaxed">
+                    {t('support.onboarding_welcome_desc', undefined, 'Passen Sie Ihren Ticket-Präfix, Stundensatz, Teams und Farb-Pipelines direkt an Ihre Arbeitsweise an.')}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Settings Navigation Tabs */}
             <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 flex-wrap">
@@ -3737,10 +3995,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     <div className="space-y-0.5">
                       <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <User className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                        <span>{t('support.solo_mode_toggle_title', undefined, 'Solo-Modus / Keine Teams (Nur ich)')}</span>
+                        <span>{t('support.single_user_mode_title', undefined, 'Solo Mode / No Teams (Only Me)')}</span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {t('support.solo_mode_toggle_desc', undefined, 'Deaktiviert Teams & Mitarbeiter für eine kompakte Ansicht ohne Team-Overhead.')}
+                        {t('support.single_user_mode_desc', undefined, 'Deactivates team selection and staff assignment. Streamlines ticket forms and filters for solo entrepreneurs.')}
                       </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -3791,6 +4049,28 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         {t('support.settings_chatter_expanded', undefined, 'Standardmäßig ausgeklappt (Verlauf)')}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Enable Service Tasks & Positions (Work Items) */}
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <CheckSquare className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                        <span>{t('support.settings_enable_work_items', undefined, 'Service-Aufgaben & Positionen')}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('support.settings_enable_work_items_desc', undefined, 'Erlaubt das Erfassen mehrerer Arbeitsschritte mit Notizen und optionalen Pauschalpreisen pro Ticket.')}
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={tempSettings.enableWorkItems !== false}
+                        onChange={(e) => setTempSettings({ ...tempSettings, enableWorkItems: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-cyan-600"></div>
+                    </label>
                   </div>
 
                   {/* Default Team (Hidden in Solo Mode) */}
@@ -4153,9 +4433,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 type="button"
                 onClick={() => {
                   sounds.playClick();
+                  try {
+                    localStorage.setItem('socdof_support_onboarded_v1', 'true');
+                  } catch {}
+                  setIsFirstRunOnboarding(false);
                   setIsSettingsModalOpen(false);
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
               >
                 {t('action.cancel', undefined, 'Cancel')}
               </button>
@@ -4164,9 +4448,13 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                 onClick={() => {
                   sounds.playClick();
                   saveSettings(tempSettings);
+                  try {
+                    localStorage.setItem('socdof_support_onboarded_v1', 'true');
+                  } catch {}
+                  setIsFirstRunOnboarding(false);
                   setIsSettingsModalOpen(false);
                 }}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>{t('support.settings_save_btn', undefined, 'Save Settings')}</span>
@@ -4277,6 +4565,57 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             handleSelectContact(savedContact);
           }
         }}
+      />
+
+      {/* DIN-A4 Service Report Print & PDF Modal */}
+      {isPrintModalOpen && selectedTicket && (
+        <SupportTicketPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          ticket={selectedTicket}
+          companyProfile={companyProfile}
+          contact={assignedContact}
+        />
+      )}
+
+      {/* Support Work Item & Document Attachment Modal */}
+      {selectedTicket && (
+        <SupportWorkItemModal
+          isOpen={isWorkItemModalOpen}
+          onClose={() => {
+            setIsWorkItemModalOpen(false);
+            setEditingWorkItemForModal(null);
+          }}
+          onSave={handleSaveWorkItemFromModal}
+          initialItem={editingWorkItemForModal}
+          contacts={contacts}
+          assignedContactId={selectedTicket.contact_id}
+          currency={companyProfile.currency || '€'}
+        />
+      )}
+
+      {/* Support Timesheet & Receipt Attachment Modal */}
+      {selectedTicket && (
+        <SupportTimesheetModal
+          isOpen={isTimesheetModalOpen}
+          onClose={() => {
+            setIsTimesheetModalOpen(false);
+            setEditingTimesheetForModal(null);
+          }}
+          onSave={handleSaveTimesheetFromModal}
+          initialEntry={editingTimesheetForModal}
+          staffOptions={effectiveStaffList}
+          defaultStaff={companyRoleName}
+          defaultRate={selectedTicket.defaultHourlyRate || 85}
+          currency={companyProfile.currency || '€'}
+        />
+      )}
+
+      {/* Document & Attachment In-App Viewer Modal */}
+      <SupportDocumentViewerModal
+        isOpen={!!activeViewingAttachment}
+        onClose={() => setActiveViewingAttachment(null)}
+        attachment={activeViewingAttachment}
       />
     </div>
   );

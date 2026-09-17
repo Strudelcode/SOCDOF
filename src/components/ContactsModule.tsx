@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Users, 
@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   Share2,
   CreditCard,
-  Clock
+  Clock,
+  BookOpen,
+  ChevronDown
 } from 'lucide-react';
 import { Contact, ContactType, Invoice, CompanyProfile } from '../types';
 import { db } from '../lib/db';
@@ -35,6 +37,14 @@ import { sounds } from '../lib/sound';
 import { t, useLanguage, formatSystemDate } from '../lib/i18n';
 import { generateContactEml } from '../lib/emlGenerator';
 import { downloadVCard } from '../lib/vcardGenerator';
+import { 
+  parseContactsCsv, 
+  parseContactsVcard, 
+  exportContactsToCsv, 
+  exportContactsToVCard, 
+  downloadFile, 
+  sanitizeLegacyContacts 
+} from '../lib/contactImportExport';
 import { ContactEditModal } from './ContactEditModal';
 import { ContactDetailModal } from './ContactDetailModal';
 
@@ -56,7 +66,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   currency = '€'
 }) => {
   const currentLang = useLanguage();
-  const [filterType, setFilterType] = useState<'all' | 'customer' | 'vendor'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'customer' | 'vendor' | 'guest'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   
@@ -75,21 +85,39 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
 
   // Import Modal (CSV / Outlook / vCard)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTargetType, setImportTargetType] = useState<ContactType>('guest');
   const [importedPreview, setImportedPreview] = useState<Contact[]>([]);
   const [importFileName, setImportFileName] = useState<string>('');
+
+  // Export dropdown
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+
+  // Auto-clean any legacy dummy emails (like kontakt_X@import.local) from previous flawed imports
+  useEffect(() => {
+    sanitizeLegacyContacts().then((cleanedCount) => {
+      if (cleanedCount > 0) {
+        onRefresh();
+      }
+    });
+  }, []);
+
+  // Category counts
+  const customerCount = contacts.filter(c => c.type === 'customer' || c.type === 'both').length;
+  const vendorCount = contacts.filter(c => c.type === 'vendor' || c.type === 'both').length;
+  const guestCount = contacts.filter(c => c.type === 'guest').length;
 
   // Filtered contacts
   const filteredContacts = contacts.filter((c) => {
     const matchesType = 
       filterType === 'all' || 
       c.type === filterType || 
-      c.type === 'both';
+      (filterType !== 'guest' && c.type === 'both');
 
     const q = searchQuery.toLowerCase();
     const matchesSearch = 
-      c.name.toLowerCase().includes(q) ||
-      c.company.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.company && c.company.toLowerCase().includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
       (c.city && c.city.toLowerCase().includes(q)) ||
       (c.phone && c.phone.toLowerCase().includes(q));
 
@@ -121,16 +149,16 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
   // Batch multiple contacts handler
   const handleSaveBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validRows = batchRows.filter(r => r.name.trim() !== '' && r.email.trim() !== '');
+    const validRows = batchRows.filter(r => r.name.trim() !== '' || r.company.trim() !== '');
     if (validRows.length === 0) {
-      alert('Bitte füllen Sie mindestens einen Kontakt mit Name und E-Mail aus.');
+      alert('Bitte füllen Sie mindestens einen Kontakt mit Name oder Firma aus.');
       sounds.playError();
       return;
     }
 
     try {
       const contactsToAdd: Contact[] = validRows.map((r, idx) => ({
-        name: r.name.trim(),
+        name: r.name.trim() || r.company.trim(),
         company: r.company.trim(),
         email: r.email.trim(),
         phone: r.phone.trim(),
@@ -163,62 +191,18 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     setImportFileName(file.name);
     try {
       const text = await file.text();
-      const parsedContacts: Contact[] = [];
+      let parsedContacts: Contact[] = [];
 
       if (file.name.endsWith('.vcf') || file.name.endsWith('.vcard')) {
-        // Simple vCard parser
-        const vcards = text.split(/BEGIN:VCARD/i).filter(Boolean);
-        for (const card of vcards) {
-          const fnMatch = card.match(/FN:(.+)/i);
-          const emailMatch = card.match(/EMAIL[^:]*:(.+)/i);
-          const orgMatch = card.match(/ORG:(.+)/i);
-          const telMatch = card.match(/TEL[^:]*:(.+)/i);
-
-          const name = fnMatch ? fnMatch[1].trim() : '';
-          const email = emailMatch ? emailMatch[1].trim() : '';
-          if (name || email) {
-            parsedContacts.push({
-              name: name || 'Unbenannter Kontakt',
-              email: email || 'keine-mail@kontakt.local',
-              company: orgMatch ? orgMatch[1].replace(/;/g, ' ').trim() : '',
-              phone: telMatch ? telMatch[1].trim() : '',
-              type: 'customer',
-              createdAt: new Date().toISOString()
-            });
-          }
-        }
+        parsedContacts = parseContactsVcard(text, importTargetType);
       } else {
-        // CSV / Outlook parser
-        const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-        if (lines.length >= 2) {
-          const delimiter = lines[0].includes(';') ? ';' : ',';
-          const header = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+        parsedContacts = parseContactsCsv(text, importTargetType);
+      }
 
-          const nameIdx = header.findIndex(h => h.includes('name') || h.includes('vorname') || h.includes('first') || h.includes('nachname'));
-          const emailIdx = header.findIndex(h => h.includes('mail') || h.includes('e-mail'));
-          const compIdx = header.findIndex(h => h.includes('firma') || h.includes('company') || h.includes('organisation') || h.includes('unternehm'));
-          const phoneIdx = header.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('mobil'));
-          const cityIdx = header.findIndex(h => h.includes('stadt') || h.includes('city') || h.includes('ort'));
-
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
-            const name = nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx] : `Kontakt ${i}`;
-            const email = emailIdx !== -1 && cols[emailIdx] ? cols[emailIdx] : `kontakt_${i}@import.local`;
-            const company = compIdx !== -1 && cols[compIdx] ? cols[compIdx] : '';
-            const phone = phoneIdx !== -1 && cols[phoneIdx] ? cols[phoneIdx] : '';
-            const city = cityIdx !== -1 && cols[cityIdx] ? cols[cityIdx] : '';
-
-            parsedContacts.push({
-              name,
-              email,
-              company,
-              phone,
-              city,
-              type: 'customer',
-              createdAt: new Date().toISOString()
-            });
-          }
-        }
+      if (parsedContacts.length === 0) {
+        sounds.playWarning();
+        alert(t('contacts.empty_list', currentLang, 'Keine gültigen Kontakte in der Datei gefunden.'));
+        return;
       }
 
       setImportedPreview(parsedContacts);
@@ -227,8 +211,20 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     } catch (err) {
       console.error(err);
       sounds.playError();
-      alert('Fehler beim Lesen der Importdatei.');
+      alert('Fehler beim Lesen der Importdatei: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      e.target.value = '';
     }
+  };
+
+  const handleTargetTypeChange = (newType: ContactType) => {
+    setImportTargetType(newType);
+    setImportedPreview(prev => prev.map(c => ({ ...c, type: newType })));
+  };
+
+  const handleRemovePreviewRow = (index: number) => {
+    sounds.playClick();
+    setImportedPreview(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleConfirmImport = async () => {
@@ -237,8 +233,9 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       await db.contacts.bulkAdd(importedPreview);
       sounds.playSuccess();
       setIsImportModalOpen(false);
+      const count = importedPreview.length;
       setImportedPreview([]);
-      alert(`${importedPreview.length} Kontakte erfolgreich importiert!`);
+      alert(`${count} Kontakte erfolgreich importiert!`);
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -246,33 +243,32 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     }
   };
 
-  const handleExportCsv = () => {
+  const handleExportCsv = (onlyFiltered = false) => {
     sounds.playClick();
-    const headers = ['Name', 'Firma', 'E-Mail', 'Telefon', 'Typ', 'Strasse', 'PLZ', 'Stadt', 'Land', 'UStId'];
-    const rows = contacts.map(c => [
-      `"${c.name}"`,
-      `"${c.company || ''}"`,
-      `"${c.email}"`,
-      `"${c.phone || ''}"`,
-      `"${c.type}"`,
-      `"${c.street || ''}"`,
-      `"${c.zip || ''}"`,
-      `"${c.city || ''}"`,
-      `"${c.country || ''}"`,
-      `"${c.taxId || ''}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `odoo_kontakte_export_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const list = onlyFiltered ? filteredContacts : contacts;
+    if (list.length === 0) {
+      alert('Keine Kontakte zum Exportieren vorhanden.');
+      return;
+    }
+    const csvContent = exportContactsToCsv(list, ';');
+    const filename = `kontakte_export_${new Date().toISOString().split('T')[0]}.csv`;
+    downloadFile(filename, csvContent, 'text/csv;charset=utf-8;');
     sounds.playSuccess();
+    setIsExportDropdownOpen(false);
+  };
+
+  const handleExportVcf = (onlyFiltered = false) => {
+    sounds.playClick();
+    const list = onlyFiltered ? filteredContacts : contacts;
+    if (list.length === 0) {
+      alert('Keine Kontakte zum Exportieren vorhanden.');
+      return;
+    }
+    const vcfContent = exportContactsToVCard(list);
+    const filename = `kontakte_export_${new Date().toISOString().split('T')[0]}.vcf`;
+    downloadFile(filename, vcfContent, 'text/vcard;charset=utf-8;');
+    sounds.playSuccess();
+    setIsExportDropdownOpen(false);
   };
 
   const handleDeleteContact = async (id: number | string, skipConfirm = false, e?: React.MouseEvent) => {
@@ -314,10 +310,10 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
         </div>
 
         {/* Actions: Neu, Mehrere Kontakte, Import CSV/Outlook, Export */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 relative">
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>{t('contact.btn_new', currentLang, 'New Contact')}</span>
@@ -343,36 +339,99 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             />
           </label>
 
-          <button
-            onClick={handleExportCsv}
-            title={t('contacts.btn_export_csv', currentLang, 'Export all contacts as CSV')}
-            className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition"
-          >
-            <Download className="w-4 h-4" />
-          </button>
+          {/* Export Dropdown Menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { sounds.playClick(); setIsExportDropdownOpen(prev => !prev); }}
+              title={t('contacts.btn_export_csv', currentLang, 'Export all contacts')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>Export</span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+            </button>
+
+            {isExportDropdownOpen && (
+              <div 
+                className="absolute right-0 mt-1.5 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 animate-scale-in text-xs space-y-1"
+                onMouseLeave={() => setIsExportDropdownOpen(false)}
+              >
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {t('contacts.export_options', currentLang, 'Kontakte exportieren')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleExportCsv(false)}
+                  className="w-full text-left px-2.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-slate-900 dark:text-white">CSV / Excel ({contacts.length})</div>
+                    <div className="text-[10px] text-slate-500">{t('contacts.export_all', currentLang, 'Alle Kontakte exportieren')}</div>
+                  </div>
+                </button>
+                {filteredContacts.length !== contacts.length && (
+                  <button
+                    type="button"
+                    onClick={() => handleExportCsv(true)}
+                    className="w-full text-left px-2.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-white">CSV (Filter: {filteredContacts.length})</div>
+                      <div className="text-[10px] text-slate-500">{t('contacts.export_filtered', currentLang, 'Aktuelle Filteransicht')}</div>
+                    </div>
+                  </button>
+                )}
+                <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                <button
+                  type="button"
+                  onClick={() => handleExportVcf(false)}
+                  className="w-full text-left px-2.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-slate-900 dark:text-white">vCard (.vcf) ({contacts.length})</div>
+                    <div className="text-[10px] text-slate-500">Outlook, Apple &amp; Android</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* 2. Filter & Search Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 w-full sm:w-auto">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 w-full sm:w-auto overflow-x-auto">
           <button
             onClick={() => { sounds.playClick(); setFilterType('all'); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap cursor-pointer ${filterType === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
             {t('contacts.filter_all', currentLang, 'All')} ({contacts.length})
           </button>
           <button
             onClick={() => { sounds.playClick(); setFilterType('customer'); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'customer' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap cursor-pointer ${filterType === 'customer' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
-            {t('contacts.filter_customers', currentLang, 'Customers')}
+            {t('contacts.filter_customers', currentLang, 'Customers')} ({customerCount})
+          </button>
+          <button
+            onClick={() => { sounds.playClick(); setFilterType('guest'); }}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${filterType === 'guest' ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>{t('contacts.filter_guestbook', currentLang, 'Gästebuch / Adressbuch')}</span>
+            <span className="text-[10px] px-1.5 py-0.2 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 rounded-full font-bold">
+              {guestCount}
+            </span>
           </button>
           <button
             onClick={() => { sounds.playClick(); setFilterType('vendor'); }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterType === 'vendor' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap cursor-pointer ${filterType === 'vendor' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'}`}
           >
-            {t('contacts.filter_vendors', currentLang, 'Suppliers')}
+            {t('contacts.filter_vendors', currentLang, 'Suppliers')} ({vendorCount})
           </button>
         </div>
 
@@ -432,9 +491,17 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' 
                         : c.type === 'vendor' 
                         ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400' 
+                        : c.type === 'guest'
+                        ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-400'
                         : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
                     }`}>
-                      {c.type === 'customer' ? t('contact.type_customer', currentLang, 'Customer') : c.type === 'vendor' ? t('contact.type_vendor', currentLang, 'Supplier') : t('contacts.type_partner', currentLang, 'Partner')}
+                      {c.type === 'customer' 
+                        ? t('contact.type_customer', currentLang, 'Customer') 
+                        : c.type === 'vendor' 
+                        ? t('contact.type_vendor', currentLang, 'Supplier') 
+                        : c.type === 'guest'
+                        ? t('contact.type_guest', currentLang, 'Gästebuch / Privat')
+                        : t('contacts.type_partner', currentLang, 'Partner')}
                     </span>
                     <button
                       type="button"
@@ -454,7 +521,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                       <span>{c.default_hourly_rate.toFixed(2)} {currency} / h</span>
                     </div>
                   )}
-                  {c.email && (
+                  {c.email && !c.email.includes('@import.local') && !c.email.includes('@kontakt.local') && (
                     <div className="flex items-center gap-1.5 truncate">
                       <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">{c.email}</span>
@@ -645,11 +712,11 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       {/* 6. Import Preview Modal */}
       {isImportModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {t('contacts.import_modal_title', currentLang, 'Import Contacts')}: {importFileName}
+                  {t('contacts.import_modal_title', currentLang, 'Import Contacts')}: <span className="font-mono text-indigo-600 dark:text-indigo-400">{importFileName}</span>
                 </h3>
                 <p className="text-xs text-slate-500">
                   {importedPreview.length} {t('contacts.import_valid_count', currentLang, 'valid contacts detected')}
@@ -658,55 +725,121 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setIsImportModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+            {/* Target Category Selector */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  {t('contacts.import_category_label', currentLang, 'Importieren als Kategorie:')}
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Kontakte ohne E-Mail werden sauber mit Name/Firma und Telefon gespeichert.
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleTargetTypeChange('guest')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                    importTargetType === 'guest'
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>{t('contact.type_guest', currentLang, 'Gästebuch')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTargetTypeChange('customer')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                    importTargetType === 'customer'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {t('contact.type_customer', currentLang, 'Kunden')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTargetTypeChange('vendor')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                    importTargetType === 'vendor'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {t('contact.type_vendor', currentLang, 'Lieferanten')}
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 border-b border-slate-200 dark:border-slate-700 sticky top-0">
                   <tr>
                     <th className="p-2.5 font-bold">{t('contact.modal_name', currentLang, 'Name')}</th>
                     <th className="p-2.5 font-bold">{t('contact.modal_company', currentLang, 'Company')}</th>
                     <th className="p-2.5 font-bold">{t('contact.modal_email', currentLang, 'Email')}</th>
                     <th className="p-2.5 font-bold">{t('contact.modal_phone', currentLang, 'Phone')}</th>
+                    <th className="p-2.5 font-bold text-center w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {importedPreview.slice(0, 10).map((c, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                  {importedPreview.map((c, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 group">
                       <td className="p-2.5 font-medium text-slate-900 dark:text-white">{c.name}</td>
                       <td className="p-2.5 text-slate-500">{c.company || '—'}</td>
-                      <td className="p-2.5 text-slate-600 dark:text-slate-400">{c.email}</td>
+                      <td className="p-2.5">
+                        {c.email ? (
+                          <span className="text-slate-700 dark:text-slate-300">{c.email}</span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">Keine E-Mail</span>
+                        )}
+                      </td>
                       <td className="p-2.5 text-slate-500">{c.phone || '—'}</td>
+                      <td className="p-2.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePreviewRow(i)}
+                          className="text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer"
+                          title="Eintrag entfernen"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {importedPreview.length > 10 && (
-                <div className="p-2 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/30">
-                  ... {t('contacts.import_more_count', currentLang, 'and')} {importedPreview.length - 10} {t('contact.title', currentLang, 'more contacts')}
-                </div>
-              )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 rounded-xl"
-              >
-                {t('contact.btn_cancel', currentLang, 'Cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmImport}
-                className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-xs transition"
-              >
-                {importedPreview.length} {t('contacts.btn_confirm_import', currentLang, 'Import into Database')}
-              </button>
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-slate-500">
+                {importedPreview.length} Kontakte werden übernommen
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  {t('contact.btn_cancel', currentLang, 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  disabled={importedPreview.length === 0}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  {importedPreview.length} {t('contacts.btn_confirm_import', currentLang, 'Import into Database')}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

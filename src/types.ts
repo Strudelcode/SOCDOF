@@ -1,4 +1,4 @@
-export type ContactType = 'customer' | 'vendor' | 'both';
+export type ContactType = 'customer' | 'vendor' | 'both' | 'guest';
 
 export interface Contact {
   id?: number;
@@ -343,6 +343,16 @@ export interface SupportExpenseEntry {
   billable?: boolean;
 }
 
+export interface SupportWorkAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  category: 'pdf' | 'image' | 'document' | 'other';
+  dataUrl: string;
+  createdAt: string;
+}
+
 export interface SupportTimesheetEntry {
   id: string;
   ticket_id?: string;
@@ -358,6 +368,7 @@ export interface SupportTimesheetEntry {
   locationName?: string;
   geoLatitude?: number;
   geoLongitude?: number;
+  attachments?: SupportWorkAttachment[];
 }
 
 export interface SupportActivityEntry {
@@ -394,6 +405,8 @@ export interface SupportWorkItem {
   isCompleted: boolean;
   completedAt?: string;
   createdAt: string;
+  isDocumentOnly?: boolean;
+  attachments?: SupportWorkAttachment[];
 }
 
 export interface SupportServiceTicket {

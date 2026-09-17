@@ -154,7 +154,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   const isEditing = Boolean(formData.id);
 
   const handleSaveContact = async (keepOpenForNext: boolean) => {
-    if (!formData.name?.trim() || !formData.email?.trim()) {
+    if (!formData.name?.trim() && !formData.company?.trim()) {
       sounds.playError();
       nameInputRef.current?.focus();
       return;
@@ -169,9 +169,9 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
 
       if (formData.id) {
         const updatePayload: Partial<Contact> = {
-          name: formData.name.trim(),
+          name: formData.name ? formData.name.trim() : (formData.company?.trim() || ''),
           company: formData.company?.trim() || '',
-          email: formData.email.trim(),
+          email: formData.email?.trim() || '',
           phone: formData.phone?.trim() || '',
           type: (formData.type as ContactType) || 'customer',
           street: formData.street?.trim() || '',
@@ -194,9 +194,9 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         onClose();
       } else {
         const newRecord: Omit<Contact, 'id'> = {
-          name: formData.name.trim(),
+          name: formData.name ? formData.name.trim() : (formData.company?.trim() || ''),
           company: formData.company?.trim() || '',
-          email: formData.email.trim(),
+          email: formData.email?.trim() || '',
           phone: formData.phone?.trim() || '',
           type: (formData.type as ContactType) || 'customer',
           street: formData.street?.trim() || '',
@@ -268,8 +268,8 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   };
 
   const handleFinishBatch = () => {
-    // If user filled in name & email, ask if they want to save it first
-    if (formData.name?.trim() && formData.email?.trim()) {
+    // If user filled in name, ask if they want to save it first
+    if (formData.name?.trim() || formData.company?.trim()) {
       const wantSave = confirm(t('contacts.confirm_save_current_before_exit', currentLang, 'Möchten Sie den aktuell eingegebenen Kontakt vor dem Beenden noch speichern?'));
       if (wantSave) {
         handleSaveContact(false);
@@ -440,12 +440,11 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_email', currentLang, 'Email Address *')}
+                {t('contact.modal_email', currentLang, 'Email Address')} <span className="text-[11px] font-normal text-slate-400">({t('common.optional', currentLang, 'optional')})</span>
               </label>
               <input
                 type="email"
-                required
-                placeholder={t('contact.modal_email_placeholder', currentLang, 'contact@domain.com')}
+                placeholder={t('contact.modal_email_placeholder', currentLang, 'contact@domain.com (optional)')}
                 value={formData.email || ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
@@ -527,6 +526,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
               >
                 <option value="customer">{t('contact.type_customer', currentLang, 'Customer')}</option>
+                <option value="guest">{t('contact.type_guest', currentLang, 'Gästebuch / Privat')}</option>
                 <option value="vendor">{t('contact.type_vendor', currentLang, 'Supplier / Vendor')}</option>
                 <option value="both">{t('contact.type_both', currentLang, 'Both')}</option>
               </select>
