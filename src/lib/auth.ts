@@ -64,6 +64,10 @@ const notifyAuthChanged = () => {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT));
 };
 
+const notifySameWindowStorageChange = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('storage'));
+};
+
 export const AUTH_CHANGE_EVENT_NAME = AUTH_CHANGE_EVENT;
 
 const readUsers = (): UserAccount[] => {
@@ -82,6 +86,7 @@ const writeUsers = (users: UserAccount[]) => {
   if (hasStorage()) {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     notifyAuthChanged();
+    notifySameWindowStorageChange();
   }
 };
 
