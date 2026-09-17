@@ -28,19 +28,28 @@ function downloadFile(content: string, filename: string, mimeType: string = 'mes
   URL.revokeObjectURL(url);
 }
 
+export interface ContactEmlPayload {
+  senderEmail: string;
+  senderName: string;
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  body: string;
+  filename: string;
+}
+
 /**
- * Generates an RFC 822 (.eml) draft file for general partner/customer communication
+ * Builds standard EML payload for a contact before downloading
  */
-export function generateContactEml(contact: Contact, company?: CompanyProfile) {
+export function buildContactEmlPayload(contact: Contact, company?: CompanyProfile): ContactEmlPayload {
   const senderEmail = company?.email || 'buchhaltung@firma.local';
   const senderName = company?.name || 'SOCDOF ERP';
   const recipientEmail = contact.email || 'kunde@kontakt.local';
-  const recipientName = contact.name || 'Sehr geehrte Damen und Herren';
-  const subject = `Mitteilung von ${company?.name || 'Ihrem Partner'} an ${contact.name}`;
-  const now = new Date().toUTCString();
+  const recipientName = contact.name || contact.company || 'Sehr geehrte Damen und Herren';
+  const subject = `Mitteilung von ${company?.name || 'Ihrem Partner'} an ${recipientName}`;
 
   const body = [
-    `Sehr geehrte(r) Frau/Herr ${contact.name},`,
+    `Sehr geehrte(r) Frau/Herr ${contact.name || recipientName},`,
     '',
     `wir freuen uns über den geschäftlichen Austausch mit Ihnen.`,
     '',
@@ -54,6 +63,39 @@ export function generateContactEml(contact: Contact, company?: CompanyProfile) {
     company?.email ? `E-Mail: ${company.email}` : ''
   ].filter(line => line !== undefined).join('\r\n');
 
+  const safeFilename = `EML_Entwurf_${(contact.name || contact.company || 'Kontakt').replace(/[^a-zA-Z0-9_-]/g, '_')}.eml`;
+
+  return {
+    senderEmail,
+    senderName,
+    recipientEmail,
+    recipientName,
+    subject,
+    body,
+    filename: safeFilename
+  };
+}
+
+/**
+ * Builds and downloads custom contact RFC 822 (.eml)
+ */
+export function downloadCustomContactEml(payload: {
+  senderEmail?: string;
+  senderName?: string;
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  body: string;
+  filename?: string;
+}) {
+  const now = new Date().toUTCString();
+  const senderName = payload.senderName || 'SOCDOF ERP';
+  const senderEmail = payload.senderEmail || 'buchhaltung@firma.local';
+  const recipientName = payload.recipientName || 'Kunde';
+  const recipientEmail = payload.recipientEmail || 'kunde@kontakt.local';
+  const subject = payload.subject || 'Mitteilung';
+  const filename = payload.filename || `EML_Entwurf_${recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.eml`;
+
   const emlContent = [
     `From: "${encodeMimeHeader(senderName)}" <${senderEmail}>`,
     `To: "${encodeMimeHeader(recipientName)}" <${recipientEmail}>`,
@@ -65,11 +107,18 @@ export function generateContactEml(contact: Contact, company?: CompanyProfile) {
     `X-Unsent: 1`,
     `X-Mailer: SOCDOF ERP Offline Suite`,
     '',
-    body
+    payload.body
   ].join('\r\n');
 
-  const safeFilename = `EML_Entwurf_${(contact.name || 'Kontakt').replace(/[^a-zA-Z0-9_-]/g, '_')}.eml`;
-  downloadFile(emlContent, safeFilename);
+  downloadFile(emlContent, filename);
+}
+
+/**
+ * Generates an RFC 822 (.eml) draft file for general partner/customer communication
+ */
+export function generateContactEml(contact: Contact, company?: CompanyProfile) {
+  const payload = buildContactEmlPayload(contact, company);
+  downloadCustomContactEml(payload);
 }
 
 /**

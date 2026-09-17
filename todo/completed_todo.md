@@ -6,6 +6,38 @@
 
 ## Completed Tasks Archive
 
+### Smart Price Defaults & One-Click Preset Chips for Tasks & Service Positions (v22.9.5)
+- [x] **Smart Pricing & Clean Optional Input**:
+  - [x] Prevented awkward prefilled "0" string in `SupportWorkItemModal` when no default price is configured in settings, displaying an elegant `"0,00"` placeholder instead.
+  - [x] Maintained automatic pre-filling when a standard task price > 0 is configured in Support Settings (`Standard-Kosten / Betrag für Aufgaben`).
+  - [x] Added interactive quick-choice amount chips (`25€`, `50€`, `100€`, settings standard price, or ticket hourly rate) above the input.
+  - [x] Added a quick reset `✕` button to clear the amount with a single click.
+
+### Defensive Array Guards & Timesheet Modal Prop Normalization (v22.9.4)
+- [x] **Resolved Uncaught TypeError on Mapping**:
+  - [x] Fixed `Uncaught TypeError: Cannot read properties of undefined (reading 'map')` by standardizing the `staffList` and `staffOptions` prop interfaces in `SupportTimesheetModal`.
+  - [x] Added internal fallback `effectiveStaffList` ensuring that dropdown mapping never receives an undefined list.
+  - [x] Guarded `selectedTicket` and ticket storage loading to guarantee initialized array structures for `tags`, `timesheets`, `workItems`, and `activities`.
+  - [x] Added `(invoices || [])` fallback in `ContactDetailModal`.
+
+### Dark Mode Modal Contrast & Container Theme Synchronization (v22.9.3)
+- [x] **Modal Dark Mode Theme Synchronization**:
+  - [x] Fixed container class styling in `SupportWorkItemModal`, removing artificial boolean state desync that caused a white background container in dark mode.
+  - [x] Applied unified `bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white` to `SupportWorkItemModal`, `SupportTimesheetModal`, `SupportDocumentViewerModal`, `StorageAssetPreviewModal`, and `DesktopFolderModal`.
+  - [x] Added explicit `text-slate-900 dark:text-white` on all form inputs and textareas to guarantee high-contrast legibility in both themes.
+
+### In-App Contact Deletion Confirmation Modal & Email Draft (.eml) Preview Dialog (v22.9.2)
+- [x] **In-App Contact Delete Confirmation**:
+  - [x] Replaced browser `window.confirm()` with an in-app dialog (`#contact-delete-confirm-dialog`) that prevents iframe execution blocking.
+  - [x] Contextual notice warning the user if active invoices are linked to the contact before permanent database removal.
+  - [x] Added a secondary direct "Kontakt löschen" action in the modal footer alongside the header trash icon.
+- [x] **Email Draft (.eml) Preview & Download Flow**:
+  - [x] Replaced instantaneous download with `ContactEmailDraftModal` preview dialog.
+  - [x] Displays sender, recipient, subject, and editable message body before downloading.
+  - [x] Added "Jetzt downloaden (.eml)", "In Zwischenablage kopieren", and mail-client integration buttons.
+- [x] **Quad-Language Localization**:
+  - [x] Added all required translation keys to `src/lib/i18n.ts` in German, English, French, and Spanish.
+
 ### Ultra-Compact Support Ticket Header & Start-Screen Scoped Navigation (v22.6.19)
 - [x] **Ultra-Compact Support Ticket Workspace**:
   - [x] Streamlined the ticket detail view into a single ultra-compact unified header bar, removing repetitive multi-row headers and saving substantial vertical space for ticket content.

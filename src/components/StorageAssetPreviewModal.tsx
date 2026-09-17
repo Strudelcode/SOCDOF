@@ -81,11 +81,7 @@ export const StorageAssetPreviewModal: React.FC<StorageAssetPreviewModalProps> =
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl shadow-2xl border transition-all animate-scale-up overflow-hidden ${
-          isDark 
-            ? 'bg-slate-900 border-slate-700/80 text-white' 
-            : 'bg-white border-slate-200/90 text-slate-900'
-        }`}
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all animate-scale-up overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800">
@@ -94,7 +90,7 @@ export const StorageAssetPreviewModal: React.FC<StorageAssetPreviewModalProps> =
               {getCategoryIcon()}
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold truncate">{asset.name}</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{asset.name}</h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
                 <span>{formatFileSize(asset.size)}</span>
                 <span>•</span>

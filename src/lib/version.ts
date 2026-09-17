@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.9.0';
+export const APP_VERSION = '22.9.5';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,60 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.9.5',
+    date: '2026-09-17',
+    title: 'Smart Price Defaults & One-Click Preset Chips for Tasks & Service Positions',
+    highlights: [
+      'Clean Optional Pricing: New service tasks and positions now leave the optional flat price field empty with placeholder when no standard price is configured, avoiding awkward pre-filled "0" values.',
+      'Settings Default Prefill: When a standard task cost is defined in Support Settings (e.g. 25€, 50€), it automatically pre-populates upon opening the dialog.',
+      'One-Click Quick Price Chips: Added instant preset buttons for common amounts (25€, 50€, 100€, Standard rate, or Ticket Hourly Rate) directly above the input.'
+    ]
+  },
+  {
+    version: '22.9.4',
+    date: '2026-09-17',
+    title: 'Defensive Array Guards & Timesheet Modal Prop Normalization',
+    highlights: [
+      'Resolved TypeError on Array Mapping: Fixed Uncaught TypeError: Cannot read properties of undefined (reading \'map\') by harmonizing staffList/staffOptions prop names in SupportTimesheetModal.',
+      'Comprehensive Fallbacks: Added effectiveStaffList with safe array fallbacks to ensure dropdown options never attempt to map on undefined.',
+      'Sanitized Ticket Data: Guaranteed initialized arrays for tags, timesheets, workItems, and activities on ticket load and selection.'
+    ]
+  },
+  {
+    version: '22.9.3',
+    date: '2026-09-17',
+    title: 'Dark Mode Modal Styling Fix for Support Tasks & Service Work Items',
+    highlights: [
+      'Theme Contrast Fix in Service Task Modal: Eliminated visual desync where the modal container retained a bright white background while internal inputs and labels shifted to dark mode.',
+      'Universal Dark Mode Consistency: Updated SupportWorkItemModal, SupportTimesheetModal, SupportDocumentViewerModal, and related modals to dynamically inherit Tailwind dark:bg-slate-900 seamlessly.',
+      'Explicit Input Text Legibility: Ensured clear text-slate-900 dark:text-white contrast across all modal input fields and textareas.'
+    ]
+  },
+  {
+    version: '22.9.2',
+    date: '2026-09-17',
+    title: 'In-App Contact Deletion Confirmation Modal & Email Draft (.eml) Preview Dialog',
+    highlights: [
+      'In-App Delete Confirmation Modal: Replaced browser window.confirm with a custom modal that prevents iframe blocking, warns about linked invoices, and supports ESC/backdrop cancellation.',
+      'Dedicated Delete Action in Footer: Added a prominent "Kontakt löschen" action button in the detail modal footer alongside the top toolbar trash action.',
+      'Email Draft (.eml) Preview Modal: Clicking "E-Mail-Entwurf (.eml)" now presents a full preview dialog before downloading, allowing users to review and customize sender, recipient, subject, and body.',
+      'One-Click Clipboard Copy & Mail-App Launch: Integrated quick text copying and mailto trigger directly from the email draft preview dialog.',
+      'Full 4-Language Localization: Complete translation in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '22.9.1',
+    date: '2026-09-17',
+    title: 'Streamlined Direct Task Modal, Default Task Price Settings & Document-Only View Optimization',
+    highlights: [
+      'Direct Task Creation Workflow: Removed redundant inline creation form; clicking "Aufgabe hinzufügen" now immediately opens the focused modal dialog.',
+      'Configurable Default Task Price: Added a standard task/work item amount setting in Support Settings, automatically pre-filling the price field upon creating tasks.',
+      'Clean Document-Only Mode: Selecting "Nur Dokument" now automatically hides additional description text fields to prevent UI clutter for pure attachment records.',
+      'Multi-Add Support: Added "Speichern & Weiteres anlegen" button in the modal to rapidly record consecutive work steps with auto-focus.',
+      'Comprehensive 4-Language Translation: Full localization across German, English, French, and Spanish.'
+    ]
+  },
   {
     version: '22.9.0',
     date: '2026-09-17',

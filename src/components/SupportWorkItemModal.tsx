@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   Check, 
@@ -24,6 +24,9 @@ interface SupportWorkItemModalProps {
   onClose: () => void;
   onSave: (item: Partial<SupportWorkItem>, addAnother?: boolean) => void;
   initialItem?: SupportWorkItem | null;
+  defaultPrice?: number;
+  ticketHourlyRate?: number;
+  currency?: string;
   ticketContact?: {
     id?: number;
     name?: string;
@@ -40,6 +43,9 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
   onClose,
   onSave,
   initialItem,
+  defaultPrice,
+  ticketHourlyRate,
+  currency = '€',
   ticketContact,
   onOpenCustomerPicker,
   isDark = false
@@ -55,25 +61,61 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const quickPricePresets = useMemo(() => {
+    const presets: { label: string; value: string; title?: string }[] = [];
+    if (defaultPrice !== undefined && defaultPrice > 0) {
+      presets.push({
+        label: `Std. ${defaultPrice}${currency}`,
+        value: String(defaultPrice).replace('.', ','),
+        title: `Standard-Betrag aus Einstellungen (${defaultPrice} ${currency})`
+      });
+    }
+    if (ticketHourlyRate !== undefined && ticketHourlyRate > 0) {
+      presets.push({
+        label: `1h (${ticketHourlyRate}${currency})`,
+        value: String(ticketHourlyRate).replace('.', ','),
+        title: `Ticket-Stundensatz (${ticketHourlyRate} ${currency})`
+      });
+    }
+    [25, 50, 100].forEach(amt => {
+      if (amt !== defaultPrice && amt !== ticketHourlyRate) {
+        presets.push({
+          label: `${amt}${currency}`,
+          value: String(amt),
+          title: `${amt} ${currency} Pauschale`
+        });
+      }
+    });
+    return presets.slice(0, 4);
+  }, [defaultPrice, ticketHourlyRate, currency]);
+
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
         setTitle(initialItem.title || '');
         setDescription(initialItem.description || '');
-        setPrice(initialItem.price !== undefined ? String(initialItem.price) : '');
+        setPrice(
+          initialItem.price !== undefined && initialItem.price > 0
+            ? String(initialItem.price).replace('.', ',')
+            : (initialItem.price === 0 ? '0' : '')
+        );
         setIsCompleted(!!initialItem.isCompleted);
         setIsDocumentOnly(!!initialItem.isDocumentOnly);
         setAttachments(initialItem.attachments || []);
       } else {
         setTitle('');
         setDescription('');
-        setPrice('');
+        // If a default standard price > 0 is configured in settings, pre-fill it. Otherwise leave clean with placeholder.
+        const standardCostStr = (defaultPrice !== undefined && defaultPrice > 0)
+          ? String(defaultPrice).replace('.', ',')
+          : '';
+        setPrice(standardCostStr);
         setIsCompleted(false);
         setIsDocumentOnly(false);
         setAttachments([]);
       }
     }
-  }, [isOpen, initialItem]);
+  }, [isOpen, initialItem, defaultPrice]);
 
   if (!isOpen) return null;
 
@@ -136,14 +178,14 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
       return;
     }
 
-    const finalTitle = title.trim() || (attachments[0] ? attachments[0].name : t('support.work_item_default_title', undefined, 'Service-Position'));
-    const parsedPrice = price.trim() ? parseFloat(price.replace(',', '.')) : undefined;
+    const finalTitle = title.trim() || (attachments[0] ? attachments[0].name : (isDocumentOnly ? t('support.work_item_badge_doc_only', undefined, 'Dokument') : t('support.work_item_default_title', undefined, 'Service-Position')));
+    const parsedPrice = price.trim() ? parseFloat(price.replace(',', '.')) : 0;
 
     onSave(
       {
         title: finalTitle,
-        description: description.trim() || undefined,
-        price: isNaN(parsedPrice as number) ? undefined : parsedPrice,
+        description: isDocumentOnly ? undefined : (description.trim() || undefined),
+        price: isNaN(parsedPrice as number) ? 0 : parsedPrice,
         isCompleted,
         isDocumentOnly,
         attachments
@@ -154,9 +196,11 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
     if (addAnother) {
       setTitle('');
       setDescription('');
-      setPrice('');
+      const standardCostStr = (defaultPrice !== undefined && defaultPrice > 0)
+        ? String(defaultPrice).replace('.', ',')
+        : '';
+      setPrice(standardCostStr);
       setIsCompleted(false);
-      setIsDocumentOnly(false);
       setAttachments([]);
     } else {
       onClose();
@@ -179,11 +223,7 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
       >
         <div 
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl shadow-2xl border transition-all animate-scale-up overflow-hidden ${
-            isDark 
-              ? 'bg-slate-900 border-slate-700/80 text-white' 
-              : 'bg-white border-slate-200/90 text-slate-900'
-          }`}
+          className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all animate-scale-up overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800">
@@ -192,7 +232,7 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
                 <Layers className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {initialItem 
                     ? t('support.work_item_modal_edit_title', undefined, 'Service-Position / Aufgabe bearbeiten')
                     : t('support.work_item_modal_create_title', undefined, 'Neue Position / Aufgabe hinzufügen')}
@@ -296,41 +336,70 @@ export const SupportWorkItemModal: React.FC<SupportWorkItemModalProps> = ({
                 placeholder={isDocumentOnly 
                   ? t('support.work_item_doc_title_placeholder', undefined, 'z.B. Messprotokoll_2026.pdf, Prüfbericht, Lieferschein...')
                   : t('support.work_item_title_placeholder', undefined, 'z.B. Fehlerdiagnose, Displaytausch, Windows neu aufsetzen...')}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
               />
             </div>
 
-            {/* Additional Description */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('support.work_item_desc_label', undefined, 'Zusätzliche Notizen / Beschreibung')}
-              </label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('support.work_item_desc_placeholder', undefined, 'Detaillierte Beobachtungen, Seriennummern, Spezifikationen oder Hinweise...')}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden resize-none"
-              />
-            </div>
-
-            {/* Price and Status (Hidden or optional if document only) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            {/* Additional Description - only displayed for standard tasks, hidden when 'Nur Dokument' is selected */}
+            {!isDocumentOnly && (
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('support.work_item_price_label', undefined, 'Pauschalbetrag / Kosten (€ optional)')}
+                  {t('support.work_item_desc_label', undefined, 'Zusätzliche Notizen / Beschreibung')}
                 </label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t('support.work_item_desc_placeholder', undefined, 'Detaillierte Beobachtungen, Seriennummern, Spezifikationen oder Hinweise...')}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden resize-none"
+                />
+              </div>
+            )}
+
+            {/* Price and Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <div className="flex items-center justify-between mb-1.5 gap-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {t('support.work_item_price_label', undefined, 'Pauschalbetrag / Kosten (optional)')}
+                  </label>
+                  {quickPricePresets.length > 0 && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {quickPricePresets.map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setPrice(preset.value)}
+                          title={preset.title}
+                          className="px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300 transition cursor-pointer"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      {price && (
+                        <button
+                          type="button"
+                          onClick={() => setPrice('')}
+                          title={t('common.clear', undefined, 'Zurücksetzen')}
+                          className="px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-[10px] font-semibold text-rose-600 dark:text-rose-400 transition cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="relative">
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="0,00"
-                    className="w-full pl-3.5 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                    className="w-full pl-3.5 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-mono font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold pointer-events-none">€</span>
+                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold pointer-events-none">
+                    {currency}
+                  </span>
                 </div>
               </div>
 

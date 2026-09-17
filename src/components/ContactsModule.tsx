@@ -271,12 +271,8 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
     setIsExportDropdownOpen(false);
   };
 
-  const handleDeleteContact = async (id: number | string, skipConfirm = false, e?: React.MouseEvent) => {
+  const handleDeleteContact = async (id: number | string, _skipConfirm = true, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!skipConfirm) {
-      sounds.playWarning();
-      if (!confirm(t('contact.delete_confirm', currentLang, 'Diesen Kontakt wirklich unwiderruflich aus der Datenbank löschen?'))) return;
-    }
 
     try {
       await db.contacts.delete(Number(id));

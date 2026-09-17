@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   Check, 
@@ -24,8 +24,12 @@ interface SupportTimesheetModalProps {
   onClose: () => void;
   onSave: (entry: Partial<SupportTimesheetEntry>) => void;
   initialEntry?: SupportTimesheetEntry | null;
-  staffList: string[];
+  staffList?: string[];
+  staffOptions?: string[];
+  defaultStaff?: string;
   defaultHourlyRate?: number;
+  defaultRate?: number;
+  currency?: string;
   isDark?: boolean;
 }
 
@@ -35,9 +39,21 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
   onSave,
   initialEntry,
   staffList,
+  staffOptions,
+  defaultStaff,
   defaultHourlyRate,
+  defaultRate,
+  currency = '€',
   isDark = false
 }) => {
+  const effectiveStaffList = useMemo(() => {
+    if (staffList && Array.isArray(staffList) && staffList.length > 0) return staffList;
+    if (staffOptions && Array.isArray(staffOptions) && staffOptions.length > 0) return staffOptions;
+    return ['Mitarbeiter'];
+  }, [staffList, staffOptions]);
+
+  const effectiveDefaultRate = defaultHourlyRate ?? defaultRate;
+
   const [date, setDate] = useState('');
   const [staff, setStaff] = useState('');
   const [description, setDescription] = useState('');
@@ -52,25 +68,26 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      const fallbackStaff = defaultStaff || effectiveStaffList[0] || '';
       if (initialEntry) {
         setDate(initialEntry.date || new Date().toISOString().split('T')[0]);
-        setStaff(initialEntry.staff || (staffList[0] || ''));
+        setStaff(initialEntry.staff || fallbackStaff);
         setDescription(initialEntry.description || '');
         setHours(initialEntry.hours ? String(initialEntry.hours) : '1.0');
-        setHourlyRate(initialEntry.hourlyRate !== undefined ? String(initialEntry.hourlyRate) : (defaultHourlyRate !== undefined ? String(defaultHourlyRate) : ''));
+        setHourlyRate(initialEntry.hourlyRate !== undefined ? String(initialEntry.hourlyRate) : (effectiveDefaultRate !== undefined ? String(effectiveDefaultRate) : ''));
         setBillable(initialEntry.billable !== false);
         setAttachments(initialEntry.attachments || []);
       } else {
         setDate(new Date().toISOString().split('T')[0]);
-        setStaff(staffList[0] || '');
+        setStaff(fallbackStaff);
         setDescription('');
         setHours('1.0');
-        setHourlyRate(defaultHourlyRate !== undefined ? String(defaultHourlyRate) : '');
+        setHourlyRate(effectiveDefaultRate !== undefined ? String(effectiveDefaultRate) : '');
         setBillable(true);
         setAttachments([]);
       }
     }
-  }, [isOpen, initialEntry, staffList, defaultHourlyRate]);
+  }, [isOpen, initialEntry, effectiveStaffList, effectiveDefaultRate, defaultStaff]);
 
   if (!isOpen) return null;
 
@@ -156,11 +173,7 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
       >
         <div 
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl shadow-2xl border transition-all animate-scale-up overflow-hidden ${
-            isDark 
-              ? 'bg-slate-900 border-slate-700/80 text-white' 
-              : 'bg-white border-slate-200/90 text-slate-900'
-          }`}
+          className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all animate-scale-up overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800">
@@ -169,7 +182,7 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
                 <Clock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {initialEntry 
                     ? t('support.timesheet_modal_edit_title', undefined, 'Zeiteintrag bearbeiten')
                     : t('support.timesheet_modal_create_title', undefined, 'Zeiteintrag erfassen')}
@@ -204,7 +217,7 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
                 />
               </div>
 
@@ -217,9 +230,9 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
                 <select
                   value={staff}
                   onChange={(e) => setStaff(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
                 >
-                  {staffList.map(s => (
+                  {effectiveStaffList.map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -237,7 +250,7 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t('support.timesheet_desc_placeholder', undefined, 'Beschreibung der ausgeführten Arbeiten (z.B. Fehleranalyse, Reparatur, Kundengespräch)...')}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden resize-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden resize-none"
               />
             </div>
 
@@ -289,10 +302,10 @@ export const SupportTimesheetModal: React.FC<SupportTimesheetModalProps> = ({
                     min="0"
                     value={hourlyRate}
                     onChange={(e) => setHourlyRate(e.target.value)}
-                    placeholder={defaultHourlyRate !== undefined ? String(defaultHourlyRate) : "0,00"}
-                    className="w-full pl-3.5 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
+                    placeholder={effectiveDefaultRate !== undefined ? String(effectiveDefaultRate) : "0,00"}
+                    className="w-full pl-3.5 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-mono font-medium focus:ring-2 focus:ring-cyan-500 focus:outline-hidden"
                   />
-                  <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">€/h</span>
+                  <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">{currency}/h</span>
                 </div>
               </div>
 

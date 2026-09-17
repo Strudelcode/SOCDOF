@@ -152,11 +152,7 @@ export const DesktopFolderModal: React.FC<DesktopFolderModalProps> = ({
       >
         <div 
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-xl p-6 rounded-3xl shadow-2xl border transition-all animate-scale-up ${
-            isDark 
-              ? 'bg-slate-900/95 border-slate-700/80 text-white' 
-              : 'bg-white/95 border-slate-200/90 text-slate-900'
-          }`}
+          className="w-full max-w-xl p-6 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white transition-all animate-scale-up"
           style={{
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)'
           }}

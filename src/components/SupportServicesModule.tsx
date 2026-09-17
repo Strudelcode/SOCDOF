@@ -95,6 +95,7 @@ interface SupportSettings {
   ticketPrefix: string;
   nextNumber: number;
   defaultHourlyRate: number;
+  defaultWorkItemPrice?: number;
   defaultTeam: string;
   defaultStaff: string;
   disableTeams?: boolean;
@@ -143,6 +144,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     ticketPrefix: 'SUP-',
     nextNumber: 1001,
     defaultHourlyRate: 95,
+    defaultWorkItemPrice: 0,
     defaultTeam: 'Standard',
     defaultStaff: companyRoleName,
     disableTeams: false,
@@ -172,6 +174,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           ticketPrefix: parsed.ticketPrefix || 'SUP-',
           nextNumber: parsed.nextNumber || 1001,
           defaultHourlyRate: parsed.defaultHourlyRate || 95,
+          defaultWorkItemPrice: typeof parsed.defaultWorkItemPrice === 'number' ? parsed.defaultWorkItemPrice : 0,
           defaultTeam: parsed.defaultTeam || 'Standard',
           defaultStaff: parsed.defaultStaff || companyProfile.name || 'Firma',
           disableTeams: typeof parsed.disableTeams === 'boolean' ? parsed.disableTeams : false,
@@ -188,6 +191,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       ticketPrefix: 'SUP-',
       nextNumber: 1001,
       defaultHourlyRate: 95,
+      defaultWorkItemPrice: 0,
       defaultTeam: 'Standard',
       defaultStaff: companyProfile.name || 'Firma',
       disableTeams: false,
@@ -286,6 +290,9 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           const fallbackStaff = companyProfile.name || 'Firma';
           return parsed.map((t: any) => ({
             ...t,
+            tags: Array.isArray(t.tags) ? t.tags : [],
+            timesheets: Array.isArray(t.timesheets) ? t.timesheets : [],
+            workItems: Array.isArray(t.workItems) ? t.workItems : [],
             assignedStaff: (t.assignedStaff?.toLowerCase().includes('robert') || t.assignedStaff?.toLowerCase().includes('hölzl') || t.assignedStaff === 'Support Agent') 
               ? fallbackStaff 
               : t.assignedStaff || fallbackStaff,
@@ -429,16 +436,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   const [chatterInput, setChatterInput] = useState('');
 
   // Work Items / Positions state
-  const [newWorkItemTitle, setNewWorkItemTitle] = useState('');
-  const [newWorkItemDesc, setNewWorkItemDesc] = useState('');
-  const [newWorkItemPrice, setNewWorkItemPrice] = useState('');
-  const [newWorkItemCompleted, setNewWorkItemCompleted] = useState(false);
   const [editingWorkItemId, setEditingWorkItemId] = useState<string | null>(null);
   const [editWorkItemTitle, setEditWorkItemTitle] = useState('');
   const [editWorkItemDesc, setEditWorkItemDesc] = useState('');
   const [editWorkItemPrice, setEditWorkItemPrice] = useState('');
   const [workItemFilter, setWorkItemFilter] = useState<'all' | 'open' | 'completed'>('all');
-  const workItemTitleInputRef = useRef<HTMLInputElement>(null);
 
   // Print / PDF Modal state
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -640,7 +642,15 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
   };
 
   const selectedTicket = useMemo(() => {
-    return tickets.find(t => t.id === selectedTicketId) || null;
+    const found = tickets.find(t => t.id === selectedTicketId);
+    if (!found) return null;
+    return {
+      ...found,
+      tags: Array.isArray(found.tags) ? found.tags : [],
+      timesheets: Array.isArray(found.timesheets) ? found.timesheets : [],
+      workItems: Array.isArray(found.workItems) ? found.workItems : [],
+      activities: Array.isArray(found.activities) ? found.activities : []
+    };
   }, [tickets, selectedTicketId]);
 
   const assignedContact = useMemo(() => {
@@ -804,50 +814,6 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     });
   };
 
-  const handleSaveNewWorkItem = (keepOpenForNext: boolean = false) => {
-    if (!selectedTicket || !newWorkItemTitle.trim()) return;
-    sounds.playClick();
-
-    const cleanPriceStr = newWorkItemPrice.replace(',', '.').trim();
-    const parsedPrice = cleanPriceStr ? Math.max(0, parseFloat(cleanPriceStr) || 0) : undefined;
-    const newItem: SupportWorkItem = {
-      id: `wi_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      title: newWorkItemTitle.trim(),
-      description: newWorkItemDesc.trim() || undefined,
-      price: parsedPrice && parsedPrice > 0 ? parsedPrice : undefined,
-      isCompleted: newWorkItemCompleted,
-      completedAt: newWorkItemCompleted ? new Date().toISOString() : undefined,
-      createdAt: new Date().toISOString()
-    };
-
-    const newActivity: SupportActivityEntry = {
-      id: `act_${Date.now()}`,
-      author: companyRoleName,
-      type: 'activity',
-      content: `${t('support.work_item_added', undefined, 'Neue Aufgabe hinzugefügt')}: "${newItem.title}"${newItem.price ? ` (${newItem.price.toFixed(2)} €)` : ''}.`,
-      createdAt: new Date().toISOString()
-    };
-
-    const updatedWorkItems = [...(selectedTicket.workItems || []), newItem];
-
-    updateCurrentTicket({
-      workItems: updatedWorkItems,
-      activities: [newActivity, ...selectedTicket.activities]
-    });
-
-    // Reset inputs
-    setNewWorkItemTitle('');
-    setNewWorkItemDesc('');
-    setNewWorkItemPrice('');
-    setNewWorkItemCompleted(false);
-
-    if (keepOpenForNext) {
-      setTimeout(() => {
-        workItemTitleInputRef.current?.focus();
-      }, 50);
-    }
-  };
-
   const handleStartEditWorkItem = (item: SupportWorkItem) => {
     sounds.playClick();
     setEditingWorkItemId(item.id);
@@ -898,7 +864,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     setIsWorkItemModalOpen(true);
   };
 
-  const handleSaveWorkItemFromModal = (itemData: Partial<SupportWorkItem>, newCustomerId?: string) => {
+  const handleSaveWorkItemFromModal = (itemData: Partial<SupportWorkItem>, addAnother?: boolean, newCustomerId?: string) => {
     if (!selectedTicket) return;
     sounds.playClick();
 
@@ -906,7 +872,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
     let activityEntries = [...selectedTicket.activities];
 
     // Check if customer was changed within the work item modal
-    if (newCustomerId !== undefined && newCustomerId !== selectedTicket.contact_id) {
+    if (typeof newCustomerId === 'string' && newCustomerId !== selectedTicket.contact_id) {
       updatedContactId = newCustomerId;
       const matchedContact = contacts.find(c => c.id === newCustomerId);
       const contactLabel = matchedContact 
@@ -940,7 +906,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         id: `wi_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         title: itemData.title?.trim() || t('support.work_item_default_title', undefined, 'Service-Position'),
         description: itemData.description?.trim() || undefined,
-        price: itemData.price !== undefined && itemData.price > 0 ? itemData.price : undefined,
+        price: typeof itemData.price === 'number' && !isNaN(itemData.price) ? itemData.price : 0,
         isCompleted: !!itemData.isCompleted,
         completedAt: itemData.isCompleted ? new Date().toISOString() : undefined,
         isDocumentOnly: !!itemData.isDocumentOnly,
@@ -955,7 +921,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         id: `act_${Date.now()}_wi`,
         author: companyRoleName,
         type: 'activity',
-        content: `${t('support.work_item_added', undefined, 'Neue Aufgabe hinzugefügt')}: "${newItem.title}"${newItem.price ? ` (${newItem.price.toFixed(2)} €)` : ''}${newItem.isDocumentOnly ? ` [${t('support.work_item_badge_doc_only', undefined, 'Dokument')}]` : ''}.`,
+        content: `${t('support.work_item_added', undefined, 'Neue Aufgabe hinzugefügt')}: "${newItem.title}"${newItem.price !== undefined && newItem.price > 0 ? ` (${newItem.price.toFixed(2)} ${companyProfile.currency || '€'})` : ''}${newItem.isDocumentOnly ? ` [${t('support.work_item_badge_doc_only', undefined, 'Dokument')}]` : ''}.`,
         createdAt: new Date().toISOString()
       };
       activityEntries = [newActivity, ...activityEntries];
@@ -967,8 +933,10 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
       activities: activityEntries
     });
 
-    setIsWorkItemModalOpen(false);
-    setEditingWorkItemForModal(null);
+    if (!addAnother) {
+      setIsWorkItemModalOpen(false);
+      setEditingWorkItemForModal(null);
+    }
   };
 
   // Support Timesheet & Receipt Modal Handlers
@@ -2999,118 +2967,30 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                       );
                     })()}
 
-                    {/* Creation Card for new work step / position */}
-                    <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/80 rounded-xl border border-cyan-500/30 dark:border-cyan-500/20 shadow-2xs space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                          <Plus className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                          <span>{t('support.work_items_title', undefined, 'Service-Positionen & Arbeitsschritte')}</span>
-                        </span>
-                        
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleOpenNewWorkItemModal}
-                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>{t('support.work_item_btn_add_modal', undefined, 'Neuen Eintrag / Beilage hinzufügen...')}</span>
-                          </button>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden xl:inline">
-                            {t('support.work_items_subtitle', undefined, 'Erfassen Sie einzelne Arbeitsschritte, Notizen und optionale Pauschalbeträge für dieses Ticket')}
+                    {/* Action Bar: Direct button to add task / position via modal */}
+                    <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-cyan-500/15 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block truncate">
+                            {t('support.work_items_title', undefined, 'Service-Positionen & Aufgaben')}
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">
+                            {t('support.work_items_subtitle', undefined, 'Arbeitsschritte, Pauschalen & Beilagen erfassen')}
                           </span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                        {/* Title */}
-                        <div className="md:col-span-5">
-                          <input
-                            ref={workItemTitleInputRef}
-                            type="text"
-                            value={newWorkItemTitle}
-                            onChange={(e) => setNewWorkItemTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleSaveNewWorkItem(true);
-                              }
-                            }}
-                            placeholder={t('support.work_item_title_placeholder', undefined, 'z.B. Hardware-Diagnose, Displaytausch, Windows neu aufsetzen...')}
-                            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
-                          />
-                        </div>
-
-                        {/* Description / Notes */}
-                        <div className="md:col-span-4">
-                          <input
-                            type="text"
-                            value={newWorkItemDesc}
-                            onChange={(e) => setNewWorkItemDesc(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleSaveNewWorkItem(true);
-                              }
-                            }}
-                            placeholder={t('support.work_item_notes_placeholder', undefined, 'Details, Notizen, Seriennr., Ergebnisse...')}
-                            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
-                          />
-                        </div>
-
-                        {/* Custom Amount / Price */}
-                        <div className="md:col-span-3 relative">
-                          <input
-                            type="text"
-                            value={newWorkItemPrice}
-                            onChange={(e) => setNewWorkItemPrice(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleSaveNewWorkItem(true);
-                              }
-                            }}
-                            placeholder={t('support.work_item_price_placeholder', undefined, '0,00')}
-                            className="w-full pl-3 pr-8 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500"
-                          />
-                          <span className="absolute right-3 top-2 text-slate-400 font-mono text-xs">{companyProfile.currency || '€'}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={newWorkItemCompleted}
-                            onChange={(e) => setNewWorkItemCompleted(e.target.checked)}
-                            className="rounded text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
-                          />
-                          <span>{t('support.work_item_mark_done', undefined, 'Bereits erledigt')}</span>
-                        </label>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveNewWorkItem(false)}
-                            disabled={!newWorkItemTitle.trim()}
-                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>{t('support.btn_add_work_item', undefined, 'Position hinzufügen')}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleSaveNewWorkItem(true)}
-                            disabled={!newWorkItemTitle.trim()}
-                            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 font-semibold text-xs shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
-                            title={t('support.btn_add_and_next_title', undefined, 'Save and immediately enter the next work step')}
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>{t('support.btn_add_and_next', undefined, 'Speichern & Weiteres anlegen')}</span>
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleOpenNewWorkItemModal}
+                        className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-4 h-4 stroke-[2.5]" />
+                        <span>{t('support.work_item_btn_add_modal', undefined, 'Aufgabe hinzufügen')}</span>
+                      </button>
                     </div>
 
                     {/* Work Items List */}
@@ -3124,14 +3004,24 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
                       if (items.length === 0) {
                         return (
-                          <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-900/30">
-                            <ListTodo className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                              {t('support.work_items_empty', undefined, 'Noch keine Service-Positionen erfasst.')}
-                            </p>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                              {t('support.work_items_empty_subtitle', undefined, 'Record individual tasks, material costs, or work steps above.')}
-                            </p>
+                          <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
+                            <ListTodo className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+                            <div>
+                              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                {t('support.work_items_empty', undefined, 'Noch keine Service-Positionen erfasst.')}
+                              </p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                                {t('support.work_items_empty_subtitle', undefined, 'Erfassen Sie einzelne Arbeitsschritte, Notizen, Kosten oder Beilagen.')}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleOpenNewWorkItemModal}
+                              className="px-4 py-2 mx-auto rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition inline-flex items-center gap-2 cursor-pointer"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                              <span>{t('support.work_item_btn_add_modal', undefined, 'Aufgabe hinzufügen')}</span>
+                            </button>
                           </div>
                         );
                       }
@@ -3986,7 +3876,25 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                         onChange={(e) => setTempSettings({ ...tempSettings, defaultHourlyRate: parseFloat(e.target.value) || 0 })}
                         className="w-full px-3 py-2 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-cyan-500"
                       />
-                      <span className="absolute right-3 top-2 text-slate-400 font-mono">€</span>
+                      <span className="absolute right-3 top-2 text-slate-400 font-mono">{companyProfile.currency || '€'}</span>
+                    </div>
+                  </div>
+
+                  {/* Default Task / Position Amount */}
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {t('support.settings_default_task_price_label', undefined, 'Standard-Kosten / Betrag für Aufgaben')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        value={tempSettings.defaultWorkItemPrice ?? 0}
+                        onChange={(e) => setTempSettings({ ...tempSettings, defaultWorkItemPrice: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <span className="absolute right-3 top-2 text-slate-400 font-mono">{companyProfile.currency || '€'}</span>
                     </div>
                   </div>
 
@@ -4588,9 +4496,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           }}
           onSave={handleSaveWorkItemFromModal}
           initialItem={editingWorkItemForModal}
-          contacts={contacts}
-          assignedContactId={selectedTicket.contact_id}
+          defaultPrice={settings.defaultWorkItemPrice ?? 0}
+          ticketHourlyRate={selectedTicket.hourlyRate}
           currency={companyProfile.currency || '€'}
+          ticketContact={contacts.find(c => c.id === selectedTicket.contact_id)}
+          onOpenCustomerPicker={() => setIsCustomerPickerOpen(true)}
         />
       )}
 
@@ -4604,9 +4514,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
           }}
           onSave={handleSaveTimesheetFromModal}
           initialEntry={editingTimesheetForModal}
+          staffList={effectiveStaffList}
           staffOptions={effectiveStaffList}
           defaultStaff={companyRoleName}
-          defaultRate={selectedTicket.defaultHourlyRate || 85}
+          defaultHourlyRate={selectedTicket.hourlyRate || selectedTicket.defaultHourlyRate || 85}
+          defaultRate={selectedTicket.hourlyRate || selectedTicket.defaultHourlyRate || 85}
           currency={companyProfile.currency || '€'}
         />
       )}
