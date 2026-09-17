@@ -15,7 +15,8 @@
     "build:signed": "npm run build:exe && npm run sign:exe",
     "preview": "vite preview",
     "clean": "rm -rf dist release server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:auth": "tsx scripts/auth-regression.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

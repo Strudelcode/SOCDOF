@@ -22,33 +22,13 @@
 ## 2. Active Roadmap & Pending Tasks
 
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
-- [ ] **Onboarding Account Type Selector (Personal vs. Business)**:
-  - [x] Choice during initial wizard / user creation: "Individual / Personal User" vs. "Business / Company".
-    - Implemented in the first-run setup wizard and persisted with the local `company_profile` settings record as `account_type` (`personal` / `business`).
-  - [ ] Context-aware settings & module filtering:
-    - Personal users enjoy a clean, streamlined interface without corporate overhead (hiding company registration, tax numbers, VAT letterheads, SDI codes).
-    - Business users receive full corporate profile configuration (legal name, tax IDs, banking information, letterhead templates, invoice sequences).
-  - [ ] Option to switch or convert account type later in the settings.
-- [ ] **Multi-User Profile Management & Avatar System**:
-  - [ ] Support creating, editing, and switching between multiple local user accounts.
-  - [ ] Custom profile pictures (avatar upload with cropping/resizing or preset avatars) displayed on the lock screen, user switcher, start menu, and title bar.
-  - [ ] Individual per-user personalization: custom desktop wallpaper (upload or preset themes), accent colors, window layouts, and pinned taskbar apps.
-- [ ] **Cryptographically Secure Password Storage (Zero-Knowledge Architecture)**:
-  - [ ] Enforce one-way salted cryptographic hashing (PBKDF2-HMAC-SHA256 with 100,000+ iterations or Web Crypto API).
-  - [ ] Zero plaintext storage: Passwords can never be reverse-engineered or extracted from files or databases by third-party file access.
-  - [ ] Double-entry password verification: "Enter Password" and "Confirm Password" checks with real-time match validation during setup or updates.
-- [ ] **Security Question Recovery (Forgot Password Workflow)**:
-  - [ ] Setup of security recovery question(s) upon password creation.
-  - [ ] Predefined list of security questions (e.g. nickname, birthplace, first pet, mother's maiden name, favorite book, childhood school).
-  - [ ] Hashed answer storage (case-insensitive & trimmed) to protect answers from file inspection.
-  - [ ] "Forgot Password?" recovery dialog on the lock screen enabling secure password reset and renewal after answering the security question correctly.
-- [ ] **Brute-Force Attack Protection & Account Lockout**:
-  - [ ] Configurable failed attempt threshold (e.g. 3, 5, or 10 failed login attempts).
-  - [ ] Time-based account lockout (e.g. lock login for 5, 10, or 15 minutes with exponential backoff on repeated failures).
-  - [ ] Lock screen countdown timer clearly indicating the remaining lockout period.
-- [ ] **Windows-Style Lock Screen & Fast User Switching**:
-  - [ ] Lock screen interface with clock, wallpaper, user avatar selection carousel, and PIN / password prompt.
-  - [ ] Quick lock action (`Win + L` shortcut or Start Menu lock button) allowing fast user switching without closing running background tasks.
+
+Authentication and local multi-user personalization are implemented and verified in CI. The following items are intentionally tracked as remaining hardening/documentation work rather than being marked complete prematurely:
+- [ ] **Move authentication persistence from LocalStorage to Dexie / IndexedDB** while preserving an automatic migration for existing local accounts.
+- [ ] **Move all AuthGate user-facing strings into `src/lib/i18n.ts`** and maintain complete DE/EN/FR/ES parity without a component-local translation dictionary.
+- [ ] **Add the dedicated multi-user/authentication chapter to `src/components/DocumentationApp.tsx`** in German and English, including workflows, buttons, security behavior, and shortcuts.
+- [ ] **Archive the completed authentication milestone in `todo/completed_todo.md`** according to the two-file todo rule.
+- [ ] **Add automated authentication regression tests** for password hashing, recovery, lockout/backoff, admin authorization, account switching, and forced password changes.
 
 ### 2.2 Windows-Inspired Settings & Display / Multi-Monitor Management
 - [ ] **Windows 11-Inspired Settings Hub**:
@@ -92,6 +72,5 @@
 
 ### 2.4 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
-
-
-
+- [ ] Automated regression coverage for critical local data workflows.
+- [ ] Accessibility audit and keyboard-navigation refinement across major desktop surfaces.
