@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getSession, getUserById, type AccountType, AUTH_CHANGE_EVENT_NAME } from '../lib/auth';
+import { UserRoundCog } from 'lucide-react';
+import { getSession, getUserById, type AccountType, AUTH_CHANGE_EVENT_NAME, type UserAccount } from '../lib/auth';
+import { AccountProfilePanel } from './AccountProfilePanel';
 
 /**
  * Applies the active local account's workspace scope before the desktop workspace mounts.
@@ -56,14 +58,11 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
   for (const key of USER_SCOPED_KEYS) {
     const userKey = scopedKey(key, userId);
     const existingUserValue = localStorage.getItem(userKey);
-
-    if (existingUserValue !== null) {
-      localStorage.setItem(key, existingUserValue);
-      continue;
+    if (existingUserValue !== null) localStorage.setItem(key, existingUserValue);
+    else {
+      const currentValue = localStorage.getItem(key);
+      if (currentValue !== null) localStorage.setItem(userKey, currentValue);
     }
-
-    const currentValue = localStorage.getItem(key);
-    if (currentValue !== null) localStorage.setItem(userKey, currentValue);
   }
 
   for (const key of MODULE_STATE_BACKUP_KEYS) {
@@ -74,37 +73,29 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
     }
   }
 
-  if (accountType === 'personal') {
-    for (const key of MODULE_STATE_BACKUP_KEYS) {
-      const values = readArray(backupKey(key, userId));
-      if (!values) continue;
-      const filtered = values.filter(module => !BUSINESS_ONLY_MODULES.has(module));
-      const serialized = JSON.stringify(filtered);
-      localStorage.setItem(key, serialized);
-      localStorage.setItem(scopedKey(key, userId), serialized);
-    }
-  } else {
-    for (const key of MODULE_STATE_BACKUP_KEYS) {
-      const values = readArray(backupKey(key, userId));
-      if (!values) continue;
-      const serialized = JSON.stringify(values);
-      localStorage.setItem(key, serialized);
-      localStorage.setItem(scopedKey(key, userId), serialized);
-    }
+  for (const key of MODULE_STATE_BACKUP_KEYS) {
+    const values = readArray(backupKey(key, userId));
+    if (!values) continue;
+    const visible = accountType === 'personal' ? values.filter(module => !BUSINESS_ONLY_MODULES.has(module)) : values;
+    const serialized = JSON.stringify(visible);
+    localStorage.setItem(key, serialized);
+    localStorage.setItem(scopedKey(key, userId), serialized);
   }
 }
 
 export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const [activeAccount, setActiveAccount] = useState(() => {
+  const [activeAccount, setActiveAccount] = useState<UserAccount | null>(() => {
     const session = getSession();
     return session && !session.locked ? getUserById(session.userId) : null;
   });
   const [scopeKey, setScopeKey] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const refreshAccount = () => {
       const session = getSession();
       setActiveAccount(session && !session.locked ? getUserById(session.userId) : null);
+      setProfileOpen(false);
     };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
     window.addEventListener('storage', refreshAccount);
@@ -119,7 +110,6 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       setScopeKey(null);
       return;
     }
-
     try {
       prepareUserWorkspace(activeAccount.id, activeAccount.accountType);
       setScopeKey(`${activeAccount.id}:${activeAccount.accountType}`);
@@ -131,5 +121,19 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
 
   if (!activeAccount || !scopeKey) return null;
 
-  return <React.Fragment key={scopeKey}>{children}</React.Fragment>;
+  return (
+    <React.Fragment key={scopeKey}>
+      {children}
+      <button
+        type="button"
+        onClick={() => setProfileOpen(true)}
+        className="fixed top-3 right-44 z-[9998] p-2.5 rounded-xl border border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/85 backdrop-blur-xl shadow-lg hover:bg-slate-100 dark:hover:bg-white/10"
+        title={activeAccount.displayName}
+        aria-label={activeAccount.displayName}
+      >
+        {activeAccount.avatar?.startsWith('data:image/') ? <img src={activeAccount.avatar} alt="" className="w-4 h-4 rounded-full object-cover" /> : <UserRoundCog size={16} />}
+      </button>
+      {profileOpen && <AccountProfilePanel user={activeAccount} onClose={() => setProfileOpen(false)} onUpdated={(user) => setActiveAccount(user)} />}
+    </React.Fragment>
+  );
 };
