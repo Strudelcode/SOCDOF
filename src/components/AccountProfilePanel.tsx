@@ -14,10 +14,9 @@ const PRESET_ACCENTS = ['indigo', 'purple', 'blue', 'emerald', 'sky', 'amber', '
 
 function applyTheme(theme: 'light' | 'dark') {
   try {
-    localStorage.setItem('odoo_theme_dark', String(theme === 'dark'));
     document.documentElement.classList.toggle('dark', theme === 'dark');
   } catch {
-    // ignore storage errors
+    // ignore DOM errors
   }
 }
 
@@ -49,11 +48,9 @@ function resizeAvatar(file: File): Promise<string> {
 export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, onClose, onUpdated }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user.displayName);
-  const [avatar, setAvatar] = useState(user.avatar ?? '●');
+  const [avatar, setAvatar] = useState(user.avatar ?? '');
   const [accountType, setAccountType] = useState<AccountType>(user.accountType);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try { return localStorage.getItem('odoo_theme_dark') === 'true' ? 'dark' : 'light'; } catch { return 'light'; }
-  });
+  const [theme, setTheme] = useState<'light' | 'dark'>(user.preferences.theme ?? 'light');
   const [accentColor, setAccentColor] = useState(user.preferences.accentColor ?? 'indigo');
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(user.preferences.language ?? getLanguage());
   const [autoLockMinutes, setAutoLockMinutes] = useState(user.preferences.autoLockMinutes ?? 15);
@@ -61,11 +58,14 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
 
   useEffect(() => {
     setDisplayName(user.displayName);
-    setAvatar(user.avatar ?? '●');
+    setAvatar(user.avatar ?? '');
     setAccountType(user.accountType);
+    setTheme(user.preferences.theme ?? 'light');
     setAccentColor(user.preferences.accentColor ?? 'indigo');
     setSelectedLanguage(user.preferences.language ?? getLanguage());
     setAutoLockMinutes(user.preferences.autoLockMinutes ?? 15);
+    applyTheme(user.preferences.theme ?? 'light');
+    applyAccentColor(user.preferences.accentColor ?? 'indigo');
   }, [user]);
 
   const save = () => {
@@ -76,7 +76,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
       accentColor,
       autoLockMinutes: Math.max(0, Math.min(240, autoLockMinutes))
     };
-    let nextUser = updateUser(user.id, { displayName: displayName.trim() || user.displayName, avatar, accountType });
+    let nextUser = updateUser(user.id, { displayName: displayName.trim() || user.displayName, avatar: avatar || undefined, accountType });
     nextUser = updateUserPreferences(nextUser.id, nextPreferences);
     setLanguage(selectedLanguage);
     applyAccentColor(accentColor);
@@ -104,14 +104,14 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
         <header className="flex items-center justify-between px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-2xl overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center text-lg font-semibold shrink-0">
-              {avatar.startsWith('data:image/') ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : avatar}
+              {avatar.startsWith('data:image/') ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : <UserRound size={20} className="text-slate-400" />}
             </div>
             <div className="min-w-0">
               <h2 className="font-semibold truncate">{displayName}</h2>
               <p className="text-xs text-slate-500 truncate">@{user.username}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10" title={t('action.close')}><X size={17} /></button>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10" title={t('action.close')} aria-label={t('action.close')}><X size={17} /></button>
         </header>
 
         <div className="p-5 space-y-5 max-h-[calc(100vh-120px)] overflow-y-auto">
@@ -123,7 +123,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-slate-500">{t('settings.personalization')}</div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5" title={t('settings.wallpaper_upload')}>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5" title={t('action.upload')} aria-label={t('action.upload')}>
                 <ImagePlus size={16} />{t('action.upload')}
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
@@ -133,10 +133,10 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-slate-500">{t('settings.general')}</div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
+              <button type="button" onClick={() => setAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-label={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
                 <UserRound size={16} />
               </button>
-              <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
+              <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-label={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
                 <BriefcaseBusiness size={16} />
               </button>
             </div>
@@ -146,7 +146,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500"><Palette size={14} />{t('settings.accent_system_title')}</div>
             <div className="grid grid-cols-5 gap-2">
               {PRESET_ACCENTS.map((accent) => (
-                <button key={accent} type="button" onClick={() => setAccentColor(accent)} className={`h-9 rounded-xl border ${accentColor === accent ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200 dark:border-white/10'}`} style={{ background: `var(--accent-${accent}, ${accent})` }} aria-label={accent} />
+                <button key={accent} type="button" onClick={() => setAccentColor(accent)} className={`h-9 rounded-xl border ${accentColor === accent ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200 dark:border-white/10'}`} style={{ background: `var(--accent, ${accent})` }} aria-label={t('settings.accent_system_title')} title={t('settings.accent_system_title')} />
               ))}
             </div>
           </div>
@@ -167,7 +167,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
             <label className="text-xs font-semibold text-slate-500">{t('nav.lock')}</label>
             <div className="flex items-center gap-2">
               <input type="number" min={0} max={240} value={autoLockMinutes} onChange={(event) => setAutoLockMinutes(Number(event.target.value) || 0)} className="w-24 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5" />
-              <span className="text-sm text-slate-500">min</span>
+              <span className="text-sm text-slate-500">{t('support.unit_minutes')}</span>
             </div>
           </div>
 
