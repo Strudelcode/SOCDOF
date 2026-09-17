@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { UserRoundCog } from 'lucide-react';
+import { applyAccentColor } from '../lib/accent';
 import { getSession, getUserById, type AccountType, AUTH_CHANGE_EVENT_NAME, type UserAccount } from '../lib/auth';
 import { AccountProfilePanel } from './AccountProfilePanel';
 
 /**
  * Applies the active local account's workspace scope before the desktop workspace mounts.
- * Personal accounts deliberately exclude business-only modules; business accounts restore the
- * user's full module catalog. Desktop pins and window geometry are isolated per local user.
+ * Personal accounts deliberately exclude business-only modules. User-specific desktop state,
+ * appearance, pins and window geometry are restored whenever the active account changes.
  */
 const BUSINESS_ONLY_MODULES = new Set([
   'invoices',
@@ -83,6 +84,21 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
   }
 }
 
+function applyUserAppearance(user: UserAccount | null): void {
+  if (!user) return;
+  const root = document.documentElement;
+  const theme = user.preferences.theme ?? 'light';
+  root.classList.toggle('dark', theme === 'dark');
+  applyAccentColor(user.preferences.accentColor ?? 'indigo');
+  if (user.preferences.wallpaper) {
+    root.style.setProperty('--socdof-user-wallpaper', `url("${user.preferences.wallpaper}")`);
+    root.style.setProperty('--socdof-user-wallpaper-visible', '1');
+  } else {
+    root.style.removeProperty('--socdof-user-wallpaper');
+    root.style.setProperty('--socdof-user-wallpaper-visible', '0');
+  }
+}
+
 export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [activeAccount, setActiveAccount] = useState<UserAccount | null>(() => {
     const session = getSession();
@@ -94,7 +110,9 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
   useEffect(() => {
     const refreshAccount = () => {
       const session = getSession();
-      setActiveAccount(session && !session.locked ? getUserById(session.userId) : null);
+      const account = session && !session.locked ? getUserById(session.userId) : null;
+      setActiveAccount(account);
+      applyUserAppearance(account);
       setProfileOpen(false);
     };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
@@ -112,6 +130,7 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
     }
     try {
       prepareUserWorkspace(activeAccount.id, activeAccount.accountType);
+      applyUserAppearance(activeAccount);
       setScopeKey(`${activeAccount.id}:${activeAccount.accountType}`);
     } catch (error) {
       console.error('Failed to prepare account-scoped workspace:', error);
@@ -123,7 +142,14 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
 
   return (
     <React.Fragment key={scopeKey}>
-      {children}
+      <div className="relative w-full h-full">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 pointer-events-none bg-cover bg-center bg-no-repeat transition-opacity duration-300"
+          style={{ backgroundImage: 'var(--socdof-user-wallpaper)', opacity: 'var(--socdof-user-wallpaper-visible)' }}
+        />
+        {children}
+      </div>
       <button
         type="button"
         onClick={() => setProfileOpen(true)}
@@ -133,7 +159,7 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       >
         {activeAccount.avatar?.startsWith('data:image/') ? <img src={activeAccount.avatar} alt="" className="w-4 h-4 rounded-full object-cover" /> : <UserRoundCog size={16} />}
       </button>
-      {profileOpen && <AccountProfilePanel user={activeAccount} onClose={() => setProfileOpen(false)} onUpdated={(user) => setActiveAccount(user)} />}
+      {profileOpen && <AccountProfilePanel user={activeAccount} onClose={() => setProfileOpen(false)} onUpdated={(user) => { setActiveAccount(user); applyUserAppearance(user); }} />}
     </React.Fragment>
   );
 };
