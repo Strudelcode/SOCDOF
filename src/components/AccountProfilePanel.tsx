@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BriefcaseBusiness, Check, ImagePlus, Palette, UserRound, X } from 'lucide-react';
 import { applyAccentColor } from '../lib/accent';
-import { getLanguage, setLanguage, SUPPORTED_LANGUAGES, useLanguage, t, type LanguageCode } from '../lib/i18n';
-import { changeAccountType, updateUserPreferences, updateUser, type AccountType, type UserAccount } from '../lib/auth';
+import { getLanguage, setLanguage, SUPPORTED_LANGUAGES, t, type LanguageCode } from '../lib/i18n';
+import { updateUserPreferences, updateUser, type AccountType, type UserAccount } from '../lib/auth';
 
 interface AccountProfilePanelProps {
   user: UserAccount;
@@ -47,7 +47,6 @@ function resizeAvatar(file: File): Promise<string> {
 }
 
 export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, onClose, onUpdated }) => {
-  const language = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [avatar, setAvatar] = useState(user.avatar ?? '●');
@@ -99,11 +98,6 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
     }
   };
 
-  const switchAccountType = (next: AccountType) => {
-    setAccountType(next);
-    changeAccountType(user.id, next);
-  };
-
   return (
     <div className="fixed inset-0 z-[10001] flex items-start justify-end p-4 bg-black/20 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="w-[380px] max-w-full rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
@@ -139,10 +133,10 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-slate-500">{t('settings.general')}</div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => switchAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
+              <button type="button" onClick={() => setAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
                 <UserRound size={16} />
               </button>
-              <button type="button" onClick={() => switchAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
+              <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
                 <BriefcaseBusiness size={16} />
               </button>
             </div>
@@ -170,10 +164,10 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-500">{t('settings.windows')}</label>
+            <label className="text-xs font-semibold text-slate-500">{t('nav.lock')}</label>
             <div className="flex items-center gap-2">
               <input type="number" min={0} max={240} value={autoLockMinutes} onChange={(event) => setAutoLockMinutes(Number(event.target.value) || 0)} className="w-24 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5" />
-              <span className="text-sm text-slate-500">{t('settings.timezone_label')}</span>
+              <span className="text-sm text-slate-500">min</span>
             </div>
           </div>
 
