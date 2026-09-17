@@ -18,6 +18,7 @@ import {
 import { sounds } from './lib/sound';
 import { StudioDrawer } from './components/StudioDrawer';
 import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
+import { AccountScopedWorkspace } from './components/AccountScopedWorkspace';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { BackupSetupModal } from './components/BackupSetupModal';
 import { AuthGate } from './components/AuthGate';
@@ -195,62 +196,64 @@ export default function App() {
 
   return (
     <AuthGate>
-      <div className="w-screen h-screen overflow-hidden font-sans">
-        <DesktopWindowWorkspace
-          contacts={contacts}
-          products={products}
-          stockMoves={stockMoves}
-          invoices={invoices}
-          purchases={purchases}
-          posOrders={posOrders}
-          company={company}
-          onRefreshData={refreshData}
-          onUpdateCompany={handleUpdateCompany}
-          isDark={isDark}
-          onToggleTheme={handleToggleTheme}
-          isMuted={isMuted}
-          onToggleSound={handleToggleSound}
-          onOpenStudio={() => setIsStudioOpen(true)}
-        />
+      <AccountScopedWorkspace>
+        <div className="w-screen h-screen overflow-hidden font-sans">
+          <DesktopWindowWorkspace
+            contacts={contacts}
+            products={products}
+            stockMoves={stockMoves}
+            invoices={invoices}
+            purchases={purchases}
+            posOrders={posOrders}
+            company={company}
+            onRefreshData={refreshData}
+            onUpdateCompany={handleUpdateCompany}
+            isDark={isDark}
+            onToggleTheme={handleToggleTheme}
+            isMuted={isMuted}
+            onToggleSound={handleToggleSound}
+            onOpenStudio={() => setIsStudioOpen(true)}
+          />
 
-        <StudioDrawer
-          isOpen={isStudioOpen}
-          onClose={() => setIsStudioOpen(false)}
-          company={company}
-          onSaveCompany={(updated) => setCompany(updated)}
-          isDark={isDark}
-          onToggleTheme={handleToggleTheme}
-          isMuted={isMuted}
-          onToggleSound={handleToggleSound}
-          onClearDatabase={() => handleToggleCleanMode(true)}
-          onLoadDemoData={() => handleToggleCleanMode(false)}
-          recordCounts={{
-            contacts: contacts.length,
-            products: products.length,
-            invoices: invoices.length,
-            purchases: purchases.length,
-            posOrders: posOrders.length,
-            stockMoves: stockMoves.length
-          }}
-        />
+          <StudioDrawer
+            isOpen={isStudioOpen}
+            onClose={() => setIsStudioOpen(false)}
+            company={company}
+            onSaveCompany={(updated) => setCompany(updated)}
+            isDark={isDark}
+            onToggleTheme={handleToggleTheme}
+            isMuted={isMuted}
+            onToggleSound={handleToggleSound}
+            onClearDatabase={() => handleToggleCleanMode(true)}
+            onLoadDemoData={() => handleToggleCleanMode(false)}
+            recordCounts={{
+              contacts: contacts.length,
+              products: products.length,
+              invoices: invoices.length,
+              purchases: purchases.length,
+              posOrders: posOrders.length,
+              stockMoves: stockMoves.length
+            }}
+          />
 
-        <LanguageSelectionModal
-          isOpen={isLanguageModalOpen}
-          onClose={() => setIsLanguageModalOpen(false)}
-          currentLanguage={getLanguage()}
-          onSelectLanguage={(lang) => {
-            setLanguage(lang);
-            handleUpdateCompany({ ...company, language: lang });
-          }}
-        />
+          <LanguageSelectionModal
+            isOpen={isLanguageModalOpen}
+            onClose={() => setIsLanguageModalOpen(false)}
+            currentLanguage={getLanguage()}
+            onSelectLanguage={(lang) => {
+              setLanguage(lang);
+              handleUpdateCompany({ ...company, language: lang });
+            }}
+          />
 
-        <BackupSetupModal
-          isOpen={isBackupModalOpen && !isLanguageModalOpen}
-          onClose={() => setIsBackupModalOpen(false)}
-          company={company}
-          onUpdateCompany={handleUpdateCompany}
-        />
-      </div>
+          <BackupSetupModal
+            isOpen={isBackupModalOpen && !isLanguageModalOpen}
+            onClose={() => setIsBackupModalOpen(false)}
+            company={company}
+            onUpdateCompany={handleUpdateCompany}
+          />
+        </div>
+      </AccountScopedWorkspace>
     </AuthGate>
   );
 }
