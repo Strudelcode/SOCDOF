@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Shield, FolderOpen, Check, X, ArrowRight, HardDrive, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Shield, FolderOpen, Check, X, ArrowRight, HardDrive, ExternalLink, CheckCircle2, UserRound, Building2 } from 'lucide-react';
 import { CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
 import { db } from '../lib/db';
@@ -13,6 +13,12 @@ interface BackupSetupModalProps {
   onUpdateCompany: (updated: CompanyProfile) => void;
 }
 
+type AccountType = 'personal' | 'business';
+
+type CompanyProfileWithAccountType = CompanyProfile & {
+  account_type?: AccountType;
+};
+
 export function BackupSetupModal({
   isOpen,
   onClose,
@@ -24,8 +30,10 @@ export function BackupSetupModal({
   const [selectedPath, setSelectedPath] = useState<string>(company.backup_folder_path || '');
   const [isPicking, setIsPicking] = useState<boolean>(false);
   const [justPicked, setJustPicked] = useState<boolean>(false);
+  const [accountType, setAccountType] = useState<AccountType>(
+    (company as CompanyProfileWithAccountType).account_type || 'business'
+  );
 
-  // Initialize desktop default directory (Documents/SOCDOF/backups)
   useEffect(() => {
     let isMounted = true;
     async function initDefault() {
@@ -45,17 +53,19 @@ export function BackupSetupModal({
     }
     if (isOpen) {
       initDefault();
+      setAccountType((company as CompanyProfileWithAccountType).account_type || 'business');
     }
     return () => {
       isMounted = false;
     };
-  }, [isOpen, company.backup_folder_path]);
+  }, [isOpen, company.backup_folder_path, company]);
 
   if (!isOpen) return null;
 
   const markCompleted = () => {
     try {
       localStorage.setItem('socdof_backup_setup_initialized', 'true');
+      localStorage.setItem('socdof_account_type_initialized', 'true');
     } catch {
       // ignore
     }
@@ -69,14 +79,12 @@ export function BackupSetupModal({
     let chosenPath = '';
 
     try {
-      // 1. Native Desktop Electron folder picker (Directly in SOCDOF folder with backups visible)
       if (typeof window !== 'undefined' && window.electronAPI?.selectBackupFolder) {
         const result = await window.electronAPI.selectBackupFolder();
         if (!result.canceled && result.folderPath) {
           chosenPath = result.folderPath;
         }
       } else if ('showDirectoryPicker' in window) {
-        // 2. Web File System Access API fallback
         const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
         if (dirHandle && dirHandle.name) {
           chosenPath = `Documents/SOCDOF/${dirHandle.name}`;
@@ -96,7 +104,6 @@ export function BackupSetupModal({
       sounds.playSuccess();
       setTimeout(() => setJustPicked(false), 3000);
     } else if (!chosenPath && !window.electronAPI?.selectBackupFolder) {
-      // Web input fallback
       folderInputRef.current?.click();
     }
   };
@@ -123,8 +130,9 @@ export function BackupSetupModal({
 
   const applyAndFinish = async (enabled: boolean, path: string) => {
     const finalPath = enabled ? (path || effectivePath) : '';
-    const updated: CompanyProfile = {
+    const updated: CompanyProfileWithAccountType = {
       ...company,
+      account_type: accountType,
       auto_backup_enabled: enabled,
       backup_folder_path: finalPath
     };
@@ -153,7 +161,6 @@ export function BackupSetupModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-      {/* Hidden input fallback for browser directory selection */}
       <input
         ref={folderInputRef}
         type="file"
@@ -164,23 +171,56 @@ export function BackupSetupModal({
         className="hidden"
       />
 
-      <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-7 space-y-5">
-        {/* Header */}
+      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5">
         <div className="flex items-start gap-4">
           <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl text-indigo-600 dark:text-indigo-400 shrink-0 shadow-xs">
             <Shield className="w-7 h-7" />
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              {t('backup.wizard_title')}
+              {t('app.welcome')}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              {t('backup.wizard_desc')}
+              {t('app.welcome_desc')}
             </p>
           </div>
         </div>
 
-        {/* Selected / Pre-configured Backup Folder Card */}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t('action.select_language')}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setAccountType('personal')}
+              className={`text-left p-4 rounded-xl border transition ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
+            >
+              <div className="flex items-center gap-3">
+                <UserRound className="w-5 h-5 text-indigo-500" />
+                <div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">{t('contact.individual_customer')}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t('desc.contacts')}</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAccountType('business')}
+              className={`text-left p-4 rounded-xl border transition ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-indigo-500" />
+                <div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">{t('settings.company_data_title')}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t('settings.company_data_desc')}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-semibold text-xs text-slate-800 dark:text-slate-200">
@@ -230,9 +270,7 @@ export function BackupSetupModal({
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="space-y-2.5 pt-1">
-          {/* 1. Primary: Finish & Enable Backups */}
           <button
             type="button"
             onClick={handleConfirmFinish}
@@ -245,7 +283,6 @@ export function BackupSetupModal({
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
-          {/* 2. Secondary: Change folder button (if not already picked) */}
           <button
             type="button"
             onClick={handlePickFolder}
@@ -256,7 +293,6 @@ export function BackupSetupModal({
             <span>{t('backup.btn_change_folder')}</span>
           </button>
 
-          {/* 3. Tertiary: Continue without backups */}
           <button
             type="button"
             onClick={handleSkipOrDisable}
