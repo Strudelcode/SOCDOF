@@ -45,7 +45,7 @@ const login = await auth.authenticate('ADMIN', 'correct-horse-battery');
 assert.equal(login.ok, true);
 
 await assert.rejects(
-  () => auth.createUser({ username: 'Second', displayName: 'Second User', password: 'another-secure-password', accountType: 'personal' }),
+  async () => auth.createUser({ username: 'Second', displayName: 'Second User', password: 'another-secure-password', accountType: 'personal' }),
   /admin_required/,
 );
 
@@ -74,7 +74,7 @@ assert.equal(resetLogin.ok, true);
 assert.equal(auth.getCurrentUser()?.id, second.id);
 
 await assert.rejects(
-  () => auth.deleteUser(first.id),
+  async () => auth.deleteUser(first.id),
   /last_admin/,
 );
 
