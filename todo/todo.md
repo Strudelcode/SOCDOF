@@ -23,7 +23,12 @@
 
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
 
-Authentication and local multi-user personalization are implemented and verified in CI. Remaining work for this area is tracked as future enhancements only when it requires functionality beyond the current password-based flow.
+Authentication and local multi-user personalization are implemented and verified in CI. The following items are intentionally tracked as remaining hardening/documentation work rather than being marked complete prematurely:
+- [ ] **Move authentication persistence from LocalStorage to Dexie / IndexedDB** while preserving an automatic migration for existing local accounts.
+- [ ] **Move all AuthGate user-facing strings into `src/lib/i18n.ts`** and maintain complete DE/EN/FR/ES parity without a component-local translation dictionary.
+- [ ] **Add the dedicated multi-user/authentication chapter to `src/components/DocumentationApp.tsx`** in German and English, including workflows, buttons, security behavior, and shortcuts.
+- [ ] **Archive the completed authentication milestone in `todo/completed_todo.md`** according to the two-file todo rule.
+- [ ] **Add automated authentication regression tests** for password hashing, recovery, lockout/backoff, admin authorization, account switching, and forced password changes.
 
 ### 2.2 Windows-Inspired Settings & Display / Multi-Monitor Management
 - [ ] **Windows 11-Inspired Settings Hub**:
@@ -67,3 +72,5 @@ Authentication and local multi-user personalization are implemented and verified
 
 ### 2.4 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
+- [ ] Automated regression coverage for critical local data workflows.
+- [ ] Accessibility audit and keyboard-navigation refinement across major desktop surfaces.
