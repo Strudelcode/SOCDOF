@@ -80,6 +80,9 @@ const resetLogin = await auth.authenticate('Second', resetPassword);
 assert.equal(resetLogin.ok, true);
 assert.equal(auth.getCurrentUser()?.id, second.id);
 
+const finalAdminLogin = await auth.authenticate('Admin', 'correct-horse-battery');
+assert.equal(finalAdminLogin.ok, true);
+
 await assert.rejects(
   async () => auth.deleteUser(first.id),
   /last_admin/,
