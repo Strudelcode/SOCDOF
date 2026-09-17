@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BriefcaseBusiness, Check, ImagePlus, Palette, UserRound, X } from 'lucide-react';
+import { BriefcaseBusiness, Check, ImagePlus, Palette, Trash2, UserRound, X } from 'lucide-react';
 import { applyAccentColor, getAccentPreset } from '../lib/accent';
 import { getLanguage, setLanguage, SUPPORTED_LANGUAGES, t, type LanguageCode } from '../lib/i18n';
 import { updateUserPreferences, updateUser, type AccountType, type UserAccount } from '../lib/auth';
@@ -20,24 +20,24 @@ function applyTheme(theme: 'light' | 'dark') {
   }
 }
 
-function resizeAvatar(file: File): Promise<string> {
+function resizeImage(file: File, size = 128, quality = 0.86): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('avatar_read_failed'));
+    reader.onerror = () => reject(new Error('image_read_failed'));
     reader.onload = () => {
       const image = new Image();
-      image.onerror = () => reject(new Error('avatar_decode_failed'));
+      image.onerror = () => reject(new Error('image_decode_failed'));
       image.onload = () => {
-        const size = Math.min(image.naturalWidth, image.naturalHeight);
-        const sx = (image.naturalWidth - size) / 2;
-        const sy = (image.naturalHeight - size) / 2;
+        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+        const sx = (image.naturalWidth - sourceSize) / 2;
+        const sy = (image.naturalHeight - sourceSize) / 2;
         const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 128;
+        canvas.width = size;
+        canvas.height = size;
         const context = canvas.getContext('2d');
-        if (!context) return reject(new Error('avatar_canvas_failed'));
-        context.drawImage(image, sx, sy, size, size, 0, 0, 128, 128);
-        resolve(canvas.toDataURL('image/webp', 0.86));
+        if (!context) return reject(new Error('image_canvas_failed'));
+        context.drawImage(image, sx, sy, sourceSize, sourceSize, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/webp', quality));
       };
       image.src = String(reader.result);
     };
@@ -46,9 +46,11 @@ function resizeAvatar(file: File): Promise<string> {
 }
 
 export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, onClose, onUpdated }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [avatar, setAvatar] = useState(user.avatar ?? '');
+  const [wallpaper, setWallpaper] = useState(user.preferences.wallpaper ?? '');
   const [accountType, setAccountType] = useState<AccountType>(user.accountType);
   const [theme, setTheme] = useState<'light' | 'dark'>(user.preferences.theme ?? 'light');
   const [accentColor, setAccentColor] = useState(user.preferences.accentColor ?? 'indigo');
@@ -59,6 +61,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
   useEffect(() => {
     setDisplayName(user.displayName);
     setAvatar(user.avatar ?? '');
+    setWallpaper(user.preferences.wallpaper ?? '');
     setAccountType(user.accountType);
     setTheme(user.preferences.theme ?? 'light');
     setAccentColor(user.preferences.accentColor ?? 'indigo');
@@ -74,6 +77,7 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
       language: selectedLanguage,
       theme,
       accentColor,
+      wallpaper: wallpaper || undefined,
       autoLockMinutes: Math.max(0, Math.min(240, autoLockMinutes))
     };
     let nextUser = updateUser(user.id, { displayName: displayName.trim() || user.displayName, avatar: avatar || undefined, accountType });
@@ -90,9 +94,21 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     try {
-      setAvatar(await resizeAvatar(file));
+      setAvatar(await resizeImage(file, 128, 0.86));
     } catch {
       // keep the previous avatar when an image cannot be processed
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleWallpaper = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      setWallpaper(await resizeImage(file, 1920, 0.82));
+    } catch {
+      // keep the previous wallpaper when an image cannot be processed
     } finally {
       event.target.value = '';
     }
@@ -123,21 +139,34 @@ export const AccountProfilePanel: React.FC<AccountProfilePanelProps> = ({ user, 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-slate-500">{t('settings.personalization')}</div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5" title={t('action.upload')} aria-label={t('action.upload')}>
+              <button type="button" onClick={() => avatarInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5" title={t('action.upload')} aria-label={t('action.upload')}>
                 <ImagePlus size={16} />{t('action.upload')}
               </button>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
+              {avatar && <button type="button" onClick={() => setAvatar('')} className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5" title={t('settings.wallpaper_remove')} aria-label={t('settings.wallpaper_remove')}><Trash2 size={16} /></button>}
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-slate-500">{t('settings.wallpaper_title')}</div>
+            {wallpaper && <div className="h-24 rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-cover bg-center" style={{ backgroundImage: `url(${wallpaper})` }} />}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => wallpaperInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5" title={t('settings.wallpaper_upload')}>
+                <ImagePlus size={16} />{t('settings.wallpaper_upload')}
+              </button>
+              {wallpaper && <button type="button" onClick={() => setWallpaper('')} className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5" title={t('settings.wallpaper_remove')} aria-label={t('settings.wallpaper_remove')}><Trash2 size={16} /></button>}
+              <input ref={wallpaperInputRef} type="file" accept="image/*" onChange={handleWallpaper} className="hidden" />
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-slate-500">{t('settings.general')}</div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-label={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
-                <UserRound size={16} />
+              <button type="button" onClick={() => setAccountType('personal')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.personalization')} aria-pressed={accountType === 'personal'}>
+                <UserRound size={16} />{t('settings.personalization')}
               </button>
-              <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-label={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
-                <BriefcaseBusiness size={16} />
+              <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border px-3 py-3 flex items-center justify-center gap-2 ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`} title={t('settings.company_data_title')} aria-pressed={accountType === 'business'}>
+                <BriefcaseBusiness size={16} />{t('settings.company_data_title')}
               </button>
             </div>
           </div>
