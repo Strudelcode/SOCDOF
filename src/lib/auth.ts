@@ -6,6 +6,7 @@ export interface UserPreferences {
   theme?: 'light' | 'dark';
   accentColor?: string;
   autoLockMinutes?: number;
+  wallpaper?: string;
 }
 
 export interface RecoverySettings {
@@ -13,6 +14,12 @@ export interface RecoverySettings {
   answerHash: string;
   answerSalt: string;
   answerIterations: number;
+}
+
+export interface SecuritySettings {
+  failedAttemptThreshold: 3 | 5 | 10;
+  lockoutMinutes: 5 | 10 | 15;
+  exponentialBackoff: boolean;
 }
 
 export interface UserAccount {
@@ -28,6 +35,7 @@ export interface UserAccount {
   passwordIterations: number;
   failedLoginAttempts: number;
   lockedUntil?: number;
+  lockoutLevel: number;
   mustChangePassword: boolean;
   recovery?: RecoverySettings;
   createdAt: string;
@@ -53,9 +61,13 @@ export const RECOVERY_QUESTIONS = [
 
 const USERS_KEY = 'socdof.auth.users.v1';
 const SESSION_KEY = 'socdof.auth.session.v1';
+const SECURITY_KEY = 'socdof.auth.security.v1';
 const PBKDF2_ITERATIONS = 210_000;
-const LOCKOUT_THRESHOLD = 5;
-const LOCKOUT_MS = 5 * 60_000;
+const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
+  failedAttemptThreshold: 5,
+  lockoutMinutes: 5,
+  exponentialBackoff: true
+};
 const AUTH_CHANGE_EVENT = 'socdof-auth-changed';
 
 const hasStorage = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -76,7 +88,13 @@ const readUsers = (): UserAccount[] => {
     const raw = localStorage.getItem(USERS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((user: UserAccount) => ({
+      ...user,
+      lockoutLevel: typeof user.lockoutLevel === 'number' ? user.lockoutLevel : 0,
+      mustChangePassword: Boolean(user.mustChangePassword),
+      preferences: user.preferences ?? {}
+    }));
   } catch {
     return [];
   }
@@ -109,8 +127,38 @@ const fromBase64 = (value: string) => {
 
 export const normalizeUsername = (username: string) => username.trim().toLocaleLowerCase();
 export const normalizeRecoveryAnswer = (answer: string) => answer.trim().toLocaleLowerCase();
-
 export const validatePassword = (password: string) => password.length < 8 ? 'password_too_short' : null;
+
+export function getSecuritySettings(): SecuritySettings {
+  if (!hasStorage()) return DEFAULT_SECURITY_SETTINGS;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SECURITY_KEY) ?? 'null') as Partial<SecuritySettings> | null;
+    const threshold = parsed?.failedAttemptThreshold;
+    const minutes = parsed?.lockoutMinutes;
+    return {
+      failedAttemptThreshold: threshold === 3 || threshold === 10 ? threshold : 5,
+      lockoutMinutes: minutes === 10 || minutes === 15 ? minutes : 5,
+      exponentialBackoff: parsed?.exponentialBackoff !== false
+    };
+  } catch {
+    return DEFAULT_SECURITY_SETTINGS;
+  }
+}
+
+export function updateSecuritySettings(patch: Partial<SecuritySettings>): SecuritySettings {
+  const current = getSecuritySettings();
+  const next: SecuritySettings = {
+    failedAttemptThreshold: patch.failedAttemptThreshold === 3 || patch.failedAttemptThreshold === 10 ? patch.failedAttemptThreshold : (patch.failedAttemptThreshold === 5 ? 5 : current.failedAttemptThreshold),
+    lockoutMinutes: patch.lockoutMinutes === 10 || patch.lockoutMinutes === 15 ? patch.lockoutMinutes : (patch.lockoutMinutes === 5 ? 5 : current.lockoutMinutes),
+    exponentialBackoff: patch.exponentialBackoff ?? current.exponentialBackoff
+  };
+  if (hasStorage()) {
+    localStorage.setItem(SECURITY_KEY, JSON.stringify(next));
+    notifyAuthChanged();
+    notifySameWindowStorageChange();
+  }
+  return next;
+}
 
 export async function hashPassword(password: string, saltBase64?: string, iterations = PBKDF2_ITERATIONS) {
   const salt = saltBase64 ? fromBase64(saltBase64) : randomBytes(16);
@@ -181,6 +229,7 @@ export async function createUser(input: {
     passwordSalt: password.salt,
     passwordIterations: password.iterations,
     failedLoginAttempts: 0,
+    lockoutLevel: 0,
     mustChangePassword: false,
     recovery: recoveryHash && input.recoveryQuestion ? {
       question: input.recoveryQuestion,
@@ -194,17 +243,32 @@ export async function createUser(input: {
   };
   users.push(user);
   writeUsers(users);
+
+  if (users.length === 1 && typeof sessionStorage !== 'undefined') {
+    const timestamp = Date.now();
+    const session: AuthSession = { userId: user.id, sessionId: toBase64(randomBytes(24)), createdAt: timestamp, lastActivityAt: timestamp, locked: false };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    notifyAuthChanged();
+  }
   return user;
 }
 
-export async function changePassword(userId: string, password: string) {
+async function setPassword(userId: string, password: string, mustChangePassword: boolean) {
   if (validatePassword(password)) throw new Error('password_too_short');
   const users = readUsers();
   const index = users.findIndex((user) => user.id === userId);
   if (index < 0) throw new Error('user_not_found');
   const hashed = await hashPassword(password);
-  users[index] = { ...users[index], passwordHash: hashed.hash, passwordSalt: hashed.salt, passwordIterations: hashed.iterations, failedLoginAttempts: 0, lockedUntil: undefined, mustChangePassword: false, updatedAt: new Date().toISOString() };
+  users[index] = { ...users[index], passwordHash: hashed.hash, passwordSalt: hashed.salt, passwordIterations: hashed.iterations, failedLoginAttempts: 0, lockedUntil: undefined, lockoutLevel: 0, mustChangePassword, updatedAt: new Date().toISOString() };
   writeUsers(users);
+}
+
+export async function changePassword(userId: string, password: string) {
+  await setPassword(userId, password, false);
+}
+
+export async function adminResetPassword(userId: string, password: string) {
+  await setPassword(userId, password, true);
 }
 
 export async function resetPasswordWithRecovery(userId: string, answer: string, newPassword: string) {
@@ -216,7 +280,7 @@ export async function resetPasswordWithRecovery(userId: string, answer: string, 
   if (!user.recovery) throw new Error('recovery_not_configured');
   if (!(await verifyRecoveryAnswer(answer, user.recovery))) throw new Error('recovery_invalid');
   const hashed = await hashPassword(newPassword);
-  users[index] = { ...user, passwordHash: hashed.hash, passwordSalt: hashed.salt, passwordIterations: hashed.iterations, failedLoginAttempts: 0, lockedUntil: undefined, mustChangePassword: false, updatedAt: new Date().toISOString() };
+  users[index] = { ...user, passwordHash: hashed.hash, passwordSalt: hashed.salt, passwordIterations: hashed.iterations, failedLoginAttempts: 0, lockedUntil: undefined, lockoutLevel: 0, mustChangePassword: false, updatedAt: new Date().toISOString() };
   writeUsers(users);
 }
 
@@ -231,15 +295,23 @@ export async function authenticate(username: string, password: string) {
 
   const valid = await verifyPassword(password, user);
   if (!valid) {
+    const settings = getSecuritySettings();
     const attempts = user.failedLoginAttempts + 1;
-    const locked = attempts >= LOCKOUT_THRESHOLD;
-    users[index] = { ...user, failedLoginAttempts: locked ? 0 : attempts, lockedUntil: locked ? Date.now() + LOCKOUT_MS : undefined, updatedAt: new Date().toISOString() };
+    const shouldLock = attempts >= settings.failedAttemptThreshold;
+    if (shouldLock) {
+      const level = Math.max(0, user.lockoutLevel ?? 0);
+      const multiplier = settings.exponentialBackoff ? Math.pow(2, Math.min(level, 4)) : 1;
+      const duration = settings.lockoutMinutes * 60_000 * multiplier;
+      users[index] = { ...user, failedLoginAttempts: 0, lockedUntil: Date.now() + duration, lockoutLevel: level + 1, updatedAt: new Date().toISOString() };
+    } else {
+      users[index] = { ...user, failedLoginAttempts: attempts, updatedAt: new Date().toISOString() };
+    }
     writeUsers(users);
-    return { ok: false as const, reason: locked ? 'locked' as const : 'invalid_credentials' as const, retryAt: locked ? users[index].lockedUntil : undefined };
+    return { ok: false as const, reason: shouldLock ? 'locked' as const : 'invalid_credentials' as const, retryAt: shouldLock ? users[index].lockedUntil : undefined };
   }
 
   const now = Date.now();
-  users[index] = { ...user, failedLoginAttempts: 0, lockedUntil: undefined, lastLoginAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString() };
+  users[index] = { ...user, failedLoginAttempts: 0, lockedUntil: undefined, lockoutLevel: 0, lastLoginAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString() };
   writeUsers(users);
   const updatedUser = users[index];
   const session: AuthSession = { userId: updatedUser.id, sessionId: toBase64(randomBytes(24)), createdAt: now, lastActivityAt: now, locked: false };
