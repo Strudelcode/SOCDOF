@@ -30,5 +30,8 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Authentication regression tests
+        run: npm run test:auth
+
       - name: Vite production build
         run: npm run build
