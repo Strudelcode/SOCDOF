@@ -1,4 +1,3 @@
-
 # SOCDOF – Active Roadmap & Task List
 
 > This file contains all currently open, in-progress, and planned roadmap items. Completed tasks are archived in [completed_todo.md](./completed_todo.md).
@@ -24,7 +23,8 @@
 
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
 - [ ] **Onboarding Account Type Selector (Personal vs. Business)**:
-  - [ ] Choice during initial wizard / user creation: "Individual / Personal User" vs. "Business / Company".
+  - [x] Choice during initial wizard / user creation: "Individual / Personal User" vs. "Business / Company".
+    - Implemented in the first-run setup wizard and persisted with the local `company_profile` settings record as `account_type` (`personal` / `business`).
   - [ ] Context-aware settings & module filtering:
     - Personal users enjoy a clean, streamlined interface without corporate overhead (hiding company registration, tax numbers, VAT letterheads, SDI codes).
     - Business users receive full corporate profile configuration (legal name, tax IDs, banking information, letterhead templates, invoice sequences).
