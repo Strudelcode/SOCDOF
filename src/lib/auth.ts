@@ -56,8 +56,15 @@ const SESSION_KEY = 'socdof.auth.session.v1';
 const PBKDF2_ITERATIONS = 210_000;
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_MS = 5 * 60_000;
+const AUTH_CHANGE_EVENT = 'socdof-auth-changed';
 
 const hasStorage = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+
+const notifyAuthChanged = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT));
+};
+
+export const AUTH_CHANGE_EVENT_NAME = AUTH_CHANGE_EVENT;
 
 const readUsers = (): UserAccount[] => {
   if (!hasStorage()) return [];
@@ -72,7 +79,10 @@ const readUsers = (): UserAccount[] => {
 };
 
 const writeUsers = (users: UserAccount[]) => {
-  if (hasStorage()) localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  if (hasStorage()) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    notifyAuthChanged();
+  }
 };
 
 const randomBytes = (length: number) => {
@@ -229,6 +239,7 @@ export async function authenticate(username: string, password: string) {
   const updatedUser = users[index];
   const session: AuthSession = { userId: updatedUser.id, sessionId: toBase64(randomBytes(24)), createdAt: now, lastActivityAt: now, locked: false };
   if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  notifyAuthChanged();
   return { ok: true as const, user: updatedUser, session };
 }
 
@@ -239,8 +250,8 @@ export function getSession(): AuthSession | null {
     return raw ? JSON.parse(raw) as AuthSession : null;
   } catch { return null; }
 }
-export function saveSession(session: AuthSession) { if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
-export function clearSession() { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SESSION_KEY); }
+export function saveSession(session: AuthSession) { if (typeof sessionStorage !== 'undefined') { sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); notifyAuthChanged(); } }
+export function clearSession() { if (typeof sessionStorage !== 'undefined') { sessionStorage.removeItem(SESSION_KEY); notifyAuthChanged(); } }
 
 export function updateUser(id: string, patch: Partial<Pick<UserAccount, 'displayName' | 'role' | 'accountType' | 'avatar' | 'active' | 'preferences' | 'mustChangePassword'>>) {
   const users = readUsers();
@@ -251,6 +262,13 @@ export function updateUser(id: string, patch: Partial<Pick<UserAccount, 'display
   users[index] = { ...next, updatedAt: new Date().toISOString() };
   writeUsers(users);
   return users[index];
+}
+
+export function changeAccountType(userId: string, accountType: AccountType) {
+  const user = getUserById(userId);
+  if (!user) throw new Error('user_not_found');
+  if (user.accountType === accountType) return user;
+  return updateUser(userId, { accountType });
 }
 
 export function deleteUser(id: string) {
