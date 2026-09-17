@@ -44,11 +44,6 @@ assert.equal(auth.getCurrentUser()?.id, first.id);
 const login = await auth.authenticate('ADMIN', 'correct-horse-battery');
 assert.equal(login.ok, true);
 
-await assert.rejects(
-  async () => auth.createUser({ username: 'Second', displayName: 'Second User', password: 'another-secure-password', accountType: 'personal' }),
-  /admin_required/,
-);
-
 const second = await auth.createUser({
   username: 'Second',
   displayName: 'Second User',
@@ -57,6 +52,18 @@ const second = await auth.createUser({
   accountType: 'personal',
 });
 assert.equal(second.role, 'user');
+
+const secondLogin = await auth.authenticate('Second', 'another-secure-password');
+assert.equal(secondLogin.ok, true);
+assert.equal(auth.getCurrentUser()?.id, second.id);
+
+await assert.rejects(
+  async () => auth.createUser({ username: 'Third', displayName: 'Third User', password: 'third-secure-password', accountType: 'personal' }),
+  /admin_required/,
+);
+
+const adminLogin = await auth.authenticate('Admin', 'correct-horse-battery');
+assert.equal(adminLogin.ok, true);
 
 await auth.updateSecuritySettings({ failedAttemptThreshold: 3, lockoutMinutes: 5, exponentialBackoff: true });
 const firstFailure = await auth.authenticate('Second', 'wrong-password');
