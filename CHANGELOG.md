@@ -4,6 +4,14 @@ Updates written here accumulate across versions and are broadcast to Discord on 
 Once sent, this file is automatically reset so you can accumulate the next batch of updates.
 -->
 
+## v23.2.1
+
+### Changed
+- Removed the redundant Start menu account/profile shortcut.
+- Kept local user administration centralized in Settings → Users & Accounts for active administrators.
+- Corrected the EN/DE/FR/ES Users & Accounts translation mapping while preserving the Therapy Practice translations.
+- Added the sign-in loading transition and dark-mode hover compatibility fix.
+
 ## v23.2.0
 
 ### 🚀 Neu / What's New
