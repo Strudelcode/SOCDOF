@@ -83,7 +83,7 @@ export const TherapyPracticeModule: React.FC = () => {
                 [t('therapy.totalSessions', currentLang), data.sessions.length, Clock3],
                 [t('therapy.openAppointments', currentLang), openAppointments, CalendarDays],
                 [t('therapy.pendingBilling', currentLang), `€ ${billingTotal.toFixed(2)}`, FileText]
-              ] as const).map(([label, value, Icon]) => <div key={String(label)} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><Icon className="w-4 h-4 text-slate-400 mb-3" /><div className="text-2xl font-black">{value}</div><div className="text-xs text-slate-500 mt-1">{label}</div></div>)}
+              ].map(([label, value, Icon]) => <div key={String(label)} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><Icon className="w-4 h-4 text-slate-400 mb-3" /><div className="text-2xl font-black">{value}</div><div className="text-xs text-slate-500 mt-1">{label}</div></div>)}
             </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
