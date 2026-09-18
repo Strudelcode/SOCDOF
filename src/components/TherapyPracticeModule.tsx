@@ -131,6 +131,7 @@ const Row = ({ icon, title, subtitle, onDelete }: any) => <div className="flex i
 const ListShell = ({ title, action, onAdd, search, value, onSearch, children }: any) => {
   const currentLang = useLanguage();
   return <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4"><div className="flex flex-wrap gap-2 items-center mb-4"><h2 className="font-bold flex-1">{title}</h2>{search && <div className="relative"><Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" /><input value={value} onChange={e => onSearch(e.target.value)} placeholder={t('therapy.search', currentLang)} className="pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none" /></div>}<button onClick={onAdd} className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold flex items-center gap-2"><Plus className="w-4 h-4" />{action}</button></div><div className="space-y-2">{children}</div></section>;
+};
 
 function Modal({ kind, clients, onClose, onSave }: any) {
   const currentLang = useLanguage();
