@@ -335,7 +335,7 @@ export const UserManagementSettings: React.FC = () => {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-2">
-                  <input className={fieldClass} value={selected.displayName} onChange={e => updateUser(selected.id, { displayName: e.target.value })} />
+                  <input className={fieldClass} value={selected.displayName} onChange={e => { updateUser(selected.id, { displayName: e.target.value }); refresh(); }} />
                   <select className={fieldClass} value={selected.role} onChange={e => { try { updateUser(selected.id, { role: e.target.value as UserRole }); refresh(); } catch { setMessage(labels.lastAdmin); } }}>
                     <option value="user">{labels.user}</option>
                     <option value="admin">{labels.admin}</option>
