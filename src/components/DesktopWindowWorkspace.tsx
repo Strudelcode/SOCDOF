@@ -2942,6 +2942,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onFullReset={onRefreshData}
                   isDark={isDark}
                   onToggleTheme={onToggleTheme}
+                  onSetThemeMode={undefined}
                   isMuted={isMuted}
                   onToggleSound={onToggleSound}
                   invoices={invoices}
