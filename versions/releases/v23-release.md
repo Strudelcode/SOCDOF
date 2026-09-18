@@ -1,9 +1,17 @@
-# SOCDOF v23.0.0 Release Notes
+# SOCDOF v23.1.0 Release Notes
 
 **Release date:** 2026-09-18  
-**Version:** v23.0.0  
+**Version:** v23.1.0  
 **Channel:** Major feature release  
 **Platform:** Windows Desktop (Electron) and offline web workspace
+
+## Windows-Style Login & Lock Screen
+
+- Added a full-screen Windows-inspired sign-in and workstation lock screen.
+- Added blurred wallpaper presentation using the configured SOCDOF background image.
+- Added a bottom-left active-user switcher and an Other User sign-in option.
+- Added live clock and date formatting based on the configured language, date format, timezone, and seconds setting.
+- Accounts without an image avatar use a neutral gray user silhouette.
 
 ## Windows-Style Users & Accounts
 
