@@ -27,3 +27,9 @@
 
 - v23.0.0 is an intentional major-version milestone.
 - Existing authentication storage, password hashing, recovery, lockout, and authorization behavior remain in place.
+
+## Theme & Dark-Mode Hardening
+
+- Fixed legacy light-only UI surfaces across the desktop and application modules.
+- Light, Dark, and Windows System theme modes remain available.
+- System mode follows the OS appearance setting and reacts to changes without requiring a restart.
