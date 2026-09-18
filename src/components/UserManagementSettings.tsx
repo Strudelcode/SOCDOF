@@ -501,12 +501,12 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
             {/* User identity card */}
             <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="relative group">
+                <div className="relative group shrink-0">
                   <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center overflow-hidden shadow-xs shrink-0">
-                    {avatar.startsWith('data:image/') ? (
-                      <img src={avatar} alt="" className="w-full h-full object-cover" />
+                    {avatar && (avatar.startsWith('data:image/') || avatar.startsWith('http') || avatar.startsWith('blob:') || avatar.startsWith('/')) ? (
+                      <img src={avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
                     ) : (
-                      <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 select-none">
                         {displayName.charAt(0) || currentUser?.username.charAt(0) || 'U'}
                       </span>
                     )}
@@ -764,10 +764,10 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   >
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0 overflow-hidden">
-                        {u.avatar?.startsWith('data:image/') ? (
-                          <img src={u.avatar} alt="" className="w-full h-full object-cover" />
+                        {u.avatar && (u.avatar.startsWith('data:image/') || u.avatar.startsWith('http') || u.avatar.startsWith('blob:') || u.avatar.startsWith('/')) ? (
+                          <img src={u.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
                         ) : (
-                          u.avatar ?? '●'
+                          <span className="select-none">{u.avatar ?? '●'}</span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -878,10 +878,10 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 bg-white dark:bg-slate-900">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg overflow-hidden shrink-0">
-                      {selected.avatar?.startsWith('data:image/') ? (
-                        <img src={selected.avatar} alt="" className="w-full h-full object-cover" />
+                      {selected.avatar && (selected.avatar.startsWith('data:image/') || selected.avatar.startsWith('http') || selected.avatar.startsWith('blob:') || selected.avatar.startsWith('/')) ? (
+                        <img src={selected.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
                       ) : (
-                        selected.avatar ?? '●'
+                        <span className="select-none">{selected.avatar ?? '●'}</span>
                       )}
                     </div>
                     <div>

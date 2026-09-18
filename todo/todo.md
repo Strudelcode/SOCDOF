@@ -23,6 +23,8 @@
 
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
 
+The v23.3.2 Profile Picture Alignment & Centering Stabilization milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
 The v23.3.1 Dynamic Language Discovery, Search Filtering & Windows-Style Toast Feedback milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
 
 The v23.3.0 Windows 11 Personalization Center, Live Blur & Unsaved Changes Guard milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
@@ -56,7 +58,11 @@ The v23.1.0 Windows-style authentication surface redesign is complete on the fea
 
 ### 2.3 Praxis & Therapy Management Suite (TheraPsy Architecture)
 
-Completed in v23.2.0 as the initial offline Practice workspace. Historical implementation details are archived in `todo/completed_todo.md`.
+The v23.4.2 CustomerPicker & CRM Contact Integration for Praxis & Therapy milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.4.0 Praxis & Therapy Interconnected Client Dossier & Cross-Module Linking milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+Initial offline Practice workspace was introduced in v23.2.0. Historical implementation details are archived in `todo/completed_todo.md`.
 
 ### 2.4 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.

@@ -56,6 +56,7 @@ import {
   Check,
   Headphones,
   User,
+  Hospital,
   Plus,
   StickyNote,
   Zap
@@ -1655,7 +1656,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-gradient-to-br from-blue-500 to-sky-600' },
     calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
-    therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: User, color: 'bg-gradient-to-br from-slate-600 to-indigo-700' },
+    therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: Hospital, color: 'bg-gradient-to-br from-teal-600 to-indigo-700' },
     widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-gradient-to-br from-fuchsia-500 to-pink-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-gradient-to-br from-sky-500 to-blue-600' },
@@ -2963,7 +2964,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               )}
 
               {win.module === 'therapy_practice' && (
-                <TherapyPracticeModule />
+                <TherapyPracticeModule
+                  contacts={contacts}
+                  onRefreshContacts={onRefreshData}
+                  currency={company.currency}
+                  onOpenContacts={() => openWindow('contacts', 'Kontakte & Kunden')}
+                />
               )}
 
               {win.module === 'calculator' && (
@@ -3271,14 +3277,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   setIsStartMenuOpen(false);
                   openWindow('settings', t('nav.settings', currentLang, 'Settings'), { initialSection: 'users' });
                 }}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition max-w-[210px] group cursor-pointer"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition max-w-[210px] group cursor-pointer shrink-0"
                 title={`${currentAuthUser?.displayName || 'Benutzer'} – ${t('users.title', currentLang, 'Benutzer & Konten')}`}
               >
                 <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80 flex items-center justify-center overflow-hidden shrink-0">
-                  {currentAuthUser?.avatar?.startsWith('data:image/') ? (
-                    <img src={currentAuthUser.avatar} alt="" className="w-full h-full object-cover" />
+                  {currentAuthUser?.avatar && (currentAuthUser.avatar.startsWith('data:image/') || currentAuthUser.avatar.startsWith('http') || currentAuthUser.avatar.startsWith('blob:') || currentAuthUser.avatar.startsWith('/')) ? (
+                    <img src={currentAuthUser.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
+                  ) : currentAuthUser?.avatar && currentAuthUser.avatar.length <= 2 ? (
+                    <span className="font-bold text-[11px] text-indigo-600 dark:text-indigo-400 select-none">{currentAuthUser.avatar}</span>
                   ) : (
-                    <UserRound className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <UserRound className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   )}
                 </div>
                 <div className="min-w-0 truncate">

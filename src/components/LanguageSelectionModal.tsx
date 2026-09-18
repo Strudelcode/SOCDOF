@@ -503,7 +503,7 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => handleChoose(item.id)}
-                    className={`w-full p-3 sm:p-3.5 rounded-2xl border text-left transition-all duration-150 flex items-center justify-between group cursor-pointer ${
+                    className={`w-full px-3.5 h-[68px] min-h-[68px] max-h-[68px] rounded-2xl border text-left transition-all duration-150 flex items-center justify-between group cursor-pointer shrink-0 ${
                       isSelected 
                         ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-xs ring-1 ring-indigo-500/40' 
                         : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800'

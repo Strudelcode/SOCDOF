@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.3.1';
+export const APP_VERSION = '23.4.2';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,69 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.4.2',
+    date: '2026-09-18',
+    title: 'CustomerPicker & CRM Contact Integration for Praxis & Therapy',
+    highlights: [
+      'Integrated the CustomerPickerModal (Address Book / CRM) into the Practice & Therapy module for seamless client creation, linking, and auto-completion.',
+      'Auto-fills client details (name, phone, email, address notes) directly from selected CRM contacts when creating or linking patients.',
+      'Introduced direct Contact editing modal (ContactEditModal) within Practice views to modify contact details inline without leaving the practice workspace.',
+      'Added CRM connection cards inside the 360° Client Dossier and client creation modals, complete with live contact status tags and quick unlink/edit actions.',
+      'Enhanced appointment, session, trip, and billing modals with direct contact picking and inline contact editing for linked clients.'
+    ]
+  },
+  {
+    version: '23.4.1',
+    date: '2026-09-18',
+    title: 'Unified Practice & Therapy Iconography & Visual Identity Harmonization',
+    highlights: [
+      'Resolved icon inconsistency between App Store and Desktop: replaced disparate Briefcase and generic User silhouettes with a dedicated medical practice symbol (Hospital / house with plus sign).',
+      'Harmonized visual branding across Desktop shortcut tiles, Windows Start Menu, Taskbar, App Store catalog, App Launcher, and Command Palette.',
+      'Introduced matching practice identity badge and gradient styling inside the Therapy & Practice module header.'
+    ]
+  },
+  {
+    version: '23.4.0',
+    date: '2026-09-18',
+    title: 'Praxis & Therapy Interconnected Client Dossier & Cross-Module Linking',
+    highlights: [
+      'Implemented full 360-degree Client Dossier (Akte) connecting clients with their appointments, therapy sessions, billing drafts, and mileage/house visits.',
+      'One-click workflow integration: document sessions directly from scheduled appointments, create invoice drafts from completed sessions, and link trips to clients.',
+      'Added client filter dropdowns across Appointments, Sessions, Billing, and Mileage tabs with instant jump-to-dossier navigation from any client badge.',
+      'Comprehensive quad-lingual translation coverage across German, English, French, and Spanish in i18n.'
+    ]
+  },
+  {
+    version: '23.3.4',
+    date: '2026-09-18',
+    title: 'Windows 11 Centered Password Field & User Switcher Polishing',
+    highlights: [
+      'Resolved asymmetric and uncentered login text field: integrated the submit arrow directly inside the password bar instead of a separate offset block button.',
+      'Symmetrically centered the input field directly underneath the profile avatar and display name with authentic Windows 11 acrylic styling.',
+      'Eliminated clunky ring border boxes and text truncation ("Anderer Benutz...") in the bottom-left account switcher.'
+    ]
+  },
+  {
+    version: '23.3.3',
+    date: '2026-09-18',
+    title: 'Uniform Language Dialog Sizing & Layout Stabilization',
+    highlights: [
+      'Eliminated language modal jumping and height shifting: established consistent, uniform modal card dimensions and fixed button heights across all languages.',
+      'Streamlined multilingual strings in i18n: corrected German modal title from bilingual label to concise "Sprache auswählen" and harmonized subtitle text lengths across German, English, French, and Spanish.',
+      'Prevented accidental scrollbar cut-offs: reserved stable header heights and guaranteed that all standard language choices fit without vertical clipping or jumping.'
+    ]
+  },
+  {
+    version: '23.3.2',
+    date: '2026-09-18',
+    title: 'Profile Picture Alignment & Centering Stabilization',
+    highlights: [
+      'Resolved occasional leftward profile picture shift: added flexbox column centering and explicit auto horizontal margins across all lock, login, and loading screens.',
+      'Stabilized avatar rendering in LockScreen: replaced block-level left alignment with strict centered flex containers matching Windows 11 lock screen geometry.',
+      'Enhanced avatar containers with shrink protection and object-center preservation across Settings, Start Menu, and Auth Gate.'
+    ]
+  },
   {
     version: '23.3.1',
     date: '2026-09-18',

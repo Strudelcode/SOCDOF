@@ -1,3 +1,32 @@
+### CustomerPicker & CRM Contact Integration for Praxis & Therapy (v23.4.2)
+- [x] Integrated `CustomerPickerModal` from the contacts CRM into `TherapyPracticeModule.tsx`, matching the Support module UX for selecting customers.
+- [x] Enabled auto-filling of patient form fields (name, phone, email, address notes) upon selecting a contact from the CRM.
+- [x] Integrated `ContactEditModal` for inline editing of contact details without leaving the Praxis & Therapy workspace.
+- [x] Added CRM connection banner and status indicators in the 360° Client Dossier and client creation modals with quick edit, relink, and unlink capabilities.
+- [x] Supported quick CRM contact picking and inline editing across appointments, sessions, billing, and mileage logs.
+- [x] Added quad-lingual localization in `src/lib/i18n.ts` for all CRM integration actions and labels.
+
+### Unified Practice & Therapy Iconography & Visual Identity Harmonization (v23.4.1)
+- [x] Resolved icon discrepancy between App Store (previously Briefcase) and Desktop (previously User avatar silhouette).
+- [x] Implemented dedicated, recognizable medical practice iconography (`Hospital` — house/building with central medical cross/plus sign) with soothing healthcare gradient (`bg-gradient-to-br from-teal-600 to-indigo-700`).
+- [x] Synchronized the icon across all system surfaces: Desktop shortcuts, Start Menu (pinned & all apps), Taskbar, Window titlebar, App Store catalog and details, App Launcher, and Command Palette (Ctrl+K).
+- [x] Added matching identity badge to the top header of `TherapyPracticeModule.tsx`.
+
+### Praxis & Therapy Interconnected Client Dossier & Cross-Module Linking (v23.4.0)
+- [x] Implemented comprehensive 360-degree Client Dossier (Akte) in `TherapyPracticeModule.tsx` that links each client with their appointments, sessions, billing drafts, and mileage/house visits.
+- [x] Added direct cross-module conversions: convert scheduled/attended appointments directly into clinical sessions, and convert documented therapy sessions into billing drafts.
+- [x] Added clickable client badges across Appointments, Sessions, Billing, and Mileage lists that immediately jump to the respective client's dossier.
+- [x] Added client filter dropdowns to Appointments, Sessions, Billing, and Mileage tabs to quickly filter records by client.
+- [x] Enriched client cards with live relationship indicators: count of linked appointments (with upcoming appointment date), count of documented sessions, and sum of invoice drafts.
+- [x] Added direct inline creation actions: `+ Termin`, `+ Sitzung`, `+ Abrechnung`, `+ Fahrt` scoped to a client.
+- [x] Completed quad-lingual translation coverage in `src/lib/i18n.ts` for German, English, French, and Spanish.
+
+### Profile Picture Alignment & Centering Stabilization (v23.3.2)
+- [x] Fixed avatar alignment on the Lock screen (`LockScreen` in `AuthGate.tsx`): replaced block-level text-centered markup with strict flexbox column centering (`flex flex-col items-center text-center`), eliminating the leftward displacement.
+- [x] Added `mx-auto` and `shrink-0` to the `AuthAvatar` component to guarantee centered positioning regardless of parent container layout or CSS styles.
+- [x] Added `shrink-0` and `object-cover object-center` to all avatar containers across the Windows 11 Start Menu (`DesktopWindowWorkspace.tsx`) and User Management Settings (`UserManagementSettings.tsx`).
+- [x] Extended avatar source handling to seamlessly support local URLs, blob URLs, and data URIs alongside fallback unicode initials and user silhouette icons.
+
 ### Dynamic Language Discovery, Search Filtering & Windows-Style Toast Feedback (v23.3.1)
 - [x] Subscribed `LanguageSelectionScreen` (in `AuthGate.tsx`) and `LanguageSelectionModal.tsx` to `subscribeDesktopLanguageFiles` for live synchronization whenever language packs are added or modified in `languages/`.
 - [x] Implemented intelligent search filtering in language selectors, automatically appearing when >10 languages or custom language packs exist, with instant reset.

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowRight,
   Check,
   CheckCircle2,
   Eye,
@@ -394,23 +395,27 @@ function LanguageSelectionScreen({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-4 sm:p-6 flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] flex flex-col">
+      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-7 flex flex-col h-[610px] max-h-[calc(100vh-2rem)]">
         {/* Header with icon and step badge */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
-            <Globe size={24} />
+        <div className="shrink-0 mb-3.5">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
+              <Globe size={24} />
+            </div>
+            {isFirstRunOnboarding && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20 shrink-0">
+                {t('auth.stepLanguage', lang)}
+              </span>
+            )}
           </div>
-          {isFirstRunOnboarding && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
-              {t('auth.stepLanguage', lang)}
-            </span>
-          )}
-        </div>
 
-        <h1 className="text-2xl font-bold tracking-tight shrink-0">{t('lang_modal.title', lang)}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-5 leading-relaxed shrink-0">
-          {t('lang_modal.subtitle', lang)}
-        </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+            {t('lang_modal.title', lang)}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed h-11 flex items-start overflow-hidden">
+            {t('lang_modal.subtitle', lang)}
+          </p>
+        </div>
 
         {/* Search bar when over 10 languages are present */}
         {availableLanguages.length > 10 && (
@@ -437,7 +442,7 @@ function LanguageSelectionScreen({
         )}
 
         {/* Scrollable Language List */}
-        <div className="max-h-72 sm:max-h-80 overflow-y-auto pr-1 space-y-2.5 flex-1 min-h-[160px]">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
           {filteredLanguages.map((language) => {
             const isSelected = selectedId === language.id;
             return (
@@ -445,7 +450,7 @@ function LanguageSelectionScreen({
                 key={language.id}
                 type="button"
                 onClick={() => handleSelect(language.id)}
-                className={`w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all cursor-pointer select-none ${
+                className={`w-full flex items-center gap-3 rounded-2xl border px-3.5 h-[68px] min-h-[68px] max-h-[68px] text-left transition-all cursor-pointer select-none shrink-0 ${
                   isSelected
                     ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-500/15 ring-2 ring-indigo-500/25 shadow-xs'
                     : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
@@ -497,7 +502,7 @@ function LanguageSelectionScreen({
         <button
           type="button"
           onClick={handleContinue}
-          className="w-full mt-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 font-bold transition shadow-lg shadow-indigo-600/25 cursor-pointer text-sm sm:text-base active:scale-[0.99] shrink-0"
+          className="w-full mt-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-bold transition shadow-lg shadow-indigo-600/25 cursor-pointer text-sm sm:text-base active:scale-[0.99] shrink-0 flex items-center justify-center"
         >
           {t('auth.continue', lang)}
         </button>
@@ -935,12 +940,25 @@ function FirstAccount({
 function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'md' | 'lg' }) {
   const sizeClass = size === 'lg' ? 'w-24 h-24' : size === 'sm' ? 'w-11 h-11' : 'w-16 h-16';
   const iconSize = size === 'lg' ? 38 : size === 'sm' ? 19 : 28;
+  const isImageAvatar = Boolean(
+    user.avatar && (
+      user.avatar.startsWith('data:image/') ||
+      user.avatar.startsWith('blob:') ||
+      user.avatar.startsWith('http') ||
+      user.avatar.startsWith('/')
+    )
+  );
+
   return (
-    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg`}>
-      {user.avatar?.startsWith('data:image/') ? (
-        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none`}>
+      {isImageAvatar ? (
+        <img src={user.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
+      ) : user.avatar && user.avatar.length <= 2 ? (
+        <span className="font-bold text-slate-700 dark:text-white" style={{ fontSize: `${iconSize * 0.85}px` }}>
+          {user.avatar}
+        </span>
       ) : (
-        <UserRound size={iconSize} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+        <UserRound size={iconSize} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500 shrink-0" />
       )}
     </div>
   );
@@ -1102,36 +1120,35 @@ function LoginScreen({
       </div>
 
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
-          <div className="flex flex-col items-center text-center">
-            {selectedUser ? (
-              <AuthAvatar user={selectedUser} size="lg" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg">
-                <UserRound size={38} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
-              </div>
-            )}
+        <div className="w-full max-w-sm flex flex-col items-center text-center">
+          {selectedUser ? (
+            <AuthAvatar user={selectedUser} size="lg" />
+          ) : (
+            <div className="w-24 h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg mx-auto shrink-0">
+              <UserRound size={38} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+            </div>
+          )}
 
-            <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">
-              {selectedUser?.displayName || text.otherUser}
-            </h1>
-            {otherUser && <p className="mt-1 text-sm text-white/65">{text.otherUserDesc}</p>}
+          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">
+            {selectedUser?.displayName || text.otherUser}
+          </h1>
+          {otherUser && <p className="mt-1 text-sm text-white/65">{text.otherUserDesc}</p>}
 
-            <form onSubmit={submit} className="w-full mt-5 space-y-3">
+          <form onSubmit={submit} className="w-full mt-5 space-y-3">
               {otherUser && (
                 <input
                   autoFocus
-                  className="w-full rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                  className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
                   placeholder={text.username}
                   value={username}
                   onChange={(event) => { setUsername(event.target.value); setError(''); }}
                 />
               )}
 
-              <div className="flex gap-2">
+              <div className="relative w-full">
                 <input
                   autoFocus={!otherUser}
-                  className="flex-1 rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                  className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4.5 pr-12 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
                   type="password"
                   placeholder={text.password}
                   value={password}
@@ -1139,12 +1156,13 @@ function LoginScreen({
                   disabled={remaining > 0}
                 />
                 <button
+                  type="submit"
                   disabled={remaining > 0}
-                  className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                   title={text.login}
                   aria-label={text.login}
                 >
-                  <LogIn size={19} />
+                  <ArrowRight size={18} />
                 </button>
               </div>
 
@@ -1156,31 +1174,41 @@ function LoginScreen({
             </form>
           </div>
         </div>
-      </div>
 
-      <div className="absolute left-5 bottom-5 flex items-end gap-3 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
-        {activeUsers.map((user) => (
-          <button
-            key={user.id}
-            type="button"
-            onClick={() => chooseUser(user.username)}
-            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all cursor-pointer ${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
-            title={user.displayName}
-          >
-            <AuthAvatar user={user} size="sm" />
-            <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{user.displayName}</span>
-          </button>
-        ))}
+      <div className="absolute left-5 bottom-5 flex items-end gap-2.5 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+        {activeUsers.map((user) => {
+          const isSelected = selected === user.username && !otherUser;
+          return (
+            <button
+              key={user.id}
+              type="button"
+              onClick={() => chooseUser(user.username)}
+              className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+                isSelected 
+                  ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
+                  : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
+              }`}
+              title={user.displayName}
+            >
+              <AuthAvatar user={user} size="sm" />
+              <span className="max-w-[120px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{user.displayName}</span>
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={() => { setOtherUser(true); setSelected(''); setUsername(''); setPassword(''); setError(''); }}
-          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all cursor-pointer ${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+            otherUser 
+              ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
+              : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
+          }`}
           title={text.otherUser}
         >
           <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
-            <UserRound size={19} className="text-white/75" />
+            <UserRound size={19} className="text-white/85" />
           </div>
-          <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{text.otherUser}</span>
+          <span className="max-w-[130px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{text.otherUser}</span>
         </button>
       </div>
 
@@ -1229,7 +1257,7 @@ function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount |
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white flex items-center justify-center">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
       <div className="relative flex flex-col items-center text-center px-6">
-        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-24 h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl"><UserRound size={38} strokeWidth={1.6} className="text-white/55" /></div>}
+        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-24 h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl mx-auto shrink-0"><UserRound size={38} strokeWidth={1.6} className="text-white/55" /></div>}
         <div className="mt-7 text-xl font-medium tracking-tight">{text.login}{dots}</div>
         <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
           {[0, 1, 2, 3].map((index) => <span key={index} className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />)}
@@ -1312,23 +1340,28 @@ function LockScreen({
       </div>
 
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 text-center">
+        <div className="w-full max-w-sm flex flex-col items-center text-center">
           <AuthAvatar user={selectedUser} size="lg" />
-          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl">{selectedUser.displayName}</h1>
+          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">{selectedUser.displayName}</h1>
           <p className="mt-1 text-sm text-white/65">{text.lockedTitle}</p>
 
-          <form onSubmit={submit} className="mt-5 space-y-3">
-            <div className="flex gap-2">
+          <form onSubmit={submit} className="w-full mt-5 space-y-3">
+            <div className="relative w-full">
               <input
                 autoFocus
-                className="flex-1 rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4.5 pr-12 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
                 type="password"
                 placeholder={text.password}
                 value={password}
                 onChange={(event) => { setPassword(event.target.value); setError(''); }}
               />
-              <button className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl" title={text.unlock} aria-label={text.unlock}>
-                <LogIn size={19} />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+                title={text.unlock}
+                aria-label={text.unlock}
+              >
+                <ArrowRight size={18} />
               </button>
             </div>
             {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
@@ -1336,29 +1369,36 @@ function LockScreen({
         </div>
       </div>
 
-      <div className="absolute left-5 bottom-5 flex items-end gap-3 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
-        {activeUsers.map((account) => (
-          <button
-            key={account.id}
-            type="button"
-            onClick={() => chooseUser(account.username)}
-            className={`flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${selected === account.username ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
-            title={account.displayName}
-          >
-            <AuthAvatar user={account} size="sm" />
-            <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{account.displayName}</span>
-          </button>
-        ))}
+      <div className="absolute left-5 bottom-5 flex items-end gap-2.5 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+        {activeUsers.map((account) => {
+          const isSelected = selected === account.username;
+          return (
+            <button
+              key={account.id}
+              type="button"
+              onClick={() => chooseUser(account.username)}
+              className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+                isSelected 
+                  ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
+                  : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
+              }`}
+              title={account.displayName}
+            >
+              <AuthAvatar user={account} size="sm" />
+              <span className="max-w-[120px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{account.displayName}</span>
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={onSwitch}
-          className="flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 hover:bg-white/10 transition-all"
+          className="group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent transition-all cursor-pointer select-none"
           title={text.switchUser}
         >
           <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
-            <UserRound size={19} className="text-white/75" />
+            <UserRound size={19} className="text-white/85" />
           </div>
-          <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{text.switchUser}</span>
+          <span className="max-w-[130px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{text.switchUser}</span>
         </button>
       </div>
     </LoginBackdrop>

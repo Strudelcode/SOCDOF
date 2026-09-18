@@ -19,7 +19,7 @@ import {
   Calculator,
   BookOpen,
   Utensils,
-  Briefcase
+  Hospital
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -179,8 +179,8 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       name: t('module.therapy_practice', currentLang, 'Praxis & Therapie'),
       category: t('cat.productivity', currentLang, 'Produktivität'),
       description: t('desc.therapy_practice', currentLang, 'Klienten, Sitzungen, Termine, Fahrtenbuch & Abrechnung'),
-      icon: Briefcase,
-      color: 'bg-slate-700',
+      icon: <Hospital className="w-8 h-8 text-white" />,
+      color: 'bg-gradient-to-br from-teal-600 to-indigo-700',
       badge: undefined
     },
     {
