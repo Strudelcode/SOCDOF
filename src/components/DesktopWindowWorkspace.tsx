@@ -3060,7 +3060,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 onClick={() => openWindow('appstore', 'SOCDOF App Store')}
                 className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
               >
-                Alle anzeigen ({installedModules.length})
+                {t('desktop.start_all_apps', currentLang, 'Alle Apps')} ({installedModules.length})
               </button>
             </div>
 
