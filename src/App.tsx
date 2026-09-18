@@ -225,7 +225,7 @@ export default function App() {
   };
 
   return (
-    <AuthGate>
+    <AuthGate company={company}>
       <AccountScopedWorkspace>
         <div className="w-screen h-screen overflow-hidden font-sans">
           <DesktopWindowWorkspace
