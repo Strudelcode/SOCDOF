@@ -41,3 +41,25 @@
 - Fixed legacy light-only UI surfaces across the desktop and application modules.
 - Light, Dark, and Windows System theme modes remain available.
 - System mode follows the OS appearance setting and reacts to changes without requiring a restart.
+
+
+## SOCDOF v23.2.0 — Therapy Practice Workspace
+
+**Release date:** 2026-09-18
+
+### New Practice application
+- Offline-first workspace for therapy and consultation practices.
+- Client records with contact and notes fields.
+- Session documentation with reusable session templates.
+- Appointment tracking with status handling.
+- Mileage / trip log with distance and reimbursement calculation.
+- Billing drafts for later connection to the existing invoice workflow.
+
+### Product integration
+- Available through the App Store and App Launcher.
+- Opens as a normal SOCDOF desktop window with the same modern, simple visual language as the existing modules.
+- No AI-style chat interface or generated clinical content is part of the module.
+
+### Privacy & data handling
+- Starts empty and stores practice workspace data locally.
+- No third-party cloud account is required for the core workflow.
