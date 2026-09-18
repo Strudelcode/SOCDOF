@@ -1,4 +1,4 @@
-### Windows-Style Login & Lock Screen Redesign (v23.1.0)
+### Settings-Centered User Management (v23.1.1)\n- [x] **Desktop Account Shortcut Cleanup**:\n  - [x] Removed the redundant Start menu account/profile shortcut.\n  - [x] Kept account administration centralized in Settings under Users & Accounts for active administrators.\n  - [x] Corrected EN/DE/FR/ES Users & Accounts translation block mapping.\n\n### Windows-Style Login & Lock Screen Redesign (v23.1.0)
 - [x] **Windows-Inspired Authentication Surface**:
   - [x] Redesigned sign-in and workstation lock screens with a full-screen blurred wallpaper presentation.
   - [x] Added live clock/date formatting using configured language, date format, timezone, and seconds settings.
