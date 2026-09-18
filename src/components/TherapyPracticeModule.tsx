@@ -78,7 +78,11 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             createdAt: new Date().toISOString()
           });
         }
-        setData(legacy ?? emptyData);
+        const initialData = legacy ?? emptyData;
+        setData(initialData);
+        const now = new Date().toISOString();
+        await db.therapy_practice.put({ key: userId, userId, data: initialData, updatedAt: now });
+        await db.therapy_backups.put({ id: crypto.randomUUID(), userId, data: initialData, createdAt: now });
       }
       hydratedUserRef.current = userId;
     })().catch(() => {
