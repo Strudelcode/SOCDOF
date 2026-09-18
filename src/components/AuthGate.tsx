@@ -145,7 +145,7 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   if (!hasUsers()) return <FirstAccount text={text} onCreated={refresh} />;
   if (!session || !currentUser) return <LoginScreen text={text} users={users} company={company} onLogin={login} />;
   if (currentUser.mustChangePassword) return <ForcedPasswordScreen text={text} user={currentUser} onDone={refresh} onLogout={logout} />;
-  if (locked) return <LockScreen text={text} user={currentUser} users={users} onUnlock={login} onSwitch={logout} />;
+  if (locked) return <LockScreen text={text} user={currentUser} users={users} company={company} onUnlock={login} onSwitch={logout} />;
   return <div className="relative w-full h-full">{children}</div>;
 }
 
@@ -403,13 +403,100 @@ function RecoveryScreen({ text, users, onBack }: { text: AuthText; users: UserAc
   return <AuthShell title={text.recover} subtitle={text.newPasswordTitle}><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={username} onChange={(e) => { setUsername(e.target.value); setAnswer(''); setError(''); }}>{users.filter((u) => u.active).map((u) => <option key={u.id} value={u.username}>{u.displayName} · {u.username}</option>)}</select>{user?.recovery && <><p className="text-sm text-slate-500">{getRecoveryQuestionLabel(user.recovery.question, lang)}</p><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onBack} className="w-full rounded-xl border py-3">{text.backLogin}</button></form></AuthShell>;
 }
 
-function LockScreen({ text, user, users, onUnlock, onSwitch }: { text: AuthText; user: UserAccount; users: UserAccount[]; onUnlock: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>; onSwitch: () => void }) {
-  const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [selected, setSelected] = useState(user.username); const [now, setNow] = useState(new Date());
+function LockScreen({
+  text,
+  user,
+  users,
+  company,
+  onUnlock,
+  onSwitch,
+}: {
+  text: AuthText;
+  user: UserAccount;
+  users: UserAccount[];
+  company: CompanyProfile;
+  onUnlock: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>;
+  onSwitch: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [selected, setSelected] = useState(user.username);
+  const [now, setNow] = useState(new Date());
+  const activeUsers = users.filter((account) => account.active);
   const selectedUser = getUserByUsername(selected) ?? user;
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(timer); }, []);
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); const result = await onUnlock(selectedUser.username, password); if (!result.ok) setError(result.reason === 'locked' ? text.locked : text.invalid); else setError(''); };
-  const wallpaper = selectedUser.preferences.wallpaper;
-  return <div className="relative w-screen h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 flex items-center justify-center p-6">{wallpaper && <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${wallpaper})` }} />}{wallpaper && <div className="absolute inset-0 bg-black/20" />}<div className="relative w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-2xl p-8"><div className="text-center mb-6"><div className="text-4xl font-semibold tracking-tight">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div><div className="text-xs text-slate-500 mt-1">{now.toLocaleDateString()} · {text.clock}</div></div><div className="flex justify-center gap-2 mb-5">{users.filter((u) => u.active).map((u) => <button key={u.id} type="button" onClick={() => { setSelected(u.username); setPassword(''); setError(''); }} className={`w-14 h-14 rounded-2xl border overflow-hidden ${selected === u.username ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{u.avatar?.startsWith('data:image/') ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xl">{u.avatar ?? '●'}</span>}<span className="block text-[8px] truncate px-1">{u.displayName}</span></button>)}</div><form onSubmit={submit} className="space-y-4"><p className="text-center font-medium">{selectedUser.displayName}</p><input autoFocus className={fieldClass} type="password" placeholder={text.password} value={password} onChange={(e) => setPassword(e.target.value)} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.unlock}</button><button type="button" onClick={onSwitch} className="w-full rounded-xl border py-3">{text.switchUser}</button></form><p className="text-center text-[11px] text-slate-400 mt-4">{text.shortcut}</p></div></div>;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const result = await onUnlock(selectedUser.username, password);
+    if (!result.ok) setError(result.reason === 'locked' ? text.locked : text.invalid);
+    else setError('');
+  };
+
+  const chooseUser = (username: string) => {
+    setSelected(username);
+    setPassword('');
+    setError('');
+  };
+
+  return (
+    <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
+      <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
+        <div className="w-full max-w-sm text-center">
+          <AuthAvatar user={selectedUser} size="lg" />
+          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl">{selectedUser.displayName}</h1>
+          <p className="mt-1 text-sm text-white/65">{text.lockedTitle}</p>
+
+          <form onSubmit={submit} className="mt-5 space-y-3">
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                className="flex-1 rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                type="password"
+                placeholder={text.password}
+                value={password}
+                onChange={(event) => { setPassword(event.target.value); setError(''); }}
+              />
+              <button className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl" title={text.unlock} aria-label={text.unlock}>
+                <LogIn size={19} />
+              </button>
+            </div>
+            {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
+          </form>
+        </div>
+      </div>
+
+      <div className="absolute left-5 bottom-5 flex items-end gap-3 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+        {activeUsers.map((account) => (
+          <button
+            key={account.id}
+            type="button"
+            onClick={() => chooseUser(account.username)}
+            className={`flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${selected === account.username ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+            title={account.displayName}
+          >
+            <AuthAvatar user={account} size="sm" />
+            <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{account.displayName}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onSwitch}
+          className="flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 hover:bg-white/10 transition-all"
+          title={text.switchUser}
+        >
+          <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+            <UserRound size={19} className="text-white/75" />
+          </div>
+          <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{text.switchUser}</span>
+        </button>
+      </div>
+    </LoginBackdrop>
+  );
 }
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-6"><div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-8"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5"><ShieldCheck size={25} /></div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{subtitle}</p>{children}</div></div>; }
