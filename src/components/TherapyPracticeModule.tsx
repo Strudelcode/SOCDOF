@@ -3,6 +3,8 @@ import { CalendarDays, Car, Check, Clock3, FileText, Plus, Search, Trash2, UserR
 import { Contact, Invoice, CalendarAppEvent } from '../types';
 import { useLanguage, t } from '../lib/i18n';
 import { getStoredCustomCalendarEvents, saveStoredCustomCalendarEvents } from '../lib/googleCalendar';
+import { db } from '../lib/db';
+import { getCurrentUser, AUTH_CHANGE_EVENT_NAME } from '../lib/auth';
 
 type Client = { id: string; name: string; birthDate: string; contact: string; notes: string; createdAt: string };
 type Session = { id: string; clientId: string; date: string; duration: number; template: string; intervention: string; progress: string };
@@ -11,14 +13,15 @@ type Trip = { id: string; date: string; departure: string; destination: string; 
 type Billing = { id: string; clientId: string; date: string; service: string; amount: number; status: 'draft' | 'ready' };
 
 const STORAGE_KEY = 'socdof_therapy_practice_v1';
+const BACKUP_LIMIT = 10;
 
 const emptyData = { clients: [] as Client[], sessions: [] as Session[], appointments: [] as Appointment[], trips: [] as Trip[], billing: [] as Billing[] };
 
-function loadData() {
+function loadLegacyData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...emptyData, ...JSON.parse(raw) } : emptyData;
-  } catch { return emptyData; }
+    return raw ? { ...emptyData, ...JSON.parse(raw) } : null;
+  } catch { return null; }
 }
 
 interface TherapyPracticeModuleProps {
@@ -35,13 +38,75 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   onOpenInvoice
 }) => {
   const currentLang = useLanguage();
-  const [data, setData] = useState(loadData);
+  const [userId, setUserId] = useState(() => getCurrentUser()?.id ?? 'anonymous');
+  const [data, setData] = useState(() => loadLegacyData() ?? emptyData);
+  const hydratedUserRef = React.useRef<string | null>(null);
+  const persistedUserRef = React.useRef<string | null>(null);
   const [tab, setTab] = useState<'overview' | 'clients' | 'sessions' | 'appointments' | 'mileage' | 'billing'>('overview');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState<null | 'client' | 'session' | 'appointment' | 'trip'>(null);
   const [selectedClient, setSelectedClient] = useState('');
+  useEffect(() => { persistedUserRef.current = null; }, [userId]);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [data]);
+  useEffect(() => {
+    const handleAuthChanged = () => setUserId(getCurrentUser()?.id ?? 'anonymous');
+    window.addEventListener(AUTH_CHANGE_EVENT_NAME, handleAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGE_EVENT_NAME, handleAuthChanged);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    hydratedUserRef.current = null;
+    void (async () => {
+      const record = await db.therapy_practice.get(userId);
+      if (cancelled) return;
+      if (record?.data) {
+        setData({ ...emptyData, ...(record.data as typeof emptyData) });
+      } else {
+        const legacy = loadLegacyData();
+        if (legacy) {
+          await db.therapy_practice.put({
+            key: userId,
+            userId,
+            data: legacy,
+            updatedAt: new Date().toISOString()
+          });
+          await db.therapy_backups.put({
+            id: crypto.randomUUID(),
+            userId,
+            data: legacy,
+            createdAt: new Date().toISOString()
+          });
+        }
+        setData(legacy ?? emptyData);
+      }
+      hydratedUserRef.current = userId;
+    })().catch(() => {
+      hydratedUserRef.current = userId;
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (hydratedUserRef.current !== userId || persistedUserRef.current === userId) return;
+    persistedUserRef.current = userId;
+    const persist = async () => {
+      const updatedAt = new Date().toISOString();
+      await db.therapy_practice.put({ key: userId, userId, data, updatedAt });
+      await db.therapy_backups.put({
+        id: crypto.randomUUID(),
+        userId,
+        data,
+        createdAt: updatedAt
+      });
+      const backups = await db.therapy_backups.where('userId').equals(userId).sortBy('createdAt');
+      if (backups.length > BACKUP_LIMIT) {
+        await db.therapy_backups.bulkDelete(backups.slice(0, backups.length - BACKUP_LIMIT).map(b => b.id));
+      }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+    };
+    void persist();
+  }, [data, userId]);
 
   const clients = useMemo(() => data.clients.filter(c => c.name.toLowerCase().includes(query.toLowerCase())), [data.clients, query]);
   const today = new Date().toISOString().slice(0, 10);
