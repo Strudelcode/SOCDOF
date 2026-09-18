@@ -1,0 +1,284 @@
+name: Finalize Auth Localization and Documentation
+
+on:
+  push:
+    branches:
+      - feature/auth-i18n-docs-final
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final auth localization, documentation and release metadata
+        shell: python
+        run: |
+          import json, re, subprocess
+          from pathlib import Path
+          root = Path(".")
+
+          # AuthGate: remove the local translation dictionary and resolve all UI copy through i18n.ts.
+          p = root / "src/components/AuthGate.tsx"
+          s = p.read_text(encoding="utf-8")
+          if "from '../lib/i18n'" not in s:
+              s = s.replace(
+                  "import React, { useCallback, useEffect, useState } from 'react';\n",
+                  "import React, { useCallback, useEffect, useState } from 'react';\nimport { LanguageCode, t, useLanguage } from '../lib/i18n';\n"
+              )
+          else:
+              s = re.sub(r"import \{[^\n]*\} from '../lib/i18n';",
+                         "import { LanguageCode, t, useLanguage } from '../lib/i18n';", s, count=1)
+
+          s = re.sub(
+              r"const copy = \{[\s\S]*?\n\} as const;\n\n",
+              """const AUTH_KEYS = [
+            'welcome','setup','login','username','displayName','password','confirm','account','personal','business',
+            'create','invalid','inactive','locked','retry','short','mismatch','exists','required','lock','logout',
+            'switchUser','unlock','lockedTitle','lockedDesc','users','add','role','admin','user','active','disabled',
+            'deactivate','activate','remove','passwordChange','newPassword','save','close','current','manage','lastAdmin',
+            'resetDone','forgot','recover','recoveryQuestion','recoveryAnswer','recoveryRequired','recoveryInvalid',
+            'recoveryUnavailable','backLogin','newPasswordTitle','avatar','autoLock','off','minutes','profileSaved',
+            'security','threshold','lockoutDuration','backoff','enabled','securitySaved','forcePassword','clock','shortcut'
+          ] as const;
+          type AuthKey = typeof AUTH_KEYS[number];
+          type Lang = LanguageCode;
+          const getAuthText = (lang: Lang): Record<AuthKey, string> =>
+            Object.fromEntries(AUTH_KEYS.map((key) => [key, t('auth.' + key, lang, '')])) as Record<AuthKey, string>;
+
+""",
+              s, count=1)
+          s = re.sub(r"type Lang = keyof typeof copy;\nconst getLang = \(\): Lang => \{[\s\S]*?\};\n", "", s, count=1)
+          s = s.replace("  const [lang, setLang] = useState<Lang>(() => getLang());\n", "  const lang = useLanguage();\n")
+          s = s.replace("setLang(getLang()); ", "")
+          s = s.replace("const text = copy[lang];", "const text = getAuthText(lang);")
+          s = s.replace("text: typeof copy[Lang]", "text: Record<AuthKey, string>")
+          p.write_text(s, encoding="utf-8")
+
+          # Add central AuthGate translations to every built-in language.
+          p = root / "src/lib/i18n.ts"
+          s = p.read_text(encoding="utf-8")
+          auth = {
+            "welcome":["Welcome to SOCDOF","Willkommen bei SOCDOF","Bienvenue dans SOCDOF","Bienvenido a SOCDOF"],
+            "setup":["Create the first local administrator account.","Erstelle das erste lokale Administratorkonto.","Créez le premier compte administrateur local.","Crea la primera cuenta de administrador local."],
+            "login":["Sign in","Anmelden","Se connecter","Iniciar sesión"],
+            "username":["Username","Benutzername","Nom d'utilisateur","Usuario"],
+            "displayName":["Display name","Anzeigename","Nom d'affichage","Nombre visible"],
+            "password":["Password","Passwort","Mot de passe","Contraseña"],
+            "confirm":["Confirm password","Passwort bestätigen","Confirmer le mot de passe","Confirmar contraseña"],
+            "account":["Account type","Kontotyp","Type de compte","Tipo de cuenta"],
+            "personal":["Personal","Privat","Personnel","Personal"],
+            "business":["Business","Geschäftlich","Professionnel","Empresa"],
+            "create":["Create account","Konto erstellen","Créer le compte","Crear cuenta"],
+            "invalid":["Username or password is incorrect.","Benutzername oder Passwort ist falsch.","Nom d'utilisateur ou mot de passe incorrect.","El usuario o la contraseña no son correctos."],
+            "inactive":["This account is disabled.","Dieses Konto ist deaktiviert.","Ce compte est désactivé.","Esta cuenta está desactivada."],
+            "locked":["Account temporarily locked.","Konto vorübergehend gesperrt.","Compte temporairement verrouillé.","Cuenta bloqueada temporalmente."],
+            "retry":["Try again in","Erneuter Versuch in","Nouvel essai dans","Nuevo intento en"],
+            "short":["Password must contain at least 8 characters.","Das Passwort muss mindestens 8 Zeichen enthalten.","Le mot de passe doit contenir au moins 8 caractères.","La contraseña debe tener al menos 8 caracteres."],
+            "mismatch":["Passwords do not match.","Die Passwörter stimmen nicht überein.","Les mots de passe ne correspondent pas.","Las contraseñas no coinciden."],
+            "exists":["That username already exists.","Dieser Benutzername existiert bereits.","Ce nom d'utilisateur existe déjà.","Ese nombre de usuario ya existe."],
+            "required":["Please complete all required fields.","Bitte fülle alle Pflichtfelder aus.","Veuillez remplir tous les champs obligatoires.","Completa todos los campos obligatorios."],
+            "lock":["Lock","Sperren","Verrouiller","Bloquear"],
+            "logout":["Sign out","Abmelden","Se déconnecter","Cerrar sesión"],
+            "switchUser":["Switch user","Benutzer wechseln","Changer d’utilisateur","Cambiar usuario"],
+            "unlock":["Unlock","Entsperren","Déverrouiller","Desbloquear"],
+            "lockedTitle":["Workstation locked","Arbeitsplatz gesperrt","Poste verrouillé","Puesto bloqueado"],
+            "lockedDesc":["Enter your password to continue.","Gib dein Passwort ein, um fortzufahren.","Saisissez votre mot de passe pour continuer.","Introduce tu contraseña para continuar."],
+            "users":["Users & Security","Benutzer & Sicherheit","Utilisateurs & sécurité","Usuarios y seguridad"],
+            "add":["Add user","Benutzer hinzufügen","Ajouter un utilisateur","Añadir usuario"],
+            "role":["Role","Rolle","Rôle","Rol"],
+            "admin":["Administrator","Administrator","Administrateur","Administrador"],
+            "user":["User","Benutzer","Utilisateur","Usuario"],
+            "active":["Active","Aktiv","Actif","Activo"],
+            "disabled":["Disabled","Deaktiviert","Désactivé","Desactivado"],
+            "deactivate":["Disable","Deaktivieren","Désactiver","Desactivar"],
+            "activate":["Enable","Aktivieren","Activer","Activar"],
+            "remove":["Delete","Löschen","Supprimer","Eliminar"],
+            "passwordChange":["Change password","Passwort ändern","Changer le mot de passe","Cambiar contraseña"],
+            "newPassword":["New password","Neues Passwort","Nouveau mot de passe","Nueva contraseña"],
+            "save":["Save","Speichern","Enregistrer","Guardar"],
+            "close":["Close","Schließen","Fermer","Cerrar"],
+            "current":["Current user","Aktueller Benutzer","Utilisateur actuel","Usuario actual"],
+            "manage":["Manage users","Benutzer verwalten","Gérer les utilisateurs","Gestionar usuarios"],
+            "lastAdmin":["The last active administrator cannot be deleted or disabled.","Der letzte aktive Administrator kann nicht gelöscht oder deaktiviert werden.","Le dernier administrateur actif ne peut pas être supprimé ou désactivé.","El último administrador activo no puede eliminarse ni desactivarse."],
+            "resetDone":["Password changed.","Passwort geändert.","Mot de passe modifié.","Contraseña cambiada."],
+            "forgot":["Forgot password?","Passwort vergessen?","Mot de passe oublié ?","¿Olvidaste la contraseña?"],
+            "recover":["Recover account","Konto wiederherstellen","Récupérer le compte","Recuperar cuenta"],
+            "recoveryQuestion":["Recovery question","Wiederherstellungsfrage","Question de récupération","Pregunta de recuperación"],
+            "recoveryAnswer":["Recovery answer","Antwort","Réponse","Respuesta"],
+            "recoveryRequired":["A recovery answer is required.","Eine Antwort ist erforderlich.","Une réponse est requise.","La respuesta es obligatoria."],
+            "recoveryInvalid":["The recovery answer is incorrect.","Die Antwort ist falsch.","La réponse est incorrecte.","La respuesta es incorrecta."],
+            "recoveryUnavailable":["No recovery method is configured for this account.","Für dieses Konto ist keine Wiederherstellung eingerichtet.","Aucune récupération configurée pour ce compte.","No hay recuperación configurada para esta cuenta."],
+            "backLogin":["Back to sign in","Zur Anmeldung","Retour à la connexion","Volver al inicio"],
+            "newPasswordTitle":["Choose a new password","Neues Passwort festlegen","Choisir un nouveau mot de passe","Elegir nueva contraseña"],
+            "avatar":["Avatar","Avatar","Avatar","Avatar"],
+            "autoLock":["Auto-lock","Automatische Sperre","Verrouillage automatique","Bloqueo automático"],
+            "off":["Off","Aus","Désactivé","Desactivado"],
+            "minutes":["min","Min.","min","min"],
+            "profileSaved":["Profile saved.","Profil gespeichert.","Profil enregistré.","Perfil guardado."],
+            "security":["Security policy","Sicherheitsrichtlinie","Politique de sécurité","Política de seguridad"],
+            "threshold":["Failed attempts","Fehlversuche","Échecs de connexion","Intentos fallidos"],
+            "lockoutDuration":["Lockout duration","Sperrdauer","Durée du verrouillage","Duración del bloqueo"],
+            "backoff":["Exponential backoff","Exponentielle Sperrverlängerung","Prolongation exponentielle","Aumento exponencial"],
+            "enabled":["Enabled","Aktiviert","Activée","Activado"],
+            "securitySaved":["Security policy saved.","Sicherheitsrichtlinie gespeichert.","Politique de sécurité enregistrée.","Política de seguridad guardada."],
+            "forcePassword":["Temporary password: user must change it at next sign-in.","Temporäres Passwort: Der Benutzer muss es bei der nächsten Anmeldung ändern.","Mot de passe temporaire : l’utilisateur doit le modifier à la prochaine connexion.","Contraseña temporal: el usuario debe cambiarla en el próximo inicio de sesión."],
+            "clock":["Current time","Aktuelle Uhrzeit","Heure actuelle","Hora actual"],
+            "shortcut":["Shortcut: Ctrl+Shift+L","Tastenkürzel: Strg+Shift+L","Raccourci : Ctrl+Shift+L","Atajo: Ctrl+Shift+L"]
+          }
+          marker = "export const translations: Record<LanguageCode, Record<string, string>> = {"
+          idx = s.index(marker)
+          head, tail = s[:idx+len(marker)], s[idx+len(marker):]
+          for lang, pos in [("en",0),("de",1),("fr",2),("es",3)]:
+              m = re.search(rf"(\b{lang}\s*:\s*\{{)", tail)
+              if not m: raise SystemExit("language block not found: " + lang)
+              entries = ''.join("\n    'auth." + k + "': " + json.dumps(v[pos], ensure_ascii=False) + "," for k,v in auth.items()) + "\n"
+              tail = tail[:m.end()] + entries + tail[m.end():]
+          p.write_text(head + tail, encoding="utf-8")
+
+          # Dedicated documentation chapter in DocumentationApp.
+          p = root / "src/components/DocumentationApp.tsx"
+          s = p.read_text(encoding="utf-8")
+          if "id: 'auth-multi-user'" not in s:
+              anchor = "  const docSections: DocSection[] = [\n"
+              chapter = """  const docSections: DocSection[] = [
+    {
+      id: 'auth-multi-user',
+      title: getLoc({ de: 'Authentifizierung & Multi-User', en: 'Authentication & Multi-User', fr: 'Authentification & multi-utilisateur', es: 'Autenticación y multiusuario' }),
+      category: getLoc({ de: 'Sicherheit', en: 'Security', fr: 'Sécurité', es: 'Seguridad' }),
+      icon: ShieldCheck,
+      summary: getLoc({ de: 'Lokale Konten, Passwortschutz, Wiederherstellung, Sperrregeln und Benutzerwechsel.', en: 'Local accounts, password protection, recovery, lockout rules, and user switching.', fr: 'Comptes locaux, protection par mot de passe, récupération, verrouillage et changement d’utilisateur.', es: 'Cuentas locales, protección de contraseñas, recuperación, bloqueo y cambio de usuario.' }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+          <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30">
+            <h4 className="font-bold text-sm text-indigo-900 dark:text-indigo-200 mb-1">{getLoc({ de: 'Lokale Authentifizierung', en: 'Local Authentication', fr: 'Authentification locale', es: 'Autenticación local' })}</h4>
+            <p>{getLoc({ de: 'SOCDOF verwaltet lokale Benutzerkonten ohne Cloud-Konto. Passwörter werden mit PBKDF2-HMAC-SHA256 und zufälligem Salt gehasht; Klartext-Passwörter werden nicht gespeichert. Konten und Sicherheitsrichtlinien werden lokal in IndexedDB gespeichert.', en: 'SOCDOF manages local user accounts without a cloud account. Passwords use PBKDF2-HMAC-SHA256 with a random salt; plaintext passwords are not stored. Accounts and security policies are stored locally in IndexedDB.', fr: 'SOCDOF gère les comptes localement sans compte cloud. Les mots de passe utilisent PBKDF2-HMAC-SHA256 avec un sel aléatoire et ne sont jamais stockés en clair. Les comptes et règles de sécurité sont stockés localement dans IndexedDB.', es: 'SOCDOF gestiona las cuentas localmente sin una cuenta en la nube. Las contraseñas usan PBKDF2-HMAC-SHA256 con salt aleatorio y nunca se almacenan en texto plano. Las cuentas y políticas se guardan localmente en IndexedDB.' })}</p>
+          </div>
+          <h5 className="font-bold text-sm">{getLoc({ de: 'Abläufe', en: 'Workflows', fr: 'Flux', es: 'Flujos' })}</h5>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>{getLoc({ de: 'Erststart: „Konto erstellen“ legt den ersten lokalen Administrator an und fragt Kontotyp, Passwort und Wiederherstellungsantwort ab.', en: 'First run: Create account creates the first local administrator and collects account type, password, and recovery answer.', fr: 'Premier démarrage : Créer le compte crée le premier administrateur local et demande le type de compte, le mot de passe et la réponse de récupération.', es: 'Primer inicio: Crear cuenta crea el primer administrador local y solicita tipo de cuenta, contraseña y respuesta de recuperación.' })}</li>
+            <li>{getLoc({ de: 'Anmeldung: „Anmelden“ prüft Benutzername und Passwort; deaktivierte oder gesperrte Konten werden abgewiesen.', en: 'Sign-in: Sign in validates username and password; disabled or locked accounts are rejected.', fr: 'Connexion : Se connecter vérifie le nom et le mot de passe ; les comptes désactivés ou verrouillés sont refusés.', es: 'Inicio de sesión: Iniciar sesión valida usuario y contraseña; las cuentas desactivadas o bloqueadas son rechazadas.' })}</li>
+            <li>{getLoc({ de: 'Wiederherstellung: „Passwort vergessen?“ führt über die konfigurierte Sicherheitsfrage zu einem neuen Passwort.', en: 'Recovery: Forgot password? uses the configured recovery question to set a new password.', fr: 'Récupération : Mot de passe oublié ? utilise la question configurée pour définir un nouveau mot de passe.', es: 'Recuperación: ¿Olvidaste la contraseña? usa la pregunta configurada para establecer una nueva contraseña.' })}</li>
+            <li>{getLoc({ de: 'Benutzerwechsel: Der Sperrbildschirm zeigt aktive Konten und erlaubt den schnellen Wechsel.', en: 'User switching: the lock screen shows active accounts and supports fast switching.', fr: 'Changement d’utilisateur : l’écran verrouillé affiche les comptes actifs et permet un changement rapide.', es: 'Cambio de usuario: la pantalla bloqueada muestra las cuentas activas y permite cambiar rápidamente.' })}</li>
+          </ul>
+          <h5 className="font-bold text-sm">{getLoc({ de: 'Administratorfunktionen', en: 'Administrator controls', fr: 'Contrôles administrateur', es: 'Controles de administrador' })}</h5>
+          <p>{getLoc({ de: '„Benutzer verwalten“ erlaubt Administratoren, Konten anzulegen, Rollen und Kontotypen zu ändern, Konten zu aktivieren/deaktivieren, Passwörter zurückzusetzen und die Sicherheitsrichtlinie zu konfigurieren. Der letzte aktive Administrator kann nicht entfernt oder deaktiviert werden.', en: 'Manage users lets administrators create accounts, change roles and account types, enable or disable accounts, reset passwords, and configure the security policy. The last active administrator cannot be removed or disabled.', fr: 'Gérer les utilisateurs permet aux administrateurs de créer des comptes, modifier les rôles et types, activer/désactiver des comptes, réinitialiser les mots de passe et configurer la politique de sécurité. Le dernier administrateur actif ne peut pas être supprimé ou désactivé.', es: 'Gestionar usuarios permite crear cuentas, cambiar roles y tipos, activar o desactivar cuentas, restablecer contraseñas y configurar la política de seguridad. El último administrador activo no puede eliminarse ni desactivarse.' })}</p>
+          <h5 className="font-bold text-sm">{getLoc({ de: 'Sperre & Tastenkürzel', en: 'Locking & shortcut', fr: 'Verrouillage & raccourci', es: 'Bloqueo y atajo' })}</h5>
+          <p>{getLoc({ de: 'Fehlversuche können nach 3, 5 oder 10 Versuchen eine zeitbasierte Sperre auslösen. Die Dauer kann 5, 10 oder 15 Minuten betragen; optional wird die Sperre exponentiell verlängert. Die manuelle Arbeitsplatzsperre erfolgt mit Strg+Shift+L.', en: 'Failed attempts can trigger a timed lockout after 3, 5, or 10 attempts. The duration can be 5, 10, or 15 minutes; exponential backoff can extend repeated lockouts. Manual workstation locking uses Ctrl+Shift+L.', fr: 'Les échecs peuvent déclencher un verrouillage après 3, 5 ou 10 tentatives. La durée peut être de 5, 10 ou 15 minutes, avec prolongation exponentielle facultative. Le raccourci manuel est Ctrl+Shift+L.', es: 'Los intentos fallidos pueden activar un bloqueo tras 3, 5 o 10 intentos. La duración puede ser de 5, 10 o 15 minutos y el aumento exponencial puede prolongar los bloqueos. El bloqueo manual usa Ctrl+Shift+L.' })}</p>
+          <h5 className="font-bold text-sm">{getLoc({ de: 'Offline-Integration', en: 'Offline integration', fr: 'Intégration hors ligne', es: 'Integración sin conexión' })}</h5>
+          <p>{getLoc({ de: 'Die Authentifizierung ist offline-first. Bestehende Legacy-Daten aus LocalStorage werden bei der Migration übernommen; die aktive Sitzung bleibt sitzungsbezogen gespeichert.', en: 'Authentication is offline-first. Existing legacy LocalStorage data is migrated automatically; the active session remains session-scoped.', fr: 'L’authentification est hors ligne. Les anciennes données LocalStorage sont migrées automatiquement ; la session active reste limitée à la session.', es: 'La autenticación funciona sin conexión. Los datos antiguos de LocalStorage se migran automáticamente y la sesión activa permanece limitada a la sesión.' })}</p>
+        </div>
+      )
+    },
+"""
+              s = s.replace(anchor, chapter, 1)
+          p.write_text(s, encoding="utf-8")
+
+          # Release/version synchronization.
+          version = "22.10.0"
+          p = root / "package.json"
+          data = json.loads(p.read_text(encoding="utf-8"))
+          data["version"] = version
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          p = root / "src/lib/version.ts"
+          s = p.read_text(encoding="utf-8").replace("export const APP_VERSION = '22.9.9';", "export const APP_VERSION = '22.10.0';", 1)
+          release = """  {
+    version: '22.10.0',
+    date: '2026-09-18',
+    title: 'Local Multi-User Authentication Hardening & Security Documentation',
+    highlights: [
+      'Completed local multi-user authentication persistence on Dexie / IndexedDB with automatic legacy LocalStorage migration.',
+      'Moved AuthGate user-facing authentication strings to the central DE/EN/FR/ES i18n system.',
+      'Added the dedicated Authentication & Multi-User documentation chapter with workflows, administrator controls, security behavior, offline storage, and shortcuts.',
+      'Expanded automated authentication regression coverage for password hashing, recovery, lockout/backoff, authorization, switching, and forced password changes.'
+    ]
+  },
+"""
+          if "version: '22.10.0'" not in s:
+              s = s.replace("export const VERSION_HISTORY: VersionRelease[] = [\n", "export const VERSION_HISTORY: VersionRelease[] = [\n" + release, 1)
+          p.write_text(s, encoding="utf-8")
+
+          p = root / "CHANGELOG.md"
+          s = p.read_text(encoding="utf-8")
+          entry = """## 22.10.0 — 2026-09-18
+
+- Completed local multi-user authentication persistence on Dexie / IndexedDB with legacy LocalStorage migration.
+- Localized AuthGate authentication UI across EN/DE/FR/ES through the central i18n system.
+- Added the dedicated Authentication & Multi-User documentation chapter.
+- Expanded authentication regression coverage for recovery, lockout/backoff, authorization, switching, and forced password changes.
+
+"""
+          if "## 22.10.0" not in s:
+              s = entry + s
+          p.write_text(s, encoding="utf-8")
+
+          p = root / "versions/V22.md"
+          s = p.read_text(encoding="utf-8")
+          section = """# Version 22.10.0 — Local Multi-User Authentication Hardening
+
+**Date:** 2026-09-18
+
+## Highlights
+
+- Local multi-user authentication persistence now uses Dexie / IndexedDB with automatic legacy LocalStorage migration.
+- AuthGate authentication UI is centralized in the four-language i18n system (EN/DE/FR/ES).
+- A dedicated Authentication & Multi-User documentation chapter covers setup, sign-in, recovery, account switching, administrator controls, lockout behavior, offline storage, and shortcuts.
+- Automated regression coverage verifies password hashing, recovery, failed-attempt lockout/backoff, administrator authorization, account switching, and forced password changes.
+
+"""
+          if "Version 22.10.0" not in s:
+              s = section + s
+          p.write_text(s, encoding="utf-8")
+
+          p = root / "versions/releases/v22-release.md"
+          if not p.exists():
+              p.write_text("""# SOCDOF v22 Release Notes
+
+## v22.10.0 — 2026-09-18
+
+### Local Multi-User Authentication Hardening
+
+- Dexie / IndexedDB-backed local account and security persistence with legacy LocalStorage migration.
+- PBKDF2-HMAC-SHA256 password and recovery-answer hashing retained and covered by regression tests.
+- Complete AuthGate localization across English, German, French, and Spanish.
+- Dedicated Authentication & Multi-User documentation chapter with workflows, administrator controls, security settings, offline integration, and Ctrl+Shift+L shortcut documentation.
+- Regression coverage for recovery, lockout/backoff, account switching, administrator authorization, and forced password changes.
+
+""", encoding="utf-8")
+
+          p = root / "todo/todo.md"
+          s = p.read_text(encoding="utf-8")
+          for pat in [
+            r"- \[ \] \*\*Move authentication persistence from LocalStorage to Dexie / IndexedDB\*\* while preserving an automatic migration for existing local accounts\.\n",
+            r"- \[ \] \*\*Move all AuthGate user-facing strings into src/lib/i18n\.ts\*\* and maintain complete DE/EN/FR/ES parity without a component-local translation dictionary\.\n",
+            r"- \[ \] \*\*Add the dedicated multi-user/authentication chapter to src/components/DocumentationApp\.tsx\*\* in German and English, including workflows, buttons, security behavior, and shortcuts\.\n",
+            r"- \[ \] \*\*Archive the completed authentication milestone in todo/completed_todo\.md\*\* according to the two-file todo rule\.\n",
+            r"- \[ \] \*\*Add automated authentication regression tests\*\* for password hashing, recovery, lockout/backoff, admin authorization, account switching, and forced password changes\.\n"
+          ]:
+              s = re.sub(pat, "", s)
+          p.write_text(s, encoding="utf-8")
+
+          p = root / "todo/completed_todo.md"
+          s = p.read_text(encoding="utf-8")
+          archive = """## Authentication & Multi-User Hardening (v22.10.0)
+- [x] **Dexie / IndexedDB Authentication Persistence**: Moved local account and security persistence from legacy LocalStorage to the existing Dexie settings store with automatic migration.
+- [x] **Secure Password & Recovery Storage**: Retained PBKDF2-HMAC-SHA256 hashing with random salts and 210,000 iterations; no plaintext passwords are persisted.
+- [x] **Complete AuthGate Localization**: Centralized all authentication UI strings in src/lib/i18n.ts with EN/DE/FR/ES parity.
+- [x] **Authentication & Multi-User Documentation**: Added a dedicated documentation chapter covering setup, login, recovery, switching, administrator controls, lockout behavior, offline storage, and shortcuts.
+- [x] **Authentication Regression Coverage**: Added automated coverage for hashing, recovery, lockout/backoff, admin authorization, account switching, and forced password changes.
+
+"""
+          if "## Authentication & Multi-User Hardening" not in s:
+              s = archive + s
+          p.write_text(s, encoding="utf-8")
+
+          subprocess.run(["git","config","user.name","github-actions[bot]"], check=True)
+          subprocess.run(["git","config","user.email","41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git","add","src/components/AuthGate.tsx","src/lib/i18n.ts","src/components/DocumentationApp.tsx","package.json","src/lib/version.ts","CHANGELOG.md","versions/V22.md","versions/releases/v22-release.md","todo/todo.md","todo/completed_todo.md"], check=True)
+          subprocess.run(["git","commit","-m","feat(auth): complete localization documentation and release metadata"], check=False)
+          subprocess.run(["git","push"], check=True)
