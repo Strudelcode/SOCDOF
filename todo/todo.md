@@ -27,7 +27,7 @@ The authentication and local multi-user milestone is complete for v22.10.0. Hist
 
 The v23.0.0 Users & Accounts / Start Menu power milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
 
-The v23.1.0 Windows-style authentication surface redesign is complete on the feature branch and is archived in `todo/completed_todo.md`.
+The v23.1.1 Settings-centered user management cleanup is complete on the feature branch and is archived in `todo/completed_todo.md`.\n\nThe v23.1.0 Windows-style authentication surface redesign is complete on the feature branch and is archived in `todo/completed_todo.md`.
 
 
 
