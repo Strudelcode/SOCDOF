@@ -104,11 +104,11 @@ export const TherapyPracticeModule: React.FC = () => {
         </ListShell>}
 
         {tab === 'sessions' && <ListShell title={t('therapy.sessions', currentLang)} action={t('therapy.newSession', currentLang)} onAdd={() => setModal('session')}>
-          {data.sessions.length === 0 ? <Empty text={t('therapy.emptySessions', currentLang)} /> : data.sessions.map(s => <Row key={s.id} icon={<Clock3 className="w-4 h-4" />} title={clientName(s.clientId)} subtitle={`${s.date} · ${s.duration} min · ${therapyT(s.template)}`} onDelete={() => remove('sessions', s.id)} />)}
+          {data.sessions.length === 0 ? <Empty text={t('therapy.emptySessions', currentLang)} /> : data.sessions.map(s => <Row key={s.id} icon={<Clock3 className="w-4 h-4" />} title={clientName(s.clientId)} subtitle={`${s.date} · ${s.duration} min · ${t(`therapy.${s.template}`, currentLang)}`} onDelete={() => remove('sessions', s.id)} />)}
         </ListShell>}
 
         {tab === 'appointments' && <ListShell title={t('therapy.appointments', currentLang)} action={t('therapy.newAppointment', currentLang)} onAdd={() => setModal('appointment')}>
-          {data.appointments.length === 0 ? <Empty text={t('therapy.emptyAppointments', currentLang)} /> : data.appointments.map(a => <Row key={a.id} icon={<CalendarDays className="w-4 h-4" />} title={clientName(a.clientId)} subtitle={`${a.date} · ${therapyT(a.status)}`} onDelete={() => remove('appointments', a.id)} />)}
+          {data.appointments.length === 0 ? <Empty text={t('therapy.emptyAppointments', currentLang)} /> : data.appointments.map(a => <Row key={a.id} icon={<CalendarDays className="w-4 h-4" />} title={clientName(a.clientId)} subtitle={`${a.date} · ${t(`therapy.${a.status}`, currentLang)}`} onDelete={() => remove('appointments', a.id)} />)}
         </ListShell>}
 
         {tab === 'mileage' && <ListShell title={t('therapy.mileage', currentLang)} action={t('therapy.newTrip', currentLang)} onAdd={() => setModal('trip')}>
