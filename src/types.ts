@@ -330,7 +330,7 @@ export type ActiveModule =
   | 'ios_billing'
   | 'support_services'
   | 'widgets'
-  | 'calculator';
+  | 'calculator'\n  | 'therapy_practice';
 
 export interface SupportExpenseEntry {
   id: string;
