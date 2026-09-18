@@ -14,6 +14,10 @@ Format guidelines:
 - Added local account creation, profile editing, roles, account types, avatars, activation, auto-lock preferences, password resets, and sign-in security controls.
 - Added Start menu power actions for lock, user switching, sign-out, workspace restart, and closing SOCDOF.
 
+
+### 🌗 Theme / Dark Mode
+- Fixed legacy light-only surfaces across the desktop, taskbar, Start menu, search, context menus, windows, modules, Settings, dashboard, tables, cards, dialogs, dropdowns, inputs, buttons, text, borders, hover states, scrollbars, and notifications.
+- Preserved Light and Dark modes and added a fully functional Windows System mode that follows the OS appearance setting.
 ### 🔄 Geändert / Improved
 - Removed the redundant always-visible authentication management overlay from the desktop workspace.
 - Connected the Start menu user area to account settings, with direct administrator access to Users & Accounts.
