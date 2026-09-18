@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Car, Check, Clock3, FileText, Plus, Search, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
+import { CalendarDays, Car, Check, Clock3, FileText, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
 import { Contact, Invoice, CalendarAppEvent } from '../types';
 import { useLanguage, t } from '../lib/i18n';
 import { getStoredCustomCalendarEvents, saveStoredCustomCalendarEvents } from '../lib/googleCalendar';
@@ -24,7 +24,6 @@ function loadData() {
 interface TherapyPracticeModuleProps {
   contacts: Contact[];
   invoices: Invoice[];
-  onRefreshData: () => void;
   onOpenCalendar: () => void;
   onOpenInvoice: (contactId?: number) => void;
 }
@@ -32,7 +31,6 @@ interface TherapyPracticeModuleProps {
 export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   contacts,
   invoices,
-  onRefreshData,
   onOpenCalendar,
   onOpenInvoice
 }) => {
@@ -40,7 +38,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   const [data, setData] = useState(loadData);
   const [tab, setTab] = useState<'overview' | 'clients' | 'sessions' | 'appointments' | 'mileage' | 'billing'>('overview');
   const [query, setQuery] = useState('');
-  const [modal, setModal] = useState<null | 'client' | 'session' | 'appointment' | 'trip' | 'billing'>(null);
+  const [modal, setModal] = useState<null | 'client' | 'session' | 'appointment' | 'trip'>(null);
   const [selectedClient, setSelectedClient] = useState('');
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [data]);
