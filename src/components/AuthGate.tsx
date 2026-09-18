@@ -309,7 +309,7 @@ function LoginScreen({
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="w-full max-w-sm">
+        <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
           <div className="flex flex-col items-center text-center">
             {selectedUser ? (
               <AuthAvatar user={selectedUser} size="lg" />
@@ -450,7 +450,7 @@ function LockScreen({
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="w-full max-w-sm text-center">
+        <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 text-center">
           <AuthAvatar user={selectedUser} size="lg" />
           <h1 className="mt-5 text-2xl font-medium drop-shadow-xl">{selectedUser.displayName}</h1>
           <p className="mt-1 text-sm text-white/65">{text.lockedTitle}</p>
