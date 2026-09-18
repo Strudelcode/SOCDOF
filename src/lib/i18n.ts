@@ -1866,14 +1866,6 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'appstore.bundle_office_folder': 'Office & Productivity',
 
     // Calculator & School Module Translations
-    'module.therapy_practice': 'Practice & Therapy',
-    'desc.therapy_practice': 'Clients, sessions, appointments, mileage and billing workspace.',
-    'module.therapy_practice': 'Praxis & Therapie',
-    'desc.therapy_practice': 'Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnung.',
-    'module.therapy_practice': 'Cabinet & Thérapie',
-    'desc.therapy_practice': 'Clients, séances, rendez-vous, trajets et facturation.',
-    'module.therapy_practice': 'Consulta y terapia',
-    'desc.therapy_practice': 'Clientes, sesiones, citas, viajes y facturación.',
     'module.calculator': 'Calculator',
     'desc.calculator': 'School & Scientific Calculator with Simple and Scientific modes, trigonometry, logarithms, and history',
     'cat.school': 'School & Education',
