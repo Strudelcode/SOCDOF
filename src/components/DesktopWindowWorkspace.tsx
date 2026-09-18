@@ -103,6 +103,7 @@ import { DynamicCalendarIcon } from './DynamicCalendarIcon';
 import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
+import { getCurrentUser } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
@@ -2005,6 +2006,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   };
 
   // Shutdown / Power Handlers
+  const dispatchAuthAction = (action: 'lock' | 'logout' | 'switch-user') => {
+    window.dispatchEvent(new CustomEvent('socdof-desktop-auth-action', { detail: { action } }));
+    setIsPowerMenuOpen(false);
+    setIsStartMenuOpen(false);
+    closeAllContextMenus();
+  };
+
   const handleShutdown = () => {
     sounds.playShutdown();
     setIsPowerMenuOpen(false);
@@ -2026,6 +2034,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   };
 
   // Filtered Start Menu items
+  const currentAuthUser = getCurrentUser();
+
   const startMenuItems = installedModules.filter(m => {
     const meta = shortcutMeta[m];
     if (!meta) return false;
@@ -3029,7 +3039,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="App oder Beleg suchen..."
+                placeholder={t('desktop.start_search', currentLang, 'Apps und Dokumente suchen...')}
                 value={startSearch}
                 onChange={(e) => setStartSearch(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
@@ -3044,7 +3054,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className="py-1">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Angeheftete Apps
+                {t('desktop.start_pinned', currentLang, 'Angeheftete Apps')}
               </span>
               <button
                 onClick={() => openWindow('appstore', 'SOCDOF App Store')}
@@ -3149,179 +3159,83 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </a>
           </div>
 
-          {/* Bottom Footer Actions: Power Button & User Profile */}
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <button
-              onClick={() => {
-                handleOpenSettings('general');
-                setIsStartMenuOpen(false);
-                closeAllContextMenus();
-              }}
-              title={t('company.user_profile', currentLang, 'Firmen- & Benutzerprofil')}
-              className="flex items-center gap-2.5 min-w-0 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer group"
-            >
-              <div 
-                className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform"
-                style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
-              >
-                {company?.name ? company.name.charAt(0).toUpperCase() : <User className="w-4 h-4 text-white" />}
-              </div>
-              <div className="min-w-0 flex flex-col">
-                <span className="text-xs font-bold truncate max-w-[130px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {company?.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
-                </span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  {company.owner || t('company.local_profile', currentLang, 'Lokales Profil')}
-                </span>
-              </div>
-            </button>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleToggleFullscreen}
-                title={isFullscreen 
-                  ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` 
-                  : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`
-                }
-                className={`p-2 rounded-xl transition cursor-pointer ${
-                  isFullscreen 
-                    ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' 
-                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-
-              <button
-                onClick={onToggleTheme}
-                title="Design wechseln"
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
-              >
-                {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
-              </button>
-
-              <button
-                onClick={() => {
-                  if (!isDesktopApp) {
-                    setIsStartMenuOpen(false);
-                    setIsWebPreviewExitMode(true);
-                    setIsWebPreviewModalOpen(true);
-                  } else if (company.disable_exit_prompt) {
-                    handleShutdown();
-                  } else {
-                    setIsPowerMenuOpen(!isPowerMenuOpen);
-                  }
-                }}
-                title={!isDesktopApp ? t('preview.leave_preview_title', currentLang, "Web-Vorschau verlassen & Vollversion herunterladen") : t('preview.exit_desktop_title', currentLang, "Beenden & Energieoptionen")}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300 transition"
-              >
-                <Power className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Power / Beenden Modal Dialog (SOCDOF wirklich schließen?) */}
-      {isPowerMenuOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-900 dark:text-slate-100 animate-scale-in">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md">
-                  <Power className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base">
-                    {!isDesktopApp ? t('preview.exit_preview_prompt', currentLang, 'Web-Vorschau beenden?') : t('preview.exit_app_prompt', currentLang, 'SOCDOF beenden?')}
-                  </h3>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {!isDesktopApp ? 'Interaktive Online-Demo' : 'Desktop-Umgebung schließen'}
+          {/* Bottom Footer Actions: Current User + Power */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+            {isPowerMenuOpen && (
+              <div className="mb-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-950/95 shadow-xl overflow-hidden animate-fade-in">
+                <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {t('desktop.start_power', currentLang, 'Ein/Aus')}
                   </div>
                 </div>
+                <button type="button" onClick={() => dispatchAuthAction('lock')} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <Lock className="w-4 h-4 text-indigo-500" />
+                  <span>{t('desktop.start_lock', currentLang, 'Sperren')}</span>
+                </button>
+                <button type="button" onClick={() => dispatchAuthAction('switch-user')} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <Users className="w-4 h-4 text-sky-500" />
+                  <span>{t('desktop.start_switch_user', currentLang, 'Benutzer wechseln')}</span>
+                </button>
+                <button type="button" onClick={() => dispatchAuthAction('logout')} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <LogOut className="w-4 h-4 text-amber-500" />
+                  <span>{t('desktop.start_sign_out', currentLang, 'Abmelden')}</span>
+                </button>
+                <button type="button" onClick={handleRestart} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <RotateCcw className="w-4 h-4 text-slate-500" />
+                  <span>{t('desktop.start_restart', currentLang, 'Arbeitsbereich neu starten')}</span>
+                </button>
+                <button type="button" onClick={handleShutdown} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+                  <Power className="w-4 h-4" />
+                  <span>{isDesktopApp ? t('desktop.start_close', currentLang, 'SOCDOF schließen') : t('desktop.start_online_preview', currentLang, 'Web-Vorschau verlassen')}</span>
+                </button>
               </div>
-              <button
-                onClick={() => setIsPowerMenuOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!isDesktopApp ? (
-              <div className="mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200 space-y-1.5 leading-relaxed">
-                <div className="font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{t('preview.notice_title', currentLang, 'Hinweis zur Web-Vorschau:')}</span>
-                </div>
-                <p>
-                  {t('preview.notice_body', currentLang, 'Dies ist nur die Web-Vorschau. Eingegebene Daten werden nicht dauerhaft gespeichert. Laden Sie sich die vollständige Windows Desktop-App (.exe) für 100% lokalen Betrieb herunter.')}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-                Möchten Sie die SOCDOF Arbeitsumgebung jetzt beenden? Alle Rechnungen, Buchungen, Lagerbewegungen und Einstellungen bleiben lokal sicher in Ihrer Datenbank gespeichert.
-              </p>
             )}
 
-            <div className="space-y-2.5">
-              {!isDesktopApp && (
-                <a
-                  href={GITHUB_RELEASES_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-left transition group shadow-md shadow-indigo-600/20"
-                >
-                  <Download className="w-5 h-5 flex-shrink-0 group-hover:-translate-y-0.5 transition-transform" />
-                  <div className="flex-1">
-                    <div className="text-xs font-bold flex items-center justify-between">
-                      <span>Vollversion herunterladen (.exe)</span>
-                      <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                    </div>
-                    <div className="text-[11px] text-indigo-100">Neueste Release auf GitHub öffnen</div>
-                  </div>
-                </a>
-              )}
-
+            <div className="flex items-center justify-between gap-2">
               <button
-                onClick={!isDesktopApp ? handleConfirmLeaveWeb : handleShutdown}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40 text-left transition group"
+                type="button"
+                onClick={() => {
+                  const target = currentAuthUser?.role === 'admin' ? 'users' : 'general';
+                  handleOpenSettings(target);
+                  setIsStartMenuOpen(false);
+                  closeAllContextMenus();
+                }}
+                title={currentAuthUser?.role === 'admin'
+                  ? t('desktop.start_admin_settings', currentLang, 'Benutzer & Konten')
+                  : t('desktop.start_account_settings', currentLang, 'Kontoeinstellungen')}
+                className="flex items-center gap-2.5 min-w-0 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer group"
               >
-                <Power className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <div>
-                  <div className="text-xs font-bold">
-                    {!isDesktopApp ? 'Website wirklich verlassen' : 'SOCDOF jetzt beenden'}
-                  </div>
-                  <div className="text-[11px] opacity-80">
-                    {!isDesktopApp ? 'Beendet die Demo und leitet zur Download-Seite weiter.' : 'Schließt alle offenen Arbeitsfenster und sperrt die Sitzung.'}
-                  </div>
+                <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden" style={{ backgroundColor: 'var(--accent, #4f46e5)' }}>
+                  {currentAuthUser?.avatar?.startsWith('data:image/')
+                    ? <img src={currentAuthUser.avatar} alt="" className="w-full h-full object-cover" />
+                    : currentAuthUser?.avatar ?? <User className="w-4 h-4 text-white" />}
+                </div>
+                <div className="min-w-0 flex flex-col">
+                  <span className="text-xs font-bold truncate max-w-[145px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    {currentAuthUser?.displayName || company?.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                    {currentAuthUser?.role === 'admin' ? t('auth.admin', currentLang, 'Administrator') : t('auth.user', currentLang, 'Benutzer')}
+                  </span>
                 </div>
               </button>
 
-              <button
-                onClick={handleRestart}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-left transition group"
-              >
-                <RotateCcw className="w-5 h-5 flex-shrink-0 group-hover:rotate-45 transition-transform" />
-                <div>
-                  <div className="text-xs font-bold">Arbeitsbereich neu laden</div>
-                  <div className="text-[11px] opacity-80">Startet die Desktop-Umgebung frisch und aufgeräumt neu.</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setIsPowerMenuOpen(false)}
-                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                Abbrechen
-              </button>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={handleToggleFullscreen} title={isFullscreen ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`} className={`p-2 rounded-xl transition cursor-pointer ${isFullscreen ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                  {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button type="button" onClick={onToggleTheme} title={t('desktop.theme_toggle', currentLang, 'Design wechseln')} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer">
+                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                </button>
+                <button type="button" onClick={() => setIsPowerMenuOpen(value => !value)} title={t('desktop.start_power', currentLang, 'Ein/Aus')} className={`p-2 rounded-xl transition ${isPowerMenuOpen ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300'}`}>
+                  <Power className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
+          </div>        </div>
       )}
 
-      {/* 7. Authentic Windows 11 Taskbar with Accent & Tint Customization */}
+      {/* 6. Authentic Windows 11 Taskbar with Accent & Tint Customization */}
       <div 
         className={`relative z-40 h-12 backdrop-blur-xl border-t px-3 flex items-center justify-between text-xs transition-colors duration-300 ${
           company.taskbar_tint === 'accent'
