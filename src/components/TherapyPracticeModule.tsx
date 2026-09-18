@@ -51,8 +51,8 @@ export const TherapyPracticeModule: React.FC = () => {
   const clientName = (id: string) => data.clients.find(c => c.id === id)?.name || '—';
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <div className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur px-5 py-4">
+    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <div className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur px-3 sm:px-5 py-3 sm:py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-black tracking-tight">{t('therapy.title', currentLang)}</h1>
@@ -60,7 +60,7 @@ export const TherapyPracticeModule: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"><ShieldCheck className="w-4 h-4" />{t('therapy.encrypted', currentLang)}</div>
         </div>
-        <div className="mt-4 flex gap-1 overflow-x-auto">
+        <div className="mt-3 sm:mt-4 flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
           {([
             ['overview', FileText, t('therapy.title', currentLang)],
             ['clients', UserRound, t('therapy.patients', currentLang)],
@@ -74,10 +74,10 @@ export const TherapyPracticeModule: React.FC = () => {
         </div>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-3 sm:p-5 space-y-4 sm:space-y-5">
         {tab === 'overview' && (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 [t('therapy.totalClients', currentLang), data.clients.length, UserRound],
                 [t('therapy.totalSessions', currentLang), data.sessions.length, Clock3],
@@ -126,11 +126,11 @@ export const TherapyPracticeModule: React.FC = () => {
   );
 };
 
-const Empty = ({ text }: { text: string }) => <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-400">{text}</div>;
+const Empty = ({ text }: { text: string }) => <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-6 sm:p-10 text-center text-sm text-slate-400">{text}</div>;
 const Row = ({ icon, title, subtitle, onDelete }: any) => <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"><div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">{icon}</div><div className="min-w-0 flex-1"><div className="font-semibold text-sm truncate">{title}</div><div className="text-xs text-slate-500 truncate">{subtitle}</div></div><button onClick={onDelete} className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"><Trash2 className="w-4 h-4" /></button></div>;
-const ListShell = ({ title, action, onAdd, search, value, onSearch, children }: any) => <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-white dark:bg-slate-900 p-4"><div className="flex flex-wrap gap-2 items-center mb-4"><h2 className="font-bold flex-1">{title}</h2>{search && <div className="relative"><Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" /><input value={value} onChange={e => onSearch(e.target.value)} placeholder={t('therapy.search', currentLang)} className="pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none" /></div>}<button onClick={onAdd} className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold flex items-center gap-2"><Plus className="w-4 h-4" />{action}</button></div><div className="space-y-2">{children}</div></section>;
+const ListShell = ({ title, action, onAdd, search, value, onSearch, children }: any) => {\n  const currentLang = useLanguage();\n  return <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-white dark:bg-slate-900 p-4"><div className="flex flex-wrap gap-2 items-center mb-4"><h2 className="font-bold flex-1">{title}</h2>{search && <div className="relative"><Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" /><input value={value} onChange={e => onSearch(e.target.value)} placeholder={t('therapy.search', currentLang)} className="pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none" /></div>}<button onClick={onAdd} className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold flex items-center gap-2"><Plus className="w-4 h-4" />{action}</button></div><div className="space-y-2">{children}</div></section>;
 
-function Modal({ kind, clients, onClose, onSave }: any) {
+function Modal({ kind, clients, onClose, onSave }: any) {\n  const currentLang = useLanguage();
   const [form, setForm] = useState<any>({ date: new Date().toISOString().slice(0,10), duration: 50, rate: 0, startKm: 0, endKm: 0, status: 'scheduled', template: 'standard' });
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
   const input = (k: string, placeholder = '') => <input value={form[k] ?? ''} onChange={e => set(k, e.target.value)} placeholder={placeholder} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none" />;
@@ -140,5 +140,5 @@ function Modal({ kind, clients, onClose, onSave }: any) {
     kind === 'appointment' ? <>{selectClient}{input('date')}{<select value={form.status} onChange={e => set('status', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="scheduled">{t('therapy.scheduled', currentLang)}</option><option value="attended">{t('therapy.attended', currentLang)}</option><option value="cancelled">{t('therapy.cancelled', currentLang)}</option><option value="missed">{t('therapy.missed', currentLang)}</option></select>}{input('notes', t('therapy.notes', currentLang))}</> :
     kind === 'trip' ? <>{input('date')}{input('departure', t('therapy.departure', currentLang))}{input('destination', t('therapy.destination', currentLang))}{input('purpose', t('therapy.purpose', currentLang))}{input('startKm')}{input('endKm')}{input('rate')}</> :
     <>{selectClient}{input('date')}{input('service', t('therapy.service', currentLang))}{input('amount')}</>;
-  return <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={onClose}><div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-3" onMouseDown={e => e.stopPropagation()}><div className="flex items-center"><h3 className="font-bold flex-1">{kind === 'client' ? t('therapy.newPatient', currentLang) : kind === 'session' ? t('therapy.newSession', currentLang) : kind === 'appointment' ? t('therapy.newAppointment', currentLang) : kind === 'trip' ? t('therapy.newTrip', currentLang) : t('therapy.billing', currentLang)}</h3><button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-4 h-4" /></button></div><div className="space-y-2">{fields}</div><div className="flex justify-end gap-2 pt-2"><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold">{t('therapy.cancel', currentLang)}</button><button onClick={() => onSave(kind, form)} className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold"><Check className="w-4 h-4 inline mr-1" />{t('therapy.save', currentLang)}</button></div></div></div>;
+  return <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" onMouseDown={onClose}><div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-3" onMouseDown={e => e.stopPropagation()}><div className="flex items-center"><h3 className="font-bold flex-1">{kind === 'client' ? t('therapy.newPatient', currentLang) : kind === 'session' ? t('therapy.newSession', currentLang) : kind === 'appointment' ? t('therapy.newAppointment', currentLang) : kind === 'trip' ? t('therapy.newTrip', currentLang) : t('therapy.billing', currentLang)}</h3><button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-4 h-4" /></button></div><div className="space-y-2">{fields}</div><div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 sticky bottom-0 bg-white dark:bg-slate-900 pb-1"><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold">{t('therapy.cancel', currentLang)}</button><button onClick={() => onSave(kind, form)} className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold"><Check className="w-4 h-4 inline mr-1" />{t('therapy.save', currentLang)}</button></div></div></div>;
 }
