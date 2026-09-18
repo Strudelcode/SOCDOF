@@ -44,7 +44,7 @@ assert.equal(auth.getCurrentUser()?.id, first.id);
 const login = await auth.authenticate('ADMIN', 'correct-horse-battery');
 assert.equal(login.ok, true);
 
-const second = await auth.createUser({
+const recoveryUser = await auth.createUser({\n  username: 'Recovery',\n  displayName: 'Recovery User',\n  password: 'recovery-old-password',\n  role: 'user',\n  accountType: 'personal',\n  recoveryQuestion: auth.RECOVERY_QUESTIONS[0],\n  recoveryAnswer: 'Milo',\n});\nassert.equal(recoveryUser.recovery?.answerHash ? true : false, true);\n\nconst recoveryReset = await auth.resetPasswordWithRecovery(recoveryUser.id, 'milo', 'recovery-new-password');\nassert.equal(recoveryReset, undefined);\nconst recoveryLogin = await auth.authenticate('Recovery', 'recovery-new-password');\nassert.equal(recoveryLogin.ok, true);\n\nconst second = await auth.createUser({
   username: 'Second',
   displayName: 'Second User',
   password: 'another-secure-password',
