@@ -1,3 +1,9 @@
+### Settings-Centered User Management Cleanup (v23.2.1)
+- [x] Removed the redundant Start menu account/profile shortcut.
+- [x] Kept local user administration centralized in Settings under Users & Accounts for active administrators.
+- [x] Corrected the EN/DE/FR/ES Users & Accounts translation block mapping without removing the Therapy Practice localization.
+- [x] Added the sign-in loading transition and dark-mode hover compatibility fix.
+
 ### Therapy Practice Workspace (v23.2.0)
 - [x] Added an offline-first Practice workspace with clean empty states for clients, sessions, appointments, mileage, and billing drafts.
 - [x] Added session templates for initial interview, standard session, crisis intervention, and final report.
