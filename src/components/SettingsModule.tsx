@@ -128,6 +128,7 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
+import { getCurrentUser } from '../lib/auth';
 import { UserManagementSettings } from './UserManagementSettings';
 
 export type SettingsSection = 
@@ -174,6 +175,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   isFullscreen = false
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
+  const canManageUsers = getCurrentUser()?.role === 'admin' && getCurrentUser()?.active === true;
   const [searchQuery, setSearchQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -642,7 +644,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
     { id: 'general', title: t('settings.recent_bank_title', activeLang, 'Bank Details & IBAN'), category: t('settings.recent_bank_cat', activeLang, 'Company'), icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60' },
     { id: 'storage', title: t('settings.recent_backup_title', activeLang, 'JSON Data Backup'), category: t('settings.recent_backup_cat', activeLang, 'Storage'), icon: HardDrive, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60' },
-  ], [activeLang]);
+  ], [activeLang, canManageUsers]);
 
   useEffect(() => {
     loadStorageInfo();
@@ -916,12 +918,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'storage', title: 'Datensicherung & JSON Export', desc: 'Vollständiges Backup, Wiederherstellung', section: 'storage' as SettingsSection },
       { id: 'audio', title: 'Soundeffekte & Lautstärke', desc: 'Klicktöne, Bestätigungssounds', section: 'audio' as SettingsSection },
       { id: 'windows', title: 'Windows Desktop-App', desc: 'Lokaler Launcher, Autostart, Offline-App', section: 'windows' as SettingsSection },
-      { id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), section: 'users' as SettingsSection },
+      ...(canManageUsers ? [{ id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), section: 'users' as SettingsSection }] : []),
       { id: 'danger', title: 'Datenbank zurücksetzen / löschen', desc: 'Demo-Daten laden oder sauberes Zurücksetzen', section: 'danger' as SettingsSection },
     ];
 
     return items.filter(i => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
-  }, [searchQuery]);
+  }, [searchQuery, canManageUsers]);
 
   const categoryGroups: {
     id: string;
@@ -965,7 +967,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'admin',
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
-        { id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: t('users.admin_badge', activeLang, 'Admin') },
+        ...(canManageUsers ? [{ id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: t('users.admin_badge', activeLang, 'Admin') }] : []),
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
         { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
