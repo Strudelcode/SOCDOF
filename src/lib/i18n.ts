@@ -87,6 +87,10 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'auth.forcePassword': "Temporary password: user must change it at next sign-in.",
     'auth.clock': "Current time",
     'auth.shortcut': "Shortcut: Ctrl+Shift+L",
+    'auth.recoveryQ1': 'What was the name of your first pet?',
+    'auth.recoveryQ2': 'What was the name of your childhood school?',
+    'auth.recoveryQ3': 'What is your favorite book?',
+    'auth.recoveryQ4': 'What nickname did you use as a child?',
     // Windows-style Users & Accounts Settings
     'users.title': 'Usuarios y cuentas',
     'users.subtitle': 'Gestiona cuentas locales, roles, tipos de cuenta, avatares, contraseñas y seguridad.',
@@ -2056,6 +2060,10 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'auth.forcePassword': "Temporäres Passwort: Der Benutzer muss es bei der nächsten Anmeldung ändern.",
     'auth.clock': "Aktuelle Uhrzeit",
     'auth.shortcut': "Tastenkürzel: Strg+Shift+L",
+    'auth.recoveryQ1': 'Wie hieß Ihr erstes Haustier?',
+    'auth.recoveryQ2': 'Wie hieß Ihre Schule aus der Kindheit?',
+    'auth.recoveryQ3': 'Was ist Ihr Lieblingsbuch?',
+    'auth.recoveryQ4': 'Welchen Spitznamen hatten Sie als Kind?',
     // Windows-style Users & Accounts Settings
     'users.title': 'Utilisateurs et comptes',
     'users.subtitle': 'Gérer les comptes locaux, rôles, types de compte, avatars, mots de passe et sécurité.',
@@ -4025,6 +4033,10 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'auth.forcePassword': "Mot de passe temporaire : l’utilisateur doit le modifier à la prochaine connexion.",
     'auth.clock': "Heure actuelle",
     'auth.shortcut': "Raccourci : Ctrl+Shift+L",
+    'auth.recoveryQ1': 'Quel était le nom de votre premier animal ?',
+    'auth.recoveryQ2': 'Quel était le nom de votre école d’enfance ?',
+    'auth.recoveryQ3': 'Quel est votre livre préféré ?',
+    'auth.recoveryQ4': 'Quel surnom aviez-vous enfant ?',
     // Windows-style Users & Accounts Settings
     'users.title': 'Benutzer & Konten',
     'users.subtitle': 'Lokale Konten, Rollen, Kontotypen, Avatare, Passwörter und Sicherheit verwalten.',
@@ -5993,6 +6005,10 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'auth.forcePassword': "Contraseña temporal: el usuario debe cambiarla en el próximo inicio de sesión.",
     'auth.clock': "Hora actual",
     'auth.shortcut': "Atajo: Ctrl+Shift+L",
+    'auth.recoveryQ1': '¿Cómo se llamaba tu primera mascota?',
+    'auth.recoveryQ2': '¿Cómo se llamaba tu escuela de la infancia?',
+    'auth.recoveryQ3': '¿Cuál es tu libro favorito?',
+    'auth.recoveryQ4': '¿Qué apodo tenías de niño?
     // Windows-style Users & Accounts Settings
     'users.title': 'Users & Accounts',
     'users.subtitle': 'Manage local accounts, roles, account types, avatars, passwords and security.',
@@ -8447,6 +8463,17 @@ export function t(
   }
 
   return result;
+}
+
+export function getRecoveryQuestionLabel(question: string, lang: LanguageCode = getLanguage()): string {
+  const keyMap: Record<string, string> = {
+    'What was the name of your first pet?': 'auth.recoveryQ1',
+    'What was the name of your childhood school?': 'auth.recoveryQ2',
+    'What is your favorite book?': 'auth.recoveryQ3',
+    'What nickname did you use as a child?': 'auth.recoveryQ4'
+  };
+  const key = keyMap[question];
+  return key ? t(key, lang) : question;
 }
 
 export function formatSystemTime(
