@@ -233,6 +233,19 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Kalender', 'Google', 'Sync', 'Termine', 'Stundenplan', 'Fälligkeiten']
     },
     {
+      id: 'therapy_practice',
+      title: t('module.therapy_practice', currentLang, 'Praxis & Therapie'),
+      category: 'productivity',
+      description: t('desc.therapy_practice', currentLang, 'Klienten, Sitzungen, Termine, Fahrtenbuch & Abrechnung.'),
+      iconName: 'Briefcase',
+      author: 'SOCDOF Practice',
+      version: '23.2.0',
+      isInstalled: installedModules.includes('therapy_practice'),
+      isFinancial: true,
+      isSystem: false,
+      tags: ['Therapie', 'Praxis', 'Klienten', 'Sitzungen', 'Fahrtenbuch', 'Abrechnung']
+    },
+    {
       id: 'calculator',
       title: t('module.calculator', currentLang, 'Taschenrechner (Schule & Wissenschaft)'),
       category: 'productivity',
