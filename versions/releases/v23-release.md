@@ -1,11 +1,11 @@
-# SOCDOF v23.1.0 Release Notes
+# SOCDOF v23.1.1 Release Notes
 
 **Release date:** 2026-09-18  
-**Version:** v23.1.0  
+**Version:** v23.1.1  
 **Channel:** Major feature release  
 **Platform:** Windows Desktop (Electron) and offline web workspace
 
-## Windows-Style Login & Lock Screen
+## Settings-Centered User Management\n\n- Removed the redundant Start menu account/profile shortcut.\n- User administration remains centralized in **Settings → Wartung & Datensicherheit → Users & Accounts** for active administrators.\n- Corrected EN/DE/FR/ES Users & Accounts translation mapping.\n\n## Windows-Style Login & Lock Screen
 
 - Added a full-screen Windows-inspired sign-in and workstation lock screen.
 - Added blurred wallpaper presentation using the configured SOCDOF background image.
