@@ -1,9 +1,9 @@
 name: Finalize Auth Localization and Documentation
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/auth-i18n-docs-final
+      - main
 
 permissions:
   contents: write
