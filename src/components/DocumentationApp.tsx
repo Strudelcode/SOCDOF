@@ -547,6 +547,16 @@ export const DocumentationApp: React.FC = () => {
   const ActiveIcon = activeSection.icon;
 
   return (
+    <div className="space-y-6">
+      <section className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <h2 className="text-lg font-black text-slate-900 dark:text-white">{t('module.therapy_practice', currentLang, 'Praxis & Therapie')}</h2>
+        <div className="mt-2 text-sm text-slate-600 dark:text-slate-300 space-y-2">
+          <p><strong>Deutsch:</strong> {t('docs.therapy_practice_de', currentLang, 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Über Neue Sitzung stehen Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht als strukturierte Vorlagen bereit.')}</p>
+          <p><strong>English:</strong> {t('docs.therapy_practice_en', currentLang, 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.')}</p>
+          <p>{t('docs.therapy_practice_shortcuts', currentLang, 'Workflow: Practice → tab auswählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge; die App nutzt dieselben Fenster-, Sprach- und Desktop-Steuerungen wie andere SOCDOF-Module.')}</p>
+        </div>
+      </section>
+
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 select-text">
       {/* Top Portal Navigation Ribbon */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 text-slate-900 dark:text-white flex flex-wrap items-center justify-between gap-4 transition-colors">
