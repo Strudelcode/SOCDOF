@@ -6022,7 +6022,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'auth.recoveryQ1': '¿Cómo se llamaba tu primera mascota?',
     'auth.recoveryQ2': '¿Cómo se llamaba tu escuela de la infancia?',
     'auth.recoveryQ3': '¿Cuál es tu libro favorito?',
-    'auth.recoveryQ4': '¿Qué apodo tenías de niño?
+    'auth.recoveryQ4': '¿Qué apodo tenías de niño?',
     // Windows-style Users & Accounts Settings
     'users.title': 'Users & Accounts',
     'users.subtitle': 'Manage local accounts, roles, account types, avatars, passwords and security.',
