@@ -106,12 +106,26 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState(() => getSession());
   const lang = useLanguage();
   const [locked, setLocked] = useState(() => Boolean(getSession()?.locked));
-  const [showManager, setShowManager] = useState(false);
   const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); }, []);
   const currentUser = session ? getUserById(session.userId) : null;
   const text = getAuthCopy(lang);
 
   useEffect(() => { const onStorage = () => refresh(); window.addEventListener('storage', onStorage); window.addEventListener('socdof-auth-changed', onStorage); return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('socdof-auth-changed', onStorage); }; }, [refresh]);
+  useEffect(() => {
+    const handleDesktopAuthAction = (event: Event) => {
+      const action = (event as CustomEvent<{ action?: string }>).detail?.action;
+      if (action === 'lock') {
+        lockSession();
+        setLocked(true);
+      } else if (action === 'logout' || action === 'switch-user') {
+        clearSession();
+        setSession(null);
+        setLocked(false);
+      }
+    };
+    window.addEventListener('socdof-desktop-auth-action', handleDesktopAuthAction as EventListener);
+    return () => window.removeEventListener('socdof-desktop-auth-action', handleDesktopAuthAction as EventListener);
+  }, []);
   useEffect(() => {
     if (!session || locked) return;
     const activity = () => { const current = getSession(); if (current && !current.locked) saveSession({ ...current, lastActivityAt: Date.now() }); };
@@ -129,7 +143,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session || !currentUser) return <LoginScreen text={text} users={users} onLogin={login} />;
   if (currentUser.mustChangePassword) return <ForcedPasswordScreen text={text} user={currentUser} onDone={refresh} onLogout={logout} />;
   if (locked) return <LockScreen text={text} user={currentUser} users={users} onUnlock={login} onSwitch={logout} />;
-  return <div className="relative w-full h-full">{children}<div className="fixed top-3 right-3 z-[9999] flex items-center gap-1 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/85 backdrop-blur-xl shadow-lg px-2 py-1.5"><button title={text.lock} onClick={() => { lockSession(); setLocked(true); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LockKeyhole size={16} /></button><button title={text.manage} onClick={() => setShowManager(true)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><UserRoundCog size={16} /></button><button title={text.logout} onClick={logout} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LogOut size={16} /></button><div className="px-2 text-xs font-medium max-w-32 truncate">{currentUser.avatar?.startsWith('data:image/') ? <img src={currentUser.avatar} alt="" className="inline w-4 h-4 rounded-full object-cover mr-1" /> : `${currentUser.avatar ?? '●'} `}{currentUser.displayName}</div></div>{showManager && <UserManager text={text} currentUser={currentUser} users={users} onClose={() => setShowManager(false)} onRefresh={refresh} onLogout={logout} />}</div>;
+  return <div className="relative w-full h-full">{children}</div>;
 }
 
 function LanguageSelectionScreen({ onSelected }: { onSelected: () => void }) {
@@ -208,7 +222,7 @@ function LockScreen({ text, user, users, onUnlock, onSwitch }: { text: AuthText;
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-6"><div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-8"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5"><ShieldCheck size={25} /></div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{subtitle}</p>{children}</div></div>; }
 
-function UserManager({ text, currentUser, users, onClose, onRefresh, onLogout }: { text: AuthText; currentUser: UserAccount; users: UserAccount[]; onClose: () => void; onRefresh: () => void; onLogout: () => void }) {
+export function UserManager({ text, currentUser, users, onClose, onRefresh, onLogout }: { text: AuthText; currentUser: UserAccount; users: UserAccount[]; onClose: () => void; onRefresh: () => void; onLogout: () => void }) {
   const [selectedId, setSelectedId] = useState(currentUser.id);
   const [newUser, setNewUser] = useState({ username: '', displayName: '', password: '', accountType: 'business' as AccountType, role: 'user' as UserRole, avatar: avatars[0], recoveryQuestion: RECOVERY_QUESTIONS[0], recoveryAnswer: '' });
   const [newPassword, setNewPassword] = useState(''); const [message, setMessage] = useState(''); const [security, setSecurity] = useState<SecuritySettings>(() => getSecuritySettings());
