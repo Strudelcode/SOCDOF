@@ -88,7 +88,7 @@ export const TherapyPracticeModule: React.FC = () => {
             <div className="grid lg:grid-cols-2 gap-4">
               <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
                 <h2 className="font-bold mb-3">{t('therapy.sessionTemplates', currentLang)}</h2>
-                <div className="grid grid-cols-2 gap-2">{['intake','standard','crisis','finalReport'].map(k => <button key={k} onClick={() => { setTab('sessions'); setModal('session'); }} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700">{therapyT(k)}</button>)}</div>
+                <div className="grid grid-cols-2 gap-2">{['intake','standard','crisis','finalReport'].map(k => <button key={k} onClick={() => { setTab('sessions'); setModal('session'); }} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700">{t(`therapy.${k}`, currentLang)}</button>)}</div>
               </section>
               <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
                 <h2 className="font-bold mb-3">{t('therapy.privacy', currentLang)}</h2>
