@@ -330,7 +330,8 @@ export type ActiveModule =
   | 'ios_billing'
   | 'support_services'
   | 'widgets'
-  | 'calculator'\n  | 'therapy_practice';
+  | 'calculator'
+  | 'therapy_practice';
 
 export interface SupportExpenseEntry {
   id: string;
@@ -616,7 +617,7 @@ export type DesktopWidgetType =
   | 'quick_actions'
   | 'stock_alert'
   | 'cashflow'
-  | 'calculator'\n  | 'therapy_practice';
+  | 'calculator';
 
 export interface DesktopWidget {
   id: string;
