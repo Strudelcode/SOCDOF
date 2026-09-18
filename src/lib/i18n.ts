@@ -2075,7 +2075,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'therapy.contactPicker': 'Bestehenden Kontakt verwenden',
     'therapy.searchContacts': 'Kontakte suchen...',
     'therapy.noContacts': 'Keine Kontakte vorhanden.',
-    'therapy.appointmentPrefix': 'Therapietermin'
+    'therapy.appointmentPrefix': 'Therapietermin',
     'therapy.subtitle': 'Arbeitsbereich für Therapie & Beratung',
     'therapy.patients': 'Klienten',
     'therapy.sessions': 'Sitzungen',
@@ -4123,7 +4123,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'therapy.contactPicker': 'Utiliser un contact existant',
     'therapy.searchContacts': 'Rechercher des contacts...',
     'therapy.noContacts': 'Aucun contact disponible.',
-    'therapy.appointmentPrefix': 'Rendez-vous thérapeutique'
+    'therapy.appointmentPrefix': 'Rendez-vous thérapeutique',
     'therapy.subtitle': 'Espace de travail thérapie & consultation',
     'therapy.patients': 'Clients',
     'therapy.sessions': 'Séances',
@@ -6170,7 +6170,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'therapy.contactPicker': 'Usar un contacto existente',
     'therapy.searchContacts': 'Buscar contactos...',
     'therapy.noContacts': 'No hay contactos disponibles.',
-    'therapy.appointmentPrefix': 'Cita de terapia'
+    'therapy.appointmentPrefix': 'Cita de terapia',
     'therapy.subtitle': 'Espacio de trabajo de terapia y consulta',
     'therapy.patients': 'Clientes',
     'therapy.sessions': 'Sesiones',
