@@ -64,7 +64,8 @@ import {
   Zap,
   Mail,
   Maximize2,
-  Minimize2
+  Minimize2,
+  UserRoundCog
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -127,6 +128,7 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
+import { UserManagementSettings } from './UserManagementSettings';
 
 export type SettingsSection = 
   | 'home'
@@ -139,6 +141,7 @@ export type SettingsSection =
   | 'storage'
   | 'audio'
   | 'windows'
+  | 'users'
   | 'danger';
 
 interface SettingsModuleProps {
@@ -913,6 +916,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'storage', title: 'Datensicherung & JSON Export', desc: 'Vollständiges Backup, Wiederherstellung', section: 'storage' as SettingsSection },
       { id: 'audio', title: 'Soundeffekte & Lautstärke', desc: 'Klicktöne, Bestätigungssounds', section: 'audio' as SettingsSection },
       { id: 'windows', title: 'Windows Desktop-App', desc: 'Lokaler Launcher, Autostart, Offline-App', section: 'windows' as SettingsSection },
+      { id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), section: 'users' as SettingsSection },
       { id: 'danger', title: 'Datenbank zurücksetzen / löschen', desc: 'Demo-Daten laden oder sauberes Zurücksetzen', section: 'danger' as SettingsSection },
     ];
 
@@ -961,6 +965,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'admin',
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
+        { id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: t('users.admin_badge', activeLang, 'Admin') },
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
         { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
@@ -4495,6 +4500,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* SECTION: USERS & ACCOUNTS (Administrator only) */}
+          {activeSection === 'users' && (
+            <UserManagementSettings />
           )}
 
           {/* SECTION: WINDOWS DESKTOP APP */}
