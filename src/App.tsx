@@ -25,6 +25,7 @@ import { AuthGate } from './components/AuthGate';
 import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
+import { getSession, getUserById, updateUserPreferences } from './lib/auth';
 
 export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -105,6 +106,22 @@ export default function App() {
     setCompany(prev => ({ ...prev, theme_mode: nextMode }));
     applyThemeMode(nextMode);
     void db.settings.put({ key: 'company_profile', value: { ...company, theme_mode: nextMode } });
+    try {
+      const session = getSession();
+      if (session && !session.locked) {
+        const user = getUserById(session.userId);
+        if (user) {
+          const media = window.matchMedia('(prefers-color-scheme: dark)');
+          const enableDark = nextMode === 'dark' || (nextMode !== 'light' && media.matches);
+          const userTheme = enableDark ? 'dark' : 'light';
+          if (user.preferences.theme !== userTheme) {
+            updateUserPreferences(user.id, { ...user.preferences, theme: userTheme });
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const handleToggleTheme = () => {
@@ -219,6 +236,21 @@ export default function App() {
       if (updated.language) setLanguage(updated.language);
       if (updated.accent_color) applyAccentColor(updated.accent_color);
       if (updated.font_scale) document.documentElement.style.fontSize = `${updated.font_scale}%`;
+      if (updated.theme_mode) {
+        applyThemeMode(updated.theme_mode);
+        const session = getSession();
+        if (session && !session.locked) {
+          const user = getUserById(session.userId);
+          if (user) {
+            const media = window.matchMedia('(prefers-color-scheme: dark)');
+            const enableDark = updated.theme_mode === 'dark' || (updated.theme_mode !== 'light' && media.matches);
+            const userTheme = enableDark ? 'dark' : 'light';
+            if (user.preferences.theme !== userTheme) {
+              updateUserPreferences(user.id, { ...user.preferences, theme: userTheme });
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Failed to persist company profile:', err);
     }

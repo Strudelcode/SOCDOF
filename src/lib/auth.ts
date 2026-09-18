@@ -379,6 +379,7 @@ export async function createUser(input: {
   preferences?: UserPreferences;
   recoveryQuestion?: string;
   recoveryAnswer?: string;
+  autoLogin?: boolean;
 }) {
   await initializeAuthStore();
   const users = [...usersCache];
@@ -398,7 +399,8 @@ export async function createUser(input: {
 
   if (
     input.recoveryQuestion &&
-    !RECOVERY_QUESTIONS.includes(input.recoveryQuestion as typeof RECOVERY_QUESTIONS[number])
+    !RECOVERY_QUESTIONS.includes(input.recoveryQuestion as typeof RECOVERY_QUESTIONS[number]) &&
+    (typeof input.recoveryQuestion !== 'string' || input.recoveryQuestion.trim().length < 3)
   ) {
     throw new Error('invalid_recovery_question');
   }
@@ -441,7 +443,7 @@ export async function createUser(input: {
   users.push(user);
   await persistUsers(users);
 
-  if (users.length === 1 && typeof sessionStorage !== 'undefined') {
+  if (input.autoLogin !== false && users.length === 1 && typeof sessionStorage !== 'undefined') {
     const timestamp = Date.now();
     const session: AuthSession = {
       userId: user.id,
@@ -612,6 +614,24 @@ export function saveSession(session: AuthSession) {
   if (typeof sessionStorage !== 'undefined') {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     notifyAuthChanged();
+  }
+}
+
+export function recordSessionActivity() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return;
+    const session = JSON.parse(raw) as AuthSession;
+    if (session.locked) return;
+    const now = Date.now();
+    // Throttle timestamp updates to at most once every 10 seconds
+    if (now - session.lastActivityAt < 10_000) return;
+    session.lastActivityAt = now;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    // Intentionally do NOT call notifyAuthChanged(): internal heartbeat does not alter auth state.
+  } catch {
+    // ignore
   }
 }
 

@@ -27,6 +27,14 @@ The authentication and local multi-user milestone is complete for v22.10.0. Hist
 
 The v23.0.0 Users & Accounts / Start Menu power milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
 
+The v23.2.5 Consolidated User Management & Profile Personalization in Settings milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.2.4 Localization Alignment & Crisp Vector Flag Rendering milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.2.3 Dark Mode Persistence & Auth Activity Event Fix milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.2.2 Responsive first-run account onboarding & authentication refinements milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
 The v23.2.1 Settings-centered user management cleanup is complete on the feature branch and is archived in `todo/completed_todo.md`.
 
 The v23.1.0 Windows-style authentication surface redesign is complete on the feature branch and is archived in `todo/completed_todo.md`.

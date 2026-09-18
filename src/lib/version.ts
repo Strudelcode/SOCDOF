@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.2.1';
+export const APP_VERSION = '23.2.5';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,49 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.2.5',
+    date: '2026-09-18',
+    title: 'Consolidated User Management & Profile Personalization in Settings',
+    highlights: [
+      'Relocated all user and account management into Settings > Users & Accounts, removing the top-right overlay button for a cleaner workspace.',
+      'Unified profile personalization tab: manage avatar photo, desktop wallpaper, personal/business mode, auto-lock timeout, and own password.',
+      'Enhanced Start menu footer with a direct profile launcher to quickly open User Settings matching modern Windows ergonomics.',
+      'Full quad-lingual coverage across DE, EN, FR, and ES for all new user profile and security management controls.'
+    ]
+  },
+  {
+    version: '23.2.4',
+    date: '2026-09-18',
+    title: 'Localization Alignment & Crisp Vector Flag Rendering',
+    highlights: [
+      'Corrected rotated start menu and power action translation strings across German, English, French, and Spanish dictionaries.',
+      'Fixed Windows Unicode emoji font degradation (displaying "DE DE") by rendering crisp vector SVG flags for supported languages.',
+      'Added missing system status storage tooltip entries in French and Spanish language catalogs.'
+    ]
+  },
+  {
+    version: '23.2.3',
+    date: '2026-09-18',
+    title: 'Dark Mode Persistence & Auth Activity Event Fix',
+    highlights: [
+      'Resolved mixed light/dark UI regression by ensuring user appearance preferences do not fall back to light mode when unconfigured.',
+      'Isolated session activity heartbeats from dispatching global auth change events on user clicks and keystrokes.',
+      'Synchronized theme toggling across application state, company profiles, user preferences, and root DOM styling.'
+    ]
+  },
+  {
+    version: '23.2.2',
+    date: '2026-09-18',
+    title: 'Responsive First-Run Account Onboarding & Authentication Refinements',
+    highlights: [
+      'Refined initial onboarding so language selection is presented first before setting up the primary local user account.',
+      'Optimized the onboarding modal with responsive padding, scroll management, and clean layout scaling for smaller laptop screens and displays.',
+      'Replaced decorative default avatar glyphs with a clean neutral gray user silhouette, while adding direct profile photo upload and removal.',
+      'Added a real-time password strength meter bar with visual level indicators and required field asterisk markers (*).',
+      'Added security question selection with custom question support, offline recovery guidance text, and seamless post-creation redirection to the login screen.'
+    ]
+  },
   {
     version: '23.2.1',
     date: '2026-09-18',

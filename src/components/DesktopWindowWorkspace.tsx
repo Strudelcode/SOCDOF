@@ -6,6 +6,7 @@ import {
   Maximize2, 
   Minimize2, 
   Users, 
+  UserRound,
   Package, 
   Layers, 
   Receipt, 
@@ -3200,7 +3201,35 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-between gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsStartMenuOpen(false);
+                  openWindow('settings', t('nav.settings', currentLang, 'Settings'), { initialSection: 'users' });
+                }}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition max-w-[210px] group cursor-pointer"
+                title={`${currentAuthUser?.displayName || 'Benutzer'} – ${t('users.title', currentLang, 'Benutzer & Konten')}`}
+              >
+                <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80 flex items-center justify-center overflow-hidden shrink-0">
+                  {currentAuthUser?.avatar?.startsWith('data:image/') ? (
+                    <img src={currentAuthUser.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserRound className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </div>
+                <div className="min-w-0 truncate">
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight">
+                    {currentAuthUser?.displayName || 'Benutzer'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate leading-none">
+                    {currentAuthUser?.role === 'admin' ? t('users.admin_badge', currentLang, 'Admin') : t('users.user', currentLang, 'Benutzer')}
+                  </div>
+                </div>
+              </button>
+
+              <div className="flex items-center justify-end gap-1">
                 <button type="button" onClick={handleToggleFullscreen} title={isFullscreen ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`} className={`p-2 rounded-xl transition cursor-pointer ${isFullscreen ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                   {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
@@ -3213,6 +3242,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </div>
             </div>
           </div>
+        </div>
       )}
 
       {/* 6. Authentic Windows 11 Taskbar with Accent & Tint Customization */}

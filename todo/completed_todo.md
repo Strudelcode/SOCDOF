@@ -1,3 +1,28 @@
+### Consolidated User Management & Profile Personalization in Settings (v23.2.5)
+- [x] Removed the floating top-right person/gear icon overlay from `AccountScopedWorkspace.tsx`.
+- [x] Consolidated profile editing (avatar photo upload, desktop wallpaper, personal/business account type, auto-lock timeout, and own password change) into `SettingsModule` under *Users & Accounts*.
+- [x] Provided a 3-tab experience for administrators: *My Profile & Personalization*, *User Management* (all local accounts), and *Security Policies*.
+- [x] Provided a direct profile launcher in the Start menu footer bottom-left, opening Settings focused directly on the user account module.
+- [x] Added quad-lingual translations (DE, EN, FR, ES) for all new user profile settings, wallpaper, and password change labels.
+
+### Localization Alignment & Crisp Vector Flag Rendering (v23.2.4)
+- [x] Corrected rotated start menu and power action translation strings across German, English, French, and Spanish dictionaries.
+- [x] Fixed Windows Unicode emoji font degradation (rendering "DE DE") by adding built-in crisp vector SVG flags for supported languages in `FlagIcon`.
+- [x] Added missing system status storage tooltip entries in French and Spanish language catalogs (achieving 100% dictionary key parity).
+
+### Dark Mode Persistence & Auth Activity Event Fix (v23.2.3)
+- [x] Fixed dark theme consistency by preventing user appearance preferences from falling back to light mode when unconfigured.
+- [x] Isolated session activity heartbeats from dispatching global auth change events on user mouse clicks and keystrokes.
+- [x] Synchronized theme toggling across company settings, user preferences, and root DOM classes (`document.documentElement.classList`).
+
+### Responsive First-Run Account Onboarding & Authentication Refinements (v23.2.2)
+- [x] Initial onboarding flow enforces language selection before presenting the primary account setup screen.
+- [x] Onboarding modal layout refactored with responsive padding, container height limits, and scrolling support for compact laptop displays.
+- [x] Swapped out decorative avatar symbols for a clean neutral gray user silhouette with support for immediate photo upload or removal.
+- [x] Real-time password strength meter bar with visual level indications and clear red asterisk markers (`*`) on all mandatory fields.
+- [x] Localized security questions dropdown, custom question input, and offline recovery notice.
+- [x] Redirects user to the login screen with a success confirmation banner after account creation instead of auto-logging in.
+
 ### Settings-Centered User Management Cleanup (v23.2.1)
 - [x] Removed the redundant Start menu account/profile shortcut.
 - [x] Kept local user administration centralized in Settings under Users & Accounts for active administrators.

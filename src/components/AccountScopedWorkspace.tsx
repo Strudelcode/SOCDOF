@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { UserRoundCog } from 'lucide-react';
 import { applyAccentColor } from '../lib/accent';
 import { getSession, getUserById, type AccountType, AUTH_CHANGE_EVENT_NAME, type UserAccount } from '../lib/auth';
-import { AccountProfilePanel } from './AccountProfilePanel';
 
 /**
  * Applies the active local account's workspace scope before the desktop workspace mounts.
@@ -87,8 +85,18 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
 function applyUserAppearance(user: UserAccount | null): void {
   if (!user) return;
   const root = document.documentElement;
-  const theme = user.preferences.theme ?? 'light';
-  root.classList.toggle('dark', theme === 'dark');
+  // If user explicitly has a preference, use it; otherwise DO NOT force 'light'!
+  // Let the system / company theme from App.tsx take precedence if user has no explicit preference.
+  if (user.preferences.theme === 'dark' || user.preferences.theme === 'light') {
+    const isDark = user.preferences.theme === 'dark';
+    root.classList.toggle('dark', isDark);
+    root.style.colorScheme = isDark ? 'dark' : 'light';
+    try {
+      localStorage.setItem('odoo_theme_dark', String(isDark));
+    } catch {
+      // ignore
+    }
+  }
   applyAccentColor(user.preferences.accentColor ?? 'indigo');
   if (user.preferences.wallpaper) {
     root.style.setProperty('--socdof-user-wallpaper', `url("${user.preferences.wallpaper}")`);
@@ -105,7 +113,6 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
     return session && !session.locked ? getUserById(session.userId) : null;
   });
   const [scopeKey, setScopeKey] = useState<string | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const refreshAccount = () => {
@@ -113,7 +120,6 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       const account = session && !session.locked ? getUserById(session.userId) : null;
       setActiveAccount(account);
       applyUserAppearance(account);
-      setProfileOpen(false);
     };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
     window.addEventListener('storage', refreshAccount);
@@ -150,16 +156,6 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
         />
         {children}
       </div>
-      <button
-        type="button"
-        onClick={() => setProfileOpen(true)}
-        className="fixed top-3 right-44 z-[9998] p-2.5 rounded-xl border border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/85 backdrop-blur-xl shadow-lg hover:bg-slate-100 dark:hover:bg-white/10"
-        title={activeAccount.displayName}
-        aria-label={activeAccount.displayName}
-      >
-        {activeAccount.avatar?.startsWith('data:image/') ? <img src={activeAccount.avatar} alt="" className="w-4 h-4 rounded-full object-cover" /> : <UserRoundCog size={16} />}
-      </button>
-      {profileOpen && <AccountProfilePanel user={activeAccount} onClose={() => setProfileOpen(false)} onUpdated={(user) => { setActiveAccount(user); applyUserAppearance(user); }} />}
     </React.Fragment>
   );
 };

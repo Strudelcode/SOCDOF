@@ -1,5 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { LockKeyhole, LogIn, LogOut, Plus, ShieldCheck, UserRound, UserRoundCog, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Globe,
+  Info,
+  LockKeyhole,
+  LogIn,
+  LogOut,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UserRound,
+  UserRoundCog,
+  X
+} from 'lucide-react';
 import {
   AccountType,
   adminResetPassword,
@@ -16,6 +33,7 @@ import {
   getUsers,
   hasUsers,
   lockSession,
+  recordSessionActivity,
   resetPasswordWithRecovery,
   saveSession,
   updateSecuritySettings,
@@ -103,9 +121,44 @@ type AuthText = ReturnType<typeof getAuthCopy>;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
+function computePasswordStrength(password: string): {
+  score: number;
+  labelKey: string;
+  colorClass: string;
+  percent: number;
+} {
+  if (!password) {
+    return { score: 0, labelKey: '', colorClass: 'bg-slate-200 dark:bg-white/10', percent: 0 };
+  }
+
+  let points = 0;
+  if (password.length >= 8) points += 1;
+  if (password.length >= 12) points += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) points += 1;
+  if (/\d/.test(password)) points += 1;
+  if (/[^A-Za-z0-9]/.test(password)) points += 1;
+
+  if (password.length < 6) {
+    return { score: 1, labelKey: 'auth.strength.veryWeak', colorClass: 'bg-rose-500', percent: 20 };
+  }
+  if (points <= 2) {
+    return { score: 2, labelKey: 'auth.strength.weak', colorClass: 'bg-amber-500', percent: 40 };
+  }
+  if (points === 3) {
+    return { score: 3, labelKey: 'auth.strength.medium', colorClass: 'bg-yellow-500', percent: 65 };
+  }
+  if (points === 4) {
+    return { score: 4, labelKey: 'auth.strength.strong', colorClass: 'bg-emerald-500', percent: 85 };
+  }
+  return { score: 5, labelKey: 'auth.strength.veryStrong', colorClass: 'bg-emerald-600', percent: 100 };
+}
+
 export function AuthGate({ children, company }: { children: React.ReactNode; company: CompanyProfile }) {
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [languageReady, setLanguageReady] = useState(() => typeof localStorage === 'undefined' || localStorage.getItem('socdof_language_initialized') === 'true');
+  const [onboardingLanguageChosen, setOnboardingLanguageChosen] = useState(false);
+  const [createdNotice, setCreatedNotice] = useState<string | null>(null);
+  const [preselectedUsername, setPreselectedUsername] = useState<string | null>(null);
   const [session, setSession] = useState(() => getSession());
   const lang = useLanguage();
   const [locked, setLocked] = useState(() => Boolean(getSession()?.locked));
@@ -131,10 +184,22 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   }, []);
   useEffect(() => {
     if (!session || locked) return;
-    const activity = () => { const current = getSession(); if (current && !current.locked) saveSession({ ...current, lastActivityAt: Date.now() }); };
-    const events = ['mousedown', 'keydown', 'pointerdown', 'touchstart']; events.forEach((event) => window.addEventListener(event, activity));
-    const timer = window.setInterval(() => { const current = getSession(); const user = current ? getUserById(current.userId) : null; const minutes = user?.preferences.autoLockMinutes ?? 15; if (current && !current.locked && minutes > 0 && Date.now() - current.lastActivityAt >= minutes * 60_000) { lockSession(); setLocked(true); } }, 10_000);
-    return () => { events.forEach((event) => window.removeEventListener(event, activity)); window.clearInterval(timer); };
+    const activity = () => { recordSessionActivity(); };
+    const events = ['mousedown', 'keydown', 'pointerdown', 'touchstart'];
+    events.forEach((event) => window.addEventListener(event, activity, { passive: true }));
+    const timer = window.setInterval(() => {
+      const current = getSession();
+      const user = current ? getUserById(current.userId) : null;
+      const minutes = user?.preferences.autoLockMinutes ?? 15;
+      if (current && !current.locked && minutes > 0 && Date.now() - current.lastActivityAt >= minutes * 60_000) {
+        lockSession();
+        setLocked(true);
+      }
+    }, 10_000);
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, activity));
+      window.clearInterval(timer);
+    };
   }, [session, locked]);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'l' && getSession() && !locked) { event.preventDefault(); lockSession(); setLocked(true); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, [locked]);
 
@@ -151,15 +216,54 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   };
   const logout = () => { clearSession(); setSession(null); setLocked(false); };
 
-  if (!languageReady) return <LanguageSelectionScreen onSelected={() => setLanguageReady(true)} />;
-  if (!hasUsers()) return <FirstAccount text={text} onCreated={refresh} />;
-  if (!session || !currentUser) return <LoginScreen text={text} users={users} company={company} onLogin={login} />;
+  if (!languageReady || (!hasUsers() && !onboardingLanguageChosen)) {
+    return (
+      <LanguageSelectionScreen
+        isFirstRunOnboarding={!hasUsers()}
+        onSelected={() => {
+          setLanguageReady(true);
+          setOnboardingLanguageChosen(true);
+        }}
+      />
+    );
+  }
+  if (!hasUsers()) {
+    return (
+      <FirstAccount
+        text={text}
+        onCreated={(username) => {
+          setUsers(getUsers());
+          setPreselectedUsername(username);
+          setCreatedNotice(t('auth.accountCreatedSuccess', lang));
+        }}
+      />
+    );
+  }
+  if (!session || !currentUser) {
+    return (
+      <LoginScreen
+        text={text}
+        users={users}
+        company={company}
+        onLogin={login}
+        initialSuccessMessage={createdNotice}
+        initialUsername={preselectedUsername}
+        onDismissSuccess={() => setCreatedNotice(null)}
+      />
+    );
+  }
   if (currentUser.mustChangePassword) return <ForcedPasswordScreen text={text} user={currentUser} onDone={refresh} onLogout={logout} />;
   if (locked) return <LockScreen text={text} user={currentUser} users={users} company={company} onUnlock={login} onSwitch={logout} />;
   return <div className="relative w-full h-full">{children}</div>;
 }
 
-function LanguageSelectionScreen({ onSelected }: { onSelected: () => void }) {
+function LanguageSelectionScreen({
+  onSelected,
+  isFirstRunOnboarding = false,
+}: {
+  onSelected: () => void;
+  isFirstRunOnboarding?: boolean;
+}) {
   const lang = useLanguage();
 
   const selectLanguage = (code: LanguageCode) => {
@@ -167,40 +271,482 @@ function LanguageSelectionScreen({ onSelected }: { onSelected: () => void }) {
     onSelected();
   };
 
-  return <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-6">
-    <div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-8">
-      <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5"><ShieldCheck size={25} /></div>
-      <h1 className="text-2xl font-bold tracking-tight">{t('lang_modal.title', lang)}</h1>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{t('lang_modal.subtitle', lang)}</p>
-      <div className="space-y-2">
-        {SUPPORTED_LANGUAGES.map((language) => <button
-          key={language.code}
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-4 sm:p-6 flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
+            <Globe size={24} />
+          </div>
+          {isFirstRunOnboarding && (
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
+              {t('auth.stepLanguage', lang)}
+            </span>
+          )}
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">{t('lang_modal.title', lang)}</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">{t('lang_modal.subtitle', lang)}</p>
+        <div className="space-y-2.5">
+          {SUPPORTED_LANGUAGES.map((language) => (
+            <button
+              key={language.code}
+              type="button"
+              onClick={() => selectLanguage(language.code)}
+              className={`w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all cursor-pointer ${
+                lang === language.code
+                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 shadow-xs'
+                  : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <span className="text-2xl">{language.flag}</span>
+              <span className="flex-1">
+                <span className="block font-medium text-slate-900 dark:text-white">{language.nativeLabel}</span>
+                <span className="block text-xs text-slate-500 dark:text-slate-400">{language.label}</span>
+              </span>
+              {lang === language.code && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-600 text-white">
+                  {t('lang_modal.current_selected', lang)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
           type="button"
-          onClick={() => selectLanguage(language.code)}
-          className={`w-full flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
-            lang === language.code
-              ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
-              : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
-          }`}
+          onClick={onSelected}
+          className="w-full mt-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 font-semibold transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
         >
-          <span className="text-xl">{language.flag}</span>
-          <span className="flex-1">
-            <span className="block font-medium">{language.nativeLabel}</span>
-            <span className="block text-xs text-slate-500 dark:text-slate-400">{language.label}</span>
-          </span>
-          {lang === language.code && <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{t('lang_modal.current_selected', lang)}</span>}
-        </button>)}
+          {t('auth.continue', lang)}
+        </button>
       </div>
     </div>
-  </div>;
+  );
 }
 
-function FirstAccount({ text, onCreated }: { text: AuthText; onCreated: () => void }) {
+function FirstAccount({
+  text,
+  onCreated,
+}: {
+  text: AuthText;
+  onCreated: (createdUsername: string) => void;
+}) {
   const lang = useLanguage();
-  const [form, setForm] = useState({ username: '', displayName: '', password: '', confirm: '', accountType: 'personal' as AccountType, avatar: avatars[0], recoveryQuestion: RECOVERY_QUESTIONS[0], recoveryAnswer: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({
+    username: '',
+    displayName: '',
+    password: '',
+    confirm: '',
+    accountType: 'personal' as AccountType,
+    avatar: '',
+    questionMode: RECOVERY_QUESTIONS[0] as string,
+    customQuestion: '',
+    recoveryAnswer: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!form.username || !form.displayName || !form.password) return setError(text.required); if (form.password !== form.confirm) return setError(text.mismatch); try { await createUser(form); onCreated(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'password_too_short' ? text.short : reason === 'username_exists' ? text.exists : reason === 'recovery_answer_required' ? text.recoveryRequired : text.required); } };
-  return <AuthShell title={text.welcome} subtitle={text.setup}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} placeholder={text.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.confirm} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setForm({ ...form, accountType: 'personal' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'personal' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.personal}</button><button type="button" onClick={() => setForm({ ...form, accountType: 'business' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'business' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.business}</button></div><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} type="button" onClick={() => setForm({ ...form, avatar })} className={`w-9 h-9 rounded-xl border ${form.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><select className={fieldClass} value={form.recoveryQuestion} onChange={(e) => setForm({ ...form, recoveryQuestion: e.target.value })}>{RECOVERY_QUESTIONS.map((question) => <option key={question} value={question}>{getRecoveryQuestionLabel(question, lang)}</option>)}</select><input className={fieldClass} placeholder={text.recoveryAnswer} value={form.recoveryAnswer} onChange={(e) => setForm({ ...form, recoveryAnswer: e.target.value })} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.create}</button></form></AuthShell>;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const strength = computePasswordStrength(form.password);
+
+  const handleAvatarFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 256;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setForm((prev) => ({ ...prev, avatar: canvas.toDataURL('image/jpeg', 0.85) }));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.username.trim() || !form.displayName.trim() || !form.password) {
+      return setError(text.required);
+    }
+    if (form.password.length < 8) {
+      return setError(text.short);
+    }
+    if (form.password !== form.confirm) {
+      return setError(text.mismatch);
+    }
+
+    let recoveryQuestion: string | undefined = undefined;
+    let recoveryAnswer: string | undefined = undefined;
+
+    if (form.questionMode !== 'none') {
+      if (form.questionMode === 'custom') {
+        if (!form.customQuestion.trim()) {
+          return setError(t('auth.recoveryRequired', lang));
+        }
+        recoveryQuestion = form.customQuestion.trim();
+      } else {
+        recoveryQuestion = form.questionMode;
+      }
+
+      if (!form.recoveryAnswer.trim()) {
+        return setError(t('auth.recoveryRequired', lang));
+      }
+      recoveryAnswer = form.recoveryAnswer.trim();
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      await createUser({
+        username: form.username.trim(),
+        displayName: form.displayName.trim(),
+        password: form.password,
+        accountType: form.accountType,
+        avatar: form.avatar ? form.avatar : undefined,
+        recoveryQuestion,
+        recoveryAnswer,
+        autoLogin: false,
+      });
+      clearSession();
+      onCreated(form.username.trim());
+    } catch (err) {
+      setIsSubmitting(false);
+      const reason = String((err as Error).message);
+      setError(
+        reason === 'password_too_short'
+          ? text.short
+          : reason === 'username_exists'
+          ? text.exists
+          : reason === 'recovery_answer_required'
+          ? text.recoveryRequired
+          : text.required
+      );
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-3 sm:p-6 flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-lg my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-5 sm:p-7 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-y-auto">
+        {/* Header with step indicator and language selector */}
+        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-white/5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
+              {t('auth.stepAccount', lang)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={lang}
+              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              title={t('auth.changeLanguage', lang)}
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.flag} {l.nativeLabel}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-3 shadow-lg shadow-indigo-600/20">
+            <ShieldCheck size={23} />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{text.welcome}</h1>
+          <div className="flex items-center justify-between mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <span>{text.setup}</span>
+            <span className="text-rose-500 font-medium">{t('auth.requiredNotice', lang)}</span>
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="space-y-3.5">
+          {/* Display Name */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {text.displayName} <span className="text-rose-500 font-bold">*</span>
+            </label>
+            <input
+              autoFocus
+              className={fieldClass}
+              placeholder={text.displayName}
+              value={form.displayName}
+              onChange={(e) => {
+                setForm({ ...form, displayName: e.target.value });
+                setError('');
+              }}
+            />
+          </div>
+
+          {/* Username */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {text.username} <span className="text-rose-500 font-bold">*</span>
+            </label>
+            <input
+              className={fieldClass}
+              placeholder={text.username}
+              value={form.username}
+              onChange={(e) => {
+                setForm({ ...form, username: e.target.value });
+                setError('');
+              }}
+            />
+          </div>
+
+          {/* Account Type */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {text.account}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, accountType: 'personal' })}
+                className={`rounded-xl border p-2.5 text-left text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                  form.accountType === 'personal'
+                    ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+                }`}
+              >
+                {text.personal}
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, accountType: 'business' })}
+                className={`rounded-xl border p-2.5 text-left text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                  form.accountType === 'business'
+                    ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 text-indigo-700 dark:text-indigo-300'
+                    : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+                }`}
+              >
+                {text.business}
+              </button>
+            </div>
+          </div>
+
+          {/* Profile Picture (Optional, gray silhouette default, upload/remove) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {t('auth.profilePhoto', lang)}
+            </label>
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/60 dark:bg-white/5">
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-200/90 dark:bg-white/10 border border-slate-300 dark:border-white/15 flex items-center justify-center shrink-0 shadow-xs">
+                {form.avatar ? (
+                  <img src={form.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <UserRound size={26} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAvatarFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/15 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>{t('auth.uploadPhoto', lang)}</span>
+                  </button>
+                  {form.avatar && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, avatar: '' }))}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>{t('auth.removePhoto', lang)}</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-tight">
+                  {t('auth.defaultAvatarNote', lang)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Password with Strength Meter */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {text.password} <span className="text-rose-500 font-bold">*</span>
+              </label>
+              {strength.labelKey && (
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  {t('auth.passwordStrength', lang)}: <span className="text-indigo-600 dark:text-indigo-400">{t(strength.labelKey, lang)}</span>
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                className={`${fieldClass} pr-10`}
+                type={showPassword ? 'text' : 'password'}
+                placeholder={text.password}
+                value={form.password}
+                onChange={(e) => {
+                  setForm({ ...form, password: e.target.value });
+                  setError('');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            {/* Strength Bar */}
+            {form.password && (
+              <div className="mt-2 space-y-1">
+                <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 rounded-full ${strength.colorClass}`}
+                    style={{ width: `${strength.percent}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  {t('auth.passwordTips', lang)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {text.confirm} <span className="text-rose-500 font-bold">*</span>
+            </label>
+            <input
+              className={fieldClass}
+              type={showPassword ? 'text' : 'password'}
+              placeholder={text.confirm}
+              value={form.confirm}
+              onChange={(e) => {
+                setForm({ ...form, confirm: e.target.value });
+                setError('');
+              }}
+            />
+            {form.confirm && form.password !== form.confirm && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">{text.mismatch}</p>
+            )}
+          </div>
+
+          {/* Security Question Section */}
+          <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+            <div className="rounded-xl border border-amber-200/80 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 flex gap-2.5 leading-relaxed">
+              <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <span>{t('auth.offlineNotice', lang)}</span>
+            </div>
+
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {t('auth.securityQuestionsTitle', lang)}
+            </label>
+
+            <select
+              className={fieldClass}
+              value={form.questionMode}
+              onChange={(e) => {
+                setForm({ ...form, questionMode: e.target.value });
+                setError('');
+              }}
+            >
+              {RECOVERY_QUESTIONS.map((q) => (
+                <option key={q} value={q}>
+                  {getRecoveryQuestionLabel(q, lang)}
+                </option>
+              ))}
+              <option value="custom">{t('auth.customQuestionOption', lang)}</option>
+              <option value="none">{t('auth.noSecurityQuestion', lang)}</option>
+            </select>
+
+            {form.questionMode === 'custom' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('auth.customQuestionPlaceholder', lang)} <span className="text-rose-500 font-bold">*</span>
+                </label>
+                <input
+                  className={fieldClass}
+                  placeholder={t('auth.customQuestionPlaceholder', lang)}
+                  value={form.customQuestion}
+                  onChange={(e) => {
+                    setForm({ ...form, customQuestion: e.target.value });
+                    setError('');
+                  }}
+                />
+              </div>
+            )}
+
+            {form.questionMode !== 'none' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {text.recoveryAnswer} <span className="text-rose-500 font-bold">*</span>
+                </label>
+                <input
+                  className={fieldClass}
+                  placeholder={text.recoveryAnswer}
+                  value={form.recoveryAnswer}
+                  onChange={(e) => {
+                    setForm({ ...form, recoveryAnswer: e.target.value });
+                    setError('');
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-xs sm:text-sm text-rose-600 dark:text-rose-400">
+              {error}
+            </div>
+          )}
+
+          <button
+            disabled={isSubmitting}
+            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 font-semibold shadow-lg shadow-indigo-600/25 transition-colors cursor-pointer"
+          >
+            {isSubmitting ? text.create + '...' : text.create}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'md' | 'lg' }) {
@@ -267,21 +813,47 @@ function LoginScreen({
   users,
   company,
   onLogin,
+  initialSuccessMessage,
+  initialUsername,
+  onDismissSuccess,
 }: {
   text: AuthText;
   users: UserAccount[];
   company: CompanyProfile;
   onLogin: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>;
+  initialSuccessMessage?: string | null;
+  initialUsername?: string | null;
+  onDismissSuccess?: () => void;
 }) {
+  const lang = useLanguage();
   const activeUsers = users.filter((user) => user.active);
-  const [selected, setSelected] = useState(activeUsers[0]?.username ?? '');
+  const defaultUsername = initialUsername && activeUsers.some((u) => u.username === initialUsername)
+    ? initialUsername
+    : activeUsers[0]?.username ?? '';
+
+  const [selected, setSelected] = useState(defaultUsername);
   const [otherUser, setOtherUser] = useState(false);
-  const [username, setUsername] = useState(activeUsers[0]?.username ?? '');
+  const [username, setUsername] = useState(defaultUsername);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successNotice, setSuccessNotice] = useState<string | null>(initialSuccessMessage ?? null);
   const [lockedUntil, setLockedUntil] = useState<number | undefined>();
   const [recover, setRecover] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    if (initialSuccessMessage) {
+      setSuccessNotice(initialSuccessMessage);
+    }
+  }, [initialSuccessMessage]);
+
+  useEffect(() => {
+    if (initialUsername && activeUsers.some((u) => u.username === initialUsername)) {
+      setSelected(initialUsername);
+      setUsername(initialUsername);
+      setOtherUser(false);
+    }
+  }, [initialUsername, users]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -322,8 +894,42 @@ function LoginScreen({
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
+      <div className="absolute top-4 right-5 z-20">
+        <select
+          value={lang}
+          onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+          className="text-xs rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer"
+          title={t('auth.changeLanguage', lang)}
+        >
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code} className="bg-slate-900 text-white">
+              {l.flag} {l.nativeLabel}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
         <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
+          {successNotice && (
+            <div className="mb-4 rounded-2xl border border-emerald-400/40 bg-emerald-950/70 backdrop-blur-xl px-4 py-3 text-xs sm:text-sm text-emerald-200 text-left flex items-start justify-between gap-2 shadow-2xl">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <span className="leading-snug">{successNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSuccessNotice(null);
+                  if (onDismissSuccess) onDismissSuccess();
+                }}
+                className="text-emerald-300 hover:text-white shrink-0 p-0.5 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col items-center text-center">
             {selectedUser ? (
               <AuthAvatar user={selectedUser} size="lg" />
@@ -333,7 +939,7 @@ function LoginScreen({
               </div>
             )}
 
-            <h1 className="mt-5 text-2xl font-medium drop-shadow-xl">
+            <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">
               {selectedUser?.displayName || text.otherUser}
             </h1>
             {otherUser && <p className="mt-1 text-sm text-white/65">{text.otherUserDesc}</p>}
@@ -361,7 +967,7 @@ function LoginScreen({
                 />
                 <button
                   disabled={remaining > 0}
-                  className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   title={text.login}
                   aria-label={text.login}
                 >
@@ -371,7 +977,7 @@ function LoginScreen({
 
               {remaining > 0 && <p className="text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
               {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
-              <button type="button" onClick={() => setRecover(true)} className="text-sm text-white/75 hover:text-white hover:underline drop-shadow">
+              <button type="button" onClick={() => setRecover(true)} className="text-sm text-white/75 hover:text-white hover:underline drop-shadow cursor-pointer">
                 {text.forgot}
               </button>
             </form>
@@ -385,7 +991,7 @@ function LoginScreen({
             key={user.id}
             type="button"
             onClick={() => chooseUser(user.username)}
-            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all cursor-pointer ${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
             title={user.displayName}
           >
             <AuthAvatar user={user} size="sm" />
@@ -395,7 +1001,7 @@ function LoginScreen({
         <button
           type="button"
           onClick={() => { setOtherUser(true); setSelected(''); setUsername(''); setPassword(''); setError(''); }}
-          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all cursor-pointer ${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
           title={text.otherUser}
         >
           <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
@@ -537,7 +1143,20 @@ function LockScreen({
   );
 }
 
-function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-6"><div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-8"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5"><ShieldCheck size={25} /></div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{subtitle}</p>{children}</div></div>; }
+function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-4 sm:p-6 flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-white/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-indigo-600/20">
+          <ShieldCheck size={25} />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{subtitle}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function UserManager({ text, currentUser, users, onClose, onRefresh, onLogout }: { text: AuthText; currentUser: UserAccount; users: UserAccount[]; onClose: () => void; onRefresh: () => void; onLogout: () => void }) {
   const [selectedId, setSelectedId] = useState(currentUser.id);
