@@ -973,7 +973,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
       ]
     }
-  ], [activeLang]);
+  ], [activeLang, canManageUsers]);
 
   const navItems = useMemo(() => categoryGroups.flatMap(g => g.items), [categoryGroups]);
 
