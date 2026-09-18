@@ -41,35 +41,8 @@ The v23.1.0 Windows-style authentication surface redesign is complete on the fea
   - [ ] Per-monitor window positioning memory (remembering which monitor an app window was last placed on).
 
 ### 2.3 Praxis & Therapy Management Suite (TheraPsy Architecture)
-- [ ] **Patientendokumentation (Patient & Client Health Records)**:
-  - [ ] Patient Master Data (anamnesis, contact information, emergency contacts, insurance status).
-  - [ ] Medical history, diagnoses (ICD-10 / ICD-11 search & assignment), and medical findings.
-  - [ ] Encrypted local storage (compliant with DSGVO Art. 9 for special category health data).
-  - [ ] Document & findings attachment storage (PDFs, lab reports, doctor letters).
-- [ ] **Sessionprotokollierung (Therapy & Consultation Session Notes)**:
-  - [ ] Chronological session log (date, duration, intervention techniques, progress notes).
-  - [ ] Structured therapy protocol templates (initial interview, standard session, crisis intervention, final report).
-  - [ ] One-click conversion from completed session to billable invoice item.
-- [ ] **Rechnungsstellung für Praxen (Medical & Practice Invoicing)**:
-  - [ ] Practice-specific billing (fee schedules, hourly/session rates, private insurance invoices, cash receipts).
-  - [ ] Honorar- & Privatrechnungen with session dates and therapy diagnostic codes.
-  - [ ] Seamless integration into existing SOCDOF DIN 5008 PDF generator and invoice sequences.
-- [ ] **Praxis-Buchhaltung (Practice Accounting & Cash Flow)**:
-  - [ ] Dedicated Revenue-Expense Accounting (EÜR - Einnahmen-Überschuss-Rechnung) for healthcare freelancers and practices.
-  - [ ] Tax category mapping (VAT-exempt healthcare services according to § 4 Nr. 14 UStG vs. taxable coaching/services).
-  - [ ] Cash book (Kassenbuch) for direct cash settlements.
-- [ ] **Fahrtenbuch (Digital Mileage & Trip Log)**:
-  - [ ] Comprehensive logbook for home visits (Hausbesuche), hospital visits, and practice-related business trips.
-  - [ ] Fields: Date, departure, destination, purpose of visit, start/end odometer reading, total distance (km), route, and reimbursement rate.
-  - [ ] Exportable tax-compliant PDF/Excel report for tax advisors (Finanzamt-konform).
-- [ ] **Praxis-Kalender (Appointment Scheduling & Session Planner)**:
-  - [ ] Multi-view calendar (Day, Week, Month, Agenda) optimized for therapy slots (e.g. 50-minute units + buffer).
-  - [ ] Appointment status tracking (Scheduled, Attended, Cancelled with/without charge, Missed).
-  - [ ] Automatic linking between calendar appointment, patient documentation, and invoice generation.
-- [ ] **Videotelefonie (Secure Telehealth & Video Consultation)**:
-  - [ ] Integrated WebRTC peer-to-peer end-to-end encrypted video consultation.
-  - [ ] 100% browser/desktop native without requiring third-party cloud accounts or data leakage.
-  - [ ] In-session side panel for taking live session notes while maintaining video view.
+
+Completed in v23.2.0 as the initial offline Practice workspace. Historical implementation details are archived in `todo/completed_todo.md`.
 
 ### 2.4 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
