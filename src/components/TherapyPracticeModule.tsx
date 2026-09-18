@@ -77,6 +77,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             data: legacy,
             createdAt: new Date().toISOString()
           });
+          try { localStorage.removeItem(STORAGE_KEY); } catch {}
         }
         const initialData = legacy ?? emptyData;
         setData(initialData);
@@ -107,7 +108,6 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
       if (backups.length > BACKUP_LIMIT) {
         await db.therapy_backups.bulkDelete(backups.slice(0, backups.length - BACKUP_LIMIT).map(b => b.id));
       }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
     };
     void persist();
   }, [data, userId]);
