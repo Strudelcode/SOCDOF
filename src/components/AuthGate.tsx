@@ -97,7 +97,6 @@ const getAuthCopy = (lang: LanguageCode) => ({
 });
 
 type AuthText = ReturnType<typeof getAuthCopy>;
-type Lang = LanguageCode;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
