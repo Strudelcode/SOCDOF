@@ -3212,7 +3212,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 </button>
               </div>
             </div>
-          </div>        </div>
+          </div>
       )}
 
       {/* 6. Authentic Windows 11 Taskbar with Accent & Tint Customization */}
