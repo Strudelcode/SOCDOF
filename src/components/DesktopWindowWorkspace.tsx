@@ -128,6 +128,7 @@ interface DesktopWindowWorkspaceProps {
   onUpdateCompany: (company: CompanyProfile) => void;
   isDark: boolean;
   onToggleTheme: () => void;
+  onSetThemeMode?: (mode: CompanyProfile['theme_mode']) => void;
   isMuted: boolean;
   onToggleSound: () => void;
   onOpenStudio: () => void;
@@ -238,6 +239,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   onUpdateCompany,
   isDark,
   onToggleTheme,
+  onSetThemeMode,
   isMuted,
   onToggleSound,
   onOpenStudio
@@ -2942,7 +2944,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onFullReset={onRefreshData}
                   isDark={isDark}
                   onToggleTheme={onToggleTheme}
-                  onSetThemeMode={undefined}
+                  onSetThemeMode={onSetThemeMode}
                   isMuted={isMuted}
                   onToggleSound={onToggleSound}
                   invoices={invoices}
