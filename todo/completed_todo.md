@@ -1,3 +1,10 @@
+### Therapy Practice Workspace (v23.2.0)
+- [x] Added an offline-first Practice workspace with clean empty states for clients, sessions, appointments, mileage, and billing drafts.
+- [x] Added session templates for initial interview, standard session, crisis intervention, and final report.
+- [x] Added Practice integration to the desktop window system, launcher, command palette, and App Store.
+- [x] Added EN/DE/FR/ES UI localization and language-package entries.
+- [x] Added version, release notes, changelog, and in-app documentation updates.
+
 ### Windows-Style Login & Lock Screen Redesign (v23.1.0)
 - [x] **Windows-Inspired Authentication Surface**:
   - [x] Redesigned sign-in and workstation lock screens with a full-screen blurred wallpaper presentation.
