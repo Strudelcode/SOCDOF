@@ -1524,7 +1524,15 @@
     "calc.history_desc": "Los cálculos se archivan aquí para tareas y seguimiento.",
     "lang_modal.auto_detect_banner_title": "⚡ Sincronización automática de archivos de idioma y banderas",
     "lang_modal.auto_detect_banner_desc": "Tan pronto como se actualice un archivo de idioma (.json) en la carpeta languages/, SOCDOF lo carga directamente. Las imágenes de banderas personalizadas se pueden colocar en la subcarpeta flags/; por defecto, se utiliza el emoji del país o la bandera de reserva con signo de interrogación.",
-    "lang_modal.languages_available": "disponibles"
+    "lang_modal.languages_available": "disponibles",
+    "therapy.integrations": "Flujos conectados",
+    "therapy.integrationsDesc": "Los clientes usan la lista de contactos compartida. Las citas usan el calendario compartido. La facturación abre el flujo de facturas existente.",
+    "therapy.openCalendar": "Abrir calendario",
+    "therapy.openBilling": "Abrir facturación",
+    "therapy.contactPicker": "Usar un contacto existente",
+    "therapy.searchContacts": "Buscar contactos...",
+    "therapy.noContacts": "No hay contactos disponibles.",
+    "therapy.appointmentPrefix": "Cita de terapia"
   },
   "therapy_practice": {
     "title": "Consulta y terapia"
