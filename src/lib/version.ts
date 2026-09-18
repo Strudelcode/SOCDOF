@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.9.9';
+export const APP_VERSION = '22.10.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,19 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '22.10.0',
+    date: '2026-09-18',
+    title: 'Authentication, Local Multi-User Security & Recovery Hardening',
+    highlights: [
+      'Completed local multi-user authentication with Dexie / IndexedDB persistence and automatic migration from legacy LocalStorage accounts.',
+      'Added PBKDF2-HMAC-SHA256 password and recovery-answer hashing with per-record salts and secure iteration counts.',
+      'Added account recovery, failed-login lockout, exponential backoff, forced password changes, admin authorization, account switching, and Windows-style lock screen workflows.',
+      'Expanded automated authentication regression coverage for hashing, recovery, lockout, authorization, switching, and password reset flows.',
+      'Completed the dedicated authentication and multi-user documentation chapter with German and English workflow coverage.'
+    ]
+  },
+
   {
     version: '22.9.9',
     date: '2026-09-17',

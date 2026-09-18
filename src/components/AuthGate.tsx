@@ -25,28 +25,90 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
+import { t, useLanguage, type LanguageCode } from '../lib/i18n';
 
-const copy = {
-  en: { welcome: 'Welcome to SOCDOF', setup: 'Create the first local administrator account.', login: 'Sign in', username: 'Username', displayName: 'Display name', password: 'Password', confirm: 'Confirm password', account: 'Account type', personal: 'Personal', business: 'Business', create: 'Create account', invalid: 'Username or password is incorrect.', inactive: 'This account is disabled.', locked: 'Account temporarily locked.', retry: 'Try again in', short: 'Password must contain at least 8 characters.', mismatch: 'Passwords do not match.', exists: 'That username already exists.', required: 'Please complete all required fields.', lock: 'Lock', logout: 'Sign out', switchUser: 'Switch user', unlock: 'Unlock', lockedTitle: 'Workstation locked', lockedDesc: 'Enter your password to continue.', users: 'Users & Security', add: 'Add user', role: 'Role', admin: 'Administrator', user: 'User', active: 'Active', disabled: 'Disabled', deactivate: 'Disable', activate: 'Enable', remove: 'Delete', passwordChange: 'Change password', newPassword: 'New password', save: 'Save', close: 'Close', current: 'Current user', manage: 'Manage users', lastAdmin: 'The last active administrator cannot be deleted or disabled.', resetDone: 'Password changed.', forgot: 'Forgot password?', recover: 'Recover account', recoveryQuestion: 'Recovery question', recoveryAnswer: 'Recovery answer', recoveryRequired: 'A recovery answer is required.', recoveryInvalid: 'The recovery answer is incorrect.', recoveryUnavailable: 'No recovery method is configured for this account.', backLogin: 'Back to sign in', newPasswordTitle: 'Choose a new password', avatar: 'Avatar', autoLock: 'Auto-lock', off: 'Off', minutes: 'min', profileSaved: 'Profile saved.', security: 'Security policy', threshold: 'Failed attempts', lockoutDuration: 'Lockout duration', backoff: 'Exponential backoff', enabled: 'Enabled', securitySaved: 'Security policy saved.', forcePassword: 'Temporary password: user must change it at next sign-in.', clock: 'Current time', shortcut: 'Shortcut: Ctrl+Shift+L' },
-  de: { welcome: 'Willkommen bei SOCDOF', setup: 'Erstelle das erste lokale Administratorkonto.', login: 'Anmelden', username: 'Benutzername', displayName: 'Anzeigename', password: 'Passwort', confirm: 'Passwort bestätigen', account: 'Kontotyp', personal: 'Privat', business: 'Geschäftlich', create: 'Konto erstellen', invalid: 'Benutzername oder Passwort ist falsch.', inactive: 'Dieses Konto ist deaktiviert.', locked: 'Konto vorübergehend gesperrt.', retry: 'Erneuter Versuch in', short: 'Das Passwort muss mindestens 8 Zeichen enthalten.', mismatch: 'Die Passwörter stimmen nicht überein.', exists: 'Dieser Benutzername existiert bereits.', required: 'Bitte fülle alle Pflichtfelder aus.', lock: 'Sperren', logout: 'Abmelden', switchUser: 'Benutzer wechseln', unlock: 'Entsperren', lockedTitle: 'Arbeitsplatz gesperrt', lockedDesc: 'Gib dein Passwort ein, um fortzufahren.', users: 'Benutzer & Sicherheit', add: 'Benutzer hinzufügen', role: 'Rolle', admin: 'Administrator', user: 'Benutzer', active: 'Aktiv', disabled: 'Deaktiviert', deactivate: 'Deaktivieren', activate: 'Aktivieren', remove: 'Löschen', passwordChange: 'Passwort ändern', newPassword: 'Neues Passwort', save: 'Speichern', close: 'Schließen', current: 'Aktueller Benutzer', manage: 'Benutzer verwalten', lastAdmin: 'Der letzte aktive Administrator kann nicht gelöscht oder deaktiviert werden.', resetDone: 'Passwort geändert.', forgot: 'Passwort vergessen?', recover: 'Konto wiederherstellen', recoveryQuestion: 'Wiederherstellungsfrage', recoveryAnswer: 'Antwort', recoveryRequired: 'Eine Antwort ist erforderlich.', recoveryInvalid: 'Die Antwort ist falsch.', recoveryUnavailable: 'Für dieses Konto ist keine Wiederherstellung eingerichtet.', backLogin: 'Zur Anmeldung', newPasswordTitle: 'Neues Passwort festlegen', avatar: 'Avatar', autoLock: 'Automatische Sperre', off: 'Aus', minutes: 'Min.', profileSaved: 'Profil gespeichert.', security: 'Sicherheitsrichtlinie', threshold: 'Fehlversuche', lockoutDuration: 'Sperrdauer', backoff: 'Exponentielle Sperrverlängerung', enabled: 'Aktiviert', securitySaved: 'Sicherheitsrichtlinie gespeichert.', forcePassword: 'Temporäres Passwort: Der Benutzer muss es bei der nächsten Anmeldung ändern.', clock: 'Aktuelle Uhrzeit', shortcut: 'Tastenkürzel: Strg+Shift+L' },
-  fr: { welcome: 'Bienvenue dans SOCDOF', setup: 'Créez le premier compte administrateur local.', login: 'Se connecter', username: "Nom d'utilisateur", displayName: "Nom d'affichage", password: 'Mot de passe', confirm: 'Confirmer le mot de passe', account: 'Type de compte', personal: 'Personnel', business: 'Professionnel', create: 'Créer le compte', invalid: "Nom d'utilisateur ou mot de passe incorrect.", inactive: 'Ce compte est désactivé.', locked: 'Compte temporairement verrouillé.', retry: 'Nouvel essai dans', short: 'Le mot de passe doit contenir au moins 8 caractères.', mismatch: 'Les mots de passe ne correspondent pas.', exists: "Ce nom d'utilisateur existe déjà.", required: 'Veuillez remplir tous les champs obligatoires.', lock: 'Verrouiller', logout: 'Se déconnecter', switchUser: 'Changer d’utilisateur', unlock: 'Déverrouiller', lockedTitle: 'Poste verrouillé', lockedDesc: 'Saisissez votre mot de passe pour continuer.', users: 'Utilisateurs & sécurité', add: 'Ajouter un utilisateur', role: 'Rôle', admin: 'Administrateur', user: 'Utilisateur', active: 'Actif', disabled: 'Désactivé', deactivate: 'Désactiver', activate: 'Activer', remove: 'Supprimer', passwordChange: 'Changer le mot de passe', newPassword: 'Nouveau mot de passe', save: 'Enregistrer', close: 'Fermer', current: 'Utilisateur actuel', manage: 'Gérer les utilisateurs', lastAdmin: 'Le dernier administrateur actif ne peut pas être supprimé ou désactivé.', resetDone: 'Mot de passe modifié.', forgot: 'Mot de passe oublié ?', recover: 'Récupérer le compte', recoveryQuestion: 'Question de récupération', recoveryAnswer: 'Réponse', recoveryRequired: 'Une réponse est requise.', recoveryInvalid: 'La réponse est incorrecte.', recoveryUnavailable: 'Aucune récupération configurée pour ce compte.', backLogin: 'Retour à la connexion', newPasswordTitle: 'Choisir un nouveau mot de passe', avatar: 'Avatar', autoLock: 'Verrouillage automatique', off: 'Désactivé', minutes: 'min', profileSaved: 'Profil enregistré.', security: 'Politique de sécurité', threshold: 'Échecs de connexion', lockoutDuration: 'Durée du verrouillage', backoff: 'Prolongation exponentielle', enabled: 'Activée', securitySaved: 'Politique de sécurité enregistrée.', forcePassword: "Mot de passe temporaire : l’utilisateur doit le modifier à la prochaine connexion.", clock: 'Heure actuelle', shortcut: 'Raccourci : Ctrl+Shift+L' },
-  es: { welcome: 'Bienvenido a SOCDOF', setup: 'Crea la primera cuenta de administrador local.', login: 'Iniciar sesión', username: 'Usuario', displayName: 'Nombre visible', password: 'Contraseña', confirm: 'Confirmar contraseña', account: 'Tipo de cuenta', personal: 'Personal', business: 'Empresa', create: 'Crear cuenta', invalid: 'El usuario o la contraseña no son correctos.', inactive: 'Esta cuenta está desactivada.', locked: 'Cuenta bloqueada temporalmente.', retry: 'Nuevo intento en', short: 'La contraseña debe tener al menos 8 caracteres.', mismatch: 'Las contraseñas no coinciden.', exists: 'Ese nombre de usuario ya existe.', required: 'Completa todos los campos obligatorios.', lock: 'Bloquear', logout: 'Cerrar sesión', switchUser: 'Cambiar usuario', unlock: 'Desbloquear', lockedTitle: 'Puesto bloqueado', lockedDesc: 'Introduce tu contraseña para continuar.', users: 'Usuarios y seguridad', add: 'Añadir usuario', role: 'Rol', admin: 'Administrador', user: 'Usuario', active: 'Activo', disabled: 'Desactivado', deactivate: 'Desactivar', activate: 'Activar', remove: 'Eliminar', passwordChange: 'Cambiar contraseña', newPassword: 'Nueva contraseña', save: 'Guardar', close: 'Cerrar', current: 'Usuario actual', manage: 'Gestionar usuarios', lastAdmin: 'El último administrador activo no puede eliminarse ni desactivarse.', resetDone: 'Contraseña cambiada.', forgot: '¿Olvidaste la contraseña?', recover: 'Recuperar cuenta', recoveryQuestion: 'Pregunta de recuperación', recoveryAnswer: 'Respuesta', recoveryRequired: 'La respuesta es obligatoria.', recoveryInvalid: 'La respuesta es incorrecta.', recoveryUnavailable: 'No hay recuperación configurada para esta cuenta.', backLogin: 'Volver al inicio', newPasswordTitle: 'Elegir nueva contraseña', avatar: 'Avatar', autoLock: 'Bloqueo automático', off: 'Desactivado', minutes: 'min', profileSaved: 'Perfil guardado.', security: 'Política de seguridad', threshold: 'Intentos fallidos', lockoutDuration: 'Duración del bloqueo', backoff: 'Aumento exponencial', enabled: 'Activado', securitySaved: 'Política de seguridad guardada.', forcePassword: 'Contraseña temporal: el usuario debe cambiarla en el próximo inicio de sesión.', clock: 'Hora actual', shortcut: 'Atajo: Ctrl+Shift+L' }
-} as const;
+const getAuthCopy = (lang: LanguageCode) => ({
+  welcome: t('auth.welcome', lang),
+  setup: t('auth.setup', lang),
+  login: t('auth.login', lang),
+  username: t('auth.username', lang),
+  displayName: t('auth.displayName', lang),
+  password: t('auth.password', lang),
+  confirm: t('auth.confirm', lang),
+  account: t('auth.account', lang),
+  personal: t('auth.personal', lang),
+  business: t('auth.business', lang),
+  create: t('auth.create', lang),
+  invalid: t('auth.invalid', lang),
+  inactive: t('auth.inactive', lang),
+  locked: t('auth.locked', lang),
+  retry: t('auth.retry', lang),
+  short: t('auth.short', lang),
+  mismatch: t('auth.mismatch', lang),
+  exists: t('auth.exists', lang),
+  required: t('auth.required', lang),
+  lock: t('auth.lock', lang),
+  logout: t('auth.logout', lang),
+  switchUser: t('auth.switchUser', lang),
+  unlock: t('auth.unlock', lang),
+  lockedTitle: t('auth.lockedTitle', lang),
+  lockedDesc: t('auth.lockedDesc', lang),
+  users: t('auth.users', lang),
+  add: t('auth.add', lang),
+  role: t('auth.role', lang),
+  admin: t('auth.admin', lang),
+  user: t('auth.user', lang),
+  active: t('auth.active', lang),
+  disabled: t('auth.disabled', lang),
+  deactivate: t('auth.deactivate', lang),
+  activate: t('auth.activate', lang),
+  remove: t('auth.remove', lang),
+  passwordChange: t('auth.passwordChange', lang),
+  newPassword: t('auth.newPassword', lang),
+  save: t('auth.save', lang),
+  close: t('auth.close', lang),
+  current: t('auth.current', lang),
+  manage: t('auth.manage', lang),
+  lastAdmin: t('auth.lastAdmin', lang),
+  resetDone: t('auth.resetDone', lang),
+  forgot: t('auth.forgot', lang),
+  recover: t('auth.recover', lang),
+  recoveryQuestion: t('auth.recoveryQuestion', lang),
+  recoveryAnswer: t('auth.recoveryAnswer', lang),
+  recoveryRequired: t('auth.recoveryRequired', lang),
+  recoveryInvalid: t('auth.recoveryInvalid', lang),
+  recoveryUnavailable: t('auth.recoveryUnavailable', lang),
+  backLogin: t('auth.backLogin', lang),
+  newPasswordTitle: t('auth.newPasswordTitle', lang),
+  avatar: t('auth.avatar', lang),
+  autoLock: t('auth.autoLock', lang),
+  off: t('auth.off', lang),
+  minutes: t('auth.minutes', lang),
+  profileSaved: t('auth.profileSaved', lang),
+  security: t('auth.security', lang),
+  threshold: t('auth.threshold', lang),
+  lockoutDuration: t('auth.lockoutDuration', lang),
+  backoff: t('auth.backoff', lang),
+  enabled: t('auth.enabled', lang),
+  securitySaved: t('auth.securitySaved', lang),
+  forcePassword: t('auth.forcePassword', lang),
+  clock: t('auth.clock', lang),
+  shortcut: t('auth.shortcut', lang),
+});
 
-type Lang = keyof typeof copy;
-const getLang = (): Lang => { try { const value = localStorage.getItem('socdof_language'); return value === 'de' || value === 'fr' || value === 'es' ? value : 'en'; } catch { return 'en'; } };
+type AuthText = ReturnType<typeof getAuthCopy>;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [session, setSession] = useState(() => getSession());
-  const [lang, setLang] = useState<Lang>(() => getLang());
+  const lang = useLanguage();
   const [locked, setLocked] = useState(() => Boolean(getSession()?.locked));
   const [showManager, setShowManager] = useState(false);
-  const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); setLang(getLang()); }, []);
+  const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); }, []);
   const currentUser = session ? getUserById(session.userId) : null;
-  const text = copy[lang];
+  const text = getAuthCopy(lang);
 
   useEffect(() => { const onStorage = () => refresh(); window.addEventListener('storage', onStorage); window.addEventListener('socdof-auth-changed', onStorage); return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('socdof-auth-changed', onStorage); }; }, [refresh]);
   useEffect(() => {
@@ -68,14 +130,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return <div className="relative w-full h-full">{children}<div className="fixed top-3 right-3 z-[9999] flex items-center gap-1 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/85 backdrop-blur-xl shadow-lg px-2 py-1.5"><button title={text.lock} onClick={() => { lockSession(); setLocked(true); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LockKeyhole size={16} /></button><button title={text.manage} onClick={() => setShowManager(true)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><UserRoundCog size={16} /></button><button title={text.logout} onClick={logout} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LogOut size={16} /></button><div className="px-2 text-xs font-medium max-w-32 truncate">{currentUser.avatar?.startsWith('data:image/') ? <img src={currentUser.avatar} alt="" className="inline w-4 h-4 rounded-full object-cover mr-1" /> : `${currentUser.avatar ?? '●'} `}{currentUser.displayName}</div></div>{showManager && <UserManager text={text} currentUser={currentUser} users={users} onClose={() => setShowManager(false)} onRefresh={refresh} onLogout={logout} />}</div>;
 }
 
-function FirstAccount({ text, onCreated }: { text: typeof copy[Lang]; onCreated: () => void }) {
+function FirstAccount({ text, onCreated }: { text: AuthText; onCreated: () => void }) {
   const [form, setForm] = useState({ username: '', displayName: '', password: '', confirm: '', accountType: 'personal' as AccountType, avatar: avatars[0], recoveryQuestion: RECOVERY_QUESTIONS[0], recoveryAnswer: '' });
   const [error, setError] = useState('');
   const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!form.username || !form.displayName || !form.password) return setError(text.required); if (form.password !== form.confirm) return setError(text.mismatch); try { await createUser(form); onCreated(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'password_too_short' ? text.short : reason === 'username_exists' ? text.exists : reason === 'recovery_answer_required' ? text.recoveryRequired : text.required); } };
   return <AuthShell title={text.welcome} subtitle={text.setup}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} placeholder={text.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.confirm} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setForm({ ...form, accountType: 'personal' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'personal' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.personal}</button><button type="button" onClick={() => setForm({ ...form, accountType: 'business' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'business' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.business}</button></div><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} type="button" onClick={() => setForm({ ...form, avatar })} className={`w-9 h-9 rounded-xl border ${form.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><select className={fieldClass} value={form.recoveryQuestion} onChange={(e) => setForm({ ...form, recoveryQuestion: e.target.value })}>{RECOVERY_QUESTIONS.map((question) => <option key={question}>{question}</option>)}</select><input className={fieldClass} placeholder={text.recoveryAnswer} value={form.recoveryAnswer} onChange={(e) => setForm({ ...form, recoveryAnswer: e.target.value })} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.create}</button></form></AuthShell>;
 }
 
-function LoginScreen({ text, users, onLogin }: { text: typeof copy[Lang]; users: UserAccount[]; onLogin: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }> }) {
+function LoginScreen({ text, users, onLogin }: { text: AuthText; users: UserAccount[]; onLogin: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }> }) {
   const [selected, setSelected] = useState(users.find((user) => user.active)?.username ?? users[0]?.username ?? '');
   const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [lockedUntil, setLockedUntil] = useState<number | undefined>(); const [recover, setRecover] = useState(false);
   useEffect(() => { const timer = window.setInterval(() => { const user = getUserByUsername(selected); setLockedUntil(user?.lockedUntil); }, 500); return () => window.clearInterval(timer); }, [selected]);
@@ -85,19 +147,19 @@ function LoginScreen({ text, users, onLogin }: { text: typeof copy[Lang]; users:
   return <AuthShell title={text.login} subtitle="SOCDOF"><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={selected} onChange={(e) => { setSelected(e.target.value); setPassword(''); setError(''); }}>{users.map((user) => <option key={user.id} value={user.username} disabled={!user.active}>{user.avatar ?? '●'} {user.displayName} · {user.username}{!user.active ? ` · ${text.disabled}` : ''}</option>)}</select><input autoFocus className={fieldClass} type="password" placeholder={text.password} value={password} onChange={(e) => setPassword(e.target.value)} disabled={remaining > 0} />{remaining > 0 && <p className="text-sm text-amber-600">{text.retry} {Math.ceil(remaining / 1000)}s</p>}{error && <p className="text-sm text-red-600">{error}</p>}<button disabled={remaining > 0} className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"><LogIn size={17} />{text.login}</button><button type="button" onClick={() => setRecover(true)} className="w-full text-sm text-indigo-600 hover:underline">{text.forgot}</button></form></AuthShell>;
 }
 
-function ForcedPasswordScreen({ text, user, onDone, onLogout }: { text: typeof copy[Lang]; user: UserAccount; onDone: () => void; onLogout: () => void }) {
+function ForcedPasswordScreen({ text, user, onDone, onLogout }: { text: AuthText; user: UserAccount; onDone: () => void; onLogout: () => void }) {
   const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState('');
   const submit = async (event: React.FormEvent) => { event.preventDefault(); if (password !== confirm) return setError(text.mismatch); try { await changePassword(user.id, password); onDone(); } catch { setError(text.short); } };
   return <AuthShell title={text.newPasswordTitle} subtitle={text.forcePassword}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onLogout} className="w-full rounded-xl border py-3">{text.logout}</button></form></AuthShell>;
 }
 
-function RecoveryScreen({ text, users, onBack }: { text: typeof copy[Lang]; users: UserAccount[]; onBack: () => void }) {
+function RecoveryScreen({ text, users, onBack }: { text: AuthText; users: UserAccount[]; onBack: () => void }) {
   const [username, setUsername] = useState(users.find((user) => user.active)?.username ?? ''); const [answer, setAnswer] = useState(''); const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState(''); const user = getUserByUsername(username);
   const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!user) return setError(text.invalid); if (!user.recovery) return setError(text.recoveryUnavailable); if (password !== confirm) return setError(text.mismatch); try { await resetPasswordWithRecovery(user.id, answer, password); onBack(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'recovery_invalid' ? text.recoveryInvalid : reason === 'password_too_short' ? text.short : text.required); } };
   return <AuthShell title={text.recover} subtitle={text.newPasswordTitle}><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={username} onChange={(e) => { setUsername(e.target.value); setAnswer(''); setError(''); }}>{users.filter((u) => u.active).map((u) => <option key={u.id} value={u.username}>{u.displayName} · {u.username}</option>)}</select>{user?.recovery && <><p className="text-sm text-slate-500">{user.recovery.question}</p><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onBack} className="w-full rounded-xl border py-3">{text.backLogin}</button></form></AuthShell>;
 }
 
-function LockScreen({ text, user, users, onUnlock, onSwitch }: { text: typeof copy[Lang]; user: UserAccount; users: UserAccount[]; onUnlock: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>; onSwitch: () => void }) {
+function LockScreen({ text, user, users, onUnlock, onSwitch }: { text: AuthText; user: UserAccount; users: UserAccount[]; onUnlock: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>; onSwitch: () => void }) {
   const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [selected, setSelected] = useState(user.username); const [now, setNow] = useState(new Date());
   const selectedUser = getUserByUsername(selected) ?? user;
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(timer); }, []);
@@ -108,7 +170,7 @@ function LockScreen({ text, user, users, onUnlock, onSwitch }: { text: typeof co
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-6"><div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-white/10 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl shadow-2xl p-8"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5"><ShieldCheck size={25} /></div><h1 className="text-2xl font-bold tracking-tight">{title}</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-7">{subtitle}</p>{children}</div></div>; }
 
-function UserManager({ text, currentUser, users, onClose, onRefresh, onLogout }: { text: typeof copy[Lang]; currentUser: UserAccount; users: UserAccount[]; onClose: () => void; onRefresh: () => void; onLogout: () => void }) {
+function UserManager({ text, currentUser, users, onClose, onRefresh, onLogout }: { text: AuthText; currentUser: UserAccount; users: UserAccount[]; onClose: () => void; onRefresh: () => void; onLogout: () => void }) {
   const [selectedId, setSelectedId] = useState(currentUser.id);
   const [newUser, setNewUser] = useState({ username: '', displayName: '', password: '', accountType: 'business' as AccountType, role: 'user' as UserRole, avatar: avatars[0], recoveryQuestion: RECOVERY_QUESTIONS[0], recoveryAnswer: '' });
   const [newPassword, setNewPassword] = useState(''); const [message, setMessage] = useState(''); const [security, setSecurity] = useState<SecuritySettings>(() => getSecuritySettings());

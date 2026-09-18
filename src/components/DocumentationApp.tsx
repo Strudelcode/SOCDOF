@@ -169,6 +169,89 @@ export const DocumentationApp: React.FC = () => {
       )
     },
     {
+      id: 'authentication',
+      title: getLoc({
+        de: 'Authentifizierung & Mehrbenutzer-Sicherheit',
+        en: 'Authentication & Multi-User Security',
+        fr: 'Authentification & sécurité multi-utilisateur',
+        es: 'Autenticación y seguridad multiusuario'
+      }),
+      category: getLoc({
+        de: 'Sicherheit',
+        en: 'Security',
+        fr: 'Sécurité',
+        es: 'Seguridad'
+      }),
+      icon: ShieldCheck,
+      summary: getLoc({
+        de: 'Lokale Konten, Passwortschutz, Wiederherstellung, Sperrregeln und Windows-ähnliche Benutzerumschaltung.',
+        en: 'Local accounts, password protection, recovery, lockout rules, and Windows-style user switching.',
+        fr: 'Comptes locaux, protection par mot de passe, récupération, verrouillage et changement d’utilisateur.',
+        es: 'Cuentas locales, protección de contraseñas, recuperación, bloqueos y cambio de usuario.'
+      }),
+      content: (
+        <div className="space-y-5 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60">
+            <h4 className="font-bold text-sm text-indigo-950 dark:text-indigo-100">
+              {getLoc({
+                de: 'Lokale Konten statt Cloud-Konten',
+                en: 'Local Accounts, No Cloud Identity Required',
+                fr: 'Comptes locaux sans identité cloud obligatoire',
+                es: 'Cuentas locales sin identidad en la nube'
+              })}
+            </h4>
+            <p className="mt-1 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'SOCDOF verwaltet lokale Benutzerprofile offline. Konten und Sicherheitsrichtlinien werden im vorhandenen lokalen IndexedDB-Speicher persistiert; ältere Authentifizierungsdaten aus LocalStorage werden automatisch migriert.',
+                en: 'SOCDOF manages local user profiles offline. Accounts and security policies are persisted in the existing local IndexedDB store, with automatic migration of legacy authentication data from LocalStorage.',
+                fr: 'SOCDOF gère les profils utilisateurs localement et hors ligne. Les comptes et politiques sont conservés dans IndexedDB, avec migration automatique des anciennes données LocalStorage.',
+                es: 'SOCDOF gestiona perfiles locales sin conexión. Las cuentas y políticas se guardan en IndexedDB, con migración automática de datos de autenticación heredados de LocalStorage.'
+              })}
+            </p>
+          </div>
+
+          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+            {getLoc({ de: 'Konten & Benutzerwechsel', en: 'Accounts & User Switching', fr: 'Comptes & changement d’utilisateur', es: 'Cuentas y cambio de usuario' })}
+          </h4>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>{getLoc({ de: 'Beim ersten Start wird ein lokales Administratorkonto erstellt. Weitere Konten werden durch einen aktiven Administrator angelegt.', en: 'The first setup creates a local administrator. Additional accounts are created by an active administrator.', fr: 'La première configuration crée un administrateur local. Les comptes supplémentaires sont créés par un administrateur actif.', es: 'La primera configuración crea un administrador local. Las cuentas adicionales las crea un administrador activo.' })}</li>
+            <li>{getLoc({ de: 'Persönliche und geschäftliche Kontotypen, Rollen, Aktivierungsstatus, Avatare und persönliche Einstellungen werden pro Benutzer gespeichert.', en: 'Personal and business account types, roles, activation state, avatars, and personal preferences are stored per user.', fr: 'Les types de compte personnel/professionnel, rôles, état d’activation, avatars et préférences sont stockés par utilisateur.', es: 'Los tipos de cuenta personal/empresa, roles, estado, avatares y preferencias se guardan por usuario.' })}</li>
+            <li>{getLoc({ de: 'Über „Benutzer verwalten“ können Administratoren Konten aktivieren, deaktivieren, bearbeiten, löschen und Passwörter zurücksetzen.', en: 'The “Manage users” control lets administrators activate, disable, edit, delete accounts, and reset passwords.', fr: '« Gérer les utilisateurs » permet aux administrateurs d’activer, désactiver, modifier, supprimer des comptes et réinitialiser les mots de passe.', es: '“Gestionar usuarios” permite a los administradores activar, desactivar, editar, eliminar cuentas y restablecer contraseñas.' })}</li>
+            <li>{getLoc({ de: 'Der letzte aktive Administrator ist vor versehentlichem Löschen oder Deaktivieren geschützt.', en: 'The final active administrator is protected against accidental deletion or deactivation.', fr: 'Le dernier administrateur actif est protégé contre la suppression ou la désactivation accidentelle.', es: 'El último administrador activo está protegido contra eliminación o desactivación accidental.' })}</li>
+          </ul>
+
+          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+            {getLoc({ de: 'Passwort & Wiederherstellung', en: 'Password & Recovery', fr: 'Mot de passe & récupération', es: 'Contraseña y recuperación' })}
+          </h4>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>{getLoc({ de: 'Passwörter werden mit PBKDF2-HMAC-SHA256 und individuellen Salts gehasht; Klartext-Passwörter werden nicht gespeichert.', en: 'Passwords use PBKDF2-HMAC-SHA256 with per-account salts; plaintext passwords are never persisted.', fr: 'Les mots de passe utilisent PBKDF2-HMAC-SHA256 avec un sel par compte ; aucun mot de passe en clair n’est conservé.', es: 'Las contraseñas usan PBKDF2-HMAC-SHA256 con sales por cuenta; nunca se guardan en texto plano.' })}</li>
+            <li>{getLoc({ de: 'Bei der Einrichtung kann eine Wiederherstellungsfrage mit gehashter Antwort hinterlegt werden.', en: 'A recovery question with a hashed answer can be configured during account setup.', fr: 'Une question de récupération avec réponse hachée peut être configurée lors de la création du compte.', es: 'Durante la configuración puede definirse una pregunta de recuperación con respuesta hasheada.' })}</li>
+            <li>{getLoc({ de: '„Passwort vergessen?“ führt durch die lokale Wiederherstellung. Administratoren können alternativ ein temporäres Passwort setzen, das beim nächsten Login geändert werden muss.', en: '“Forgot password?” starts the local recovery flow. Administrators can alternatively issue a temporary password that must be changed at the next sign-in.', fr: '« Mot de passe oublié ? » lance la récupération locale. Un administrateur peut aussi définir un mot de passe temporaire à modifier à la prochaine connexion.', es: '“¿Olvidaste la contraseña?” inicia la recuperación local. Un administrador también puede establecer una contraseña temporal que deberá cambiarse en el siguiente inicio.' })}</li>
+          </ul>
+
+          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+            {getLoc({ de: 'Fehlversuche, Sperre & Auto-Lock', en: 'Failed Attempts, Lockout & Auto-Lock', fr: 'Échecs, verrouillage & verrouillage automatique', es: 'Intentos fallidos, bloqueo y bloqueo automático' })}
+          </h4>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>{getLoc({ de: 'Die Sicherheitsrichtlinie erlaubt konfigurierbare Fehlversuchsgrenzen, Sperrdauer und exponentielle Verlängerung.', en: 'The security policy supports configurable failed-attempt thresholds, lockout duration, and exponential backoff.', fr: 'La politique de sécurité permet de configurer le seuil d’échecs, la durée du verrouillage et le backoff exponentiel.', es: 'La política de seguridad permite configurar umbrales de intentos, duración del bloqueo y backoff exponencial.' })}</li>
+            <li>{getLoc({ de: 'Der Sperrbildschirm zeigt den Countdown an und erlaubt einen schnellen Benutzerwechsel.', en: 'The lock screen shows the remaining countdown and supports fast user switching.', fr: 'L’écran verrouillé affiche le compte à rebours et permet de changer rapidement d’utilisateur.', es: 'La pantalla bloqueada muestra la cuenta atrás y permite cambiar rápidamente de usuario.' })}</li>
+            <li>{getLoc({ de: 'Die automatische Arbeitsplatzsperre verwendet die pro Benutzer gespeicherte Auto-Lock-Zeit.', en: 'Automatic workstation locking uses the auto-lock duration stored for the current user.', fr: 'Le verrouillage automatique utilise la durée configurée pour l’utilisateur actuel.', es: 'El bloqueo automático usa la duración configurada para el usuario actual.' })}</li>
+          </ul>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <h5 className="font-bold text-slate-900 dark:text-white">{getLoc({ de: 'Wichtige Schaltflächen', en: 'Key Controls', fr: 'Commandes principales', es: 'Controles principales' })}</h5>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">{getLoc({ de: 'Anmelden, Benutzer verwalten, Benutzer wechseln, Sperren, Abmelden, Konto wiederherstellen und Passwort ändern.', en: 'Sign in, Manage users, Switch user, Lock, Sign out, Recover account, and Change password.', fr: 'Se connecter, gérer les utilisateurs, changer d’utilisateur, verrouiller, se déconnecter, récupérer et modifier le mot de passe.', es: 'Iniciar sesión, gestionar usuarios, cambiar usuario, bloquear, cerrar sesión, recuperar cuenta y cambiar contraseña.' })}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <h5 className="font-bold text-slate-900 dark:text-white">{getLoc({ de: 'Tastenkürzel & Integration', en: 'Shortcuts & Integration', fr: 'Raccourcis & intégration', es: 'Atajos e integración' })}</h5>
+              <p className="mt-1 text-slate-600 dark:text-slate-400">{getLoc({ de: 'Ctrl+Shift+L sperrt den Arbeitsplatz im Browser sicher. Electron kann native Windows-Shortcuts unabhängig davon ergänzen. Die Authentifizierung nutzt den vorhandenen Dexie-Speicher und keine Cloud-Identität.', en: 'Ctrl+Shift+L safely locks the workstation in the browser. Electron can add native Windows shortcuts independently. Authentication uses the existing Dexie store and does not require a cloud identity.', fr: 'Ctrl+Shift+L verrouille le poste dans le navigateur. Electron peut ajouter des raccourcis Windows natifs. L’authentification utilise IndexedDB local sans identité cloud.', es: 'Ctrl+Shift+L bloque el puesto en el navegador. Electron puede añadir atajos nativos de Windows. La autenticación usa IndexedDB local sin identidad en la nube.' })}</p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    { 
       id: 'invoices',
       title: getLoc({
         de: 'Fakturierung, Rechnungen & DIN 5008',

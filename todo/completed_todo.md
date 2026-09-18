@@ -6,6 +6,30 @@
 
 ## Completed Tasks Archive
 
+### Authentication, Local Multi-User Security & Recovery Hardening (v22.10.0)
+- [x] **Dexie / IndexedDB Authentication Persistence**:
+  - [x] Moved account and security persistence into the existing Dexie `settings` store.
+  - [x] Added automatic migration from legacy `socdof.auth.users.v1` and `socdof.auth.security.v1` LocalStorage records.
+  - [x] Retained a safe in-memory/legacy fallback when IndexedDB is unavailable.
+- [x] **Secure Password & Recovery Storage**:
+  - [x] Added PBKDF2-HMAC-SHA256 password hashing with per-account random salts and 210,000 iterations.
+  - [x] Added independently salted recovery-answer hashing with normalized answers.
+  - [x] Ensured plaintext passwords are never persisted.
+- [x] **Account Recovery, Lockout & Authorization**:
+  - [x] Added predefined recovery questions and password recovery workflow.
+  - [x] Added configurable failed-attempt thresholds, timed lockout, exponential backoff, and lockout countdown behavior.
+  - [x] Added admin-only account creation/management and protected the final active administrator from deletion or deactivation.
+  - [x] Added forced password-change flow after administrator password resets.
+- [x] **Windows-Style Local User Experience**:
+  - [x] Added local account switching, avatars, account type/role state, per-user preferences, auto-lock, workstation lock, and fast user switching.
+  - [x] Added browser-safe `Ctrl+Shift+L` workstation lock shortcut.
+- [x] **Regression Verification**:
+  - [x] Added automated coverage for hashing, recovery, lockout/backoff, admin authorization, account switching, forced password changes, and last-admin protection.
+- [x] **Documentation & Localization**:
+  - [x] Centralized AuthGate user-facing strings in `src/lib/i18n.ts` with DE/EN/FR/ES parity.
+  - [x] Added a dedicated Authentication & Multi-User chapter to `src/components/DocumentationApp.tsx`.
+
+
 ### Smart Price Defaults & One-Click Preset Chips for Tasks & Service Positions (v22.9.5)
 - [x] **Smart Pricing & Clean Optional Input**:
   - [x] Prevented awkward prefilled "0" string in `SupportWorkItemModal` when no default price is configured in settings, displaying an elegant `"0,00"` placeholder instead.
