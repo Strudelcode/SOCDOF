@@ -1525,7 +1525,15 @@
     "calc.history_desc": "Executed calculations are archived here for homework and reference.",
     "lang_modal.auto_detect_banner_title": "⚡ Automatic sync of language files & flags",
     "lang_modal.auto_detect_banner_desc": "As soon as a language file (.json) in the languages/ folder is updated, SOCDOF immediately loads it. Custom flag images can be placed in the flags/ subfolder; by default, the country emoji or fallback flag with a question mark is displayed.",
-    "lang_modal.languages_available": "available"
+    "lang_modal.languages_available": "available",
+    "therapy.integrations": "Connected workflows",
+    "therapy.integrationsDesc": "Clients use the shared Contacts list. Appointments use the shared Calendar. Billing opens the existing invoice workflow.",
+    "therapy.openCalendar": "Open calendar",
+    "therapy.openBilling": "Open billing",
+    "therapy.contactPicker": "Use an existing contact",
+    "therapy.searchContacts": "Search contacts...",
+    "therapy.noContacts": "No contacts available.",
+    "therapy.appointmentPrefix": "Therapy appointment"
   },
   "therapy_practice": {
     "title": "Practice & Therapy"

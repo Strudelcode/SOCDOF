@@ -20,6 +20,14 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
 export const translations: Record<LanguageCode, Record<string, string>> = {
   en: {
     'therapy.title': 'Practice',
+    'therapy.integrations': 'Connected workflows',
+    'therapy.integrationsDesc': 'Clients use the shared Contacts list. Appointments use the shared Calendar. Billing opens the existing invoice workflow.',
+    'therapy.openCalendar': 'Open calendar',
+    'therapy.openBilling': 'Open billing',
+    'therapy.contactPicker': 'Use an existing contact',
+    'therapy.searchContacts': 'Search contacts...',
+    'therapy.noContacts': 'No contacts available.',
+    'therapy.appointmentPrefix': 'Therapy appointment',
     'therapy.subtitle': 'Therapy & consultation workspace',
     'therapy.patients': 'Clients',
     'therapy.sessions': 'Sessions',
@@ -2060,6 +2068,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
   de: {
     'therapy.title': 'Praxis',
+    'therapy.integrations': 'Verknüpfte Arbeitsabläufe',
+    'therapy.integrationsDesc': 'Klienten verwenden die gemeinsame Kontaktliste. Termine verwenden den gemeinsamen Kalender. Die Abrechnung öffnet den bestehenden Rechnungsablauf.',
+    'therapy.openCalendar': 'Kalender öffnen',
+    'therapy.openBilling': 'Abrechnung öffnen',
+    'therapy.contactPicker': 'Bestehenden Kontakt verwenden',
+    'therapy.searchContacts': 'Kontakte suchen...',
+    'therapy.noContacts': 'Keine Kontakte vorhanden.',
+    'therapy.appointmentPrefix': 'Therapietermin',
     'therapy.subtitle': 'Arbeitsbereich für Therapie & Beratung',
     'therapy.patients': 'Klienten',
     'therapy.sessions': 'Sitzungen',
@@ -4100,6 +4116,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
   fr: {
     'therapy.title': 'Cabinet',
+    'therapy.integrations': 'Flux de travail connectés',
+    'therapy.integrationsDesc': 'Les clients utilisent la liste de contacts commune. Les rendez-vous utilisent le calendrier commun. La facturation ouvre le processus de facture existant.',
+    'therapy.openCalendar': 'Ouvrir le calendrier',
+    'therapy.openBilling': 'Ouvrir la facturation',
+    'therapy.contactPicker': 'Utiliser un contact existant',
+    'therapy.searchContacts': 'Rechercher des contacts...',
+    'therapy.noContacts': 'Aucun contact disponible.',
+    'therapy.appointmentPrefix': 'Rendez-vous thérapeutique',
     'therapy.subtitle': 'Espace de travail thérapie & consultation',
     'therapy.patients': 'Clients',
     'therapy.sessions': 'Séances',
@@ -6139,6 +6163,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
   es: {
     'therapy.title': 'Consulta',
+    'therapy.integrations': 'Flujos conectados',
+    'therapy.integrationsDesc': 'Los clientes usan la lista de contactos compartida. Las citas usan el calendario compartido. La facturación abre el flujo de facturas existente.',
+    'therapy.openCalendar': 'Abrir calendario',
+    'therapy.openBilling': 'Abrir facturación',
+    'therapy.contactPicker': 'Usar un contacto existente',
+    'therapy.searchContacts': 'Buscar contactos...',
+    'therapy.noContacts': 'No hay contactos disponibles.',
+    'therapy.appointmentPrefix': 'Cita de terapia',
     'therapy.subtitle': 'Espacio de trabajo de terapia y consulta',
     'therapy.patients': 'Clientes',
     'therapy.sessions': 'Sesiones',

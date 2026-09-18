@@ -1524,7 +1524,15 @@
     "calc.history_desc": "Les calculs sont archivés ici pour les devoirs et le suivi.",
     "lang_modal.auto_detect_banner_title": "⚡ Synchronisation automatique des fichiers de langue et drapeaux",
     "lang_modal.auto_detect_banner_desc": "Dès qu'un fichier de langue (.json) du dossier languages/ est mis à jour, SOCDOF le charge directement. Les images de drapeaux peuvent être placées dans le sous-dossier flags/ ; par défaut, l'émoji du pays ou le drapeau de secours avec un point d'interrogation est utilisé.",
-    "lang_modal.languages_available": "disponibles"
+    "lang_modal.languages_available": "disponibles",
+    "therapy.integrations": "Flux de travail connectés",
+    "therapy.integrationsDesc": "Les clients utilisent la liste de contacts commune. Les rendez-vous utilisent le calendrier commun. La facturation ouvre le processus de facture existant.",
+    "therapy.openCalendar": "Ouvrir le calendrier",
+    "therapy.openBilling": "Ouvrir la facturation",
+    "therapy.contactPicker": "Utiliser un contact existant",
+    "therapy.searchContacts": "Rechercher des contacts...",
+    "therapy.noContacts": "Aucun contact disponible.",
+    "therapy.appointmentPrefix": "Rendez-vous thérapeutique"
   },
   "therapy_practice": {
     "title": "Cabinet & Thérapie"

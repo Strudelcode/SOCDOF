@@ -1525,7 +1525,15 @@
     "calc.history_desc": "Ausgeführte Rechnungen werden hier für Hausaufgaben & Nachvollziehbarkeit archiviert.",
     "lang_modal.auto_detect_banner_title": "⚡ Automatische Übernahme von Sprachdateien & Flaggen",
     "lang_modal.auto_detect_banner_desc": "Sobald eine Sprachdatei (.json) im Ordner languages/ aktualisiert wird, übernimmt SOCDOF diese direkt. Eigene Flaggenbilder können im Unterordner flags/ hinterlegt werden; standardmäßig wird das Länder-Emoji oder die Flagge mit Fragezeichen verwendet.",
-    "lang_modal.languages_available": "verfügbar"
+    "lang_modal.languages_available": "verfügbar",
+    "therapy.integrations": "Verknüpfte Arbeitsabläufe",
+    "therapy.integrationsDesc": "Klienten verwenden die gemeinsame Kontaktliste. Termine verwenden den gemeinsamen Kalender. Die Abrechnung öffnet den bestehenden Rechnungsablauf.",
+    "therapy.openCalendar": "Kalender öffnen",
+    "therapy.openBilling": "Abrechnung öffnen",
+    "therapy.contactPicker": "Bestehenden Kontakt verwenden",
+    "therapy.searchContacts": "Kontakte suchen...",
+    "therapy.noContacts": "Keine Kontakte vorhanden.",
+    "therapy.appointmentPrefix": "Therapietermin"
   },
   "therapy_practice": {
     "title": "Praxis & Therapie"

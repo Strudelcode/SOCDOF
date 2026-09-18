@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Car, Check, Clock3, FileText, Plus, Search, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
+import { CalendarDays, Car, Check, Clock3, FileText, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
+import { Contact, Invoice, CalendarAppEvent } from '../types';
 import { useLanguage, t } from '../lib/i18n';
+import { getStoredCustomCalendarEvents, saveStoredCustomCalendarEvents } from '../lib/googleCalendar';
+import { db } from '../lib/db';
+import { getCurrentUser, AUTH_CHANGE_EVENT_NAME } from '../lib/auth';
 
 type Client = { id: string; name: string; birthDate: string; contact: string; notes: string; createdAt: string };
 type Session = { id: string; clientId: string; date: string; duration: number; template: string; intervention: string; progress: string };
@@ -9,31 +13,112 @@ type Trip = { id: string; date: string; departure: string; destination: string; 
 type Billing = { id: string; clientId: string; date: string; service: string; amount: number; status: 'draft' | 'ready' };
 
 const STORAGE_KEY = 'socdof_therapy_practice_v1';
+const BACKUP_LIMIT = 10;
 
 const emptyData = { clients: [] as Client[], sessions: [] as Session[], appointments: [] as Appointment[], trips: [] as Trip[], billing: [] as Billing[] };
 
-function loadData() {
+function loadLegacyData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...emptyData, ...JSON.parse(raw) } : emptyData;
-  } catch { return emptyData; }
+    return raw ? { ...emptyData, ...JSON.parse(raw) } : null;
+  } catch { return null; }
 }
 
-export const TherapyPracticeModule: React.FC = () => {
+interface TherapyPracticeModuleProps {
+  contacts: Contact[];
+  invoices: Invoice[];
+  onOpenCalendar: () => void;
+  onOpenInvoice: (contactId?: number) => void;
+}
+
+export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
+  contacts,
+  invoices,
+  onOpenCalendar,
+  onOpenInvoice
+}) => {
   const currentLang = useLanguage();
-  const [data, setData] = useState(loadData);
+  const [userId, setUserId] = useState(() => getCurrentUser()?.id ?? 'anonymous');
+  const [data, setData] = useState(() => loadLegacyData() ?? emptyData);
+  const hydratedUserRef = React.useRef<string | null>(null);
+  const persistedUserRef = React.useRef<string | null>(null);
   const [tab, setTab] = useState<'overview' | 'clients' | 'sessions' | 'appointments' | 'mileage' | 'billing'>('overview');
   const [query, setQuery] = useState('');
-  const [modal, setModal] = useState<null | 'client' | 'session' | 'appointment' | 'trip' | 'billing'>(null);
+  const [modal, setModal] = useState<null | 'client' | 'session' | 'appointment' | 'trip'>(null);
   const [selectedClient, setSelectedClient] = useState('');
+  useEffect(() => { persistedUserRef.current = null; }, [userId]);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [data]);
+  useEffect(() => {
+    const handleAuthChanged = () => setUserId(getCurrentUser()?.id ?? 'anonymous');
+    window.addEventListener(AUTH_CHANGE_EVENT_NAME, handleAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGE_EVENT_NAME, handleAuthChanged);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    hydratedUserRef.current = null;
+    setData(emptyData);
+    setSelectedClient('');
+    void (async () => {
+      const record = await db.therapy_practice.get(userId);
+      if (cancelled) return;
+      if (record?.data) {
+        setData({ ...emptyData, ...(record.data as typeof emptyData) });
+      } else {
+        const legacy = loadLegacyData();
+        if (legacy) {
+          await db.therapy_practice.put({
+            key: userId,
+            userId,
+            data: legacy,
+            updatedAt: new Date().toISOString()
+          });
+          await db.therapy_backups.put({
+            id: crypto.randomUUID(),
+            userId,
+            data: legacy,
+            createdAt: new Date().toISOString()
+          });
+          try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        }
+        const initialData = legacy ?? emptyData;
+        setData(initialData);
+        const now = new Date().toISOString();
+        await db.therapy_practice.put({ key: userId, userId, data: initialData, updatedAt: now });
+        await db.therapy_backups.put({ id: crypto.randomUUID(), userId, data: initialData, createdAt: now });
+      }
+      hydratedUserRef.current = userId;
+    })().catch(() => {
+      hydratedUserRef.current = userId;
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (hydratedUserRef.current !== userId || persistedUserRef.current === userId) return;
+    persistedUserRef.current = userId;
+    const persist = async () => {
+      const updatedAt = new Date().toISOString();
+      await db.therapy_practice.put({ key: userId, userId, data, updatedAt });
+      await db.therapy_backups.put({
+        id: crypto.randomUUID(),
+        userId,
+        data,
+        createdAt: updatedAt
+      });
+      const backups = await db.therapy_backups.where('userId').equals(userId).sortBy('createdAt');
+      if (backups.length > BACKUP_LIMIT) {
+        await db.therapy_backups.bulkDelete(backups.slice(0, backups.length - BACKUP_LIMIT).map(b => b.id));
+      }
+    };
+    void persist();
+  }, [data, userId]);
 
   const clients = useMemo(() => data.clients.filter(c => c.name.toLowerCase().includes(query.toLowerCase())), [data.clients, query]);
   const today = new Date().toISOString().slice(0, 10);
   const openAppointments = data.appointments.filter(a => a.date >= today && a.status === 'scheduled').length;
   const mileageTotal = data.trips.reduce((s, t) => s + Math.max(0, t.endKm - t.startKm), 0);
-  const billingTotal = data.billing.reduce((s, b) => s + b.amount, 0);
+  const billingTotal = invoices.reduce((s, invoice) => s + (invoice.total || 0), 0);
 
   const add = (kind: NonNullable<typeof modal>, value: any) => {
     const id = crypto.randomUUID();
@@ -43,8 +128,38 @@ export const TherapyPracticeModule: React.FC = () => {
     setModal(null);
   };
 
+  const createAppointmentCalendarEvent = (value: any) => {
+    const client = data.clients.find(c => c.id === value.clientId);
+    const event: CalendarAppEvent = {
+      id: `therapy_${crypto.randomUUID()}`,
+      title: `${t('therapy.appointmentPrefix', currentLang)}: ${client?.name || t('therapy.patient', currentLang)}`,
+      description: value.notes || '',
+      startDate: value.date,
+      endDate: value.date,
+      isAllDay: true,
+      category: 'customer',
+      source: 'local',
+      createdAt: new Date().toISOString()
+    };
+    saveStoredCustomCalendarEvents([...getStoredCustomCalendarEvents(), event]);
+    window.dispatchEvent(new Event('socdof:calendar-updated'));
+    return event.id;
+  };
+
+  const saveAppointment = (value: any) => {
+    const calendarEventId = createAppointmentCalendarEvent(value);
+    add('appointment', { ...value, calendarEventId });
+  };
+
   const remove = (kind: 'clients' | 'sessions' | 'appointments' | 'trips' | 'billing', id: string) => {
     if (!window.confirm(t('therapy.confirmDelete', currentLang))) return;
+    if (kind === 'appointments') {
+      const appointment = data.appointments.find(a => a.id === id);
+      if (appointment?.calendarEventId) {
+        saveStoredCustomCalendarEvents(getStoredCustomCalendarEvents().filter(e => e.id !== appointment.calendarEventId));
+        window.dispatchEvent(new Event('socdof:calendar-updated'));
+      }
+    }
     setData(prev => ({ ...prev, [kind]: prev[kind].filter((x: any) => x.id !== id) }));
   };
 
@@ -58,7 +173,6 @@ export const TherapyPracticeModule: React.FC = () => {
             <h1 className="text-xl font-black tracking-tight">{t('therapy.title', currentLang)}</h1>
             <p className="text-xs text-slate-500 mt-1">{t('therapy.subtitle', currentLang)}</p>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"><ShieldCheck className="w-4 h-4" />{t('therapy.encrypted', currentLang)}</div>
         </div>
         <div className="mt-3 sm:mt-4 flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
           {([
@@ -91,9 +205,12 @@ export const TherapyPracticeModule: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">{['intake','standard','crisis','finalReport'].map(k => <button key={k} onClick={() => { setTab('sessions'); setModal('session'); }} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700">{t(`therapy.${k}`, currentLang)}</button>)}</div>
               </section>
               <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
-                <h2 className="font-bold mb-3">{t('therapy.privacy', currentLang)}</h2>
-                <p className="text-xs text-slate-500 leading-relaxed">{t('therapy.privacy', currentLang)}</p>
-                <div className="mt-4 flex items-center gap-2 text-xs text-emerald-600"><ShieldCheck className="w-4 h-4" />{t('therapy.encrypted', currentLang)}</div>
+                <h2 className="font-bold mb-3">{t('therapy.integrations', currentLang)}</h2>
+                <p className="text-xs text-slate-500 leading-relaxed">{t('therapy.integrationsDesc', currentLang)}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button onClick={onOpenCalendar} className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold flex items-center gap-2"><CalendarDays className="w-4 h-4" />{t('therapy.openCalendar', currentLang)}</button>
+                  <button onClick={() => onOpenInvoice()} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-2"><FileText className="w-4 h-4" />{t('therapy.openBilling', currentLang)}</button>
+                </div>
               </section>
             </div>
           </>
@@ -108,6 +225,7 @@ export const TherapyPracticeModule: React.FC = () => {
         </ListShell>}
 
         {tab === 'appointments' && <ListShell title={t('therapy.appointments', currentLang)} action={t('therapy.newAppointment', currentLang)} onAdd={() => setModal('appointment')}>
+          <div className="flex justify-end -mt-2 mb-2"><button onClick={onOpenCalendar} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" />{t('therapy.openCalendar', currentLang)}</button></div>
           {data.appointments.length === 0 ? <Empty text={t('therapy.emptyAppointments', currentLang)} /> : data.appointments.map(a => <Row key={a.id} icon={<CalendarDays className="w-4 h-4" />} title={clientName(a.clientId)} subtitle={`${a.date} · ${t(`therapy.${a.status}`, currentLang)}`} onDelete={() => remove('appointments', a.id)} />)}
         </ListShell>}
 
@@ -116,12 +234,12 @@ export const TherapyPracticeModule: React.FC = () => {
           <div className="text-xs text-slate-500 pt-2">{mileageTotal.toFixed(1)} km</div>
         </ListShell>}
 
-        {tab === 'billing' && <ListShell title={t('therapy.billing', currentLang)} action={t('therapy.create', currentLang)} onAdd={() => setModal('billing')}>
-          {data.billing.length === 0 ? <Empty text={t('therapy.emptyBilling', currentLang)} /> : data.billing.map(b => <Row key={b.id} icon={<FileText className="w-4 h-4" />} title={clientName(b.clientId)} subtitle={`${b.date} · ${b.service} · € ${b.amount.toFixed(2)}`} onDelete={() => remove('billing', b.id)} />)}
+        {tab === 'billing' && <ListShell title={t('therapy.billing', currentLang)} action={t('therapy.create', currentLang)} onAdd={() => onOpenInvoice()}>
+          {invoices.length === 0 ? <Empty text={t('therapy.emptyBilling', currentLang)} /> : invoices.slice(0, 20).map(invoice => <Row key={String(invoice.id)} icon={<FileText className="w-4 h-4" />} title={invoice.contact_name || invoice.contact_company || invoice.number} subtitle={`${invoice.date} · ${invoice.number} · € ${(invoice.total || 0).toFixed(2)} · ${invoice.status}`} onDelete={undefined} />)}
         </ListShell>}
       </div>
 
-      {modal && <Modal kind={modal} clients={data.clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} onClose={() => setModal(null)} onSave={add} />}
+      {modal && <Modal kind={modal} clients={data.clients} contacts={contacts} selectedClient={selectedClient} setSelectedClient={setSelectedClient} onClose={() => setModal(null)} onSave={(kind, value) => kind === 'appointment' ? saveAppointment(value) : add(kind, value)} />}
     </div>
   );
 };
@@ -133,15 +251,32 @@ const ListShell = ({ title, action, onAdd, search, value, onSearch, children }: 
   return <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4"><div className="flex flex-wrap gap-2 items-center mb-4"><h2 className="font-bold flex-1">{title}</h2>{search && <div className="relative"><Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" /><input value={value} onChange={e => onSearch(e.target.value)} placeholder={t('therapy.search', currentLang)} className="pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none" /></div>}<button onClick={onAdd} className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold flex items-center gap-2"><Plus className="w-4 h-4" />{action}</button></div><div className="space-y-2">{children}</div></section>;
 };
 
-function Modal({ kind, clients, onClose, onSave }: any) {
+function Modal({ kind, clients, contacts, selectedClient, setSelectedClient, onClose, onSave }: any) {
   const currentLang = useLanguage();
   const [form, setForm] = useState<any>({ date: new Date().toISOString().slice(0,10), duration: 50, rate: 0, startKm: 0, endKm: 0, status: 'scheduled', template: 'standard' });
+  const [contactSearch, setContactSearch] = useState('');
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
+  const selectContact = (id: string) => {
+    const contact = contacts.find((c: Contact) => String(c.id) === id);
+    set('contactId', contact?.id);
+    set('name', contact?.name || '');
+    set('contact', contact?.phone || contact?.email || '');
+    setContactSearch(contact?.name || '');
+  };
+  const contactPicker = kind === 'client' ? <div className="space-y-2">
+    <label className="text-xs font-semibold text-slate-500">{t('therapy.contactPicker', currentLang)}</label>
+    <div className="relative"><Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" /><input value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder={t('therapy.searchContacts', currentLang)} className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none" /></div>
+    <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+      {contacts.filter((c: Contact) => (c.name || '').toLowerCase().includes(contactSearch.toLowerCase())).slice(0, 8).map((c: Contact) => <button type="button" key={c.id} onClick={() => selectContact(String(c.id))} className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 ${String(form.contactId) === String(c.id) ? 'bg-slate-100 dark:bg-slate-800 font-bold' : ''}`}><span className="font-semibold">{c.name}</span><span className="block text-slate-500">{c.company || c.email || c.phone || ''}</span></button>)}
+      {contacts.length === 0 && <div className="p-3 text-xs text-slate-400">{t('therapy.noContacts', currentLang)}</div>}
+    </div>
+  </div> : null;
+  const clientPicker = <select value={form.clientId ?? selectedClient ?? ''} onChange={e => { set('clientId', e.target.value); setSelectedClient(e.target.value); }} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="">— {t('therapy.patient', currentLang)} —</option>{clients.map((c: Client) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>;
   const input = (k: string, placeholder = '') => <input type={k === 'date' ? 'date' : ['duration', 'startKm', 'endKm', 'rate', 'amount'].includes(k) ? 'number' : 'text'} value={form[k] ?? ''} onChange={e => set(k, e.target.value)} placeholder={placeholder} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none" />;
   const selectClient = <select value={form.clientId ?? ''} onChange={e => set('clientId', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="">—</option>{clients.map((c: Client) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>;
-  const fields = kind === 'client' ? <>{input('name', t('therapy.name', currentLang))}{input('birthDate', t('therapy.birthDate', currentLang))}{input('contact', t('therapy.contact', currentLang))}{input('notes', t('therapy.notes', currentLang))}</> :
-    kind === 'session' ? <>{selectClient}{input('date')}{input('duration')}{<select value={form.template} onChange={e => set('template', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="intake">{t('therapy.intake', currentLang)}</option><option value="standard">{t('therapy.standard', currentLang)}</option><option value="crisis">{t('therapy.crisis', currentLang)}</option><option value="finalReport">{t('therapy.finalReport', currentLang)}</option></select>}{input('intervention', t('therapy.intervention', currentLang))}{input('progress', t('therapy.progress', currentLang))}</> :
-    kind === 'appointment' ? <>{selectClient}{input('date')}{<select value={form.status} onChange={e => set('status', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="scheduled">{t('therapy.scheduled', currentLang)}</option><option value="attended">{t('therapy.attended', currentLang)}</option><option value="cancelled">{t('therapy.cancelled', currentLang)}</option><option value="missed">{t('therapy.missed', currentLang)}</option></select>}{input('notes', t('therapy.notes', currentLang))}</> :
+  const fields = kind === 'client' ? <>{contactPicker}{input('name', t('therapy.name', currentLang))}{input('birthDate', t('therapy.birthDate', currentLang))}{input('contact', t('therapy.contact', currentLang))}{input('notes', t('therapy.notes', currentLang))}</> :
+    kind === 'session' ? <>{clientPicker}{input('date')}{input('duration')}{<select value={form.template} onChange={e => set('template', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="intake">{t('therapy.intake', currentLang)}</option><option value="standard">{t('therapy.standard', currentLang)}</option><option value="crisis">{t('therapy.crisis', currentLang)}</option><option value="finalReport">{t('therapy.finalReport', currentLang)}</option></select>}{input('intervention', t('therapy.intervention', currentLang))}{input('progress', t('therapy.progress', currentLang))}</> :
+    kind === 'appointment' ? <>{clientPicker}{input('date')}{<select value={form.status} onChange={e => set('status', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="scheduled">{t('therapy.scheduled', currentLang)}</option><option value="attended">{t('therapy.attended', currentLang)}</option><option value="cancelled">{t('therapy.cancelled', currentLang)}</option><option value="missed">{t('therapy.missed', currentLang)}</option></select>}{input('notes', t('therapy.notes', currentLang))}</> :
     kind === 'trip' ? <>{input('date')}{input('departure', t('therapy.departure', currentLang))}{input('destination', t('therapy.destination', currentLang))}{input('purpose', t('therapy.purpose', currentLang))}{input('startKm')}{input('endKm')}{input('rate')}</> :
     <>{selectClient}{input('date')}{input('service', t('therapy.service', currentLang))}{input('amount')}</>;
   return <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" onMouseDown={onClose}><div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-3" onMouseDown={e => e.stopPropagation()}><div className="flex items-center"><h3 className="font-bold flex-1">{kind === 'client' ? t('therapy.newPatient', currentLang) : kind === 'session' ? t('therapy.newSession', currentLang) : kind === 'appointment' ? t('therapy.newAppointment', currentLang) : kind === 'trip' ? t('therapy.newTrip', currentLang) : t('therapy.billing', currentLang)}</h3><button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-4 h-4" /></button></div><div className="space-y-2">{fields}</div><div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 sticky bottom-0 bg-white dark:bg-slate-900 pb-1"><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold">{t('therapy.cancel', currentLang)}</button><button onClick={() => onSave(kind, form)} className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold"><Check className="w-4 h-4 inline mr-1" />{t('therapy.save', currentLang)}</button></div></div></div>;
