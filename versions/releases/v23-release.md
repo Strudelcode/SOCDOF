@@ -1,9 +1,17 @@
-# SOCDOF v23.1.0 Release Notes
+# SOCDOF v23.2.1 Release Notes
 
 **Release date:** 2026-09-18  
-**Version:** v23.1.0  
-**Channel:** Major feature release  
+**Version:** v23.2.1  
+**Channel:** Patch release following v23.2.0  
 **Platform:** Windows Desktop (Electron) and offline web workspace
+
+## Settings-Centered User Management Cleanup
+
+- Removed the redundant Start menu account/profile shortcut.
+- Centralized local user administration in **Settings → Users & Accounts** for active administrators.
+- Corrected EN/DE/FR/ES Users & Accounts translation mapping while preserving the v23.2.0 Therapy Practice module and localization.
+- Included the sign-in loading transition and dark-mode hover compatibility fix.
+
 
 ## Windows-Style Login & Lock Screen
 
