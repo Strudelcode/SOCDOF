@@ -7,7 +7,7 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
-## v23.1.0
+## v23.1.1\n\n### Users & Accounts\n- Removed the redundant Start menu account/profile shortcut.\n- Kept user administration centralized in Settings under Users & Accounts for active administrators.\n- Fixed the EN/DE/FR/ES Users & Accounts translation mapping.\n\n## v23.1.0
 
 ### Authentication / Login
 - Redesigned the initial sign-in and workstation lock screens as a Windows-style full-screen experience.
