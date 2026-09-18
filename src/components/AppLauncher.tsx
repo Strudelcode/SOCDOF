@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Calculator,
   BookOpen,
-  Utensils
+  Utensils,
+  Briefcase
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -172,6 +173,15 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       color: 'bg-gradient-to-br from-amber-600 to-amber-800',
       badge: `${stockMoveCount} Buchungen`,
       badgeColor: 'bg-amber-100 text-amber-800'
+    },
+    {
+      id: 'therapy_practice',
+      name: t('module.therapy_practice', currentLang, 'Praxis & Therapie'),
+      category: t('cat.productivity', currentLang, 'Produktivität'),
+      description: t('desc.therapy_practice', currentLang, 'Klienten, Sitzungen, Termine, Fahrtenbuch & Abrechnung'),
+      icon: Briefcase,
+      color: 'bg-slate-700',
+      badge: undefined
     },
     {
       id: 'calculator',
