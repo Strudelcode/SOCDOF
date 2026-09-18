@@ -1525,5 +1525,8 @@
     "lang_modal.auto_detect_banner_title": "⚡ Sincronización automática de archivos de idioma y banderas",
     "lang_modal.auto_detect_banner_desc": "Tan pronto como se actualice un archivo de idioma (.json) en la carpeta languages/, SOCDOF lo carga directamente. Las imágenes de banderas personalizadas se pueden colocar en la subcarpeta flags/; por defecto, se utiliza el emoji del país o la bandera de reserva con signo de interrogación.",
     "lang_modal.languages_available": "disponibles"
+  },
+  "therapy_practice": {
+    "title": "Consulta y terapia"
   }
 }
