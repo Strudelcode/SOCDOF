@@ -1350,5 +1350,6 @@ export const DocumentationApp: React.FC = () => {
         )}
       </div>
     </div>
+    </div>
   );
 };
