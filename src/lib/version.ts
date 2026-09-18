@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.1.0';
+export const APP_VERSION = '23.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.2.0',
+    date: '2026-09-18',
+    title: 'Therapy Practice Workspace',
+    highlights: [
+      'Added an offline-first Practice workspace for client records, therapy sessions, appointments, mileage tracking, and billing drafts.',
+      'Added structured session templates for initial interviews, standard sessions, crisis interventions, and final reports.',
+      'Added the Practice module to the App Store, launcher, command palette, and desktop window system.',
+      'Added English, German, French, and Spanish localization for the new module.'
+    ]
+  },
   {
     version: '23.1.0',
     date: '2026-09-18',
