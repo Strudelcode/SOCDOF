@@ -616,7 +616,7 @@ export type DesktopWidgetType =
   | 'quick_actions'
   | 'stock_alert'
   | 'cashflow'
-  | 'calculator';
+  | 'calculator'\n  | 'therapy_practice';
 
 export interface DesktopWidget {
   id: string;
