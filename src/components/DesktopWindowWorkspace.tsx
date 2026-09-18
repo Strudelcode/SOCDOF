@@ -2928,7 +2928,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 <TherapyPracticeModule
                   contacts={contacts}
                   invoices={invoices}
-                  onRefreshData={onRefreshData}
                   onOpenCalendar={() => openWindow('calendar', t('module.calendar', currentLang, 'Kalender'))}
                   onOpenInvoice={(contactId) => openWindow('invoices', contactId ? `Rechnung für Kontakt` : undefined, { isCreateOpen: true, contactId })}
                 />
