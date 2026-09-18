@@ -20,6 +20,8 @@ export class LocalOdooDB extends Dexie {
   pos_orders!: Table<POSOrder, number>;
   chatter_messages!: Table<ChatterMessage, number>;
   settings!: Table<{ key: string; value: unknown }, string>;
+  therapy_practice!: Table<{ key: string; userId: string; data: unknown; updatedAt: string }, string>;
+  therapy_backups!: Table<{ id: string; userId: string; data: unknown; createdAt: string }, string>;
 
   constructor() {
     super('LocalOdooERP_DB');
@@ -33,6 +35,18 @@ export class LocalOdooDB extends Dexie {
       pos_orders: '++id, receipt_number, date, total, payment_method',
       chatter_messages: '++id, [res_model+res_id], created_at',
       settings: 'key'
+    });
+    this.version(3).stores({
+      contacts: '++id, name, email, phone, company, type, createdAt',
+      products: '++id, name, sku, barcode, sale_price, cost_price, qty_available, category, min_qty',
+      stock_moves: '++id, product_id, qty, source_location, dest_location, date, reference',
+      invoices: '++id, contact_id, number, date, due_date, status, type, total, sent_at, paid_at',
+      purchase_orders: '++id, vendor_id, number, order_date, status, total',
+      pos_orders: '++id, receipt_number, date, total, payment_method',
+      chatter_messages: '++id, [res_model+res_id], created_at',
+      settings: 'key',
+      therapy_practice: 'key, userId, updatedAt',
+      therapy_backups: 'id, userId, createdAt'
     });
   }
 }
