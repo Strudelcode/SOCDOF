@@ -2923,7 +2923,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 />
               )}
 
-              {win.module === 'therapy_practice' && (\n                <TherapyPracticeModule />\n              )}\n\n              {win.module === 'calculator' && (
+              {win.module === 'therapy_practice' && (
+                <TherapyPracticeModule />
+              )}
+
+              {win.module === 'calculator' && (
                 <CalculatorModule
                   isAlwaysOnTop={win.isAlwaysOnTop}
                   onToggleAlwaysOnTop={() => toggleAlwaysOnTop(win.id)}
