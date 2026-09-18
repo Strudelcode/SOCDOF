@@ -3194,36 +3194,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const target = currentAuthUser?.role === 'admin' ? 'users' : 'general';
-                  handleOpenSettings(target);
-                  setIsStartMenuOpen(false);
-                  closeAllContextMenus();
-                }}
-                title={currentAuthUser?.role === 'admin'
-                  ? t('desktop.start_admin_settings', currentLang, 'Benutzer & Konten')
-                  : t('desktop.start_account_settings', currentLang, 'Kontoeinstellungen')}
-                className="flex items-center gap-2.5 min-w-0 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer group"
-              >
-                <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden" style={{ backgroundColor: 'var(--accent, #4f46e5)' }}>
-                  {currentAuthUser?.avatar?.startsWith('data:image/')
-                    ? <img src={currentAuthUser.avatar} alt="" className="w-full h-full object-cover" />
-                    : currentAuthUser?.avatar ?? <User className="w-4 h-4 text-white" />}
-                </div>
-                <div className="min-w-0 flex flex-col">
-                  <span className="text-xs font-bold truncate max-w-[145px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    {currentAuthUser?.displayName || company?.name || t('company.default_name', currentLang, 'Ihr Firmenname')}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                    {currentAuthUser?.role === 'admin' ? t('auth.admin', currentLang, 'Administrator') : t('auth.user', currentLang, 'Benutzer')}
-                  </span>
-                </div>
-              </button>
-
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-end gap-1">
                 <button type="button" onClick={handleToggleFullscreen} title={isFullscreen ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`} className={`p-2 rounded-xl transition cursor-pointer ${isFullscreen ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                   {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
