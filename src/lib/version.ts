@@ -22,7 +22,8 @@ export const VERSION_HISTORY: VersionRelease[] = [
       'Added local account creation, profile editing, roles, account types, avatars, auto-lock preferences, password resets, and sign-in security controls.',
       'Moved lock, user switching, sign-out, workspace restart, and application close actions into the SOCDOF Start menu power control.',
       'Removed the redundant always-visible account management overlay and kept user controls within the desktop Start menu and Settings experience.',
-      'Extended the user-facing documentation and synchronized English, German, French, and Spanish UI translations.'
+      'Extended the user-facing documentation and synchronized English, German, French, and Spanish UI translations.',
+      'Hardened system-wide Light/Dark rendering across legacy surfaces and added a responsive Windows System theme mode.'
     ]
   },
 
