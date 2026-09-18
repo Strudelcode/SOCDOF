@@ -1525,5 +1525,8 @@
     "lang_modal.auto_detect_banner_title": "⚡ Synchronisation automatique des fichiers de langue et drapeaux",
     "lang_modal.auto_detect_banner_desc": "Dès qu'un fichier de langue (.json) du dossier languages/ est mis à jour, SOCDOF le charge directement. Les images de drapeaux peuvent être placées dans le sous-dossier flags/ ; par défaut, l'émoji du pays ou le drapeau de secours avec un point d'interrogation est utilisé.",
     "lang_modal.languages_available": "disponibles"
+  },
+  "therapy_practice": {
+    "title": "Cabinet & Thérapie"
   }
 }
