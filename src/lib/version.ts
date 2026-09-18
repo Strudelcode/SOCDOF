@@ -14,6 +14,16 @@ export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '23.2.1',
+    date: '2026-09-18',
+    title: 'Settings-Centered User Management Cleanup',
+    highlights: [
+      'Removed the redundant Start menu account/profile shortcut and kept local user administration centralized in Settings under Users & Accounts for active administrators.',
+      'Corrected the EN/DE/FR/ES Users & Accounts translation mapping without replacing the existing Therapy Practice localization.',
+      'Added the polished sign-in loading transition and dark-mode hover selector fix to the current v23.2.x code line.'
+    ]
+  },
+  {
     version: '23.2.0',
     date: '2026-09-18',
     title: 'Therapy Practice Workspace',
