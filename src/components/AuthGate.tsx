@@ -25,7 +25,8 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
-import { SUPPORTED_LANGUAGES, getRecoveryQuestionLabel, setLanguage, t, useLanguage, type LanguageCode } from '../lib/i18n';
+import { SUPPORTED_LANGUAGES, formatSystemDate, formatSystemTime, getRecoveryQuestionLabel, setLanguage, t, useLanguage, type LanguageCode } from '../lib/i18n';
+import type { CompanyProfile } from '../types';
 
 const getAuthCopy = (lang: LanguageCode) => ({
   welcome: t('auth.welcome', lang),
@@ -50,6 +51,8 @@ const getAuthCopy = (lang: LanguageCode) => ({
   lock: t('auth.lock', lang),
   logout: t('auth.logout', lang),
   switchUser: t('auth.switchUser', lang),
+  otherUser: t('auth.otherUser', lang),
+  otherUserDesc: t('auth.otherUserDesc', lang),
   unlock: t('auth.unlock', lang),
   lockedTitle: t('auth.lockedTitle', lang),
   lockedDesc: t('auth.lockedDesc', lang),
@@ -100,7 +103,7 @@ type AuthText = ReturnType<typeof getAuthCopy>;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({ children, company }: { children: React.ReactNode; company: CompanyProfile }) {
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [languageReady, setLanguageReady] = useState(() => typeof localStorage === 'undefined' || localStorage.getItem('socdof_language_initialized') === 'true');
   const [session, setSession] = useState(() => getSession());
@@ -140,7 +143,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!languageReady) return <LanguageSelectionScreen onSelected={() => setLanguageReady(true)} />;
   if (!hasUsers()) return <FirstAccount text={text} onCreated={refresh} />;
-  if (!session || !currentUser) return <LoginScreen text={text} users={users} onLogin={login} />;
+  if (!session || !currentUser) return <LoginScreen text={text} users={users} company={company} onLogin={login} />;
   if (currentUser.mustChangePassword) return <ForcedPasswordScreen text={text} user={currentUser} onDone={refresh} onLogout={logout} />;
   if (locked) return <LockScreen text={text} user={currentUser} users={users} onUnlock={login} onSwitch={logout} />;
   return <div className="relative w-full h-full">{children}</div>;
@@ -190,14 +193,201 @@ function FirstAccount({ text, onCreated }: { text: AuthText; onCreated: () => vo
   return <AuthShell title={text.welcome} subtitle={text.setup}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} placeholder={text.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.confirm} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setForm({ ...form, accountType: 'personal' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'personal' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.personal}</button><button type="button" onClick={() => setForm({ ...form, accountType: 'business' })} className={`rounded-xl border p-3 text-left ${form.accountType === 'business' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-white/10'}`}>{text.business}</button></div><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} type="button" onClick={() => setForm({ ...form, avatar })} className={`w-9 h-9 rounded-xl border ${form.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><select className={fieldClass} value={form.recoveryQuestion} onChange={(e) => setForm({ ...form, recoveryQuestion: e.target.value })}>{RECOVERY_QUESTIONS.map((question) => <option key={question} value={question}>{getRecoveryQuestionLabel(question, lang)}</option>)}</select><input className={fieldClass} placeholder={text.recoveryAnswer} value={form.recoveryAnswer} onChange={(e) => setForm({ ...form, recoveryAnswer: e.target.value })} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.create}</button></form></AuthShell>;
 }
 
-function LoginScreen({ text, users, onLogin }: { text: AuthText; users: UserAccount[]; onLogin: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }> }) {
-  const [selected, setSelected] = useState(users.find((user) => user.active)?.username ?? users[0]?.username ?? '');
-  const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [lockedUntil, setLockedUntil] = useState<number | undefined>(); const [recover, setRecover] = useState(false);
-  useEffect(() => { const timer = window.setInterval(() => { const user = getUserByUsername(selected); setLockedUntil(user?.lockedUntil); }, 500); return () => window.clearInterval(timer); }, [selected]);
+function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClass = size === 'lg' ? 'w-24 h-24' : size === 'sm' ? 'w-11 h-11' : 'w-16 h-16';
+  const iconSize = size === 'lg' ? 38 : size === 'sm' ? 19 : 28;
+  return (
+    <div className={`\${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg`}>
+      {user.avatar?.startsWith('data:image/') ? (
+        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <UserRound size={iconSize} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+      )}
+    </div>
+  );
+}
+
+function LoginBackdrop({
+  company,
+  wallpaper,
+  children,
+}: {
+  company: CompanyProfile;
+  wallpaper?: string;
+  children: React.ReactNode;
+}) {
+  const now = new Date();
+  const background = wallpaper || company.desktop_wallpaper_url;
+  return (
+    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white">
+      {background ? (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute -inset-6 bg-cover bg-center scale-105 blur-[18px]"
+            style={{ backgroundImage: `url("${background}")` }}
+          />
+          <div aria-hidden="true" className="absolute inset-0 bg-black/35" />
+          <div aria-hidden="true" className="absolute inset-0 bg-slate-950/25 backdrop-blur-[2px]" />
+        </>
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+      )}
+
+      <div className="absolute top-8 left-0 right-0 text-center pointer-events-none select-none">
+        <div className="text-5xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
+          {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
+        </div>
+        <div className="mt-2 text-sm sm:text-base text-white/80 drop-shadow-lg">
+          {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
+        </div>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+function LoginScreen({
+  text,
+  users,
+  company,
+  onLogin,
+}: {
+  text: AuthText;
+  users: UserAccount[];
+  company: CompanyProfile;
+  onLogin: (u: string, p: string) => Promise<{ ok: boolean; reason?: string; retryAt?: number }>;
+}) {
+  const activeUsers = users.filter((user) => user.active);
+  const [selected, setSelected] = useState(activeUsers[0]?.username ?? '');
+  const [otherUser, setOtherUser] = useState(false);
+  const [username, setUsername] = useState(activeUsers[0]?.username ?? '');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [lockedUntil, setLockedUntil] = useState<number | undefined>();
+  const [recover, setRecover] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const user = otherUser ? null : getUserByUsername(selected);
+      setLockedUntil(user?.lockedUntil);
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [selected, otherUser]);
+
   if (recover) return <RecoveryScreen text={text} users={users} onBack={() => setRecover(false)} />;
-  const remaining = lockedUntil ? getLockoutRemaining(getUserByUsername(selected)) : 0;
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); const result = await onLogin(selected, password); if (!result.ok) { setLockedUntil(result.retryAt); setError(result.reason === 'inactive' ? text.inactive : result.reason === 'locked' ? text.locked : text.invalid); } else setError(''); };
-  return <AuthShell title={text.login} subtitle="SOCDOF"><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={selected} onChange={(e) => { setSelected(e.target.value); setPassword(''); setError(''); }}>{users.map((user) => <option key={user.id} value={user.username} disabled={!user.active}>{user.avatar ?? '●'} {user.displayName} · {user.username}{!user.active ? ` · ${text.disabled}` : ''}</option>)}</select><input autoFocus className={fieldClass} type="password" placeholder={text.password} value={password} onChange={(e) => setPassword(e.target.value)} disabled={remaining > 0} />{remaining > 0 && <p className="text-sm text-amber-600">{text.retry} {Math.ceil(remaining / 1000)}s</p>}{error && <p className="text-sm text-red-600">{error}</p>}<button disabled={remaining > 0} className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"><LogIn size={17} />{text.login}</button><button type="button" onClick={() => setRecover(true)} className="w-full text-sm text-indigo-600 hover:underline">{text.forgot}</button></form></AuthShell>;
+
+  const selectedUser = otherUser ? null : getUserByUsername(selected);
+  const remaining = lockedUntil ? getLockoutRemaining(selectedUser) : 0;
+  const loginUsername = otherUser ? username.trim() : selected;
+
+  const chooseUser = (nextUsername: string) => {
+    setOtherUser(false);
+    setSelected(nextUsername);
+    setUsername(nextUsername);
+    setPassword('');
+    setError('');
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!loginUsername) return setError(text.required);
+    const result = await onLogin(loginUsername, password);
+    if (!result.ok) {
+      setLockedUntil(result.retryAt);
+      setError(result.reason === 'inactive' ? text.inactive : result.reason === 'locked' ? text.locked : text.invalid);
+    } else {
+      setError('');
+    }
+  };
+
+  return (
+    <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
+      <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center text-center">
+            {selectedUser ? (
+              <AuthAvatar user={selectedUser} size="lg" />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg">
+                <UserRound size={38} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+              </div>
+            )}
+
+            <h1 className="mt-5 text-2xl font-medium drop-shadow-xl">
+              {selectedUser?.displayName || text.otherUser}
+            </h1>
+            {otherUser && <p className="mt-1 text-sm text-white/65">{text.otherUserDesc}</p>}
+
+            <form onSubmit={submit} className="w-full mt-5 space-y-3">
+              {otherUser && (
+                <input
+                  autoFocus
+                  className="w-full rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                  placeholder={text.username}
+                  value={username}
+                  onChange={(event) => { setUsername(event.target.value); setError(''); }}
+                />
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  autoFocus={!otherUser}
+                  className="flex-1 rounded-xl border border-white/20 bg-black/25 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40"
+                  type="password"
+                  placeholder={text.password}
+                  value={password}
+                  onChange={(event) => { setPassword(event.target.value); setError(''); }}
+                  disabled={remaining > 0}
+                />
+                <button
+                  disabled={remaining > 0}
+                  className="w-12 rounded-xl bg-white text-slate-900 flex items-center justify-center shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={text.login}
+                  aria-label={text.login}
+                >
+                  <LogIn size={19} />
+                </button>
+              </div>
+
+              {remaining > 0 && <p className="text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
+              {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
+              <button type="button" onClick={() => setRecover(true)} className="text-sm text-white/75 hover:text-white hover:underline drop-shadow">
+                {text.forgot}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute left-5 bottom-5 flex items-end gap-3 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+        {activeUsers.map((user) => (
+          <button
+            key={user.id}
+            type="button"
+            onClick={() => chooseUser(user.username)}
+            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+            title={user.displayName}
+          >
+            <AuthAvatar user={user} size="sm" />
+            <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{user.displayName}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => { setOtherUser(true); setSelected(''); setUsername(''); setPassword(''); setError(''); }}
+          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+          title={text.otherUser}
+        >
+          <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+            <UserRound size={19} className="text-white/75" />
+          </div>
+          <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{text.otherUser}</span>
+        </button>
+      </div>
+    </LoginBackdrop>
+  );
 }
 
 function ForcedPasswordScreen({ text, user, onDone, onLogout }: { text: AuthText; user: UserAccount; onDone: () => void; onLogout: () => void }) {
