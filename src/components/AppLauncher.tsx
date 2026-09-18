@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Calculator,
   BookOpen,
-  Utensils
+  Utensils,
+  Briefcase
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
