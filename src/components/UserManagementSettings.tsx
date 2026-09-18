@@ -26,7 +26,7 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
-import { t, useLanguage } from '../lib/i18n';
+import { getRecoveryQuestionLabel, t, useLanguage } from '../lib/i18n';
 
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
@@ -301,7 +301,7 @@ export const UserManagementSettings: React.FC = () => {
                     <option value="business">{labels.business}</option>
                   </select>
                   <select className={fieldClass} value={newUser.recoveryQuestion} onChange={e => setNewUser({ ...newUser, recoveryQuestion: e.target.value })}>
-                    {RECOVERY_QUESTIONS.map(question => <option key={question} value={question}>{question}</option>)}
+                    {RECOVERY_QUESTIONS.map(question => <option key={question} value={question}>{getRecoveryQuestionLabel(question, lang)}</option>)}
                   </select>
                   <input className={fieldClass} placeholder={labels.recoveryAnswer} value={newUser.recoveryAnswer} onChange={e => setNewUser({ ...newUser, recoveryAnswer: e.target.value })} />
                 </div>
