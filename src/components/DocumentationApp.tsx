@@ -223,6 +223,14 @@ export const DocumentationApp: React.FC = () => {
           </ul>
 
           <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+            {getLoc({ de: 'Designmodus & systemweites Dark Mode', en: 'Theme Mode & System-Wide Dark Mode', fr: 'Mode de thème & mode sombre système', es: 'Modo de tema y modo oscuro del sistema' })}
+          </h4>
+          <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li>{getLoc({ de: 'Unter Einstellungen → Personalisierung stehen Hellmodus, Dunkelmodus und Systemmodus zur Verfügung. Der Systemmodus folgt automatisch der Hell-/Dunkeleinstellung von Windows.', en: 'Settings → Personalization provides Light, Dark, and System modes. System mode follows the Windows light/dark appearance setting automatically.', fr: 'Dans Paramètres → Personnalisation, les modes clair, sombre et système sont disponibles. Le mode système suit automatiquement le réglage clair/sombre de Windows.', es: 'En Configuración → Personalización están disponibles los modos claro, oscuro y sistema. El modo sistema sigue automáticamente la configuración claro/oscuro de Windows.' })}</li>
+            <li>{getLoc({ de: 'Das Dark-Mode-Kompatibilitätslayer korrigiert ältere hellcodierte Oberflächen für Desktop-Hintergrund, Taskleiste, Startmenü, Suchfelder, Kontextmenüs, Fenster, Module, Einstellungen, Dashboard, Tabellen, Karten, Dialoge, Dropdowns, Eingaben, Buttons, Texte, Rahmen, Hover-Zustände, Scrollbars und Benachrichtigungen.', en: 'The dark-mode compatibility layer normalizes legacy light-only surfaces across the desktop background, taskbar, Start menu, search fields, context menus, windows, modules, settings, dashboard, tables, cards, dialogs, dropdowns, inputs, buttons, text, borders, hover states, scrollbars, and notifications.', fr: 'La couche de compatibilité du mode sombre harmonise les anciennes surfaces uniquement claires sur le bureau, la barre des tâches, le menu Démarrer, la recherche, les menus contextuels, les fenêtres, modules, paramètres, tableaux, cartes, boîtes de dialogue, listes, champs, boutons, textes, bordures, survols, barres de défilement et notifications.', es: 'La capa de compatibilidad del modo oscuro armoniza las superficies antiguas solo claras del escritorio, barra de tareas, menú Inicio, búsqueda, menús contextuales, ventanas, módulos, configuración, tablas, tarjetas, diálogos, desplegables, campos, botones, textos, bordes, estados hover, barras de desplazamiento y notificaciones.' })}</li>
+          </ul>
+
+          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
             {getLoc({ de: 'Passwort & Wiederherstellung', en: 'Password & Recovery', fr: 'Mot de passe & récupération', es: 'Contraseña y recuperación' })}
           </h4>
           <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
