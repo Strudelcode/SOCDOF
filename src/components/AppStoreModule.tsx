@@ -415,6 +415,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'restaurant': return Utensils;
       case 'accounting': 
       case 'calculator': return Calculator;
+      case 'therapy_practice': return Briefcase;
       case 'contacts': return Users;
       case 'support_services': return Headphones;
       case 'pos': return CreditCard;
@@ -436,6 +437,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'ios_billing': return 'bg-gradient-to-br from-indigo-600 to-purple-600';
       case 'restaurant': return 'bg-gradient-to-br from-amber-500 to-orange-600';
       case 'accounting': return 'bg-gradient-to-br from-emerald-500 to-teal-600';
+      case 'therapy_practice': return 'bg-gradient-to-br from-slate-600 to-indigo-700';
       case 'calculator': return 'bg-gradient-to-br from-emerald-500 to-teal-700';
       case 'contacts': return 'bg-gradient-to-br from-teal-500 to-cyan-600';
       case 'support_services': return 'bg-gradient-to-br from-cyan-500 to-blue-600';
