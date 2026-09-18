@@ -1863,24 +1863,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     // Calculator & School Module Translations
     'docs.therapy_practice_de': 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.',
     'docs.therapy_practice_en': 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.',
-    'docs.therapy_practice_shortcuts': 'Workflow: Practice → choose a tab → create an entry → save. ESC closes open dialogs.'
+    'docs.therapy_practice_shortcuts': 'Workflow: Practice → choose a tab → create an entry → save. ESC closes open dialogs.',
     'docs.therapy_practice_de': 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Neue Sitzung bietet strukturierte Vorlagen für Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht.',
     'docs.therapy_practice_en': 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Neue Sitzung bietet strukturierte Vorlagen für Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht.',
-    'docs.therapy_practice_shortcuts': 'Ablauf: Praxis → Bereich wählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge.'
+    'docs.therapy_practice_shortcuts': 'Ablauf: Praxis → Bereich wählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge.',
     'docs.therapy_practice_de': 'L’espace Cabinet gère localement les clients, séances, rendez-vous, trajets et brouillons de facturation. Nouvelle séance propose des modèles structurés pour l’entretien initial, la séance standard, la crise et le rapport final.',
     'docs.therapy_practice_en': 'L’espace Cabinet gère localement les clients, séances, rendez-vous, trajets et brouillons de facturation. Nouvelle séance propose des modèles structurés pour l’entretien initial, la séance standard, la crise et le rapport final.',
-    'docs.therapy_practice_shortcuts': 'Flux : Cabinet → choisir un onglet → créer une entrée → enregistrer. Échap ferme les dialogues.'
+    'docs.therapy_practice_shortcuts': 'Flux : Cabinet → choisir un onglet → créer une entrée → enregistrer. Échap ferme les dialogues.',
     'docs.therapy_practice_de': 'La consulta gestiona localmente clientes, sesiones, citas, viajes y borradores de facturación. Nueva sesión ofrece plantillas estructuradas para entrevista inicial, sesión estándar, crisis e informe final.',
     'docs.therapy_practice_en': 'La consulta gestiona localmente clientes, sesiones, citas, viajes y borradores de facturación. Nueva sesión ofrece plantillas estructuradas para entrevista inicial, sesión estándar, crisis e informe final.',
-    'docs.therapy_practice_shortcuts': 'Flujo: Consulta → elegir pestaña → crear entrada → guardar. ESC cierra los diálogos abiertos.'
+    'docs.therapy_practice_shortcuts': 'Flujo: Consulta → elegir pestaña → crear entrada → guardar. ESC cierra los diálogos abiertos.',
     'module.therapy_practice': 'Practice & Therapy',
-    'desc.therapy_practice': 'Clients, sessions, appointments, mileage and billing workspace.'
+    'desc.therapy_practice': 'Clients, sessions, appointments, mileage and billing workspace.',
     'module.therapy_practice': 'Praxis & Therapie',
-    'desc.therapy_practice': 'Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnung.'
+    'desc.therapy_practice': 'Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnung.',
     'module.therapy_practice': 'Cabinet & Thérapie',
-    'desc.therapy_practice': 'Clients, séances, rendez-vous, trajets et facturation.'
+    'desc.therapy_practice': 'Clients, séances, rendez-vous, trajets et facturation.',
     'module.therapy_practice': 'Consulta y terapia',
-    'desc.therapy_practice': 'Clientes, sesiones, citas, viajes y facturación.'
+    'desc.therapy_practice': 'Clientes, sesiones, citas, viajes y facturación.',
     'module.calculator': 'Calculator',
     'desc.calculator': 'School & Scientific Calculator with Simple and Scientific modes, trigonometry, logarithms, and history',
     'cat.school': 'School & Education',
