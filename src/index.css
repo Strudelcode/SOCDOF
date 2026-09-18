@@ -112,13 +112,13 @@ html.dark .border-slate-300:not([class*="dark:border-"]) {
 }
 
 /* Hover states */
-html.dark .hover\\:bg-slate-50:hover:not([class*="dark:hover:bg-"]) {
+html.dark .hover\\:bg-slate-50:hover:not(.dark\\:hover\\:bg-slate-50) {
   background-color: #1e293b !important;
 }
-html.dark .hover\\:bg-slate-100:hover:not([class*="dark:hover\\:bg-"]) {
+html.dark .hover\\:bg-slate-100:hover:not(.dark\\:hover\\:bg-slate-100) {
   background-color: #334155 !important;
 }
-html.dark .hover\\:bg-slate-200:hover:not([class*="dark:hover\\:bg-"]) {
+html.dark .hover\\:bg-slate-200:hover:not(.dark\\:hover\\:bg-slate-200) {
   background-color: #475569 !important;
 }
 
