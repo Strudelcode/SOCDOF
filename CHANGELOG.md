@@ -7,6 +7,18 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## v23.1.0
+
+### Authentication / Login
+- Redesigned the initial sign-in and workstation lock screens as a Windows-style full-screen experience.
+- Added blurred wallpaper support using the configured SOCDOF background image.
+- Added a live clock and date that follow the configured language, date format, timezone, and seconds setting.
+- Added a bottom-left active-user switcher plus an Other User sign-in flow.
+- Replaced placeholder avatar symbols on the authentication surface with a neutral gray user silhouette when no image is configured.
+
+### Improved
+- Preserved the existing local authentication, recovery, lockout, and multi-user behavior while modernizing the visual login workflow.
+
 ## v23.0.0
 
 ### 🚀 Neu / What's New
