@@ -111,19 +111,14 @@ html.dark .border-slate-300:not([class*="dark:border-"]) {
   border-color: #475569 !important;
 }
 
-/* Hover states
- *
- * Tailwind utility names contain colons and should not be embedded in
- * attribute selectors or :not() expressions. These dedicated attributes
- * provide the dark-mode fallback without confusing CSS optimizers.
- */
-html.dark [data-socdof-dark-hover="slate-50"]:hover {
+/* Hover states */
+html.dark [class~="hover:bg-slate-50"]:hover:not([class~="dark:hover:bg-slate-50"]) {
   background-color: #1e293b !important;
 }
-html.dark [data-socdof-dark-hover="slate-100"]:hover {
+html.dark [class~="hover:bg-slate-100"]:hover:not([class~="dark:hover:bg-slate-100"]) {
   background-color: #334155 !important;
 }
-html.dark [data-socdof-dark-hover="slate-200"]:hover {
+html.dark [class~="hover:bg-slate-200"]:hover:not([class~="dark:hover:bg-slate-200"]) {
   background-color: #475569 !important;
 }
 
