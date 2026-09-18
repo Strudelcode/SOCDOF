@@ -1,3 +1,10 @@
+### Windows-Style Login & Lock Screen Redesign (v23.1.0)
+- [x] **Windows-Inspired Authentication Surface**:
+  - [x] Redesigned sign-in and workstation lock screens with a full-screen blurred wallpaper presentation.
+  - [x] Added live clock/date formatting using configured language, date format, timezone, and seconds settings.
+  - [x] Added bottom-left active-user switching and an Other User sign-in option.
+  - [x] Added neutral gray user silhouette rendering when no image avatar is configured.
+
 ### Windows-Style Users & Accounts and Start Menu Power Controls (v23.0.0)
 - [x] **Administrator-Only Users & Accounts Settings**:
   - [x] Added a dedicated Windows-inspired Settings category restricted to active administrators.
