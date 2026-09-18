@@ -13,7 +13,9 @@ import {
   Lock,
   UserCheck,
   AlertCircle,
-  BriefcaseBusiness
+  BriefcaseBusiness,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import {
   adminResetPassword,
@@ -96,7 +98,11 @@ function resizeWallpaper(file: File, maxWidth = 1920, maxHeight = 1080, quality 
   });
 }
 
-export const UserManagementSettings: React.FC = () => {
+export interface UserManagementSettingsProps {
+  onNavigateToSection?: (section: string) => void;
+}
+
+export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ onNavigateToSection }) => {
   const lang = useLanguage();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => getCurrentUser());
   const isAdmin = currentUser?.role === 'admin' && currentUser.active;
@@ -597,47 +603,31 @@ export const UserManagementSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Desktop Wallpaper Section */}
+            {/* Desktop Wallpaper Section - Managed Centrally in Personalization */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">{labels.wallpaper}</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">{labels.wallpaperDesc}</p>
-              </div>
-
-              {wallpaper ? (
-                <div className="relative h-32 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 shadow-inner group">
-                  <img src={wallpaper} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => wallpaperInputRef.current?.click()}
-                      className="px-3 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-semibold shadow-lg hover:bg-slate-100 transition"
-                    >
-                      {labels.uploadWallpaper}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWallpaper('')}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-lg hover:bg-rose-500 transition"
-                    >
-                      {labels.removeWallpaper}
-                    </button>
+              <div className="p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Desktop-Hintergrundbild & Personalisierung</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Hintergrundbilder mit Live-Vorschau, Weichzeichner/Blur und Startmenü-Anpassungen finden Sie jetzt unter "Personalisierung".
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Standard-Systemhintergrund aktiv</span>
+                {onNavigateToSection && (
                   <button
                     type="button"
-                    onClick={() => wallpaperInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                    onClick={() => onNavigateToSection('personalization')}
+                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
                   >
-                    <ImagePlus className="w-4 h-4 text-indigo-500" />
-                    {labels.uploadWallpaper}
+                    <span>Zu Personalisierung</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              )}
-              <input ref={wallpaperInputRef} type="file" accept="image/*" onChange={handleWallpaperFile} className="hidden" />
+                )}
+              </div>
             </div>
 
             {/* Auto-Lock Settings */}

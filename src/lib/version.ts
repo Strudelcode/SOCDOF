@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.2.5';
+export const APP_VERSION = '23.3.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,29 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.3.1',
+    date: '2026-09-18',
+    title: 'Dynamic Language Discovery, Search Filtering & Windows-Style Toast Feedback',
+    highlights: [
+      'Live dynamic language pack discovery: adding any .json language pack to the languages/ folder immediately registers and displays in the UI.',
+      'Intelligent language search bar: activates automatically when more than 10 languages or language packs are present, with instant search and clear.',
+      'Windows 11-style bottom-right toast: account creation notification now appears anchored to the bottom-right corner and auto-dismisses after max 10 seconds.',
+      'Full quad-lingual localization coverage across German, English, French, and Spanish for all new toast and search elements.'
+    ]
+  },
+  {
+    version: '23.3.0',
+    date: '2026-09-18',
+    title: 'Windows 11 Personalization Center, Live Blur & Unsaved Changes Guard',
+    highlights: [
+      'Modular Personalization category in Settings with dedicated sub-tabs: Wallpaper & Blur, Start Menu, Colors & Accent, and Font Zoom.',
+      'Live interactive desktop wallpaper mockup with real-time blur slider (0px to 30px) and curated preset backgrounds.',
+      'Start Menu customization: upload custom background/header image with adjustable blur filter for pristine contrast.',
+      'Unsaved changes protection: prompt modal on closing Settings (Save / Don’t Save / Cancel) and persistent fixed bottom-right save button.',
+      'Refined start/lock screen language selector with clean text styling, removing superfluous flag symbols.'
+    ]
+  },
   {
     version: '23.2.5',
     date: '2026-09-18',

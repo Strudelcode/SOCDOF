@@ -923,6 +923,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Settings Dirty State & Save-on-Close Confirmation
+  const [isSettingsDirty, setIsSettingsDirty] = useState(false);
+  const [isSettingsCloseConfirmOpen, setIsSettingsCloseConfirmOpen] = useState(false);
+  const settingsSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const settingsDiscardRef = useRef<(() => void) | null>(null);
+
   // Virtual Desktops (Windows 11 Style Task View & Multiple Desktops)
   const [virtualDesktops, setVirtualDesktops] = useState<VirtualDesktop[]>(() => {
     try {
@@ -1910,8 +1916,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   const closeWindow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    sounds.playWindowClose();
     const closing = windows.find(w => w.id === id);
+    if (closing?.module === 'settings' && isSettingsDirty) {
+      setIsSettingsCloseConfirmOpen(true);
+      return;
+    }
+    sounds.playWindowClose();
     if (closing) {
       saveWindowState(closing.module, {
         x: closing.x,
@@ -1930,6 +1940,30 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         setActiveWindowId('');
       }
     }
+  };
+
+  const handleConfirmSaveSettingsAndClose = async () => {
+    try {
+      if (settingsSaveRef.current) {
+        await settingsSaveRef.current();
+      }
+      setIsSettingsDirty(false);
+      setIsSettingsCloseConfirmOpen(false);
+      sounds.playSuccess();
+      setWindows(prev => prev.filter(w => w.module !== 'settings'));
+    } catch (err) {
+      console.error('Failed to save settings on close:', err);
+    }
+  };
+
+  const handleDiscardSettingsAndClose = () => {
+    if (settingsDiscardRef.current) {
+      settingsDiscardRef.current();
+    }
+    setIsSettingsDirty(false);
+    setIsSettingsCloseConfirmOpen(false);
+    sounds.playWindowClose();
+    setWindows(prev => prev.filter(w => w.module !== 'settings'));
   };
 
   const toggleAlwaysOnTop = (id: string, e?: React.MouseEvent) => {
@@ -2061,8 +2095,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       {/* 1. Desktop Wallpaper Canvas & Ambient Lighting */}
       {company.desktop_wallpaper_url ? (
         <div 
-          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-all duration-500"
-          style={{ backgroundImage: `url(${company.desktop_wallpaper_url})` }}
+          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-all duration-500 overflow-hidden"
+          style={{ 
+            backgroundImage: `url(${company.desktop_wallpaper_url})`,
+            filter: (company.desktop_wallpaper_blur || 0) > 0 ? `blur(${company.desktop_wallpaper_blur}px)` : undefined,
+            transform: (company.desktop_wallpaper_blur || 0) > 0 ? 'scale(1.05)' : undefined,
+          }}
         >
           <div className={`absolute inset-0 ${isDark ? 'bg-slate-950/40 backdrop-blur-xs' : 'bg-white/20 backdrop-blur-2xs'}`} />
         </div>
@@ -2740,7 +2778,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             {/* Window Content Body with sleek inner scroll */}
             <div className={`flex-1 min-h-0 ${
-              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator'].includes(win.module)
+              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator', 'settings'].includes(win.module)
                 ? 'overflow-hidden flex flex-col p-0'
                 : 'overflow-y-auto p-4 sm:p-6'
             } bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}>
@@ -2959,6 +2997,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   initialSection={settingsInitialSection}
                   onToggleFullscreen={handleToggleFullscreen}
                   isFullscreen={isFullscreen}
+                  onDirtyChange={setIsSettingsDirty}
+                  onRegisterSave={(fn) => { settingsSaveRef.current = fn; }}
+                  onRegisterDiscard={(fn) => { settingsDiscardRef.current = fn; }}
+                  onRequestClose={() => {
+                    const settingsWin = windows.find(w => w.module === 'settings');
+                    if (settingsWin) {
+                      if (isSettingsDirty) {
+                        setIsSettingsCloseConfirmOpen(true);
+                      } else {
+                        setWindows(prev => prev.filter(w => w.id !== settingsWin.id));
+                      }
+                    }
+                  }}
                 />
               )}
             </div>
@@ -3032,8 +3083,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           isDark 
             ? 'bg-slate-900/95 border-slate-700/80 text-white' 
             : 'bg-white/95 border-slate-200/90 text-slate-900'
-        } backdrop-blur-2xl border rounded-3xl shadow-2xl p-5 animate-fade-in flex flex-col justify-between`}
+        } backdrop-blur-2xl border rounded-3xl shadow-2xl p-5 animate-fade-in flex flex-col justify-between overflow-hidden`}
         >
+          {/* Windows 11 Start Menu Background Image */}
+          {company.start_menu_image_url && (
+            <div 
+              className="absolute inset-0 bg-cover bg-center -z-10 pointer-events-none opacity-20"
+              style={{ 
+                backgroundImage: `url(${company.start_menu_image_url})`,
+                filter: (company.start_menu_blur || 0) > 0 ? `blur(${company.start_menu_blur}px)` : undefined,
+                transform: (company.start_menu_blur || 0) > 0 ? 'scale(1.05)' : undefined,
+              }}
+            />
+          )}
           
           {/* Start Menu Header */}
           <div className="flex items-center gap-2.5 pb-3.5 border-b border-slate-200 dark:border-slate-800">
@@ -4420,6 +4482,58 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             {fullscreenToast.subtext && (
               <span className="text-[11px] text-slate-300 font-normal">{fullscreenToast.subtext}</span>
             )}
+          </div>
+        </div>
+      )}
+      {/* Settings Unsaved Changes Confirmation Modal */}
+      {isSettingsCloseConfirmOpen && (
+        <div 
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsSettingsCloseConfirmOpen(false)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {t('settings.unsaved_title', currentLang, 'Einstellungen speichern?')}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {t('settings.unsaved_desc', currentLang, 'Sie haben ungespeicherte Änderungen an Ihren Einstellungen vorgenommen. Möchten Sie diese vor dem Schließen speichern?')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSettingsCloseConfirmOpen(false)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                {t('settings.unsaved_cancel', currentLang, 'Abbrechen')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardSettingsAndClose}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+              >
+                {t('settings.unsaved_discard', currentLang, 'Nicht speichern')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveSettingsAndClose}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md transition cursor-pointer flex items-center gap-1.5"
+                style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{t('settings.unsaved_save', currentLang, 'Ja, speichern')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

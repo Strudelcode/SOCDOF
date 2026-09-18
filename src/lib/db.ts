@@ -58,6 +58,8 @@ export const defaultCompanyProfile: CompanyProfile = {
   accent_color: 'indigo',
   theme_mode: 'light',
   glass_overlay: true,
+  desktop_wallpaper_blur: 0,
+  start_menu_blur: 0,
   letterhead_show_bg: false,
   letterhead_show_fold_marks: true,
   letterhead_default_subject: 'Invoice for goods and services',

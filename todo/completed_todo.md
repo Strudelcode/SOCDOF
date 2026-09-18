@@ -1,3 +1,18 @@
+### Dynamic Language Discovery, Search Filtering & Windows-Style Toast Feedback (v23.3.1)
+- [x] Subscribed `LanguageSelectionScreen` (in `AuthGate.tsx`) and `LanguageSelectionModal.tsx` to `subscribeDesktopLanguageFiles` for live synchronization whenever language packs are added or modified in `languages/`.
+- [x] Implemented intelligent search filtering in language selectors, automatically appearing when >10 languages or custom language packs exist, with instant reset.
+- [x] Moved account creation success notification from the center screen overlay to a fixed bottom-right position with a 10-second auto-dismiss timer and smooth fade animation.
+- [x] Added complete quad-lingual translations in `src/lib/i18n.ts` for all new toast notifications, search placeholders, result counters, and empty state reset actions.
+
+### Windows 11 Personalization Center, Live Blur & Unsaved Changes Guard (v23.3.0)
+- [x] Implemented Windows 11-style Personalization Center in `SettingsModule.tsx` with dedicated sub-tabs: *Wallpaper & Blur*, *Start Menu*, *Colors & Accent*, and *Fonts & Zoom*.
+- [x] Live interactive desktop preview mockup with dynamic wallpaper rendering and real-time blur slider (0px to 30px with presets: Sharp, Soft, Medium, Strong).
+- [x] Start Menu background customization with custom image upload and dedicated blur control in `DesktopWindowWorkspace.tsx` and `SettingsModule.tsx`.
+- [x] Unsaved changes tracking (`isSettingsDirty`) and interactive confirmation dialog on window close with three options: *Save* (persists and closes), *Don’t Save* (discards and closes), and *Cancel* (keeps window open).
+- [x] Added persistent fixed bottom-right Save button with real-time unsaved changes badge to `SettingsModule.tsx`, accessible without scrolling.
+- [x] Removed country flag icons from the start screen and lock screen language selectors in `AuthGate.tsx`.
+- [x] Quad-lingual localization across German, English, French, and Spanish in `src/lib/i18n.ts` for all new personalization categories, blur options, and dialog buttons.
+
 ### Consolidated User Management & Profile Personalization in Settings (v23.2.5)
 - [x] Removed the floating top-right person/gear icon overlay from `AccountScopedWorkspace.tsx`.
 - [x] Consolidated profile editing (avatar photo upload, desktop wallpaper, personal/business account type, auto-lock timeout, and own password change) into `SettingsModule` under *Users & Accounts*.

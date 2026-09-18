@@ -239,6 +239,9 @@ export interface CompanyProfile {
   taskbar_tint?: 'default' | 'accent' | 'dark' | 'glass';
   font_scale?: number; // 90 to 130 (%)
   desktop_wallpaper_url?: string;
+  desktop_wallpaper_blur?: number; // 0 to 30 px
+  start_menu_image_url?: string;
+  start_menu_blur?: number;
   disable_exe_reminders?: boolean;
   disable_exit_prompt?: boolean;
   launch_maximized?: boolean;

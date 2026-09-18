@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
   Upload,
@@ -43,7 +44,24 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
-import { SUPPORTED_LANGUAGES, formatSystemDate, formatSystemTime, getRecoveryQuestionLabel, setLanguage, t, useLanguage, type LanguageCode } from '../lib/i18n';
+import {
+  SUPPORTED_LANGUAGES,
+  formatSystemDate,
+  formatSystemTime,
+  getRecoveryQuestionLabel,
+  setLanguage,
+  t,
+  useLanguage,
+  type LanguageCode,
+  getDesktopLanguageFiles,
+  subscribeDesktopLanguageFiles,
+  syncDesktopLanguageFiles,
+  getCustomLanguagePacks,
+  getActiveCustomPackId,
+  setActiveCustomPack,
+  type DesktopLanguageFileInfo
+} from '../lib/i18n';
+import { sounds } from '../lib/sound';
 import type { CompanyProfile } from '../types';
 
 const getAuthCopy = (lang: LanguageCode) => ({
@@ -265,16 +283,120 @@ function LanguageSelectionScreen({
   isFirstRunOnboarding?: boolean;
 }) {
   const lang = useLanguage();
+  const [desktopFiles, setDesktopFiles] = useState<DesktopLanguageFileInfo[]>(() => getDesktopLanguageFiles());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedId, setSelectedId] = useState<string>(() => getActiveCustomPackId() || lang || 'en');
 
-  const selectLanguage = (code: LanguageCode) => {
-    setLanguage(code);
+  useEffect(() => {
+    // Initial sync check
+    syncDesktopLanguageFiles();
+    const unsub = subscribeDesktopLanguageFiles((files) => {
+      setDesktopFiles(files);
+    });
+    return unsub;
+  }, []);
+
+  const availableLanguages = useMemo(() => {
+    const list: Array<{
+      id: string;
+      code: string;
+      codeBadge: string;
+      name: string;
+      subtitle: string;
+      isCustom?: boolean;
+      flagImage?: string | null;
+      emoji?: string | null;
+    }> = [
+      { id: 'en', code: 'en', codeBadge: 'US', name: 'English', subtitle: 'English (US/UK)' },
+      { id: 'de', code: 'de', codeBadge: 'DE', name: 'Deutsch', subtitle: 'German' },
+      { id: 'fr', code: 'fr', codeBadge: 'FR', name: 'Français', subtitle: 'French' },
+      { id: 'es', code: 'es', codeBadge: 'ES', name: 'Español', subtitle: 'Spanish' }
+    ];
+
+    // Add discovered files from languages/ directory
+    desktopFiles.forEach(file => {
+      // Exclude template files
+      if (file.filename.toLowerCase().startsWith('template')) return;
+      // Exclude if already in built-in
+      const rawCode = (file.language_code || file.id || '').toLowerCase();
+      if (['en', 'de', 'fr', 'es'].includes(rawCode) && file.id === rawCode) return;
+
+      const codeBadge = (file.language_code || file.id || 'LG').slice(0, 3).toUpperCase();
+      const displayName = file.title || file.language_name || file.filename.replace(/\.json$/i, '');
+      const subtitle = file.filename;
+
+      list.push({
+        id: `desktop_file_${file.id}`,
+        code: file.language_code || file.id,
+        codeBadge,
+        name: displayName,
+        subtitle: `${subtitle} (${file.count.toLocaleString()} keys)`,
+        isCustom: true,
+        flagImage: file.flagImage,
+        emoji: file.emoji
+      });
+    });
+
+    // Also include any custom packs stored in localStorage that aren't already included
+    const customPacks = getCustomLanguagePacks();
+    customPacks.forEach(pack => {
+      if (list.some(item => item.id === pack.id || item.id === `desktop_file_${pack.id}`)) return;
+      list.push({
+        id: pack.id,
+        code: pack.code,
+        codeBadge: pack.code.slice(0, 3).toUpperCase(),
+        name: pack.name,
+        subtitle: `${pack.count.toLocaleString()} keys`,
+        isCustom: true,
+        flagImage: pack.flagImage,
+        emoji: pack.emoji
+      });
+    });
+
+    return list;
+  }, [desktopFiles]);
+
+  const filteredLanguages = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return availableLanguages;
+    return availableLanguages.filter(item =>
+      item.name.toLowerCase().includes(q) ||
+      item.code.toLowerCase().includes(q) ||
+      item.codeBadge.toLowerCase().includes(q) ||
+      (item.subtitle && item.subtitle.toLowerCase().includes(q))
+    );
+  }, [availableLanguages, searchQuery]);
+
+  const handleSelect = (itemId: string) => {
+    setSelectedId(itemId);
+    sounds.playClick();
+    if (itemId.startsWith('desktop_file_') || itemId.startsWith('custom_')) {
+      setActiveCustomPack(itemId);
+    } else {
+      setActiveCustomPack(null);
+      setLanguage(itemId as LanguageCode);
+    }
+  };
+
+  const handleContinue = () => {
+    sounds.playSuccess();
+    if (selectedId.startsWith('desktop_file_') || selectedId.startsWith('custom_')) {
+      setActiveCustomPack(selectedId);
+    } else {
+      setActiveCustomPack(null);
+      setLanguage(selectedId as LanguageCode);
+    }
+    try {
+      localStorage.setItem('socdof_language_initialized', 'true');
+    } catch {}
     onSelected();
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-4 sm:p-6 flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] flex flex-col">
+        {/* Header with icon and step badge */}
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
             <Globe size={24} />
           </div>
@@ -284,37 +406,98 @@ function LanguageSelectionScreen({
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('lang_modal.title', lang)}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">{t('lang_modal.subtitle', lang)}</p>
-        <div className="space-y-2.5">
-          {SUPPORTED_LANGUAGES.map((language) => (
-            <button
-              key={language.code}
-              type="button"
-              onClick={() => selectLanguage(language.code)}
-              className={`w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all cursor-pointer ${
-                lang === language.code
-                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 shadow-xs'
-                  : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <span className="text-2xl">{language.flag}</span>
-              <span className="flex-1">
-                <span className="block font-medium text-slate-900 dark:text-white">{language.nativeLabel}</span>
-                <span className="block text-xs text-slate-500 dark:text-slate-400">{language.label}</span>
-              </span>
-              {lang === language.code && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-600 text-white">
-                  {t('lang_modal.current_selected', lang)}
+
+        <h1 className="text-2xl font-bold tracking-tight shrink-0">{t('lang_modal.title', lang)}</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-5 leading-relaxed shrink-0">
+          {t('lang_modal.subtitle', lang)}
+        </p>
+
+        {/* Search bar when over 10 languages are present */}
+        {availableLanguages.length > 10 && (
+          <div className="relative mb-3 shrink-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('lang_modal.search_placeholder', lang, 'Sprache suchen (Name oder Code)...')}
+              className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                title="Clear"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Scrollable Language List */}
+        <div className="max-h-72 sm:max-h-80 overflow-y-auto pr-1 space-y-2.5 flex-1 min-h-[160px]">
+          {filteredLanguages.map((language) => {
+            const isSelected = selectedId === language.id;
+            return (
+              <button
+                key={language.id}
+                type="button"
+                onClick={() => handleSelect(language.id)}
+                className={`w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all cursor-pointer select-none ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-500/15 ring-2 ring-indigo-500/25 shadow-xs'
+                    : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
+                }`}
+              >
+                <div className="w-12 h-11 rounded-xl bg-slate-100 dark:bg-white/10 font-bold text-sm tracking-wider flex items-center justify-center text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-white/10 shrink-0 select-none overflow-hidden">
+                  {language.flagImage ? (
+                    <img src={language.flagImage} alt="" className="w-7 h-5 object-cover rounded shadow-xs" />
+                  ) : language.emoji && language.emoji.length > 0 && language.emoji !== '🏳️' ? (
+                    <span className="text-xl leading-none">{language.emoji}</span>
+                  ) : (
+                    <span>{language.codeBadge}</span>
+                  )}
+                </div>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-medium text-slate-900 dark:text-white truncate">
+                    {language.name}
+                  </span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {language.subtitle}
+                  </span>
                 </span>
-              )}
-            </button>
-          ))}
+                {isSelected && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-600 text-white shadow-xs shrink-0 whitespace-nowrap animate-fade-in">
+                    {t('lang_modal.current_selected', lang, 'Active Selection')}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {filteredLanguages.length === 0 && (
+            <div className="text-center py-6 px-3 border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+              <Globe className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {t('lang_modal.no_search_results', lang, 'Keine passende Sprache gefunden')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+              >
+                {t('lang_modal.reset_search', lang, 'Suche zurücksetzen')}
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Continue Button */}
         <button
           type="button"
-          onClick={onSelected}
-          className="w-full mt-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 font-semibold transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+          onClick={handleContinue}
+          className="w-full mt-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 font-bold transition shadow-lg shadow-indigo-600/25 cursor-pointer text-sm sm:text-base active:scale-[0.99] shrink-0"
         >
           {t('auth.continue', lang)}
         </button>
@@ -464,7 +647,7 @@ function FirstAccount({
             >
               {SUPPORTED_LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
-                  {l.flag} {l.nativeLabel}
+                  {l.nativeLabel}
                 </option>
               ))}
             </select>
@@ -848,6 +1031,15 @@ function LoginScreen({
   }, [initialSuccessMessage]);
 
   useEffect(() => {
+    if (!successNotice) return;
+    const timer = window.setTimeout(() => {
+      setSuccessNotice(null);
+      if (onDismissSuccess) onDismissSuccess();
+    }, 10000);
+    return () => window.clearTimeout(timer);
+  }, [successNotice, onDismissSuccess]);
+
+  useEffect(() => {
     if (initialUsername && activeUsers.some((u) => u.username === initialUsername)) {
       setSelected(initialUsername);
       setUsername(initialUsername);
@@ -898,12 +1090,12 @@ function LoginScreen({
         <select
           value={lang}
           onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-          className="text-xs rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer"
+          className="text-xs font-medium rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/50"
           title={t('auth.changeLanguage', lang)}
         >
           {SUPPORTED_LANGUAGES.map((l) => (
             <option key={l.code} value={l.code} className="bg-slate-900 text-white">
-              {l.flag} {l.nativeLabel}
+              {l.nativeLabel}
             </option>
           ))}
         </select>
@@ -911,25 +1103,6 @@ function LoginScreen({
 
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
         <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
-          {successNotice && (
-            <div className="mb-4 rounded-2xl border border-emerald-400/40 bg-emerald-950/70 backdrop-blur-xl px-4 py-3 text-xs sm:text-sm text-emerald-200 text-left flex items-start justify-between gap-2 shadow-2xl">
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
-                <span className="leading-snug">{successNotice}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSuccessNotice(null);
-                  if (onDismissSuccess) onDismissSuccess();
-                }}
-                className="text-emerald-300 hover:text-white shrink-0 p-0.5 cursor-pointer"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-
           <div className="flex flex-col items-center text-center">
             {selectedUser ? (
               <AuthAvatar user={selectedUser} size="lg" />
@@ -1010,6 +1183,38 @@ function LoginScreen({
           <span className="max-w-24 truncate text-xs text-white/85 drop-shadow">{text.otherUser}</span>
         </button>
       </div>
+
+      {/* Windows 11 Style Bottom-Right Notification Toast (Auto-dismisses after max 10s) */}
+      {successNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 right-5 z-50 max-w-sm sm:max-w-md w-[calc(100%-2.5rem)] rounded-2xl border border-emerald-400/40 bg-emerald-950/90 backdrop-blur-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-emerald-100 shadow-2xl shadow-emerald-950/50 flex items-start justify-between gap-3 ring-1 ring-emerald-400/30 animate-fade-in transition-all"
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400 shadow-xs">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 text-left">
+              <div className="font-semibold text-emerald-300 text-[11px] uppercase tracking-wider mb-0.5">
+                {t('auth.accountCreatedToastTitle', lang, 'Account Created')}
+              </div>
+              <p className="leading-snug text-emerald-100/90 text-xs sm:text-sm">{successNotice}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSuccessNotice(null);
+              if (onDismissSuccess) onDismissSuccess();
+            }}
+            className="text-emerald-300 hover:text-white shrink-0 p-1 rounded-lg hover:bg-emerald-900/50 transition cursor-pointer"
+            title="Close"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
     </LoginBackdrop>
   );
 }
@@ -1087,8 +1292,25 @@ function LockScreen({
     setError('');
   };
 
+  const currentLang = useLanguage();
+
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
+      <div className="absolute top-4 right-5 z-20">
+        <select
+          value={currentLang}
+          onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+          className="text-xs font-medium rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/50"
+          title={t('auth.changeLanguage', currentLang)}
+        >
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code} className="bg-slate-900 text-white">
+              {l.nativeLabel}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
         <div className="absolute left-1/2 top-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 text-center">
           <AuthAvatar user={selectedUser} size="lg" />

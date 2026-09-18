@@ -23,6 +23,10 @@
 
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
 
+The v23.3.1 Dynamic Language Discovery, Search Filtering & Windows-Style Toast Feedback milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.3.0 Windows 11 Personalization Center, Live Blur & Unsaved Changes Guard milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
 The authentication and local multi-user milestone is complete for v22.10.0. Historical completion details are archived in `todo/completed_todo.md`.
 
 The v23.0.0 Users & Accounts / Start Menu power milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
