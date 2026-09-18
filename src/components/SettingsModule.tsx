@@ -151,6 +151,7 @@ interface SettingsModuleProps {
   onFullReset: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onSetThemeMode?: (mode: CompanyProfile['theme_mode']) => void;
   isMuted?: boolean;
   onToggleSound?: () => void;
   invoices?: Invoice[];
@@ -166,6 +167,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onFullReset,
   isDark = false,
   onToggleTheme,
+  onSetThemeMode,
   isMuted = false,
   onToggleSound,
   invoices = [],
@@ -2278,62 +2280,45 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              {/* 1. Theme Mode: Light / Dark */}
+              {/* 1. Theme Mode: Light / Dark / System */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-900 dark:text-white block">
                   {t('settings.theme_mode', activeLang, 'Design-Modus auswählen')}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isDark && onToggleTheme) onToggleTheme();
-                      handleSaveProfile({ theme_mode: 'light' });
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition flex items-center justify-between ${
-                      !isDark 
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20' 
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
-                        <Sun className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.light_mode', activeLang, 'Hellmodus (Light)')}</div>
-                        <div className="text-[11px] text-slate-500">{t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund')}</div>
-                      </div>
-                    </div>
-                    {!isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isDark && onToggleTheme) onToggleTheme();
-                      handleSaveProfile({ theme_mode: 'dark' });
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition flex items-center justify-between ${
-                      isDark 
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20' 
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-purple-900 text-purple-200">
-                        <Moon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)')}</div>
-                        <div className="text-[11px] text-slate-500">{t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look')}</div>
-                      </div>
-                    </div>
-                    {isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {([
+                    { mode: 'light' as const, icon: Sun, title: t('settings.light_mode', activeLang, 'Hellmodus (Light)'), desc: t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund') },
+                    { mode: 'dark' as const, icon: Moon, title: t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)'), desc: t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look') },
+                    { mode: 'system' as const, icon: Monitor, title: t('settings.system_mode', activeLang, 'Systemmodus'), desc: t('settings.system_mode_desc', activeLang, 'Übernimmt den Hell-/Dunkelmodus von Windows') }
+                  ]).map(({ mode, icon: Icon, title, desc }) => {
+                    const selected = (profile.theme_mode || 'system') === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          handleSaveProfile({ theme_mode: mode });
+                          onSetThemeMode?.(mode);
+                        }}
+                        className={'p-4 rounded-2xl border text-left transition flex items-center justify-between ' + (selected
+                          ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750')}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={'p-2 rounded-xl ' + (mode === 'light' ? 'bg-amber-100 text-amber-700' : mode === 'dark' ? 'bg-purple-900 text-purple-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-900 dark:text-white">{title}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{desc}</div>
+                          </div>
+                        </div>
+                        {selected && <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
               {/* 2. Glass Overlay / Windows Mica Effect Toggle */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
