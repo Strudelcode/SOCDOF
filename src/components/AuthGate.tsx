@@ -197,7 +197,7 @@ function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'm
   const sizeClass = size === 'lg' ? 'w-24 h-24' : size === 'sm' ? 'w-11 h-11' : 'w-16 h-16';
   const iconSize = size === 'lg' ? 38 : size === 'sm' ? 19 : 28;
   return (
-    <div className={`\${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg`}>
+    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg`}>
       {user.avatar?.startsWith('data:image/') ? (
         <img src={user.avatar} alt="" className="w-full h-full object-cover" />
       ) : (
@@ -367,7 +367,7 @@ function LoginScreen({
             key={user.id}
             type="button"
             onClick={() => chooseUser(user.username)}
-            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+            className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${selected === user.username && !otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
             title={user.displayName}
           >
             <AuthAvatar user={user} size="sm" />
@@ -377,7 +377,7 @@ function LoginScreen({
         <button
           type="button"
           onClick={() => { setOtherUser(true); setSelected(''); setUsername(''); setPassword(''); setError(''); }}
-          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${otherUser ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
           title={text.otherUser}
         >
           <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
@@ -476,7 +476,7 @@ function LockScreen({
             key={account.id}
             type="button"
             onClick={() => chooseUser(account.username)}
-            className={`flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all \${selected === account.username ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
+            className={`flex flex-col items-center gap-1.5 rounded-2xl px-2.5 py-2 transition-all ${selected === account.username ? 'bg-white/15 ring-1 ring-white/30' : 'hover:bg-white/10'}`}
             title={account.displayName}
           >
             <AuthAvatar user={account} size="sm" />
