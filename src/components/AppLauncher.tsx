@@ -174,6 +174,15 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       badgeColor: 'bg-amber-100 text-amber-800'
     },
     {
+      id: 'therapy_practice',
+      name: t('module.therapy_practice', currentLang, 'Praxis & Therapie'),
+      category: t('cat.productivity', currentLang, 'Produktivität'),
+      description: t('desc.therapy_practice', currentLang, 'Klienten, Sitzungen, Termine, Fahrtenbuch & Abrechnung'),
+      icon: Briefcase,
+      color: 'bg-slate-700',
+      badge: undefined
+    },
+    {
       id: 'calculator',
       name: t('module.calculator', currentLang, 'Taschenrechner (Schule & Wissenschaft)'),
       category: t('cat.school', currentLang, 'Schule & Bildung'),
