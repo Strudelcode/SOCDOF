@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '22.10.0';
+export const APP_VERSION = '23.0.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,20 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.0.0',
+    date: '2026-09-18',
+    title: 'Windows-Style User & Account Management',
+    highlights: [
+      'Moved local account management into a dedicated Windows-inspired Settings category restricted to active administrators.',
+      'Added local account creation, profile editing, roles, account types, avatars, auto-lock preferences, password resets, and sign-in security controls.',
+      'Moved lock, user switching, sign-out, workspace restart, and application close actions into the SOCDOF Start menu power control.',
+      'Removed the redundant always-visible account management overlay and kept user controls within the desktop Start menu and Settings experience.',
+      'Extended the user-facing documentation and synchronized English, German, French, and Spanish UI translations.'
+    ]
+  },
+
+
   {
     version: '22.10.0',
     date: '2026-09-18',
