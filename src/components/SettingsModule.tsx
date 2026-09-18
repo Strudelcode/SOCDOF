@@ -64,7 +64,8 @@ import {
   Zap,
   Mail,
   Maximize2,
-  Minimize2
+  Minimize2,
+  UserRoundCog
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -127,6 +128,8 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
+import { getCurrentUser } from '../lib/auth';
+import { UserManagementSettings } from './UserManagementSettings';
 
 export type SettingsSection = 
   | 'home'
@@ -139,6 +142,7 @@ export type SettingsSection =
   | 'storage'
   | 'audio'
   | 'windows'
+  | 'users'
   | 'danger';
 
 interface SettingsModuleProps {
@@ -147,6 +151,7 @@ interface SettingsModuleProps {
   onFullReset: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onSetThemeMode?: (mode: CompanyProfile['theme_mode']) => void;
   isMuted?: boolean;
   onToggleSound?: () => void;
   invoices?: Invoice[];
@@ -162,6 +167,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onFullReset,
   isDark = false,
   onToggleTheme,
+  onSetThemeMode,
   isMuted = false,
   onToggleSound,
   invoices = [],
@@ -171,6 +177,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   isFullscreen = false
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
+  const canManageUsers = getCurrentUser()?.role === 'admin' && getCurrentUser()?.active === true;
   const [searchQuery, setSearchQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -639,7 +646,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
     { id: 'general', title: t('settings.recent_bank_title', activeLang, 'Bank Details & IBAN'), category: t('settings.recent_bank_cat', activeLang, 'Company'), icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60' },
     { id: 'storage', title: t('settings.recent_backup_title', activeLang, 'JSON Data Backup'), category: t('settings.recent_backup_cat', activeLang, 'Storage'), icon: HardDrive, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60' },
-  ], [activeLang]);
+  ], [activeLang, canManageUsers]);
 
   useEffect(() => {
     loadStorageInfo();
@@ -913,11 +920,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'storage', title: 'Datensicherung & JSON Export', desc: 'Vollständiges Backup, Wiederherstellung', section: 'storage' as SettingsSection },
       { id: 'audio', title: 'Soundeffekte & Lautstärke', desc: 'Klicktöne, Bestätigungssounds', section: 'audio' as SettingsSection },
       { id: 'windows', title: 'Windows Desktop-App', desc: 'Lokaler Launcher, Autostart, Offline-App', section: 'windows' as SettingsSection },
+      ...(canManageUsers ? [{ id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), section: 'users' as SettingsSection }] : []),
       { id: 'danger', title: 'Datenbank zurücksetzen / löschen', desc: 'Demo-Daten laden oder sauberes Zurücksetzen', section: 'danger' as SettingsSection },
     ];
 
     return items.filter(i => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
-  }, [searchQuery]);
+  }, [searchQuery, canManageUsers]);
 
   const categoryGroups: {
     id: string;
@@ -961,12 +969,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'admin',
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
+        ...(canManageUsers ? [{ id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: t('users.admin_badge', activeLang, 'Admin') }] : []),
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
         { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
       ]
     }
-  ], [activeLang]);
+  ], [activeLang, canManageUsers]);
 
   const navItems = useMemo(() => categoryGroups.flatMap(g => g.items), [categoryGroups]);
 
@@ -2271,62 +2280,45 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              {/* 1. Theme Mode: Light / Dark */}
+              {/* 1. Theme Mode: Light / Dark / System */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-900 dark:text-white block">
                   {t('settings.theme_mode', activeLang, 'Design-Modus auswählen')}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isDark && onToggleTheme) onToggleTheme();
-                      handleSaveProfile({ theme_mode: 'light' });
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition flex items-center justify-between ${
-                      !isDark 
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20' 
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
-                        <Sun className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.light_mode', activeLang, 'Hellmodus (Light)')}</div>
-                        <div className="text-[11px] text-slate-500">{t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund')}</div>
-                      </div>
-                    </div>
-                    {!isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isDark && onToggleTheme) onToggleTheme();
-                      handleSaveProfile({ theme_mode: 'dark' });
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition flex items-center justify-between ${
-                      isDark 
-                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20' 
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-purple-900 text-purple-200">
-                        <Moon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">{t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)')}</div>
-                        <div className="text-[11px] text-slate-500">{t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look')}</div>
-                      </div>
-                    </div>
-                    {isDark && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {([
+                    { mode: 'light' as const, icon: Sun, title: t('settings.light_mode', activeLang, 'Hellmodus (Light)'), desc: t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund') },
+                    { mode: 'dark' as const, icon: Moon, title: t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)'), desc: t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look') },
+                    { mode: 'system' as const, icon: Monitor, title: t('settings.system_mode', activeLang, 'Systemmodus'), desc: t('settings.system_mode_desc', activeLang, 'Übernimmt den Hell-/Dunkelmodus von Windows') }
+                  ]).map(({ mode, icon: Icon, title, desc }) => {
+                    const selected = (profile.theme_mode || 'system') === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          handleSaveProfile({ theme_mode: mode });
+                          onSetThemeMode?.(mode);
+                        }}
+                        className={'p-4 rounded-2xl border text-left transition flex items-center justify-between ' + (selected
+                          ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750')}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={'p-2 rounded-xl ' + (mode === 'light' ? 'bg-amber-100 text-amber-700' : mode === 'dark' ? 'bg-purple-900 text-purple-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-900 dark:text-white">{title}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{desc}</div>
+                          </div>
+                        </div>
+                        {selected && <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
               {/* 2. Glass Overlay / Windows Mica Effect Toggle */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
@@ -4495,6 +4487,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* SECTION: USERS & ACCOUNTS (Administrator only) */}
+          {activeSection === 'users' && (
+            <UserManagementSettings />
           )}
 
           {/* SECTION: WINDOWS DESKTOP APP */}

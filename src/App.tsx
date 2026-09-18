@@ -55,31 +55,61 @@ export default function App() {
   const [company, setCompany] = useState<CompanyProfile>(defaultCompanyProfile);
   const [isStudioOpen, setIsStudioOpen] = useState<boolean>(false);
 
+  const applyThemeMode = useCallback((mode: CompanyProfile['theme_mode']) => {
+    try {
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      const enableDark = mode === 'dark' || (mode !== 'light' && media.matches);
+      setIsDark(enableDark);
+      document.documentElement.classList.toggle('dark', enableDark);
+      document.documentElement.style.colorScheme = enableDark ? 'dark' : 'light';
+      if (mode === 'system') {
+        localStorage.removeItem('odoo_theme_dark');
+      } else {
+        localStorage.setItem('odoo_theme_dark', String(enableDark));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.removeItem('odoo_view_mode');
-      const savedTheme = localStorage.getItem('odoo_theme_dark');
+      const savedMode = company?.theme_mode;
+      const legacyTheme = localStorage.getItem('odoo_theme_dark');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const enableDark = savedTheme !== null ? savedTheme === 'true' : prefersDark;
-      setIsDark(enableDark);
-      if (enableDark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
+      const mode: CompanyProfile['theme_mode'] = savedMode || (legacyTheme !== null ? (legacyTheme === 'true' ? 'dark' : 'light') : 'system');
+      applyThemeMode(mode);
     } catch {
       // ignore
     }
     setIsMuted(sounds.isMuted());
-  }, []);
+  }, [company?.theme_mode, applyThemeMode]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemTheme = () => {
+      if ((company?.theme_mode || 'system') === 'system') {
+        const enableDark = media.matches;
+        setIsDark(enableDark);
+        document.documentElement.classList.toggle('dark', enableDark);
+        document.documentElement.style.colorScheme = enableDark ? 'dark' : 'light';
+      }
+    };
+    media.addEventListener?.('change', handleSystemTheme);
+    return () => media.removeEventListener?.('change', handleSystemTheme);
+  }, [company?.theme_mode]);
+
+  const handleSetThemeMode = (mode: CompanyProfile['theme_mode']) => {
+    const nextMode = mode || 'system';
+    setCompany(prev => ({ ...prev, theme_mode: nextMode }));
+    applyThemeMode(nextMode);
+    void db.settings.put({ key: 'company_profile', value: { ...company, theme_mode: nextMode } });
+  };
 
   const handleToggleTheme = () => {
     const next = !isDark;
-    setIsDark(next);
-    try {
-      localStorage.setItem('odoo_theme_dark', String(next));
-      if (next) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-    } catch {
-      // ignore
-    }
+    handleSetThemeMode(next ? 'dark' : 'light');
   };
 
   const handleToggleSound = () => {
@@ -195,7 +225,7 @@ export default function App() {
   };
 
   return (
-    <AuthGate>
+    <AuthGate company={company}>
       <AccountScopedWorkspace>
         <div className="w-screen h-screen overflow-hidden font-sans">
           <DesktopWindowWorkspace
@@ -210,6 +240,7 @@ export default function App() {
             onUpdateCompany={handleUpdateCompany}
             isDark={isDark}
             onToggleTheme={handleToggleTheme}
+            onSetThemeMode={handleSetThemeMode}
             isMuted={isMuted}
             onToggleSound={handleToggleSound}
             onOpenStudio={() => setIsStudioOpen(true)}

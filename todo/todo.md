@@ -25,6 +25,11 @@
 
 The authentication and local multi-user milestone is complete for v22.10.0. Historical completion details are archived in `todo/completed_todo.md`.
 
+The v23.0.0 Users & Accounts / Start Menu power milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+The v23.1.0 Windows-style authentication surface redesign is complete on the feature branch and is archived in `todo/completed_todo.md`.
+
+
 
 ### 2.2 Windows-Inspired Settings & Display / Multi-Monitor Management
 - [ ] **Windows 11-Inspired Settings Hub**:
