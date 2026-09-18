@@ -216,7 +216,11 @@ function LoginBackdrop({
   wallpaper?: string;
   children: React.ReactNode;
 }) {
-  const now = new Date();
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const background = wallpaper || company.desktop_wallpaper_url;
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white">
