@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.1.0';
+export const APP_VERSION = '23.1.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -21,7 +21,7 @@ export const VERSION_HISTORY: VersionRelease[] = [
       'Redesigned the initial sign-in and workstation lock screens around a Windows-style full-screen experience with blurred local wallpaper support.',
       'Added live time and date presentation using the configured SOCDOF language, date format, timezone, and seconds setting.',
       'Added a bottom-left account switcher with active local users, avatar previews, and an Other User sign-in option.',
-      'Replaced placeholder avatar symbols on the authentication surface with a neutral gray user silhouette whenever no image avatar is configured.'
+      'Moved user account management fully into Settings and removed the redundant Start menu account shortcut from the desktop UI.',\n      'Corrected the Users & Accounts translation mapping so English, German, French, and Spanish blocks use their own language consistently.'
     ]
   },
 
