@@ -138,7 +138,17 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   }, [session, locked]);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'l' && getSession() && !locked) { event.preventDefault(); lockSession(); setLocked(true); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, [locked]);
 
-  const login = async (username: string, password: string) => { const result = await authenticate(username, password); if (!result.ok) { refresh(); return { ok: false as const, reason: result.reason, retryAt: result.retryAt }; } setSession(result.session); setLocked(false); setUsers(getUsers()); return { ok: true as const }; };
+  const login = async (username: string, password: string) => {
+    const startedAt = Date.now();
+    const result = await authenticate(username, password);
+    if (!result.ok) { refresh(); return { ok: false as const, reason: result.reason, retryAt: result.retryAt }; }
+    const remaining = Math.max(0, 2200 - (Date.now() - startedAt));
+    if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
+    setSession(result.session);
+    setLocked(false);
+    setUsers(getUsers());
+    return { ok: true as const };
+  };
   const logout = () => { clearSession(); setSession(null); setLocked(false); };
 
   if (!languageReady) return <LanguageSelectionScreen onSelected={() => setLanguageReady(true)} />;
@@ -271,6 +281,7 @@ function LoginScreen({
   const [error, setError] = useState('');
   const [lockedUntil, setLockedUntil] = useState<number | undefined>();
   const [recover, setRecover] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -296,15 +307,18 @@ function LoginScreen({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!loginUsername) return setError(text.required);
+    if (!loginUsername || isSigningIn) return setError(text.required);
+    setIsSigningIn(true);
+    setError('');
     const result = await onLogin(loginUsername, password);
     if (!result.ok) {
+      setIsSigningIn(false);
       setLockedUntil(result.retryAt);
       setError(result.reason === 'inactive' ? text.inactive : result.reason === 'locked' ? text.locked : text.invalid);
-    } else {
-      setError('');
     }
   };
+
+  if (isSigningIn) return <AuthLoadingScreen text={text} user={selectedUser} />;
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
@@ -391,6 +405,26 @@ function LoginScreen({
         </button>
       </div>
     </LoginBackdrop>
+  );
+}
+
+function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount | null }) {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    const timer = window.setInterval(() => setDots((current) => current.length >= 3 ? '' : current + '.'), 350);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+      <div className="relative flex flex-col items-center text-center px-6">
+        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-24 h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl"><UserRound size={38} strokeWidth={1.6} className="text-white/55" /></div>}
+        <div className="mt-7 text-xl font-medium tracking-tight">{text.login}{dots}</div>
+        <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
+          {[0, 1, 2, 3].map((index) => <span key={index} className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />)}
+        </div>
+      </div>
+    </div>
   );
 }
 
