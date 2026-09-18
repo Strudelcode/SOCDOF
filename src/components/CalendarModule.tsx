@@ -213,6 +213,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     setMiniCalendarMonth(new Date(focusedDate.getFullYear(), focusedDate.getMonth(), 1));
   }, [focusedDate]);
 
+  // Refresh when another module creates or removes a shared local calendar event.
+  useEffect(() => {
+    const handleCalendarUpdated = () => refreshUnifiedEvents();
+    window.addEventListener('socdof:calendar-updated', handleCalendarUpdated);
+    return () => window.removeEventListener('socdof:calendar-updated', handleCalendarUpdated);
+  }, [refreshUnifiedEvents]);
+
   // Subscribe to Auth and Sync changes
   useEffect(() => {
     const unsubAuth = subscribeToGoogleAuth((user, token) => {
@@ -781,6 +788,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         };
         const existing = getStoredCustomCalendarEvents();
         saveStoredCustomCalendarEvents([...existing, newLocalEvent]);
+        window.dispatchEvent(new Event('socdof:calendar-updated'));
         sounds.playSuccess();
         setStatusNotification({
           text: `Lokaler Termin "${newEventTitle}" gespeichert.`,
