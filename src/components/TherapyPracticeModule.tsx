@@ -57,6 +57,8 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   useEffect(() => {
     let cancelled = false;
     hydratedUserRef.current = null;
+    setData(emptyData);
+    setSelectedClient('');
     void (async () => {
       const record = await db.therapy_practice.get(userId);
       if (cancelled) return;
