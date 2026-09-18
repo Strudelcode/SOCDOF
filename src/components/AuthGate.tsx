@@ -25,28 +25,91 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
+import { LanguageCode, t, useLanguage } from '../lib/i18n';
 
-const copy = {
-  en: { welcome: 'Welcome to SOCDOF', setup: 'Create the first local administrator account.', login: 'Sign in', username: 'Username', displayName: 'Display name', password: 'Password', confirm: 'Confirm password', account: 'Account type', personal: 'Personal', business: 'Business', create: 'Create account', invalid: 'Username or password is incorrect.', inactive: 'This account is disabled.', locked: 'Account temporarily locked.', retry: 'Try again in', short: 'Password must contain at least 8 characters.', mismatch: 'Passwords do not match.', exists: 'That username already exists.', required: 'Please complete all required fields.', lock: 'Lock', logout: 'Sign out', switchUser: 'Switch user', unlock: 'Unlock', lockedTitle: 'Workstation locked', lockedDesc: 'Enter your password to continue.', users: 'Users & Security', add: 'Add user', role: 'Role', admin: 'Administrator', user: 'User', active: 'Active', disabled: 'Disabled', deactivate: 'Disable', activate: 'Enable', remove: 'Delete', passwordChange: 'Change password', newPassword: 'New password', save: 'Save', close: 'Close', current: 'Current user', manage: 'Manage users', lastAdmin: 'The last active administrator cannot be deleted or disabled.', resetDone: 'Password changed.', forgot: 'Forgot password?', recover: 'Recover account', recoveryQuestion: 'Recovery question', recoveryAnswer: 'Recovery answer', recoveryRequired: 'A recovery answer is required.', recoveryInvalid: 'The recovery answer is incorrect.', recoveryUnavailable: 'No recovery method is configured for this account.', backLogin: 'Back to sign in', newPasswordTitle: 'Choose a new password', avatar: 'Avatar', autoLock: 'Auto-lock', off: 'Off', minutes: 'min', profileSaved: 'Profile saved.', security: 'Security policy', threshold: 'Failed attempts', lockoutDuration: 'Lockout duration', backoff: 'Exponential backoff', enabled: 'Enabled', securitySaved: 'Security policy saved.', forcePassword: 'Temporary password: user must change it at next sign-in.', clock: 'Current time', shortcut: 'Shortcut: Ctrl+Shift+L' },
-  de: { welcome: 'Willkommen bei SOCDOF', setup: 'Erstelle das erste lokale Administratorkonto.', login: 'Anmelden', username: 'Benutzername', displayName: 'Anzeigename', password: 'Passwort', confirm: 'Passwort bestätigen', account: 'Kontotyp', personal: 'Privat', business: 'Geschäftlich', create: 'Konto erstellen', invalid: 'Benutzername oder Passwort ist falsch.', inactive: 'Dieses Konto ist deaktiviert.', locked: 'Konto vorübergehend gesperrt.', retry: 'Erneuter Versuch in', short: 'Das Passwort muss mindestens 8 Zeichen enthalten.', mismatch: 'Die Passwörter stimmen nicht überein.', exists: 'Dieser Benutzername existiert bereits.', required: 'Bitte fülle alle Pflichtfelder aus.', lock: 'Sperren', logout: 'Abmelden', switchUser: 'Benutzer wechseln', unlock: 'Entsperren', lockedTitle: 'Arbeitsplatz gesperrt', lockedDesc: 'Gib dein Passwort ein, um fortzufahren.', users: 'Benutzer & Sicherheit', add: 'Benutzer hinzufügen', role: 'Rolle', admin: 'Administrator', user: 'Benutzer', active: 'Aktiv', disabled: 'Deaktiviert', deactivate: 'Deaktivieren', activate: 'Aktivieren', remove: 'Löschen', passwordChange: 'Passwort ändern', newPassword: 'Neues Passwort', save: 'Speichern', close: 'Schließen', current: 'Aktueller Benutzer', manage: 'Benutzer verwalten', lastAdmin: 'Der letzte aktive Administrator kann nicht gelöscht oder deaktiviert werden.', resetDone: 'Passwort geändert.', forgot: 'Passwort vergessen?', recover: 'Konto wiederherstellen', recoveryQuestion: 'Wiederherstellungsfrage', recoveryAnswer: 'Antwort', recoveryRequired: 'Eine Antwort ist erforderlich.', recoveryInvalid: 'Die Antwort ist falsch.', recoveryUnavailable: 'Für dieses Konto ist keine Wiederherstellung eingerichtet.', backLogin: 'Zur Anmeldung', newPasswordTitle: 'Neues Passwort festlegen', avatar: 'Avatar', autoLock: 'Automatische Sperre', off: 'Aus', minutes: 'Min.', profileSaved: 'Profil gespeichert.', security: 'Sicherheitsrichtlinie', threshold: 'Fehlversuche', lockoutDuration: 'Sperrdauer', backoff: 'Exponentielle Sperrverlängerung', enabled: 'Aktiviert', securitySaved: 'Sicherheitsrichtlinie gespeichert.', forcePassword: 'Temporäres Passwort: Der Benutzer muss es bei der nächsten Anmeldung ändern.', clock: 'Aktuelle Uhrzeit', shortcut: 'Tastenkürzel: Strg+Shift+L' },
-  fr: { welcome: 'Bienvenue dans SOCDOF', setup: 'Créez le premier compte administrateur local.', login: 'Se connecter', username: "Nom d'utilisateur", displayName: "Nom d'affichage", password: 'Mot de passe', confirm: 'Confirmer le mot de passe', account: 'Type de compte', personal: 'Personnel', business: 'Professionnel', create: 'Créer le compte', invalid: "Nom d'utilisateur ou mot de passe incorrect.", inactive: 'Ce compte est désactivé.', locked: 'Compte temporairement verrouillé.', retry: 'Nouvel essai dans', short: 'Le mot de passe doit contenir au moins 8 caractères.', mismatch: 'Les mots de passe ne correspondent pas.', exists: "Ce nom d'utilisateur existe déjà.", required: 'Veuillez remplir tous les champs obligatoires.', lock: 'Verrouiller', logout: 'Se déconnecter', switchUser: 'Changer d’utilisateur', unlock: 'Déverrouiller', lockedTitle: 'Poste verrouillé', lockedDesc: 'Saisissez votre mot de passe pour continuer.', users: 'Utilisateurs & sécurité', add: 'Ajouter un utilisateur', role: 'Rôle', admin: 'Administrateur', user: 'Utilisateur', active: 'Actif', disabled: 'Désactivé', deactivate: 'Désactiver', activate: 'Activer', remove: 'Supprimer', passwordChange: 'Changer le mot de passe', newPassword: 'Nouveau mot de passe', save: 'Enregistrer', close: 'Fermer', current: 'Utilisateur actuel', manage: 'Gérer les utilisateurs', lastAdmin: 'Le dernier administrateur actif ne peut pas être supprimé ou désactivé.', resetDone: 'Mot de passe modifié.', forgot: 'Mot de passe oublié ?', recover: 'Récupérer le compte', recoveryQuestion: 'Question de récupération', recoveryAnswer: 'Réponse', recoveryRequired: 'Une réponse est requise.', recoveryInvalid: 'La réponse est incorrecte.', recoveryUnavailable: 'Aucune récupération configurée pour ce compte.', backLogin: 'Retour à la connexion', newPasswordTitle: 'Choisir un nouveau mot de passe', avatar: 'Avatar', autoLock: 'Verrouillage automatique', off: 'Désactivé', minutes: 'min', profileSaved: 'Profil enregistré.', security: 'Politique de sécurité', threshold: 'Échecs de connexion', lockoutDuration: 'Durée du verrouillage', backoff: 'Prolongation exponentielle', enabled: 'Activée', securitySaved: 'Politique de sécurité enregistrée.', forcePassword: "Mot de passe temporaire : l’utilisateur doit le modifier à la prochaine connexion.", clock: 'Heure actuelle', shortcut: 'Raccourci : Ctrl+Shift+L' },
-  es: { welcome: 'Bienvenido a SOCDOF', setup: 'Crea la primera cuenta de administrador local.', login: 'Iniciar sesión', username: 'Usuario', displayName: 'Nombre visible', password: 'Contraseña', confirm: 'Confirmar contraseña', account: 'Tipo de cuenta', personal: 'Personal', business: 'Empresa', create: 'Crear cuenta', invalid: 'El usuario o la contraseña no son correctos.', inactive: 'Esta cuenta está desactivada.', locked: 'Cuenta bloqueada temporalmente.', retry: 'Nuevo intento en', short: 'La contraseña debe tener al menos 8 caracteres.', mismatch: 'Las contraseñas no coinciden.', exists: 'Ese nombre de usuario ya existe.', required: 'Completa todos los campos obligatorios.', lock: 'Bloquear', logout: 'Cerrar sesión', switchUser: 'Cambiar usuario', unlock: 'Desbloquear', lockedTitle: 'Puesto bloqueado', lockedDesc: 'Introduce tu contraseña para continuar.', users: 'Usuarios y seguridad', add: 'Añadir usuario', role: 'Rol', admin: 'Administrador', user: 'Usuario', active: 'Activo', disabled: 'Desactivado', deactivate: 'Desactivar', activate: 'Activar', remove: 'Eliminar', passwordChange: 'Cambiar contraseña', newPassword: 'Nueva contraseña', save: 'Guardar', close: 'Cerrar', current: 'Usuario actual', manage: 'Gestionar usuarios', lastAdmin: 'El último administrador activo no puede eliminarse ni desactivarse.', resetDone: 'Contraseña cambiada.', forgot: '¿Olvidaste la contraseña?', recover: 'Recuperar cuenta', recoveryQuestion: 'Pregunta de recuperación', recoveryAnswer: 'Respuesta', recoveryRequired: 'La respuesta es obligatoria.', recoveryInvalid: 'La respuesta es incorrecta.', recoveryUnavailable: 'No hay recuperación configurada para esta cuenta.', backLogin: 'Volver al inicio', newPasswordTitle: 'Elegir nueva contraseña', avatar: 'Avatar', autoLock: 'Bloqueo automático', off: 'Desactivado', minutes: 'min', profileSaved: 'Perfil guardado.', security: 'Política de seguridad', threshold: 'Intentos fallidos', lockoutDuration: 'Duración del bloqueo', backoff: 'Aumento exponencial', enabled: 'Activado', securitySaved: 'Política de seguridad guardada.', forcePassword: 'Contraseña temporal: el usuario debe cambiarla en el próximo inicio de sesión.', clock: 'Hora actual', shortcut: 'Atajo: Ctrl+Shift+L' }
-} as const;
+const getAuthCopy = (lang: LanguageCode) => ({
+  welcome: t('auth.welcome', lang),
+  setup: t('auth.setup', lang),
+  login: t('auth.login', lang),
+  username: t('auth.username', lang),
+  displayName: t('auth.displayName', lang),
+  password: t('auth.password', lang),
+  confirm: t('auth.confirm', lang),
+  account: t('auth.account', lang),
+  personal: t('auth.personal', lang),
+  business: t('auth.business', lang),
+  create: t('auth.create', lang),
+  invalid: t('auth.invalid', lang),
+  inactive: t('auth.inactive', lang),
+  locked: t('auth.locked', lang),
+  retry: t('auth.retry', lang),
+  short: t('auth.short', lang),
+  mismatch: t('auth.mismatch', lang),
+  exists: t('auth.exists', lang),
+  required: t('auth.required', lang),
+  lock: t('auth.lock', lang),
+  logout: t('auth.logout', lang),
+  switchUser: t('auth.switchUser', lang),
+  unlock: t('auth.unlock', lang),
+  lockedTitle: t('auth.lockedTitle', lang),
+  lockedDesc: t('auth.lockedDesc', lang),
+  users: t('auth.users', lang),
+  add: t('auth.add', lang),
+  role: t('auth.role', lang),
+  admin: t('auth.admin', lang),
+  user: t('auth.user', lang),
+  active: t('auth.active', lang),
+  disabled: t('auth.disabled', lang),
+  deactivate: t('auth.deactivate', lang),
+  activate: t('auth.activate', lang),
+  remove: t('auth.remove', lang),
+  passwordChange: t('auth.passwordChange', lang),
+  newPassword: t('auth.newPassword', lang),
+  save: t('auth.save', lang),
+  close: t('auth.close', lang),
+  current: t('auth.current', lang),
+  manage: t('auth.manage', lang),
+  lastAdmin: t('auth.lastAdmin', lang),
+  resetDone: t('auth.resetDone', lang),
+  forgot: t('auth.forgot', lang),
+  recover: t('auth.recover', lang),
+  recoveryQuestion: t('auth.recoveryQuestion', lang),
+  recoveryAnswer: t('auth.recoveryAnswer', lang),
+  recoveryRequired: t('auth.recoveryRequired', lang),
+  recoveryInvalid: t('auth.recoveryInvalid', lang),
+  recoveryUnavailable: t('auth.recoveryUnavailable', lang),
+  backLogin: t('auth.backLogin', lang),
+  newPasswordTitle: t('auth.newPasswordTitle', lang),
+  avatar: t('auth.avatar', lang),
+  autoLock: t('auth.autoLock', lang),
+  off: t('auth.off', lang),
+  minutes: t('auth.minutes', lang),
+  profileSaved: t('auth.profileSaved', lang),
+  security: t('auth.security', lang),
+  threshold: t('auth.threshold', lang),
+  lockoutDuration: t('auth.lockoutDuration', lang),
+  backoff: t('auth.backoff', lang),
+  enabled: t('auth.enabled', lang),
+  securitySaved: t('auth.securitySaved', lang),
+  forcePassword: t('auth.forcePassword', lang),
+  clock: t('auth.clock', lang),
+  shortcut: t('auth.shortcut', lang),
+});
 
-type Lang = keyof typeof copy;
-const getLang = (): Lang => { try { const value = localStorage.getItem('socdof_language'); return value === 'de' || value === 'fr' || value === 'es' ? value : 'en'; } catch { return 'en'; } };
+type AuthText = ReturnType<typeof getAuthCopy>;
+type Lang = LanguageCode;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [session, setSession] = useState(() => getSession());
-  const [lang, setLang] = useState<Lang>(() => getLang());
+  const lang = useLanguage();
   const [locked, setLocked] = useState(() => Boolean(getSession()?.locked));
   const [showManager, setShowManager] = useState(false);
-  const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); setLang(getLang()); }, []);
+  const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); }, []);
   const currentUser = session ? getUserById(session.userId) : null;
-  const text = copy[lang];
+  const text = getAuthCopy(lang);
 
   useEffect(() => { const onStorage = () => refresh(); window.addEventListener('storage', onStorage); window.addEventListener('socdof-auth-changed', onStorage); return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('socdof-auth-changed', onStorage); }; }, [refresh]);
   useEffect(() => {
@@ -68,7 +131,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return <div className="relative w-full h-full">{children}<div className="fixed top-3 right-3 z-[9999] flex items-center gap-1 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/85 backdrop-blur-xl shadow-lg px-2 py-1.5"><button title={text.lock} onClick={() => { lockSession(); setLocked(true); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LockKeyhole size={16} /></button><button title={text.manage} onClick={() => setShowManager(true)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><UserRoundCog size={16} /></button><button title={text.logout} onClick={logout} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><LogOut size={16} /></button><div className="px-2 text-xs font-medium max-w-32 truncate">{currentUser.avatar?.startsWith('data:image/') ? <img src={currentUser.avatar} alt="" className="inline w-4 h-4 rounded-full object-cover mr-1" /> : `${currentUser.avatar ?? '●'} `}{currentUser.displayName}</div></div>{showManager && <UserManager text={text} currentUser={currentUser} users={users} onClose={() => setShowManager(false)} onRefresh={refresh} onLogout={logout} />}</div>;
 }
 
-function FirstAccount({ text, onCreated }: { text: typeof copy[Lang]; onCreated: () => void }) {
+function FirstAccount({ text, onCreated }: { text: AuthText; onCreated: () => void }) {
   const [form, setForm] = useState({ username: '', displayName: '', password: '', confirm: '', accountType: 'personal' as AccountType, avatar: avatars[0], recoveryQuestion: RECOVERY_QUESTIONS[0], recoveryAnswer: '' });
   const [error, setError] = useState('');
   const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!form.username || !form.displayName || !form.password) return setError(text.required); if (form.password !== form.confirm) return setError(text.mismatch); try { await createUser(form); onCreated(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'password_too_short' ? text.short : reason === 'username_exists' ? text.exists : reason === 'recovery_answer_required' ? text.recoveryRequired : text.required); } };
