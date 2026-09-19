@@ -249,6 +249,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 }) => {
   const currentLang = useLanguage();
 
+  // Persist user-owned workspace settings in both visible storage and the active account scope.
+  const saveUserScopedValue = (key: string, value: unknown) => {
+    try {
+      const serialized = JSON.stringify(value);
+      localStorage.setItem(key, serialized);
+      const user = getCurrentUser();
+      if (user) localStorage.setItem('socdof.user.' + user.id + '.' + key, serialized);
+    } catch {
+      // ignore persistence failures
+    }
+  };
+
   // Installed modules in App Store with guaranteed standard apps
   const [installedModules, setInstalledModules] = useState<ActiveModule[]>(() => {
     try {
@@ -321,7 +333,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setSavedWindowStates(prev => {
       const next = { ...prev, [module]: clampedState };
       try {
-        localStorage.setItem('odoo_window_geometry_states', JSON.stringify(next));
+        saveUserScopedValue('odoo_window_geometry_states', next);
       } catch {}
       return next;
     });
@@ -342,7 +354,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const saveDesktopFolders = (folders: DesktopFolder[]) => {
     setDesktopFolders(folders);
     try {
-      localStorage.setItem('socdof_desktop_folders', JSON.stringify(folders));
+      saveUserScopedValue('socdof_desktop_folders', folders);
     } catch {}
   };
 
@@ -367,7 +379,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const next = { ...prev, [newFolderId]: targetPos };
       delete next[targetModId];
       delete next[draggedModId];
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      saveUserScopedValue('odoo_desktop_icon_positions', next);
       return next;
     });
 
@@ -514,7 +526,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const resolved = resolveAllDesktopPositions(pinnedDesktop, desktopFolders, prev);
       const isDifferent = Object.keys(resolved).some(k => !prev[k] || prev[k].x !== resolved[k].x || prev[k].y !== resolved[k].y);
       if (isDifferent) {
-        try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(resolved)); } catch {}
+        saveUserScopedValue('odoo_desktop_icon_positions', resolved);
         return resolved;
       }
       return prev;
@@ -1368,31 +1380,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // AccountScopedWorkspace restores the active user's scoped values on reload.
   // Keep both the active localStorage value and the account-scoped copy in sync;
   // otherwise a reload would restore the previous snapshot and undo an app install.
-  const saveUserScopedModuleState = (key: 'odoo_installed_modules' | 'odoo_pinned_desktop' | 'odoo_pinned_taskbar', mods: ActiveModule[]) => {
-    try {
-      const user = getCurrentUser();
-      if (user) {
-        localStorage.setItem(`socdof.user.${user.id}.${key}`, JSON.stringify(mods));
-      }
-    } catch {
-      // ignore persistence failures
-    }
-  };
-
   const saveInstalled = (mods: ActiveModule[]) => {
     setInstalledModules(mods);
-    try { localStorage.setItem('odoo_installed_modules', JSON.stringify(mods)); } catch {}
-    saveUserScopedModuleState('odoo_installed_modules', mods);
+    saveUserScopedValue('odoo_installed_modules', mods);
   };
   const savePinnedDesktop = (mods: ActiveModule[]) => {
     setPinnedDesktop(mods);
-    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(mods)); } catch {}
-    saveUserScopedModuleState('odoo_pinned_desktop', mods);
+    saveUserScopedValue('odoo_pinned_desktop', mods);
   };
   const savePinnedTaskbar = (mods: ActiveModule[]) => {
     setPinnedTaskbar(mods);
-    try { localStorage.setItem('odoo_pinned_taskbar', JSON.stringify(mods)); } catch {}
-    saveUserScopedModuleState('odoo_pinned_taskbar', mods);
+    saveUserScopedValue('odoo_pinned_taskbar', mods);
   };
 
   // Restore standard apps to desktop and taskbar
