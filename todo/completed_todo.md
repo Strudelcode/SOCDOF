@@ -1,3 +1,11 @@
+### Persistent Application Activation, Pinning & Desktop Ordering (v23.4.4)
+- [x] Fixed account-scoped application state restoration so the latest user-scoped app configuration is authoritative after reloads and restarts.
+- [x] Prevented stale legacy `all.*` snapshots from overwriting newer installed/disabled application state.
+- [x] Preserved exact desktop and taskbar pin lists and their custom ordering across restarts.
+- [x] Allowed optional apps to remain disabled while protected system apps stay available.
+- [x] Added multilingual in-app documentation for persistent application activation and desktop/taskbar ordering.
+- [x] Synchronized v23.4.4 version and release documentation.
+
 ### Safe In-App Updates & Persistent Application State (v23.4.3)
 - [x] Added an Electron pre-update handshake that requests a renderer-side data snapshot before downloading/installing an update.
 - [x] Snapshot includes the local IndexedDB database and SOCDOF-owned localStorage state, including account-scoped installed-module persistence.
