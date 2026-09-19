@@ -727,3 +727,23 @@ export function updateUserPreferences(id: string, preferences: UserPreferences) 
   if (!actor || actor.id !== id) requireAdmin();
   return updateUser(id, { preferences });
 }
+
+export async function resetAuthSystem(): Promise<void> {
+  clearSession();
+  cacheUsers([]);
+  cacheSecurity(DEFAULT_SECURITY_SETTINGS);
+  if (hasStorage()) {
+    localStorage.removeItem(USERS_KEY);
+    localStorage.removeItem(SECURITY_KEY);
+  }
+  if (hasIndexedDb()) {
+    try {
+      await db.settings.delete(AUTH_DB_USERS_KEY);
+      await db.settings.delete(AUTH_DB_SECURITY_KEY);
+    } catch {
+      // ignore
+    }
+  }
+  notifyAuthChanged();
+  notifySameWindowStorageChange();
+}

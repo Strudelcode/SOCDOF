@@ -1,3 +1,23 @@
+### Multi-Step System Reset & Complete Reinstallation Flow (v23.5.0)
+- [x] Implemented a 4-step security wizard for "System zurücksetzen" ("Reset System") in SettingsModule.tsx.
+- [x] Added Step 1: Confirmation word input ("Löschen" / localized equivalent).
+- [x] Added Step 2: Explicit prompt "Sind Sie sicher, dass Sie es löschen wollen?" with re-entry of the confirmation word.
+- [x] Added Step 3: Local account password verification via `verifyPassword()` to authenticate the administrative reset.
+- [x] Added Step 4: Final confirmation check requiring the confirmation word before initiating full system reset.
+- [x] Added Step 5: Visual in-progress state ("Wird zurückgesetzt...") with animated indicator while purging databases, files, and user credentials.
+- [x] Created `resetEntireSystemDatabase()` in `src/lib/db.ts` to wipe all Dexie tables, storage assets, and settings.
+- [x] Created `resetAuthSystem()` in `src/lib/auth.ts` to clear accounts, credential hashes, and user session data.
+- [x] Cleared `localStorage` and `sessionStorage`, smoothly redirecting the user back to the initial start screen for account setup.
+- [x] Fully localized all reset dialogs, steps, labels, and error messages in German, English, French, and Spanish (`src/lib/i18n.ts`).
+- [x] Synchronized version 23.5.0 across `package.json`, `src/lib/version.ts`, `versions/V23.md`, and `CHANGELOG.md`.
+
+### Desktop Icon Layout & In-App Activation Persistence Stabilization (v23.4.5)
+- [x] Fixed desktop icon position persistence so moved, swapped, snapped, and auto-arranged icons retain their exact custom coordinates across page reloads and application restarts.
+- [x] Synchronized all desktop coordinate and folder mutations with active user-scoped storage (`socdof.user.<id>.odoo_desktop_icon_positions`).
+- [x] Eliminated recurring business-module filtering on existing user profiles, ensuring in-app activations (such as Praxis & Therapie or Invoices) remain permanently activated and pinned.
+- [x] Eagerly prepared account-scoped storage during initial workspace mount to prevent initialization race conditions with default layouts.
+- [x] Synchronized v23.4.5 version, package.json, release documentation, and changelog.
+
 ### Persistent Application Activation, Pinning & Desktop Ordering (v23.4.4)
 - [x] Fixed account-scoped application state restoration so the latest user-scoped app configuration is authoritative after reloads and restarts.
 - [x] Prevented stale legacy `all.*` snapshots from overwriting newer installed/disabled application state.

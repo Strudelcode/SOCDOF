@@ -66,12 +66,15 @@ import {
   Maximize2,
   Minimize2,
   Receipt,
-  UserRoundCog
+  UserRoundCog,
+  Lock,
+  EyeOff,
+  Loader2
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
 import { SocdofLogo } from './SocdofLogo';
-import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, clearDatabaseToEmpty, getDatabaseStorageStats } from '../lib/db';
+import { db, exportDatabaseToJson, importDatabaseFromJson, resetDatabaseToDemo, clearDatabaseToEmpty, resetEntireSystemDatabase, getDatabaseStorageStats } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { ACCENT_LIST, applyAccentColor, getAccentPreset } from '../lib/accent';
 import { 
@@ -130,7 +133,7 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, verifyPassword, resetAuthSystem } from '../lib/auth';
 import { UserManagementSettings } from './UserManagementSettings';
 
 export type SettingsSection = 
@@ -146,6 +149,8 @@ export type SettingsSection =
   | 'windows'
   | 'users'
   | 'danger';
+
+export type SystemResetStep = 'step1_word' | 'step2_sure' | 'step3_password' | 'step4_final' | 'step5_resetting';
 
 interface SettingsModuleProps {
   company: CompanyProfile;
@@ -516,9 +521,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
   };
 
-  // Delete Warning Confirmation Dialog State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteConfirmationWord, setDeleteConfirmationWord] = useState('');
+  // Multi-Step System Reset Modal State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<SystemResetStep>('step1_word');
+  const [resetInputWord, setResetInputWord] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
 
   // Small file export preference
   const [exportCompact, setExportCompact] = useState(true);
@@ -937,24 +947,119 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     setTimeout(() => setCalendarToast(null), 3000);
   };
 
-  const handleExecuteFullDelete = async () => {
-    if (deleteConfirmationWord.trim().toUpperCase() !== 'LOESCHEN' && deleteConfirmationWord.trim().toUpperCase() !== 'LÖSCHEN') {
+  const isDeleteWordMatching = (input: string) => {
+    const norm = input.trim().toLowerCase().replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ü/g, 'ue');
+    const localizedWord = (t('settings.reset_word', activeLang, 'Löschen') || '')
+      .trim().toLowerCase().replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ü/g, 'ue');
+    return (
+      norm === 'loeschen' ||
+      norm === 'delete' ||
+      norm === 'supprimer' ||
+      norm === 'eliminar' ||
+      norm === localizedWord
+    );
+  };
+
+  const handleOpenResetModal = () => {
+    sounds.playPop();
+    setResetStep('step1_word');
+    setResetInputWord('');
+    setResetPassword('');
+    setShowResetPassword(false);
+    setResetPasswordError(null);
+    setIsVerifyingPassword(false);
+    setIsResetModalOpen(true);
+  };
+
+  const handleCloseResetModal = () => {
+    if (resetStep === 'step5_resetting') return;
+    setIsResetModalOpen(false);
+    setResetInputWord('');
+    setResetPassword('');
+    setShowResetPassword(false);
+    setResetPasswordError(null);
+    setIsVerifyingPassword(false);
+  };
+
+  const handleAdvanceFromStep1 = () => {
+    if (!isDeleteWordMatching(resetInputWord)) {
       sounds.playError();
-      alert('Bitte geben Sie zur Bestätigung das Wort "LÖSCHEN" ein.');
       return;
     }
+    sounds.playClick();
+    setResetInputWord('');
+    setResetStep('step2_sure');
+  };
 
+  const handleAdvanceFromStep2 = () => {
+    if (!isDeleteWordMatching(resetInputWord)) {
+      sounds.playError();
+      return;
+    }
+    sounds.playClick();
+    setResetInputWord('');
+    setResetPassword('');
+    setResetPasswordError(null);
+    setResetStep('step3_password');
+  };
+
+  const handleAdvanceFromStep3Password = async () => {
     try {
-      await clearDatabaseToEmpty();
-      sounds.playDelete();
-      setIsDeleteModalOpen(false);
-      setDeleteConfirmationWord('');
-      alert('Alle Daten wurden vollständig und unwiderruflich gelöscht. Das System ist nun im sauberen Ausgangszustand.');
-      onFullReset();
-      loadStorageInfo();
+      setIsVerifyingPassword(true);
+      setResetPasswordError(null);
+      const user = getCurrentUser();
+      if (user && user.passwordHash) {
+        if (!resetPassword.trim()) {
+          sounds.playError();
+          setResetPasswordError(t('settings.reset_password_invalid', activeLang, 'Ungültiges Passwort. Bitte versuchen Sie es erneut.'));
+          setIsVerifyingPassword(false);
+          return;
+        }
+        const isValid = await verifyPassword(resetPassword, user);
+        if (!isValid) {
+          sounds.playError();
+          setResetPasswordError(t('settings.reset_password_invalid', activeLang, 'Ungültiges Passwort. Bitte versuchen Sie es erneut.'));
+          setIsVerifyingPassword(false);
+          return;
+        }
+      }
+      sounds.playClick();
+      setResetPassword('');
+      setResetInputWord('');
+      setResetStep('step4_final');
     } catch (err) {
       console.error(err);
       sounds.playError();
+      setResetPasswordError(t('settings.reset_password_invalid', activeLang, 'Ungültiges Passwort. Bitte versuchen Sie es erneut.'));
+    } finally {
+      setIsVerifyingPassword(false);
+    }
+  };
+
+  const handleExecuteSystemReset = async () => {
+    if (!isDeleteWordMatching(resetInputWord)) {
+      sounds.playError();
+      return;
+    }
+    setResetStep('step5_resetting');
+    sounds.playDelete();
+    try {
+      await resetEntireSystemDatabase();
+      await resetAuthSystem();
+      if (typeof localStorage !== 'undefined') {
+        localStorage.clear();
+      }
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1400));
+      window.location.href = window.location.origin + window.location.pathname;
+      window.location.reload();
+    } catch (err) {
+      console.error('System reset error:', err);
+      if (typeof localStorage !== 'undefined') localStorage.clear();
+      if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+      window.location.reload();
     }
   };
 
@@ -982,7 +1087,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'audio', title: 'Soundeffekte & Lautstärke', desc: 'Klicktöne, Bestätigungssounds', section: 'audio' as SettingsSection },
       { id: 'windows', title: 'Windows Desktop-App', desc: 'Lokaler Launcher, Autostart, Offline-App', section: 'windows' as SettingsSection },
       { id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: 'Benutzerverwaltung, Konten, Profil, Profilbild, Kennwort & Rollen', section: 'users' as SettingsSection },
-      { id: 'danger', title: 'Datenbank zurücksetzen / löschen', desc: 'Demo-Daten laden oder sauberes Zurücksetzen', section: 'danger' as SettingsSection },
+      { id: 'danger', title: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.'), section: 'danger' as SettingsSection },
     ];
 
     return items.filter(i => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
@@ -1033,7 +1138,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         { id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: canManageUsers ? t('users.admin_badge', activeLang, 'Admin') : undefined },
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
-        { id: 'danger' as SettingsSection, label: t('settings.danger', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: 'Demodaten oder vollständige Löschung' }
+        { id: 'danger' as SettingsSection, label: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.') }
       ]
     }
   ], [activeLang, canManageUsers]);
@@ -5286,7 +5391,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           )}
 
-          {/* SECTION: DANGER ZONE (Reset / Demo Data) */}
+          {/* SECTION: SYSTEM RESET / DANGER ZONE */}
           {activeSection === 'danger' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-rose-200 dark:border-rose-900/60 shadow-xs p-6 space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-rose-100 dark:border-rose-900/40">
@@ -5295,10 +5400,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-rose-900 dark:text-rose-200 text-sm">
-                    Gefahrenzone: System zurücksetzen
+                    {t('settings.reset_system_title', activeLang, 'System zurücksetzen')}
                   </h3>
                   <p className="text-xs text-rose-600/80 dark:text-rose-400/80">
-                    Aktionen in diesem Bereich wirken sich direkt auf die gesamte Datenbank aus.
+                    {t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.')}
                   </p>
                 </div>
               </div>
@@ -5328,25 +5433,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </button>
                 </div>
 
-                {/* Hard Reset / Clear Database */}
+                {/* Hard Reset / System zurücksetzen */}
                 <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold text-rose-900 dark:text-rose-200">
-                      Alle Daten vollständig löschen
+                      {t('settings.reset_system_title', activeLang, 'System zurücksetzen')}
                     </div>
                     <div className="text-[11px] text-rose-700/80 dark:text-rose-400/80">
-                      Setzt die gesamte Datenbank sauber auf 0 zurück (leeres System).
+                      {t('settings.reset_system_card_desc', activeLang, 'Löscht alle Datenbankeinträge, Dateien, lokalen Konten und Einstellungen, um zum anfänglichen Startbildschirm zurückzukehren.')}
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      sounds.playPop();
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-xs self-start sm:self-auto flex items-center gap-1.5"
+                    onClick={handleOpenResetModal}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-xs self-start sm:self-auto flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>System leeren</span>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{t('settings.reset_system_action', activeLang, 'System zurücksetzen')}</span>
                   </button>
                 </div>
               </div>
@@ -5420,55 +5522,329 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal Dialog */}
-      {isDeleteModalOpen && (
+      {/* Multi-Step System Reset Modal Dialog */}
+      {isResetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-scale-in">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scale-in">
+            {resetStep !== 'step5_resetting' && (
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 dark:text-slate-500 pb-1 border-b border-slate-100 dark:border-slate-800">
+                <span className="truncate">{t('settings.reset_system_title', activeLang, 'System zurücksetzen')}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold border border-rose-200/60 dark:border-rose-900/40 text-[10px]">
+                  {t('settings.reset_step_label', activeLang, 'Schritt {step} von {total}')
+                    .replace('{step}', resetStep === 'step1_word' ? '1' : resetStep === 'step2_sure' ? '2' : resetStep === 'step3_password' ? '3' : '4')
+                    .replace('{total}', '4')}
+                </span>
+              </div>
+            )}
 
-            <div className="text-center">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                Datenbank wirklich leeren?
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Diese Aktion löscht alle Kontakte, Rechnungen, Buchungen und Produkte unwiderruflich.
-              </p>
-            </div>
+            {/* STEP 1: Enter "Löschen" */}
+            {resetStep === 'step1_word' && (
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-xs">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
-              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Geben Sie zur Bestätigung <span className="font-mono font-bold text-rose-600">LÖSCHEN</span> ein:
-              </label>
-              <input
-                type="text"
-                value={deleteConfirmationWord}
-                onChange={(e) => setDeleteConfirmationWord(e.target.value)}
-                placeholder="LÖSCHEN"
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-center text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
+                <div className="text-center space-y-1">
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {t('settings.reset_system_title', activeLang, 'System zurücksetzen')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.')}
+                  </p>
+                </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDeleteModalOpen(false);
-                  setDeleteConfirmationWord('');
-                }}
-                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteFullDelete}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition shadow-xs"
-              >
-                Unwiderruflich löschen
-              </button>
-            </div>
+                <div className="p-3 bg-rose-50/80 dark:bg-rose-950/40 rounded-2xl border border-rose-200/80 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{t('settings.reset_warning_detail', activeLang, 'Diese Aktion löscht alle Kontakte, Rechnungen, Buchungen, Produkte, Benutzerkonten und Einstellungen unwiderruflich.')}</span>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {t('settings.reset_type_delete', activeLang, 'Geben Sie zur Bestätigung „Löschen“ ein:')}
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={resetInputWord}
+                    onChange={(e) => setResetInputWord(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isDeleteWordMatching(resetInputWord)) {
+                        handleAdvanceFromStep1();
+                      }
+                    }}
+                    placeholder={t('settings.reset_word', activeLang, 'Löschen')}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-center text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition"
+                  >
+                    {t('settings.reset_cancel', activeLang, 'Abbrechen')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isDeleteWordMatching(resetInputWord)}
+                    onClick={handleAdvanceFromStep1}
+                    className={`flex-1 py-2.5 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 ${
+                      isDeleteWordMatching(resetInputWord)
+                        ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-xs cursor-pointer'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <span>{t('settings.reset_next', activeLang, 'Weiter')}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: "Sind Sie sicher, dass Sie es löschen wollen?" + Enter "Löschen" */}
+            {resetStep === 'step2_sure' && (
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {t('settings.reset_confirm_title_sure', activeLang, 'Sind Sie sicher, dass Sie es löschen wollen?')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {t('settings.reset_warning_detail', activeLang, 'Diese Aktion löscht alle Kontakte, Rechnungen, Buchungen, Produkte, Benutzerkonten und Einstellungen unwiderruflich.')}
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {t('settings.reset_type_delete_again', activeLang, 'Geben Sie nochmals „Löschen“ ein:')}
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={resetInputWord}
+                    onChange={(e) => setResetInputWord(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isDeleteWordMatching(resetInputWord)) {
+                        handleAdvanceFromStep2();
+                      }
+                    }}
+                    placeholder={t('settings.reset_word', activeLang, 'Löschen')}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-center text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition"
+                  >
+                    {t('settings.reset_cancel', activeLang, 'Abbrechen')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isDeleteWordMatching(resetInputWord)}
+                    onClick={handleAdvanceFromStep2}
+                    className={`flex-1 py-2.5 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 ${
+                      isDeleteWordMatching(resetInputWord)
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs cursor-pointer'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <span>{t('settings.reset_next', activeLang, 'Weiter')}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Password Verification */}
+            {resetStep === 'step3_password' && (
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-xs">
+                  <Lock className="w-6 h-6" />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {t('settings.reset_password_title', activeLang, 'Passwort eingeben')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {t('settings.reset_password_desc', activeLang, 'Geben Sie das Passwort Ihres Benutzerkontos ein, um das Zurücksetzen zu autorisieren.')}
+                  </p>
+                </div>
+
+                {(() => {
+                  const u = getCurrentUser();
+                  return (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                        {u?.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : (u?.displayName?.[0] || 'U')}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {u?.displayName || u?.username || 'Administrator'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono">
+                          @{u?.username || 'admin'} • {u?.role === 'admin' ? 'Administrator' : 'User'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {t('auth.password', activeLang, 'Passwort')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      autoFocus
+                      value={resetPassword}
+                      onChange={(e) => {
+                        setResetPassword(e.target.value);
+                        if (resetPasswordError) setResetPasswordError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAdvanceFromStep3Password();
+                        }
+                      }}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                    >
+                      {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {resetPasswordError && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{resetPasswordError}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition"
+                  >
+                    {t('settings.reset_cancel', activeLang, 'Abbrechen')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isVerifyingPassword}
+                    onClick={handleAdvanceFromStep3Password}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {isVerifyingPassword ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <span>{t('settings.reset_next', activeLang, 'Weiter')}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: Final Confirmation: "Sind Sie sicher, dass Sie es löschen wollen?" + Enter "Löschen" */}
+            {resetStep === 'step4_final' && (
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-xs">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {t('settings.reset_confirm_title_sure', activeLang, 'Sind Sie sicher, dass Sie es löschen wollen?')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.')}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-rose-50/90 dark:bg-rose-950/60 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 text-[11px] text-rose-800 dark:text-rose-200 leading-relaxed font-semibold">
+                  Letzte Sicherheitsstufe: Sobald Sie bestätigen, werden alle Datenbanken, Dateien, Benutzerkonten und Einstellungen endgültig gelöscht.
+                </div>
+
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {t('settings.reset_type_delete_final', activeLang, 'Letzte Bestätigung: Geben Sie „Löschen“ ein:')}
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={resetInputWord}
+                    onChange={(e) => setResetInputWord(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isDeleteWordMatching(resetInputWord)) {
+                        handleExecuteSystemReset();
+                      }
+                    }}
+                    placeholder={t('settings.reset_word', activeLang, 'Löschen')}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-center text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition"
+                  >
+                    {t('settings.reset_cancel', activeLang, 'Abbrechen')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isDeleteWordMatching(resetInputWord)}
+                    onClick={handleExecuteSystemReset}
+                    className={`flex-1 py-2.5 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 ${
+                      isDeleteWordMatching(resetInputWord)
+                        ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 cursor-pointer'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{t('settings.reset_final_action', activeLang, 'System jetzt zurücksetzen')}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: Resetting in Progress */}
+            {resetStep === 'step5_resetting' && (
+              <div className="py-6 space-y-5 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-xs">
+                  <Loader2 className="w-7 h-7 animate-spin" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {t('settings.reset_in_progress', activeLang, 'Wird zurückgesetzt...')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    {t('settings.reset_in_progress_desc', activeLang, 'Alle Dateien, Einstellungen, Datenbanken und Konten werden gelöscht. Startbildschirm wird geladen...')}
+                  </p>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div className="bg-rose-600 h-full w-full animate-pulse" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

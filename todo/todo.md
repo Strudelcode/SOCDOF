@@ -23,6 +23,10 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.5.0 Multi-Step System Reset & Complete Reinstallation Flow milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.4.5 Desktop Icon Layout & In-App Activation Persistence Stabilization milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.4.4 Persistent Application Activation, Pinning & Desktop Ordering milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.4.3 Safe In-App Updates & Persistent Application State milestone is complete and archived in `todo/completed_todo.md`.

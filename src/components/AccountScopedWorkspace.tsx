@@ -54,28 +54,38 @@ function readArray(key: string): string[] | null {
 }
 
 function prepareUserWorkspace(userId: string, accountType: AccountType): void {
-  // User-scoped values are the source of truth. The old `all.*` snapshot is kept
-  // only as a legacy recovery fallback and must never overwrite newer user changes.
+  // User-scoped values are the source of truth.
   for (const key of USER_SCOPED_KEYS) {
     const userKey = scopedKey(key, userId);
     const existingUserValue = localStorage.getItem(userKey);
 
     if (existingUserValue !== null) {
-      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
-        const values = readArray(userKey);
-        if (values) {
-          const visible = accountType === 'personal'
-            ? values.filter(module => !BUSINESS_ONLY_MODULES.has(module))
-            : values;
-          const serialized = JSON.stringify(visible);
-          localStorage.setItem(key, serialized);
-          localStorage.setItem(userKey, serialized);
-          localStorage.setItem(backupKey(key, userId), serialized);
-        } else {
-          localStorage.setItem(key, existingUserValue);
+      // If desktop positions in userKey are empty/invalid but active key has valid positions, recover them
+      if (key === 'odoo_desktop_icon_positions') {
+        const unscopedPositions = localStorage.getItem(key);
+        if ((!existingUserValue || existingUserValue === '{}') && unscopedPositions && unscopedPositions !== '{}') {
+          localStorage.setItem(userKey, unscopedPositions);
+          continue;
         }
-      } else {
-        localStorage.setItem(key, existingUserValue);
+      }
+
+      // If userKey for modules is empty but active key has saved modules, recover them
+      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+        const userArr = readArray(userKey);
+        const unscopedArr = readArray(key);
+        if ((!userArr || userArr.length === 0) && (unscopedArr && unscopedArr.length > 0)) {
+          const serialized = JSON.stringify(unscopedArr);
+          localStorage.setItem(userKey, serialized);
+          localStorage.setItem(key, serialized);
+          localStorage.setItem(backupKey(key, userId), serialized);
+          continue;
+        }
+      }
+
+      // Restore user-saved values without deleting apps the user installed or pinned
+      localStorage.setItem(key, existingUserValue);
+      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+        localStorage.setItem(backupKey(key, userId), existingUserValue);
       }
       continue;
     }
@@ -83,9 +93,19 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
     // First initialization for this account: migrate the current unscoped value once.
     const currentValue = localStorage.getItem(key);
     if (currentValue !== null) {
-      localStorage.setItem(userKey, currentValue);
-      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
-        localStorage.setItem(backupKey(key, userId), currentValue);
+      if (accountType === 'personal' && MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+        const values = readArray(key);
+        // Only on initial account creation: provide default non-business template
+        const visible = values ? values.filter(module => !BUSINESS_ONLY_MODULES.has(module)) : [];
+        const serialized = JSON.stringify(visible);
+        localStorage.setItem(userKey, serialized);
+        localStorage.setItem(key, serialized);
+        localStorage.setItem(backupKey(key, userId), serialized);
+      } else {
+        localStorage.setItem(userKey, currentValue);
+        if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+          localStorage.setItem(backupKey(key, userId), currentValue);
+        }
       }
     }
   }
@@ -121,7 +141,20 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
     const session = getSession();
     return session && !session.locked ? getUserById(session.userId) : null;
   });
-  const [scopeKey, setScopeKey] = useState<string | null>(null);
+  const [scopeKey, setScopeKey] = useState<string | null>(() => {
+    const session = getSession();
+    const account = session && !session.locked ? getUserById(session.userId) : null;
+    if (account) {
+      try {
+        prepareUserWorkspace(account.id, account.accountType);
+        applyUserAppearance(account);
+        return `${account.id}:${account.accountType}`;
+      } catch (e) {
+        console.error('Failed to prepare account scope on init:', e);
+      }
+    }
+    return null;
+  });
 
   useEffect(() => {
     const refreshAccount = () => {

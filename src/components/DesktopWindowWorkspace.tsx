@@ -105,7 +105,7 @@ import { DynamicCalendarIcon } from './DynamicCalendarIcon';
 import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, getSession, getUserById } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
@@ -255,7 +255,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const serialized = JSON.stringify(value);
       localStorage.setItem(key, serialized);
       const user = getCurrentUser();
-      if (user) localStorage.setItem('socdof.user.' + user.id + '.' + key, serialized);
+      const userId = user?.id || getSession()?.userId;
+      if (userId) {
+        localStorage.setItem('socdof.user.' + userId + '.' + key, serialized);
+      }
     } catch {
       // ignore persistence failures
     }
@@ -264,7 +267,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Installed modules in App Store with guaranteed standard apps
   const [installedModules, setInstalledModules] = useState<ActiveModule[]>(() => {
     try {
-      const saved = localStorage.getItem('odoo_installed_modules');
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      const userSaved = user ? localStorage.getItem('socdof.user.' + user.id + '.odoo_installed_modules') : null;
+      const saved = userSaved || localStorage.getItem('odoo_installed_modules');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
         // A saved list is authoritative. Only protected core apps are always retained.
@@ -280,7 +285,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Pinned desktop modules with guaranteed standard apps
   const [pinnedDesktop, setPinnedDesktop] = useState<ActiveModule[]>(() => {
     try {
-      const saved = localStorage.getItem('odoo_pinned_desktop');
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      const userSaved = user ? localStorage.getItem('socdof.user.' + user.id + '.odoo_pinned_desktop') : null;
+      const saved = userSaved || localStorage.getItem('odoo_pinned_desktop');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
         // Preserve the user's exact saved order and pinned/unpinned choices.
@@ -295,7 +302,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Pinned taskbar modules
   const [pinnedTaskbar, setPinnedTaskbar] = useState<ActiveModule[]>(() => {
     try {
-      const saved = localStorage.getItem('odoo_pinned_taskbar');
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      const userSaved = user ? localStorage.getItem('socdof.user.' + user.id + '.odoo_pinned_taskbar') : null;
+      const saved = userSaved || localStorage.getItem('odoo_pinned_taskbar');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
         // Preserve the user's exact saved order and pinned/unpinned choices.
@@ -316,7 +325,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     isMaximized: boolean;
   }>>(() => {
     try {
-      const saved = localStorage.getItem('odoo_window_geometry_states');
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      const userSaved = user ? localStorage.getItem('socdof.user.' + user.id + '.odoo_window_geometry_states') : null;
+      const saved = userSaved || localStorage.getItem('odoo_window_geometry_states');
       if (saved) return JSON.parse(saved);
     } catch {}
     return {};
@@ -342,7 +353,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Persistent Desktop Folders (Android / iOS Style App Nesting)
   const [desktopFolders, setDesktopFolders] = useState<DesktopFolder[]>(() => {
     try {
-      const saved = localStorage.getItem('socdof_desktop_folders');
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      const userSaved = user ? localStorage.getItem('socdof.user.' + user.id + '.socdof_desktop_folders') : null;
+      const saved = userSaved || localStorage.getItem('socdof_desktop_folders');
       if (saved) return JSON.parse(saved);
     } catch {}
     return [];
@@ -409,7 +422,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     setDesktopPositions(prev => {
       const next = { ...prev };
       delete next[draggedModId];
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      saveUserScopedValue('odoo_desktop_icon_positions', next);
       return next;
     });
 
@@ -461,7 +474,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
     setDesktopPositions(prev => {
       const next = { ...prev, [newFolderId]: newPos };
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      saveUserScopedValue('odoo_desktop_icon_positions', next);
       return next;
     });
 
@@ -514,17 +527,34 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Desktop Icon XY Coordinates persistence (Freies Verschieben & Einrasten wie in Windows)
   const [desktopPositions, setDesktopPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     try {
+      const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      if (user) {
+        const userSaved = localStorage.getItem('socdof.user.' + user.id + '.odoo_desktop_icon_positions');
+        if (userSaved) {
+          const parsed = JSON.parse(userSaved);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            return parsed;
+          }
+        }
+      }
       const saved = localStorage.getItem('odoo_desktop_icon_positions');
       if (saved) return JSON.parse(saved);
     } catch {}
     return {};
   });
 
+  const saveDesktopPositions = (nextPositions: Record<string, { x: number; y: number }>) => {
+    setDesktopPositions(nextPositions);
+    saveUserScopedValue('odoo_desktop_icon_positions', nextPositions);
+  };
+
   // Automatically validate and resolve any coordinate collisions on desktop
   useEffect(() => {
     setDesktopPositions(prev => {
       const resolved = resolveAllDesktopPositions(pinnedDesktop, desktopFolders, prev);
-      const isDifferent = Object.keys(resolved).some(k => !prev[k] || prev[k].x !== resolved[k].x || prev[k].y !== resolved[k].y);
+      const isDifferent =
+        Object.keys(resolved).length !== Object.keys(prev).length ||
+        Object.keys(resolved).some(k => !prev[k] || prev[k].x !== resolved[k].x || prev[k].y !== resolved[k].y);
       if (isDifferent) {
         saveUserScopedValue('odoo_desktop_icon_positions', resolved);
         return resolved;
@@ -763,8 +793,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y
       };
     });
-    setDesktopPositions(nextPositions);
-    try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(nextPositions)); } catch {}
+    saveDesktopPositions(nextPositions);
     closeAllContextMenus();
   };
 
@@ -772,7 +801,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     sounds.playClick();
     setDesktopPositions(prev => {
       const resolved = resolveAllDesktopPositions(pinnedDesktop, desktopFolders, prev);
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(resolved)); } catch {}
+      saveUserScopedValue('odoo_desktop_icon_positions', resolved);
       return resolved;
     });
     closeAllContextMenus();
@@ -884,7 +913,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             [itemId]: { x: nextX, y: nextY },
             [occupiedId]: oldPos
           };
-          try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+          saveUserScopedValue('odoo_desktop_icon_positions', next);
           return next;
         } else {
           // New item without prior position: find next free slot
@@ -904,7 +933,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       }
 
       const next = { ...prev, [itemId]: { x: nextX, y: nextY } };
-      try { localStorage.setItem('odoo_desktop_icon_positions', JSON.stringify(next)); } catch {}
+      saveUserScopedValue('odoo_desktop_icon_positions', next);
       return next;
     });
 

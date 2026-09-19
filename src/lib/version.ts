@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.4.4';
+export const APP_VERSION = '23.5.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,28 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.5.0',
+    date: '2026-09-19',
+    title: 'Multi-Step System Reset & Complete Reinstallation Flow',
+    highlights: [
+      'Multi-Step System Reset: Added a 4-step security workflow in Settings (Word Confirmation -> Explicit Safety Prompt -> User Account Password Verification -> Final Confirmation).',
+      'Multilingual Reset Architecture: Fully localized the reset flow into German, English, French, and Spanish with smart word recognition (e.g., "Löschen", "Delete", "Supprimer", "Eliminar").',
+      'Complete Database & Auth Purge: Implemented resetEntireSystemDatabase() and resetAuthSystem() to wipe all Dexie tables, storage assets, session caches, and user accounts.',
+      'Return to Initial Setup: Reset execution displays a smooth progress state ("Wird zurückgesetzt...") before seamlessly redirecting to the initial user and account onboarding screen.'
+    ]
+  },
+  {
+    version: '23.4.5',
+    date: '2026-09-19',
+    title: 'Desktop Icon Layout & In-App Activation Persistence Stabilization',
+    highlights: [
+      'Fixed desktop icon position persistence so moved, swapped, snapped, and auto-arranged icons retain their exact custom coordinates across page reloads and application restarts.',
+      'Synchronized all desktop coordinate and folder mutations with active user-scoped storage (socdof.user.<id>.odoo_desktop_icon_positions).',
+      'Eliminated recurring business-module filtering on existing user profiles, ensuring in-app activations (such as Praxis & Therapie or Invoices) remain permanently activated and pinned.',
+      'Eagerly prepared account-scoped storage during initial workspace mount to prevent initialization race conditions with default layouts.'
+    ]
+  },
   {
     version: '23.4.4',
     date: '2026-09-19',

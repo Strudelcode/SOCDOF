@@ -904,3 +904,17 @@ export async function clearDatabaseToEmpty(): Promise<void> {
   await db.chatter_messages.clear();
   await db.settings.put({ key: 'company_profile', value: defaultCompanyProfile });
 }
+
+/**
+ * Completely clears all tables in the database and wipes all stored settings.
+ */
+export async function resetEntireSystemDatabase(): Promise<void> {
+  await db.contacts.clear();
+  await db.products.clear();
+  await db.stock_moves.clear();
+  await db.invoices.clear();
+  await db.purchase_orders.clear();
+  await db.pos_orders.clear();
+  await db.chatter_messages.clear();
+  await db.settings.clear();
+}
