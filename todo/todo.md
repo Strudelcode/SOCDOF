@@ -21,6 +21,11 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
+### 2.0 Latest Completed Milestone
+
+The v23.4.3 Safe In-App Updates & Persistent Application State milestone is complete and archived in `todo/completed_todo.md`.
+
+
 ### 2.1 Multi-User Architecture, Authentication & Windows-Style Security
 
 The v23.3.2 Profile Picture Alignment & Centering Stabilization milestone is complete on the feature branch and is archived in `todo/completed_todo.md`.
