@@ -1,9 +1,23 @@
-# SOCDOF v23.4.3 Release Notes
+# SOCDOF v23.4.4 Release Notes
 
 **Release date:** 2026-09-19  
-**Version:** v23.4.3  
+**Version:** v23.4.4  
 **Channel:** Patch release following v23.2.0  
 **Platform:** Windows Desktop (Electron) and offline web workspace
+
+## Persistent Application Activation, Pinning & Desktop Ordering
+
+### Account-scoped persistence
+- The active user's latest application state is now restored from the current account-scoped value on startup.
+- A stale legacy `all.*` snapshot can no longer overwrite newer user changes during workspace preparation.
+
+### Application activation
+- Optional applications that are disabled in the App Store remain disabled after reloads and application restarts.
+- Protected system applications remain available as intended.
+
+### Desktop and taskbar layout
+- Custom desktop pinning, taskbar pinning, and their order remain unchanged after restarting SOCDOF.
+- Default layouts are applied only when no saved user state exists.
 
 ## Safe In-App Updates & Persistent Application State
 
