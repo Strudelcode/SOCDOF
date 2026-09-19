@@ -5,6 +5,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatformInfo: () => ipcRenderer.invoke('socdof:get-platform'),
   quitApp: () => ipcRenderer.invoke('socdof:quit-app'),
   downloadAndInstallUpdate: (payload) => ipcRenderer.invoke('socdof:download-and-install-update', payload),
+  onPrepareForUpdate: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:prepare-for-update', listener);
+    return () => ipcRenderer.removeListener('socdof:prepare-for-update', listener);
+  },
+  reportUpdateBackupReady: (requestId, result) => ipcRenderer.send('socdof:update-backup-ready', requestId, result),
   onUpdateDownloadProgress: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('socdof:update-download-progress', listener);
