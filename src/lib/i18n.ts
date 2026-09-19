@@ -119,6 +119,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'docs.therapy_practice_de': 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.',
     'docs.therapy_practice_en': 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.',
     'docs.therapy_practice_shortcuts': 'Workflow: Practice → choose a tab → create an entry → save. ESC closes open dialogs.',
+    'docs.updates_title': "Updates & Data Protection",
+    'docs.updates_category': "System & Maintenance",
+    'docs.updates_summary': "In-app updates replace application files without intentionally deleting local user data.",
+    'docs.updates_intro': "Before an Electron update, SOCDOF automatically creates a timestamped snapshot of the local IndexedDB database and SOCDOF-owned localStorage state. The update does not continue if this snapshot cannot be written successfully.",
+    'docs.updates_preserved_title': "What is preserved?",
+    'docs.updates_preserved': "Local business data, user accounts, settings, and installed App Store modules remain outside the application files and are not intentionally deleted by an update.",
+    'docs.updates_controls_title': "Controls & Recovery",
+    'docs.updates_controls': "The update is started through the existing update function. A backup is created automatically before installation, so no manual export is required. The snapshot is stored in the configured backup folder or the SOCDOF fallback backup directory.",
+    'docs.updates_shortcut': "Keyboard shortcut: No dedicated keyboard shortcut is required for the update workflow.",
 
     // Authentication & Multi-User Security
     'auth.welcome': "Welcome to SOCDOF",
@@ -2265,6 +2274,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'docs.therapy_practice_de': 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Neue Sitzung bietet strukturierte Vorlagen für Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht.',
     'docs.therapy_practice_en': 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Neue Sitzung bietet strukturierte Vorlagen für Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht.',
     'docs.therapy_practice_shortcuts': 'Ablauf: Praxis → Bereich wählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge.',
+    'docs.updates_title': "Updates & Datensicherheit",
+    'docs.updates_category': "System & Wartung",
+    'docs.updates_summary': "In-App-Updates ersetzen Programmdateien, ohne die lokalen Benutzerdaten absichtlich zu löschen.",
+    'docs.updates_intro': "Vor einem Electron-Update erstellt SOCDOF automatisch einen zeitgestempelten Snapshot der lokalen IndexedDB-Datenbank und der SOCDOF-eigenen localStorage-Daten. Das Update wird nicht fortgesetzt, wenn dieser Snapshot nicht erfolgreich geschrieben werden kann.",
+    'docs.updates_preserved_title': "Was bleibt erhalten?",
+    'docs.updates_preserved': "Lokale Geschäftsdaten, Benutzerkonten, Einstellungen und installierte App-Store-Module bleiben außerhalb der Programmdateien gespeichert und werden beim Update nicht absichtlich gelöscht.",
+    'docs.updates_controls_title': "Bedienung & Wiederherstellung",
+    'docs.updates_controls': "Das Update wird über die vorhandene Update-Funktion gestartet. Vor der Installation wird automatisch gesichert; ein manueller Export ist dafür nicht erforderlich. Die Sicherung liegt im konfigurierten Backup-Ordner bzw. im Standardordner von SOCDOF.",
+    'docs.updates_shortcut': "Tastaturkürzel: Es ist kein spezielles Tastaturkürzel für den Update-Vorgang erforderlich.",
 
     // Authentication & Multi-User Security
     'auth.welcome': "Willkommen bei SOCDOF",
@@ -4411,6 +4429,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'docs.therapy_practice_de': 'L’espace Cabinet gère localement les clients, séances, rendez-vous, trajets et brouillons de facturation. Nouvelle séance propose des modèles structurés pour l’entretien initial, la séance standard, la crise et le rapport final.',
     'docs.therapy_practice_en': 'L’espace Cabinet gère localement les clients, séances, rendez-vous, trajets et brouillons de facturation. Nouvelle séance propose des modèles structurés pour l’entretien initial, la séance standard, la crise et le rapport final.',
     'docs.therapy_practice_shortcuts': 'Flux : Cabinet → choisir un onglet → créer une entrée → enregistrer. Échap ferme les dialogues.',
+    'docs.updates_title': "Mises à jour & protection des données",
+    'docs.updates_category': "Système & maintenance",
+    'docs.updates_summary': "Les mises à jour remplacent les fichiers de l’application sans supprimer intentionnellement les données locales.",
+    'docs.updates_intro': "Avant une mise à jour Electron, SOCDOF crée automatiquement un instantané horodaté de la base IndexedDB locale et des données localStorage gérées par SOCDOF. La mise à jour est interrompue si cet instantané ne peut pas être enregistré.",
+    'docs.updates_preserved_title': "Que reste-t-il conservé ?",
+    'docs.updates_preserved': "Les données métier locales, les comptes utilisateurs, les paramètres et les modules installés restent hors des fichiers de l’application et ne sont pas supprimés intentionnellement par une mise à jour.",
+    'docs.updates_controls_title': "Commandes & récupération",
+    'docs.updates_controls': "La mise à jour est lancée via la fonction de mise à jour existante. Une sauvegarde est créée automatiquement avant l’installation, sans export manuel requis. L’instantané est stocké dans le dossier de sauvegarde configuré ou dans le dossier de secours SOCDOF.",
+    'docs.updates_shortcut': "Raccourci clavier : aucun raccourci dédié n’est requis pour la mise à jour.",
 
     // Authentication & Multi-User Security
     'auth.welcome': "Bienvenue dans SOCDOF",
@@ -6557,6 +6584,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'docs.therapy_practice_de': 'La consulta gestiona localmente clientes, sesiones, citas, viajes y borradores de facturación. Nueva sesión ofrece plantillas estructuradas para entrevista inicial, sesión estándar, crisis e informe final.',
     'docs.therapy_practice_en': 'La consulta gestiona localmente clientes, sesiones, citas, viajes y borradores de facturación. Nueva sesión ofrece plantillas estructuradas para entrevista inicial, sesión estándar, crisis e informe final.',
     'docs.therapy_practice_shortcuts': 'Flujo: Consulta → elegir pestaña → crear entrada → guardar. ESC cierra los diálogos abiertos.',
+    'docs.updates_title': "Actualizaciones y protección de datos",
+    'docs.updates_category': "Sistema y mantenimiento",
+    'docs.updates_summary': "Las actualizaciones reemplazan los archivos de la aplicación sin eliminar intencionadamente los datos locales.",
+    'docs.updates_intro': "Antes de una actualización de Electron, SOCDOF crea automáticamente una copia con fecha de la base IndexedDB local y del estado localStorage gestionado por SOCDOF. La actualización se detiene si no se puede guardar correctamente.",
+    'docs.updates_preserved_title': "¿Qué se conserva?",
+    'docs.updates_preserved': "Los datos empresariales locales, las cuentas, la configuración y los módulos instalados permanecen fuera de los archivos de la aplicación y una actualización no los elimina intencionadamente.",
+    'docs.updates_controls_title': "Controles y recuperación",
+    'docs.updates_controls': "La actualización se inicia mediante la función de actualización existente. Se crea una copia automáticamente antes de la instalación, sin necesidad de exportación manual. El archivo se guarda en la carpeta de copias configurada o en la carpeta de respaldo de SOCDOF.",
+    'docs.updates_shortcut': "Atajo de teclado: no se requiere ningún atajo específico para el proceso de actualización.",
 
     // Authentication & Multi-User Security
     'auth.welcome': "Bienvenido a SOCDOF",
