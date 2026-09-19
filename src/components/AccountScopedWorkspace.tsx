@@ -54,31 +54,40 @@ function readArray(key: string): string[] | null {
 }
 
 function prepareUserWorkspace(userId: string, accountType: AccountType): void {
+  // User-scoped values are the source of truth. The old `all.*` snapshot is kept
+  // only as a legacy recovery fallback and must never overwrite newer user changes.
   for (const key of USER_SCOPED_KEYS) {
     const userKey = scopedKey(key, userId);
     const existingUserValue = localStorage.getItem(userKey);
-    if (existingUserValue !== null) localStorage.setItem(key, existingUserValue);
-    else {
-      const currentValue = localStorage.getItem(key);
-      if (currentValue !== null) localStorage.setItem(userKey, currentValue);
-    }
-  }
 
-  for (const key of MODULE_STATE_BACKUP_KEYS) {
-    const allKey = backupKey(key, userId);
-    if (localStorage.getItem(allKey) === null) {
-      const current = localStorage.getItem(key);
-      if (current !== null) localStorage.setItem(allKey, current);
+    if (existingUserValue !== null) {
+      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+        const values = readArray(userKey);
+        if (values) {
+          const visible = accountType === 'personal'
+            ? values.filter(module => !BUSINESS_ONLY_MODULES.has(module))
+            : values;
+          const serialized = JSON.stringify(visible);
+          localStorage.setItem(key, serialized);
+          localStorage.setItem(userKey, serialized);
+          localStorage.setItem(backupKey(key, userId), serialized);
+        } else {
+          localStorage.setItem(key, existingUserValue);
+        }
+      } else {
+        localStorage.setItem(key, existingUserValue);
+      }
+      continue;
     }
-  }
 
-  for (const key of MODULE_STATE_BACKUP_KEYS) {
-    const values = readArray(backupKey(key, userId));
-    if (!values) continue;
-    const visible = accountType === 'personal' ? values.filter(module => !BUSINESS_ONLY_MODULES.has(module)) : values;
-    const serialized = JSON.stringify(visible);
-    localStorage.setItem(key, serialized);
-    localStorage.setItem(scopedKey(key, userId), serialized);
+    // First initialization for this account: migrate the current unscoped value once.
+    const currentValue = localStorage.getItem(key);
+    if (currentValue !== null) {
+      localStorage.setItem(userKey, currentValue);
+      if (MODULE_STATE_BACKUP_KEYS.includes(key as typeof MODULE_STATE_BACKUP_KEYS[number])) {
+        localStorage.setItem(backupKey(key, userId), currentValue);
+      }
+    }
   }
 }
 
