@@ -13,7 +13,8 @@ import {
   seedInitialDataIfNeeded, 
   defaultCompanyProfile, 
   clearDatabaseToEmpty, 
-  resetDatabaseToDemo
+  resetDatabaseToDemo,
+  exportDatabaseToJson
 } from './lib/db';
 import { sounds } from './lib/sound';
 import { StudioDrawer } from './components/StudioDrawer';
@@ -208,6 +209,77 @@ export default function App() {
     checkAndRunAutoBackup(company);
     const intervalId = window.setInterval(() => checkAndRunAutoBackup(company), 60 * 1000);
     return () => clearInterval(intervalId);
+  }, [company]);
+
+  // In Electron, the updater asks the renderer to create a last-second
+  // data snapshot before the installer replaces application files.
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onPrepareForUpdate || !api.reportUpdateBackupReady) return;
+
+    const unsubscribe = api.onPrepareForUpdate(async ({ requestId }) => {
+      try {
+        const jsonStr = await exportDatabaseToJson({
+          pretty: true,
+          owner: company.backup_owner || company.name || 'Administrator',
+          folder: company.backup_folder_path || ''
+        });
+
+        const localStorageState: Record<string, string> = {};
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (key.startsWith('socdof.') || key.startsWith('socdof_') || key.startsWith('odoo_')) {
+            const value = localStorage.getItem(key);
+            if (value !== null) localStorageState[key] = value;
+          }
+        }
+
+        const platformInfo = await api.getPlatformInfo();
+        const snapshot = JSON.stringify({
+          format: 'SOCDOF_PRE_UPDATE_BACKUP',
+          createdAt: new Date().toISOString(),
+          appVersion: platformInfo.version,
+          database: JSON.parse(jsonStr),
+          localStorage: localStorageState
+        }, null, 2);
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safeName = (company.name || 'SOCDOF').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = safeName + '_PreUpdate_' + timestamp + '.socdof.json';
+
+        let saveResult = await api.saveBackupFileToDisk?.({
+          folderPath: company.backup_folder_path,
+          fileName,
+          content: snapshot
+        });
+
+        if (!saveResult?.success && api.getBackupFolderPath) {
+          const folders = await api.getBackupFolderPath();
+          saveResult = await api.saveBackupFileToDisk?.({
+            folderPath: folders.backupDir,
+            fileName,
+            content: snapshot
+          });
+        }
+
+        if (!saveResult?.success) {
+          throw new Error(saveResult?.error || 'Pre-update backup could not be written.');
+        }
+
+        api.reportUpdateBackupReady(requestId, {
+          success: true,
+          backupPath: saveResult.fullPath
+        });
+      } catch (error) {
+        api.reportUpdateBackupReady(requestId, {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    return unsubscribe;
   }, [company]);
 
   const handleToggleCleanMode = async (enableClean: boolean) => {
