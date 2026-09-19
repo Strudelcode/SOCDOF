@@ -533,6 +533,7 @@ export const DocumentationApp: React.FC = () => {
             })}
           </p>
         </div>
+      )
     },
     {
       id: 'updates',
