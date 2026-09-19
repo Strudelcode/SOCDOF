@@ -11,6 +11,8 @@ export interface ElectronAPI {
   quitApp: () => Promise<void>;
   downloadAndInstallUpdate: (payload: { downloadUrl: string; version: string }) => Promise<{ success: boolean; error?: string }>;
   onUpdateDownloadProgress: (callback: (data: { percent: number; downloadedBytes?: number; totalBytes?: number; isFinished?: boolean }) => void) => () => void;
+  onPrepareForUpdate?: (callback: (data: { requestId: string }) => void) => () => void;
+  reportUpdateBackupReady?: (requestId: string, result: { success: boolean; error?: string; backupPath?: string }) => void;
   getNetworkIps?: () => Promise<{ ips: string[]; port: number; primaryIp: string }>;
   getLanguagesFolderPath?: () => Promise<{ path: string; exists: boolean }>;
   openLanguagesFolder?: () => Promise<{ success: boolean; path?: string }>;
