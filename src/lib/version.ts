@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.4.2';
+export const APP_VERSION = '23.4.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,19 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.4.3',
+    date: '2026-09-19',
+    title: 'Safe In-App Updates & Persistent Application State',
+    highlights: [
+      'Added a mandatory pre-update data snapshot covering the local IndexedDB database and SOCDOF-owned localStorage state before an Electron update is installed.',
+      'Updates are blocked when the pre-update snapshot cannot be created, preventing an update from proceeding without a recoverable data copy.',
+      'Installer configuration explicitly preserves application data during uninstall and update flows.',
+      'Fixed installed App Store modules such as Practice & Therapy so their account-scoped installation state persists across reloads and restarts.',
+      'Added multilingual in-app documentation for update data protection and persistence behavior.'
+    ]
+  },
+
   {
     version: '23.4.2',
     date: '2026-09-18',
