@@ -1,3 +1,12 @@
+### Safe In-App Updates & Persistent Application State (v23.4.3)
+- [x] Added an Electron pre-update handshake that requests a renderer-side data snapshot before downloading/installing an update.
+- [x] Snapshot includes the local IndexedDB database and SOCDOF-owned localStorage state, including account-scoped installed-module persistence.
+- [x] Aborted the update when the pre-update snapshot cannot be written successfully.
+- [x] Configured Electron Builder with `deleteAppDataOnUninstall: false` to avoid intentional removal of application data.
+- [x] Fixed installed App Store modules so account-scoped installation state persists across reloads and application restarts.
+- [x] Added multilingual in-app documentation for update persistence, backup behavior, controls, and recovery.
+- [x] Added synchronized v23.4.3 version and release documentation.
+
 ### CustomerPicker & CRM Contact Integration for Praxis & Therapy (v23.4.2)
 - [x] Integrated `CustomerPickerModal` from the contacts CRM into `TherapyPracticeModule.tsx`, matching the Support module UX for selecting customers.
 - [x] Enabled auto-filling of patient form fields (name, phone, email, address notes) upon selecting a contact from the CRM.
