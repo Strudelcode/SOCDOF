@@ -119,6 +119,14 @@ export const DocumentationApp: React.FC = () => {
           </h5>
           <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-300">
             <li>
+              <strong>{getLoc({ de: 'App-Zustand speichern: ', en: 'Persist App State: ', fr: 'Enregistrer l’état des applications : ', es: 'Guardar el estado de las aplicaciones: ' })}</strong>
+              {getLoc({
+                de: 'Deaktivierte Apps, Desktop-Pins, Taskleisten-Pins und deren Reihenfolge werden automatisch lokal pro Benutzer gespeichert. Änderungen bleiben auch nach einem Neustart erhalten. Die geschützten System-Apps bleiben verfügbar.',
+                en: 'Disabled apps, desktop pins, taskbar pins, and their order are automatically stored locally per user. Changes remain after restarting SOCDOF. Protected system apps remain available.',
+                fr: 'Les applications désactivées, les épingles du bureau et de la barre des tâches ainsi que leur ordre sont automatiquement enregistrés localement pour chaque utilisateur. Les modifications restent après un redémarrage de SOCDOF. Les applications système protégées restent disponibles.',
+                es: 'Las aplicaciones desactivadas, los accesos del escritorio y de la barra de tareas, y su orden se guardan automáticamente de forma local por usuario. Los cambios permanecen después de reiniciar SOCDOF. Las aplicaciones del sistema protegidas siguen disponibles.'
+              })}
+              <br /><br />
               <strong>{getLoc({ de: 'Fenster verschieben: ', en: 'Move Windows: ', fr: 'Déplacer les fenêtres : ', es: 'Mover ventanas: ' })}</strong>
               {getLoc({
                 de: 'Klicken und halten Sie die Titelleiste eines Fensters, um es frei auf dem Desktop zu platzieren.',
