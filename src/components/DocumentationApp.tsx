@@ -533,9 +533,97 @@ export const DocumentationApp: React.FC = () => {
             })}
           </p>
         </div>
+    },
+    {
+      id: 'updates',
+      title: getLoc({
+        de: 'Updates & Datensicherheit',
+        en: 'Updates & Data Protection',
+        fr: 'Mises à jour & protection des données',
+        es: 'Actualizaciones y protección de datos'
+      }),
+      category: getLoc({
+        de: 'System & Wartung',
+        en: 'System & Maintenance',
+        fr: 'Système & maintenance',
+        es: 'Sistema y mantenimiento'
+      }),
+      icon: ShieldCheck,
+      summary: getLoc({
+        de: 'In-App-Updates ersetzen Programmdateien, ohne die lokalen Benutzerdaten zu löschen.',
+        en: 'In-app updates replace application files without intentionally deleting local user data.',
+        fr: 'Les mises à jour remplacent les fichiers de l’application sans supprimer intentionnellement les données locales.',
+        es: 'Las actualizaciones reemplazan los archivos de la aplicación sin eliminar intencionadamente los datos locales.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+            <h5 className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
+              {getLoc({
+                de: 'Deutsch — Sicheres In-App-Update',
+                en: 'English — Safe In-App Updates',
+                fr: 'Français — Mises à jour sécurisées',
+                es: 'Español — Actualizaciones seguras'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Vor einem Electron-Update erstellt SOCDOF automatisch einen zeitgestempelten Snapshot der lokalen IndexedDB-Datenbank und der SOCDOF-eigenen localStorage-Daten. Das Update wird nicht fortgesetzt, wenn dieser Snapshot nicht erfolgreich geschrieben werden kann.',
+                en: 'Before an Electron update, SOCDOF automatically creates a timestamped snapshot of the local IndexedDB database and SOCDOF-owned localStorage state. The update does not continue if this snapshot cannot be written successfully.',
+                fr: 'Avant une mise à jour Electron, SOCDOF crée automatiquement un instantané horodaté de la base IndexedDB locale et des données localStorage gérées par SOCDOF. La mise à jour est interrompue si cet instantané ne peut pas être enregistré.',
+                es: 'Antes de una actualización de Electron, SOCDOF crea automáticamente una copia con fecha de la base IndexedDB local y del estado localStorage gestionado por SOCDOF. La actualización se detiene si no se puede guardar correctamente.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Was bleibt erhalten?',
+                  en: 'What is preserved?',
+                  fr: 'Que reste-t-il conservé ?',
+                  es: '¿Qué se conserva?'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Lokale Geschäftsdaten, Benutzerkonten, Einstellungen und installierte App-Store-Module bleiben außerhalb der Programmdateien gespeichert und werden beim Update nicht absichtlich gelöscht.',
+                  en: 'Local business data, user accounts, settings, and installed App Store modules remain outside the application files and are not intentionally deleted by an update.',
+                  fr: 'Les données métier locales, les comptes utilisateurs, les paramètres et les modules installés restent hors des fichiers de l’application et ne sont pas supprimés intentionnellement par une mise à jour.',
+                  es: 'Los datos empresariales locales, las cuentas, la configuración y los módulos instalados permanecen fuera de los archivos de la aplicación y una actualización no los elimina intencionadamente.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Bedienung & Wiederherstellung',
+                  en: 'Controls & Recovery',
+                  fr: 'Commandes & récupération',
+                  es: 'Controles y recuperación'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Das Update wird über die vorhandene Update-Funktion gestartet. Vor der Installation wird automatisch gesichert; ein manueller Export ist dafür nicht erforderlich. Die Sicherung liegt im konfigurierten Backup-Ordner bzw. im Standardordner von SOCDOF.',
+                  en: 'The update is started through the existing update function. A backup is created automatically before installation, so no manual export is required. The snapshot is stored in the configured backup folder or the SOCDOF fallback backup directory.',
+                  fr: 'La mise à jour est lancée via la fonction de mise à jour existante. Une sauvegarde est créée automatiquement avant l’installation, sans export manuel requis. L’instantané est stocké dans le dossier de sauvegarde configuré ou dans le dossier de secours SOCDOF.',
+                  es: 'La actualización se inicia mediante la función de actualización existente. Se crea una copia automáticamente antes de la instalación, sin necesidad de exportación manual. El archivo se guarda en la carpeta de copias configurada o en la carpeta de respaldo de SOCDOF.'
+                })}
+              </p>
+            </div>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400">
+            {getLoc({
+              de: 'Tastaturkürzel: Es ist kein spezielles Tastaturkürzel für den Update-Vorgang erforderlich.',
+              en: 'Keyboard shortcut: No dedicated keyboard shortcut is required for the update workflow.',
+              fr: 'Raccourci clavier : aucun raccourci dédié n’est requis pour la mise à jour.',
+              es: 'Atajo de teclado: no se requiere ningún atajo específico para el proceso de actualización.'
+            })}
+          </p>
+        </div>
       )
-    }
-  ];
+
 
   const filteredSections = docSections.filter(s => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
