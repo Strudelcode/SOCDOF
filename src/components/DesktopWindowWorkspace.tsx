@@ -359,8 +359,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
     // Remove both apps from pinned desktop
     const nextPinned = pinnedDesktop.filter(m => m !== targetModId && m !== draggedModId);
-    setPinnedDesktop(nextPinned);
-    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+    savePinnedDesktop(nextPinned);
 
     // Place folder at target position
     const targetPos = desktopPositions[targetModId] || { x: 24, y: 24 };
@@ -392,8 +391,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
     // Remove app from pinned desktop
     const nextPinned = pinnedDesktop.filter(m => m !== draggedModId);
-    setPinnedDesktop(nextPinned);
-    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+    savePinnedDesktop(nextPinned);
 
     // Clean position
     setDesktopPositions(prev => {
@@ -416,8 +414,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     const remainingMods = targetFolder.modules.filter(m => m !== modId);
     // Add app back to pinned desktop
     const nextPinned = Array.from(new Set([...pinnedDesktop, modId]));
-    setPinnedDesktop(nextPinned);
-    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+    savePinnedDesktop(nextPinned);
 
     const folderAssets = getAssetsForFolder(folderId);
     if (remainingMods.length === 0 && folderAssets.length === 0) {
@@ -488,8 +485,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     if (!targetFolder) return;
 
     const nextPinned = Array.from(new Set([...pinnedDesktop, ...targetFolder.modules]));
-    setPinnedDesktop(nextPinned);
-    try { localStorage.setItem('odoo_pinned_desktop', JSON.stringify(nextPinned)); } catch {}
+    savePinnedDesktop(nextPinned);
     saveDesktopFolders(desktopFolders.filter(f => f.id !== folderId));
     if (activeFolderModal?.id === folderId) setActiveFolderModal(null);
   };
