@@ -1,10 +1,25 @@
-# SOCDOF v23.2.1 Release Notes
+# SOCDOF v23.4.3 Release Notes
 
-**Release date:** 2026-09-18  
-**Version:** v23.2.1  
+**Release date:** 2026-09-19  
+**Version:** v23.4.3  
 **Channel:** Patch release following v23.2.0  
 **Platform:** Windows Desktop (Electron) and offline web workspace
 
+## Safe In-App Updates & Persistent Application State
+
+### Pre-update protection
+- Before an Electron in-app update proceeds, the running renderer creates a fresh snapshot of the local IndexedDB database.
+- SOCDOF-owned localStorage values are included in the snapshot so account-scoped desktop and App Store state can be recovered.
+- The updater stops the update if the snapshot cannot be created or written successfully.
+
+### Installer behavior
+- `electron-builder.json` explicitly disables application-data deletion on uninstall.
+- The update replaces application binaries and bundled files while persistent user data remains outside the installation payload.
+- A timestamped `.socdof.json` pre-update snapshot is written to the configured backup location, with a standard SOCDOF backup directory fallback.
+
+### App installation persistence
+- Installed App Store modules are synchronized to the active account-scoped persistence layer.
+- Practice & Therapy and other installed modules therefore remain installed after a reload or application restart.
 ## Settings-Centered User Management Cleanup
 
 - Removed the redundant Start menu account/profile shortcut.
