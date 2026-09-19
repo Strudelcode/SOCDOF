@@ -652,6 +652,47 @@ ipcMain.handle('socdof:save-preferences', (_event, prefs) => {
   return saveDesktopPreferences(prefs);
 });
 
+// Renderer-backed pre-update persistence.
+// The installer replaces application files, not Electron userData, but we create
+// a fresh database/localStorage snapshot first so an update can never depend on
+// the installer touching user data. The update is aborted if the snapshot fails.
+let pendingUpdateBackup = null;
+
+ipcMain.on('socdof:update-backup-ready', (_event, requestId, result) => {
+  if (pendingUpdateBackup && pendingUpdateBackup.requestId === requestId) {
+    const pending = pendingUpdateBackup;
+    pendingUpdateBackup = null;
+    pending.resolve(result);
+  }
+});
+
+function requestPreUpdateBackup() {
+  return new Promise((resolve) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      resolve({ success: false, error: 'SOCDOF window is not available.' });
+      return;
+    }
+
+    const requestId = `update-backup-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timeout = setTimeout(() => {
+      if (pendingUpdateBackup && pendingUpdateBackup.requestId === requestId) {
+        pendingUpdateBackup = null;
+        resolve({ success: false, error: 'Pre-update backup timed out.' });
+      }
+    }, 20000);
+
+    pendingUpdateBackup = {
+      requestId,
+      resolve: (result) => {
+        clearTimeout(timeout);
+        resolve(result);
+      }
+    };
+
+    mainWindow.webContents.send('socdof:prepare-for-update', { requestId });
+  });
+}
+
 ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => {
   try {
     const { downloadUrl, version } = payload || {};
@@ -663,6 +704,13 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     const safeVersion = version || 'update';
     const installerFilename = `SOCDOF-Setup-${safeVersion}-${Date.now()}.exe`;
     const installerPath = path.join(tempDir, installerFilename);
+
+    // Create a fresh renderer-side data snapshot before downloading/installing.
+    // This includes the current IndexedDB database and relevant localStorage state.
+    const backupResult = await requestPreUpdateBackup();
+    if (!backupResult?.success) {
+      throw new Error(`Update abgebrochen: Datensicherung vor dem Update fehlgeschlagen. ${backupResult?.error || ''}`.trim());
+    }
 
     // Download update file
     await downloadFileWithProgress(downloadUrl, installerPath, (progress) => {
