@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.4.3';
+export const APP_VERSION = '23.4.4';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.4.4',
+    date: '2026-09-19',
+    title: 'Persistent Application Activation, Pinning & Desktop Ordering',
+    highlights: [
+      'Fixed account-scoped application state restoration so the latest installed, disabled, pinned, and ordered app configuration remains authoritative after reloads and application restarts.',
+      'Stopped default module and pin lists from overwriting intentional user deactivations and custom desktop/taskbar ordering.',
+      'Kept protected system applications available while allowing optional applications to remain disabled when explicitly removed.',
+      'Updated the in-app documentation and synchronized the v23.4.4 patch release metadata.'
+    ]
+  },
   {
     version: '23.4.3',
     date: '2026-09-19',
