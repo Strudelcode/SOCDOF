@@ -37,6 +37,7 @@
     "createStartMenuShortcut": true,
     "shortcutName": "SOCDOF Desktop",
     "artifactName": "${productName}-Setup-${version}.${ext}",
-    "runAfterFinish": true
+    "runAfterFinish": true,
+    "deleteAppDataOnUninstall": false
   }
 }
