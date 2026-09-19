@@ -255,8 +255,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const saved = localStorage.getItem('odoo_installed_modules');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
-        // Exclude optional gastro/restaurant by default unless user has customized
-        return Array.from(new Set([...DEFAULT_STANDARD_MODULES, ...parsed])).filter(m => m !== 'restaurant' && m !== 'ios_billing');
+        // A saved list is authoritative. Only protected core apps are always retained.
+        // This is important because users must be able to deactivate optional apps.
+        return Array.from(new Set([...SYSTEM_CORE_MODULES, ...parsed])).filter(m => m !== 'restaurant' && m !== 'ios_billing');
       }
     } catch {
       // ignore
@@ -270,7 +271,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const saved = localStorage.getItem('odoo_pinned_desktop');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
-        return Array.from(new Set([...DEFAULT_PINNED_DESKTOP, ...parsed])).filter(m => m !== 'restaurant' && m !== 'ios_billing');
+        // Preserve the user's exact saved order and pinned/unpinned choices.
+        return parsed.filter(m => m !== 'restaurant' && m !== 'ios_billing');
       }
     } catch {
       // ignore
@@ -284,7 +286,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const saved = localStorage.getItem('odoo_pinned_taskbar');
       if (saved) {
         const parsed: ActiveModule[] = JSON.parse(saved);
-        return Array.from(new Set([...DEFAULT_PINNED_TASKBAR, ...parsed])).filter(m => m !== 'restaurant' && m !== 'ios_billing');
+        // Preserve the user's exact saved order and pinned/unpinned choices.
+        return parsed.filter(m => m !== 'restaurant' && m !== 'ios_billing');
       }
     } catch {
       // ignore
