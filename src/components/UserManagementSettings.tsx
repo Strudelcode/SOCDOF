@@ -15,8 +15,17 @@ import {
   AlertCircle,
   BriefcaseBusiness,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FolderOpen,
+  FileText,
+  Receipt,
+  Shield,
+  HardDrive,
+  ExternalLink,
+  Eye,
+  Crown
 } from 'lucide-react';
+import { db } from '../lib/db';
 import {
   adminResetPassword,
   changePassword,
@@ -162,6 +171,60 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
   }, [currentUser]);
 
   const selected = users.find(u => u.id === selectedId) ?? currentUser ?? null;
+
+  const [userInvoicesCount, setUserInvoicesCount] = useState<number>(0);
+  const [userInvoicesTotal, setUserInvoicesTotal] = useState<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const count = await db.invoices.count();
+        const allInvoices = await db.invoices.toArray();
+        const total = allInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+        if (isMounted) {
+          setUserInvoicesCount(count);
+          setUserInvoicesTotal(total);
+        }
+      } catch {
+        // Dexie fallback
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [selectedId]);
+
+  const userFilesData = useMemo(() => {
+    if (!selected) return { foldersCount: 0, filesCount: 0, fileNames: [] as string[], pinsCount: 0 };
+    const rawFolders = localStorage.getItem(`socdof.user.${selected.id}.socdof_desktop_folders`) || localStorage.getItem('socdof_desktop_folders');
+    let foldersCount = 0;
+    let filesCount = 0;
+    const fileNames: string[] = [];
+    try {
+      if (rawFolders) {
+        const parsed = JSON.parse(rawFolders);
+        if (Array.isArray(parsed)) {
+          foldersCount = parsed.length;
+          parsed.forEach((folder: { name?: string; items?: Array<{ name?: string }> }) => {
+            if (folder?.name) fileNames.push(`📁 ${folder.name}`);
+            if (Array.isArray(folder?.items)) {
+              filesCount += folder.items.length;
+              folder.items.forEach((item) => {
+                if (item?.name) fileNames.push(`📄 ${item.name}`);
+              });
+            }
+          });
+        }
+      }
+    } catch {}
+
+    let pinsCount = 0;
+    try {
+      const rawPins = localStorage.getItem(`socdof.user.${selected.id}.odoo_pinned_desktop`);
+      if (rawPins) pinsCount = JSON.parse(rawPins).length;
+    } catch {}
+
+    return { foldersCount, filesCount, fileNames, pinsCount };
+  }, [selected]);
 
   const labels = useMemo(() => ({
     title: t('users.title', lang, 'Benutzer & Konten'),
@@ -758,12 +821,12 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     onClick={() => { setSelectedId(u.id); sounds.playClick(); }}
                     className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer ${
                       selected?.id === u.id
-                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+                        ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-500/10 shadow-xs'
                         : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/70'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0 overflow-hidden">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0 overflow-hidden border border-slate-200/60 dark:border-slate-700/60">
                         {u.avatar && (u.avatar.startsWith('data:image/') || u.avatar.startsWith('http') || u.avatar.startsWith('blob:') || u.avatar.startsWith('/')) ? (
                           <img src={u.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
                         ) : (
@@ -771,14 +834,38 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-xs text-slate-900 dark:text-white truncate">{u.displayName}</div>
+                        <div className="font-semibold text-xs text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                          <span>{u.displayName}</span>
+                          {u.id === currentUser?.id && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-normal">
+                              {labels.current}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">@{u.username}</div>
                       </div>
-                      <span className={`w-2 h-2 rounded-full ${u.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${u.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                     </div>
-                    <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                      <span>{u.role === 'admin' ? labels.admin : labels.user}</span>
-                      <span>{u.active ? labels.active : labels.disabled}</span>
+                    <div className="mt-2.5 flex items-center justify-between gap-1 flex-wrap text-[10px]">
+                      <div className="flex items-center gap-1">
+                        <span className={`px-1.5 py-0.5 rounded-md font-bold text-[9px] ${
+                          u.role === 'admin'
+                            ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}>
+                          {u.role === 'admin' ? labels.admin : labels.user}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded-md font-semibold text-[9px] ${
+                          u.accountType === 'personal'
+                            ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        }`}>
+                          {u.accountType === 'personal' ? labels.personal : labels.business}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] ${u.active ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}`}>
+                        {u.active ? labels.active : labels.disabled}
+                      </span>
                     </div>
                   </button>
                 ))
@@ -875,24 +962,349 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
               )}
 
               {selected && (
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 bg-white dark:bg-slate-900">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg overflow-hidden shrink-0">
-                      {selected.avatar && (selected.avatar.startsWith('data:image/') || selected.avatar.startsWith('http') || selected.avatar.startsWith('blob:') || selected.avatar.startsWith('/')) ? (
-                        <img src={selected.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
-                      ) : (
-                        <span className="select-none">{selected.avatar ?? '●'}</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm text-slate-900 dark:text-white">{selected.displayName}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        @{selected.username} {selected.id === currentUser?.id ? `· ${labels.current}` : ''}
+                <div className="rounded-3xl border border-slate-200 dark:border-slate-800 p-6 space-y-6 bg-white dark:bg-slate-900 shadow-xs">
+                  {/* Account Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-xl overflow-hidden shrink-0 shadow-xs">
+                        {selected.avatar && (selected.avatar.startsWith('data:image/') || selected.avatar.startsWith('http') || selected.avatar.startsWith('blob:') || selected.avatar.startsWith('/')) ? (
+                          <img src={selected.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
+                        ) : (
+                          <span className="select-none font-bold text-indigo-600 dark:text-indigo-400">{selected.avatar ?? '●'}</span>
+                        )}
                       </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-base text-slate-900 dark:text-white">{selected.displayName}</h3>
+                          {selected.id === currentUser?.id && (
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                              {labels.current}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          @{selected.username} · ID: {selected.id.slice(0, 8)}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                            selected.role === 'admin'
+                              ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                          }`}>
+                            {selected.role === 'admin' ? <Crown className="w-3 h-3 text-purple-600" /> : <UserRound className="w-3 h-3 text-slate-500" />}
+                            <span>{selected.role === 'admin' ? labels.admin : labels.user}</span>
+                          </span>
+
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                            selected.accountType === 'personal'
+                              ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          }`}>
+                            {selected.accountType === 'personal' ? <UserRound className="w-3 h-3" /> : <BriefcaseBusiness className="w-3 h-3" />}
+                            <span>{selected.accountType === 'personal' ? `${labels.personal}es Konto` : `${labels.business}skonto`}</span>
+                          </span>
+
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold ${
+                            selected.active
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                          }`}>
+                            {selected.active ? labels.active : labels.disabled}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleSelected}
+                        disabled={selected.id === currentUser?.id}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40 cursor-pointer"
+                      >
+                        {selected.active ? labels.disable : labels.enable}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={removeSelected}
+                        disabled={selected.id === currentUser?.id || (selected.role === 'admin' && getActiveAdminCount() <= 1)}
+                        className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30 transition disabled:opacity-40 cursor-pointer"
+                      >
+                        <UserRoundX className="w-3.5 h-3.5 inline mr-1" />
+                        {labels.delete}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-3">
+                  {/* 1. KONTOTYP & ADMINISTRATORRECHTE (Windows 11 Style) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span>Kontotyp &amp; Administratorrechte</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Legen Sie fest, ob dieser Benutzer administrative Vollrechte besitzt oder ein Standardbenutzer ist.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Option Administrator */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            updateUser(selected.id, { role: 'admin' });
+                            refreshUsers();
+                            sounds.playClick();
+                          } catch {
+                            setAdminMessage(labels.lastAdmin);
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                          selected.role === 'admin'
+                            ? 'border-2 border-purple-500 bg-purple-50/60 dark:bg-purple-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center text-purple-700 dark:text-purple-300 font-bold">
+                              <Crown className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">Administrator</span>
+                          </div>
+                          {selected.role === 'admin' && (
+                            <span className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px]">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Voller Zugriff auf alle Einstellungen, Benutzerverwaltung, Systemdateien und Datenbanken wie bei Windows.
+                        </p>
+                      </button>
+
+                      {/* Option Standardbenutzer */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            updateUser(selected.id, { role: 'user' });
+                            refreshUsers();
+                            sounds.playClick();
+                          } catch {
+                            setAdminMessage(labels.lastAdmin);
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                          selected.role === 'user'
+                            ? 'border-2 border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
+                              <UserRound className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">Standardbenutzer</span>
+                          </div>
+                          {selected.role === 'user' && (
+                            <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Standardkonto: Kann persönliche Dokumente und Anwendungen nutzen, jedoch keine administrativen Systemeinstellungen ändern.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. KONTOBEREICH (Privat vs. Geschäftlich) */}
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <BriefcaseBusiness className="w-4 h-4 text-indigo-500" />
+                        <span>Kontobereich (Privat vs. Geschäftlich)</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Trennen Sie private Benutzer und geschäftliche Unternehmenskonten.
+                      </p>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Option Privat */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateUser(selected.id, { accountType: 'personal' });
+                          refreshUsers();
+                          sounds.playClick();
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                          selected.accountType === 'personal'
+                            ? 'border-2 border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold">
+                              <UserRound className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">Privates Konto</span>
+                          </div>
+                          {selected.accountType === 'personal' && (
+                            <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Privater Arbeitsbereich mit persönlichen Notizen, Dokumenten und individueller Windows-Personalisierung.
+                        </p>
+                      </button>
+
+                      {/* Option Geschäftlich */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateUser(selected.id, { accountType: 'business' });
+                          refreshUsers();
+                          sounds.playClick();
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                          selected.accountType === 'business'
+                            ? 'border-2 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold">
+                              <BriefcaseBusiness className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">Geschäftskonto</span>
+                          </div>
+                          {selected.accountType === 'business' && (
+                            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Unternehmenskonto: Voller Zugriff auf Rechnungen, POS Kasse, Buchhaltung, Einkauf und Kundenkartei.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. DATEIEN & SPEICHER DES BENUTZERS (Administrator-Einsicht) */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <FolderOpen className="w-4 h-4 text-amber-500" />
+                          <span>Dateien &amp; Speichernutzung des Benutzers (Administrator-Einsicht)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Als Administrator können Sie einsehen, welche Dateien, Ordner und Datensätze diesem Konto zugeordnet sind.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {onNavigateToSection && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToSection('storage_inspector')}
+                            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <HardDrive className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>Speicher-Inspektor</span>
+                          </button>
+                        )}
+                        {onNavigateToSection && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToSection('invoices')}
+                            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Rechnungen</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Metric Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Dateien</span>
+                        <div className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                          <FileText className="w-4 h-4 text-indigo-500" />
+                          <span>{userFilesData.filesCount}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Desktop-Dokumente</span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Ordner</span>
+                        <div className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                          <FolderOpen className="w-4 h-4 text-amber-500" />
+                          <span>{userFilesData.foldersCount}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Erstellte Ordner</span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Rechnungen</span>
+                        <div className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                          <Receipt className="w-4 h-4 text-emerald-500" />
+                          <span>{userInvoicesCount}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{userInvoicesTotal.toFixed(2)} € Gesamt</span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Angeheftet</span>
+                        <div className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                          <Sparkles className="w-4 h-4 text-purple-500" />
+                          <span>{userFilesData.pinsCount}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Desktop-Apps</span>
+                      </div>
+                    </div>
+
+                    {/* Files Preview list */}
+                    {userFilesData.fileNames.length > 0 ? (
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Zuletzt genutzte Dateien &amp; Ordner:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+                          {userFilesData.fileNames.map((fn, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-mono flex items-center gap-1"
+                            >
+                              {fn}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Noch keine privaten Desktop-Dateien für diesen Benutzer angelegt.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 4. DETAILS & ANZEIGENAME */}
+                  <div className="grid md:grid-cols-2 gap-3 pt-2">
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold uppercase text-slate-400">{labels.displayName}</span>
                       <input
@@ -903,38 +1315,6 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                           refreshUsers();
                         }}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-slate-400">{labels.role}</span>
-                      <select
-                        className={fieldClass}
-                        value={selected.role}
-                        onChange={(e) => {
-                          try {
-                            updateUser(selected.id, { role: e.target.value as UserRole });
-                            refreshUsers();
-                          } catch {
-                            setAdminMessage(labels.lastAdmin);
-                          }
-                        }}
-                      >
-                        <option value="user">{labels.user}</option>
-                        <option value="admin">{labels.admin}</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-slate-400">{labels.accountType}</span>
-                      <select
-                        className={fieldClass}
-                        value={selected.accountType}
-                        onChange={(e) => {
-                          updateUser(selected.id, { accountType: e.target.value as AccountType });
-                          refreshUsers();
-                        }}
-                      >
-                        <option value="personal">{labels.personal}</option>
-                        <option value="business">{labels.business}</option>
-                      </select>
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold uppercase text-slate-400">{labels.autoLock}</span>
@@ -966,31 +1346,17 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     >
                       {labels.save}
                     </button>
-                    <button
-                      type="button"
-                      onClick={toggleSelected}
-                      disabled={selected.id === currentUser?.id}
-                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40 cursor-pointer"
-                    >
-                      {selected.active ? labels.disable : labels.enable}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={removeSelected}
-                      disabled={selected.id === currentUser?.id || (selected.role === 'admin' && getActiveAdminCount() <= 1)}
-                      className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30 transition disabled:opacity-40 cursor-pointer"
-                    >
-                      <UserRoundX className="w-3.5 h-3.5 inline mr-1" />
-                      {labels.delete}
-                    </button>
                   </div>
 
-                  {/* Reset Password by Admin */}
+                  {/* 5. RESET PASSWORD BY ADMIN */}
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                       <KeyRound className="w-4 h-4 text-indigo-500" />
-                      {labels.resetPassword}
+                      <span>{labels.resetPassword} (Administrator-Override)</span>
                     </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Vergeben Sie als Administrator direkt ein neues Passwort für dieses Benutzerkonto.
+                    </p>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         className={fieldClass}

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.5.0';
+export const APP_VERSION = '23.6.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,27 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.6.1',
+    date: '2026-09-20',
+    title: 'Brand Neutralization & Avatar Studio UX Layout Refinement',
+    highlights: [
+      'Brand Neutralization: Replaced specific "Windows 11" and trademarked labels across all 4 UI languages (DE, EN, FR, ES) with neutral terminology ("Desktop Design", "Standard Desktop", "System").',
+      'Avatar Studio Streamlining: Removed preset emoji avatars to focus purely on genuine user avatars (local computer upload and direct image URLs).',
+      'Spacious URL Input & Prominent Action Button: Redesigned the image URL input container with a full-width, prominent action button and responsive spacing to resolve layout squishing.'
+    ]
+  },
+  {
+    version: '23.6.0',
+    date: '2026-09-20',
+    title: 'Windows-Style Personalization, Avatar Studio & Administrator User Inspection',
+    highlights: [
+      'Windows 11 Personalization Hub: Added dedicated Profile Picture & User Account subtab with local image upload, URL imports, preset avatars, and instant desktop live feedback.',
+      'Mockup Previews: Live preview of user avatars in Windows 11 Start Menu footer and Lock Screen (Windows Hello) mockup cards.',
+      'Instant Wallpaper & Alignment Application: Direct one-click wallpaper application with instant desktop updates and toast notifications, plus Taskbar Alignment toggle (Centered vs. Left-aligned).',
+      'Administrator User & Customer Management: Windows-like user inspection panel with metrics for files, folders, invoices, and desktop shortcuts, plus role and account scope toggles (Personal vs. Business).'
+    ]
+  },
   {
     version: '23.5.0',
     date: '2026-09-19',

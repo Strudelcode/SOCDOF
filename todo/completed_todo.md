@@ -1,3 +1,21 @@
+### Brand Neutralization & Avatar Studio UX Layout Refinement (v23.6.1)
+- [x] Removed trademarked "Windows 11" and related branding from all user-facing settings titles, descriptions, taskbar options, and tooltips.
+- [x] Updated all localized strings across German, English, French, and Spanish (`src/lib/i18n.ts`) to use neutral desktop and system terminology.
+- [x] Removed preset avatar emojis from the Avatar Studio to eliminate clutter and maintain a professional look.
+- [x] Fixed "kleiner Button" layout: replaced squished inline URL button with a full-width, prominent, responsive action button with icon and Enter key support.
+- [x] Synchronized version 23.6.1 across `package.json`, `src/lib/version.ts`, `versions/V23.md`, and `CHANGELOG.md`.
+
+### Windows-Style Personalization, Avatar Studio & Admin User Inspection (v23.6.0)
+- [x] Implemented dedicated "Profilbild & Benutzerkonto" (Avatar & User Account) subtab in Settings > Personalization.
+- [x] Added image upload with client-side canvas downsampling (max 400x400), WebP compression, URL import, and preset icon quick-picks.
+- [x] Created Windows 11 interactive preview mockups showing how user avatar renders in the Start Menu bottom-bar and on the Windows Hello Lock Screen.
+- [x] Added instant one-click wallpaper setting with immediate desktop updates and toast notifications.
+- [x] Added Taskbar Alignment selector (Centered Windows 11 vs Left-aligned Classic).
+- [x] Enhanced Administrator user management in `UserManagementSettings.tsx` with user resource inspection metrics (files, folders, invoices, pinned apps).
+- [x] Added administrator role toggle, account scope toggle (Personal vs. Business), and administrator password override.
+- [x] Fully localized all new user-facing strings across all 4 languages (DE, EN, FR, ES) in `src/lib/i18n.ts`.
+- [x] Bumped version to v23.6.0 across `package.json`, `src/lib/version.ts`, `versions/V23.md`, and `CHANGELOG.md`.
+
 ### Multi-Step System Reset & Complete Reinstallation Flow (v23.5.0)
 - [x] Implemented a 4-step security wizard for "System zurücksetzen" ("Reset System") in SettingsModule.tsx.
 - [x] Added Step 1: Confirmation word input ("Löschen" / localized equivalent).

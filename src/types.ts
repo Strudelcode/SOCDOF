@@ -237,6 +237,8 @@ export interface CompanyProfile {
   glass_overlay?: boolean;
   accent_color?: string;
   taskbar_tint?: 'default' | 'accent' | 'dark' | 'glass';
+  taskbar_alignment?: 'left' | 'center';
+  user_avatar?: string;
   font_scale?: number; // 90 to 130 (%)
   desktop_wallpaper_url?: string;
   desktop_wallpaper_blur?: number; // 0 to 30 px

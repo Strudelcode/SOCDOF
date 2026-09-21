@@ -3129,7 +3129,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           ref={startMenuRef}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
-          className={`absolute bottom-14 left-4 z-50 w-96 max-w-[92vw] ${
+          className={`absolute bottom-14 ${
+            company.taskbar_alignment === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-4'
+          } z-50 w-96 max-w-[92vw] ${
           isDark 
             ? 'bg-slate-900/95 border-slate-700/80 text-white' 
             : 'bg-white/95 border-slate-200/90 text-slate-900'
@@ -3377,9 +3379,20 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           borderTopColor: 'var(--accent-taskbar-border, rgba(79, 70, 229, 0.45))'
         } : undefined}
       >
+        {/* Left widget / brand balance area when centered */}
+        {company.taskbar_alignment === 'center' && (
+          <div className="hidden xl:flex items-center gap-2 min-w-[160px] shrink-0 pointer-events-none">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-500 dark:text-slate-400 text-[11px] font-semibold">
+              <SocdofLogo size="xs" />
+              <span className="truncate">{company.name || 'SOCDOF'}</span>
+            </div>
+          </div>
+        )}
         
         {/* Left / Center: Start Button + Unified Taskbar Apps */}
-        <div className="flex items-center gap-1 flex-1 min-w-0">
+        <div className={`flex items-center gap-1 min-w-0 ${
+          company.taskbar_alignment === 'center' ? 'flex-1 justify-center' : 'flex-1 justify-start'
+        }`}>
           {/* Windows Start Button */}
           <button
             ref={startButtonRef}
@@ -3599,7 +3612,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         </div>
 
         {/* Right: System Tray & Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className={`flex items-center gap-1.5 shrink-0 ${
+          company.taskbar_alignment === 'center' ? 'xl:min-w-[160px] justify-end' : ''
+        }`}>
           {/* Web Preview Indicator (strictly only on browser preview, not Electron) */}
           {!isDesktopApp && (
             <button

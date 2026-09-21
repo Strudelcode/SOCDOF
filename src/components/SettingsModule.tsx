@@ -69,7 +69,14 @@ import {
   UserRoundCog,
   Lock,
   EyeOff,
-  Loader2
+  Loader2,
+  UserCircle,
+  BriefcaseBusiness,
+  UserRound,
+  AlignLeft,
+  AlignCenter,
+  Crown,
+  ImagePlus
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -133,7 +140,7 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
-import { getCurrentUser, verifyPassword, resetAuthSystem } from '../lib/auth';
+import { getCurrentUser, updateUser, verifyPassword, resetAuthSystem, type UserAccount } from '../lib/auth';
 import { UserManagementSettings } from './UserManagementSettings';
 
 export type SettingsSection = 
@@ -197,11 +204,86 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Subcategory Navigation in Personalization (Windows 11 Style)
-  const [personalizationSubTab, setPersonalizationSubTab] = useState<'wallpaper' | 'startmenu' | 'colors' | 'fonts'>('wallpaper');
+  const [personalizationSubTab, setPersonalizationSubTab] = useState<'avatar' | 'wallpaper' | 'startmenu' | 'colors' | 'fonts'>('avatar');
   const [customWallpaperUrl, setCustomWallpaperUrl] = useState('');
   const [customStartMenuUrl, setCustomStartMenuUrl] = useState('');
+  const [customAvatarUrl, setCustomAvatarUrl] = useState('');
+  const [personalizationToast, setPersonalizationToast] = useState<string | null>(null);
   const startMenuInputRef = useRef<HTMLInputElement>(null);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [currentUserState, setCurrentUserState] = useState<UserAccount | null>(() => getCurrentUser());
+
+  const showToast = (msg: string) => {
+    setPersonalizationToast(msg);
+    setTimeout(() => {
+      setPersonalizationToast(null);
+    }, 3200);
+  };
+
+  const handleApplyAvatar = (avatarValue: string | undefined) => {
+    sounds.playClick();
+    setProfile((prev) => ({ ...prev, user_avatar: avatarValue }));
+    onUpdateCompany({ ...profile, user_avatar: avatarValue });
+    if (currentUserState) {
+      try {
+        updateUser(currentUserState.id, { avatar: avatarValue });
+        setCurrentUserState(getCurrentUser());
+      } catch (err) {
+        console.error('Failed to sync avatar to user account', err);
+      }
+    }
+    showToast(avatarValue ? 'Profilbild erfolgreich aktualisiert!' : 'Profilbild wurde zurückgesetzt.');
+  };
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Bitte wählen Sie eine Bilddatei aus.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Das Bild darf maximal 5 MB groß sein.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/webp', 0.9);
+          handleApplyAvatar(dataUrl);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSelectSection = (section: SettingsSection) => {
     setActiveSection(section);
@@ -1077,7 +1159,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'payments', title: 'Kartenterminal & EC-Zahlung', desc: 'Kartenzahlung, Terminal-Schnittstelle, ZVT, SumUp, Stripe, Maskierung', section: 'payments' as SettingsSection },
       { id: 'payments', title: 'E-Mail & SMTP-Postfach', desc: 'E-Mail-Server, Host, Port, Rechnungsversand direkt', section: 'payments' as SettingsSection },
       { id: 'personalization', title: 'Dunkelmodus / Hellmodus', desc: 'Design, Farbschema, Dark Mode, Light Mode', section: 'personalization' as SettingsSection },
-      { id: 'personalization', title: 'Farbakzente & Overlay', desc: 'Akzentfarben, Windows Mica/Glas-Effekt', section: 'personalization' as SettingsSection },
+      { id: 'personalization', title: 'Farbakzente & Overlay', desc: 'Akzentfarben, Mica / Acryl Glas-Effekt', section: 'personalization' as SettingsSection },
       { id: 'language', title: 'Sprache (Deutsch / Englisch)', desc: 'Systemsprache, Lokalisierung', section: 'language' as SettingsSection },
       { id: 'language', title: 'Währung & Datumsformat', desc: 'Euro (€), Dollar ($), Datumsdarstellung', section: 'language' as SettingsSection },
       { id: 'connections', title: 'Google Kalender Synchronisation', desc: 'Termine, Fristen, Rechnungen mit Google Calendar synchronisieren', section: 'connections' as SettingsSection },
@@ -2454,7 +2536,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                      {t('settings.personalization_title', activeLang, 'Personalisierung & Windows-Design')}
+                      {t('settings.personalization_title', activeLang, 'Personalisierung & Desktop-Design')}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {t('settings.personalization_desc', activeLang, 'Passen Sie Wallpaper, Unschärfe, Startmenü, Akzentfarben und Desktop-Effekte an.')}
@@ -2535,7 +2617,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     >
                       <div className="flex items-center gap-1.5 truncate">
                         <Sparkles className="w-3 h-3" />
-                        <span className="truncate">SOCDOF Workspace — Windows Preview</span>
+                        <span className="truncate">SOCDOF Workspace — Desktop Vorschau</span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 opacity-80">
                         <span className="w-2 h-2 rounded-full bg-white/40" />
@@ -2594,9 +2676,27 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
+              {/* Toast Banner for instant feedback */}
+              {personalizationToast && (
+                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>{personalizationToast}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPersonalizationToast(null)}
+                    className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded cursor-pointer"
+                  >
+                    OK
+                  </button>
+                </div>
+              )}
+
               {/* 2. Subcategory Navigation Pills (Windows 11 Style) */}
               <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 overflow-x-auto scrollbar-none">
                 {([
+                  { id: 'avatar' as const, icon: UserCircle, label: t('settings.sub_avatar', activeLang, 'Profilbild & Benutzerkonto') },
                   { id: 'wallpaper' as const, icon: Wallpaper, label: t('settings.sub_wallpaper', activeLang, 'Hintergrundbild (Wallpaper) & Blur') },
                   { id: 'startmenu' as const, icon: LayoutGrid, label: t('settings.sub_startmenu', activeLang, 'Startmenü & Taskleiste') },
                   { id: 'colors' as const, icon: Palette, label: t('settings.sub_colors', activeLang, 'Farben & Akzente') },
@@ -2624,6 +2724,261 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   );
                 })}
               </div>
+
+              {/* SUBTAB 0: PROFILBILD & BENUTZERKONTO (WINDOWS 11 STYLE) */}
+              {personalizationSubTab === 'avatar' && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Top Account & Profile Picture Card */}
+                  <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        {/* Profile Picture with Upload Overlay */}
+                        <div className="relative group">
+                          <div className="w-20 h-20 rounded-3xl bg-indigo-100 dark:bg-indigo-950/70 border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-3xl overflow-hidden shrink-0 shadow-md">
+                            {(profile.user_avatar || currentUserState?.avatar) ? (
+                              <img
+                                src={profile.user_avatar || currentUserState?.avatar}
+                                alt="Profilbild"
+                                className="w-full h-full object-cover object-center block"
+                              />
+                            ) : (
+                              <span className="select-none font-bold text-indigo-600 dark:text-indigo-400">
+                                {currentUserState?.displayName ? currentUserState.displayName.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            title="Foto hochladen"
+                            className="absolute inset-0 rounded-3xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold cursor-pointer"
+                          >
+                            <ImagePlus className="w-5 h-5 mb-0.5" />
+                            <span>Ändern</span>
+                          </button>
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarFileSelect}
+                          />
+                        </div>
+
+                        {/* Account Details */}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                              {currentUserState?.displayName || profile.name || 'Benutzer'}
+                            </h4>
+                            {currentUserState && (
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                                Angemeldet
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            @{currentUserState?.username || 'lokal'} · {t('settings.local_account', activeLang, 'Lokales Benutzerkonto')}
+                          </div>
+
+                          {/* Role & Account Badges */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
+                              currentUserState?.role === 'admin'
+                                ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                            }`}>
+                              {currentUserState?.role === 'admin' ? <Crown className="w-3.5 h-3.5 text-purple-600" /> : <UserRound className="w-3.5 h-3.5 text-slate-500" />}
+                              <span>{currentUserState?.role === 'admin' ? 'Administrator' : 'Standardbenutzer'}</span>
+                            </span>
+
+                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
+                              currentUserState?.accountType === 'personal'
+                                ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            }`}>
+                              {currentUserState?.accountType === 'personal' ? <UserRound className="w-3.5 h-3.5" /> : <BriefcaseBusiness className="w-3.5 h-3.5" />}
+                              <span>{currentUserState?.accountType === 'personal' ? 'Privates Konto' : 'Geschäftskonto'}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Jump to Admin User Management */}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectSection('users')}
+                        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center gap-2 self-start sm:self-auto cursor-pointer shadow-2xs"
+                      >
+                        <UserRoundCog className="w-4 h-4 text-indigo-500" />
+                        <span>Benutzer &amp; Kunden verwalten</span>
+                      </button>
+                    </div>
+
+                    {/* Choose Profile Picture Controls */}
+                    <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/60 space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <ImagePlus className="w-4 h-4 text-indigo-500" />
+                          <span>Eigenes Profilbild festlegen</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Wählen Sie eine Bilddatei von Ihrem Computer oder fügen Sie eine Bild-URL ein.
+                        </p>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {/* Option 1: File Upload */}
+                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block mb-1">
+                              Bilddatei vom Computer
+                            </span>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              Unterstützt PNG, JPG, WebP. Wird lokal für Ihr Konto gespeichert.
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>{t('settings.browse_computer', activeLang, 'Computer durchsuchen...')}</span>
+                          </button>
+                        </div>
+
+                        {/* Option 2: Image URL with spacious, non-squished button */}
+                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block mb-1">
+                              Web-Bildadresse (URL)
+                            </span>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              Fügen Sie einen direkten Link zu einem Bild oder Avatar ein.
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <input
+                              type="url"
+                              placeholder="https://images.unsplash.com/..."
+                              value={customAvatarUrl}
+                              onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && customAvatarUrl.trim()) {
+                                  handleApplyAvatar(customAvatarUrl.trim());
+                                  setCustomAvatarUrl('');
+                                }
+                              }}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (customAvatarUrl.trim()) {
+                                  handleApplyAvatar(customAvatarUrl.trim());
+                                  setCustomAvatarUrl('');
+                                }
+                              }}
+                              disabled={!customAvatarUrl.trim()}
+                              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>{t('settings.apply_url_avatar', activeLang, 'Bild-URL übernehmen')}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Remove Profile Picture Option (if custom avatar exists) */}
+                      {(profile.user_avatar || currentUserState?.avatar) && (
+                        <div className="pt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleApplyAvatar(undefined)}
+                            className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition cursor-pointer flex items-center gap-2 shadow-2xs"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Eigenes Profilbild entfernen (Standard-Initiale verwenden)</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop Mockup Previews for Avatar */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Preview 1: Start Menu Footer Mockup */}
+                    <div className="p-4 rounded-3xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-bold flex items-center gap-1.5 text-slate-300">
+                          <LayoutGrid className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Vorschau im Startmenü</span>
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-semibold">Live-Ansicht</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-base overflow-hidden border border-white/20 shrink-0">
+                            {(profile.user_avatar || currentUserState?.avatar) ? (
+                              <img
+                                src={profile.user_avatar || currentUserState?.avatar}
+                                alt=""
+                                className="w-full h-full object-cover object-center"
+                              />
+                            ) : (
+                              <span>{currentUserState?.displayName ? currentUserState.displayName.charAt(0) : 'U'}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-white leading-none">
+                              {currentUserState?.displayName || 'Benutzer'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                              <span>{currentUserState?.role === 'admin' ? 'Administrator' : 'Standardbenutzer'}</span>
+                              <span>·</span>
+                              <span>{currentUserState?.accountType === 'personal' ? 'Privat' : 'Geschäftlich'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-slate-300">
+                          <Lock className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preview 2: Lock Screen Mockup */}
+                    <div className="p-4 rounded-3xl bg-slate-950 text-white border border-slate-800 space-y-3 shadow-md relative overflow-hidden">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-bold flex items-center gap-1.5 text-slate-300">
+                          <Lock className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Vorschau auf dem Sperrbildschirm</span>
+                        </span>
+                        <span className="text-[10px] text-purple-400 font-semibold">Sicherer Login</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-center gap-2 py-4">
+                        <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-xl overflow-hidden border-2 border-white/20 shadow-lg">
+                          {(profile.user_avatar || currentUserState?.avatar) ? (
+                            <img
+                              src={profile.user_avatar || currentUserState?.avatar}
+                              alt=""
+                              className="w-full h-full object-cover object-center"
+                            />
+                          ) : (
+                            <span>{currentUserState?.displayName ? currentUserState.displayName.charAt(0) : 'U'}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-white">
+                            {currentUserState?.displayName || 'Halbstrudelgame'}
+                          </div>
+                          <div className="text-[11px] text-slate-400">Willkommen</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SUBTAB 1: WALLPAPER & BLUR */}
               {personalizationSubTab === 'wallpaper' && (
@@ -2717,7 +3072,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {([
                         {
-                          title: 'Windows 11 Light Flow',
+                          title: 'Light Flow (Standard)',
                           tag: 'Flow',
                           url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80'
                         },
@@ -2755,6 +3110,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             onClick={() => {
                               sounds.playClick();
                               setProfile(prev => ({ ...prev, desktop_wallpaper_url: item.url }));
+                              onUpdateCompany({ ...profile, desktop_wallpaper_url: item.url });
+                              showToast(`Hintergrundbild "${item.title}" wurde auf dem Desktop angewendet!`);
                             }}
                             className={`relative h-24 sm:h-28 rounded-2xl overflow-hidden border text-left transition group cursor-pointer ${
                               isSelected
@@ -2865,7 +3222,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           <span>{t('settings.start_menu_image', activeLang, 'Startmenü-Hintergrundbild')}</span>
                         </label>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {t('settings.start_menu_image_desc', activeLang, 'Wählen Sie ein dezentes Hintergrundbild für das Windows 11 Startmenü.')}
+                          {t('settings.start_menu_image_desc', activeLang, 'Wählen Sie ein dezentes Hintergrundbild für das Startmenü.')}
                         </p>
                       </div>
 
@@ -2972,6 +3329,78 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                   </div>
 
+                  {/* Taskbar Alignment (Zentriert vs Linksbündig) */}
+                  <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <AlignCenter className="w-4 h-4 text-indigo-500" />
+                        <span>Taskleistenausrichtung</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Wählen Sie, ob die Symbole in der Taskleiste mittig (Standard) oder linksbündig (Klassisch) angeordnet sind.
+                      </p>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sounds.playClick();
+                          setProfile(prev => ({ ...prev, taskbar_alignment: 'center' }));
+                          onUpdateCompany({ ...profile, taskbar_alignment: 'center' });
+                          showToast('Taskleiste ist nun zentriert.');
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                          (profile.taskbar_alignment || 'center') === 'center'
+                            ? 'border-2 border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                          <AlignCenter className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <span>Zentriert</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                              Standard
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Moderne zentrierte Ausrichtung
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sounds.playClick();
+                          setProfile(prev => ({ ...prev, taskbar_alignment: 'left' }));
+                          onUpdateCompany({ ...profile, taskbar_alignment: 'left' });
+                          showToast('Taskleiste ist nun linksbündig (Klassisch).');
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                          profile.taskbar_alignment === 'left'
+                            ? 'border-2 border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/30 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
+                          <AlignLeft className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white">
+                            Linksbündig
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Klassische linksbündige Anordnung
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Taskbar Design Style */}
                   <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-3">
                     <div>
@@ -2980,13 +3409,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         <span>Farbe &amp; Stil der unteren Leiste (Taskbar)</span>
                       </label>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Wählen Sie das Design der Windows 11 Taskleiste am unteren Bildschirmrand.
+                        Wählen Sie das Design der Taskleiste am unteren Bildschirmrand.
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        { id: 'default', label: 'Standard Windows 11', desc: 'Neutrales Hell / Dunkel' },
+                        { id: 'default', label: 'Standard Desktop', desc: 'Neutrales Hell / Dunkel' },
                         { id: 'accent', label: 'Akzentfarbe getönt', desc: 'Übernimmt die gewählte Farbe' },
                         { id: 'glass', label: 'Acryl Glas', desc: 'Halbtransparent & Weichzeichner' },
                         { id: 'dark', label: 'Tiefschwarz (Dark)', desc: 'Klassisch dunkle Leiste' },
@@ -3035,8 +3464,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {([
                         { mode: 'light' as const, icon: Sun, title: t('settings.light_mode', activeLang, 'Hellmodus (Light)'), desc: t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund') },
-                        { mode: 'dark' as const, icon: Moon, title: t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)'), desc: t('settings.dark_mode_desc', activeLang, 'Augenschonender Windows-Dark Look') },
-                        { mode: 'system' as const, icon: Monitor, title: t('settings.system_mode', activeLang, 'Systemmodus'), desc: t('settings.system_mode_desc', activeLang, 'Übernimmt den Hell-/Dunkelmodus von Windows') }
+                        { mode: 'dark' as const, icon: Moon, title: t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)'), desc: t('settings.dark_mode_desc', activeLang, 'Augenschonender dunkler Desktop-Look') },
+                        { mode: 'system' as const, icon: Monitor, title: t('settings.system_mode', activeLang, 'Systemmodus'), desc: t('settings.system_mode_desc', activeLang, 'Übernimmt die Hell-/Dunkel-Einstellung des Systems') }
                       ]).map(({ mode, icon: Icon, title, desc }) => {
                         const selected = (profile.theme_mode || 'system') === mode;
                         return (
@@ -3074,7 +3503,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
                           <Layers className="w-4 h-4 text-indigo-500" />
-                          <span>{t('settings.mica_glass', activeLang, 'Windows Mica / Acryl Glas-Overlay')}</span>
+                          <span>{t('settings.mica_glass', activeLang, 'Mica / Acryl Glas-Overlay')}</span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           {t('settings.mica_glass_desc', activeLang, 'Subtiler Weichzeichner und transparente Titelleisten für ein natives Desktop-Gefühl.')}
@@ -3097,13 +3526,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                   </div>
 
-                  {/* Windows Accent Colors & Color Picasso */}
+                  {/* Accent Colors & Color Picasso */}
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-indigo-500" style={{ color: 'var(--accent, #4f46e5)' }} />
-                          <span>{t('settings.accent_palette_title', activeLang, 'Windows-Akzentfarben & Color Picasso')}</span>
+                          <span>{t('settings.accent_palette_title', activeLang, 'Akzentfarben & Color Picasso')}</span>
                         </label>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {t('settings.accent_palette_desc', activeLang, 'Wird sofort auf Fensterleisten, Buttons, Badges und Taskleiste angewendet.')}

@@ -368,7 +368,7 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                       )}
                     </h5>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
-                      Erscheint in der Windows 11 Taskleiste und im Startmenü als eigenständiges Anwendungsfenster (über Microsoft Edge oder Google Chrome).
+                      Erscheint in der Desktop-Taskleiste und im Startmenü als eigenständiges Anwendungsfenster (über Microsoft Edge oder Google Chrome).
                     </p>
                   </div>
 
