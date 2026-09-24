@@ -254,6 +254,19 @@ export interface CompanyProfile {
   timezone?: string;
   shortcut_modifier_style?: 'auto' | 'strg' | 'ctrl' | 'cmd';
 
+  // Display & Multi-Screen Management
+  display_scale?: number; // 100, 125, 150, 175, 200 (%)
+  display_orientation?: 'landscape' | 'portrait' | 'landscape_flipped' | 'portrait_flipped';
+  multi_monitor_mode?: 'duplicate' | 'extend' | 'primary_only' | 'secondary_only';
+  multi_monitor_layout?: 'horizontal' | 'vertical';
+  multi_monitor_primary_id?: number;
+  per_monitor_position_memory?: boolean;
+  night_light_enabled?: boolean;
+  night_light_temperature?: number; // 1000 - 6500 K
+  hdr_mode?: boolean;
+  hardware_accel_enabled?: boolean;
+  saved_window_positions?: Record<string, { monitorId: number; x: number; y: number; width: number; height: number; isMaximized?: boolean }>;
+
   // Calendar & External Connections
   google_cal_sync_enabled?: boolean;
   google_cal_feed_url?: string;
@@ -605,6 +618,22 @@ export interface AppWindow {
   snapState?: 'left' | 'right' | 'maximize' | null;
   isAlwaysOnTop?: boolean; // Keep window on top (Overlay mode)
   params?: Record<string, any>;
+  monitorId?: number; // 1 for primary, 2 for secondary, etc.
+  isPoppedOut?: boolean; // popped out to secondary window / display
+}
+
+export interface DisplayMonitorInfo {
+  id: number;
+  index: number;
+  label: string;
+  isPrimary: boolean;
+  width: number;
+  height: number;
+  availWidth?: number;
+  availHeight?: number;
+  scale: number;
+  orientation: 'landscape' | 'portrait' | 'landscape_flipped' | 'portrait_flipped';
+  isVirtual?: boolean;
 }
 
 export interface VirtualDesktop {

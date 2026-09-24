@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -278,6 +278,94 @@ ipcMain.handle('socdof:is-fullscreen', () => {
     return mainWindow.isFullScreen();
   }
   return false;
+});
+
+// Multi-Monitor & Display Management IPC
+ipcMain.handle('socdof:get-displays', () => {
+  try {
+    const primaryId = screen.getPrimaryDisplay().id;
+    const displays = screen.getAllDisplays().map((d, index) => ({
+      id: d.id,
+      index: index + 1,
+      label: `Display ${index + 1}${d.id === primaryId ? ' (Hauptanzeige)' : ''}`,
+      bounds: d.bounds,
+      workArea: d.workArea,
+      scaleFactor: d.scaleFactor,
+      rotation: d.rotation,
+      isPrimary: d.id === primaryId,
+      internal: d.internal || false
+    }));
+    return {
+      success: true,
+      displays,
+      primaryId
+    };
+  } catch (err) {
+    return { success: false, error: err.message, displays: [] };
+  }
+});
+
+ipcMain.handle('socdof:move-window-to-display', (event, { displayId, maximize }) => {
+  try {
+    if (!mainWindow) return { success: false, error: 'Main window unavailable' };
+    const displays = screen.getAllDisplays();
+    const target = displays.find(d => d.id === displayId);
+    if (!target) return { success: false, error: 'Display not found' };
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    }
+    mainWindow.setPosition(target.workArea.x + 50, target.workArea.y + 50);
+    if (maximize) {
+      mainWindow.maximize();
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+const secondaryDetachedWindows = new Map();
+
+ipcMain.handle('socdof:popout-window', (event, { windowId, module, title, displayId, url }) => {
+  try {
+    const displays = screen.getAllDisplays();
+    const targetDisplay = (displayId && displays.find(d => d.id === displayId)) || (displays.length > 1 ? displays[1] : screen.getPrimaryDisplay());
+    
+    const existing = secondaryDetachedWindows.get(windowId);
+    if (existing && !existing.isDestroyed()) {
+      existing.focus();
+      return { success: true, alreadyOpen: true };
+    }
+
+    const popWin = new BrowserWindow({
+      x: targetDisplay.workArea.x + 60,
+      y: targetDisplay.workArea.y + 60,
+      width: Math.min(1280, targetDisplay.workArea.width - 120),
+      height: Math.min(850, targetDisplay.workArea.height - 120),
+      title: title || 'SOCDOF Secondary Workspace',
+      icon: path.join(__dirname, '../public/favicon.ico'),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.cjs')
+      }
+    });
+
+    secondaryDetachedWindows.set(windowId, popWin);
+
+    popWin.on('closed', () => {
+      secondaryDetachedWindows.delete(windowId);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('socdof:window-popped-in', { windowId });
+      }
+    });
+
+    const targetUrl = url || (mainWindow ? `${mainWindow.webContents.getURL().split('?')[0]}?popout=${windowId}&module=${module}` : 'http://localhost:3000');
+    popWin.loadURL(targetUrl);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // Languages directory manager - dynamically resolves path based on installation & execution context

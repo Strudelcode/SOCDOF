@@ -40,6 +40,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveBackupFileToDisk: (payload) => ipcRenderer.invoke('socdof:save-backup-file-to-disk', payload),
   toggleFullscreen: () => ipcRenderer.invoke('socdof:toggle-fullscreen'),
   isFullscreen: () => ipcRenderer.invoke('socdof:is-fullscreen'),
+  getDisplays: () => ipcRenderer.invoke('socdof:get-displays'),
+  moveWindowToDisplay: (payload) => ipcRenderer.invoke('socdof:move-window-to-display', payload),
+  popoutWindow: (payload) => ipcRenderer.invoke('socdof:popout-window', payload),
+  onWindowPoppedIn: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:window-popped-in', listener);
+    return () => ipcRenderer.removeListener('socdof:window-popped-in', listener);
+  },
   getPreferences: () => ipcRenderer.invoke('socdof:get-preferences'),
   savePreferences: (prefs) => ipcRenderer.invoke('socdof:save-preferences', prefs)
 });

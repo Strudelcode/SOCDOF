@@ -76,7 +76,10 @@ import {
   AlignLeft,
   AlignCenter,
   Crown,
-  ImagePlus
+  ImagePlus,
+  LayoutDashboard,
+  Users,
+  HeartPulse
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -140,14 +143,16 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
-import { getCurrentUser, updateUser, verifyPassword, resetAuthSystem, type UserAccount } from '../lib/auth';
+import { getCurrentUser, verifyPassword, resetAuthSystem, type UserAccount } from '../lib/auth';
 import { UserManagementSettings } from './UserManagementSettings';
+import { DisplaySettingsSection } from './DisplaySettingsSection';
 
 export type SettingsSection = 
   | 'home'
   | 'general'
   | 'payments'
   | 'personalization'
+  | 'display'
   | 'language'
   | 'connections'
   | 'letterhead'
@@ -204,85 +209,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Subcategory Navigation in Personalization (Windows 11 Style)
-  const [personalizationSubTab, setPersonalizationSubTab] = useState<'avatar' | 'wallpaper' | 'startmenu' | 'colors' | 'fonts'>('avatar');
+  const [personalizationSubTab, setPersonalizationSubTab] = useState<'wallpaper' | 'colors' | 'startmenu' | 'fonts'>('wallpaper');
   const [customWallpaperUrl, setCustomWallpaperUrl] = useState('');
   const [customStartMenuUrl, setCustomStartMenuUrl] = useState('');
-  const [customAvatarUrl, setCustomAvatarUrl] = useState('');
   const [personalizationToast, setPersonalizationToast] = useState<string | null>(null);
   const startMenuInputRef = useRef<HTMLInputElement>(null);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [currentUserState, setCurrentUserState] = useState<UserAccount | null>(() => getCurrentUser());
+  const [currentUserState] = useState<UserAccount | null>(() => getCurrentUser());
 
   const showToast = (msg: string) => {
     setPersonalizationToast(msg);
     setTimeout(() => {
       setPersonalizationToast(null);
     }, 3200);
-  };
-
-  const handleApplyAvatar = (avatarValue: string | undefined) => {
-    sounds.playClick();
-    setProfile((prev) => ({ ...prev, user_avatar: avatarValue }));
-    onUpdateCompany({ ...profile, user_avatar: avatarValue });
-    if (currentUserState) {
-      try {
-        updateUser(currentUserState.id, { avatar: avatarValue });
-        setCurrentUserState(getCurrentUser());
-      } catch (err) {
-        console.error('Failed to sync avatar to user account', err);
-      }
-    }
-    showToast(avatarValue ? 'Profilbild erfolgreich aktualisiert!' : 'Profilbild wurde zurückgesetzt.');
-  };
-
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Bitte wählen Sie eine Bilddatei aus.');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Das Bild darf maximal 5 MB groß sein.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_DIM = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_DIM) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          }
-        } else {
-          if (height > MAX_DIM) {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/webp', 0.9);
-          handleApplyAvatar(dataUrl);
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSelectSection = (section: SettingsSection) => {
@@ -1160,6 +1099,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'payments', title: 'E-Mail & SMTP-Postfach', desc: 'E-Mail-Server, Host, Port, Rechnungsversand direkt', section: 'payments' as SettingsSection },
       { id: 'personalization', title: 'Dunkelmodus / Hellmodus', desc: 'Design, Farbschema, Dark Mode, Light Mode', section: 'personalization' as SettingsSection },
       { id: 'personalization', title: 'Farbakzente & Overlay', desc: 'Akzentfarben, Mica / Acryl Glas-Effekt', section: 'personalization' as SettingsSection },
+      { id: 'display', title: t('settings.display', activeLang, 'Bildschirme & Skalierung'), desc: 'Multi-Monitor, Bildschirmlayout, Skalierung, Nachtmodus, Auflösung', section: 'display' as SettingsSection },
       { id: 'language', title: 'Sprache (Deutsch / Englisch)', desc: 'Systemsprache, Lokalisierung', section: 'language' as SettingsSection },
       { id: 'language', title: 'Währung & Datumsformat', desc: 'Euro (€), Dollar ($), Datumsdarstellung', section: 'language' as SettingsSection },
       { id: 'connections', title: 'Google Kalender Synchronisation', desc: 'Termine, Fristen, Rechnungen mit Google Calendar synchronisieren', section: 'connections' as SettingsSection },
@@ -1195,6 +1135,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       ]
     },
     {
+      id: 'system_display',
+      label: t('settings.category_display', activeLang, 'Anzeige & Bildschirme'),
+      items: [
+        { id: 'display' as SettingsSection, label: t('settings.display', activeLang, 'Bildschirme & Skalierung'), icon: Monitor, desc: 'Multi-Monitor, Bildschirmlayout, Skalierung & Nachtmodus' }
+      ]
+    },
+    {
       id: 'business',
       label: t('settings.category_business', activeLang, 'Unternehmen & Workflow'),
       items: [
@@ -1208,16 +1155,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'interface',
       label: t('settings.category_interface', activeLang, 'System & Personalisierung'),
       items: [
-        { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: 'Darkmode, Akzentfarben & Mica' },
+        { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: 'Darkmode, Akzentfarben & Desktop-Design' },
         { id: 'language' as SettingsSection, label: t('settings.language', activeLang, 'Sprache & Sprachpakete'), icon: Globe, desc: 'Systemsprache, Währung & .JSON Pakete' },
         { id: 'audio' as SettingsSection, label: t('settings.audio', activeLang, 'Sound & Lautstärke'), icon: Volume2, desc: 'Kassentöne, Effekte & Lautstärkeregler' }
+      ]
+    },
+    {
+      id: 'accounts',
+      label: t('settings.category_accounts', activeLang, 'Konten & Profile'),
+      items: [
+        { id: 'users' as SettingsSection, label: t('settings.user_accounts', activeLang, 'Benutzerkonto & Profilbild'), icon: UserCircle, desc: t('settings.user_accounts_desc', activeLang, 'Profilbild, Kontoinformationen, Rollen & Sicherheit'), badge: canManageUsers ? t('users.admin_badge', activeLang, 'Admin') : undefined }
       ]
     },
     {
       id: 'admin',
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
-        { id: 'users' as SettingsSection, label: t('users.title', activeLang, 'Users & Accounts'), icon: UserRoundCog, desc: t('users.subtitle', activeLang, 'Manage local accounts, roles and security'), badge: canManageUsers ? t('users.admin_badge', activeLang, 'Admin') : undefined },
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
         { id: 'danger' as SettingsSection, label: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.') }
@@ -2590,87 +2543,174 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   {/* Ambient Light Overlay */}
                   <div className={`absolute inset-0 ${isDark ? 'bg-slate-950/30' : 'bg-white/10'}`} />
 
-                  {/* Mini Desktop Icons (Left Side) */}
-                  <div className="absolute top-3 left-3 flex flex-col gap-2 pointer-events-none z-10">
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-black/30 backdrop-blur-md text-white text-[10px] w-28">
-                      <SocdofLogo size="sm" className="w-3.5 h-3.5" />
-                      <span className="truncate font-semibold">{company?.name || 'SOCDOF'}</span>
+                  {/* Mini Desktop Icons (Left Side: Real SOCDOF Desktop Apps) */}
+                  <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 pointer-events-none z-10">
+                    <div className="flex flex-col items-center gap-0.5 p-1 rounded-xl bg-black/25 backdrop-blur-md text-white text-[9px] w-14 text-center border border-white/10 shadow-xs">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+                        <LayoutDashboard className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate w-full font-medium">Dashboard</span>
                     </div>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-black/20 backdrop-blur-xs text-white text-[10px] w-28">
-                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="truncate">Dokumente</span>
+                    <div className="flex flex-col items-center gap-0.5 p-1 rounded-xl bg-black/25 backdrop-blur-md text-white text-[9px] w-14 text-center border border-white/10 shadow-xs">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
+                        <Receipt className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate w-full font-medium">{t('therapy.btn_invoices', activeLang, 'Rechnungen')}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-black/20 backdrop-blur-xs text-white text-[10px] w-28">
-                      <Receipt className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="truncate">Rechnungen</span>
+                    <div className="flex flex-col items-center gap-0.5 p-1 rounded-xl bg-black/25 backdrop-blur-md text-white text-[9px] w-14 text-center border border-white/10 shadow-xs">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-xs">
+                        <Users className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate w-full font-medium">{t('therapy.crm_contacts', activeLang, 'Kundenbuch')}</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5 p-1 rounded-xl bg-black/25 backdrop-blur-md text-white text-[9px] w-14 text-center border border-white/10 shadow-xs">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-xs">
+                        <HeartPulse className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate w-full font-medium">{t('therapy.title', activeLang, 'Praxis')}</span>
                     </div>
                   </div>
 
-                  {/* Mini Active Window in Center of Mockup */}
+                  {/* Mini Active Window in Center: Authentic SOCDOF Application Window */}
                   <div 
-                    className="absolute top-7 sm:top-9 left-28 sm:left-36 right-4 sm:right-10 bottom-11 sm:bottom-12 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/40 dark:border-slate-700/60 shadow-2xl flex flex-col overflow-hidden pointer-events-none z-10"
+                    className="absolute top-2.5 sm:top-3 left-20 sm:left-24 right-2 sm:right-5 bottom-11 sm:bottom-12 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/40 dark:border-slate-700/60 shadow-2xl flex flex-col overflow-hidden pointer-events-none z-10"
                   >
-                    {/* Mini Window Titlebar */}
+                    {/* Window Titlebar */}
                     <div 
                       className="px-3 py-1.5 text-white text-[10px] font-bold flex items-center justify-between shrink-0"
                       style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
                     >
                       <div className="flex items-center gap-1.5 truncate">
-                        <Sparkles className="w-3 h-3" />
-                        <span className="truncate">SOCDOF Workspace — Desktop Vorschau</span>
+                        <Receipt className="w-3 h-3" />
+                        <span className="truncate">{t('settings.preview_app_title', activeLang, 'SOCDOF — Rechnungen & Übersicht')}</span>
+                        <span className="text-[8px] px-1 py-0.2 rounded-md bg-white/20 text-white/90 font-mono">v{APP_VERSION}</span>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 opacity-80">
-                        <span className="w-2 h-2 rounded-full bg-white/40" />
-                        <span className="w-2 h-2 rounded-full bg-white/40" />
-                        <span className="w-2 h-2 rounded-full bg-white/80" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="w-2 h-0.5 bg-white/70 rounded-full" />
+                        <span className="w-2 h-2 border border-white/70 rounded-xs" />
+                        <span className="w-2 h-2 text-white/90 flex items-center justify-center text-[9px] font-black leading-none">✕</span>
                       </div>
                     </div>
 
-                    {/* Mini Window Body */}
-                    <div className="p-3 space-y-2 flex-1 overflow-hidden text-slate-800 dark:text-slate-200">
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span>{t('settings.personalization', activeLang, 'Personalisierung')}</span>
-                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                          {profile.theme_mode === 'dark' ? 'Dark' : profile.theme_mode === 'light' ? 'Light' : 'System'}
-                        </span>
+                    {/* Window Subheader & Actions */}
+                    <div className="px-3 py-1 bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 text-[9px] text-slate-500 dark:text-slate-400">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">Übersicht</span>
+                        <span>·</span>
+                        <span>Archiv</span>
+                        <span>·</span>
+                        <span>Export</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 text-[9px] truncate">
-                          <span className="font-semibold block">Akzentfarbe</span>
-                          <span className="opacity-75 font-mono">{profile.accent_color || '#4f46e5'}</span>
+                      <div className="flex items-center gap-1">
+                        <div 
+                          className="px-2 py-0.5 rounded-md text-[8px] font-bold text-white flex items-center gap-1 shadow-2xs"
+                          style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>{t('settings.preview_new_invoice', activeLang, 'Neue Rechnung')}</span>
                         </div>
-                        <div className="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 text-[9px] truncate">
-                          <span className="font-semibold block">Weichzeichner</span>
-                          <span className="opacity-75 font-mono">{profile.desktop_wallpaper_blur || 0} px Blur</span>
+                      </div>
+                    </div>
+
+                    {/* Window Body: KPIs & Authentic Invoice Records */}
+                    <div className="p-2 sm:p-2.5 space-y-2 flex-1 overflow-hidden text-slate-800 dark:text-slate-200">
+                      {/* 3 KPI Cards */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="p-1.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/50 dark:border-slate-700/50">
+                          <span className="text-[8px] text-slate-400 block truncate">{t('settings.preview_kpi_revenue', activeLang, 'Umsatz')}</span>
+                          <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">18.420 €</span>
+                        </div>
+                        <div className="p-1.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/50 dark:border-slate-700/50">
+                          <span className="text-[8px] text-slate-400 block truncate">{t('settings.preview_kpi_open', activeLang, 'Offen')}</span>
+                          <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 leading-tight">3 (2.850 €)</span>
+                        </div>
+                        <div className="p-1.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/50 dark:border-slate-700/50">
+                          <span className="text-[8px] text-slate-400 block truncate">{t('settings.preview_kpi_clients', activeLang, 'Klienten')}</span>
+                          <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 leading-tight">48</span>
+                        </div>
+                      </div>
+
+                      {/* Mini Realistic Table Rows */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/40 dark:border-slate-700/40 text-[9px]">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="font-mono font-bold text-slate-700 dark:text-slate-300">RE-2026-084</span>
+                            <span className="text-slate-500 truncate">Dr. med. Weber</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="font-bold">1.450 €</span>
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[8px] font-bold">
+                              {t('settings.preview_status_paid', activeLang, 'Bezahlt')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/40 dark:border-slate-700/40 text-[9px]">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="font-mono font-bold text-slate-700 dark:text-slate-300">RE-2026-085</span>
+                            <span className="text-slate-500 truncate">Praxis Sonnenberg</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="font-bold">890 €</span>
+                            <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[8px] font-bold">
+                              {t('settings.preview_status_pending', activeLang, 'Offen')}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Mini Windows 11 Taskbar at Bottom */}
-                  <div className="absolute bottom-0 inset-x-0 h-9 sm:h-10 bg-slate-900/80 backdrop-blur-xl border-t border-white/10 flex items-center justify-between px-3 z-20">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">Start</span>
-                    </div>
-                    {/* Centered Taskbar Icons */}
-                    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/10 backdrop-blur-md">
-                      <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-[10px] shadow-xs">
-                        <LayoutGrid className="w-3.5 h-3.5" />
+                  {/* Authentic Windows 11 Taskbar at Bottom */}
+                  <div className="absolute bottom-0 inset-x-0 h-9 sm:h-10 bg-slate-900/85 backdrop-blur-xl border-t border-white/10 flex items-center justify-between px-3 z-20">
+                    {/* Left: Start Button + Fluent Search + Task View */}
+                    <div className="flex items-center gap-1.5">
+                      <button 
+                        type="button"
+                        title="Start"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center bg-white/10 hover:bg-white/20 transition border border-white/15 shadow-xs"
+                      >
+                        <SocdofLogo size="sm" className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="hidden xs:flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white/10 border border-white/10 text-white/70 text-[10px]">
+                        <Search className="w-3 h-3 text-white/60" />
+                        <span>{t('settings.preview_search', activeLang, 'Suchen...')}</span>
                       </div>
-                      <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-white text-[10px]">
-                        <Search className="w-3 h-3" />
-                      </div>
-                      <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-white text-[10px]">
+                      <div className="w-7 h-7 rounded-lg bg-white/5 hidden sm:flex items-center justify-center text-white/60">
                         <Layers className="w-3 h-3" />
+                      </div>
+                    </div>
+
+                    {/* Center: Docked App Icons */}
+                    <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/5 border border-white/10">
+                      <div className="w-6 h-6 rounded-lg bg-blue-600/30 flex items-center justify-center text-white text-[10px]">
+                        <LayoutDashboard className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div className="w-6 h-6 rounded-lg bg-white/15 flex items-center justify-center text-white text-[10px] relative">
+                        <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                        <span 
+                          className="w-2.5 h-0.5 rounded-full absolute -bottom-0.5" 
+                          style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                        />
+                      </div>
+                      <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-white text-[10px]">
+                        <Users className="w-3.5 h-3.5 text-amber-400" />
                       </div>
                       <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] relative" style={{ backgroundColor: 'var(--accent, #4f46e5)' }}>
                         <Settings className="w-3 h-3" />
                         <span className="w-1 h-1 rounded-full bg-white absolute -bottom-0.5" />
                       </div>
                     </div>
-                    {/* Tray Clock */}
-                    <div className="text-[10px] text-slate-300 font-mono">
-                      <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                    {/* Right: System Tray & Clock */}
+                    <div className="flex items-center gap-1.5 text-slate-300 text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded-md bg-white/10 font-mono font-bold uppercase text-[9px] text-white">
+                        {activeLang}
+                      </span>
+                      <Volume2 className="w-3 h-3 text-slate-300 hidden sm:inline" />
+                      {isDark ? <Moon className="w-3 h-3 text-indigo-400" /> : <Sun className="w-3 h-3 text-amber-400" />}
+                      <span className="font-mono font-semibold text-slate-200">
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2693,13 +2733,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               )}
 
-              {/* 2. Subcategory Navigation Pills (Windows 11 Style) */}
-              <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 overflow-x-auto scrollbar-none">
+              {/* 2. Subcategory Navigation Grid (Responsive Windows 11 Style - No Horizontal Scrolling Required) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80">
                 {([
-                  { id: 'avatar' as const, icon: UserCircle, label: t('settings.sub_avatar', activeLang, 'Profilbild & Benutzerkonto') },
-                  { id: 'wallpaper' as const, icon: Wallpaper, label: t('settings.sub_wallpaper', activeLang, 'Hintergrundbild (Wallpaper) & Blur') },
-                  { id: 'startmenu' as const, icon: LayoutGrid, label: t('settings.sub_startmenu', activeLang, 'Startmenü & Taskleiste') },
+                  { id: 'wallpaper' as const, icon: Wallpaper, label: t('settings.sub_wallpaper', activeLang, 'Hintergrundbild & Blur') },
                   { id: 'colors' as const, icon: Palette, label: t('settings.sub_colors', activeLang, 'Farben & Akzente') },
+                  { id: 'startmenu' as const, icon: LayoutGrid, label: t('settings.sub_startmenu', activeLang, 'Startmenü & Taskleiste') },
                   { id: 'fonts' as const, icon: Type, label: t('settings.sub_fonts', activeLang, 'Schriftgröße & Skalierung') }
                 ]).map((tab) => {
                   const Icon = tab.icon;
@@ -2712,275 +2751,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         sounds.playClick();
                         setPersonalizationSubTab(tab.id);
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                      className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                         isActive
                           ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                      <span>{tab.label}</span>
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                      <span className="truncate">{tab.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* SUBTAB 0: PROFILBILD & BENUTZERKONTO (WINDOWS 11 STYLE) */}
-              {personalizationSubTab === 'avatar' && (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Top Account & Profile Picture Card */}
-                  <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/70 space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        {/* Profile Picture with Upload Overlay */}
-                        <div className="relative group">
-                          <div className="w-20 h-20 rounded-3xl bg-indigo-100 dark:bg-indigo-950/70 border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-3xl overflow-hidden shrink-0 shadow-md">
-                            {(profile.user_avatar || currentUserState?.avatar) ? (
-                              <img
-                                src={profile.user_avatar || currentUserState?.avatar}
-                                alt="Profilbild"
-                                className="w-full h-full object-cover object-center block"
-                              />
-                            ) : (
-                              <span className="select-none font-bold text-indigo-600 dark:text-indigo-400">
-                                {currentUserState?.displayName ? currentUserState.displayName.charAt(0).toUpperCase() : 'U'}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => avatarInputRef.current?.click()}
-                            title="Foto hochladen"
-                            className="absolute inset-0 rounded-3xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold cursor-pointer"
-                          >
-                            <ImagePlus className="w-5 h-5 mb-0.5" />
-                            <span>Ändern</span>
-                          </button>
-                          <input
-                            ref={avatarInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleAvatarFileSelect}
-                          />
-                        </div>
-
-                        {/* Account Details */}
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-base text-slate-900 dark:text-white">
-                              {currentUserState?.displayName || profile.name || 'Benutzer'}
-                            </h4>
-                            {currentUserState && (
-                              <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
-                                Angemeldet
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            @{currentUserState?.username || 'lokal'} · {t('settings.local_account', activeLang, 'Lokales Benutzerkonto')}
-                          </div>
-
-                          {/* Role & Account Badges */}
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
-                              currentUserState?.role === 'admin'
-                                ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                            }`}>
-                              {currentUserState?.role === 'admin' ? <Crown className="w-3.5 h-3.5 text-purple-600" /> : <UserRound className="w-3.5 h-3.5 text-slate-500" />}
-                              <span>{currentUserState?.role === 'admin' ? 'Administrator' : 'Standardbenutzer'}</span>
-                            </span>
-
-                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
-                              currentUserState?.accountType === 'personal'
-                                ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                                : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                            }`}>
-                              {currentUserState?.accountType === 'personal' ? <UserRound className="w-3.5 h-3.5" /> : <BriefcaseBusiness className="w-3.5 h-3.5" />}
-                              <span>{currentUserState?.accountType === 'personal' ? 'Privates Konto' : 'Geschäftskonto'}</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Jump to Admin User Management */}
-                      <button
-                        type="button"
-                        onClick={() => handleSelectSection('users')}
-                        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center gap-2 self-start sm:self-auto cursor-pointer shadow-2xs"
-                      >
-                        <UserRoundCog className="w-4 h-4 text-indigo-500" />
-                        <span>Benutzer &amp; Kunden verwalten</span>
-                      </button>
-                    </div>
-
-                    {/* Choose Profile Picture Controls */}
-                    <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/60 space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <ImagePlus className="w-4 h-4 text-indigo-500" />
-                          <span>Eigenes Profilbild festlegen</span>
-                        </label>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Wählen Sie eine Bilddatei von Ihrem Computer oder fügen Sie eine Bild-URL ein.
-                        </p>
-                      </div>
-
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {/* Option 1: File Upload */}
-                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3">
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block mb-1">
-                              Bilddatei vom Computer
-                            </span>
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                              Unterstützt PNG, JPG, WebP. Wird lokal für Ihr Konto gespeichert.
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => avatarInputRef.current?.click()}
-                            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            <Upload className="w-4 h-4" />
-                            <span>{t('settings.browse_computer', activeLang, 'Computer durchsuchen...')}</span>
-                          </button>
-                        </div>
-
-                        {/* Option 2: Image URL with spacious, non-squished button */}
-                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3">
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block mb-1">
-                              Web-Bildadresse (URL)
-                            </span>
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                              Fügen Sie einen direkten Link zu einem Bild oder Avatar ein.
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            <input
-                              type="url"
-                              placeholder="https://images.unsplash.com/..."
-                              value={customAvatarUrl}
-                              onChange={(e) => setCustomAvatarUrl(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && customAvatarUrl.trim()) {
-                                  handleApplyAvatar(customAvatarUrl.trim());
-                                  setCustomAvatarUrl('');
-                                }
-                              }}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (customAvatarUrl.trim()) {
-                                  handleApplyAvatar(customAvatarUrl.trim());
-                                  setCustomAvatarUrl('');
-                                }
-                              }}
-                              disabled={!customAvatarUrl.trim()}
-                              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                            >
-                              <Check className="w-4 h-4" />
-                              <span>{t('settings.apply_url_avatar', activeLang, 'Bild-URL übernehmen')}</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Remove Profile Picture Option (if custom avatar exists) */}
-                      {(profile.user_avatar || currentUserState?.avatar) && (
-                        <div className="pt-2 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleApplyAvatar(undefined)}
-                            className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition cursor-pointer flex items-center gap-2 shadow-2xs"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Eigenes Profilbild entfernen (Standard-Initiale verwenden)</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Desktop Mockup Previews for Avatar */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {/* Preview 1: Start Menu Footer Mockup */}
-                    <div className="p-4 rounded-3xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span className="font-bold flex items-center gap-1.5 text-slate-300">
-                          <LayoutGrid className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Vorschau im Startmenü</span>
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-semibold">Live-Ansicht</span>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-base overflow-hidden border border-white/20 shrink-0">
-                            {(profile.user_avatar || currentUserState?.avatar) ? (
-                              <img
-                                src={profile.user_avatar || currentUserState?.avatar}
-                                alt=""
-                                className="w-full h-full object-cover object-center"
-                              />
-                            ) : (
-                              <span>{currentUserState?.displayName ? currentUserState.displayName.charAt(0) : 'U'}</span>
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-white leading-none">
-                              {currentUserState?.displayName || 'Benutzer'}
-                            </div>
-                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                              <span>{currentUserState?.role === 'admin' ? 'Administrator' : 'Standardbenutzer'}</span>
-                              <span>·</span>
-                              <span>{currentUserState?.accountType === 'personal' ? 'Privat' : 'Geschäftlich'}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-slate-300">
-                          <Lock className="w-3.5 h-3.5" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Preview 2: Lock Screen Mockup */}
-                    <div className="p-4 rounded-3xl bg-slate-950 text-white border border-slate-800 space-y-3 shadow-md relative overflow-hidden">
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span className="font-bold flex items-center gap-1.5 text-slate-300">
-                          <Lock className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Vorschau auf dem Sperrbildschirm</span>
-                        </span>
-                        <span className="text-[10px] text-purple-400 font-semibold">Sicherer Login</span>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-center gap-2 py-4">
-                        <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-xl overflow-hidden border-2 border-white/20 shadow-lg">
-                          {(profile.user_avatar || currentUserState?.avatar) ? (
-                            <img
-                              src={profile.user_avatar || currentUserState?.avatar}
-                              alt=""
-                              className="w-full h-full object-cover object-center"
-                            />
-                          ) : (
-                            <span>{currentUserState?.displayName ? currentUserState.displayName.charAt(0) : 'U'}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-white">
-                            {currentUserState?.displayName || 'Halbstrudelgame'}
-                          </div>
-                          <div className="text-[11px] text-slate-400">Willkommen</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SUBTAB 1: WALLPAPER & BLUR */}
+              {/* SUBTAB: WALLPAPER & BLUR */}
               {personalizationSubTab === 'wallpaper' && (
                 <div className="space-y-6 animate-fade-in">
                   
@@ -3718,7 +3502,49 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               )}
 
+              {/* Related Settings: Accounts & Profile Picture (Windows 11 Settings Style) */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-2xs">
+                      <UserCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        {t('settings.related_accounts_title', activeLang, 'Profilbild & Benutzerkonto anpassen')}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {t('settings.related_accounts_desc', activeLang, 'Möchten Sie Ihr Profilfoto, Ihren Anzeigenamen, Rollen oder Passwörter bearbeiten? Wechseln Sie zu Konten & Profile.')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      handleSelectSection('users');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
+                  >
+                    <span>{t('settings.goto_accounts', activeLang, 'Zu Konten & Profile')}</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-indigo-500" />
+                  </button>
+                </div>
+              </div>
+
             </div>
+          )}
+
+          {/* SECTION: DISPLAY & MULTI-SCREEN (Windows 11 Style Display Settings) */}
+          {activeSection === 'display' && (
+            <DisplaySettingsSection
+              company={profile}
+              onUpdateCompany={(updated) => {
+                setProfile(updated);
+                onUpdateCompany(updated);
+              }}
+              activeLang={activeLang}
+            />
           )}
 
           {/* SECTION: LANGUAGE, TIME & REGION */}

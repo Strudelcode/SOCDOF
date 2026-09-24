@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.6.1';
+export const APP_VERSION = '23.9.6';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,66 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.9.6',
+    date: '2026-09-24',
+    title: 'Responsive Navigation Dropdown & Manual Client CRM Sync',
+    highlights: [
+      'Clean 3-line hamburger dropdown for secondary modules (Mileage Log & Appointments) eliminating horizontal scrollbars',
+      'Automatic CRM Customer Book creation checkbox when adding manual clients',
+      'Dynamic currency inheritance from company settings across all practice financial views',
+      'Full quad-lingual verification across DE, EN, FR, and ES'
+    ]
+  },
+  {
+    version: '23.9.5',
+    date: '2026-09-24',
+    title: 'Complete Redesign of Therapy & Practice Management Suite',
+    highlights: [
+      'Direct Customer Book (CRM) picker upon creating new clients without intermediate manual input',
+      'Professional Invoicing & Billing management view with live stats, PDF/print preview, and Dexie invoices sync',
+      'Modern practice dashboard featuring interactive multi-month revenue and session trajectory charts',
+      'Streamlined navigation with clean unified header bar and eliminated duplicate badges',
+      'Fixed layout and non-resizable textareas across all documentation and consultation forms'
+    ]
+  },
+  {
+    version: '23.9.0',
+    date: '2026-09-24',
+    title: 'Therapy Module Polish, Fixed Resizable Textareas & Enhanced Mileage Log',
+    highlights: [
+      'Fixed Resizable Textareas: Disabled native dragging handle (resize-none) across client, session, and contact modals to prevent window distortion and clipping.',
+      'Enhanced Mileage & Trip Log: Clear odometer-based distance calculation (Start/End km), live reimbursement computation, rate presets (0.30, 0.38, 0.42 €/km), and removed ambiguous terms.',
+      'Session Duration Presets: Added quick duration selectors (30m, 50m, 60m, 90m) and structured clinical documentation fields in therapy session logging.',
+      'Seamless CRM Contact Integration: Direct customer book picker with active contact count badge and instant link/unlink in therapy client management.',
+      'Billing to Invoices Pipeline: One-click export of therapy billings into official invoices with direct navigation to Invoices and Accounting modules.'
+    ]
+  },
+  {
+    version: '23.8.0',
+    date: '2026-09-24',
+    title: 'Therapy & Practice Flow, Authentic Desktop Preview & Settings Personalization Overhaul',
+    highlights: [
+      'Therapy & Practice CRM Integration: Seamless client linkage from CRM contacts, prefilling customer records, filter by practice/contacts, and direct invoice creation from therapy sessions and billings.',
+      'Practice Revenue & Statistics Dashboard: Live annual and monthly revenue analytics, completed therapy hours, average fee per session, and billing status progress tracking.',
+      'Authentic Windows Desktop Preview in Settings: Replaced generic mockup with real SOCDOF desktop icons (Dashboard, Rechnungen, Kundenbuch, Praxis), an authentic application window with KPIs and records, and official taskbar Start icon.',
+      'No-Scroll Responsive Personalization Tabs: Reorganized Personalization into a clean 4-tab grid (Hintergrundbild & Blur, Farben & Akzente, Startmenü & Taskleiste, Schriftgröße) eliminating awkward horizontal mouse scrolling.',
+      'Clean Accounts & Profiles Separation: Moved profile picture and credentials management exclusively into Accounts & Profile (users), avoiding duplicate settings and confusing profile images.',
+      'Full Quad-Lingual Coverage: Updated all new labels, statistics, preview titles, and settings guides in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.7.0',
+    date: '2026-09-24',
+    title: 'Windows-Inspired Settings Hub & Multi-Monitor Extended Display Management',
+    highlights: [
+      'Multi-Monitor & Extended Display Management: Interactive display rearrangement canvas, monitor identification with animated badges, hardware display detection, and virtual secondary monitor additions.',
+      'Windows-Style Display Section in Settings: Complete controls for scale (100%-200%), orientation (landscape/portrait/flipped), resolution, HDR profile, and GPU hardware acceleration.',
+      'Multi-Screen Window Popout & Positioning Memory: Title bar quick popout button (Tv icon) to detach windows onto secondary screens or popouts, and per-monitor window geometry memory.',
+      'Windows 11 Night Light (Nachtmodus): Warm color temperature slider (1500K - 5500K) with live SVG warmth filter and persistent toggle.',
+      'Electron Multi-Monitor IPC: Added get-displays, move-window-to-display, and popout-window Electron APIs.'
+    ]
+  },
   {
     version: '23.6.1',
     date: '2026-09-20',

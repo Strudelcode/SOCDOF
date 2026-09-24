@@ -27,6 +27,7 @@ import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
 import { getSession, getUserById, updateUserPreferences } from './lib/auth';
+import { applyNightLight } from './lib/displayManager';
 
 export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -101,6 +102,15 @@ export default function App() {
     media.addEventListener?.('change', handleSystemTheme);
     return () => media.removeEventListener?.('change', handleSystemTheme);
   }, [company?.theme_mode]);
+
+  // Windows 11 Night Light (Nachtmodus) Synchronization
+  useEffect(() => {
+    if (company?.night_light_enabled) {
+      applyNightLight(true, company.night_light_temperature || 3400);
+    } else {
+      applyNightLight(false);
+    }
+  }, [company?.night_light_enabled, company?.night_light_temperature]);
 
   const handleSetThemeMode = (mode: CompanyProfile['theme_mode']) => {
     const nextMode = mode || 'system';

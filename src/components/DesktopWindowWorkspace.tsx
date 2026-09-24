@@ -59,7 +59,8 @@ import {
   Hospital,
   Plus,
   StickyNote,
-  Zap
+  Zap,
+  Tv
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -1910,6 +1911,18 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     }
   };
 
+  // Automatically open detached window if invoked via multi-screen popout query
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const popoutModule = urlParams.get('popout') as ActiveModule;
+      if (popoutModule) {
+        const popoutTitle = urlParams.get('title');
+        openWindow(popoutModule, popoutTitle ? decodeURIComponent(popoutTitle) : undefined);
+      }
+    } catch {}
+  }, []);
+
   const focusWindow = (id: string) => {
     const maxZ = Math.max(...windows.map(w => w.zIndex), 10) + 1;
     setWindows(prev => prev.map(w => {
@@ -2020,6 +2033,56 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       }
       return w;
     }));
+  };
+
+  const handlePopoutOrMoveMonitor = async (win: AppWindow, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    sounds.playClick();
+
+    // 1. Electron multi-screen popout
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.popoutWindow) {
+      try {
+        const res = await (window as any).electronAPI.popoutWindow({
+          windowId: win.id,
+          module: win.module,
+          title: win.customTitle || win.title
+        });
+        if (res && res.success) {
+          showFullscreenToast(
+            `${t('display.popout_window', currentLang, 'Fenster auf zweiten Monitor ausgedockt')}: ${win.title}`,
+            undefined,
+            'success'
+          );
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed electron popout', err);
+      }
+    }
+
+    // 2. Browser popup window
+    try {
+      const popUrl = `${window.location.origin}${window.location.pathname}?popout=${win.module}&title=${encodeURIComponent(win.customTitle || win.title)}`;
+      const popWin = window.open(popUrl, `socdof_popout_${win.module}`, 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
+      if (popWin) {
+        showFullscreenToast(
+          `${t('display.popout_window', currentLang, 'Fenster in eigenem Bildschirmfenster geöffnet')}: ${win.title}`,
+          undefined,
+          'success'
+        );
+        return;
+      }
+    } catch {}
+
+    // 3. Move to secondary position in workspace
+    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const targetX = win.x > screenW / 2 ? 40 : Math.max(40, screenW - win.width - 40);
+    setWindows(prev => prev.map(w => w.id === win.id ? { ...w, x: targetX, monitorId: (w.monitorId === 2 ? 1 : 2) } : w));
+    showFullscreenToast(
+      `${win.title}: ${t('display.remember_window_positions', currentLang, 'Fensterposition auf Monitor gespeichert')}`,
+      undefined,
+      'info'
+    );
   };
 
   const startDrag = (id: string, e: React.MouseEvent | React.PointerEvent) => {
@@ -2783,6 +2846,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <Pin className={`w-3.5 h-3.5 transition-transform ${win.isAlwaysOnTop ? 'rotate-45' : ''}`} />
                 </button>
 
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => handlePopoutOrMoveMonitor(win, e)}
+                  title={t('display.popout_window', currentLang, 'Auf zweiten Monitor ausdocken')}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                </button>
+
                 <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
 
                 <button
@@ -3013,6 +3086,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   onRefreshContacts={onRefreshData}
                   currency={company.currency}
                   onOpenContacts={() => openWindow('contacts', 'Kontakte & Kunden')}
+                  onOpenInvoices={() => openWindow('invoices', 'Rechnungen')}
+                  onOpenAccounting={() => openWindow('accounting', 'Buchhaltung & Finanzen')}
                 />
               )}
 

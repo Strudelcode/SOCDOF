@@ -23,6 +23,10 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.8.0 Therapy & Practice Flow, Authentic Desktop Preview & Settings Personalization Overhaul milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.7.0 Windows-Inspired Settings & Display / Multi-Monitor Management milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.6.1 Brand Neutralization & Avatar Studio UX Layout Refinement milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.6.0 Windows-Style Personalization, Avatar Studio & Admin User Inspection milestone is complete and archived in `todo/completed_todo.md`.
@@ -63,13 +67,8 @@ The v23.1.0 Windows-style authentication surface redesign is complete on the fea
 
 
 ### 2.2 Windows-Inspired Settings & Display / Multi-Monitor Management
-- [ ] **Windows 11-Inspired Settings Hub**:
-  - [ ] Structured sidebar navigation (Accounts & Profiles, Personalization & Wallpapers, Display & Multi-Screen, System & Backups, Privacy & Security).
-  - [ ] Focus purely on workspace controls while omitting redundant low-level OS settings (like network adapters or sound drivers).
-- [ ] **Multi-Monitor & Extended Display Management**:
-  - [ ] Display detection and multi-screen layout settings for multi-monitor setups.
-  - [ ] Support "extending" (`Erweitern`) SOCDOF workspaces across multiple monitors (e.g. popping windows out to secondary screens or multi-screen desktop spanning in Electron).
-  - [ ] Per-monitor window positioning memory (remembering which monitor an app window was last placed on).
+
+The v23.7.0 Windows-Inspired Settings Hub & Multi-Monitor Extended Display Management milestone is complete and archived in `todo/completed_todo.md`.
 
 ### 2.3 Praxis & Therapy Management Suite (TheraPsy Architecture)
 
