@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Session, Client, BillingItem } from './types';
 import { useLanguage } from '../../lib/i18n';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface TherapySessionsProps {
   sessions: Session[];
@@ -43,6 +44,7 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [autoCreateBilling, setAutoCreateBilling] = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
 
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
@@ -182,12 +184,8 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(lang === 'de' ? 'Sitzungseintrag löschen?' : 'Delete session?')) {
-                            onDeleteSession(session.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                        onClick={() => setSessionToDelete(session)}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition cursor-pointer"
                         title={lang === 'de' ? 'Löschen' : 'Delete'}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -394,6 +392,21 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(sessionToDelete)}
+        title={lang === 'de' ? 'Sitzungseintrag löschen?' : 'Delete Session?'}
+        itemName={sessionToDelete ? `${sessionToDelete.date} • ${sessionToDelete.intervention || 'Sitzung'}` : ''}
+        description={lang === 'de' ? 'Möchten Sie dieses Sitzungsprotokoll wirklich unwiderruflich löschen?' : 'Are you sure you want to permanently delete this clinical session note?'}
+        onConfirm={() => {
+          if (sessionToDelete) {
+            onDeleteSession(sessionToDelete.id);
+            setSessionToDelete(null);
+          }
+        }}
+        onClose={() => setSessionToDelete(null)}
+      />
     </div>
   );
 };

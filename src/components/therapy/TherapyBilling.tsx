@@ -15,33 +15,43 @@ import {
   Building2,
   Users,
   Send,
-  BookUser
+  BookUser,
+  FileSpreadsheet
 } from 'lucide-react';
 import { BillingItem, Client, Session } from './types';
+import { CompanyProfile } from '../../types';
 import { useLanguage } from '../../lib/i18n';
 import { db } from '../../lib/db';
+import { formatCurrencyDE, formatIntegerDE } from '../../lib/formatters';
 import { TherapyInvoicePrintModal } from './TherapyInvoicePrintModal';
+import { TherapyInvoiceTemplateModal } from './TherapyInvoiceTemplateModal';
+import { TherapyTaxAdvisorLedgerModal } from './TherapyTaxAdvisorLedgerModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface TherapyBillingProps {
   billing: BillingItem[];
   clients: Client[];
   sessions: Session[];
+  company?: CompanyProfile;
   currency: string;
   onSaveBilling: (item: BillingItem) => void;
   onDeleteBilling: (id: string) => void;
   onOpenCustomerPicker: () => void;
   onShowToast: (msg: string) => void;
+  onOpenInvoices?: () => void;
 }
 
 export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   billing,
   clients,
   sessions,
+  company,
   currency,
   onSaveBilling,
   onDeleteBilling,
   onOpenCustomerPicker,
-  onShowToast
+  onShowToast,
+  onOpenInvoices
 }) => {
   const lang = useLanguage();
   const [search, setSearch] = useState('');
@@ -52,6 +62,9 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BillingItem | null>(null);
   const [printPreviewItem, setPrintPreviewItem] = useState<BillingItem | null>(null);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<BillingItem | null>(null);
 
   // Filtered billing entries
   const filteredBilling = useMemo(() => {
@@ -140,9 +153,14 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
 
       onShowToast(
         lang === 'de' 
-          ? `Rechnung ${invoiceNumber} erfolgreich in das Rechnungs-Modul übertragen!` 
-          : `Invoice ${invoiceNumber} transferred to Invoices module!`
+          ? `Rechnung ${invoiceNumber} in Rechnungs-App übertragen und geöffnet!` 
+          : `Invoice ${invoiceNumber} transferred & opened in Invoices module!`
       );
+
+      // Open the Invoices app window
+      if (onOpenInvoices) {
+        onOpenInvoices();
+      }
     } catch (err) {
       console.error('Failed to create invoice in DB:', err);
       onShowToast(lang === 'de' ? 'Fehler beim Übertragen der Rechnung' : 'Error transferring invoice');
@@ -158,10 +176,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
             {lang === 'de' ? 'Offene Forderungen' : 'Pending Receivables'}
           </div>
           <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-            {totalOpen.toFixed(2)} {currency}
+            {formatCurrencyDE(totalOpen, currency)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
-            {billing.filter(b => b.status !== 'paid').length} {lang === 'de' ? 'offene Rechnungen' : 'open invoices'}
+            {formatIntegerDE(billing.filter(b => b.status !== 'paid').length)} {lang === 'de' ? 'offene Rechnungen' : 'open invoices'}
           </div>
         </div>
 
@@ -170,10 +188,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
             {lang === 'de' ? 'Bereits bezahlt' : 'Total Paid'}
           </div>
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            {totalPaid.toFixed(2)} {currency}
+            {formatCurrencyDE(totalPaid, currency)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
-            {billing.filter(b => b.status === 'paid').length} {lang === 'de' ? 'beglichene Rechnungen' : 'paid invoices'}
+            {formatIntegerDE(billing.filter(b => b.status === 'paid').length)} {lang === 'de' ? 'beglichene Rechnungen' : 'paid invoices'}
           </div>
         </div>
 
@@ -182,10 +200,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
             {lang === 'de' ? 'Gesamtes Abrechnungsvolumen' : 'Total Billed Volume'}
           </div>
           <div className="text-2xl font-bold text-slate-900 dark:text-white">
-            {totalAmount.toFixed(2)} {currency}
+            {formatCurrencyDE(totalAmount, currency)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
-            {billing.length} {lang === 'de' ? 'Abrechnungspositionen gesamt' : 'total billing items'}
+            {formatIntegerDE(billing.length)} {lang === 'de' ? 'Abrechnungspositionen gesamt' : 'total billing items'}
           </div>
         </div>
       </div>
@@ -246,28 +264,48 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           </select>
         </div>
 
-        {/* Action button */}
-        <button
-          onClick={() => {
-            setEditingItem({
-              id: `bill_${Date.now()}`,
-              clientId: clients[0]?.id || '',
-              date: new Date().toISOString().slice(0, 10),
-              service: 'Psychotherapeutische Einzelsitzung (60 Min)',
-              amount: clients[0]?.hourlyRate || 90,
-              taxRate: 0,
-              status: 'ready',
-              invoiceNumber: `PRAXIS-${Date.now().toString().slice(-6)}`,
-              dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-              notes: 'Heilbehandlung gem. § 4 Nr. 14 UStG steuerfrei'
-            });
-            setIsNewModalOpen(true);
-          }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{lang === 'de' ? '+ Neue Abrechnung / Rechnung' : '+ New Invoicing Entry'}</span>
-        </button>
+        {/* Action buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsTaxAdvisorLedgerOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#1B365D] hover:bg-[#152a48] text-white font-bold text-xs rounded-xl shadow-md transition"
+            title={lang === 'de' ? 'Kassenbuch & Excel-Export öffnen' : 'Open Cash Ledger & Excel Export'}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span>{lang === 'de' ? 'Kassenbuch (Excel)' : 'Cash Ledger (Excel)'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsTemplatesModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-2xs"
+            title={lang === 'de' ? 'Rechnungsvorlagen & Layout-Einstellungen öffnen' : 'Manage invoice templates & design'}
+          >
+            <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            <span>{lang === 'de' ? 'Vorlagen' : 'Templates'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingItem({
+                id: `bill_${Date.now()}`,
+                clientId: clients[0]?.id || '',
+                date: new Date().toISOString().slice(0, 10),
+                service: 'Psychotherapeutische Einzelsitzung (60 Min)',
+                amount: clients[0]?.hourlyRate || 90,
+                taxRate: 0,
+                status: 'ready',
+                invoiceNumber: `PRAXIS-${Date.now().toString().slice(-6)}`,
+                dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+                notes: 'Heilbehandlung gem. § 4 Nr. 14 UStG steuerfrei'
+              });
+              setIsNewModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{lang === 'de' ? '+ Neue Abrechnung' : '+ New Invoicing Entry'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Professional Invoicing Table */}
@@ -336,7 +374,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
 
                       {/* Amount */}
                       <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                        {(Number(item.amount) || 0).toFixed(2)} {currency}
+                        {formatCurrencyDE(Number(item.amount) || 0, currency)}
                       </td>
 
                       {/* Status */}
@@ -413,12 +451,8 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
 
                           {/* Delete */}
                           <button
-                            onClick={() => {
-                              if (confirm(lang === 'de' ? 'Abrechnungsposition löschen?' : 'Delete this billing item?')) {
-                                onDeleteBilling(item.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                            onClick={() => setDeleteConfirmItem(item)}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition cursor-pointer"
                             title={lang === 'de' ? 'Löschen' : 'Delete'}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -622,10 +656,54 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
         <TherapyInvoicePrintModal
           billing={printPreviewItem}
           client={getClient(printPreviewItem.clientId)}
+          company={company}
           currency={currency}
           onClose={() => setPrintPreviewItem(null)}
         />
       )}
+
+      {/* Template Management Modal */}
+      {isTemplatesModalOpen && (
+        <TherapyInvoiceTemplateModal
+          isOpen={isTemplatesModalOpen}
+          onClose={() => setIsTemplatesModalOpen(false)}
+          company={company}
+          clients={clients}
+          currency={currency}
+        />
+      )}
+
+      {/* Tax Advisor & Accountant Cash Ledger Modal */}
+      {isTaxAdvisorLedgerOpen && (
+        <TherapyTaxAdvisorLedgerModal
+          isOpen={isTaxAdvisorLedgerOpen}
+          onClose={() => setIsTaxAdvisorLedgerOpen(false)}
+          practiceData={{
+            clients,
+            billing,
+            sessions,
+            trips: [],
+            appointments: []
+          }}
+          company={company}
+          currency={currency}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteConfirmItem)}
+        title={lang === 'de' ? 'Abrechnungsposition löschen?' : 'Delete Billing Item?'}
+        itemName={deleteConfirmItem ? (deleteConfirmItem.invoiceNumber || deleteConfirmItem.service) : ''}
+        description={lang === 'de' ? 'Möchten Sie diese Honorarabrechnung wirklich unwiderruflich löschen?' : 'Are you sure you want to delete this billing entry?'}
+        onConfirm={() => {
+          if (deleteConfirmItem) {
+            onDeleteBilling(deleteConfirmItem.id);
+            setDeleteConfirmItem(null);
+          }
+        }}
+        onClose={() => setDeleteConfirmItem(null)}
+      />
     </div>
   );
 };

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.9.6';
+export const APP_VERSION = '23.10.10';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,125 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.10.10',
+    date: '2026-09-25',
+    title: 'European Number & Currency Formatting (DIN 1333) & Therapy Dark Mode Refinement',
+    highlights: [
+      'European Number Formatting: Standardized amounts across Therapy Dashboard, Billing, and Ledger to use period thousands separators and comma decimal cents (e.g. 1.000.000,00 € and 10.010,00 €).',
+      'Therapy CRM Quick Button Fix: Neutralized background-override inversion on "+ Neuer Klient (Kundenbuch)" to guarantee high-contrast readability in both light and dark mode.',
+      'Invoice Template Editor Dark Mode: Overhauled tab navigation and close icon contrast in the template modal so inactive tabs and window controls remain clear and readable.',
+      'Ledger Template Persistence: Added centralized template management and persistence helpers in src/lib/ledgerTemplates.ts for seamless customization across DE, EN, FR, and ES.'
+    ]
+  },
+  {
+    version: '23.10.9',
+    date: '2026-09-25',
+    title: 'UI Decluttering, Window Centering & Desktop Stacking Isolation',
+    highlights: [
+      'Z-Index Isolation: Elevated modal backdrop to z-[9999], completely isolating background window resize handles and controls from leaking through.',
+      'Desktop Workspace Centering: Applied taskbar padding compensation (pb-16) and fixed viewport heights to achieve true visual dead-center positioning.',
+      'Header & Footer Decluttering: Removed redundant branding stamps, verbose sync labels, subtitle descriptions, and extraneous advisor suffixes for a clean, professional aesthetic.'
+    ]
+  },
+  {
+    version: '23.10.8',
+    date: '2026-09-25',
+    title: 'Payment Method Gating for Ledger Accounting Formulas',
+    highlights: [
+      'Payment Method Gating: Excel calculation formulas strictly require cash (K*) or bank (B*) tags before incorporating amounts into ledger balances, ensuring unpaid draft entries do not alter financial standings.',
+      'Active Saldo Filtering: Running ledger balance column only activates on verified paid rows, maintaining pristine clarity for tax advisors.'
+    ]
+  },
+  {
+    version: '23.10.7',
+    date: '2026-09-25',
+    title: 'Total Summary Column (Gesamt) & Running Balance Journal Integration',
+    highlights: [
+      'Total Summary Column: Added third amount column "Gesamt" to Kassen- & Bankverrechnung in both Excel export and in-app modal, providing instant combined visibility of overall business revenue, expenditure, and liquid balance.',
+      'Dynamic Excel Total Formulas: Embedded live auto-summing formulas (=RC[-2]+RC[-1]) across all summary rows and continuous running balance calculations (Saldo) in the transaction grid.'
+    ]
+  },
+  {
+    version: '23.10.6',
+    date: '2026-09-25',
+    title: 'Zebra Striping & Direct Auto-Calculating Formulas for User Excel Entries',
+    highlights: [
+      'Alternating Zebra Striping: Implemented crisp alternating white and light-gray rows (#FFFFFF and #F1F5F9) across both Excel export and in-app modal tables for optimal reading contrast.',
+      'Instant Auto-Summing for User Entries: Fixed Excel formula references (R11 to R150) so any manual income or expense amount entered into Column E or F recalculates immediately without requiring payment method prefixes.',
+      'Sheet-to-Sheet Carry-Over Synchronization: Maintained dynamic balance carry-overs across all 12 monthly sheets upon manual entry adjustments.'
+    ]
+  },
+  {
+    version: '23.10.5',
+    date: '2026-09-25',
+    title: 'Document Sheet Container Expansion & Flexbox Overflow Clipping Resolution',
+    highlights: [
+      'Document Sheet Expansion Fix: Removed restricting flex-stretch properties from the document scroll container and applied mx-auto h-fit min-h-full to the white paper card.',
+      'Complete Content Encapsulation: Guaranteed that all summary calculation tables, filter bars, and transaction grids remain 100% inside the white document card without overhanging or clipping onto the modal background.'
+    ]
+  },
+  {
+    version: '23.10.4',
+    date: '2026-09-24',
+    title: 'Paper Sheet Filter Integration & Contrast Hardening',
+    highlights: [
+      'Pristine Filter Bar Integration: Updated search input and method toggles with explicit white backgrounds and crisp slate borders, preventing color bleeding into paper sheet margins.',
+      'Document Sheet Uniformity: Guaranteed 100% white background consistency across all filter, calculation, and transaction table areas.'
+    ]
+  },
+  {
+    version: '23.10.3',
+    date: '2026-09-24',
+    title: 'Full-Width Table & Summary Box Layout Alignment in Tax Advisor Ledger',
+    highlights: [
+      'Full-Width Table Alignment: Expanded the top calculation summary box from restricted max-w-2xl to full-width (w-full) inside the white paper document sheet.',
+      'Symmetric Dark Navy Header Sync: Aligned left and right table boundaries between the summary box and detailed transaction table to eliminate visual detachment.'
+    ]
+  },
+  {
+    version: '23.10.2',
+    date: '2026-09-24',
+    title: 'Excel Gridline Elimination & Instant Auto-Summing Ledger Formulas',
+    highlights: [
+      'Instant Auto-Summing Excel Formulas: Enhanced SUMIF formulas in the Excel export XML to automatically sum both explicit payment method keys (K/B) and blank/implicit entries, guaranteeing real-time calculation when typing numbers anywhere in the spreadsheet.',
+      'Pristine Excel Background (DoNotDisplayGridlines): Suppressed default worksheet grid lines across all 12 monthly Excel tabs to render a clean, professional report layout with pure white surrounding canvas.',
+      'Real-Time Web Ledger Synchronizer: Fully synchronized in-app manual transaction entries with instant top summary box recalculation across Kassa and Bank carry-over totals.'
+    ]
+  },
+  {
+    version: '23.10.1',
+    date: '2026-09-24',
+    title: 'Summary Box Number Formatting Standardization & Default Title Cleanup',
+    highlights: [
+      'Standardized Summary Box Number Formatting: All currency amounts in the Kassa & Bank calculation box now render uniformly with two decimal places (0.00), eliminating inconsistent comma vs. dot notation and blank empty cells.',
+      'Title Header Sanitization: Automatically filters out default placeholder strings like "Your Company Name" or "Firmenname" from the top document sheet header unless a custom business name has been entered.'
+    ]
+  },
+  {
+    version: '23.10.0',
+    date: '2026-09-24',
+    title: 'Excel XML Dynamic Formulas, Contrast Hardening & Multilingual Ledger Legends',
+    highlights: [
+      'Dynamic Excel XML Formulas: 12-month Excel export (.xls) now embeds native R1C1 Excel formulas (=SUMIF, =SUM, Sheet References) for instant automatic recalculation when users edit or add numbers directly inside Microsoft Excel.',
+      'Sequential Excel Sheet Carry-Over: Multi-sheet Excel workbook formulas (Januar bis Dezember) automatically carry over monthly ending balances to subsequent month tabs.',
+      'Dark-Mode Resistant Document Sheet: Enforced high-contrast pitch-black text and crisp slate backgrounds on the paper sheet preview to guarantee perfect readability in both light and dark UI modes.',
+      'Column Width & Label Polish: Expanded Kassa / Bank column widths to eliminate text clipping and added quad-language legends (DE, EN, FR, ES) to both web modal and Excel spreadsheet headers.'
+    ]
+  },
+  {
+    version: '23.9.7',
+    date: '2026-09-24',
+    title: 'Monthly Cash Ledger & Incomes/Expenses for Tax Advisors (Excel 12-Month Sync) & Invoice Template Manager',
+    highlights: [
+      'Authentic Tax Advisor Monthly Cash Ledger: Month-by-month cash (Kassa) and bank (Bank) tracking with sequential carry-over (Übertrag Vormonat), total incomes, and total expenses matching standard advisor formats.',
+      '12-Month Multi-Sheet Excel Export (.xls / .xml): One-click download of the complete 12-month spreadsheet with individual monthly tabs (Januar bis Dezember), styled navy header (#1B365D), summary boxes, and formatted currency formulas.',
+      'Real-Time Incomes & Expenses Auto-Sync: Seamless automatic synchronization with practice billings, general invoices, purchases, and mileage travel expenses, plus manual entry of receipts and expenses.',
+      'Comprehensive Invoice Template Manager: Visual editor for practice invoices with customizable logo upload, color presets, DIN vs. Word layout, and dynamic {variable} placeholder scanner and tag inserter.',
+      'One-Click Word (.doc) & Print/PDF Invoice Generator: Real-time placeholder replacement ({Rechnung}, {Klient_Name}, {Gesamtbetrag}) with instant download as Microsoft Word document or printable PDF.',
+      'Universal Quad-Language Parity: Fully localized in German, English, French, and Spanish in src/lib/i18n.ts.'
+    ]
+  },
   {
     version: '23.9.6',
     date: '2026-09-24',

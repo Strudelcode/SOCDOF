@@ -12,10 +12,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Menu,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  Settings,
+  FileText,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
-import { Contact } from '../types';
+import { Contact, CompanyProfile } from '../types';
 import { db } from '../lib/db';
 import { CustomerPickerModal } from './CustomerPickerModal';
 import { Client, Session, Appointment, Trip, BillingItem, PracticeData } from './therapy/types';
@@ -25,11 +29,14 @@ import { TherapySessions } from './therapy/TherapySessions';
 import { TherapyBilling } from './therapy/TherapyBilling';
 import { TherapyMileage } from './therapy/TherapyMileage';
 import { TherapyAppointments } from './therapy/TherapyAppointments';
+import { TherapyInvoiceTemplateModal } from './therapy/TherapyInvoiceTemplateModal';
+import { TherapyTaxAdvisorLedgerModal } from './therapy/TherapyTaxAdvisorLedgerModal';
 
 export interface TherapyPracticeModuleProps {
   contacts?: Contact[];
   onRefreshContacts?: () => void;
   currency?: string;
+  companyProfile?: CompanyProfile;
   onOpenContacts?: () => void;
   onOpenInvoices?: () => void;
   onOpenAccounting?: () => void;
@@ -68,6 +75,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   contacts,
   onRefreshContacts,
   currency = '€',
+  companyProfile,
   onOpenContacts,
   onOpenInvoices,
   onOpenAccounting
@@ -78,6 +86,8 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = useState(false);
+  const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
 
   // Customer picker modal state
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
@@ -303,25 +313,10 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
         </div>
       )}
 
-      {/* Main Header & Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        {/* Brand & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-teal-500 text-white flex items-center justify-center shadow-md">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
-              {lang === 'de' ? 'Praxis & Therapie Manager' : 'Practice & Therapy Manager'}
-            </h1>
-            <p className="text-xs text-slate-400">
-              {lang === 'de' ? 'Klienten, Dokumentation, Abrechnung & Fahrten' : 'Clients, clinical notes, billing & mileage'}
-            </p>
-          </div>
-        </div>
-
+      {/* Streamlined Top Navigation Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         {/* Clean Segmented Navigation Tabs without scrollbars */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl text-xs font-medium relative">
+        <div className="flex items-center flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl text-xs font-medium relative">
           <button
             onClick={() => { setTab('overview'); setActiveClientId(null); setIsMoreMenuOpen(false); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl whitespace-nowrap transition ${
@@ -402,7 +397,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setIsMoreMenuOpen(false)} 
                 />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in">
+                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in">
                   <button
                     onClick={() => {
                       setTab('mileage');
@@ -440,10 +435,72 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                       <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Praxis-Planung' : 'Schedule'}</div>
                     </div>
                   </button>
+
+                  <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setIsTaxAdvisorLedgerOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[#1B365D] dark:text-blue-400" />
+                    <div>
+                      <div className="font-semibold">{lang === 'de' ? 'Kassenbuch (Excel)' : 'Cash Ledger (Excel)'}</div>
+                      <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Einnahmen-Ausgaben' : 'Income & Expenses'}</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setIsTemplateSettingsOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-700 dark:hover:text-teal-300 transition"
+                  >
+                    <Sparkles className="w-4 h-4 text-teal-500" />
+                    <div>
+                      <div className="font-semibold">{lang === 'de' ? 'Rechnungsvorlagen' : 'Invoice Templates'}</div>
+                      <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Word, PDF & {Variablen}' : 'Word, PDF & {Variables}'}</div>
+                    </div>
+                  </button>
                 </div>
               </>
             )}
           </div>
+        </div>
+
+        {/* Quick Tools & Shortcuts */}
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            onClick={() => setIsTemplateSettingsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition"
+            title={lang === 'de' ? 'Rechnungsvorlagen & Layout-Einstellungen öffnen' : 'Invoice templates'}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-500" />
+            <span className="hidden sm:inline">{lang === 'de' ? 'Vorlagen' : 'Templates'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsTaxAdvisorLedgerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B365D] hover:bg-[#152a48] text-white font-bold rounded-xl shadow-xs transition"
+            title={lang === 'de' ? 'Kassenbuch & 12-Monate-Excel-Export' : 'Cash Ledger & Excel'}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{lang === 'de' ? 'Kassenbuch' : 'Cash Ledger'}</span>
+          </button>
+
+          {onOpenInvoices && (
+            <button
+              onClick={onOpenInvoices}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold rounded-xl border border-blue-200/80 dark:border-blue-800 transition"
+              title={lang === 'de' ? 'Zur Rechnungs-App wechseln' : 'Open Invoices App'}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">{lang === 'de' ? 'Rechnungs-App' : 'Invoices'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -521,11 +578,13 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             billing={data.billing}
             clients={data.clients}
             sessions={data.sessions}
+            company={companyProfile}
             currency={currency}
             onSaveBilling={handleSaveBilling}
             onDeleteBilling={handleDeleteBilling}
             onOpenCustomerPicker={() => setIsCustomerPickerOpen(true)}
             onShowToast={showToast}
+            onOpenInvoices={onOpenInvoices}
           />
         )}
 
@@ -568,6 +627,28 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
         onContactsChange={onRefreshContacts}
         currency={currency}
       />
+
+      {/* Therapy Invoice Templates & Master Settings Modal */}
+      {isTemplateSettingsOpen && (
+        <TherapyInvoiceTemplateModal
+          isOpen={isTemplateSettingsOpen}
+          onClose={() => setIsTemplateSettingsOpen(false)}
+          company={companyProfile}
+          clients={data.clients}
+          currency={currency}
+        />
+      )}
+
+      {/* Monthly Cash Ledger & Incomes/Expenses for Tax Advisor Modal */}
+      {isTaxAdvisorLedgerOpen && (
+        <TherapyTaxAdvisorLedgerModal
+          isOpen={isTaxAdvisorLedgerOpen}
+          onClose={() => setIsTaxAdvisorLedgerOpen(false)}
+          practiceData={data}
+          company={companyProfile}
+          currency={currency}
+        />
+      )}
     </div>
   );
 };

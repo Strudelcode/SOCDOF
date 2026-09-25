@@ -245,10 +245,31 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [terminalTesting, setTerminalTesting] = useState(false);
   const [terminalTestResult, setTerminalTestResult] = useState<string | null>(null);
 
-  // Detect Unsaved Changes
+  // Normalize profile for accurate dirty detection
+  const normalizeProfileForComparison = (p?: Partial<CompanyProfile> | null): string => {
+    if (!p) return '{}';
+    const obj: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(p)) {
+      if (value !== undefined && value !== null && value !== '') {
+        obj[key] = value;
+      }
+    }
+    return JSON.stringify(Object.keys(obj).sort().reduce((acc, k) => {
+      acc[k] = obj[k];
+      return acc;
+    }, {} as Record<string, unknown>));
+  };
+
+  const savedBaselineRef = useRef<string>(normalizeProfileForComparison(company));
+
+  useEffect(() => {
+    savedBaselineRef.current = normalizeProfileForComparison(company);
+  }, [company]);
+
+  // Detect Unsaved Changes - true only when user actually changed something
   const hasUnsavedChanges = useMemo(() => {
-    return JSON.stringify(profile) !== JSON.stringify(company);
-  }, [profile, company]);
+    return normalizeProfileForComparison(profile) !== savedBaselineRef.current;
+  }, [profile]);
 
   useEffect(() => {
     onDirtyChange?.(hasUnsavedChanges);
@@ -256,7 +277,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   const handleRevertChanges = () => {
     sounds.playClick();
-    setProfile(company);
+    const reset = {
+      ...(company || {}),
+      name: company?.name || 'Ihr Firmenname'
+    };
+    setProfile(reset);
+    savedBaselineRef.current = normalizeProfileForComparison(reset);
   };
 
   useEffect(() => {
@@ -264,7 +290,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       await handleSaveProfile();
     });
     onRegisterDiscard?.(() => {
-      setProfile(company);
+      handleRevertChanges();
     });
   }, [company, profile]);
 
@@ -738,6 +764,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     try {
       const updatedProfile = updates ? { ...profile, ...updates } : profile;
       setProfile(updatedProfile);
+      savedBaselineRef.current = normalizeProfileForComparison(updatedProfile);
       
       if (updatedProfile.accent_color) {
         applyAccentColor(updatedProfile.accent_color);
@@ -750,7 +777,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       onUpdateCompany(updatedProfile);
       sounds.playSuccess();
       setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 2500);
+      setTimeout(() => setSavedSuccess(false), 2000);
       loadStorageInfo();
     } catch (err) {
       console.error(err);
@@ -1097,6 +1124,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'payments', title: 'Bankverbindung & IBAN / BIC', desc: 'Bankname, IBAN, BIC, Zahlungskonditionen, GiroCode', section: 'payments' as SettingsSection },
       { id: 'payments', title: 'Kartenterminal & EC-Zahlung', desc: 'Kartenzahlung, Terminal-Schnittstelle, ZVT, SumUp, Stripe, Maskierung', section: 'payments' as SettingsSection },
       { id: 'payments', title: 'E-Mail & SMTP-Postfach', desc: 'E-Mail-Server, Host, Port, Rechnungsversand direkt', section: 'payments' as SettingsSection },
+      { id: 'general', title: 'Unternehmensdaten & Stammdaten', desc: 'Firmenname, Adresse, Währung, Steuernummer', section: 'general' as SettingsSection },
+      { id: 'currency_general', title: 'Standard-Währung & Finanzen', desc: 'Euro (€), CHF, Dollar ($), Währungsauswahl in Stammdaten', section: 'general' as SettingsSection },
       { id: 'personalization', title: 'Dunkelmodus / Hellmodus', desc: 'Design, Farbschema, Dark Mode, Light Mode', section: 'personalization' as SettingsSection },
       { id: 'personalization', title: 'Farbakzente & Overlay', desc: 'Akzentfarben, Mica / Acryl Glas-Effekt', section: 'personalization' as SettingsSection },
       { id: 'display', title: t('settings.display', activeLang, 'Bildschirme & Skalierung'), desc: 'Multi-Monitor, Bildschirmlayout, Skalierung, Nachtmodus, Auflösung', section: 'display' as SettingsSection },
@@ -1232,27 +1261,30 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               )}
             </div>
 
-            {/* Quick Save Action Button */}
-            <button
-              type="button"
-              onClick={() => handleSaveProfile()}
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition flex items-center gap-1.5 active:scale-95 shrink-0 ${
-                savedSuccess ? 'bg-emerald-600 text-white' : 'text-white'
-              }`}
-              style={{ backgroundColor: savedSuccess ? '#059669' : 'var(--accent, #4f46e5)' }}
-            >
-              {savedSuccess ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">{t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓')}</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">{t('settings.save', activeLang, 'Speichern')}</span>
-                </>
-              )}
-            </button>
+            {/* Quick Save Action Button - only visible when dirty or right after saving */}
+            {(hasUnsavedChanges || savedSuccess) && (
+              <button
+                type="button"
+                onClick={() => handleSaveProfile()}
+                className={`px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition flex items-center gap-1.5 active:scale-95 shrink-0 animate-fade-in ${
+                  savedSuccess ? 'bg-emerald-600 text-white' : 'text-white'
+                }`}
+                style={{ backgroundColor: savedSuccess ? '#059669' : 'var(--accent, #4f46e5)' }}
+                title={savedSuccess ? t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓') : t('settings.save', activeLang, 'Speichern')}
+              >
+                {savedSuccess ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">{t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">{t('settings.save', activeLang, 'Speichern')}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1433,16 +1465,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           </div>
 
-          {/* Quick Manual Save Button at bottom left */}
-          <button
-            type="button"
-            onClick={() => handleSaveProfile()}
-            className="w-full py-3 px-4 rounded-2xl text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-98 hover:brightness-110"
-            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
-          >
-            <Save className="w-4 h-4" />
-            <span>{t('settings.save_settings_now', activeLang, 'Save settings now')}</span>
-          </button>
+          {/* Quick Discard / Save Buttons at bottom left (only when dirty) */}
+          {hasUnsavedChanges && (
+            <button
+              type="button"
+              onClick={handleRevertChanges}
+              className="w-full py-2.5 px-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5 active:scale-98 animate-fade-in"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>{t('settings.unsaved_discard', activeLang, 'Änderungen verwerfen')}</span>
+            </button>
+          )}
         </div>
 
         {/* Right Content Area */}
@@ -1872,6 +1905,29 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span>{t('settings.currency_label', activeLang, 'Standard-Währung')}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Rechnungen, POS & Berichte</span>
+                      </label>
+                      <select
+                        value={profile.currency || '€'}
+                        onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:outline-none font-semibold text-slate-900 dark:text-white"
+                      >
+                        <option value="€">EUR (€) - Euro</option>
+                        <option value="CHF">CHF (CHF) - Schweizer Franken</option>
+                        <option value="$">USD ($) - US Dollar</option>
+                        <option value="£">GBP (£) - Britisches Pfund</option>
+                        <option value="¥">JPY (¥) - Japanischer Yen</option>
+                        <option value="zł">PLN (zł) - Polnischer Złoty</option>
+                        <option value="kr">SEK / NOK (kr) - Skandinavische Kronen</option>
+                        <option value="Kč">CZK (Kč) - Tschechische Krone</option>
+                        <option value="Ft">HUF (Ft) - Ungarischer Forint</option>
+                        <option value="lei">RON (lei) - Rumänischer Leu</option>
+                      </select>
+                    </div>
+
                     {/* Cross reference to dedicated payments section */}
                     <div className="sm:col-span-2 pt-2">
                       <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2047,15 +2103,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-4 flex items-center justify-end">
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Änderungen speichern</span>
-                  </button>
-                </div>
               </form>
             </div>
           )}
@@ -3712,17 +3759,23 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Währungssymbol
+                      {t('settings.currency_label', activeLang, 'Standard-Währung')}
                     </label>
                     <select
                       value={profile.currency || '€'}
-                      onChange={(e) => handleSaveProfile({ currency: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-sky-500 focus:outline-none"
+                      onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-sky-500 focus:outline-none font-semibold text-slate-900 dark:text-white"
                     >
                       <option value="€">EUR (€) - Euro</option>
+                      <option value="CHF">CHF (CHF) - Schweizer Franken</option>
                       <option value="$">USD ($) - US Dollar</option>
-                      <option value="CHF">CHF - Schweizer Franken</option>
                       <option value="£">GBP (£) - Britisches Pfund</option>
+                      <option value="¥">JPY (¥) - Japanischer Yen</option>
+                      <option value="zł">PLN (zł) - Polnischer Złoty</option>
+                      <option value="kr">SEK / NOK (kr) - Skandinavische Kronen</option>
+                      <option value="Kč">CZK (Kč) - Tschechische Krone</option>
+                      <option value="Ft">HUF (Ft) - Ungarischer Forint</option>
+                      <option value="lei">RON (lei) - Rumänischer Leu</option>
                     </select>
                   </div>
 
@@ -5714,66 +5767,45 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       </div>
       </div>
 
-      {/* Fixed Bottom-Right Save Action Button - Always visible without scrolling */}
-      <div className="absolute bottom-5 right-6 z-40 flex items-center gap-2.5 pointer-events-auto">
-        {hasUnsavedChanges && (
-          <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 backdrop-blur-md shadow-lg animate-fade-in">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>{t('settings.unsaved_badge', activeLang, 'Ungespeicherte Änderungen')}</span>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => handleSaveProfile()}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-xl transition-all flex items-center gap-2 active:scale-95 cursor-pointer backdrop-blur-md border ${
-            savedSuccess
-              ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-500/30'
-              : hasUnsavedChanges
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-400/40 ring-2 ring-indigo-500/30 shadow-indigo-500/25'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-md'
-          }`}
-          style={{
-            backgroundColor: savedSuccess ? '#059669' : hasUnsavedChanges ? 'var(--accent, #4f46e5)' : undefined
-          }}
-          title={t('settings.save', activeLang, 'Einstellungen speichern')}
-        >
-          {savedSuccess ? (
-            <>
-              <Check className="w-4 h-4" />
-              <span>{t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓')}</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>{t('settings.save', activeLang, 'Einstellungen speichern')}</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Windows 11 Action Center Style Settings Saved Toast Notification */}
-      {savedSuccess && (
-        <div className="fixed bottom-12 right-6 z-50 animate-fade-in select-none">
-          <div 
-            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3.5 flex items-center gap-3 min-w-[280px]"
-            style={{ borderColor: 'var(--accent-border, rgba(79, 70, 229, 0.4))' }}
-          >
-            <div 
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0"
-              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+      {/* Fixed Bottom-Right Save Action Button - Only visible when there are unsaved changes or right after saving */}
+      {(hasUnsavedChanges || savedSuccess) && (
+        <div className="absolute bottom-5 right-6 z-40 flex items-center gap-2 pointer-events-auto animate-fade-in">
+          {hasUnsavedChanges && (
+            <button
+              type="button"
+              onClick={handleRevertChanges}
+              className="px-3.5 py-2 rounded-2xl text-xs font-semibold bg-white/95 dark:bg-slate-900/95 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 shadow-lg backdrop-blur-md transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              title={t('settings.unsaved_discard', activeLang, 'Änderungen verwerfen')}
             >
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>Einstellungen gespeichert</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                Lokal in IndexedDB gesichert • Sofort aktiv
-              </p>
-            </div>
-          </div>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>{t('settings.unsaved_discard', activeLang, 'Änderungen verwerfen')}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleSaveProfile()}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-xl transition-all flex items-center gap-2 active:scale-95 cursor-pointer backdrop-blur-md border ${
+              savedSuccess
+                ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-500/30'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-400/40 ring-2 ring-indigo-500/30 shadow-indigo-500/25'
+            }`}
+            style={{
+              backgroundColor: savedSuccess ? '#059669' : 'var(--accent, #4f46e5)'
+            }}
+            title={savedSuccess ? t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓') : t('settings.save', activeLang, 'Einstellungen speichern')}
+          >
+            {savedSuccess ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>{t('settings.saved_fixed_btn', activeLang, 'Gespeichert! ✓')}</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>{t('settings.save', activeLang, 'Einstellungen speichern')}</span>
+              </>
+            )}
+          </button>
         </div>
       )}
 

@@ -20,6 +20,7 @@ import {
 import { Invoice, PurchaseOrder, POSOrder, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
 import { t, formatSystemDate } from '../lib/i18n';
+import { TherapyTaxAdvisorLedgerModal } from './therapy/TherapyTaxAdvisorLedgerModal';
 
 interface AccountingModuleProps {
   invoices: Invoice[];
@@ -38,6 +39,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [activeTab, setActiveTab] = useState<'bwa' | 'ustva' | 'open_items' | 'z_bon'>('bwa');
+  const [isTaxAdvisorModalOpen, setIsTaxAdvisorModalOpen] = useState(false);
 
   const cur = company.currency || 'EUR';
 
@@ -229,6 +231,15 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
               />
             </div>
           )}
+
+          <button
+            onClick={() => setIsTaxAdvisorModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B365D] hover:bg-[#152a48] text-white rounded-lg text-xs font-bold shadow-xs transition"
+            title="Monatliches Kassenbuch & Einnahmen-Ausgaben Tabelle für Wirtschaftsberater öffnen"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Kassenbuch (Excel)</span>
+          </button>
 
           <button
             onClick={exportCsvReport}
@@ -504,6 +515,18 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Tax Advisor Monthly Cash Ledger & 12-Month Excel Modal */}
+      {isTaxAdvisorModalOpen && (
+        <TherapyTaxAdvisorLedgerModal
+          isOpen={isTaxAdvisorModalOpen}
+          onClose={() => setIsTaxAdvisorModalOpen(false)}
+          invoices={invoices}
+          purchases={purchases}
+          company={company}
+          currency={cur}
+        />
       )}
     </div>
   );

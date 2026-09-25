@@ -4,6 +4,22 @@
 
 ---
 
+### European Number & Currency Formatting (DIN 1333) & Therapy Dark Mode Refinement (v23.10.10)
+- [x] **Standardized European Number & Currency Formatting (DIN 1333 / ISO)**:
+  - [x] Thousands separator: Period (`.`) -> `1.000.000` or `10.010`
+  - [x] Decimal cents separator: Comma (`,`) -> `10.010,00 €` or `1.000.000,00 €`
+  - [x] Central utility `src/lib/formatters.ts` with `formatNumberDE`, `formatCurrencyDE`, and `formatIntegerDE`.
+  - [x] Applied across Therapy Dashboard KPIs, Revenue Chart tooltips, Practice metrics, Billing list, and Tax Advisor Ledger.
+- [x] **Therapy Dashboard CRM Quick Action Button Fix**:
+  - [x] Corrected "+ Neuer Klient (Kundenbuch)" button styling (`dark:bg-white text-blue-900 dark:text-blue-900`) to prevent black box inversion in dark mode.
+- [x] **Invoice Template Modal Dark Mode Overhaul**:
+  - [x] Tab navigation bar (`Layout & Variablen`, `Praxisdaten & Logo`, `Echtzeit-Vorschau`) updated with high-contrast text and border styling for inactive tabs in dark mode.
+  - [x] Header close button updated with explicit high-contrast hover styling to prevent blank gray square artifacts.
+- [x] **Ledger Template Management & Localization**:
+  - [x] Persistent quick templates and centralized localization dictionary in `src/lib/ledgerTemplates.ts` across DE, EN, FR, and ES.
+
+---
+
 ### Responsive Navigation Dropdown & Manual Client CRM Sync (v23.9.6)
 - [x] **Responsive Header Navigation with 3-Line Dropdown Menu**:
   - [x] Replaced the horizontal scrollable tab container with a fixed, compact 4-tab bar (`Übersicht`, `Klienten`, `Sitzungen`, `Abrechnung`) plus a responsive "Weiteres" dropdown with 3-lines icon (`Menu`).

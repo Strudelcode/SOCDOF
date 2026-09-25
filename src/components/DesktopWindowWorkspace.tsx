@@ -3085,6 +3085,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   contacts={contacts}
                   onRefreshContacts={onRefreshData}
                   currency={company.currency}
+                  companyProfile={company}
                   onOpenContacts={() => openWindow('contacts', 'Kontakte & Kunden')}
                   onOpenInvoices={() => openWindow('invoices', 'Rechnungen')}
                   onOpenAccounting={() => openWindow('accounting', 'Buchhaltung & Finanzen')}

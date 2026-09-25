@@ -27,6 +27,7 @@ import { Client, Session, Appointment, Trip, BillingItem } from './types';
 import { Contact } from '../../types';
 import { useLanguage, t } from '../../lib/i18n';
 import { db } from '../../lib/db';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface TherapyClientsProps {
   clients: Client[];
@@ -70,6 +71,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [syncToCRM, setSyncToCRM] = useState(true);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
   // Filtered clients list
   const filteredClients = useMemo(() => {
@@ -173,10 +175,18 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
             <button
               onClick={() => setEditingClient(activeClient)}
-              className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition"
+              className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer"
               title={lang === 'de' ? 'Klient bearbeiten' : 'Edit client'}
             >
               <Edit2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setClientToDelete(activeClient)}
+              className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-xl transition cursor-pointer"
+              title={lang === 'de' ? 'Klient löschen' : 'Delete client'}
+            >
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -438,14 +448,11 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
               <div className="flex items-center justify-between pt-2">
                 <button
+                  type="button"
                   onClick={() => {
-                    if (confirm(lang === 'de' ? 'Klienten wirklich löschen?' : 'Delete this client?')) {
-                      onDeleteClient(editingClient.id);
-                      setEditingClient(null);
-                      onSelectClient(null);
-                    }
+                    setClientToDelete(editingClient);
                   }}
-                  className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1"
+                  className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{lang === 'de' ? 'Löschen' : 'Delete'}</span>
@@ -453,17 +460,19 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => setEditingClient(null)}
-                    className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+                    className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
                   >
                     {lang === 'de' ? 'Abbrechen' : 'Cancel'}
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       onSaveClient(editingClient);
                       setEditingClient(null);
                     }}
-                    className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-sm"
+                    className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-sm cursor-pointer"
                   >
                     {lang === 'de' ? 'Speichern' : 'Save'}
                   </button>
@@ -472,6 +481,25 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Modal for Dossier */}
+        <ConfirmDeleteModal
+          isOpen={Boolean(clientToDelete)}
+          title={lang === 'de' ? 'Klient löschen?' : 'Delete Client?'}
+          itemName={clientToDelete?.name}
+          description={lang === 'de' 
+            ? `Möchten Sie den Klienten „${clientToDelete?.name}“ sowie alle zugehörigen Behandlungsnotizen, Termine und Abrechnungen unwiderruflich löschen?` 
+            : `Are you sure you want to permanently delete client "${clientToDelete?.name}" along with all clinical notes, appointments and invoices?`}
+          onConfirm={() => {
+            if (clientToDelete) {
+              onDeleteClient(clientToDelete.id);
+              if (editingClient?.id === clientToDelete.id) setEditingClient(null);
+              if (activeClientId === clientToDelete.id) onSelectClient(null);
+              setClientToDelete(null);
+            }
+          }}
+          onClose={() => setClientToDelete(null)}
+        />
       </div>
     );
   }
@@ -760,6 +788,25 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal for Client List */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(clientToDelete)}
+        title={lang === 'de' ? 'Klient löschen?' : 'Delete Client?'}
+        itemName={clientToDelete?.name}
+        description={lang === 'de' 
+          ? `Möchten Sie den Klienten „${clientToDelete?.name}“ sowie alle zugehörigen Behandlungsnotizen, Termine und Abrechnungen unwiderruflich löschen?` 
+          : `Are you sure you want to permanently delete client "${clientToDelete?.name}" along with all clinical notes, appointments and invoices?`}
+        onConfirm={() => {
+          if (clientToDelete) {
+            onDeleteClient(clientToDelete.id);
+            if (editingClient?.id === clientToDelete.id) setEditingClient(null);
+            if (activeClientId === clientToDelete.id) onSelectClient(null);
+            setClientToDelete(null);
+          }
+        }}
+        onClose={() => setClientToDelete(null)}
+      />
     </div>
   );
 };

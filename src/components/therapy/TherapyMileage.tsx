@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Trip, Client } from './types';
 import { useLanguage } from '../../lib/i18n';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface TherapyMileageProps {
   trips: Trip[];
@@ -37,6 +38,7 @@ export const TherapyMileage: React.FC<TherapyMileageProps> = ({
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [tripToDelete, setTripToDelete] = useState<Trip | null>(null);
 
   const filteredTrips = useMemo(() => {
     return trips.filter(t => {

@@ -23,6 +23,8 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.9.7 Settings Currency Selection, Dynamic Save UX & Overlap Elimination milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.8.0 Therapy & Practice Flow, Authentic Desktop Preview & Settings Personalization Overhaul milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.7.0 Windows-Inspired Settings & Display / Multi-Monitor Management milestone is complete and archived in `todo/completed_todo.md`.

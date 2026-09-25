@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Client, Session, Appointment, Trip, BillingItem } from './types';
 import { useLanguage, t } from '../../lib/i18n';
+import { formatNumberDE, formatCurrencyDE, formatIntegerDE } from '../../lib/formatters';
 
 interface TherapyDashboardProps {
   clients: Client[];
@@ -136,7 +137,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenCustomerPicker}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white text-blue-700 hover:bg-blue-50 font-semibold text-xs sm:text-sm rounded-xl transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-white text-blue-900 dark:text-blue-900 hover:bg-blue-50 dark:hover:bg-blue-50 font-bold text-xs sm:text-sm rounded-xl transition shadow-md"
           >
             <Users className="w-4 h-4" />
             <span>{lang === 'de' ? '+ Neuer Klient (Kundenbuch)' : '+ New Client (CRM)'}</span>
@@ -215,10 +216,10 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 dark:text-white">
-            {totalBilled.toFixed(2)} {currency}
+            {formatCurrencyDE(totalBilled, currency)}
           </div>
           <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-            {totalPaid.toFixed(2)} {currency} {lang === 'de' ? 'bereits bezahlt' : 'paid'}
+            {formatCurrencyDE(totalPaid, currency)} {lang === 'de' ? 'bereits bezahlt' : 'paid'}
           </p>
         </div>
 
@@ -235,7 +236,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 dark:text-white">
-            {totalPending.toFixed(2)} {currency}
+            {formatCurrencyDE(totalPending, currency)}
           </div>
           <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
             {billing.filter(b => b.status !== 'paid').length} {lang === 'de' ? 'Posten offen' : 'pending items'}
@@ -259,7 +260,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                {lang === 'de' ? 'Umsatz (€)' : 'Revenue'}
+                {lang === 'de' ? `Umsatz (${currency})` : 'Revenue'}
               </span>
               <span className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-medium">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
@@ -277,9 +278,9 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
 
                 return (
                   <div key={d.monthKey} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                    {/* Tooltip on hover */}
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-slate-900 text-white text-[11px] rounded-lg px-2 py-1 shadow-lg whitespace-nowrap z-10">
-                      {d.label}: {d.revenue.toFixed(0)} {currency} ({d.sessions} {lang === 'de' ? 'Sitzungen' : 'sessions'})
+                    {/* Tooltip on hover with European number format: 10.010,00 € or 1.000.000,00 € */}
+                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-slate-900 text-white text-[11px] rounded-lg px-2.5 py-1 shadow-lg whitespace-nowrap z-10 font-medium">
+                      {d.label}: {formatCurrencyDE(d.revenue, currency)} ({formatIntegerDE(d.sessions)} {lang === 'de' ? (d.sessions === 1 ? 'Sitzung' : 'Sitzungen') : (d.sessions === 1 ? 'session' : 'sessions')})
                     </div>
 
                     <div className="flex items-end gap-1.5 w-full max-w-[48px] justify-center">
@@ -328,12 +329,12 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                       {lang === 'de' ? 'Fahrtenbuch Distanz' : 'Mileage Logged'}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      {trips.length} {lang === 'de' ? 'Fahrten erfasst' : 'trips'}
+                      {formatIntegerDE(trips.length)} {lang === 'de' ? 'Fahrten erfasst' : 'trips'}
                     </div>
                   </div>
                 </div>
                 <span className="font-bold text-sm text-slate-900 dark:text-white">
-                  {totalDistance.toFixed(0)} km
+                  {formatIntegerDE(totalDistance)} km
                 </span>
               </div>
 
@@ -347,12 +348,12 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                       {lang === 'de' ? 'Durchschnitt pro Sitzung' : 'Avg. per Session'}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      {sessions.length > 0 ? (totalBilled / sessions.length).toFixed(2) : '0.00'} {currency}
+                      {sessions.length > 0 ? formatCurrencyDE(totalBilled / sessions.length, currency) : `0,00 ${currency}`}
                     </div>
                   </div>
                 </div>
                 <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
-                  {sessions.length > 0 ? (totalBilled / sessions.length).toFixed(0) : '0'} {currency}
+                  {sessions.length > 0 ? formatCurrencyDE(totalBilled / sessions.length, currency) : `0,00 ${currency}`}
                 </span>
               </div>
 
@@ -475,7 +476,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                   </div>
                   {sess.fee ? (
                     <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">
-                      {sess.fee.toFixed(2)} {currency}
+                      {formatCurrencyDE(sess.fee, currency)}
                     </span>
                   ) : (
                     <span className="text-[10px] text-slate-400">{sess.duration}m</span>
