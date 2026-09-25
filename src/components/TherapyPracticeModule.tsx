@@ -29,7 +29,6 @@ import { TherapySessions } from './therapy/TherapySessions';
 import { TherapyBilling } from './therapy/TherapyBilling';
 import { TherapyMileage } from './therapy/TherapyMileage';
 import { TherapyAppointments } from './therapy/TherapyAppointments';
-import { TherapyInvoiceTemplateModal } from './therapy/TherapyInvoiceTemplateModal';
 import { TherapyTaxAdvisorLedgerModal } from './therapy/TherapyTaxAdvisorLedgerModal';
 
 export interface TherapyPracticeModuleProps {
@@ -86,7 +85,6 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = useState(false);
   const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
 
   // Customer picker modal state
@@ -451,20 +449,6 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                       <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Einnahmen-Ausgaben' : 'Income & Expenses'}</div>
                     </div>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      setIsMoreMenuOpen(false);
-                      setIsTemplateSettingsOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-700 dark:hover:text-teal-300 transition"
-                  >
-                    <Sparkles className="w-4 h-4 text-teal-500" />
-                    <div>
-                      <div className="font-semibold">{lang === 'de' ? 'Rechnungsvorlagen' : 'Invoice Templates'}</div>
-                      <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Word, PDF & {Variablen}' : 'Word, PDF & {Variables}'}</div>
-                    </div>
-                  </button>
                 </div>
               </>
             )}
@@ -473,15 +457,6 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
 
         {/* Quick Tools & Shortcuts */}
         <div className="flex items-center gap-2 text-xs">
-          <button
-            onClick={() => setIsTemplateSettingsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition"
-            title={lang === 'de' ? 'Rechnungsvorlagen & Layout-Einstellungen öffnen' : 'Invoice templates'}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-teal-500" />
-            <span className="hidden sm:inline">{lang === 'de' ? 'Vorlagen' : 'Templates'}</span>
-          </button>
-
           <button
             onClick={() => setIsTaxAdvisorLedgerOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B365D] hover:bg-[#152a48] text-white font-bold rounded-xl shadow-xs transition"
@@ -627,17 +602,6 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
         onContactsChange={onRefreshContacts}
         currency={currency}
       />
-
-      {/* Therapy Invoice Templates & Master Settings Modal */}
-      {isTemplateSettingsOpen && (
-        <TherapyInvoiceTemplateModal
-          isOpen={isTemplateSettingsOpen}
-          onClose={() => setIsTemplateSettingsOpen(false)}
-          company={companyProfile}
-          clients={data.clients}
-          currency={currency}
-        />
-      )}
 
       {/* Monthly Cash Ledger & Incomes/Expenses for Tax Advisor Modal */}
       {isTaxAdvisorLedgerOpen && (

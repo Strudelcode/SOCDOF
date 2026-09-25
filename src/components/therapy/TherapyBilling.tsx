@@ -24,7 +24,6 @@ import { useLanguage } from '../../lib/i18n';
 import { db } from '../../lib/db';
 import { formatCurrencyDE, formatIntegerDE } from '../../lib/formatters';
 import { TherapyInvoicePrintModal } from './TherapyInvoicePrintModal';
-import { TherapyInvoiceTemplateModal } from './TherapyInvoiceTemplateModal';
 import { TherapyTaxAdvisorLedgerModal } from './TherapyTaxAdvisorLedgerModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
@@ -62,7 +61,6 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BillingItem | null>(null);
   const [printPreviewItem, setPrintPreviewItem] = useState<BillingItem | null>(null);
-  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<BillingItem | null>(null);
 
@@ -273,15 +271,6 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span>{lang === 'de' ? 'Kassenbuch (Excel)' : 'Cash Ledger (Excel)'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsTemplatesModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-2xs"
-            title={lang === 'de' ? 'Rechnungsvorlagen & Layout-Einstellungen öffnen' : 'Manage invoice templates & design'}
-          >
-            <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-            <span>{lang === 'de' ? 'Vorlagen' : 'Templates'}</span>
           </button>
 
           <button
@@ -659,17 +648,6 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           company={company}
           currency={currency}
           onClose={() => setPrintPreviewItem(null)}
-        />
-      )}
-
-      {/* Template Management Modal */}
-      {isTemplatesModalOpen && (
-        <TherapyInvoiceTemplateModal
-          isOpen={isTemplatesModalOpen}
-          onClose={() => setIsTemplatesModalOpen(false)}
-          company={company}
-          clients={clients}
-          currency={currency}
         />
       )}
 

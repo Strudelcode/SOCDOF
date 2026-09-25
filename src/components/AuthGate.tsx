@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
+  Building2,
   Check,
   CheckCircle2,
   Eye,
@@ -63,6 +64,7 @@ import {
   type DesktopLanguageFileInfo
 } from '../lib/i18n';
 import { sounds } from '../lib/sound';
+import { db } from '../lib/db';
 import type { CompanyProfile } from '../types';
 
 const getAuthCopy = (lang: LanguageCode) => ({
@@ -250,6 +252,7 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
     return (
       <FirstAccount
         text={text}
+        initialCompany={company}
         onCreated={(username) => {
           setUsers(getUsers());
           setPreselectedUsername(username);
@@ -513,9 +516,11 @@ function LanguageSelectionScreen({
 
 function FirstAccount({
   text,
+  initialCompany,
   onCreated,
 }: {
   text: AuthText;
+  initialCompany?: CompanyProfile;
   onCreated: (createdUsername: string) => void;
 }) {
   const lang = useLanguage();
@@ -531,6 +536,19 @@ function FirstAccount({
     customQuestion: '',
     recoveryAnswer: '',
   });
+
+  const [businessDetails, setBusinessDetails] = useState({
+    companyName: initialCompany?.name && initialCompany?.name !== 'Ihr Firmenname' && initialCompany?.name !== 'SOCDOF' ? initialCompany.name : '',
+    street: initialCompany?.street || '',
+    zipCity: initialCompany?.zip_city || '',
+    currency: initialCompany?.currency || '€',
+    email: initialCompany?.email || '',
+    phone: initialCompany?.phone || '',
+    managingDirector: initialCompany?.letterhead_managing_director || '',
+    taxId: initialCompany?.tax_id || '',
+  });
+  const [isBusinessSetupSkipped, setIsBusinessSetupSkipped] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -616,6 +634,29 @@ function FirstAccount({
         recoveryAnswer,
         autoLogin: false,
       });
+
+      if (form.accountType === 'business' && !isBusinessSetupSkipped) {
+        try {
+          const settingRecord = await db.settings.get('company_profile');
+          const currentCompany: CompanyProfile = (settingRecord?.value as CompanyProfile) || initialCompany || ({} as CompanyProfile);
+          const updatedCompany: CompanyProfile = {
+            ...currentCompany,
+            name: businessDetails.companyName.trim() || currentCompany.name || '',
+            street: businessDetails.street.trim() || currentCompany.street || '',
+            zip_city: businessDetails.zipCity.trim() || currentCompany.zip_city || '',
+            currency: businessDetails.currency.trim() || currentCompany.currency || '€',
+            email: businessDetails.email.trim() || currentCompany.email || '',
+            phone: businessDetails.phone.trim() || currentCompany.phone || '',
+            letterhead_managing_director: businessDetails.managingDirector.trim() || currentCompany.letterhead_managing_director || '',
+            tax_id: businessDetails.taxId.trim() || currentCompany.tax_id || '',
+          };
+          await db.settings.put({ key: 'company_profile', value: updatedCompany });
+          window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedCompany }));
+        } catch (compErr) {
+          console.error('Failed to update company profile from onboarding:', compErr);
+        }
+      }
+
       clearSession();
       onCreated(form.username.trim());
     } catch (err) {
@@ -733,6 +774,169 @@ function FirstAccount({
                 {text.business}
               </button>
             </div>
+
+            {/* Optional Business Details & Letterhead Questionnaire */}
+            {form.accountType === 'business' && (
+              <div className="mt-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 bg-indigo-50/40 dark:bg-indigo-950/20 p-4 space-y-3.5 transition-all animate-fade-in shadow-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        {t('auth.business_setup_title', lang, 'Firmendaten & Briefkopf (Optional)')}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        {t('auth.business_setup_desc', lang, 'Geben Sie Ihre Firmendaten für Anschriften, Rechnungen und Währung an – oder überspringen Sie diesen Schritt und passen Sie alles später in den Einstellungen an.')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsBusinessSetupSkipped(!isBusinessSetupSkipped)}
+                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 cursor-pointer pt-0.5"
+                  >
+                    {isBusinessSetupSkipped
+                      ? t('auth.btn_fill_business_setup', lang, 'Firmendaten jetzt angeben')
+                      : t('auth.btn_skip_business_setup', lang, 'Überspringen & später einstellen')}
+                  </button>
+                </div>
+
+                {isBusinessSetupSkipped ? (
+                  <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between gap-3">
+                    <span className="leading-tight">
+                      {t('auth.business_setup_skipped_notice', lang, 'Firmendaten übersprungen. Sie können Firmenkopf, Anschrift und Währung jederzeit unter Einstellungen > Stammdaten festlegen.')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsBusinessSetupSkipped(false)}
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0 hover:underline cursor-pointer"
+                    >
+                      {t('auth.btn_fill_business_setup', lang, 'Jetzt ausfüllen')}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {t('auth.company_name', lang, 'Wie heißt die Firma / Ihr Unternehmen?')}
+                      </label>
+                      <input
+                        className={fieldClass}
+                        placeholder="z. B. Mustermann IT & Consulting GmbH"
+                        value={businessDetails.companyName}
+                        onChange={(e) => setBusinessDetails({ ...businessDetails, companyName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_address', lang, 'Straße & Hausnummer')}
+                        </label>
+                        <input
+                          className={fieldClass}
+                          placeholder="z. B. Hauptstraße 12"
+                          value={businessDetails.street}
+                          onChange={(e) => setBusinessDetails({ ...businessDetails, street: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_zip_city', lang, 'PLZ & Ort')}
+                        </label>
+                        <input
+                          className={fieldClass}
+                          placeholder="z. B. 10115 Berlin"
+                          value={businessDetails.zipCity}
+                          onChange={(e) => setBusinessDetails({ ...businessDetails, zipCity: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_currency', lang, 'Standard-Währung')}
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            className={`${fieldClass} flex-1`}
+                            placeholder="€"
+                            value={businessDetails.currency}
+                            onChange={(e) => setBusinessDetails({ ...businessDetails, currency: e.target.value })}
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            {['€', '$', 'CHF', '£'].map((curr) => (
+                              <button
+                                key={curr}
+                                type="button"
+                                onClick={() => setBusinessDetails({ ...businessDetails, currency: curr })}
+                                className={`px-2 py-2 rounded-lg text-xs font-bold border transition ${
+                                  businessDetails.currency === curr
+                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
+                                    : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
+                                }`}
+                              >
+                                {curr}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_owner', lang, 'Inhaber / Geschäftsführung')}
+                        </label>
+                        <input
+                          className={fieldClass}
+                          placeholder="z. B. Max Mustermann"
+                          value={businessDetails.managingDirector}
+                          onChange={(e) => setBusinessDetails({ ...businessDetails, managingDirector: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_email', lang, 'Firmen-E-Mail (für Anschriften / Rechnungen)')}
+                        </label>
+                        <input
+                          type="email"
+                          className={fieldClass}
+                          placeholder="rechnung@firma.de"
+                          value={businessDetails.email}
+                          onChange={(e) => setBusinessDetails({ ...businessDetails, email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t('auth.company_tax_id', lang, 'Steuernummer / USt-IdNr.')}
+                        </label>
+                        <input
+                          className={fieldClass}
+                          placeholder="z. B. DE123456789"
+                          value={businessDetails.taxId}
+                          onChange={(e) => setBusinessDetails({ ...businessDetails, taxId: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsBusinessSetupSkipped(true)}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
+                      >
+                        {t('auth.btn_skip_business_setup', lang, 'Angaben überspringen & später einrichten')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Profile Picture (Optional, gray silhouette default, upload/remove) */}

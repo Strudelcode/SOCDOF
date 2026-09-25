@@ -32,12 +32,14 @@ import {
   MapPin,
   Phone,
   UserCheck,
-  Building2
+  Building2,
+  Layout
 } from 'lucide-react';
 import { Invoice, InvoiceItem, InvoiceStatus, Contact, Product, CompanyProfile } from '../types';
 import { db, executeStockMove, getNextInvoiceNumber } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { InvoicePrintModal } from './InvoicePrintModal';
+import { InvoiceTemplateModal } from './InvoiceTemplateModal';
 import { InvoiceEmailModal } from './InvoiceEmailModal';
 import { PaymentModal } from './PaymentModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
@@ -79,6 +81,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   
   // Modals
   const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [mailInvoice, setMailInvoice] = useState<Invoice | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
   const [sdiInspectorInvoice, setSdiInspectorInvoice] = useState<Invoice | null>(null);
@@ -780,6 +783,20 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setIsTemplateModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-2xs transition cursor-pointer active:scale-95"
+            title={t('invoice.templates_tooltip', undefined, 'Rechnungsvorlagen, DIN 5008 Layout, Firmenlogo und Variablen bearbeiten')}
+          >
+            <Layout className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span className="hidden sm:inline">{t('invoice.btn_templates', undefined, 'Vorlagen & Layout')}</span>
+            <span className="sm:hidden">{t('invoice.btn_templates_short', undefined, 'Vorlagen')}</span>
+          </button>
 
           <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs transition cursor-pointer active:scale-95">
             <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -2097,6 +2114,16 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
         }}
         onContactsChange={onRefresh}
         currency={company.currency || '€'}
+      />
+
+      {/* Invoice Templates & Layout Editor Modal */}
+      <InvoiceTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        company={company}
+        invoices={invoices}
+        currency={company.currency || '€'}
+        onTemplatesUpdated={onRefresh}
       />
     </div>
   );

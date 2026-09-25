@@ -4,6 +4,31 @@
 
 ---
 
+### Invoicing Templates & Layout Architecture in Invoicing & Settings (v23.11.0)
+- [x] **Relocated Template Customization from Therapy to Core Invoicing & Settings**:
+  - [x] Removed template editing clutter from the Therapy Module so it remains focused on therapy sessions, appointments, and client dossiers.
+  - [x] Integrated first-class "Vorlagen & Layout" action button directly in the `InvoicesModule` top toolbar with `Layout` icon.
+  - [x] Embedded "Rechnungsvorlagen & Layout-Editor" quick launcher card into the Settings Hub under Briefkopf (`activeSection === 'letterhead'`).
+  - [x] Connected template switcher and Word export into `InvoicePrintModal` so any printed invoice can use the chosen active template.
+- [x] **Pre-built Professional ERP Invoice Templates**:
+  - [x] *DIN 5008 Standard*: German business standard with sender line, recipient box, fold marks, table, and 4-column legal footer.
+  - [x] *Modern Minimalist*: Clean modern sans typography, subtle header bar, and prominent logo branding.
+  - [x] *Executive Corporate*: Prominent corporate header, logo pedestal, and structured IBAN/BIC banking block.
+  - [x] *Creative Studio*: Serif typography, warm tones, and stylish gratitude footer.
+  - [x] *Praxis / Heilbehandlung*: Medical exemption notes according to § 4 Nr. 14 UStG.
+  - [x] *Custom HTML Layout*: Full HTML/CSS editor with live placeholder injection.
+- [x] **Interactive Live Preview with 100.000 € Test Invoice**:
+  - [x] One-click toggle between "100.000 € Test-Beleg" (with sample company, test email, and large amount formatting) and real invoice data from IndexedDB.
+  - [x] Realistic layout testing with top-left logo pedestal, detailed line items, and VAT breakdown.
+- [x] **Dynamic Template Variable System & Office File Import**:
+  - [x] Built `src/lib/invoiceTemplateManager.ts` providing scanning, dictionary substitution, and Word (.doc) export.
+  - [x] Variable picker bar with 1-click insertion for `{Rechnungsnummer}`, `{Datum}`, `{Kunde_Name}`, `{Netto}`, `{Gesamtbetrag}`, etc.
+  - [x] Template file importer supporting `.html`, `.docx` text, `.txt`, and `.json` with automatic variable recognition.
+- [x] **Multilingual Support (DE, EN, FR, ES)**:
+  - [x] All modal labels, tooltips, buttons, and setting descriptions updated in all 4 supported languages via `src/lib/i18n.ts`.
+
+---
+
 ### European Number & Currency Formatting (DIN 1333) & Therapy Dark Mode Refinement (v23.10.10)
 - [x] **Standardized European Number & Currency Formatting (DIN 1333 / ISO)**:
   - [x] Thousands separator: Period (`.`) -> `1.000.000` or `10.010`

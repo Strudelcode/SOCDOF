@@ -109,6 +109,7 @@ import {
   getCustomFlagImage
 } from '../lib/i18n';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
+import { InvoiceTemplateModal } from './InvoiceTemplateModal';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
@@ -239,6 +240,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     name: company?.name || 'Ihr Firmenname'
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedLangPath, setCopiedLangPath] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -4446,11 +4448,42 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Briefkopf & DIN 5008 Briefpapier
+                    Briefkopf, Vorlagen &amp; DIN 5008 Briefpapier
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Konfigurieren Sie Ihr Firmenlogo, Faltmarken und die 4 rechtlichen Fußzeilen.
+                    Konfigurieren Sie Ihr Firmenlogo, Rechnungsvorlagen, Faltmarken und die rechtlichen Fußzeilen.
                   </p>
+                </div>
+              </div>
+
+              {/* Invoice Templates & Layout Editor Quick Launch Card */}
+              <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/80 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-blue-950/20 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <LayoutGrid className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {t('settings.invoice_templates_title', activeLang, 'Rechnungsvorlagen & Layout-Editor')}
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        {t('settings.invoice_templates_desc', activeLang, 'Konfigurieren Sie DIN 5008, Minimalist- und Firmen-Rechnungsvorlagen, Firmenlogo, Typografie und dynamische Platzhalter.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setIsTemplateModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    <span>{t('settings.btn_open_template_editor', activeLang, 'Vorlagen-Editor öffnen')}</span>
+                  </button>
                 </div>
               </div>
 
@@ -6175,6 +6208,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             setStorageAssetsList(getStorageAssets());
             setSelectedAssetForPreview(null);
           }}
+        />
+      )}
+
+      {/* Invoice Templates & Layout Editor Modal */}
+      {isTemplateModalOpen && (
+        <InvoiceTemplateModal
+          isOpen={isTemplateModalOpen}
+          onClose={() => setIsTemplateModalOpen(false)}
+          company={profile}
+          invoices={invoices}
+          currency={profile.currency}
+          onTemplatesUpdated={() => onUpdateCompany(profile)}
         />
       )}
 

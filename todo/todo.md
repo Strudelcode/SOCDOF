@@ -23,7 +23,9 @@
 
 ### 2.0 Latest Completed Milestone
 
-The v23.9.7 Settings Currency Selection, Dynamic Save UX & Overlap Elimination milestone is complete and archived in `todo/completed_todo.md`.
+The v23.11.0 Invoicing Templates & Layout Architecture in Invoicing & Settings milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.10.10 European Number & Currency Formatting (DIN 1333) & Therapy Dark Mode Refinement milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.8.0 Therapy & Practice Flow, Authentic Desktop Preview & Settings Personalization Overhaul milestone is complete and archived in `todo/completed_todo.md`.
 
@@ -80,7 +82,12 @@ The v23.4.0 Praxis & Therapy Interconnected Client Dossier & Cross-Module Linkin
 
 Initial offline Practice workspace was introduced in v23.2.0. Historical implementation details are archived in `todo/completed_todo.md`.
 
-### 2.4 System Optimization & Continuous Polishing
+### 2.4 Invoicing Templates, Office File Binding & Layout Architecture
+- [ ] Deep binary Word (.docx) AST parsing & XML unzipping engine for complex nested multi-page tables.
+- [ ] Local filesystem folder watcher (`templates/`) for automatic desktop synchronization of external Office template files.
+- [ ] Direct PDF form-field token injection and interactive visual placement tool for PDF background stationery.
+
+### 2.5 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
 - [ ] Automated regression coverage for critical local data workflows.
 - [ ] Accessibility audit and keyboard-navigation refinement across major desktop surfaces.

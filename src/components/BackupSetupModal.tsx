@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Shield, FolderOpen, Check, X, ArrowRight, HardDrive, ExternalLink, CheckCircle2, UserRound, Building2 } from 'lucide-react';
+import { Shield, FolderOpen, Check, X, ArrowRight, HardDrive, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
 import { db } from '../lib/db';
@@ -13,12 +13,6 @@ interface BackupSetupModalProps {
   onUpdateCompany: (updated: CompanyProfile) => void;
 }
 
-type AccountType = 'personal' | 'business';
-
-type CompanyProfileWithAccountType = CompanyProfile & {
-  account_type?: AccountType;
-};
-
 export function BackupSetupModal({
   isOpen,
   onClose,
@@ -30,9 +24,6 @@ export function BackupSetupModal({
   const [selectedPath, setSelectedPath] = useState<string>(company.backup_folder_path || '');
   const [isPicking, setIsPicking] = useState<boolean>(false);
   const [justPicked, setJustPicked] = useState<boolean>(false);
-  const [accountType, setAccountType] = useState<AccountType>(
-    (company as CompanyProfileWithAccountType).account_type || 'business'
-  );
 
   useEffect(() => {
     let isMounted = true;
@@ -53,19 +44,17 @@ export function BackupSetupModal({
     }
     if (isOpen) {
       initDefault();
-      setAccountType((company as CompanyProfileWithAccountType).account_type || 'business');
     }
     return () => {
       isMounted = false;
     };
-  }, [isOpen, company.backup_folder_path, company]);
+  }, [isOpen, company.backup_folder_path]);
 
   if (!isOpen) return null;
 
   const markCompleted = () => {
     try {
       localStorage.setItem('socdof_backup_setup_initialized', 'true');
-      localStorage.setItem('socdof_account_type_initialized', 'true');
     } catch {
       // ignore
     }
@@ -130,9 +119,8 @@ export function BackupSetupModal({
 
   const applyAndFinish = async (enabled: boolean, path: string) => {
     const finalPath = enabled ? (path || effectivePath) : '';
-    const updated: CompanyProfileWithAccountType = {
+    const updated: CompanyProfile = {
       ...company,
-      account_type: accountType,
       auto_backup_enabled: enabled,
       backup_folder_path: finalPath
     };
@@ -178,46 +166,11 @@ export function BackupSetupModal({
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              {t('app.welcome')}
+              {t('backup.setup_title', undefined, 'Lokale Datensicherung & Backup-Ordner')}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              {t('app.welcome_desc')}
+              {t('backup.setup_desc', undefined, 'Legen Sie fest, wo automatische und manuelle Sicherungen Ihrer Offline-Datenbank gespeichert werden sollen.')}
             </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {t('action.select_language')}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setAccountType('personal')}
-              className={`text-left p-4 rounded-xl border transition ${accountType === 'personal' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
-            >
-              <div className="flex items-center gap-3">
-                <UserRound className="w-5 h-5 text-indigo-500" />
-                <div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">{t('contact.individual_customer')}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t('desc.contacts')}</div>
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAccountType('business')}
-              className={`text-left p-4 rounded-xl border transition ${accountType === 'business' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
-            >
-              <div className="flex items-center gap-3">
-                <Building2 className="w-5 h-5 text-indigo-500" />
-                <div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">{t('settings.company_data_title')}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t('settings.company_data_desc')}</div>
-                </div>
-              </div>
-            </button>
           </div>
         </div>
 

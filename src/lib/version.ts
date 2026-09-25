@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.10.10';
+export const APP_VERSION = '23.11.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.11.0',
+    date: '2026-09-25',
+    title: 'Invoicing Templates & Layout Architecture in Invoicing & Settings Hub',
+    highlights: [
+      'Invoicing & Settings Integration: Transferred invoice template and layout customization out of the Therapy Module into the core Invoices app and Settings Hub under Briefkopf.',
+      'Professional Pre-built Templates: Added instant selection between DIN 5008 Standard, Modern Minimalist, Executive Corporate, Creative Studio, Medical/Praxis, and Custom Freeform Layout.',
+      '100.000 € Live Sample Preview: Interactive live DIN-A4 preview with toggle between real invoice data and a high-volume sample document featuring top-left logo pedestal and detailed line items.',
+      'Template Variables & Office File Import: Integrated dynamic placeholder scanning ({Rechnungsnummer}, {Datum}, {Kunde_Name}, {Netto}, etc.) and file importer for .docx text, .html, and .json.',
+      'Direct Word & PDF Export: Download invoices directly as formatted Microsoft Word (.doc) documents or print/save as DIN-A4 PDF.'
+    ]
+  },
   {
     version: '23.10.10',
     date: '2026-09-25',
