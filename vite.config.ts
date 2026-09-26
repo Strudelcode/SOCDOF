@@ -514,10 +514,360 @@ function languageSyncPlugin(): Plugin {
   };
 }
 
+function discordFeedbackPlugin(): Plugin {
+  // In-memory cache for channel available tags
+  const forumTagsCache = new Map<string, { tags: any[]; timestamp: number }>();
+
+  const fetchChannelTags = async (channelId: string, botToken: string): Promise<any[]> => {
+    const cached = forumTagsCache.get(channelId);
+    if (cached && Date.now() - cached.timestamp < 1000 * 60 * 5) {
+      return cached.tags;
+    }
+    try {
+      const resp = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const availableTags = data.available_tags || [];
+        forumTagsCache.set(channelId, { tags: availableTags, timestamp: Date.now() });
+        return availableTags;
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch Discord channel tags for ${channelId}:`, err);
+    }
+    return cached?.tags || [];
+  };
+
+  return {
+    name: 'discord-feedback-api',
+    configureServer(server) {
+      const parseRequestBody = (req: any): Promise<any> => {
+        return new Promise((resolve) => {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              resolve(body ? JSON.parse(body) : {});
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', () => resolve({}));
+        });
+      };
+
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
+
+        // Endpoint: POST /api/discord/thread (Create forum post)
+        if (cleanPath === '/api/discord/thread' && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const body = await parseRequestBody(req);
+            const channelId = body.channelId || '1535709136363462757';
+            const threadData = body.threadData;
+            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+
+            if (!threadData) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'threadData is required' }));
+              return;
+            }
+
+            const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/threads`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bot ${botToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(threadData)
+            });
+
+            const respText = await response.text();
+            let parsedData: any = {};
+            try {
+              parsedData = JSON.parse(respText);
+            } catch {
+              parsedData = { raw: respText };
+            }
+
+            if (response.ok) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                success: true,
+                threadId: parsedData.id,
+                channelId: parsedData.parent_id,
+                data: parsedData
+              }));
+            } else {
+              res.statusCode = response.status;
+              res.end(JSON.stringify({
+                success: false,
+                status: response.status,
+                error: parsedData
+              }));
+            }
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({
+              success: false,
+              error: err?.message || String(err)
+            }));
+          }
+          return;
+        }
+
+        // Endpoint: POST /api/discord/sync-threads (Batch sync thread status & tags from Discord)
+        if ((cleanPath === '/api/discord/sync-threads' || cleanPath === '/api/discord/threads-status') && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const body = await parseRequestBody(req);
+            const threadIds: string[] = Array.isArray(body.threadIds) ? body.threadIds : [];
+            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+
+            if (!threadIds || threadIds.length === 0) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, threads: {}, lastSyncedAt: new Date().toISOString() }));
+              return;
+            }
+
+            // Pre-fetch tags for known forum channels
+            const bugTags = await fetchChannelTags('1535709136363462757', botToken);
+            const ideaTags = await fetchChannelTags('1524133720876126408', botToken);
+            const allKnownTags = new Map<string, any>();
+            [...bugTags, ...ideaTags].forEach(t => allKnownTags.set(t.id, t));
+
+            const threadResults: Record<string, any> = {};
+
+            // Fetch thread info concurrently with limit
+            const fetchPromises = threadIds.slice(0, 50).map(async (threadId) => {
+              try {
+                const resp = await fetch(`https://discord.com/api/v10/channels/${threadId}`, {
+                  headers: {
+                    'Authorization': `Bot ${botToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+
+                if (resp.ok) {
+                  const data = await resp.json();
+                  const appliedTagIds: string[] = data.applied_tags || [];
+                  const parentId = data.parent_id;
+
+                  // If parent channel tags not cached yet, fetch them
+                  if (parentId && !forumTagsCache.has(parentId)) {
+                    const parentTags = await fetchChannelTags(parentId, botToken);
+                    parentTags.forEach(t => allKnownTags.set(t.id, t));
+                  }
+
+                  const appliedTagObjects = appliedTagIds.map(tagId => {
+                    const tagObj = allKnownTags.get(tagId);
+                    if (tagObj) {
+                      return {
+                        id: tagObj.id,
+                        name: tagObj.name,
+                        emojiName: tagObj.emoji_name || undefined,
+                        emojiId: tagObj.emoji_id || undefined
+                      };
+                    }
+                    // Fallback to known tag constants if available
+                    if (tagId === '1535711015902384269') return { id: tagId, name: 'Neue Einreichung', emojiName: '⏳' };
+                    if (tagId === '1535711141517336636') return { id: tagId, name: 'Wird überprüft', emojiName: '🔍' };
+                    if (tagId === '1535710238995648512') return { id: tagId, name: 'Abgelehnt', emojiName: '❌' };
+                    if (tagId === '1535711300058091520') return { id: tagId, name: 'Behoben', emojiName: '✅' };
+                    if (tagId === '1535714553453740143') return { id: tagId, name: 'Problem-Fix in Bearbeitung', emojiName: '🔨' };
+                    if (tagId === '1535714372427583578') return { id: tagId, name: 'Bestätigt & weitergeleitet', emojiName: '↗️' };
+                    if (tagId === '1553317496159731722') return { id: tagId, name: 'SOCDOF', emojiName: '🌐' };
+
+                    return {
+                      id: tagId,
+                      name: tagId
+                    };
+                  });
+
+                  // Compute normalized status based strictly on Discord tag IDs & names
+                  const isArchived = !!data.thread_metadata?.archived;
+                  const isLocked = !!data.thread_metadata?.locked;
+
+                  let computedStatus: 'pending' | 'reviewing' | 'rejected' | 'resolved' | 'in_progress' | 'forwarded' = 'pending';
+
+                  if (appliedTagIds.includes('1535710238995648512')) {
+                    computedStatus = 'rejected';
+                  } else if (appliedTagIds.includes('1535711300058091520')) {
+                    computedStatus = 'resolved';
+                  } else if (appliedTagIds.includes('1535714553453740143')) {
+                    computedStatus = 'in_progress';
+                  } else if (appliedTagIds.includes('1535714372427583578')) {
+                    computedStatus = 'forwarded';
+                  } else if (appliedTagIds.includes('1535711141517336636')) {
+                    computedStatus = 'reviewing';
+                  } else if (appliedTagIds.includes('1535711015902384269')) {
+                    computedStatus = 'pending';
+                  } else {
+                    // Fuzzy text check
+                    const tagNamesCombined = appliedTagObjects.map(t => t.name.toLowerCase()).join(' ');
+                    if (tagNamesCombined.includes('abgelehnt') || tagNamesCombined.includes('rejected') || tagNamesCombined.includes('verworfen')) {
+                      computedStatus = 'rejected';
+                    } else if (
+                      isArchived ||
+                      isLocked ||
+                      tagNamesCombined.includes('behoben') ||
+                      tagNamesCombined.includes('erledigt') ||
+                      tagNamesCombined.includes('resolved') ||
+                      tagNamesCombined.includes('fixed') ||
+                      tagNamesCombined.includes('fertig') ||
+                      tagNamesCombined.includes('umgesetzt')
+                    ) {
+                      computedStatus = 'resolved';
+                    } else if (
+                      tagNamesCombined.includes('problem-fix') ||
+                      tagNamesCombined.includes('bearbeitung') ||
+                      tagNamesCombined.includes('in progress') ||
+                      tagNamesCombined.includes('in arbeit')
+                    ) {
+                      computedStatus = 'in_progress';
+                    } else if (
+                      tagNamesCombined.includes('weitergeleitet') ||
+                      tagNamesCombined.includes('bestätigt') ||
+                      tagNamesCombined.includes('forwarded')
+                    ) {
+                      computedStatus = 'forwarded';
+                    } else if (
+                      tagNamesCombined.includes('überprüf') ||
+                      tagNamesCombined.includes('review') ||
+                      tagNamesCombined.includes('untersuch')
+                    ) {
+                      computedStatus = 'reviewing';
+                    }
+                  }
+
+                  threadResults[threadId] = {
+                    id: threadId,
+                    name: data.name,
+                    channelId: parentId,
+                    appliedTags: appliedTagObjects,
+                    status: computedStatus,
+                    isArchived,
+                    isLocked,
+                    messageCount: data.total_message_sent ?? data.message_count ?? 1,
+                    lastMessageId: data.last_message_id,
+                    lastSyncedAt: new Date().toISOString()
+                  };
+                } else {
+                  threadResults[threadId] = {
+                    id: threadId,
+                    notFound: resp.status === 404,
+                    httpStatus: resp.status,
+                    lastSyncedAt: new Date().toISOString()
+                  };
+                }
+              } catch (err: any) {
+                threadResults[threadId] = {
+                  id: threadId,
+                  error: err?.message || String(err),
+                  lastSyncedAt: new Date().toISOString()
+                };
+              }
+            });
+
+            await Promise.all(fetchPromises);
+
+            res.statusCode = 200;
+            res.end(JSON.stringify({
+              success: true,
+              threads: threadResults,
+              lastSyncedAt: new Date().toISOString()
+            }));
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({
+              success: false,
+              error: err?.message || String(err)
+            }));
+          }
+          return;
+        }
+
+        // Endpoint: POST /api/discord/thread-messages (Fetch all messages from a thread for inspection)
+        if (cleanPath === '/api/discord/thread-messages' && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const body = await parseRequestBody(req);
+            const threadId = body.threadId;
+            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+
+            if (!threadId) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'threadId is required' }));
+              return;
+            }
+
+            const response = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages?limit=50`, {
+              headers: {
+                'Authorization': `Bot ${botToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (response.ok) {
+              const rawMsgs = await response.json();
+              const messages = Array.isArray(rawMsgs) ? [...rawMsgs].reverse().map((msg: any) => {
+                const avatarUrl = msg.author?.avatar
+                  ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png?size=80`
+                  : `https://cdn.discordapp.com/embed/avatars/${(parseInt(msg.author?.id || '0', 10) || 0) % 5}.png`;
+
+                return {
+                  id: msg.id,
+                  content: msg.content || '',
+                  author: {
+                    id: msg.author?.id || '',
+                    username: msg.author?.username || 'Discord User',
+                    globalName: msg.author?.global_name,
+                    avatar: msg.author?.avatar,
+                    avatarUrl,
+                    bot: !!msg.author?.bot
+                  },
+                  timestamp: msg.timestamp,
+                  embeds: msg.embeds,
+                  attachments: msg.attachments
+                };
+              }) : [];
+
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, threadId, messages }));
+            } else {
+              const errText = await response.text();
+              res.statusCode = response.status;
+              res.end(JSON.stringify({ success: false, status: response.status, error: errText }));
+            }
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err?.message || String(err) }));
+          }
+          return;
+        }
+
+        next();
+      });
+    }
+  };
+}
+
 export default defineConfig(() => {
   return {
     base: './',
-    plugins: [react(), tailwindcss(), mobileSyncPlugin(), languageSyncPlugin()],
+    plugins: [react(), tailwindcss(), mobileSyncPlugin(), languageSyncPlugin(), discordFeedbackPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
