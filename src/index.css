@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --color-slate-850: #141c2e;
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 :root {

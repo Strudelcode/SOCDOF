@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.11.0';
+export const APP_VERSION = '23.14.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,78 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.14.3',
+    date: '2026-09-26',
+    title: 'Discord Tag ID Mapping, Thread Messages Inspector & Custom Emoji Parsing',
+    highlights: [
+      'Eliminated Redundant Manual Status Selectors: Removed redundant manual status override dropdown from ticket views, as ticket progress and lifecycle are authoritative on the Discord Forum.',
+      'Accurate Discord Forum Tag ID Recognition: Direct mapping for bug report tags: ⏳ Neue Einreichung (1535711015902384269), 🔍 In Überprüfung (1535711141517336636), ❌ Abgelehnt (1535710238995648512), ✅ Behoben (1535711300058091520), 🔨 Fix in Bearbeitung (1535714553453740143), and ↗️ Bestätigt & Weitergeleitet (1535714372427583578).',
+      'Thread Messages & Discussion Inspector Modal: Dedicated inspection popup allowing users to view full Discord thread conversation history, developer replies, timestamps, bots/user avatars, and Discord embeds directly within the app.',
+      'Discord Custom Emoji & Markdown Rendering: Parses Discord custom emojis (<:name:id> / <a:name:id>) from Discord CDN, user snowflake mentions (<@ID>), channel mentions, blockquotes, codeblocks, and bold/italic formatting.',
+      'Full Quad-Language Support: All thread inspector dialogs, status badges, error states, and messages fully localized across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.14.2',
+    date: '2026-09-26',
+    title: 'Live Discord Forum Tags Sync, Real-Time 30-Second Polling & Thread Status',
+    highlights: [
+      'Automatic 30-Second Live Polling: Tickets auto-refresh tag statuses and message replies every 30 seconds only while the Feedback/Bug-Reports app or modal is actively open, stopping automatically when closed.',
+      'Discord Forum Tag & Status Recognition: Queries the Discord API to fetch real applied forum tags (e.g. ⏳ Prüfung ausstehend, 🔨 In Bearbeitung, ✅ Erledigt / Behoben) and maps them directly to visual badges on ticket cards.',
+      'Reply Count & Thread Metadata: Displays live message counts, archive/lock state badges, and direct channel references without manual intervention required from users on Discord.',
+      'Manual Sync Control: Instant "Jetzt synchronisieren" button with spinner feedback and last-synced timestamp display.',
+      'Full Quad-Language Support: All sync badges, tooltips, forum tag indicators, and action buttons localized in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.14.1',
+    date: '2026-09-26',
+    title: 'Authentic Live Discord Embed & Forum Post Preview with Real-Time Typing',
+    highlights: [
+      'Authentic Dark Mode Discord Embed: Implemented a pixel-perfect Discord Dark Mode forum post preview with channel headers (#🐛 | REPORT / #💡vorschläge), tag badges, Discord Bot avatar with APP/BOT badge, user snowflake mentions (<@ID>), colored left border strips (#f15922 / #3b82f6), and embed fields.',
+      'Live Real-Time Feedback: The Discord preview updates instantly as the user types titles, locations, and descriptions, complete with live status indicator and placeholder text.',
+      'Quad-Language Support: All preview headers, today timestamps, and instructional hints localized across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.14.0',
+    date: '2026-09-26',
+    title: 'App-Location Modal Picker, Start Menu Discord Cleanup & Quad-Language Localization',
+    highlights: [
+      'Interactive App Location Modal Picker: Replaced basic select element with a dedicated search-enabled popup dialog showcasing all SOCDOF apps with colorful icons, search filter, and custom input option.',
+      'Unprefilled Step 2 Default: Step 2 in Bug-Reports and Ideas now defaults to an empty state prompting "Wähle einen Ort aus..." with validation blocking submission until an app is selected.',
+      'Start Menu Clean Quick Links: Removed external Discord links and branding from the Sub-Group start menu footer, providing 4 clean actions (Language, Docs, GitHub, Bug-Reports).',
+      'Full Quad-Language Support: Translated all sentences, guides, modals, placeholders, checklists, ticket statuses, and alerts across German (de), English (en), French (fr), and Spanish (es).'
+    ]
+  },
+  {
+    version: '23.13.0',
+    date: '2026-09-26',
+    title: 'Bug-Reports Desktop App, 3-Step Guided Reporting & Discord Embed Polish',
+    highlights: [
+      'Dedicated Bug-Reports Application: Added official "Bug-Reports & Meldungen" app to the App Launcher, Desktop window workspace, and navigation with ticket tracking and Discord link opening.',
+      '3-Step Guided Workflow: Added intuitive instruction checklist (1. Title / keyword, 2. Select app/location or enter custom, 3. Error description) so users know exactly what is required.',
+      'No Premature Live Preview: Suppressed dummy placeholder embed rendering until all 3 required fields are entered, displaying clean checklist guidance instead.',
+      'Comprehensive App Selector: Updated location picker with all official SOCDOF applications and a custom "Sonstiges (Eigene Eingabe)" option with dedicated freeform text input.',
+      'Strict Discord User ID Validation: Enforced numeric-only 17-20 digit snowflake format with live digit counter, clear helper feedback, and submit-blocking guards.',
+      'Discord Duplicate Timestamp Elimination: Removed redundant embed timestamp payload, stopping Discord from printing duplicate "heute um [Zeit]" timestamps in forum messages.',
+      'Interactive Ticket Status & Resolved Filter: Added status workflow (Pending, In Progress, Resolved) and toggle to hide resolved tickets from the local history list.'
+    ]
+  },
+  {
+    version: '23.12.0',
+    date: '2026-09-26',
+    title: 'Live Discord Bot Forum Integration for Feedback & Bug Reports',
+    highlights: [
+      'Automated Forum Post Creation: Directly publishes user submissions to designated Discord Forum channels using official Discord Bot API.',
+      'Bugs Forum Integration (#🐛 | REPORT): Automatically posts bug reports to channel 1535709136363462757 with tag ⏳ Prüfung ausstehend (1535711015902384269).',
+      'Ideas & Feedback Forum Integration (#💡vorschläge): Automatically posts feature ideas and feedback to channel 1524133720876126408 with tag SOCDOF (1553317496159731722).',
+      'Discord User Mention & Ping: Dedicated Discord-Name and optional Discord User-ID inputs with real user ping (<@ID>), remembered in local settings.',
+      'Authentic Dark-Mode Discord Embed Preview: Live interactive visual preview matching real Discord embed styling (colors, author, fields, footer timestamp).',
+      'Seamless Access: Triggerable via Start Menu, Settings sidebar, and Command Palette (Ctrl+K).'
+    ]
+  },
   {
     version: '23.11.0',
     date: '2026-09-25',

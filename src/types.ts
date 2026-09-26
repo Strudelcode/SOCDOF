@@ -349,7 +349,8 @@ export type ActiveModule =
   | 'support_services'
   | 'widgets'
   | 'calculator'
-  | 'therapy_practice';
+  | 'therapy_practice'
+  | 'feedback';
 
 export interface SupportExpenseEntry {
   id: string;
