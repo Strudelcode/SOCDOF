@@ -31,7 +31,8 @@ import {
   GraduationCap,
   Briefcase,
   Hospital,
-  FolderCheck
+  FolderCheck,
+  Bug
 } from 'lucide-react';
 import { ActiveModule, StoreApp, DesktopFolder } from '../types';
 import { sounds } from '../lib/sound';
@@ -275,6 +276,20 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Widgets', 'Notizen', 'Haftnotizen', 'Sticky Notes', 'Desktop']
     },
     {
+      id: 'feedback',
+      title: t('module.feedback', currentLang, 'Bug-Reports & Meldungen'),
+      category: 'productivity',
+      description: t('desc.feedback', currentLang, 'Fehlerberichte (#🐛 | REPORT) und Feedback (#💡vorschläge) mit Forum-Anbindung und Ticket-Verlauf.'),
+      iconName: 'Bug',
+      badge: 'Tickets & Berichte',
+      author: 'SOCDOF Community',
+      version: '23.14.0',
+      isInstalled: installedModules.includes('feedback'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Bug', 'Report', 'Feedback', 'Support', 'Tickets', 'Meldungen', 'Hilfe', 'Fehler', 'Discord']
+    },
+    {
       id: 'ios_billing',
       title: t('module.ios_billing', currentLang, 'iOS Gastro & Speisen-Kasse'),
       category: 'gastro',
@@ -427,6 +442,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'widgets': return WidgetsIcon;
       case 'docs': return BookOpen;
       case 'settings': return Settings;
+      case 'feedback': return Bug;
       default: return Package;
     }
   };
@@ -450,6 +466,7 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'widgets': return 'bg-gradient-to-br from-violet-500 to-purple-600';
       case 'docs': return 'bg-gradient-to-br from-sky-500 to-blue-600';
       case 'settings': return 'bg-gradient-to-br from-slate-600 to-slate-800';
+      case 'feedback': return 'bg-gradient-to-br from-orange-500 to-amber-600';
       default: return 'bg-gradient-to-br from-slate-700 to-slate-900';
     }
   };

@@ -19,7 +19,8 @@ import {
   Calculator,
   BookOpen,
   Utensils,
-  Hospital
+  Hospital,
+  Bug
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -200,6 +201,16 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       description: t('desc.docs', currentLang, 'Umfassendes Handbuch, Tastatur-Shortcuts und Leitfäden'),
       icon: <BookOpen className="w-8 h-8 text-white" />,
       color: 'bg-gradient-to-br from-sky-600 to-blue-800'
+    },
+    {
+      id: 'feedback',
+      name: t('module.feedback', currentLang, 'Bug-Reports & Meldungen'),
+      category: t('cat.support', currentLang, 'Support & Tickets'),
+      description: t('desc.feedback', currentLang, 'Fehlerberichte & Verbesserungsvorschläge einreichen und eigene Tickets einsehen'),
+      icon: <Bug className="w-8 h-8 text-white" />,
+      color: 'bg-gradient-to-br from-orange-500 to-amber-600',
+      badge: 'Tickets',
+      badgeColor: 'bg-orange-100 text-orange-900 font-bold'
     },
     {
       id: 'settings',

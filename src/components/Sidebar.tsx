@@ -19,7 +19,8 @@ import {
   Calculator,
   BookOpen,
   Boxes as AppStoreIcon,
-  Utensils
+  Utensils,
+  Bug
 } from 'lucide-react';
 import { ActiveModule } from '../types';
 import { sounds } from '../lib/sound';
@@ -122,6 +123,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: t('module.docs', lang, 'Handbuch & Docs'),
       icon: BookOpen,
       badge: null
+    },
+    {
+      id: 'feedback' as ActiveModule,
+      label: t('module.feedback', lang, 'Bug-Reports'),
+      icon: Bug,
+      badge: 'Discord',
+      badgeColor: 'bg-orange-500 text-white'
     },
     {
       id: 'settings' as ActiveModule,

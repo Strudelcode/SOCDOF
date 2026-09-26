@@ -58,6 +58,9 @@ import {
   Save,
   Type,
   Wallpaper,
+  Bug,
+  Lightbulb,
+  Send,
   Keyboard,
   RefreshCw,
   ChevronDown,
@@ -1464,6 +1467,36 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  window.dispatchEvent(new CustomEvent('socdof-open-feedback', { detail: { type: 'bug' } }));
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-[11px] font-bold transition group cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Bug className="w-3.5 h-3.5" />
+                  <span>Bug melden</span>
+                </div>
+                <Send className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  window.dispatchEvent(new CustomEvent('socdof-open-feedback', { detail: { type: 'idea' } }));
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#5865F2]/10 to-indigo-500/10 border border-[#5865F2]/30 hover:bg-[#5865F2]/20 text-[#5865F2] dark:text-indigo-300 text-[11px] font-bold transition group cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  <span>Idee &amp; Feedback</span>
+                </div>
+                <Sparkles className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+              </button>
             </div>
           </div>
 

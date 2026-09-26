@@ -58,6 +58,8 @@ import {
   User,
   Hospital,
   Plus,
+  Send,
+  Bug,
   StickyNote,
   Zap,
   Tv
@@ -118,6 +120,8 @@ import { WidgetsModule } from './WidgetsModule';
 import { WidgetsIcon } from './WidgetsIcon';
 import { CalculatorModule } from './CalculatorModule';
 import { TherapyPracticeModule } from './TherapyPracticeModule';
+import { DiscordFeedbackModal } from './DiscordFeedbackModal';
+import { DiscordFeedbackApp } from './DiscordFeedbackApp';
 import { uploadFileFromStorage, getAssetsForFolder } from '../lib/storageAssets';
 
 interface DesktopWindowWorkspaceProps {
@@ -150,12 +154,12 @@ interface DesktopShortcutItem {
 
 export const DEFAULT_STANDARD_MODULES: ActiveModule[] = [
   'dashboard', 'invoices', 'accounting', 'contacts', 
-  'products', 'stock', 'purchases', 'calendar', 'calculator', 'docs', 'settings', 'appstore'
+  'products', 'stock', 'purchases', 'calendar', 'calculator', 'docs', 'settings', 'appstore', 'feedback'
 ];
 
 export const DEFAULT_PINNED_DESKTOP: ActiveModule[] = [
   'dashboard', 'invoices', 'accounting', 'contacts', 
-  'products', 'stock', 'purchases', 'calendar', 'appstore', 'docs', 'settings'
+  'products', 'stock', 'purchases', 'calendar', 'appstore', 'docs', 'settings', 'feedback'
 ];
 
 export const DEFAULT_PINNED_TASKBAR: ActiveModule[] = [
@@ -963,7 +967,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
   const [isWebPreviewExitMode, setIsWebPreviewExitMode] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackInitialType, setFeedbackInitialType] = useState<'bug' | 'idea'>('bug');
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Listen for global open-feedback event
+  useEffect(() => {
+    const handleOpenFeedback = (e: any) => {
+      if (e.detail?.type) {
+        setFeedbackInitialType(e.detail.type);
+      }
+      setIsFeedbackModalOpen(true);
+    };
+    window.addEventListener('socdof-open-feedback', handleOpenFeedback);
+    return () => window.removeEventListener('socdof-open-feedback', handleOpenFeedback);
+  }, []);
 
   // Settings Dirty State & Save-on-Close Confirmation
   const [isSettingsDirty, setIsSettingsDirty] = useState(false);
@@ -1702,6 +1720,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-gradient-to-br from-blue-500 to-sky-600' },
     calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
     therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: Hospital, color: 'bg-gradient-to-br from-teal-600 to-indigo-700' },
+    feedback: { title: t('module.feedback', currentLang, 'Bug-Reports'), subtitle: t('desc.feedback', currentLang, 'Fehler melden & Discord-Tickets'), icon: Bug, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
     widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-gradient-to-br from-fuchsia-500 to-pink-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-gradient-to-br from-sky-500 to-blue-600' },
@@ -3108,6 +3127,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 />
               )}
 
+              {win.module === 'feedback' && (
+                <DiscordFeedbackApp />
+              )}
+
               {win.module === 'settings' && (
                 <SettingsModule
                   company={company}
@@ -3316,7 +3339,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Quick Links: Language, Docs, GitHub & Discord */}
+          {/* Quick Links: Language, Docs, GitHub & Bug-Reports */}
           <div className="py-2 grid grid-cols-4 gap-1.5">
             <button
               onClick={() => { 
@@ -3324,15 +3347,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 setIsStartMenuOpen(false); 
                 setIsLanguageModalOpen(true); 
               }}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40"
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition border border-emerald-200 dark:border-emerald-800/40 cursor-pointer"
               title="Sprache ändern / Change Language"
             >
               <FlagIcon code={currentLang} size="sm" />
               <span className="uppercase font-bold tracking-wider">{currentLang}</span>
             </button>
             <button
-              onClick={() => openWindow('docs')}
-              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40"
+              onClick={() => {
+                sounds.playClick();
+                setIsStartMenuOpen(false);
+                openWindow('docs');
+              }}
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-100 dark:hover:bg-sky-900/40 transition border border-sky-200 dark:border-sky-800/40 cursor-pointer"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>{t('module.docs', currentLang, 'Handbuch')}</span>
@@ -3342,21 +3369,23 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setIsStartMenuOpen(false)}
-              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700"
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700 cursor-pointer"
             >
               <Github className="w-3.5 h-3.5" />
               <span>GitHub</span>
             </a>
-            <a
-              href="https://discord.gg/QW85EaXTgB"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setIsStartMenuOpen(false)}
-              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-[#5865F2]/10 text-[#5865F2] dark:text-indigo-300 text-[11px] font-semibold hover:bg-[#5865F2]/20 transition border border-[#5865F2]/30"
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setIsStartMenuOpen(false);
+                openWindow('feedback');
+              }}
+              className="flex items-center justify-center gap-1 p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-[11px] font-semibold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition border border-orange-200 dark:border-orange-800/40 cursor-pointer"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Discord</span>
-            </a>
+              <Bug className="w-3.5 h-3.5" />
+              <span>{t('module.feedback', currentLang, 'Bug-Reports')}</span>
+            </button>
           </div>
 
           {/* Bottom Footer Actions: Current User + Power */}
@@ -4680,6 +4709,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* Discord Live Feedback & Bug Report Modal */}
+      <DiscordFeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        initialType={feedbackInitialType}
+      />
     </div>
   );
 };

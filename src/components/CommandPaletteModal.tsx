@@ -28,7 +28,10 @@ import {
   CornerDownLeft,
   X,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Bug,
+  Lightbulb,
+  Send
 } from 'lucide-react';
 import { ActiveModule, Contact, Product, Invoice } from '../types';
 import { useLanguage, t, LanguageCode } from '../lib/i18n';
@@ -199,6 +202,34 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       onSelect: () => {
         onOpenModule('docs');
         onClose();
+      }
+    });
+
+    items.push({
+      id: 'action_discord_bug',
+      category: 'actions',
+      categoryLabel: t('cmd.quick_actions', lang, isGerman ? 'Schnellaktionen' : 'Quick Actions'),
+      title: isGerman ? 'Bug / Fehler an Discord melden (#🐛 | REPORT)' : 'Report Bug to Discord (#🐛 | REPORT)',
+      subtitle: isGerman ? 'Erstellt automatisch einen Forum-Beitrag mit Tag Prüfung ausstehend' : 'Creates a Discord forum post with pending review tag',
+      icon: Bug,
+      iconColor: 'bg-orange-500',
+      onSelect: () => {
+        onClose();
+        setTimeout(() => window.dispatchEvent(new CustomEvent('socdof-open-feedback', { detail: { type: 'bug' } })), 100);
+      }
+    });
+
+    items.push({
+      id: 'action_discord_idea',
+      category: 'actions',
+      categoryLabel: t('cmd.quick_actions', lang, isGerman ? 'Schnellaktionen' : 'Quick Actions'),
+      title: isGerman ? 'Idee & Feedback an Discord senden (#💡 vorschläge)' : 'Submit Idea / Feedback to Discord (#💡 vorschläge)',
+      subtitle: isGerman ? 'Erstellt automatisch einen Forum-Beitrag mit Tag SOCDOF' : 'Creates a Discord forum post with SOCDOF tag',
+      icon: Lightbulb,
+      iconColor: 'bg-indigo-600',
+      onSelect: () => {
+        onClose();
+        setTimeout(() => window.dispatchEvent(new CustomEvent('socdof-open-feedback', { detail: { type: 'idea' } })), 100);
       }
     });
 
