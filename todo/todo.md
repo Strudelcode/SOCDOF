@@ -23,6 +23,18 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.14.3 Discord Tag ID Mapping, Thread Messages Inspector & Custom Emoji Parsing milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.14.2 Live Discord Forum Tags Sync, 30-Second Polling & Thread Status milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.14.1 Authentic Live Discord Embed & Forum Post Preview with Real-Time Typing milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.14.0 App-Location Modal Picker & Start Menu Cleanup milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.13.0 Bug-Reports Desktop App, 3-Step Guided Reporting & Discord Embed Polish milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.12.0 Live Discord Bot Forum Integration for Feedback & Bug Reports milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.11.0 Invoicing Templates & Layout Architecture in Invoicing & Settings milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.10.10 European Number & Currency Formatting (DIN 1333) & Therapy Dark Mode Refinement milestone is complete and archived in `todo/completed_todo.md`.

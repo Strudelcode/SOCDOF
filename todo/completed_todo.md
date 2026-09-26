@@ -4,6 +4,109 @@
 
 ---
 
+### Discord Tag ID Mapping, Thread Messages Inspector & Custom Emoji Parsing (v23.14.3)
+- [x] **Eliminated Redundant Manual Status Selectors**:
+  - [x] Removed manual status override dropdowns from ticket history and feedback views.
+  - [x] Thread status and tags are authoritatively driven by the Discord Forum.
+- [x] **Accurate Bug Report Tag ID Mapping**:
+  - [x] `1535711015902384269` -> ⏳ *Neue Einreichung*
+  - [x] `1535711141517336636` -> 🔍 *Wird überprüft*
+  - [x] `1535710238995648512` -> ❌ *Abgelehnt*
+  - [x] `1535711300058091520` -> ✅ *Behoben*
+  - [x] `1535714553453740143` -> 🔨 *Problem-Fix in Bearbeitung*
+  - [x] `1535714372427583578` -> ↗️ *Bestätigt & weitergeleitet*
+- [x] **Discord Thread Messages & History Inspector (`DiscordThreadInspectorModal`)**:
+  - [x] Interactive dialog to inspect forum post discussion history, replies, bot/user avatars, and Discord embeds.
+  - [x] Direct Discord opening link and manual reload button.
+- [x] **Custom Emoji & Discord Markdown Rendering**:
+  - [x] Parses custom Discord emojis (`<:name:id>` & `<a:name:id>`), user snowflake mentions (`<@ID>`), channel mentions, blockquotes, codeblocks, and bold/italic text.
+- [x] **Full Quad-Language Support (DE, EN, FR, ES)**:
+  - [x] All status labels, thread messages, badges, and modals localized in `src/lib/i18n.ts`.
+
+---
+
+### Live Discord Forum Tags Sync, 30-Second Polling & Thread Status (v23.14.2)
+- [x] **Smart 30-Second Background Polling (Active-Only)**:
+  - [x] Automatically polls Discord thread status updates every 30 seconds only while the Feedback/Bug-Reports app or modal is actively mounted and in view.
+  - [x] Unmounts and cancels interval immediately when window or modal is closed.
+- [x] **Live Discord Forum Tag & Status Recognition**:
+  - [x] Queries Discord API endpoint `/api/discord/threads-status` using Bot token to inspect `applied_tags`.
+  - [x] Maps tag IDs to tag names & emojis (e.g. `⏳ Prüfung ausstehend`, `🔨 In Bearbeitung`, `✅ Erledigt / Behoben`, `SOCDOF`, etc.) on ticket cards.
+  - [x] Automatic tag reading without requiring any user action on Discord.
+- [x] **Reply Counter & Manual Sync Controls**:
+  - [x] Displays message/reply count on tickets (`💬 X Antworten`), archived/locked indicators.
+  - [x] "Jetzt synchronisieren" manual button with spinner feedback and last synced timestamp.
+- [x] **Quad-Language Parity (DE, EN, FR, ES)**:
+  - [x] Translated all status sync badges, tooltips, and sync labels in `src/lib/i18n.ts`.
+
+---
+
+### Authentic Live Discord Embed & Forum Post Preview with Real-Time Typing (v23.14.1)
+- [x] **Pixel-Perfect Discord Dark Mode Embed**:
+  - [x] Forum post preview matching Discord Dark Theme with forum channel header (`#🐛 | REPORT` / `#💡vorschläge`), tag badges (`⏳ Prüfung ausstehend`), Discord Bot avatar with `APP`/`BOT` badge, and colored embed borders.
+  - [x] Real user snowflake ping `<@ID>`, formatted fields, and footer.
+- [x] **Real-Time Typing Synchronization**:
+  - [x] Live preview updates dynamically as user types title, app location, and description.
+
+---
+
+### Bug-Reports Desktop App, 3-Step Guided Reporting & Discord Embed Polish (v23.13.0)
+- [x] **Dedicated "Bug-Reports & Meldungen" Desktop Application**:
+  - [x] Added `feedback` module to App Launcher (`AppLauncher.tsx`) with Bug icon and direct launch capability.
+  - [x] Integrated `DiscordFeedbackApp` into `DesktopWindowWorkspace.tsx` so window opens on desktop with full ticket tracking.
+  - [x] Added `Bug-Reports` entry to `Sidebar.tsx` navigation items.
+- [x] **3-Step Guided Reporting Workflow**:
+  - [x] Added guidance checklist (1. Title / keyword, 2. Select app/location, 3. Error description) at the top of report form.
+  - [x] Visual indicators show which of the 3 steps are complete and which are still required.
+- [x] **No Premature Live Embed Rendering**:
+  - [x] Suppressed dummy/placeholder embed rendering before required fields are entered.
+  - [x] Replaced premature placeholder with clean instruction card until Title, App/Location, and Description are complete.
+- [x] **Full SOCDOF Application Selector**:
+  - [x] Included all SOCDOF apps (Invoices, CRM, Accounting, Products, Stock, POS, iOS Billing, Restaurant, Purchases, Therapy, Support, Calculator, Calendar, Desktop UI, Templates, Settings/Backup, Docs, App Store, Bug-Reports).
+  - [x] "Sonstiges (Eigene Eingabe)" dynamically reveals custom text input for arbitrary locations.
+- [x] **Strict Discord User-ID Validation (17–20 Digits)**:
+  - [x] Restricts input to digits only (`/^\d{0,20}$/`).
+  - [x] Shows live digit count and warning indicator if less than 17 digits.
+  - [x] Prevents submission if an invalid User-ID is entered.
+- [x] **Discord Duplicate Timestamp Elimination**:
+  - [x] Removed duplicate embed timestamp property in `discordFeedback.ts`, ensuring Discord displays the native message timestamp only once.
+  - [x] Corrected spelling to "Bug Information:".
+- [x] **Interactive Ticket Status Management & Resolved Filter**:
+  - [x] Status tracking (Pending, In Progress, Resolved) with immediate local persistence.
+  - [x] "Erledigte ausblenden" toggle and status filter tabs ("Alle", "Offen", "Erledigt") to easily hide resolved tickets.
+- [x] **Quad-Language Parity (DE, EN, FR, ES)**:
+  - [x] Added `module.feedback`, `desc.feedback`, and `cat.support` to `src/lib/i18n.ts` for all 4 languages.
+
+---
+
+### Live Discord Bot Forum Integration for Feedback & Bug Reports (v23.12.0)
+- [x] **Discord Bot Forum Integration for Bugs (`#🐛 | REPORT` - `1535709136363462757`)**:
+  - [x] Automated thread creation in forum channel using official Bot token.
+  - [x] Automatic tag application: `⏳ Prüfung ausstehend` (`1535711015902384269`).
+  - [x] Formatted orange embed with author, reported-by user ping, bug location, and detailed description.
+- [x] **Discord Bot Forum Integration for Ideas & Feedback (`#💡vorschläge` - `1524133720876126408`)**:
+  - [x] Automated thread creation in forum channel with title and category.
+  - [x] Automatic tag application: `SOCDOF` (`1553317496159731722`).
+  - [x] Formatted blue/purple embed with user ping, area/category, idea description, and community footer.
+- [x] **Discord-Name & User-ID Ping**:
+  - [x] Two-column input for Discord-Name and optional Discord User-ID.
+  - [x] Formats `<@ID>` for real discord notification ping and displays `<@ID> (@name)`.
+  - [x] Persists user identity in localStorage so credentials don't need re-typing.
+- [x] **Authentic Dark-Mode Discord Embed Live Preview**:
+  - [x] Visual embed preview matching Discord's native dark interface (`#1e1f22` and `#2b2d31`).
+  - [x] Real-time tag display, color bar, field mapping, and live time clock.
+- [x] **Server Proxy Route (`/api/discord/thread`)**:
+  - [x] Node middleware in `vite.config.ts` handles communication with Discord REST API to avoid browser CORS errors.
+  - [x] Native fallback for Electron desktop build.
+- [x] **Universal UI Access**:
+  - [x] Added "Feedback & Bug melden (Discord)" button in Windows Start Menu footer.
+  - [x] Added "Bug melden" and "Idee & Feedback" action buttons in Settings sidebar.
+  - [x] Added quick actions in Command Palette (`Ctrl+K`).
+- [x] **Multilingual Support (DE, EN, FR, ES)**:
+  - [x] Localized all modal strings, tags, placeholders, and tooltips in `src/lib/i18n.ts`.
+
+---
+
 ### Invoicing Templates & Layout Architecture in Invoicing & Settings (v23.11.0)
 - [x] **Relocated Template Customization from Therapy to Core Invoicing & Settings**:
   - [x] Removed template editing clutter from the Therapy Module so it remains focused on therapy sessions, appointments, and client dossiers.
