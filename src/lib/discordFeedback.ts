@@ -999,7 +999,58 @@ export async function sendDiscordReport(
     return recordQueued('navigator_offline');
   }
 
-  // 1. Try via backend proxy route first (to bypass browser CORS)
+  // 1. Try Electron Main Process Webhook Bridge if running in Desktop App
+  const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
+  if (electronApi?.discordWebhook && DISCORD_CONFIG.BOTGHOST_WEBHOOK) {
+    try {
+      const elecRes = await electronApi.discordWebhook({
+        url: DISCORD_CONFIG.BOTGHOST_WEBHOOK,
+        payload: {
+          username: cleanName,
+          content: messageContent,
+          embeds: [embed],
+          title: payload.title,
+          category: payload.categoryOrLocation,
+          type: payload.type
+        }
+      });
+      if (elecRes && elecRes.ok) {
+        const webhookThreadId = `electron_webhook_${Date.now()}`;
+        return recordSuccess(webhookThreadId);
+      }
+    } catch (elecErr) {
+      console.warn('Electron discordWebhook IPC failed:', elecErr);
+    }
+  }
+
+  // 2. Try BotGhost Webhook first (direct HTTP POST from browser/client)
+  if (DISCORD_CONFIG.BOTGHOST_WEBHOOK) {
+    try {
+      const webhookResp = await fetch(DISCORD_CONFIG.BOTGHOST_WEBHOOK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: cleanName,
+          content: messageContent,
+          embeds: [embed],
+          title: payload.title,
+          category: payload.categoryOrLocation,
+          type: payload.type
+        }),
+      });
+
+      if (webhookResp.ok || webhookResp.status === 200 || webhookResp.status === 204) {
+        const webhookThreadId = `webhook_${Date.now()}`;
+        return recordSuccess(webhookThreadId);
+      }
+    } catch (webhookErr) {
+      console.warn('BotGhost webhook request failed, trying proxy/fallback...', webhookErr);
+    }
+  }
+
+  // 2. Try via backend proxy route first (to bypass browser CORS)
   try {
     const proxyResp = await fetch('/api/discord/thread', {
       method: 'POST',

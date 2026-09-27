@@ -965,6 +965,42 @@ ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GE
   });
 });
 
+ipcMain.handle('socdof:discord-webhook', async (_event, { url, payload }) => {
+  return new Promise((resolve) => {
+    try {
+      const urlObj = new URL(url);
+      const postData = JSON.stringify(payload);
+      const reqOptions = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
+        }
+      };
+
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data });
+        });
+      });
+
+      req.on('error', (err) => {
+        resolve({ status: 500, ok: false, error: err.message });
+      });
+
+      req.write(postData);
+      req.end();
+    } catch (err) {
+      resolve({ status: 500, ok: false, error: err.message });
+    }
+  });
+});
+
 app.on('second-instance', () => {
   // If user tries to run a second instance (e.g. from installer or shortcut), focus existing window
   if (mainWindow) {

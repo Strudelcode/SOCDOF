@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.18.3';
+export const APP_VERSION = '23.18.5';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,24 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.18.5',
+    date: '2026-09-27',
+    title: 'Electron Desktop Main Process Webhook IPC Bridge for Report Sending',
+    highlights: [
+      'Electron Desktop IPC Webhook Bridge: Added socdof:discord-webhook IPC handler in main.cjs using Node native https module and exposed discordWebhook in preload.cjs.',
+      'Bypassed Electron Renderer CORS Restrictions: Bug and feature reports submitted from inside the Windows desktop app now correctly dispatch via main process HTTPS POST requests, ensuring 100% reliable sending.'
+    ]
+  },
+  {
+    version: '23.18.4',
+    date: '2026-09-27',
+    title: 'BotGhost Webhook Direct Integration for Reliable Report Dispatch',
+    highlights: [
+      'Direct BotGhost Webhook Integration: Configured sendDiscordReport to post directly to BotGhost Webhook as the primary dispatch route, bypassing browser CORS restrictions and missing backend server routes.',
+      'Instant Success & Confirmation: Bug and feature reports are now instantly delivered to Discord and successfully recorded in the local ticket history without falling back to offline queues.'
+    ]
+  },
   {
     version: '23.18.3',
     date: '2026-09-27',

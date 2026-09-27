@@ -989,7 +989,8 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
   const trs = getDirectChildrenByTagName(tblNode, 'w:tr');
   if (trs.length === 0) return '';
 
-  const gridCols = Array.from(tblNode.querySelectorAll('w:tblGrid > w:gridCol'));
+  const tblGrid = getDirectChildrenByTagName(tblNode, 'w:tblGrid')[0] || tblNode.getElementsByTagName('w:tblGrid')[0];
+  const gridCols = tblGrid ? getDirectChildrenByTagName(tblGrid, 'w:gridCol') : Array.from(tblNode.getElementsByTagName('w:gridCol'));
   const colWidths = gridCols.map(c => parseInt(c.getAttribute('w:w') || '0', 10));
   const totalGridWidth = colWidths.reduce((a, b) => a + b, 0);
 
