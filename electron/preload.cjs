@@ -49,5 +49,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('socdof:window-popped-in', listener);
   },
   getPreferences: () => ipcRenderer.invoke('socdof:get-preferences'),
-  savePreferences: (prefs) => ipcRenderer.invoke('socdof:save-preferences', prefs)
+  savePreferences: (prefs) => ipcRenderer.invoke('socdof:save-preferences', prefs),
+  discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload)
 });

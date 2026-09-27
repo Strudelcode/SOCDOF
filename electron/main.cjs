@@ -922,6 +922,49 @@ ipcMain.handle('socdof:save-backup-file-to-disk', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GET', body, botToken }) => {
+  return new Promise((resolve) => {
+    try {
+      const targetUrl = endpoint.startsWith('http') ? endpoint : `https://discord.com/api/v10${endpoint}`;
+      const urlObj = new URL(targetUrl);
+      const reqOptions = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: method,
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
+        }
+      };
+
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const json = data ? JSON.parse(data) : {};
+            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: json });
+          } catch (err) {
+            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: { raw: data } });
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        resolve({ status: 500, ok: false, error: err.message });
+      });
+
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
+      req.end();
+    } catch (err) {
+      resolve({ status: 500, ok: false, error: err.message });
+    }
+  });
+});
+
 app.on('second-instance', () => {
   // If user tries to run a second instance (e.g. from installer or shortcut), focus existing window
   if (mainWindow) {

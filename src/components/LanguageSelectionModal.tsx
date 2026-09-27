@@ -102,8 +102,8 @@ export const LanguageSelectionModal: React.FC<LanguageSelectionModalProps> = ({
         code: lang.code,
         name: lang.nativeLabel,
         subtitle: lang.label,
-        badge: lang.code === 'en' ? 'Default / Master' : undefined,
-        isDefault: lang.code === 'en',
+        badge: lang.code === 'de' ? 'Standard' : undefined,
+        isDefault: lang.code === 'de',
         isCustom: false
       });
     }

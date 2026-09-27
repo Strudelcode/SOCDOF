@@ -39,6 +39,16 @@ export interface AppPickerItem {
 
 export const PICKER_APP_ITEMS: AppPickerItem[] = [
   {
+    id: 'custom_other',
+    nameKey: 'feedback.loc_other',
+    defaultName: 'Sonstiges (Eigene Eingabe)',
+    descKey: 'feedback.loc_other_desc',
+    defaultDesc: 'Eigene App oder Funktionsbereich manuell eingeben',
+    icon: PlusCircle,
+    color: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+    category: 'custom'
+  },
+  {
     id: 'dashboard',
     nameKey: 'module.dashboard',
     defaultName: 'Dashboard',
@@ -237,16 +247,6 @@ export const PICKER_APP_ITEMS: AppPickerItem[] = [
     icon: Bug,
     color: 'bg-gradient-to-br from-orange-500 to-amber-600',
     category: 'tools'
-  },
-  {
-    id: 'custom_other',
-    nameKey: 'feedback.loc_other',
-    defaultName: 'Sonstiges (Eigene Eingabe)',
-    descKey: 'feedback.loc_other_desc',
-    defaultDesc: 'Eigene App oder Funktionsbereich manuell eingeben',
-    icon: PlusCircle,
-    color: 'bg-gradient-to-br from-slate-500 to-slate-700',
-    category: 'custom'
   }
 ];
 
@@ -365,7 +365,7 @@ export const AppLocationPickerModal: React.FC<AppLocationPickerModalProps> = ({
               </p>
               <button
                 type="button"
-                onClick={() => handlePick(PICKER_APP_ITEMS[PICKER_APP_ITEMS.length - 1])}
+                onClick={() => handlePick(PICKER_APP_ITEMS[0])}
                 className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold border border-indigo-200 dark:border-indigo-800"
               >
                 <PlusCircle className="w-3.5 h-3.5" />

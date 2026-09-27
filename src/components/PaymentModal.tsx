@@ -209,8 +209,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const hasCompanyIban = Boolean(company.iban && company.iban.trim().length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-scale-up">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:px-6 sm:pt-6 sm:pb-20 pb-16 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-5.5rem)] animate-scale-up">
         
         {/* Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">

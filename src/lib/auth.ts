@@ -437,7 +437,13 @@ export async function createUser(input: {
         : undefined,
     createdAt: now,
     updatedAt: now,
-    preferences: input.preferences ?? {},
+    preferences: {
+      ...input.preferences,
+      language:
+        input.preferences?.language ||
+        (typeof localStorage !== 'undefined' ? (localStorage.getItem('socdof_language') as any) : null) ||
+        'de',
+    },
   };
 
   users.push(user);

@@ -62,8 +62,8 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
   const invoiceHtml = generateInvoiceHtml(activeTemplate, invoice, company, company.currency, false);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-fade-in print:p-0 print:bg-white">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:m-0 print:border-none print:shadow-none">
+    <div className="fixed inset-0 z-[999999] overflow-hidden bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 sm:px-6 sm:pt-6 sm:pb-20 pb-16 animate-fade-in print:p-0 print:bg-white">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-5.5rem)] print:max-h-none print:m-0 print:border-none print:shadow-none">
         
         {/* Modal Top Control Bar (Hidden on Print) */}
         <div className="no-print p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 flex flex-wrap items-center justify-between gap-3">

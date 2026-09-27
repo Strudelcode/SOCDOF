@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { applyAccentColor } from '../lib/accent';
 import { getSession, getUserById, type AccountType, AUTH_CHANGE_EVENT_NAME, type UserAccount } from '../lib/auth';
+import { setLanguage } from '../lib/i18n';
 
 /**
  * Applies the active local account's workspace scope before the desktop workspace mounts.
@@ -113,6 +114,9 @@ function prepareUserWorkspace(userId: string, accountType: AccountType): void {
 
 function applyUserAppearance(user: UserAccount | null): void {
   if (!user) return;
+  if (user.preferences.language) {
+    setLanguage(user.preferences.language);
+  }
   const root = document.documentElement;
   // If user explicitly has a preference, use it; otherwise DO NOT force 'light'!
   // Let the system / company theme from App.tsx take precedence if user has no explicit preference.

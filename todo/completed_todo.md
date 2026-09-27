@@ -4,6 +4,128 @@
 
 ---
 
+### High-Fidelity Word (.docx) XML Table Parsing & Smart Variable Rendering (v23.18.0)
+- [x] **Full DOCX XML Table & Layout Parsing**:
+  - [x] Implemented structural XML tree parsing for Word documents (`<w:tbl>`, `<w:tr>`, `<w:tc>`), preserving multi-column layouts, side-by-side header boxes, table borders, cell padding, background fills, width percentages, text alignments (`<w:jc>`), font sizes, colors, bolding, and headers/footers (`word/header1.xml`, `word/footer1.xml`).
+- [x] **Smart Position Table Substitution**:
+  - [x] Automatically identifies and collapses stacked single-line item header paragraphs (e.g. `Pos.`, `Bezeichnung / Artikel`, `Menge`, `Einzelpreis`, `MwSt`, `Gesamt`) appearing directly before `{Positionen_Tabelle}`.
+  - [x] Unwraps `<p>{Positionen_Tabelle}</p>` to render clean, responsive, top-level HTML line item tables without DOM nesting issues.
+- [x] **1:1 Visual Fidelity**:
+  - [x] Imported Word templates match original document layouts in live preview, PDF export, and printing.
+
+---
+
+### PDF & Word (.docx) Template Import & Automatic Variable Extraction (v23.17.0)
+- [x] **PDF & Word (.docx / .doc) Document Ingestion**:
+  - [x] Client-side parsing of PDF files and Microsoft Word documents (`.docx`, `.doc`), HTML, and text templates.
+- [x] **1:1 Variable Extraction & Normalization**:
+  - [x] Automatically extracts and normalizes all variable placeholders (`{Rechnungsnummer}`, `{Kunde_Name}`, `{Gesamtbetrag}`, `{Datum}`, `{Faelligkeitsdatum}`, `{{invoice.number}}`).
+- [x] **Dynamic Template Re-Use**:
+  - [x] Uploaded PDF and Word templates populate dynamically with real invoice data during preview, printing, and PDF export.
+
+---
+
+### Clean Option Labels, Fixed Window Frame & Streamlined Mobile View Switcher (v23.16.6)
+- [x] **Clean Section Selection Dropdown**:
+  - [x] Removed all emoji symbols from section option labels (`Design, Logo, Farben & Typografie`, `Texte, Titel & Belegangaben`, `Firmendaten, Adresse & Bank`, etc.) for a clean corporate appearance.
+- [x] **Fixed Non-Scrolling Window Frame**:
+  - [x] Outer modal backdrop and inner dialog cards maintain strict `overflow-hidden` bounds to eliminate window frame scrolling.
+- [x] **Streamlined Bottom Switcher**:
+  - [x] Compact view switcher displays strictly `[ Editor ]` and `[ Live-Vorschau ]` buttons without emojis or redundant options on small screens.
+  - [x] Automatically hides switcher and renders side-by-side split view on larger displays.
+- [x] **Universal Quad-Language Parity**:
+  - [x] All section labels and switcher texts localized across DE, EN, FR, and ES.
+
+---
+
+### Clean Minimalist Responsive Invoice Layout Switcher & Automatic Split View (v23.16.4)
+- [x] **Automatic Desktop Split View & Clutter Removal**:
+  - [x] Removed redundant top header view controls, decorative emojis, and the "Beides/Split-View" button.
+  - [x] On large screens (`lg:`), automatically displays side-by-side split view without requiring button toggles.
+- [x] **Minimalist 2-Button Switcher for Small Screens**:
+  - [x] Displays a clean 2-button footer toggle (`[ Editor ]` / `[ Live-Vorschau ]`) using pure vector icons (`Layout`, `Eye`) on compact windows (`lg:hidden`).
+- [x] **Universal Quad-Language Parity**:
+  - [x] All compact view switcher labels localized in DE, EN, FR, and ES.
+
+---
+
+### Fixed Modal Backdrop Positioning & Responsive Editor vs. Preview View Switcher (v23.16.3)
+- [x] **Fixed Backdrop Container Overflow**:
+  - [x] Replaced `overflow-y-auto` with `overflow-hidden` on the outer backdrop container in `InvoiceTemplateModal.tsx` and `InvoicePrintModal.tsx`.
+  - [x] Ensures modal windows stay 100% fixed and motionless on screen, eliminating accidental backdrop page scrolling.
+- [x] **Responsive View Switcher (Editor vs. Live Preview vs. Split View)**:
+  - [x] Added clean segmented mode controls (`[ ✏️ Editor ]` / `[ 👁️ Live-Vorschau ]` / `[ ↔️ Nebeneinander ]`) in both header bar and bottom action bar.
+  - [x] Allows users to switch seamlessly between 100% full-width editor layout and 100% full-width DIN-A4 document preview.
+- [x] **Universal Quad-Language Parity**:
+  - [x] All view switcher labels localized in DE, EN, FR, and ES.
+
+---
+
+### Invoice Modal Foreground Layering, Taskbar Clearance & Non-Scrolling Sub-Tabs Layout (v23.16.2)
+- [x] **Foreground Z-Index & Taskbar Clearance**:
+  - [x] Set backdrop z-index priority to `z-[999999]` across `InvoiceTemplateModal`, `InvoicePrintModal`, `InvoiceEmailModal`, and `PaymentModal`.
+  - [x] Added `pb-16`/`pb-20` taskbar clearance padding and `max-h-[calc(100vh-5.5rem)]` container limit to ensure modal footers ("Werkseinstellungen", "Änderungen speichern") sit 100% in the foreground above the Windows taskbar.
+- [x] **Non-Scrolling Sub-Tab Navigation**:
+  - [x] Replaced the crowded, horizontally scrolling tab bar in `InvoiceTemplateModal.tsx` with a clean 2-row segmented grid control (`Design & Logo`, `Texte`, `Firmendaten` / `Variablen`, `Datei-Import`).
+  - [x] Completely removed horizontal scrollbars and truncated labels (`Date...`), guaranteeing clean alignment within left sidebar boundaries.
+- [x] **Universal Quad-Language Parity**:
+  - [x] All sub-tab labels and tooltips updated for DE, EN, FR, and ES.
+
+---
+
+### Offline Bug Report Queueing, Automatic Online Auto-Sync & Exact Capture Timestamp Preservation (v23.15.0)
+- [x] **Unrestricted Offline Report Submission**:
+  - [x] Removed blocking error checks preventing submissions when offline or when the Discord bot is unreachable.
+  - [x] Allows users to submit reports at any time, saving them locally in an indexed offline queue with status `In Warteschlange (Offline)`.
+- [x] **Exact Client Capture Timestamp Preservation**:
+  - [x] Records and stores the exact original authoring time (`originalOfflineCreatedAt`).
+  - [x] Transmits this original time to Discord in the embed field (`🕒 Ursprünglich offline erfasst am: DD.MM.YYYY, HH:mm:ss`) and footer (`SOCDOF Offline Sync • Erfasst: ...`), so developers see when the bug actually occurred.
+- [x] **Automatic Online Background Auto-Sync**:
+  - [x] Listens for browser `online` events, window focus changes, application start, and 30-second interval timers in `App.tsx` and `discordFeedback.ts`.
+  - [x] Automatically flushes queued reports to Discord without user friction when internet connection or bot availability returns.
+  - [x] Upgrades local ticket records to live Discord threads with thread URLs upon successful transmission.
+- [x] **Manual Queue Dispatch & User Feedback**:
+  - [x] Integrated "Jetzt an Discord senden" manual trigger in ticket history view.
+  - [x] Replaced error popups with friendly amber/orange banners and button labels explaining offline auto-sync.
+- [x] **Quad-Language Localization**:
+  - [x] All new offline queue notices, status badges, and instructions localized in German, English, French, and Spanish (`src/lib/i18n.ts`).
+
+---
+
+### Discord Bug Report User Identity Independence, Live Dynamic Bot Status & Offline Graceful Degradation (v23.14.5)
+- [x] **User-Entered Discord Name Independence**:
+  - [x] Removed all automatic pre-filling of developer nicknames (`Strudel` / `Strudelgame`) in bug reports and feedback.
+  - [x] Discord name input defaults to empty string so users input their own username.
+  - [x] Added strict client-side validation requiring a Discord username prior to submission with localized warning messages.
+- [x] **Live Dynamic Discord Bot Status Detection**:
+  - [x] Replaced static badge with real-time status monitor (`Discord-Bot online`, `Discord-Bot offline`, `Bot wird geprüft...`) in both modal and app.
+  - [x] Added polling and quick refresh icon button to re-check bot status immediately.
+- [x] **Offline Protection & User Guidance**:
+  - [x] Disabled report submission when the Discord bot is offline to prevent lost user data.
+  - [x] Added styled offline alert banner in the report form explaining that the bot is normally back within a maximum of 10 minutes.
+  - [x] Handled offline submit attempts with clear localized warning dialogues.
+- [x] **Full Quad-Language Support (DE, EN, FR, ES)**:
+  - [x] Updated all related offline notices, status badges, validation alerts, and placeholders across all 4 languages in `src/lib/i18n.ts`.
+
+---
+
+### Onboarding Language Selection Persistence, Database Profile Default & Account Preferences Sync (v23.14.4)
+- [x] **Onboarding Language Retention & Persistence**:
+  - [x] Fixed issue where selecting German during initial onboarding reverted back to English upon entering the desktop workspace.
+  - [x] Stored chosen language reliably in newly created user preferences (`user.preferences.language`).
+  - [x] Persisted chosen language into IndexedDB company profile record and `localStorage ('socdof_language')`.
+- [x] **Native German Default Alignment**:
+  - [x] Set default language in `defaultCompanyProfile` from English to German (`de`), matching regional formatting standards.
+  - [x] Updated `clearDatabaseToEmpty` and `seedInitialDataIfNeeded` to preserve and use existing language instead of forcing English.
+- [x] **Company Profile Language Event Sync**:
+  - [x] Added `socdof-company-updated` listener in `App.tsx` to immediately synchronize root state when company settings update.
+- [x] **Multi-User Session Language Restoration**:
+  - [x] Restores the authenticated user's preferred language during login and `AccountScopedWorkspace` mount.
+- [x] **Root Modal Cleanliness**:
+  - [x] Removed redundant `LanguageSelectionModal` from `App.tsx` that previously caused race conditions with `AuthGate` onboarding.
+
+---
+
 ### Discord Tag ID Mapping, Thread Messages Inspector & Custom Emoji Parsing (v23.14.3)
 - [x] **Eliminated Redundant Manual Status Selectors**:
   - [x] Removed manual status override dropdowns from ticket history and feedback views.

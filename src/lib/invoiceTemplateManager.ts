@@ -1,5 +1,13 @@
 import { Invoice, CompanyProfile, InvoiceItem } from '../types';
 import { formatCurrencyDE } from './formatters';
+import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
+
+if (typeof window !== 'undefined' && pdfjsLib) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.10.38'}/pdf.worker.min.mjs`;
+  } catch {}
+}
 
 export interface InvoiceTemplate {
   id: string;
@@ -382,29 +390,114 @@ export function getActiveInvoiceTemplate(): InvoiceTemplate {
 }
 
 /**
- * Scans content for all variables enclosed in `{...}`
+ * Safely extracts clean printable text and template variables from binary buffers (.doc / raw pdf / binary fallbacks)
+ */
+function extractPrintableTextFromBinaryBuffer(buffer: ArrayBuffer): { content: string; detectedVariables: string[] } {
+  const bytes = new Uint8Array(buffer);
+  
+  let text = '';
+  try {
+    const decoder = new TextDecoder('utf-16le');
+    text = decoder.decode(bytes);
+  } catch {
+    const decoder = new TextDecoder('latin1');
+    text = decoder.decode(bytes);
+  }
+
+  // Extract readable words, German umlauts, punctuation and template variable tags
+  const cleanMatches = text.match(/[\w\s\däöüßÄÖÜ€$%&()*+,\-./:;<=>?@[\]^{|}~]{3,}/g) || [];
+  
+  // Filter out hex strings and binary control noise
+  const filteredLines = cleanMatches
+    .map(s => s.trim())
+    .filter(s => s.length >= 3 && !/^[0-9a-fA-F]{8,}$/.test(s) && /[a-zA-ZäöüßÄÖÜ0-9{}]/.test(s));
+
+  const uniqueLines = Array.from(new Set(filteredLines)).slice(0, 200);
+
+  const paragraphs = uniqueLines.map(line => {
+    let normalized = line
+      .replace(/\{\{\s*rechnungsnummer\s*\}\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\{\s*invoice\.number\s*\}\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\s*invoice\.number\s*\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\{\s*datum\s*\}\}/gi, '{Datum}')
+      .replace(/\{\{\s*invoice\.date\s*\}\}/gi, '{Datum}')
+      .replace(/\{\s*invoice\.date\s*\}/gi, '{Datum}')
+      .replace(/\{\{\s*kunde_name\s*\}\}/gi, '{Kunde_Name}')
+      .replace(/\{\{\s*customer\.name\s*\}\}/gi, '{Kunde_Name}')
+      .replace(/\{\s*customer\.name\s*\}/gi, '{Kunde_Name}')
+      .replace(/\{\{\s*gesamtbetrag\s*\}\}/gi, '{Gesamtbetrag}')
+      .replace(/\{\{\s*total\s*\}\}/gi, '{Gesamtbetrag}')
+      .replace(/\{\s*total\s*\}/gi, '{Gesamtbetrag}');
+
+    const safe = normalized.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<p style="margin-bottom: 8px; line-height: 1.5;">${safe}</p>`;
+  });
+
+  const bodyHtml = paragraphs.length > 0
+    ? paragraphs.join('\n')
+    : '<p style="color: #64748b; font-style: italic;">[Kein lesbarer Text gefunden. Bitte speichern Sie die Vorlage als neuere .docx oder .pdf Datei]</p>';
+
+  const htmlContent = `<div style="font-family: inherit; color: #1e293b; max-width: 800px; margin: 0 auto;">\n${bodyHtml}\n</div>`;
+  const { recognized, unrecognized } = scanTemplateVariables(htmlContent);
+  
+  return { content: htmlContent, detectedVariables: [...recognized, ...unrecognized] };
+}
+
+/**
+ * Scans content for all variables enclosed in `{...}` or `{{...}}`
  */
 export function scanTemplateVariables(content: string): { recognized: string[]; unrecognized: string[] } {
   if (!content) return { recognized: [], unrecognized: [] };
-  const matches = content.match(/\{[a-zA-Z0-9_-]+\}/g) || [];
-  const unique = Array.from(new Set(matches));
+  const safeContent = content.length > 500000 ? content.slice(0, 500000) : content;
+  const matchesSingle = safeContent.match(/\{[a-zA-Z0-9_\-\.]+\}/g) || [];
+  const matchesDouble = safeContent.match(/\{\{[a-zA-Z0-9_\-\.\s]+\}\}/g) || [];
+  
+  const rawUnique = Array.from(new Set([...matchesSingle, ...matchesDouble]));
 
   const knownKeys = new Set(AVAILABLE_INVOICE_VARIABLES.map(v => v.key.toLowerCase()));
   knownKeys.add('{primaerfarbe}');
   knownKeys.add('{fusszeile}');
 
+  const aliasMap: Record<string, string> = {
+    '{{rechnungsnummer}}': '{Rechnungsnummer}',
+    '{invoice.number}': '{Rechnungsnummer}',
+    '{{invoice.number}}': '{Rechnungsnummer}',
+    '{{invoice_number}}': '{Rechnungsnummer}',
+    '{{datum}}': '{Datum}',
+    '{invoice.date}': '{Datum}',
+    '{{invoice.date}}': '{Datum}',
+    '{{kunde_name}}': '{Kunde_Name}',
+    '{customer.name}': '{Kunde_Name}',
+    '{{customer.name}}': '{Kunde_Name}',
+    '{{kunde_firma}}': '{Kunde_Firma}',
+    '{customer.company}': '{Kunde_Firma}',
+    '{{customer.company}}': '{Kunde_Firma}',
+    '{{gesamtbetrag}}': '{Gesamtbetrag}',
+    '{total}': '{Gesamtbetrag}',
+    '{{total}}': '{Gesamtbetrag}',
+    '{{netto}}': '{Netto}',
+    '{{ust_betrag}}': '{Ust_Betrag}',
+    '{{positionen_tabelle}}': '{Positionen_Tabelle}'
+  };
+
   const recognized: string[] = [];
   const unrecognized: string[] = [];
 
-  for (const key of unique) {
-    if (knownKeys.has(key.toLowerCase())) {
-      recognized.push(key);
+  for (const raw of rawUnique) {
+    const lower = raw.toLowerCase().replace(/\s+/g, '');
+    if (aliasMap[lower]) {
+      recognized.push(aliasMap[lower]);
+    } else if (knownKeys.has(lower) || knownKeys.has(raw.toLowerCase())) {
+      recognized.push(raw);
     } else {
-      unrecognized.push(key);
+      unrecognized.push(raw);
     }
   }
 
-  return { recognized, unrecognized };
+  return { 
+    recognized: Array.from(new Set(recognized)), 
+    unrecognized: Array.from(new Set(unrecognized)) 
+  };
 }
 
 /**
@@ -609,6 +702,16 @@ export function generateInvoiceHtml(
   // 1. If custom body template is used
   if (template.useCustomLayout && template.customBodyTemplate) {
     let html = template.customBodyTemplate;
+
+    // Clean up stacked single-line item header paragraphs (Pos., Artikel, Menge, Einzelpreis, MwSt, Gesamt) right before {Positionen_Tabelle}
+    html = html.replace(/(?:<p[^>]*>\s*(?:Pos\.|Bezeichnung\s*\/\s*Artikel|Menge|Einzelpreis|MwSt|Gesamt)\s*<\/p>\s*){3,10}\s*(?:<p[^>]*>\s*)?\{Positionen_Tabelle\}(?:\s*<\/p>)?/gi, '{Positionen_Tabelle}');
+
+    // Unwrap <p>{Positionen_Tabelle}</p> so table is rendered at top block level
+    if (vars['{Positionen_Tabelle}']) {
+      html = html.replace(/<p[^>]*>\s*\{Positionen_Tabelle\}\s*<\/p>/gi, vars['{Positionen_Tabelle}']);
+      html = html.replace(/<p[^>]*>\s*\{\{\s*positionen_tabelle\s*\}\}\s*<\/p>/gi, vars['{Positionen_Tabelle}']);
+    }
+
     for (const [key, value] of Object.entries(vars)) {
       html = html.split(key).join(value);
     }
@@ -833,12 +936,296 @@ export function exportInvoiceToWord(
 }
 
 /**
- * Reads an uploaded template file (.docx / .html / .txt / .json), extracting text and finding variables
+ * Helper functions to parse DOCX XML trees (<w:tbl>, <w:tr>, <w:tc>, <w:p>, <w:r>) into rich HTML elements
  */
-export async function readUploadedTemplateFile(file: File): Promise<{ content: string; detectedVariables: string[] }> {
+function getDirectChildrenByTagName(parent: Element, tagName: string): Element[] {
+  const result: Element[] = [];
+  for (let i = 0; i < parent.childNodes.length; i++) {
+    const node = parent.childNodes[i];
+    if (node.nodeType === 1) {
+      const el = node as Element;
+      if (el.tagName === tagName) {
+        result.push(el);
+      } else if (el.tagName === 'w:sdt' || el.tagName === 'w:sdtContent' || el.tagName === 'w:body') {
+        result.push(...getDirectChildrenByTagName(el, tagName));
+      }
+    }
+  }
+  return result;
+}
+
+async function parseDocxXmlContainerAsync(containerNode: Element, yieldCounter = { count: 0 }): Promise<string> {
+  const htmlBlocks: string[] = [];
+  const children = Array.from(containerNode.childNodes);
+
+  for (const child of children) {
+    yieldCounter.count++;
+    if (yieldCounter.count % 15 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    if (child.nodeType !== 1) continue;
+    const el = child as Element;
+    const tagName = el.tagName;
+
+    if (tagName === 'w:tbl') {
+      htmlBlocks.push(await parseDocxTableAsync(el, yieldCounter));
+    } else if (tagName === 'w:p') {
+      const pHtml = parseDocxParagraph(el);
+      if (pHtml) htmlBlocks.push(pHtml);
+    } else if (tagName === 'w:sdt') {
+      const sdtContent = el.getElementsByTagName('w:sdtContent')[0];
+      if (sdtContent) {
+        htmlBlocks.push(await parseDocxXmlContainerAsync(sdtContent, yieldCounter));
+      }
+    }
+  }
+
+  return htmlBlocks.join('\n');
+}
+
+async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }): Promise<string> {
+  // Use bounded child search instead of recursive getElementsByTagName to avoid exponential DOM traversal
+  const trs = getDirectChildrenByTagName(tblNode, 'w:tr');
+  if (trs.length === 0) return '';
+
+  const gridCols = Array.from(tblNode.querySelectorAll('w:tblGrid > w:gridCol'));
+  const colWidths = gridCols.map(c => parseInt(c.getAttribute('w:w') || '0', 10));
+  const totalGridWidth = colWidths.reduce((a, b) => a + b, 0);
+
+  const tblPr = tblNode.getElementsByTagName('w:tblPr')[0];
+  let tblBorders = true;
+  let tblBg = '';
+
+  if (tblPr) {
+    const borders = tblPr.getElementsByTagName('w:tblBorders')[0];
+    if (borders) {
+      const top = borders.getElementsByTagName('w:top')[0];
+      if (top && (top.getAttribute('w:val') === 'none' || top.getAttribute('w:val') === 'nil')) {
+        tblBorders = false;
+      }
+    }
+    const shd = tblPr.getElementsByTagName('w:shd')[0];
+    if (shd) {
+      const fill = shd.getAttribute('w:fill');
+      if (fill && fill !== 'auto' && fill !== 'none') tblBg = `#${fill}`;
+    }
+  }
+
+  const rowsHtml: string[] = [];
+
+  for (let rIdx = 0; rIdx < trs.length; rIdx++) {
+    yieldCounter.count++;
+    if (yieldCounter.count % 10 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    const tr = trs[rIdx];
+    const tcs = getDirectChildrenByTagName(tr, 'w:tc');
+    const isHeaderRow = rIdx === 0 || tr.getElementsByTagName('w:tblHeader').length > 0;
+
+    const cellsHtml: string[] = [];
+    for (let cIdx = 0; cIdx < tcs.length; cIdx++) {
+      const tc = tcs[cIdx];
+      const tcPr = tc.getElementsByTagName('w:tcPr')[0];
+      let colSpan = 1;
+      let cellBg = '';
+      let cellWidthPct = '';
+
+      if (tcPr) {
+        const gridSpan = tcPr.getElementsByTagName('w:gridSpan')[0];
+        if (gridSpan) {
+          colSpan = parseInt(gridSpan.getAttribute('w:val') || '1', 10);
+        }
+        const shd = tcPr.getElementsByTagName('w:shd')[0];
+        if (shd) {
+          const fill = shd.getAttribute('w:fill');
+          if (fill && fill !== 'auto' && fill !== 'none') cellBg = `#${fill}`;
+        }
+        const tcW = tcPr.getElementsByTagName('w:tcW')[0];
+        if (tcW && totalGridWidth > 0) {
+          const wVal = parseInt(tcW.getAttribute('w:w') || '0', 10);
+          if (wVal > 0) cellWidthPct = `${Math.round((wVal / totalGridWidth) * 100)}%`;
+        }
+      }
+
+      let cellContent = (await parseDocxXmlContainerAsync(tc, yieldCounter)).trim();
+      if (!cellContent) cellContent = '&nbsp;';
+
+      const styleParts: string[] = [
+        'padding: 8px 10px',
+        'vertical-align: top',
+        'font-size: 12px',
+        'line-height: 1.4'
+      ];
+
+      if (tblBorders) {
+        styleParts.push('border: 1px solid #cbd5e1');
+      } else {
+        styleParts.push('border: none');
+      }
+
+      if (cellBg) {
+        styleParts.push(`background-color: ${cellBg}`);
+      } else if (isHeaderRow && tblBorders) {
+        styleParts.push('background-color: #f1f5f9; font-weight: bold;');
+      }
+
+      if (cellWidthPct) styleParts.push(`width: ${cellWidthPct}`);
+
+      const tag = isHeaderRow ? 'th' : 'td';
+      const colSpanAttr = colSpan > 1 ? ` colspan="${colSpan}"` : '';
+      cellsHtml.push(`<${tag}${colSpanAttr} style="${styleParts.join('; ')}">${cellContent}</${tag}>`);
+    }
+
+    rowsHtml.push(`  <tr>\n    ${cellsHtml.join('\n    ')}\n  </tr>`);
+  }
+
+  const tblStyleParts: string[] = [
+    'width: 100%',
+    'border-collapse: collapse',
+    'margin-top: 12px',
+    'margin-bottom: 16px',
+    'font-size: 13px'
+  ];
+  if (tblBg) tblStyleParts.push(`background-color: ${tblBg}`);
+
+  return `<table style="${tblStyleParts.join('; ')}">\n${rowsHtml.join('\n')}\n</table>`;
+}
+
+function getDocxRuns(pNode: Element): Element[] {
+  const runs: Element[] = [];
+  for (let i = 0; i < pNode.childNodes.length; i++) {
+    const child = pNode.childNodes[i];
+    if (child.nodeType !== 1) continue;
+    const el = child as Element;
+    if (el.tagName === 'w:r') {
+      runs.push(el);
+    } else if (el.tagName === 'w:hyperlink' || el.tagName === 'w:sdt' || el.tagName === 'w:sdtContent' || el.tagName === 'w:smartTag') {
+      runs.push(...getDocxRuns(el));
+    }
+  }
+  return runs;
+}
+
+function parseDocxParagraph(pNode: Element): string {
+  const pPr = pNode.getElementsByTagName('w:pPr')[0];
+  let align = 'left';
+  let isHeading = false;
+
+  if (pPr) {
+    const jc = pPr.getElementsByTagName('w:jc')[0];
+    if (jc) {
+      const val = jc.getAttribute('w:val');
+      if (val === 'center' || val === 'right' || val === 'both') {
+        align = val === 'both' ? 'justify' : val;
+      }
+    }
+    const pStyle = pPr.getElementsByTagName('w:pStyle')[0];
+    if (pStyle) {
+      const styleVal = (pStyle.getAttribute('w:val') || '').toLowerCase();
+      if (styleVal.includes('heading') || styleVal.includes('überschrift') || styleVal.includes('title')) {
+        isHeading = true;
+      }
+    }
+  }
+
+  const runs = getDocxRuns(pNode);
+  if (runs.length === 0) return '';
+
+  const runHtmlParts: string[] = [];
+
+  for (const r of runs) {
+    const rPr = r.getElementsByTagName('w:rPr')[0];
+    let isBold = false;
+    let isItalic = false;
+    let isUnderline = false;
+    let textColor = '';
+    let fontSizePx = '';
+
+    if (rPr) {
+      if (rPr.getElementsByTagName('w:b').length > 0 || rPr.getElementsByTagName('w:bCs').length > 0) isBold = true;
+      if (rPr.getElementsByTagName('w:i').length > 0) isItalic = true;
+      if (rPr.getElementsByTagName('w:u').length > 0) isUnderline = true;
+      const colorNode = rPr.getElementsByTagName('w:color')[0];
+      if (colorNode) {
+        const val = colorNode.getAttribute('w:val');
+        if (val && val !== 'auto') textColor = `#${val}`;
+      }
+      const szNode = rPr.getElementsByTagName('w:sz')[0];
+      if (szNode) {
+        const val = parseInt(szNode.getAttribute('w:val') || '0', 10);
+        if (val > 0) fontSizePx = `${Math.round((val / 2) * 1.33)}px`;
+      }
+    }
+
+    const tNodes = Array.from(r.getElementsByTagName('w:t'));
+    let text = tNodes.map(t => t.textContent || '').join('');
+
+    if (!text && r.getElementsByTagName('w:br').length > 0) {
+      runHtmlParts.push('<br/>');
+      continue;
+    }
+
+    if (!text) continue;
+
+    text = text
+      .replace(/\{\{\s*rechnungsnummer\s*\}\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\{\s*invoice\.number\s*\}\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\s*invoice\.number\s*\}/gi, '{Rechnungsnummer}')
+      .replace(/\{\{\s*datum\s*\}\}/gi, '{Datum}')
+      .replace(/\{\{\s*invoice\.date\s*\}\}/gi, '{Datum}')
+      .replace(/\{\s*invoice\.date\s*\}/gi, '{Datum}')
+      .replace(/\{\{\s*kunde_name\s*\}\}/gi, '{Kunde_Name}')
+      .replace(/\{\{\s*customer\.name\s*\}\}/gi, '{Kunde_Name}')
+      .replace(/\{\s*customer\.name\s*\}/gi, '{Kunde_Name}')
+      .replace(/\{\{\s*kunde_firma\s*\}\}/gi, '{Kunde_Firma}')
+      .replace(/\{\{\s*customer\.company\s*\}\}/gi, '{Kunde_Firma}')
+      .replace(/\{\s*customer\.company\s*\}/gi, '{Kunde_Firma}')
+      .replace(/\{\{\s*gesamtbetrag\s*\}\}/gi, '{Gesamtbetrag}')
+      .replace(/\{\{\s*total\s*\}\}/gi, '{Gesamtbetrag}')
+      .replace(/\{\s*total\s*\}/gi, '{Gesamtbetrag}')
+      .replace(/\{\{\s*positionen_tabelle\s*\}\}/gi, '{Positionen_Tabelle}')
+      .replace(/\{\s*positionen_tabelle\s*\}/gi, '{Positionen_Tabelle}');
+
+    const safeText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const spanStyles: string[] = [];
+    if (isBold) spanStyles.push('font-weight: bold');
+    if (isItalic) spanStyles.push('font-style: italic');
+    if (isUnderline) spanStyles.push('text-decoration: underline');
+    if (textColor) spanStyles.push(`color: ${textColor}`);
+    if (fontSizePx) spanStyles.push(`font-size: ${fontSizePx}`);
+
+    if (spanStyles.length > 0) {
+      runHtmlParts.push(`<span style="${spanStyles.join('; ')}">${safeText}</span>`);
+    } else {
+      runHtmlParts.push(safeText);
+    }
+  }
+
+  const pContent = runHtmlParts.join('');
+  if (!pContent.trim()) return '<br/>';
+
+  const pStyles: string[] = ['margin-bottom: 8px;', 'line-height: 1.5;'];
+  if (align !== 'left') pStyles.push(`text-align: ${align};`);
+  if (isHeading) pStyles.push('font-weight: bold; font-size: 16px;');
+
+  return `<p style="${pStyles.join(' ')}">${pContent}</p>`;
+}
+
+/**
+ * Reads an uploaded template file (.docx / .doc / .pdf / .html / .txt / .json), extracting text and finding variables
+ */
+export async function readUploadedTemplateFile(
+  file: File,
+  onProgress?: (status: string) => void
+): Promise<{ content: string; detectedVariables: string[] }> {
   const filename = file.name.toLowerCase();
-  
+
+  // 1. JSON template file
   if (filename.endsWith('.json')) {
+    onProgress?.('Lade JSON-Vorlage...');
     const text = await file.text();
     const parsed = JSON.parse(text);
     const content = typeof parsed === 'string' ? parsed : (parsed.customBodyTemplate || JSON.stringify(parsed, null, 2));
@@ -846,7 +1233,160 @@ export async function readUploadedTemplateFile(file: File): Promise<{ content: s
     return { content, detectedVariables: [...recognized, ...unrecognized] };
   }
 
-  // HTML or Text file
+  // 2. Microsoft Word Document (.docx / .doc)
+  if (filename.endsWith('.docx') || filename.endsWith('.doc')) {
+    try {
+      onProgress?.('Entpacke Word-Dokument (DOCX)...');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      
+      const headerXmls: string[] = [];
+      const footerXmls: string[] = [];
+
+      for (let i = 1; i <= 3; i++) {
+        const h = await zip.file(`word/header${i}.xml`)?.async('text');
+        if (h) headerXmls.push(h);
+        const f = await zip.file(`word/footer${i}.xml`)?.async('text');
+        if (f) footerXmls.push(f);
+      }
+
+      const docXml = await zip.file('word/document.xml')?.async('text');
+      if (!docXml) {
+        throw new Error('word/document.xml not found in .docx file.');
+      }
+
+      onProgress?.('Analysiere Word XML-Struktur & Tabellen im Hintergrund...');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const parser = new DOMParser();
+      const htmlSections: string[] = [];
+      const yieldCounter = { count: 0 };
+
+      // Parse headers
+      for (const hXml of headerXmls) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const xmlDoc = parser.parseFromString(hXml, 'text/xml');
+        const parsed = await parseDocxXmlContainerAsync(xmlDoc.documentElement, yieldCounter);
+        if (parsed.trim()) htmlSections.push(parsed);
+      }
+
+      // Parse body
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+      const bodyNode = xmlDoc.getElementsByTagName('w:body')[0] || xmlDoc.documentElement;
+      const bodyHtml = await parseDocxXmlContainerAsync(bodyNode, yieldCounter);
+      if (bodyHtml.trim()) htmlSections.push(bodyHtml);
+
+      // Parse footers
+      for (const fXml of footerXmls) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const xmlDoc = parser.parseFromString(fXml, 'text/xml');
+        const parsed = await parseDocxXmlContainerAsync(xmlDoc.documentElement, yieldCounter);
+        if (parsed.trim()) htmlSections.push(parsed);
+      }
+
+      onProgress?.('Extrahiere Vorlagen-Variablen & erstelle HTML-Layout...');
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const htmlContent = `<div style="font-family: inherit; line-height: 1.6; color: #1e293b; max-width: 800px; margin: 0 auto;">\n` +
+        htmlSections.join('\n') +
+        `\n</div>`;
+
+      const { recognized, unrecognized } = scanTemplateVariables(htmlContent);
+      return { content: htmlContent, detectedVariables: [...recognized, ...unrecognized] };
+    } catch (err) {
+      console.warn('JSZip DOCX extraction fallback to binary buffer extraction:', err);
+      const arrayBuffer = await file.arrayBuffer();
+      return extractPrintableTextFromBinaryBuffer(arrayBuffer);
+    }
+  }
+
+  // 3. PDF Document (.pdf)
+  if (filename.endsWith('.pdf')) {
+    try {
+      onProgress?.('Analysiere PDF-Seiten & Text-Streams...');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF extraction timed out')), 10000)
+      );
+
+      const pdfDoc = await Promise.race([loadingTask.promise, timeoutPromise]);
+      const numPages = pdfDoc.numPages;
+      const pageHtmls: string[] = [];
+
+      for (let p = 1; p <= numPages; p++) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        onProgress?.(`Extrahiere PDF-Seite ${p} von ${numPages}...`);
+
+        const page = await pdfDoc.getPage(p);
+        const textContent = await page.getTextContent();
+        
+        let lastY: number | null = null;
+        let lineText = '';
+        const lines: string[] = [];
+
+        for (const item of textContent.items) {
+          if ('str' in item) {
+            const str = item.str;
+            const y = item.transform ? item.transform[5] : null;
+
+            if (lastY !== null && y !== null && Math.abs(y - lastY) > 6) {
+              if (lineText.trim()) lines.push(lineText);
+              lineText = str;
+            } else {
+              lineText += (lineText && !lineText.endsWith(' ') && !str.startsWith(' ') ? ' ' : '') + str;
+            }
+            if (y !== null) lastY = y;
+          }
+        }
+        if (lineText.trim()) lines.push(lineText);
+
+        const formattedLines = lines.map(line => {
+          let text = line;
+          text = text
+            .replace(/\{\{\s*rechnungsnummer\s*\}\}/gi, '{Rechnungsnummer}')
+            .replace(/\{\{\s*invoice\.number\s*\}\}/gi, '{Rechnungsnummer}')
+            .replace(/\{\s*invoice\.number\s*\}/gi, '{Rechnungsnummer}')
+            .replace(/\{\{\s*datum\s*\}\}/gi, '{Datum}')
+            .replace(/\{\{\s*kunde_name\s*\}\}/gi, '{Kunde_Name}')
+            .replace(/\{\{\s*gesamtbetrag\s*\}\}/gi, '{Gesamtbetrag}');
+
+          const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `<p style="margin-bottom: 6px; line-height: 1.5;">${safe}</p>`;
+        });
+
+        pageHtmls.push(
+          `<div style="margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px dashed #cbd5e1;">\n` +
+          `  <div style="font-size: 10px; font-weight: bold; color: #94a3b8; margin-bottom: 6px;">[PDF Import - Seite ${p} von ${numPages}]</div>\n` +
+          formattedLines.join('\n') +
+          `\n</div>`
+        );
+      }
+
+      const htmlContent = `<div style="font-family: inherit; color: #1e293b; max-width: 800px; margin: 0 auto;">\n` +
+        pageHtmls.join('\n') +
+        `\n</div>`;
+
+      const { recognized, unrecognized } = scanTemplateVariables(htmlContent);
+      return { content: htmlContent, detectedVariables: [...recognized, ...unrecognized] };
+    } catch (err) {
+      console.warn('PDFjs extraction fallback to binary buffer extraction:', err);
+      const arrayBuffer = await file.arrayBuffer();
+      return extractPrintableTextFromBinaryBuffer(arrayBuffer);
+    }
+  }
+
+  // 4. HTML, HTM or TXT file
+  onProgress?.('Lade Text- oder HTML-Inhalte...');
+  await new Promise(resolve => setTimeout(resolve, 10));
   const text = await file.text();
   const { recognized, unrecognized } = scanTemplateVariables(text);
   return {

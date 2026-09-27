@@ -560,9 +560,128 @@ function discordFeedbackPlugin(): Plugin {
         });
       };
 
+      // Helper to dynamically read Discord bot token from environment or .env file
+      const getDiscordBotToken = (): string => {
+        if (process.env.VITE_DISCORD_BOT_TOKEN) return process.env.VITE_DISCORD_BOT_TOKEN;
+        if (process.env.DISCORD_BOT_TOKEN) return process.env.DISCORD_BOT_TOKEN;
+        try {
+          const envPath = path.resolve(process.cwd(), '.env');
+          if (fs.existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, 'utf-8');
+            for (const line of content.split('\n')) {
+              const trimmed = line.trim();
+              if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+                const idx = trimmed.indexOf('=');
+                const key = trimmed.slice(0, idx).trim();
+                const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+                if (key === 'VITE_DISCORD_BOT_TOKEN' || key === 'DISCORD_BOT_TOKEN') {
+                  if (val) return val;
+                }
+              }
+            }
+          }
+        } catch {}
+        return '';
+      };
+
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
         const cleanPath = url.pathname.replace(/\/+$/, '') || '/';
+
+        // Endpoint: GET or POST /api/discord/bot-status (Check if bot is online)
+        if (cleanPath === '/api/discord/bot-status' && (req.method === 'GET' || req.method === 'POST')) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const botToken = getDiscordBotToken();
+            if (!botToken) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                online: false,
+                error: 'No Discord bot token configured in environment (VITE_DISCORD_BOT_TOKEN)',
+                checkedAt: new Date().toISOString()
+              }));
+              return;
+            }
+
+            const response = await fetch('https://discord.com/api/v10/users/@me', {
+              headers: {
+                'Authorization': `Bot ${botToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const avatarUrl = data.avatar
+                ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=128`
+                : `https://cdn.discordapp.com/embed/avatars/${(parseInt(data.id || '0', 10) || 0) % 5}.png`;
+
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                online: true,
+                botId: data.id,
+                botName: data.username,
+                botAvatar: data.avatar,
+                avatarUrl,
+                checkedAt: new Date().toISOString()
+              }));
+            } else {
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                online: false,
+                status: response.status,
+                checkedAt: new Date().toISOString()
+              }));
+            }
+          } catch (err: any) {
+            res.statusCode = 200;
+            res.end(JSON.stringify({
+              online: false,
+              error: err?.message || String(err),
+              checkedAt: new Date().toISOString()
+            }));
+          }
+          return;
+        }
+
+        // Endpoint: GET or POST /api/discord/channel-tags (Fetch all available forum tags from Discord)
+        if (cleanPath === '/api/discord/channel-tags' && (req.method === 'GET' || req.method === 'POST')) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const body = req.method === 'POST' ? await parseRequestBody(req) : {};
+            const channelId = url.searchParams.get('channelId') || body.channelId || '1535709136363462757';
+            const botToken = body.botToken || getDiscordBotToken();
+
+            if (!botToken) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'No Discord bot token configured' }));
+              return;
+            }
+
+            const tags = await fetchChannelTags(channelId, botToken);
+            res.statusCode = 200;
+            res.end(JSON.stringify({
+              success: true,
+              channelId,
+              tags: tags.map(t => ({
+                id: t.id,
+                name: t.name,
+                emojiName: t.emoji_name || undefined,
+                emojiId: t.emoji_id || undefined,
+                moderated: !!t.moderated
+              })),
+              fetchedAt: new Date().toISOString()
+            }));
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err?.message || String(err) }));
+          }
+          return;
+        }
 
         // Endpoint: POST /api/discord/thread (Create forum post)
         if (cleanPath === '/api/discord/thread' && req.method === 'POST') {
@@ -573,7 +692,13 @@ function discordFeedbackPlugin(): Plugin {
             const body = await parseRequestBody(req);
             const channelId = body.channelId || '1535709136363462757';
             const threadData = body.threadData;
-            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+            const botToken = body.botToken || getDiscordBotToken();
+
+            if (!botToken) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'No Discord bot token configured' }));
+              return;
+            }
 
             if (!threadData) {
               res.statusCode = 400;
@@ -632,7 +757,13 @@ function discordFeedbackPlugin(): Plugin {
           try {
             const body = await parseRequestBody(req);
             const threadIds: string[] = Array.isArray(body.threadIds) ? body.threadIds : [];
-            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+            const botToken = body.botToken || getDiscordBotToken();
+
+            if (!botToken) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'No Discord bot token configured' }));
+              return;
+            }
 
             if (!threadIds || threadIds.length === 0) {
               res.statusCode = 200;
@@ -805,7 +936,13 @@ function discordFeedbackPlugin(): Plugin {
           try {
             const body = await parseRequestBody(req);
             const threadId = body.threadId;
-            const botToken = body.botToken || 'MTQ5ODc2NDAzMzUxODczNTQ0MQ.Gy2MgH.ByHf3S1es7Zg48_ppLuM_ggNrVqXGMc7VJtczE';
+            const botToken = body.botToken || getDiscordBotToken();
+
+            if (!botToken) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, error: 'No Discord bot token configured' }));
+              return;
+            }
 
             if (!threadId) {
               res.statusCode = 400;

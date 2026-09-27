@@ -232,7 +232,12 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
     if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
     setSession(result.session);
     setLocked(false);
-    setUsers(getUsers());
+    const allUsers = getUsers();
+    setUsers(allUsers);
+    const authedUser = allUsers.find((u) => u.id === result.session.userId);
+    if (authedUser?.preferences?.language) {
+      setLanguage(authedUser.preferences.language);
+    }
     return { ok: true as const };
   };
   const logout = () => { clearSession(); setSession(null); setLocked(false); };
@@ -289,7 +294,7 @@ function LanguageSelectionScreen({
   const lang = useLanguage();
   const [desktopFiles, setDesktopFiles] = useState<DesktopLanguageFileInfo[]>(() => getDesktopLanguageFiles());
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(() => getActiveCustomPackId() || lang || 'en');
+  const [selectedId, setSelectedId] = useState<string>(() => getActiveCustomPackId() || lang || 'de');
 
   useEffect(() => {
     // Initial sync check
@@ -311,8 +316,8 @@ function LanguageSelectionScreen({
       flagImage?: string | null;
       emoji?: string | null;
     }> = [
+      { id: 'de', code: 'de', codeBadge: 'DE', name: 'Deutsch', subtitle: 'German (Standard)' },
       { id: 'en', code: 'en', codeBadge: 'US', name: 'English', subtitle: 'English (US/UK)' },
-      { id: 'de', code: 'de', codeBadge: 'DE', name: 'Deutsch', subtitle: 'German' },
       { id: 'fr', code: 'fr', codeBadge: 'FR', name: 'Français', subtitle: 'French' },
       { id: 'es', code: 'es', codeBadge: 'ES', name: 'Español', subtitle: 'Spanish' }
     ];
@@ -624,23 +629,26 @@ function FirstAccount({
     setError('');
 
     try {
+      setLanguage(lang);
       await createUser({
         username: form.username.trim(),
         displayName: form.displayName.trim(),
         password: form.password,
         accountType: form.accountType,
         avatar: form.avatar ? form.avatar : undefined,
+        preferences: { language: lang },
         recoveryQuestion,
         recoveryAnswer,
         autoLogin: false,
       });
 
-      if (form.accountType === 'business' && !isBusinessSetupSkipped) {
-        try {
-          const settingRecord = await db.settings.get('company_profile');
-          const currentCompany: CompanyProfile = (settingRecord?.value as CompanyProfile) || initialCompany || ({} as CompanyProfile);
-          const updatedCompany: CompanyProfile = {
-            ...currentCompany,
+      try {
+        const settingRecord = await db.settings.get('company_profile');
+        const currentCompany: CompanyProfile = (settingRecord?.value as CompanyProfile) || initialCompany || ({} as CompanyProfile);
+        const updatedCompany: CompanyProfile = {
+          ...currentCompany,
+          language: lang,
+          ...(form.accountType === 'business' && !isBusinessSetupSkipped ? {
             name: businessDetails.companyName.trim() || currentCompany.name || '',
             street: businessDetails.street.trim() || currentCompany.street || '',
             zip_city: businessDetails.zipCity.trim() || currentCompany.zip_city || '',
@@ -649,12 +657,12 @@ function FirstAccount({
             phone: businessDetails.phone.trim() || currentCompany.phone || '',
             letterhead_managing_director: businessDetails.managingDirector.trim() || currentCompany.letterhead_managing_director || '',
             tax_id: businessDetails.taxId.trim() || currentCompany.tax_id || '',
-          };
-          await db.settings.put({ key: 'company_profile', value: updatedCompany });
-          window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedCompany }));
-        } catch (compErr) {
-          console.error('Failed to update company profile from onboarding:', compErr);
-        }
+          } : {})
+        };
+        await db.settings.put({ key: 'company_profile', value: updatedCompany });
+        window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedCompany }));
+      } catch (compErr) {
+        console.error('Failed to update company profile from onboarding:', compErr);
       }
 
       clearSession();

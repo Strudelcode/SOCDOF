@@ -23,6 +23,24 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.18.0 High-Fidelity Word (.docx) XML Table Parsing & Smart Variable Rendering milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.17.0 PDF & Word (.docx) Template Import & Automatic Variable Extraction milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.16.6 Clean Option Labels, Fixed Window Frame & Streamlined Mobile View Switcher milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.16.4 Clean Minimalist Responsive Invoice Layout Switcher & Automatic Split View milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.16.3 Fixed Modal Backdrop Positioning & Responsive Editor vs. Preview View Switcher milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.16.2 Invoice Modal Foreground Layering, Taskbar Clearance & Non-Scrolling Sub-Tabs Layout milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.15.0 Offline Bug Report Queueing, Automatic Online Auto-Sync & Exact Capture Timestamp Preservation milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.14.5 Discord Bug Report User Identity Independence, Live Dynamic Bot Status & Offline Graceful Degradation milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.14.4 Onboarding Language Selection Persistence, Database Profile Default & Account Preferences Sync milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.14.3 Discord Tag ID Mapping, Thread Messages Inspector & Custom Emoji Parsing milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.14.2 Live Discord Forum Tags Sync, 30-Second Polling & Thread Status milestone is complete and archived in `todo/completed_todo.md`.

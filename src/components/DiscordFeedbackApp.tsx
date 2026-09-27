@@ -25,7 +25,8 @@ import {
   RefreshCw,
   Tag,
   XCircle,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -35,8 +36,12 @@ import {
   getSubmittedDiscordReports, 
   deleteSubmittedDiscordReport, 
   syncDiscordReports,
+  checkDiscordBotStatus,
+  getAppLanguageLabel,
+  getSystemLanguageLabel,
   SubmittedDiscordReport
 } from '../lib/discordFeedback';
+import { APP_VERSION } from '../lib/version';
 import { sounds } from '../lib/sound';
 import { useLanguage, t } from '../lib/i18n';
 import { AppLocationPickerModal } from './AppLocationPickerModal';
@@ -91,18 +96,43 @@ export const DiscordFeedbackApp: React.FC = () => {
     error?: string;
   } | null>(null);
 
+  // Bot Status (online / offline)
+  const [botStatus, setBotStatus] = useState<{ 
+    online: boolean; 
+    checking: boolean;
+    botName?: string;
+    avatarUrl?: string;
+  }>({ online: true, checking: false });
+
+  const refreshBotStatus = useCallback(async (force = false) => {
+    setBotStatus(prev => ({ ...prev, checking: true }));
+    try {
+      const res = await checkDiscordBotStatus(force);
+      setBotStatus({
+        online: res.online,
+        checking: false,
+        botName: res.botName,
+        avatarUrl: res.avatarUrl
+      });
+    } catch {
+      setBotStatus({ online: false, checking: false });
+    }
+  }, []);
+
   // Load remembered identity & report history on mount
   useEffect(() => {
     const stored = getStoredDiscordIdentity();
-    setDiscordName(stored.discordName || 'Strudelgame');
+    setDiscordName(stored.discordName || '');
     setDiscordUserId(stored.discordUserId || '');
     setSubmittedReports(getSubmittedDiscordReports());
-  }, []);
+    refreshBotStatus(true);
+  }, [refreshBotStatus]);
 
   // Sync function from Discord API
   const performSync = useCallback(async (showFeedback = false) => {
     if (typeof document !== 'undefined' && document.hidden) return;
     setIsSyncing(true);
+    refreshBotStatus(true);
     try {
       const result = await syncDiscordReports();
       setSubmittedReports(result.updatedReports);
@@ -115,7 +145,7 @@ export const DiscordFeedbackApp: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [refreshBotStatus]);
 
   // 30-Second Auto-Poll (runs only while app is open & active)
   useEffect(() => {
@@ -235,7 +265,7 @@ export const DiscordFeedbackApp: React.FC = () => {
 
     // Save identity for next time
     saveStoredDiscordIdentity({
-      discordName: discordName.trim() || 'Strudelgame',
+      discordName: discordName.trim(),
       discordUserId: discordUserId.trim()
     });
 
@@ -248,8 +278,11 @@ export const DiscordFeedbackApp: React.FC = () => {
         title,
         categoryOrLocation,
         description,
-        discordName: discordName.trim() || 'Strudelgame',
-        discordUserId: discordUserId.trim() || undefined
+        discordName: discordName.trim() || 'Anonym',
+        discordUserId: discordUserId.trim() || undefined,
+        appVersion: `SOCDOF v${APP_VERSION}`,
+        appLanguage: getAppLanguageLabel(lang),
+        systemLanguage: getSystemLanguageLabel()
       });
 
       setSubmissionResult(res);
@@ -259,13 +292,15 @@ export const DiscordFeedbackApp: React.FC = () => {
         setSubmittedReports(getSubmittedDiscordReports());
         performSync();
 
-        try {
-          confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.6 }
-          });
-        } catch {}
+        if (!res.queued) {
+          try {
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.6 }
+            });
+          } catch {}
+        }
 
         // Reset inputs after successful send
         if (isBug) {
@@ -337,9 +372,42 @@ export const DiscordFeedbackApp: React.FC = () => {
                 <h1 className="text-base sm:text-lg font-bold">
                   {t('feedback.app_title', lang, 'Bug-Reports & Community-Meldungen')}
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  {t('feedback.bot_online', lang, 'Discord Bot Online')}
-                </span>
+                {botStatus.checking ? (
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1.5 shadow-2xs">
+                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    <span>{t('feedback.bot_checking', lang, 'Bot wird geprüft...')}</span>
+                  </span>
+                ) : botStatus.online ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                      {botStatus.avatarUrl ? (
+                        <img src={botStatus.avatarUrl} alt={botStatus.botName || 'Discord Bot'} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      )}
+                      <span>{t('feedback.bot_online', lang, 'Discord-Bot online')}</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <span 
+                      title={t('feedback.bot_offline_tooltip', lang, 'Discord-Bot ist momentan offline (normalerweise max. 10 Min.)')}
+                      className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 flex items-center gap-1.5 shadow-2xs border border-rose-300/50 dark:border-rose-800/50"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span>{t('feedback.bot_offline', lang, 'Discord-Bot offline')}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => refreshBotStatus(true)}
+                      disabled={botStatus.checking}
+                      title={t('feedback.check_status_now', lang, 'Status jetzt erneut prüfen')}
+                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${botStatus.checking ? 'animate-spin text-rose-500' : ''}`} />
+                    </button>
+                  </div>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t('feedback.app_subtitle', lang, 'Fehlerberichte oder Ideen posten und Tickets direkt im Discord-Forum verfolgen.')}
@@ -353,10 +421,10 @@ export const DiscordFeedbackApp: React.FC = () => {
               onClick={handleManualSync}
               disabled={isSyncing}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
-              title={t('feedback.sync_now', lang, 'Jetzt von Discord abrufen')}
+              title={t('feedback.sync_now', lang, 'Synchronisieren')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-indigo-500' : ''}`} />
-              <span>{isSyncing ? t('feedback.syncing', lang, 'Prüfe Discord...') : t('feedback.sync_now', lang, 'Jetzt synchronisieren')}</span>
+              <span>{isSyncing ? t('feedback.syncing', lang, 'Synchronisiere...') : t('feedback.sync_now', lang, 'Synchronisieren')}</span>
             </button>
 
             <a
@@ -505,10 +573,10 @@ export const DiscordFeedbackApp: React.FC = () => {
                   type="button"
                   onClick={handleManualSync}
                   disabled={isSyncing}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer"
                 >
                   <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? t('feedback.syncing', lang, 'Prüfe Discord...') : t('feedback.sync_now', lang, 'Jetzt aktualisieren')}</span>
+                  <span>{isSyncing ? t('feedback.syncing', lang, 'Synchronisiere...') : t('feedback.sync_now', lang, 'Synchronisieren')}</span>
                 </button>
               </div>
 
@@ -611,13 +679,38 @@ export const DiscordFeedbackApp: React.FC = () => {
                     <div
                       key={rep.id}
                       className={`p-4 rounded-2xl bg-white dark:bg-slate-850 border space-y-3 shadow-xs transition ${
-                        rep.status === 'resolved'
+                        rep.isDeleted
+                          ? 'border-amber-300 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/20'
+                          : rep.status === 'resolved'
                           ? 'border-emerald-200 dark:border-emerald-900/60 opacity-90'
                           : rep.status === 'rejected'
                           ? 'border-rose-200 dark:border-rose-900/60 opacity-90'
                           : 'border-slate-200 dark:border-slate-800'
                       }`}
                     >
+                      {rep.isDeleted && (
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-amber-100/80 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="font-bold">
+                              {t('feedback.post_not_exists', lang, 'Post existiert nicht mehr (auf Discord gelöscht)')}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              deleteSubmittedDiscordReport(rep.id);
+                              setSubmittedReports(getSubmittedDiscordReports());
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-850 hover:bg-amber-50 dark:hover:bg-slate-800 text-amber-900 dark:text-amber-100 text-xs font-bold transition cursor-pointer shadow-2xs border border-amber-300 dark:border-amber-700"
+                            title={t('feedback.delete_local', lang, 'Lokal löschen')}
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                            <span>{t('feedback.delete_local', lang, 'Lokal löschen')}</span>
+                          </button>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
                           {rep.type === 'bug' ? (
@@ -850,6 +943,34 @@ export const DiscordFeedbackApp: React.FC = () => {
                 </div>
               </div>
 
+              {/* Bot Offline / Offline Mode Info Banner */}
+              {!botStatus.online && (
+                <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 shadow-sm animate-fade-in flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-100">
+                        {t('feedback.bot_offline_title', lang, 'Offline-Modus / Bot nicht erreichbar')}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => refreshBotStatus(true)}
+                        disabled={botStatus.checking}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/60 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 text-xs font-bold transition cursor-pointer shrink-0"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${botStatus.checking ? 'animate-spin' : ''}`} />
+                        <span>{botStatus.checking ? t('feedback.bot_checking', lang, 'Prüfe...') : t('feedback.check_status_now', lang, 'Status prüfen')}</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-amber-800/90 dark:text-amber-300 mt-1.5 leading-relaxed">
+                      {t('feedback.bot_offline_desc', lang, 'Der Bot ist kurzzeitig nicht erreichbar oder du bist offline. Du kannst deinen Bericht trotzdem absenden – er wird in der Offline-Warteschlange gespeichert und automatisch an Discord übertragen, sobald du wieder online bist!')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Discord Identity Card */}
               <div className="p-4 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 bg-white dark:bg-slate-850 space-y-3 shadow-xs">
                 <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold text-xs">
@@ -866,7 +987,7 @@ export const DiscordFeedbackApp: React.FC = () => {
                       type="text"
                       value={discordName}
                       onChange={e => setDiscordName(e.target.value)}
-                      placeholder="z. B. Strudelgame"
+                      placeholder={t('feedback.discord_name_placeholder', lang, 'z. B. DeinDiscordName (oder leer lassen für Anonym)')}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
                     />
                   </div>
@@ -1129,6 +1250,11 @@ export const DiscordFeedbackApp: React.FC = () => {
                   description={activeTab === 'bug' ? bugDescription : ideaDescription}
                   discordName={discordName}
                   discordUserId={discordUserId}
+                  botName={botStatus.botName}
+                  botAvatarUrl={botStatus.avatarUrl}
+                  appVersion={`SOCDOF v${APP_VERSION}`}
+                  appLanguage={getAppLanguageLabel(lang)}
+                  systemLanguage={getSystemLanguageLabel()}
                 />
 
                 {!(activeTab === 'bug' ? isBugFormComplete : isIdeaFormComplete) && (
@@ -1146,16 +1272,23 @@ export const DiscordFeedbackApp: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting || (activeTab === 'bug' ? !isBugFormComplete : !isIdeaFormComplete)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold text-white shadow-lg transition cursor-pointer ${
-                    activeTab === 'bug'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-orange-500/20'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-indigo-500/20'
+                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold transition shadow-lg ${
+                    !botStatus.online
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-amber-500/20 cursor-pointer'
+                      : activeTab === 'bug'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-orange-500/20 cursor-pointer'
+                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-indigo-500/20 cursor-pointer'
                   }`}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{t('feedback.submitting', lang, 'Wird an Discord übertragen...')}</span>
+                    </>
+                  ) : !botStatus.online ? (
+                    <>
+                      <Clock className="w-4 h-4" />
+                      <span>{t('feedback.btn_submit_queued', lang, 'In Offline-Warteschlange speichern')}</span>
                     </>
                   ) : (
                     <>

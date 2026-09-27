@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.14.3';
+export const APP_VERSION = '23.18.3';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,162 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.18.3',
+    date: '2026-09-27',
+    title: 'Binary Stream Sanitization & Pure Printable Text Extraction for Old Word (.doc) Files',
+    highlights: [
+      'Eliminated Binary Garbage ("Krypto-Zeichen"): Implemented extractPrintableTextFromBinaryBuffer to parse binary ArrayBuffers without reading compressed byte streams as text.',
+      'Clean Paragraph Formatting for Legacy .doc Files: Filters printable German/ASCII words, sentences, and template variables ({Rechnungsnummer}, {Datum}, {Kunde_Name}) directly from legacy Word (.doc) binary streams.',
+      'Instant Lightweight DOM Rendering: Prevented oversized binary strings from locking React HTML preview rendering.'
+    ]
+  },
+  {
+    version: '23.18.2',
+    date: '2026-09-27',
+    title: 'Background Non-Blocking Processing & Asynchronous Event-Loop Yielding',
+    highlights: [
+      'Asynchronous Event-Loop Yielding: Added micro-yield timeouts (setTimeout 0) into XML tree parsing loops so the browser UI thread remains 100% responsive without trigger warnings.',
+      'Background Task Feedback & Status Stream: Displays step-by-step progress status messages in the UI during template extraction.',
+      'Eliminated "Page Unresponsive" Interruptions: Completely resolved browser thread freezing during file upload and extraction.'
+    ]
+  },
+  {
+    version: '23.18.1',
+    date: '2026-09-27',
+    title: 'Non-Blocking Bounded XML Traversal & Asynchronous File Import Loading',
+    highlights: [
+      'Bounded Child Traversal for DOCX: Replaced recursive DOM queries in parseDocxTable and parseDocxParagraph with direct child node inspection to eliminate exponential CPU loops on complex Word documents.',
+      'Safe PDF Parsing & Timeout: Configured pdf.js inline parsing without blocking external web workers and added a 10s safety timeout to prevent app freezes on corrupted or locked PDF files.',
+      'Asynchronous Loading Spinner & Reset: Integrated a visual loading indicator during template file extraction and automatically reset file inputs for seamless repeated uploads.'
+    ]
+  },
+  {
+    version: '23.18.0',
+    date: '2026-09-27',
+    title: 'High-Fidelity Word (.docx) XML Table Parsing & Smart Variable Rendering',
+    highlights: [
+      'Full DOCX XML Table Parser: Implemented structural XML parsing for Word documents (<w:tbl>, <w:tr>, <w:tc>), preserving multi-column layouts, table borders, cell backgrounds, widths, alignments, and header/footer XMLs.',
+      'Smart Position Table Substitution: Automatically detects and collapses stacked item header paragraphs before {Positionen_Tabelle} and renders clean, unnested responsive HTML tables.',
+      'Exact 1:1 Visual Layout Fidelity: Imported Word templates render with high-fidelity visual structure in live preview, PDF export, and printing.'
+    ]
+  },
+  {
+    version: '23.17.0',
+    date: '2026-09-27',
+    title: 'PDF & Word (.docx) Template Import & Automatic Variable Extraction',
+    highlights: [
+      'PDF & Word (.docx) Document Template Import: Import PDF files and Word documents (.docx, .doc) directly into the Invoice Layout Editor.',
+      'Automatic 1:1 Variable Extraction & Normalization: Automatically scans and extracts all variable placeholders ({Rechnungsnummer}, {Kunde_Name}, {Gesamtbetrag}, {Datum}, etc.) from uploaded PDF/Word documents.',
+      'Instant Live Re-Use & Variable Ingestion: Converted PDF and Word documents are saved as custom invoice templates and populated dynamically with real invoice data upon preview or printing.'
+    ]
+  },
+  {
+    version: '23.16.6',
+    date: '2026-09-27',
+    title: 'Clean Option Labels, Fixed Window Frame & Streamlined Mobile View Switcher',
+    highlights: [
+      'Clean Section Dropdown: Removed all emoji symbols from section selection labels for a pristine, distraction-free corporate look.',
+      'Fixed Window Frame: Outer modal and container card maintain strict overflow-hidden bounds to eliminate window frame scrolling.',
+      'Streamlined Bottom Switcher: Compact view switcher displays strictly [ Editor ] and [ Live-Vorschau ] buttons without emojis or redundant options on small screens, automatically switching to side-by-side split view on larger displays.'
+    ]
+  },
+  {
+    version: '23.16.5',
+    date: '2026-09-27',
+    title: 'Ultra-Compact Single-Row Editor Toolbar & Expanded Vertical Workspace',
+    highlights: [
+      'Ultra-Compact Header & Toolbar: Eliminated verbose subtitle jargon and replaced stacked multi-row tab buttons with a clean, space-saving 2-row control bar ([ Vorlage: Dropdown ] & [ Bearbeiten: Section Select ]).',
+      'Doubled Vertical Editor Space: Reduced top toolbar height from ~140px to ~65px, giving users more than double the vertical screen height for form controls (logo upload, color swatches, typography, text fields).'
+    ]
+  },
+  {
+    version: '23.16.4',
+    date: '2026-09-27',
+    title: 'Clean Minimalist Responsive Invoice Layout Switcher & Automatic Split View',
+    highlights: [
+      'Automatic Desktop Split View & Clutter Removal: Removed redundant top header view controls, emojis, and the "Split View" button. Large screens automatically display side-by-side split view with no extra controls required.',
+      'Minimalist 2-Button Compact Switcher: On compact or narrow windows, displays a clean 2-button footer toggle ([ Editor ] / [ Live Preview ]) using SVG Lucide icons and pure typography.'
+    ]
+  },
+  {
+    version: '23.16.3',
+    date: '2026-09-27',
+    title: 'Fixed Modal Backdrop Positioning & Responsive Editor vs. Preview View Switcher',
+    highlights: [
+      'Fixed Fixed Modal Backdrop Scrolling: Enforced overflow-hidden on modal backdrop overlays (InvoiceTemplateModal, InvoicePrintModal) to completely prevent window shifting and backdrop page scrolling when interacting with modal dialogs.',
+      'Responsive Editor vs. Preview View Switcher: Added clean header and footer segmented controls ([ ✏️ Editor ] / [ 👁️ Live Preview ] / [ ↔️ Split View ]) allowing users to seamlessly toggle between full-width template editing, full-width DIN-A4 document inspection, and side-by-side mode.'
+    ]
+  },
+  {
+    version: '23.16.2',
+    date: '2026-09-27',
+    title: 'Invoice Modal Foreground Layering, Taskbar Clearance & Non-Scrolling Sub-Tabs Layout',
+    highlights: [
+      'Elevated Foreground Layering & Taskbar Clearance: Updated Invoice Layout Editor and related modals (InvoiceTemplateModal, InvoicePrintModal, InvoiceEmailModal, PaymentModal) with z-[999999] backdrop priority and pb-20 taskbar bottom clearance padding, ensuring action footers are never hidden behind the Windows taskbar.',
+      'Structured Non-Scrolling Sub-Tabs: Replaced the crowded, horizontally scrolling sub-tab bar in the Invoice Layout Editor with a clean 2-row segmented grid layout (Design & Logo, Texte, Firmendaten / Variablen, Datei-Import) that fits perfectly inside sidebar boundaries without label clipping.'
+    ]
+  },
+  {
+    version: '23.16.1',
+    date: '2026-09-27',
+    title: 'Dynamic Discord Forum Channel Tag Resolution & Automated Channel Tag Query API',
+    highlights: [
+      'Dynamic Forum Channel Tag Query API: Added dedicated `/api/discord/channel-tags` endpoint that queries Discord REST API channel object directly for available forum tags.',
+      'Automated Tag Resolution for New Submissions: Submissions dynamically resolve the best matching forum tag from the live channel configuration (matching "Neue Einreichung", "Pending", "Neu", etc., or defaulting cleanly to the channel\'s primary tag).',
+      'Robust Discord Integration: Full fallback hierarchy supporting Backend Proxy, Direct Discord REST API, and cached forum metadata for resilient tag synchronization.'
+    ]
+  },
+  {
+    version: '23.16.0',
+    date: '2026-09-27',
+    title: 'Anonymous Feedback Mode, Dynamic Discord Bot Identity, Automatic App Version & Client Language Detection',
+    highlights: [
+      'Seamless Anonymous Reporting: Users can now submit bug reports and feature requests anonymously without being required to enter a Discord username, defaulting gracefully to "Anonym".',
+      'Dynamic Discord Bot Avatar & Name: Replaced static placeholder bot branding in embed previews with real-time dynamic bot identity (e.g. "StrudelTeam - Bot" and verified Discord avatar).',
+      'Automatic App Version Metadata: Reports and Discord embed cards now automatically detect and embed the active SOCDOF client version (e.g. "SOCDOF v23.16.0").',
+      'Client & System Language Detection: Discord embeds and live preview cards now display both the user’s chosen app language (e.g. "Deutsch (DE)") and host operating system language (e.g. "de-DE").',
+      'Authentic Discord Embed Layout: Refined Bug Report and Feature Suggestion embeds with clean multi-column metadata grids, custom avatar badges, and formatted report cards.',
+      'Full Multi-Language Support: Updated all anonymous identity placeholders and translations across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.15.0',
+    date: '2026-09-27',
+    title: 'Offline Bug Report Queueing, Automatic Online Auto-Sync & Exact Capture Timestamp Preservation',
+    highlights: [
+      'Unrestricted Offline Report Submission: Users can now submit bug reports and feedback even when offline or when the Discord bot is unreachable without being blocked.',
+      'Automatic Local Offline Queue: Submissions while offline or during bot outages are safely placed in an indexed local queue with a dedicated "In Warteschlange (Offline)" ticket status.',
+      'Exact Client Timestamp Preservation: Automatically records and preserves the exact local time the report was authored offline, displaying it prominently in both local history and the final Discord forum embed ("🕒 Ursprünglich offline erfasst am").',
+      'Automatic Online Background Auto-Sync: Seamlessly listens for internet reconnection (`online` events, window focus, app startup, and 30s background intervals) to automatically flush queued reports to Discord without user intervention.',
+      'Manual Queue Dispatch Option: Provides a one-click "Jetzt an Discord senden" trigger in ticket history for immediate manual re-transmission when desired.',
+      'Informative Multi-Language Banners: Replaced blocking error messages with friendly informative queue banners across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '23.14.5',
+    date: '2026-09-27',
+    title: 'Discord Bug Report User Identity Independence, Live Dynamic Bot Status & Offline Graceful Degradation',
+    highlights: [
+      'Self-Determined Discord Identity: Eliminated pre-filling of default developer nicknames ("Strudel" / "Strudelgame") in bug reports and feedback, requiring users to explicitly input their own Discord username.',
+      'Discord Name Form Validation: Enforced friendly client-side validation requiring a Discord username before report dispatch, with fully localized alerts.',
+      'Live Dynamic Discord Bot Status: Replaced static badge in modal and app headers with real-time status detection ("Discord-Bot online", "Discord-Bot offline", "Bot wird geprüft...").',
+      'Graceful Offline Protection: Automatically disables report submission and displays an unmistakable alert banner when the Discord bot is unreachable, communicating the maximum 10-minute restoration window across all 4 languages (DE, EN, FR, ES).',
+      'One-Click Status Re-Check: Integrated instant status refresh button allowing users to re-poll Discord bot availability without restarting or closing the report interface.'
+    ]
+  },
+  {
+    version: '23.14.4',
+    date: '2026-09-27',
+    title: 'Onboarding Language Selection Persistence, Database Profile Default & Account Preferences Sync',
+    highlights: [
+      'Onboarding Language Retention: Fixed language resetting to English during initial setup by strictly storing the chosen language in user account preferences, company profile, and localStorage.',
+      'Native German Default Alignment: Changed initial default company profile and master fallback from English to German (Deutsch), eliminating unwanted language reversion on clean database starts.',
+      'Company Profile Language Event Sync: Added live listener for company profile updates during account creation to immediately apply the chosen language across the application workspace.',
+      'Multi-User Session Language Restoration: Automatically applies each user account\'s stored language preference on sign-in and workspace initialization.',
+      'Eliminated Duplicate Onboarding Language Modal: Cleaned up redundant modal triggers in root application to prevent modal race conditions over the desktop workspace.'
+    ]
+  },
   {
     version: '23.14.3',
     date: '2026-09-26',

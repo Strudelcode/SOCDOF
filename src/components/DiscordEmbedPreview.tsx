@@ -1,15 +1,21 @@
 import React from 'react';
-import { Sparkles, Hash, Tag, Bot } from 'lucide-react';
+import { Sparkles, Hash, Tag, Bot, User, Globe, Laptop, Terminal } from 'lucide-react';
 import { useLanguage, t } from '../lib/i18n';
+import { APP_VERSION } from '../lib/version';
 
 interface DiscordEmbedPreviewProps {
   type: 'bug' | 'idea';
   title: string;
   categoryOrLocation: string;
   description: string;
-  discordName: string;
+  discordName?: string;
   discordUserId?: string;
   isCompact?: boolean;
+  botName?: string;
+  botAvatarUrl?: string;
+  appVersion?: string;
+  appLanguage?: string;
+  systemLanguage?: string;
 }
 
 export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
@@ -17,23 +23,29 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
   title,
   categoryOrLocation,
   description,
-  discordName,
-  discordUserId,
+  discordName = '',
+  discordUserId = '',
   isCompact = false,
+  botName,
+  botAvatarUrl,
+  appVersion,
+  appLanguage,
+  systemLanguage,
 }) => {
   const lang = useLanguage();
   const isBug = type === 'bug';
 
-  const cleanName = discordName.trim().replace(/^@/, '') || 'Strudelgame';
-  const cleanId = discordUserId?.trim();
+  const cleanName = discordName.trim().replace(/^@/, '') || 'Anonym';
+  const isAnonymous = !discordName.trim() || cleanName.toLowerCase() === 'anonym';
+  const cleanId = discordUserId.trim();
   const hasValidUserId = !!cleanId && /^\d{17,20}$/.test(cleanId);
 
   const userMention = hasValidUserId
     ? `<@${cleanId}> (@${cleanName})`
-    : `@${cleanName}`;
+    : (isAnonymous ? '@Anonym' : `@${cleanName}`);
 
   const channelName = isBug ? '#🐛 | REPORT' : '#💡vorschläge';
-  const tagName = isBug ? '⏳ Prüfung ausstehend' : '🌐 SOCDOF';
+  const tagName = isBug ? '⏳ Neue Einreichung' : '🌐 SOCDOF';
   const embedColor = isBug ? '#f15922' : '#3b82f6';
   const embedBorderClass = isBug ? 'border-l-[#f15922]' : 'border-l-[#3b82f6]';
 
@@ -41,6 +53,11 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
   const displayLocation = categoryOrLocation.trim() || (lang === 'de' ? 'Noch kein Ort gewählt' : lang === 'fr' ? 'Aucun emplacement sélectionné' : lang === 'es' ? 'Ninguna ubicación seleccionada' : 'No location selected');
   const displayDescription = description.trim() || (lang === 'de' ? 'Genaue Fehlerbeschreibung wird hier im Discord-Embed formatiert dargestellt...' : lang === 'fr' ? 'La description détaillée apparaîtra ici dans l\'embed Discord...' : lang === 'es' ? 'La descripción detallada aparecerá aquí en el embed de Discord...' : 'Detailed description will be formatted here inside the Discord embed...');
 
+  const effectiveAppVersion = appVersion || `SOCDOF v${APP_VERSION}`;
+  const effectiveAppLanguage = appLanguage || (lang === 'de' ? 'Deutsch (DE)' : lang === 'fr' ? 'Français (FR)' : lang === 'es' ? 'Español (ES)' : 'English (EN)');
+  const effectiveSystemLanguage = systemLanguage || (typeof navigator !== 'undefined' ? (navigator.language || (navigator.languages && navigator.languages[0]) || 'de-DE') : 'de-DE');
+
+  const effectiveBotName = botName || 'StrudelTeam - Bot';
   const nowTime = new Date().toLocaleTimeString(lang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -87,16 +104,24 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
 
         {/* Bot Message in Thread */}
         <div className="flex items-start gap-3">
-          {/* Bot Avatar */}
-          <div className="w-10 h-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white shrink-0 shadow-md ring-2 ring-[#5865F2]/30">
-            <Bot className="w-6 h-6" />
-          </div>
+          {/* Real Dynamic Bot Avatar */}
+          {botAvatarUrl ? (
+            <img 
+              src={botAvatarUrl} 
+              alt={effectiveBotName}
+              className="w-10 h-10 rounded-full object-cover shadow-md ring-2 ring-[#5865F2]/30 shrink-0" 
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white shrink-0 shadow-md ring-2 ring-[#5865F2]/30">
+              <Bot className="w-6 h-6" />
+            </div>
+          )}
 
           <div className="flex-1 min-w-0 space-y-2">
-            {/* Bot Name & Timestamp & Badges */}
+            {/* Real Dynamic Bot Name & Timestamp & Badges */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-sm text-[#f2f3f5] hover:underline cursor-pointer">
-                SOCDOF Bot
+                {effectiveBotName}
               </span>
               <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold uppercase bg-[#5865F2] text-white tracking-wider">
                 APP
@@ -118,14 +143,19 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
               className={`rounded-r-lg rounded-l-xs bg-[#2b2d31] p-3.5 sm:p-4 border-l-4 ${embedBorderClass} shadow-md space-y-3 max-w-2xl`}
               style={{ borderLeftColor: embedColor }}
             >
-              {/* Embed Author */}
+              {/* Embed Author Header */}
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-[#5865F2] text-white flex items-center justify-center font-bold text-[10px]">
-                  {cleanName[0]?.toUpperCase() || 'S'}
+                <div className={`w-5 h-5 rounded-full ${isAnonymous ? 'bg-slate-600 text-slate-200' : 'bg-[#5865F2] text-white'} flex items-center justify-center font-bold text-[10px]`}>
+                  {isAnonymous ? 'A' : (cleanName[0]?.toUpperCase() || 'U')}
                 </div>
                 <span className="text-xs font-bold text-[#f2f3f5]">
                   {cleanName}
                 </span>
+                {isAnonymous && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-700/80 text-slate-300 font-medium">
+                    {t('feedback.anonymous', lang, 'Anonym')}
+                  </span>
+                )}
               </div>
 
               {/* Embed Title & Header Description */}
@@ -177,12 +207,45 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
                     {displayDescription}
                   </div>
                 </div>
+
+                {/* Inline Metadata Grid: Version, App Language, System Language */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[#383a40]/60">
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-[#b5bac1] uppercase tracking-wider flex items-center gap-1">
+                      <Terminal className="w-3 h-3 text-sky-400" />
+                      <span>App-Version:</span>
+                    </div>
+                    <div className="text-xs font-mono font-semibold text-sky-300">
+                      {effectiveAppVersion}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-[#b5bac1] uppercase tracking-wider flex items-center gap-1">
+                      <Globe className="w-3 h-3 text-emerald-400" />
+                      <span>App-Sprache:</span>
+                    </div>
+                    <div className="text-xs font-semibold text-emerald-300">
+                      {effectiveAppLanguage}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-[#b5bac1] uppercase tracking-wider flex items-center gap-1">
+                      <Laptop className="w-3 h-3 text-amber-400" />
+                      <span>System-Sprache:</span>
+                    </div>
+                    <div className="text-xs font-mono font-semibold text-amber-300">
+                      {effectiveSystemLanguage}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Embed Footer */}
               <div className="pt-2 border-t border-[#35373c] text-[10px] text-[#949ba4] font-medium flex items-center justify-between">
                 <span>{isBug ? 'Developers will review Your Report!' : 'SOCDOF Community Feedback'}</span>
-                <span className="text-[#80848e]">SOCDOF Feedback App</span>
+                <span className="text-[#80848e]">{effectiveAppVersion}</span>
               </div>
             </div>
           </div>

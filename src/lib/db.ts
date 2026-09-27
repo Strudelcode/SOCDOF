@@ -54,7 +54,7 @@ export const defaultCompanyProfile: CompanyProfile = {
   currency: '€',
   default_tax_rate: 19,
   invoice_template: 'din5008',
-  language: 'en',
+  language: 'de',
   accent_color: 'indigo',
   theme_mode: 'light',
   glass_overlay: true,
@@ -87,7 +87,9 @@ export const defaultCompanyProfile: CompanyProfile = {
 export async function seedInitialDataIfNeeded(forceDemo: boolean = false) {
   const companyProfileRecord = await db.settings.get('company_profile');
   if (!companyProfileRecord) {
-    await db.settings.put({ key: 'company_profile', value: defaultCompanyProfile });
+    const savedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_language') : null;
+    const initialLang = (savedLang === 'de' || savedLang === 'en' || savedLang === 'fr' || savedLang === 'es') ? (savedLang as any) : 'de';
+    await db.settings.put({ key: 'company_profile', value: { ...defaultCompanyProfile, language: initialLang } });
   } else {
     const existing = companyProfileRecord.value as CompanyProfile;
     // Auto-clean any legacy dummy data
@@ -902,7 +904,9 @@ export async function clearDatabaseToEmpty(): Promise<void> {
   await db.purchase_orders.clear();
   await db.pos_orders.clear();
   await db.chatter_messages.clear();
-  await db.settings.put({ key: 'company_profile', value: defaultCompanyProfile });
+  const savedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_language') : null;
+  const initialLang = (savedLang === 'de' || savedLang === 'en' || savedLang === 'fr' || savedLang === 'es') ? (savedLang as any) : 'de';
+  await db.settings.put({ key: 'company_profile', value: { ...defaultCompanyProfile, language: initialLang } });
 }
 
 /**

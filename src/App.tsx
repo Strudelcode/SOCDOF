@@ -20,7 +20,6 @@ import { sounds } from './lib/sound';
 import { StudioDrawer } from './components/StudioDrawer';
 import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
 import { AccountScopedWorkspace } from './components/AccountScopedWorkspace';
-import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { BackupSetupModal } from './components/BackupSetupModal';
 import { AuthGate } from './components/AuthGate';
 import { applyAccentColor } from './lib/accent';
@@ -28,18 +27,11 @@ import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
 import { getSession, getUserById, updateUserPreferences } from './lib/auth';
 import { applyNightLight } from './lib/displayManager';
+import { processDiscordOfflineQueue } from './lib/discordFeedback';
 
 export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true);
-
-  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('socdof_language_initialized') !== 'true';
-    } catch {
-      return true;
-    }
-  });
 
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(() => {
     try {
@@ -186,10 +178,10 @@ export default function App() {
             comp.language = explicitSavedLang as LanguageCode;
             await db.settings.put({ key: 'company_profile', value: comp });
           }
-        } else if (comp.language) {
+        } else if (comp.language && comp.language !== 'en') {
           setLanguage(comp.language);
         } else {
-          const current = getLanguage();
+          const current = (getLanguage() || 'de') as LanguageCode;
           setLanguage(current);
           comp.language = current;
           await db.settings.put({ key: 'company_profile', value: comp });
@@ -197,7 +189,7 @@ export default function App() {
         if (comp.font_scale) document.documentElement.style.fontSize = `${comp.font_scale}%`;
       } else {
         applyAccentColor('indigo');
-        const current = getLanguage();
+        const current = (getLanguage() || 'de') as LanguageCode;
         setLanguage(current);
         document.documentElement.style.fontSize = '100%';
       }
@@ -211,6 +203,20 @@ export default function App() {
   }, [refreshData]);
 
   useEffect(() => {
+    const handleCompanyUpdate = (e: Event) => {
+      const updated = (e as CustomEvent<CompanyProfile>).detail;
+      if (updated) {
+        setCompany(updated);
+        if (updated.language) {
+          setLanguage(updated.language);
+        }
+      }
+    };
+    window.addEventListener('socdof-company-updated', handleCompanyUpdate as EventListener);
+    return () => window.removeEventListener('socdof-company-updated', handleCompanyUpdate as EventListener);
+  }, []);
+
+  useEffect(() => {
     if (company?.accent_color) applyAccentColor(company.accent_color);
     if (company?.font_scale) document.documentElement.style.fontSize = `${company.font_scale}%`;
   }, [company?.accent_color, company?.font_scale]);
@@ -220,6 +226,24 @@ export default function App() {
     const intervalId = window.setInterval(() => checkAndRunAutoBackup(company), 60 * 1000);
     return () => clearInterval(intervalId);
   }, [company]);
+
+  // Automatic background synchronization for queued offline Discord feedback
+  useEffect(() => {
+    processDiscordOfflineQueue().catch(() => {});
+    const interval = window.setInterval(() => {
+      processDiscordOfflineQueue().catch(() => {});
+    }, 30 * 1000);
+    const handleSync = () => {
+      processDiscordOfflineQueue().catch(() => {});
+    };
+    window.addEventListener('online', handleSync);
+    document.addEventListener('visibilitychange', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleSync);
+      document.removeEventListener('visibilitychange', handleSync);
+    };
+  }, []);
 
   // In Electron, the updater asks the renderer to create a last-second
   // data snapshot before the installer replaces application files.
@@ -381,18 +405,8 @@ export default function App() {
             }}
           />
 
-          <LanguageSelectionModal
-            isOpen={isLanguageModalOpen}
-            onClose={() => setIsLanguageModalOpen(false)}
-            currentLanguage={getLanguage()}
-            onSelectLanguage={(lang) => {
-              setLanguage(lang);
-              handleUpdateCompany({ ...company, language: lang });
-            }}
-          />
-
           <BackupSetupModal
-            isOpen={isBackupModalOpen && !isLanguageModalOpen}
+            isOpen={isBackupModalOpen}
             onClose={() => setIsBackupModalOpen(false)}
             company={company}
             onUpdateCompany={handleUpdateCompany}
