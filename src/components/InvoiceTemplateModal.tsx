@@ -23,7 +23,10 @@ import {
   FileCode,
   CheckSquare,
   ArrowRight,
-  Boxes
+  Boxes,
+  ChevronDown,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { 
   InvoiceTemplate, 
@@ -91,10 +94,31 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const [importedVarsNotice, setImportedVarsNotice] = useState<string[] | null>(null);
   const [isImportingFile, setIsImportingFile] = useState<boolean>(false);
   const [importStatusMessage, setImportStatusMessage] = useState<string>('');
+  
+  // Custom dropdown open states & zoom controls
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState<boolean>(false);
+  const [isSectionMenuOpen, setIsSectionMenuOpen] = useState<boolean>(false);
+  const [previewZoom, setPreviewZoom] = useState<number>(100);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const fileTemplateInputRef = useRef<HTMLInputElement | null>(null);
+  const templateMenuRef = useRef<HTMLDivElement | null>(null);
+  const sectionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close custom dropdown menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setIsTemplateMenuOpen(false);
+      }
+      if (sectionMenuRef.current && !sectionMenuRef.current.contains(e.target as Node)) {
+        setIsSectionMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Sync draft when selected template changes
   useEffect(() => {
@@ -340,6 +364,36 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
     isPreviewTestMode
   );
 
+  const sectionTabs: { id: 'design' | 'content' | 'company' | 'variables' | 'import'; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'design',
+      label: lang === 'de' ? 'Design, Logo, Farben & Typografie' : lang === 'fr' ? 'Design, Logo & Typographie' : lang === 'es' ? 'Diseño, Logo & Tipografía' : 'Design, Logo & Typography',
+      icon: <Palette className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+    },
+    {
+      id: 'content',
+      label: lang === 'de' ? 'Texte, Titel & Belegangaben' : lang === 'fr' ? 'Textes, Titres & Champs' : lang === 'es' ? 'Textos, Títulos & Campos' : 'Texts, Titles & Document Fields',
+      icon: <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+    },
+    {
+      id: 'company',
+      label: lang === 'de' ? 'Firmendaten, Adresse & Bank' : lang === 'fr' ? 'Données Société, Adresse & Banque' : lang === 'es' ? 'Datos Empresa, Dirección & Banco' : 'Company Data, Address & Banking',
+      icon: <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+    },
+    {
+      id: 'variables',
+      label: lang === 'de' ? 'Platzhalter & Variablen' : lang === 'fr' ? 'Variables & Modèles' : lang === 'es' ? 'Variables & Plantillas' : 'Variables & Placeholders',
+      icon: <Boxes className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+    },
+    {
+      id: 'import',
+      label: lang === 'de' ? 'Datei-Import (.docx / HTML)' : lang === 'fr' ? 'Importation de fichier (.docx / HTML)' : lang === 'es' ? 'Importar archivo (.docx / HTML)' : 'File Import (.docx / HTML)',
+      icon: <FileCode className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+    }
+  ];
+
+  const activeSectionTab = sectionTabs.find(s => s.id === currentTab) || sectionTabs[0];
+
   return (
     <div className="fixed inset-0 z-[999999] bg-black/75 flex items-center justify-center p-3 sm:px-5 sm:pt-5 sm:pb-20 pb-16 backdrop-blur-xs overflow-hidden animate-fade-in">
       <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-6xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[calc(100vh-5.5rem)] h-full overflow-hidden">
@@ -392,32 +446,73 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
         </div>
 
         {/* Main Body Grid */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col xl:flex-row overflow-hidden min-h-0">
           
           {/* Left Panel: Template List & Configuration */}
-          <div className={`w-full lg:w-5/12 border-r border-slate-200 dark:border-slate-800 ${
-            responsiveTab === 'editor' ? 'flex' : 'hidden lg:flex'
+          <div className={`w-full xl:w-5/12 border-r border-slate-200 dark:border-slate-800 ${
+            responsiveTab === 'editor' ? 'flex' : 'hidden xl:flex'
           } flex-col bg-slate-50/50 dark:bg-slate-900/40 overflow-hidden`}>
             
-            {/* Compact Toolbar: Template Selector & Section Dropdown */}
+            {/* Compact Toolbar: Custom Template Selector & Custom Section Dropdown */}
             <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2 shrink-0">
-              {/* Row 1: Template Selector & Quick Actions */}
+              {/* Row 1: Custom Template Selector & Quick Actions */}
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
                   {lang === 'de' ? 'Vorlage:' : 'Template:'}
                 </label>
                 
-                <select
-                  value={selectedTemplateId}
-                  onChange={e => setSelectedTemplateId(e.target.value)}
-                  className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer truncate"
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} {t.id === activeId ? `(${lang === 'de' ? 'Standard' : 'Default'})` : ''}
-                    </option>
-                  ))}
-                </select>
+                {/* Custom Template Dropdown with pristine Dark Mode styling */}
+                <div className="relative flex-1 min-w-0" ref={templateMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplateMenuOpen(prev => !prev);
+                      setIsSectionMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 transition cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                      <Layout className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span className="truncate">{currentTemplate.name}</span>
+                      {currentTemplate.id === activeId && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold shrink-0">
+                          {lang === 'de' ? 'Standard' : 'Default'}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isTemplateMenuOpen ? 'rotate-180' : ''} shrink-0`} />
+                  </button>
+
+                  {isTemplateMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-full min-w-[240px] max-h-64 overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-fade-in">
+                      {templates.map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTemplateId(t.id);
+                            setIsTemplateMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs transition cursor-pointer text-left ${
+                            t.id === selectedTemplateId
+                              ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 font-bold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0 truncate">
+                            <span className="truncate">{t.name}</span>
+                            {t.id === activeId && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold shrink-0">
+                                {lang === 'de' ? 'Standard' : 'Default'}
+                              </span>
+                            )}
+                          </div>
+                          {t.id === selectedTemplateId && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-0.5 shrink-0">
                   <button
@@ -445,33 +540,55 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Section Dropdown Selector */}
+              {/* Row 2: Custom Section Dropdown Selector */}
               <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
                   {lang === 'de' ? 'Bearbeiten:' : 'Edit Section:'}
                 </label>
                 
-                <select
-                  value={currentTab}
-                  onChange={e => setCurrentTab(e.target.value as any)}
-                  className="flex-1 min-w-0 px-2.5 py-1.5 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl text-xs font-bold text-indigo-900 dark:text-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="design">
-                    {lang === 'de' ? 'Design, Logo, Farben & Typografie' : lang === 'fr' ? 'Design, Logo & Typographie' : lang === 'es' ? 'Diseño, Logo & Tipografía' : 'Design, Logo & Typography'}
-                  </option>
-                  <option value="content">
-                    {lang === 'de' ? 'Texte, Titel & Belegangaben' : lang === 'fr' ? 'Textes & Champs' : lang === 'es' ? 'Textos y Campos' : 'Texts & Document Fields'}
-                  </option>
-                  <option value="company">
-                    {lang === 'de' ? 'Firmendaten, Adresse & Bank' : lang === 'fr' ? 'Données Société & Banque' : lang === 'es' ? 'Datos Empresa & Banco' : 'Company Data & Banking'}
-                  </option>
-                  <option value="variables">
-                    {lang === 'de' ? 'Platzhalter & Variablen' : lang === 'fr' ? 'Variables & Modèles' : lang === 'es' ? 'Variables & Plantillas' : 'Variables & Placeholders'}
-                  </option>
-                  <option value="import">
-                    {lang === 'de' ? 'Datei-Import (.docx / HTML)' : lang === 'fr' ? 'Importation (.docx / HTML)' : lang === 'es' ? 'Importar Archivo (.docx / HTML)' : 'File Import (.docx / HTML)'}
-                  </option>
-                </select>
+                {/* Custom Section Dropdown with rich icons & perfect Dark Mode contrast */}
+                <div className="relative flex-1 min-w-0" ref={sectionMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSectionMenuOpen(prev => !prev);
+                      setIsTemplateMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-indigo-50/80 hover:bg-indigo-100/80 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/70 border border-indigo-200 dark:border-indigo-800/80 rounded-xl text-xs font-bold text-indigo-950 dark:text-indigo-200 transition cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 truncate">
+                      {activeSectionTab.icon}
+                      <span className="truncate">{activeSectionTab.label}</span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-indigo-400 transition-transform ${isSectionMenuOpen ? 'rotate-180' : ''} shrink-0`} />
+                  </button>
+
+                  {isSectionMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-full min-w-[280px] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-fade-in">
+                      {sectionTabs.map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setCurrentTab(s.id);
+                            setIsSectionMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs transition cursor-pointer text-left ${
+                            s.id === currentTab
+                              ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 font-bold'
+                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 truncate">
+                            {s.icon}
+                            <span className="truncate">{s.label}</span>
+                          </div>
+                          {s.id === currentTab && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -568,8 +685,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                           onClick={() => setDraft({ ...draft, primaryColor: c.hex })}
                           style={{ backgroundColor: c.hex }}
                           title={c.label}
-                          className={`w-6 h-6 rounded-full border-2 transition cursor-pointer ${
-                            draft.primaryColor === c.hex ? 'border-white ring-2 ring-indigo-500 scale-110' : 'border-transparent hover:scale-105'
+                          className={`w-6 h-6 rounded-full border border-slate-300 dark:border-slate-600 transition cursor-pointer shadow-xs ${
+                            draft.primaryColor === c.hex ? 'ring-2 ring-indigo-500 scale-110' : 'hover:scale-105'
                           }`}
                         />
                       ))}
@@ -577,7 +694,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="color"
                         value={draft.primaryColor}
                         onChange={e => setDraft({ ...draft, primaryColor: e.target.value })}
-                        className="w-7 h-7 rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer p-0"
+                        className="w-7 h-7 rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer p-0 bg-transparent"
                       />
                     </div>
                   </div>
@@ -593,8 +710,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         onClick={() => setDraft({ ...draft, fontFamily: 'sans' })}
                         className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
                           draft.fontFamily === 'sans'
-                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <div className="text-sm font-sans font-bold">Sans-Serif</div>
@@ -606,8 +723,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         onClick={() => setDraft({ ...draft, fontFamily: 'serif' })}
                         className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
                           draft.fontFamily === 'serif'
-                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <div className="text-sm font-serif font-bold">Serif</div>
@@ -619,8 +736,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         onClick={() => setDraft({ ...draft, fontFamily: 'mono' })}
                         className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
                           draft.fontFamily === 'mono'
-                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <div className="text-sm font-mono font-bold">Mono</div>
@@ -635,7 +752,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                       <div className="font-bold text-slate-800 dark:text-slate-200">
                         {lang === 'de' ? 'DIN 5008 Falt- & Lochermarken' : 'DIN 5008 Fold & Punch Marks'}
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
                         {lang === 'de' ? 'Faltmarken bei 105 mm & 210 mm für DIN-Lang-Kuverts' : 'Folds at 105 mm & 210 mm for standard envelopes'}
                       </div>
                     </div>
@@ -747,7 +864,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyName}
                         onChange={e => setDraft({ ...draft, companyName: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -757,7 +874,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companySubtitle || ''}
                         onChange={e => setDraft({ ...draft, companySubtitle: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -767,7 +884,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyOwner || ''}
                         onChange={e => setDraft({ ...draft, companyOwner: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -777,7 +894,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyAddress}
                         onChange={e => setDraft({ ...draft, companyAddress: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -787,7 +904,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyZipCity}
                         onChange={e => setDraft({ ...draft, companyZipCity: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -797,7 +914,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyIban || ''}
                         onChange={e => setDraft({ ...draft, companyIban: e.target.value })}
-                        className="w-full px-3 py-2 font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
@@ -807,7 +924,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                         type="text"
                         value={draft.companyBic || ''}
                         onChange={e => setDraft({ ...draft, companyBic: e.target.value })}
-                        className="w-full px-3 py-2 font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
@@ -1027,9 +1144,9 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           </div>
 
           {/* Right Panel: Live DIN-A4 Sheet Preview */}
-          <div className={`w-full lg:w-7/12 ${
-            responsiveTab === 'preview' ? 'flex' : 'hidden lg:flex'
-          } flex-col bg-slate-100 dark:bg-slate-950 overflow-hidden`}>
+          <div className={`w-full xl:w-7/12 ${
+            responsiveTab === 'preview' ? 'flex' : 'hidden xl:flex'
+          } flex-col bg-slate-200/80 dark:bg-slate-950 overflow-hidden`}>
             
             {/* Live Preview Toolbar */}
             <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1040,7 +1157,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 </span>
 
                 {/* Preview Switcher: Test Mode vs Real Invoices */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                   <button
                     onClick={() => {
                       setIsPreviewTestMode(true);
@@ -1049,7 +1166,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                       isPreviewTestMode 
                         ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-2xs' 
-                        : 'text-slate-500 hover:text-slate-800'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     {lang === 'de' ? '100.000 € Test-Beleg' : '100k Sample'}
@@ -1064,7 +1181,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                       className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                         !isPreviewTestMode 
                           ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-2xs' 
-                          : 'text-slate-500 hover:text-slate-800'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
                       {lang === 'de' ? 'Echte Belegdaten' : 'Real Invoice'}
@@ -1073,8 +1190,38 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons for Word & Print */}
+              {/* Action Buttons for Word, Print & Zoom */}
               <div className="flex items-center gap-1.5">
+                {/* Zoom Controls */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom(prev => Math.max(60, prev - 10))}
+                    disabled={previewZoom <= 60}
+                    title="Zoom verkleinern"
+                    className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 cursor-pointer"
+                  >
+                    <ZoomOut className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom(100)}
+                    title="Auf 100% zurücksetzen"
+                    className="px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 cursor-pointer"
+                  >
+                    {previewZoom}%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom(prev => Math.min(130, prev + 10))}
+                    disabled={previewZoom >= 130}
+                    title="Zoom vergrößern"
+                    className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 cursor-pointer"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => exportInvoiceToWord(draft, selectedRealInvoice, company, currency)}
@@ -1097,9 +1244,15 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
             </div>
 
             {/* Document Render Container */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center items-start">
+            <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-8 flex justify-center items-start">
               <div 
-                className="bg-white text-slate-900 w-full max-w-[760px] min-h-[900px] p-6 sm:p-10 rounded-2xl shadow-xl border border-slate-200 transition-all select-text"
+                className="invoice-sheet-paper bg-white text-slate-900 w-full max-w-[760px] min-h-[900px] p-6 sm:p-10 rounded-xl shadow-2xl border border-slate-300 transition-transform origin-top select-text"
+                style={{ 
+                  backgroundColor: '#ffffff', 
+                  color: '#0f172a',
+                  transform: previewZoom === 100 ? undefined : `scale(${previewZoom / 100})`,
+                  marginBottom: previewZoom < 100 ? `-${Math.round((100 - previewZoom) * 8.5)}px` : undefined
+                }}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>
@@ -1107,8 +1260,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
 
         </div>
 
-        {/* Bottom View Switcher Bar for compact/small screens */}
-        <div className="lg:hidden no-print p-2 bg-slate-100 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-xs shrink-0">
+        {/* Bottom View Switcher Bar for compact/small screens (< xl: 1280px) */}
+        <div className="xl:hidden no-print p-2.5 bg-slate-100 dark:bg-slate-800/95 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0">
           <div className="flex items-center bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
             <button
               type="button"
@@ -1116,14 +1269,14 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 sounds.playClick();
                 setResponsiveTab('editor');
               }}
-              className={`px-4 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 responsiveTab === 'editor'
                   ? 'bg-indigo-600 text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Layout className="w-3.5 h-3.5" />
-              <span>{lang === 'de' ? 'Editor' : 'Editor'}</span>
+              <span>{lang === 'de' ? 'Layout-Editor' : 'Layout Editor'}</span>
             </button>
 
             <button
@@ -1132,15 +1285,37 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 sounds.playClick();
                 setResponsiveTab('preview');
               }}
-              className={`px-4 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 responsiveTab === 'preview'
                   ? 'bg-indigo-600 text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>{lang === 'de' ? 'Live-Vorschau' : 'Live Preview'}</span>
+              <span>{lang === 'de' ? 'Dokument-Vorschau' : 'Document Preview'}</span>
             </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {responsiveTab === 'editor' ? (
+              <button
+                type="button"
+                onClick={() => handleSaveDraft(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{lang === 'de' ? 'Speichern & Aktivieren' : 'Save & Activate'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs transition cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>{lang === 'de' ? 'Drucken / PDF' : 'Print / PDF'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

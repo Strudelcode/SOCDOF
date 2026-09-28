@@ -127,15 +127,39 @@ html.dark [class~="hover:bg-slate-200"]:hover:not([class~="dark:hover:bg-slate-2
 }
 
 /* Native controls, dropdowns and inputs */
-html.dark input:not([class*="dark:"]),
-html.dark textarea:not([class*="dark:"]),
-html.dark select:not([class*="dark:"]) {
-  color-scheme: dark;
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color-scheme: dark !important;
 }
+
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
 html:not(.dark) input,
 html:not(.dark) textarea,
 html:not(.dark) select {
   color-scheme: light;
+}
+
+html:not(.dark) select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Protect invoice paper sheet preview from dark-mode background inversion */
+.invoice-sheet-paper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.dark .invoice-sheet-paper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* Selection, focus and disabled states remain readable in both themes. */

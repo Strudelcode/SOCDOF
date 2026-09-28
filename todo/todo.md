@@ -23,6 +23,12 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.18.10 Exclusive Discord Bot Forum Release Broadcast & Webhook Removal milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.18.9 Adaptive Screen Layout & Dark Mode Polish for Invoice Template Editor milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.18.8 Prominent Discord Transmission Loading Banner & Verified Delivery Feedback milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.18.0 High-Fidelity Word (.docx) XML Table Parsing & Smart Variable Rendering milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.17.0 PDF & Word (.docx) Template Import & Automatic Variable Extraction milestone is complete and archived in `todo/completed_todo.md`.

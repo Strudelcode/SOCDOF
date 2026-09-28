@@ -91,9 +91,11 @@ export const DiscordFeedbackApp: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<{
     success: boolean;
+    queued?: boolean;
     threadId?: string;
     threadUrl?: string;
     error?: string;
+    message?: string;
   } | null>(null);
 
   // Bot Status (online / offline)
@@ -287,22 +289,20 @@ export const DiscordFeedbackApp: React.FC = () => {
 
       setSubmissionResult(res);
 
-      if (res.success) {
+      if (res.success && !res.queued) {
         sounds.playSuccess();
         setSubmittedReports(getSubmittedDiscordReports());
         performSync();
 
-        if (!res.queued) {
-          try {
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { y: 0.6 }
-            });
-          } catch {}
-        }
+        try {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.6 }
+          });
+        } catch {}
 
-        // Reset inputs after successful send
+        // Reset inputs only after real successful send to Discord
         if (isBug) {
           setBugTitle('');
           setBugLocation('');
@@ -314,6 +314,10 @@ export const DiscordFeedbackApp: React.FC = () => {
           setIdeaDescription('');
           setCustomIdeaCategory('');
         }
+      } else if (res.queued) {
+        sounds.playClick();
+        setSubmittedReports(getSubmittedDiscordReports());
+        performSync();
       } else {
         sounds.playError();
       }
@@ -501,18 +505,47 @@ export const DiscordFeedbackApp: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-3xl mx-auto space-y-5">
           
-          {/* Success / Error Banners */}
-          {submissionResult && (
+          {/* Active Transmitting Spinner Banner while isSubmitting is true */}
+          {isSubmitting && (
+            <div className="p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/90 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 animate-fade-in shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold flex items-center gap-2">
+                    <span>{t('feedback.transmitting_title', lang, 'Wird an Discord gesendet...')}</span>
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                  </div>
+                  <div className="text-[11px] opacity-90 mt-0.5">
+                    {t('feedback.transmitting_desc', lang, 'Bitte warten, Ihr Beitrag wird an Ihren Discord-Server übertragen und dort veröffentlicht...')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submission Result Banners (Shown only when not currently submitting) */}
+          {!isSubmitting && submissionResult && (
             <div className={`p-4 rounded-2xl border animate-fade-in ${
-              submissionResult.success
+              submissionResult.success && !submissionResult.queued
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                : submissionResult.queued
+                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
                 : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
             }`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  {submissionResult.success ? (
+                  {submissionResult.success && !submissionResult.queued ? (
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
                       <Check className="w-4 h-4" />
+                    </div>
+                  ) : submissionResult.queued ? (
+                    <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4" />
                     </div>
                   ) : (
                     <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
@@ -521,29 +554,48 @@ export const DiscordFeedbackApp: React.FC = () => {
                   )}
                   <div>
                     <div className="text-xs font-bold">
-                      {submissionResult.success 
-                        ? t('feedback.success_title', lang, 'Erfolgreich an Discord übertragen!')
-                        : (lang === 'de' ? 'Übertragung fehlgeschlagen' : 'Submission failed')}
+                      {submissionResult.success && !submissionResult.queued
+                        ? t('feedback.sent_success_title', lang, 'Gesendet! Erfolgreich auf Discord veröffentlicht')
+                        : submissionResult.queued
+                        ? t('feedback.queued_title', lang, 'In Offline-Warteschlange gespeichert (noch nicht auf Discord)')
+                        : t('feedback.send_error_title', lang, 'Fehler beim Senden')}
                     </div>
                     <div className="text-[11px] opacity-90 mt-0.5">
-                      {submissionResult.success 
-                        ? t('feedback.success_desc', lang, 'Ihr Beitrag wurde im Discord-Forum gepostet und als Ticket gespeichert.')
-                        : submissionResult.error}
+                      {submissionResult.success && !submissionResult.queued
+                        ? t('feedback.sent_success_desc', lang, 'Ihr Beitrag ist jetzt live auf Discord sichtbar und wurde als Ticket hinterlegt.')
+                        : submissionResult.queued
+                        ? t('feedback.queued_desc', lang, 'Discord konnte gerade nicht erreicht werden. Der Bericht wurde lokal gesichert und wird übertragen, sobald eine Verbindung besteht.')
+                        : (submissionResult.error || t('feedback.send_error_desc', lang, 'Der Bericht konnte nicht an Discord übertragen werden. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.'))}
                     </div>
                   </div>
                 </div>
 
-                {submissionResult.threadUrl && (
-                  <a
-                    href={submissionResult.threadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#5865F2] text-white text-xs font-bold hover:bg-[#4752C4] transition shrink-0 cursor-pointer shadow-2xs"
-                  >
-                    <span>{t('feedback.view_ticket', lang, 'Auf Discord ansehen')}</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {submissionResult.success && !submissionResult.queued && submissionResult.threadUrl && (
+                    <a
+                      href={submissionResult.threadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#5865F2] text-white text-xs font-bold hover:bg-[#4752C4] transition cursor-pointer shadow-2xs"
+                    >
+                      <span>{t('feedback.view_ticket', lang, 'Auf Discord ansehen')}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
+                  {submissionResult.queued && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sounds.playClick();
+                        setActiveTab('history');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition cursor-pointer shadow-2xs"
+                    >
+                      <span>{t('feedback.tab_history', lang, 'Meine Tickets')}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1050,8 +1102,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                       type="text"
                       value={bugTitle}
                       onChange={e => setBugTitle(e.target.value)}
+                      disabled={isSubmitting}
                       placeholder={t('feedback.step1_bug_placeholder', lang, 'z. B. Rechnungsdruck schneidet Fußzeile ab')}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-2xs disabled:opacity-60"
                       required
                     />
                   </div>
@@ -1116,8 +1169,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                           type="text"
                           value={customBugLocation}
                           onChange={e => setCustomBugLocation(e.target.value)}
+                          disabled={isSubmitting}
                           placeholder={t('feedback.custom_location_placeholder', lang, 'Geben Sie den genauen Ort / die App ein...')}
-                          className="w-full px-3 py-2 bg-orange-50/40 dark:bg-orange-950/20 border border-orange-300 dark:border-orange-800/60 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          className="w-full px-3 py-2 bg-orange-50/40 dark:bg-orange-950/20 border border-orange-300 dark:border-orange-800/60 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60"
                           required
                         />
                       </div>
@@ -1132,8 +1186,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                       rows={4}
                       value={bugDescription}
                       onChange={e => setBugDescription(e.target.value)}
+                      disabled={isSubmitting}
                       placeholder={t('feedback.step3_bug_placeholder', lang, '1. Was haben Sie gemacht?\n2. Welcher Fehler trat auf?\n3. Erwartetes Verhalten...')}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-2xs font-mono disabled:opacity-60"
                       required
                     />
                   </div>
@@ -1151,8 +1206,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                       type="text"
                       value={ideaTitle}
                       onChange={e => setIdeaTitle(e.target.value)}
+                      disabled={isSubmitting}
                       placeholder={t('feedback.step1_idea_placeholder', lang, 'z. B. Automatischer PDF-Massenexport für Steuerberater')}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs disabled:opacity-60"
                       required
                     />
                   </div>
@@ -1170,7 +1226,8 @@ export const DiscordFeedbackApp: React.FC = () => {
                           setPickerTarget('idea');
                           setIsAppPickerOpen(true);
                         }}
-                        className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs"
+                        disabled={isSubmitting}
+                        className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs disabled:opacity-60"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-500 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-colors">
@@ -1204,7 +1261,8 @@ export const DiscordFeedbackApp: React.FC = () => {
                             setPickerTarget('idea');
                             setIsAppPickerOpen(true);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-bold transition cursor-pointer shrink-0 ml-2"
+                          disabled={isSubmitting}
+                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-bold transition cursor-pointer shrink-0 ml-2 disabled:opacity-60"
                         >
                           {t('feedback.change_category_btn', lang, 'Kategorie ändern...')}
                         </button>
@@ -1217,8 +1275,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                           type="text"
                           value={customIdeaCategory}
                           onChange={e => setCustomIdeaCategory(e.target.value)}
+                          disabled={isSubmitting}
                           placeholder={t('feedback.custom_location_placeholder', lang, 'Geben Sie die genaue Kategorie / den Bereich ein...')}
-                          className="w-full px-3 py-2 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-300 dark:border-indigo-800/60 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-300 dark:border-indigo-800/60 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
                           required
                         />
                       </div>
@@ -1233,8 +1292,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                       rows={4}
                       value={ideaDescription}
                       onChange={e => setIdeaDescription(e.target.value)}
+                      disabled={isSubmitting}
                       placeholder={t('feedback.step3_idea_placeholder', lang, 'Beschreiben Sie Ihren Wunsch, wie der Ablauf sein sollte und welchen Nutzen es bringt...')}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs disabled:opacity-60"
                       required
                     />
                   </div>
@@ -1273,7 +1333,9 @@ export const DiscordFeedbackApp: React.FC = () => {
                   type="submit"
                   disabled={isSubmitting || (activeTab === 'bug' ? !isBugFormComplete : !isIdeaFormComplete)}
                   className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-bold transition shadow-lg ${
-                    !botStatus.online
+                    isSubmitting
+                      ? 'bg-slate-500 text-white cursor-wait opacity-85 shadow-slate-500/20'
+                      : !botStatus.online
                       ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-amber-500/20 cursor-pointer'
                       : activeTab === 'bug'
                       ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-orange-500/20 cursor-pointer'
@@ -1282,17 +1344,17 @@ export const DiscordFeedbackApp: React.FC = () => {
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{t('feedback.submitting', lang, 'Wird an Discord übertragen...')}</span>
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span>{t('feedback.submitting_button', lang, 'Wird an Discord gesendet...')}</span>
                     </>
                   ) : !botStatus.online ? (
                     <>
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-4 h-4 shrink-0" />
                       <span>{t('feedback.btn_submit_queued', lang, 'In Offline-Warteschlange speichern')}</span>
                     </>
                   ) : (
                     <>
-                      <Send className="w-4 h-4" />
+                      <Send className="w-4 h-4 shrink-0" />
                       <span>{activeTab === 'bug' ? t('feedback.submit_bug_btn', lang, 'Bug-Report jetzt an Discord senden') : t('feedback.submit_idea_btn', lang, 'Idee & Vorschlag an Discord senden')}</span>
                     </>
                   )}

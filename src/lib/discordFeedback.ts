@@ -1026,6 +1026,9 @@ export async function sendDiscordReport(
   // 2. Try BotGhost Webhook first (direct HTTP POST from browser/client)
   if (DISCORD_CONFIG.BOTGHOST_WEBHOOK) {
     try {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutTimer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+
       const webhookResp = await fetch(DISCORD_CONFIG.BOTGHOST_WEBHOOK, {
         method: 'POST',
         headers: {
@@ -1039,7 +1042,10 @@ export async function sendDiscordReport(
           category: payload.categoryOrLocation,
           type: payload.type
         }),
+        signal: controller ? controller.signal : undefined
       });
+
+      if (timeoutTimer) clearTimeout(timeoutTimer);
 
       if (webhookResp.ok || webhookResp.status === 200 || webhookResp.status === 204) {
         const webhookThreadId = `webhook_${Date.now()}`;

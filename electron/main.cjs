@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, dialog, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog, screen, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -965,28 +965,50 @@ ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GE
   });
 });
 
-ipcMain.handle('socdof:discord-webhook', async (_event, { url, payload }) => {
+function executeElectronWebhook(targetUrl, payload, redirectDepth = 0) {
   return new Promise((resolve) => {
+    if (redirectDepth > 3) {
+      return resolve({ status: 508, ok: false, error: 'Too many redirects' });
+    }
     try {
-      const urlObj = new URL(url);
+      const urlObj = new URL(targetUrl);
       const postData = JSON.stringify(payload);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+
       const reqOptions = {
         hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
         path: urlObj.pathname + urlObj.search,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
           'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
-        }
+        },
+        timeout: 12000
       };
 
-      const req = https.request(reqOptions, (res) => {
+      const req = client.request(reqOptions, (res) => {
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          const redirectUrl = res.headers.location.startsWith('http')
+            ? res.headers.location
+            : new URL(res.headers.location, targetUrl).toString();
+          return resolve(executeElectronWebhook(redirectUrl, payload, redirectDepth + 1));
+        }
+
         let data = '';
         res.on('data', chunk => { data += chunk; });
         res.on('end', () => {
-          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data });
+          let parsed = data;
+          try { parsed = JSON.parse(data); } catch {}
+          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: parsed });
         });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ status: 408, ok: false, error: 'Request timeout (12s)' });
       });
 
       req.on('error', (err) => {
@@ -999,6 +1021,31 @@ ipcMain.handle('socdof:discord-webhook', async (_event, { url, payload }) => {
       resolve({ status: 500, ok: false, error: err.message });
     }
   });
+}
+
+ipcMain.handle('socdof:discord-webhook', async (_event, { url, payload }) => {
+  try {
+    if (typeof net !== 'undefined' && net.fetch) {
+      const resp = await net.fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.text();
+      let json = data;
+      try { json = JSON.parse(data); } catch {}
+      if (resp.ok || (resp.status >= 200 && resp.status < 300)) {
+        return { status: resp.status, ok: true, data: json };
+      }
+    }
+  } catch (netErr) {
+    console.warn('[SOCDOF Electron] net.fetch webhook failed, trying https fallback:', netErr);
+  }
+
+  return executeElectronWebhook(url, payload);
 });
 
 app.on('second-instance', () => {

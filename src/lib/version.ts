@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.18.5';
+export const APP_VERSION = '23.18.10';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,56 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.18.10',
+    date: '2026-09-28',
+    title: 'Exclusive Discord Bot Forum Release Broadcast & Webhook Removal',
+    highlights: [
+      'Permanently removed legacy Discord Webhooks from GitHub release broadcasts in favor of the official Discord Bot API.',
+      'Broadcast notifications now target designated Discord Forum threads/posts with rich formatting and auto-unarchive capability.',
+      'Strict validation in release scripts with clear diagnostic error logging if bot token or thread ID are missing.',
+      'Workflows updated in discord_release.yml and build-windows-exe.yml to pass only DISCORD_BOT_TOKEN and DISCORD_THREAD_ID.'
+    ]
+  },
+  {
+    version: '23.18.9',
+    date: '2026-09-28',
+    title: 'Adaptive Screen Layout & Dark Mode Polish for Invoice Template Editor',
+    highlights: [
+      'Responsive view switcher bar on compact screens (< 1280px) with dedicated Layout-Editor and Dokument-Vorschau modes.',
+      'Side-by-side view preserved on large screens (>= 1280px) with bottom toolbar automatically hidden.',
+      'Sleek custom dropdown selectors for templates and sections, eliminating OS-native light popup contrast glitches in dark mode.',
+      'Protected paper sheet preview in dark mode ensuring crisp, authentic DIN A4 document presentation with interactive zoom controls (60% - 130%).',
+      'Enhanced Discord broadcast GitHub Action with native Discord Bot API forum thread support and automatic unarchive.'
+    ]
+  },
+  {
+    version: '23.18.8',
+    date: '2026-09-28',
+    title: 'Prominent Discord Transmission Loading Banner & Verified Delivery Feedback',
+    highlights: [
+      'Prominent animated transmission card ("Wird an Discord gesendet...") with spinning indicator while submitting.',
+      'Form inputs disabled during transmission to prevent accidental modifications or double-submissions.',
+      'Accurate delivery feedback: Green success banner only displays when verified live on Discord, distinct amber banner for offline queueing, and red banner with details for errors.'
+    ]
+  },
+  {
+    version: '23.18.7',
+    date: '2026-09-27',
+    title: 'Restored Previous BotGhost Webhook URL & API Configuration',
+    highlights: [
+      'Restored previous BotGhost Webhook URL and default token settings.'
+    ]
+  },
+  {
+    version: '23.18.6',
+    date: '2026-09-27',
+    title: 'Updated BotGhost Webhook URL & API Configuration',
+    highlights: [
+      'Updated BotGhost Webhook URL to the new endpoint for reliable Discord reporting.',
+      'Configured BG API Token for authenticated direct Discord integration.'
+    ]
+  },
   {
     version: '23.18.5',
     date: '2026-09-27',

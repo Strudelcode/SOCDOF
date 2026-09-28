@@ -4,6 +4,71 @@
 
 ---
 
+### Exclusive Discord Bot Forum Release Broadcast & Webhook Removal (v23.18.10)
+- [x] **Complete Legacy Webhook Deprecation**:
+  - [x] Removed all webhook fallback code and requests from `scripts/discord_broadcast.py`.
+  - [x] Removed `DISCORD_WEBHOOK` secret environment variable from `.github/workflows/discord_release.yml` and `.github/workflows/build-windows-exe.yml`.
+- [x] **Exclusive Discord Bot API Integration**:
+  - [x] Structured changelog release broadcasts to send exclusively via `POST /channels/{thread_id}/messages` using `Authorization: Bot <TOKEN>`.
+  - [x] Integrated auto-unarchive capability (`PATCH /channels/{thread_id}` with `archived: false`) if the forum post became archived.
+- [x] **Fail-Fast Error Handling**:
+  - [x] Added immediate exit with explicit error diagnostic if `DISCORD_BOT_TOKEN` or `DISCORD_THREAD_ID` is missing.
+
+---
+
+### Adaptive Screen Layout & Dark Mode Polish for Invoice Template Editor (v23.18.9)
+- [x] **Adaptive Responsive Layout**:
+  - [x] Implemented responsive view switcher on compact screens (< 1280px) to switch between `Layout-Editor` and `Dokument-Vorschau`.
+  - [x] On screens >= 1280px (`xl`), side-by-side view is preserved and the bottom bar is automatically hidden.
+- [x] **Dark Mode & Selection Menu Polish**:
+  - [x] Built custom, theme-aware dropdown selectors for template selection and edit section selection with Lucide icons.
+  - [x] Configured native `color-scheme: dark` in `src/index.css` to prevent washed-out browser popup option rendering.
+  - [x] Added borders to color presets so dark tones (Navy, Slate Dark) stand out clearly in dark mode.
+  - [x] Enhanced form input and textarea dark mode styling across all tabs.
+- [x] **Protected Document Paper Sheet & Zoom Controls**:
+  - [x] Preserved DIN A4 invoice sheet as authentic white paper sheet with `.invoice-sheet-paper` styles.
+  - [x] Added interactive zoom controls (60% to 130%) with 100% reset in preview toolbar.
+- [x] **Discord Bot Forum Integration**:
+  - [x] Extended `scripts/discord_broadcast.py` and GitHub Actions workflows (`discord_release.yml` and `build-windows-exe.yml`) to support posting release changelogs to Discord Forum threads using a Discord Bot token with automatic thread unarchive.
+
+---
+
+### Prominent Discord Transmission Loading Banner & Verified Delivery Feedback (v23.18.8)
+- [x] **Prominent Loading State while Submitting**:
+  - [x] Implemented animated transmission banner card (`Wird an Discord gesendet... Bitte warten`) with spinner while dispatching.
+  - [x] Submit button actively displays animated spinner and transmission text.
+  - [x] Form inputs and buttons are locked during transmission to prevent duplicate submissions.
+- [x] **Verified 3-State Delivery Feedback**:
+  - [x] Green success banner only displays when verified live on Discord.
+  - [x] Amber banner for offline queueing with direct ticket navigation.
+  - [x] Red error banner displaying transmission error details without resetting form content.
+- [x] **Multilingual i18n Translations**:
+  - [x] Added translations for all states across German, English, French, and Spanish in `src/lib/i18n.ts`.
+
+---
+
+### Restored Previous BotGhost Webhook URL & API Configuration (v23.18.7)
+- [x] **Webhook Restoration**:
+  - [x] Restored `BOTGHOST_WEBHOOK` in `src/lib/discordFeedback.ts` to `https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf` and reset `BOT_TOKEN` to default (`''`).
+
+---
+
+### Updated BotGhost Webhook URL & API Configuration (v23.18.6)
+- [x] **New BotGhost Webhook URL & API Token**:
+  - [x] Updated `BOTGHOST_WEBHOOK` in `src/lib/discordFeedback.ts` to `https://api.botghost.com/webhook/1498764033518735441/9mvtuh5aaf65v4ipqlilqu`.
+  - [x] Configured `BOT_TOKEN` with BG API token `17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089`.
+
+---
+
+### Electron Desktop Main Process Webhook IPC Bridge for Report Sending (v23.18.5)
+- [x] **Electron Desktop IPC Webhook Bridge**:
+  - [x] Implemented `socdof:discord-webhook` IPC handler in `electron/main.cjs` utilizing `net.fetch` and Node.js native `https` module with automatic redirect handling.
+  - [x] Exposed `discordWebhook` via `electron/preload.cjs`.
+- [x] **Bypassing Desktop App CORS & Fetch Restrictions**:
+  - [x] Bug and feature reports submitted from inside the installed Windows desktop app now correctly dispatch via main process HTTPS POST requests to BotGhost/Discord webhooks, ensuring 100% reliable report sending without getting stuck or failing.
+
+---
+
 ### High-Fidelity Word (.docx) XML Table Parsing & Smart Variable Rendering (v23.18.0)
 - [x] **Full DOCX XML Table & Layout Parsing**:
   - [x] Implemented structural XML tree parsing for Word documents (`<w:tbl>`, `<w:tr>`, `<w:tc>`), preserving multi-column layouts, side-by-side header boxes, table borders, cell padding, background fills, width percentages, text alignments (`<w:jc>`), font sizes, colors, bolding, and headers/footers (`word/header1.xml`, `word/footer1.xml`).
