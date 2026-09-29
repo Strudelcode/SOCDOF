@@ -4,6 +4,33 @@
 
 ---
 
+### Verified Discord Forum Bot Integration & Localhost Proxy in Desktop App (v23.18.12)
+- [x] **Verified Discord Bot Forum Creation**:
+  - [x] Connected app bug reports and ideas to the official Discord Bot REST API (`POST /channels/{id}/threads`).
+  - [x] Implemented background HTTP server and Node.js IPC proxy handlers in Electron (`electron/main.cjs` & `electron/preload.cjs`).
+  - [x] Removed all legacy BotGhost webhooks and simulated offline confirmations.
+- [x] **Zero False Positives & Accurate Diagnostic Status**:
+  - [x] Eliminated misleading "Gesendet!" confirmations when Discord was not actually reached.
+  - [x] Added explicit diagnostic warnings and status feedback when tickets are queued locally due to offline state or missing credentials.
+- [x] **In-App Bot Token Setup**:
+  - [x] Added interactive Bot Token configuration drawer in the Bug-Report modal header with instant validation and secure local storage.
+
+---
+
+### Documentation Portal Layout Hierarchy & Smooth Scrolling Restoration (v23.18.11)
+- [x] **Removed Misplaced Top Section**:
+  - [x] Deleted hardcoded stand-alone `<section>` card for "Praxis & Therapie" that was erroneously placed outside the portal container above the header ribbon.
+  - [x] Restored clean standard header displaying "SOCDOF Portal & Dokumentation" and version badge at the very top.
+- [x] **Restored Smooth Scrolling & Interactivity**:
+  - [x] Corrected container flexbox hierarchy to `flex flex-col h-full w-full min-h-0 overflow-hidden` on portal root.
+  - [x] Set `flex-1 min-h-0 overflow-y-auto` on tab body container and `overflow-hidden` for manual sidebar/content split.
+  - [x] Mouse wheel, touch scrolling, and scrollbars now function smoothly without any frozen or clipped behaviour.
+- [x] **Proper Module Integration in Handbuch & Showcase**:
+  - [x] Added "Praxis & Therapie" as chapter in `docSections` under "Branchen & Spezialmodule".
+  - [x] Added card #7 in Showcase & Features matrix for "Praxis & Therapie".
+
+---
+
 ### Exclusive Discord Bot Forum Release Broadcast & Webhook Removal (v23.18.10)
 - [x] **Complete Legacy Webhook Deprecation**:
   - [x] Removed all webhook fallback code and requests from `scripts/discord_broadcast.py`.

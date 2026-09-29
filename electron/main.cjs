@@ -50,7 +50,145 @@ function getLocalIpAddresses() {
   return validIps;
 }
 
-// Background lightweight HTTP sync server for Mobile Companion in packaged Electron
+// Background lightweight HTTP sync server for Mobile Companion & Discord Localhost Proxy in packaged Electron
+function getElectronDiscordBotToken() {
+  if (process.env.DISCORD_BOT_TOKEN) return process.env.DISCORD_BOT_TOKEN;
+  if (process.env.VITE_DISCORD_BOT_TOKEN) return process.env.VITE_DISCORD_BOT_TOKEN;
+  try {
+    const configPath = path.join(app.getPath('userData'), 'discord_config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (cfg.botToken) return cfg.botToken;
+    }
+  } catch {}
+  return '';
+}
+
+function saveElectronDiscordBotToken(token) {
+  try {
+    const configPath = path.join(app.getPath('userData'), 'discord_config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ botToken: (token || '').trim(), updatedAt: new Date().toISOString() }), 'utf8');
+    return true;
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Failed to save Discord bot token:', err);
+    return false;
+  }
+}
+
+function executeDiscordHttpsRequest(endpoint, method = 'GET', body = null, explicitToken = '') {
+  return new Promise((resolve) => {
+    const botToken = (explicitToken || '').trim() || getElectronDiscordBotToken();
+    if (!botToken) {
+      resolve({ status: 401, ok: false, error: 'Kein Discord Bot Token konfiguriert' });
+      return;
+    }
+
+    try {
+      const targetUrl = endpoint.startsWith('http') ? endpoint : `https://discord.com/api/v10${endpoint}`;
+      const urlObj = new URL(targetUrl);
+      const postData = body ? JSON.stringify(body) : null;
+
+      const reqOptions = {
+        hostname: urlObj.hostname,
+        port: 443,
+        path: urlObj.pathname + urlObj.search,
+        method: method,
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'SOCDOF-Desktop-App (https://github.com/Strudelcode/SOCDOF, 1.0)'
+        },
+        timeout: 15000
+      };
+
+      if (postData) {
+        reqOptions.headers['Content-Length'] = Buffer.byteLength(postData);
+      }
+
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const json = data ? JSON.parse(data) : {};
+            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: json });
+          } catch {
+            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: { raw: data } });
+          }
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ status: 408, ok: false, error: 'Discord API Timeout (15s)' });
+      });
+
+      req.on('error', (err) => {
+        resolve({ status: 500, ok: false, error: err.message });
+      });
+
+      if (postData) {
+        req.write(postData);
+      }
+      req.end();
+    } catch (err) {
+      resolve({ status: 500, ok: false, error: err.message });
+    }
+  });
+}
+
+function executeBotghostWebhook(targetUrl, payload, apiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089') {
+  return new Promise((resolve) => {
+    try {
+      const urlObj = new URL(targetUrl);
+      const postData = JSON.stringify(payload);
+      const key = apiKey || '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+      const reqOptions = {
+        hostname: urlObj.hostname,
+        port: 443,
+        path: urlObj.pathname + urlObj.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'Authorization': key,
+          'x-api-key': key,
+          'User-Agent': 'SOCDOF-Desktop-App/1.0'
+        },
+        timeout: 12000
+      };
+
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          let parsed = data;
+          try { parsed = JSON.parse(data); } catch {}
+          console.log(`[SOCDOF Electron] BotGhost Webhook Response: HTTP ${res.statusCode}`);
+          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: parsed });
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        console.warn('[SOCDOF Electron] BotGhost Webhook Timeout (12s)');
+        resolve({ status: 408, ok: false, error: 'BotGhost Webhook Timeout (12s)' });
+      });
+
+      req.on('error', (err) => {
+        console.error('[SOCDOF Electron] BotGhost Webhook Network Error:', err.message);
+        resolve({ status: 500, ok: false, error: err.message });
+      });
+
+      req.write(postData);
+      req.end();
+    } catch (err) {
+      console.error('[SOCDOF Electron] BotGhost Webhook Exception:', err.message);
+      resolve({ status: 500, ok: false, error: err.message });
+    }
+  });
+}
+
 function startMobileSyncServer(preferredPort = 3000) {
   if (mobileSyncHttpServer) return;
 
@@ -66,8 +204,152 @@ function startMobileSyncServer(preferredPort = 3000) {
     }
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = parsedUrl.pathname.replace(/\/+$/, '') || '/';
 
-    if (parsedUrl.pathname === '/api/mobile-sync/info' && req.method === 'GET') {
+    // Discord API Proxy: /api/discord/bot-status
+    if (pathname === '/api/discord/bot-status' && (req.method === 'GET' || req.method === 'POST')) {
+      const token = getElectronDiscordBotToken();
+      if (!token) {
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ online: false, error: 'No Discord bot token configured in Electron' }));
+        return;
+      }
+      executeDiscordHttpsRequest('/users/@me', 'GET', null, token).then(result => {
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        if (result.ok && result.data && result.data.id) {
+          const d = result.data;
+          const avatarUrl = d.avatar
+            ? `https://cdn.discordapp.com/avatars/${d.id}/${d.avatar}.png?size=128`
+            : `https://cdn.discordapp.com/embed/avatars/${(parseInt(d.id || '0', 10) || 0) % 5}.png`;
+          res.end(JSON.stringify({ online: true, botId: d.id, botName: d.username, botAvatar: d.avatar, avatarUrl }));
+        } else {
+          res.end(JSON.stringify({ online: false, error: result.error || 'Bot unreachable' }));
+        }
+      });
+      return;
+    }
+
+    // Discord API Proxy: /api/discord/channel-tags
+    if (pathname === '/api/discord/channel-tags' && (req.method === 'GET' || req.method === 'POST')) {
+      const channelId = parsedUrl.searchParams.get('channelId') || '1535709136363462757';
+      executeDiscordHttpsRequest(`/channels/${channelId}`, 'GET').then(result => {
+        res.setHeader('Content-Type', 'application/json');
+        if (result.ok && result.data && Array.isArray(result.data.available_tags)) {
+          const tags = result.data.available_tags.map(t => ({
+            id: t.id,
+            name: t.name,
+            emojiName: t.emoji_name,
+            emojiId: t.emoji_id,
+            moderated: !!t.moderated
+          }));
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, tags }));
+        } else {
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: false, tags: [], error: result.error }));
+        }
+      });
+      return;
+    }
+
+    // Discord API Proxy: /api/discord/botghost-webhook (Forward webhook to BotGhost)
+    if ((pathname === '/api/discord/botghost-webhook' || pathname === '/api/botghost/webhook') && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          const targetUrl = parsed.webhookUrl || 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+          const payload = parsed.payload || parsed;
+          const apiKey = parsed.apiKey || '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+
+          executeBotghostWebhook(targetUrl, payload, apiKey).then(result => {
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = result.ok ? 200 : (result.status || 500);
+            res.end(JSON.stringify({ success: result.ok, status: result.status, data: result.data, error: result.error }));
+          });
+        } catch (err) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // Discord API Proxy: /api/discord/thread (Create forum post via Bot)
+    if (pathname === '/api/discord/thread' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          const channelId = parsed.channelId || '1535709136363462757';
+          const threadData = parsed.threadData || parsed;
+          const explicitToken = parsed.botToken || '';
+
+          executeDiscordHttpsRequest(`/channels/${channelId}/threads`, 'POST', threadData, explicitToken).then(result => {
+            res.setHeader('Content-Type', 'application/json');
+            if (result.ok && result.data && result.data.id) {
+              const threadId = result.data.id;
+              const threadUrl = `https://discord.com/channels/1517532430095876266/${channelId}/${threadId}`;
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, threadId, threadUrl, data: result.data }));
+            } else {
+              res.statusCode = result.status || 500;
+              res.end(JSON.stringify({ success: false, error: result.error || result.data?.message || 'Failed to create thread', details: result.data }));
+            }
+          });
+        } catch (err) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // Discord API Proxy: /api/discord/sync-threads
+    if ((pathname === '/api/discord/sync-threads' || pathname === '/api/discord/threads-status') && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const parsed = JSON.parse(body);
+          const threadIds = Array.isArray(parsed.threadIds) ? parsed.threadIds.slice(0, 25) : [];
+          const threadsMap = {};
+
+          for (const tid of threadIds) {
+            const resData = await executeDiscordHttpsRequest(`/channels/${tid}`, 'GET');
+            if (resData.ok && resData.data) {
+              threadsMap[tid] = {
+                id: tid,
+                name: resData.data.name,
+                appliedTags: (resData.data.applied_tags || []).map(id => ({ id, name: id })),
+                isArchived: !!resData.data.thread_metadata?.archived,
+                isLocked: !!resData.data.thread_metadata?.locked,
+                messageCount: resData.data.total_message_sent ?? resData.data.message_count ?? 1,
+                lastSyncedAt: new Date().toISOString()
+              };
+            }
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, threads: threadsMap }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // Mobile Companion: /api/mobile-sync/info
+    if (pathname === '/api/mobile-sync/info' && req.method === 'GET') {
       const ips = getLocalIpAddresses();
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
@@ -79,7 +361,8 @@ function startMobileSyncServer(preferredPort = 3000) {
       return;
     }
 
-    if (parsedUrl.pathname === '/api/mobile-sync' && req.method === 'POST') {
+    // Mobile Companion: /api/mobile-sync POST
+    if (pathname === '/api/mobile-sync' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
@@ -111,7 +394,8 @@ function startMobileSyncServer(preferredPort = 3000) {
       return;
     }
 
-    if (parsedUrl.pathname === '/api/mobile-sync' && req.method === 'GET') {
+    // Mobile Companion: /api/mobile-sync GET
+    if (pathname === '/api/mobile-sync' && req.method === 'GET') {
       const token = parsedUrl.searchParams.get('token') || 'latest';
       const session = mobileSyncStore.get(token) || mobileSyncStore.get('latest');
 
@@ -140,7 +424,7 @@ function startMobileSyncServer(preferredPort = 3000) {
   });
 
   server.listen(preferredPort, '0.0.0.0', () => {
-    console.log(`[SOCDOF Electron] Background Mobile Sync server running on port ${preferredPort}`);
+    console.log(`[SOCDOF Electron] Background Mobile Sync & Discord API server running on port ${preferredPort}`);
   });
 
   mobileSyncHttpServer = server;
@@ -922,130 +1206,33 @@ ipcMain.handle('socdof:save-backup-file-to-disk', async (_event, payload) => {
   }
 });
 
-ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GET', body, botToken }) => {
-  return new Promise((resolve) => {
-    try {
-      const targetUrl = endpoint.startsWith('http') ? endpoint : `https://discord.com/api/v10${endpoint}`;
-      const urlObj = new URL(targetUrl);
-      const reqOptions = {
-        hostname: urlObj.hostname,
-        path: urlObj.pathname + urlObj.search,
-        method: method,
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json',
-          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
-        }
-      };
-
-      const req = https.request(reqOptions, (res) => {
-        let data = '';
-        res.on('data', chunk => { data += chunk; });
-        res.on('end', () => {
-          try {
-            const json = data ? JSON.parse(data) : {};
-            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: json });
-          } catch (err) {
-            resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: { raw: data } });
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        resolve({ status: 500, ok: false, error: err.message });
-      });
-
-      if (body) {
-        req.write(JSON.stringify(body));
-      }
-      req.end();
-    } catch (err) {
-      resolve({ status: 500, ok: false, error: err.message });
-    }
-  });
+ipcMain.handle('socdof:get-discord-token', async () => {
+  return getElectronDiscordBotToken();
 });
 
-function executeElectronWebhook(targetUrl, payload, redirectDepth = 0) {
-  return new Promise((resolve) => {
-    if (redirectDepth > 3) {
-      return resolve({ status: 508, ok: false, error: 'Too many redirects' });
-    }
-    try {
-      const urlObj = new URL(targetUrl);
-      const postData = JSON.stringify(payload);
-      const isHttps = urlObj.protocol === 'https:';
-      const client = isHttps ? https : http;
+ipcMain.handle('socdof:save-discord-token', async (_event, token) => {
+  return saveElectronDiscordBotToken(token);
+});
 
-      const reqOptions = {
-        hostname: urlObj.hostname,
-        port: urlObj.port || (isHttps ? 443 : 80),
-        path: urlObj.pathname + urlObj.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData),
-          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
-        },
-        timeout: 12000
-      };
-
-      const req = client.request(reqOptions, (res) => {
-        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-          const redirectUrl = res.headers.location.startsWith('http')
-            ? res.headers.location
-            : new URL(res.headers.location, targetUrl).toString();
-          return resolve(executeElectronWebhook(redirectUrl, payload, redirectDepth + 1));
-        }
-
-        let data = '';
-        res.on('data', chunk => { data += chunk; });
-        res.on('end', () => {
-          let parsed = data;
-          try { parsed = JSON.parse(data); } catch {}
-          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, data: parsed });
-        });
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        resolve({ status: 408, ok: false, error: 'Request timeout (12s)' });
-      });
-
-      req.on('error', (err) => {
-        resolve({ status: 500, ok: false, error: err.message });
-      });
-
-      req.write(postData);
-      req.end();
-    } catch (err) {
-      resolve({ status: 500, ok: false, error: err.message });
-    }
-  });
-}
-
-ipcMain.handle('socdof:discord-webhook', async (_event, { url, payload }) => {
-  try {
-    if (typeof net !== 'undefined' && net.fetch) {
-      const resp = await net.fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'SOCDOF Desktop App (https://github.com/Strudelcode/SOCDOF)'
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.text();
-      let json = data;
-      try { json = JSON.parse(data); } catch {}
-      if (resp.ok || (resp.status >= 200 && resp.status < 300)) {
-        return { status: resp.status, ok: true, data: json };
-      }
-    }
-  } catch (netErr) {
-    console.warn('[SOCDOF Electron] net.fetch webhook failed, trying https fallback:', netErr);
+ipcMain.handle('socdof:send-discord-thread', async (_event, { channelId, threadData, botToken }) => {
+  const targetChannelId = channelId || '1535709136363462757';
+  const result = await executeDiscordHttpsRequest(`/channels/${targetChannelId}/threads`, 'POST', threadData, botToken);
+  if (result.ok && result.data && result.data.id) {
+    const threadId = result.data.id;
+    const threadUrl = `https://discord.com/channels/1517532430095876266/${targetChannelId}/${threadId}`;
+    return { success: true, threadId, threadUrl, data: result.data };
   }
+  return { success: false, error: result.error || result.data?.message || 'Discord API Request Failed', status: result.status, details: result.data };
+});
 
-  return executeElectronWebhook(url, payload);
+ipcMain.handle('socdof:trigger-botghost-webhook', async (_event, { url, payload, apiKey }) => {
+  const targetUrl = url || 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+  const result = await executeBotghostWebhook(targetUrl, payload, apiKey);
+  return { success: result.ok, status: result.status, data: result.data, error: result.error };
+});
+
+ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GET', body, botToken }) => {
+  return executeDiscordHttpsRequest(endpoint, method, body, botToken);
 });
 
 app.on('second-instance', () => {

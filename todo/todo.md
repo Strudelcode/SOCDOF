@@ -23,6 +23,10 @@
 
 ### 2.0 Latest Completed Milestone
 
+The v23.18.12 Verified Discord Forum Bot Integration & Localhost Proxy in Desktop App milestone is complete and archived in `todo/completed_todo.md`.
+
+The v23.18.11 Documentation Portal Layout Hierarchy & Smooth Scrolling Restoration milestone is complete and archived in `todo/completed_todo.md`.
+
 The v23.18.10 Exclusive Discord Bot Forum Release Broadcast & Webhook Removal milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.18.9 Adaptive Screen Layout & Dark Mode Polish for Invoice Template Editor milestone is complete and archived in `todo/completed_todo.md`.

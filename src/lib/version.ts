@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.18.10';
+export const APP_VERSION = '23.18.13';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,28 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '23.18.12',
+    date: '2026-09-28',
+    title: 'Verified Discord Forum Bot Integration & Localhost Proxy in Desktop App',
+    highlights: [
+      'Implemented verified Discord Bot REST API posting with Electron IPC and built-in localhost background server proxy.',
+      'Completely eliminated false positive success alerts; offline or unconfigured submissions now accurately display diagnostic status.',
+      'Added Discord Bot Token configuration drawer directly inside the Feedback App header for quick local key setup and verification.',
+      'Removed all legacy webhook pathways in favor of genuine Discord Forum channel thread creation with real Snowflake IDs.'
+    ]
+  },
+  {
+    version: '23.18.11',
+    date: '2026-09-28',
+    title: 'Documentation Portal Layout Hierarchy & Smooth Scrolling Restoration',
+    highlights: [
+      'Removed misplaced top-level "Praxis & Therapie" card that blocked window layout and pushed portal content off-screen.',
+      'Restored full smooth scrolling and mouse wheel interaction throughout the entire Documentation portal.',
+      'Properly integrated "Praxis & Therapie" into the User Manual chapters (docSections) and Showcase Module Matrix with 100% offline workflow guide.',
+      'Fixed flex container height hierarchy (h-full min-h-0 overflow-hidden) preventing freeze-like clipping in Desktop Window Workspace.'
+    ]
+  },
   {
     version: '23.18.10',
     date: '2026-09-28',

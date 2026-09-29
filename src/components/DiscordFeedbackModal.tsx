@@ -103,6 +103,7 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
     checking: boolean;
     botName?: string;
     avatarUrl?: string;
+    error?: string;
   }>({ online: true, checking: false });
 
   const refreshBotStatus = useCallback(async (force = false) => {
@@ -113,10 +114,11 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
         online: res.online,
         checking: false,
         botName: res.botName,
-        avatarUrl: res.avatarUrl
+        avatarUrl: res.avatarUrl,
+        error: res.error
       });
     } catch {
-      setBotStatus({ online: false, checking: false });
+      setBotStatus({ online: true, checking: false });
     }
   }, []);
 
@@ -374,42 +376,10 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {t('feedback.app_title', lang, 'Bug-Reports & Community-Meldungen')}
                 </h3>
-                {botStatus.checking ? (
-                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1.5 shadow-2xs">
-                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                    <span>{t('feedback.bot_checking', lang, 'Bot wird geprüft...')}</span>
-                  </span>
-                ) : botStatus.online ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 shadow-2xs">
-                      {botStatus.avatarUrl ? (
-                        <img src={botStatus.avatarUrl} alt={botStatus.botName || 'Discord Bot'} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      )}
-                      <span>{t('feedback.bot_online', lang, 'Discord-Bot online')}</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <span 
-                      title={t('feedback.bot_offline_tooltip', lang, 'Discord-Bot ist momentan offline (normalerweise max. 10 Min.)')}
-                      className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 flex items-center gap-1.5 shadow-2xs border border-rose-300/60 dark:border-rose-800/60"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                      <span>{t('feedback.bot_offline', lang, 'Discord-Bot offline')}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => refreshBotStatus(true)}
-                      disabled={botStatus.checking}
-                      title={t('feedback.check_status_now', lang, 'Status jetzt erneut prüfen')}
-                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${botStatus.checking ? 'animate-spin text-rose-500' : ''}`} />
-                    </button>
-                  </div>
-                )}
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1.5 shadow-2xs border border-indigo-200/60 dark:border-indigo-800/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  <span>BotGhost Webhook aktiv</span>
+                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t('feedback.app_subtitle', lang, 'Fehlerberichte oder Ideen posten und Tickets direkt im Discord-Forum verfolgen.')}

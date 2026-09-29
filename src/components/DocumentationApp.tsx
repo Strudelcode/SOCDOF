@@ -35,7 +35,8 @@ import {
   LayoutGrid,
   Check,
   ArrowRight,
-  Compass
+  Compass,
+  Hospital
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
@@ -582,6 +583,88 @@ export const DocumentationApp: React.FC = () => {
           </p>
         </div>
       )
+    },
+    {
+      id: 'therapy_practice',
+      title: getLoc({
+        de: 'Praxis & Therapie',
+        en: 'Practice & Therapy',
+        fr: 'Cabinet & Thérapie',
+        es: 'Consulta y terapia'
+      }),
+      category: getLoc({
+        de: 'Branchen & Spezialmodule',
+        en: 'Specialized & Industry Modules',
+        fr: 'Modules spécialisés',
+        es: 'Módulos especializados'
+      }),
+      icon: Hospital,
+      summary: getLoc({
+        de: 'Klientenverwaltung, strukturierte Sitzungsprotokolle, Termine, Fahrtenbuch und Abrechnung.',
+        en: 'Client management, structured session records, appointments, mileage log, and billing.',
+        fr: 'Gestion des clients, comptes rendus de séance, rendez-vous, carnet de route et facturation.',
+        es: 'Gestión de clientes, notas de sesión, citas, registro de kilometraje y facturación.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60">
+            <h5 className="font-bold text-sm text-teal-900 dark:text-teal-100">
+              {getLoc({
+                de: 'Praxis- & Therapeuten-Arbeitsbereich',
+                en: 'Practice & Therapy Workspace',
+                fr: 'Espace de travail Cabinet & Thérapie',
+                es: 'Espacio de trabajo para consulta y terapia'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Über Neue Sitzung stehen Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht als strukturierte Vorlagen bereit.',
+                en: 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.',
+                fr: 'L’espace Cabinet gère clients, séances, rendez-vous, carnet de route et facturation localement avec des modèles de séances structurés.',
+                es: 'El espacio de consulta gestiona clientes, sesiones, citas, kilometraje y borradores de facturación de forma local.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Strukturierte Sitzungen & Vorlagen',
+                  en: 'Structured Sessions & Templates',
+                  fr: 'Séances structurées & Modèles',
+                  es: 'Sesiones estructuradas y plantillas'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Schnelle Protokollierung mit Vorlagen für Erstgespräche, Regelsitzungen, Notfälle und Abschlussberichte mit lokaler Datensicherheit.',
+                  en: 'Quick documentation with templates for intake interviews, standard sessions, crisis interventions, and closing reports.',
+                  fr: 'Documentation rapide avec modèles pour entretiens initiaux, séances standards et rapports finaux.',
+                  es: 'Documentación ágil con plantillas para entrevistas iniciales, sesiones regulares e informes finales.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Workflow & Tastatur',
+                  en: 'Workflow & Navigation',
+                  fr: 'Workflow & Navigation',
+                  es: 'Flujo de trabajo y atajos'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Ablauf: Praxis → Bereich wählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge; alle Daten bleiben 100% lokal.',
+                  en: 'Workflow: Practice → select section → create entry → save. ESC closes open dialogs; all records stay 100% offline.',
+                  fr: 'Workflow : Cabinet → choisir section → créer entrée → enregistrer. Échap ferme les fenêtres ; données 100% locales.',
+                  es: 'Flujo : Consulta → seleccionar área → crear registro → guardar. ESC cierra diálogos ; 100% fuera de línea.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
     }
   ];
 
@@ -596,19 +679,9 @@ export const DocumentationApp: React.FC = () => {
   const ActiveIcon = activeSection.icon;
 
   return (
-    <div className="space-y-6">
-      <section className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <h2 className="text-lg font-black text-slate-900 dark:text-white">{t('module.therapy_practice', currentLang, 'Praxis & Therapie')}</h2>
-        <div className="mt-2 text-sm text-slate-600 dark:text-slate-300 space-y-2">
-          <p><strong>Deutsch:</strong> {t('docs.therapy_practice_de', currentLang, 'Der Praxis-Arbeitsbereich verwaltet Klienten, Sitzungen, Termine, Fahrtenbuch und Abrechnungsentwürfe lokal. Über Neue Sitzung stehen Erstgespräch, Standardsitzung, Krisenintervention und Abschlussbericht als strukturierte Vorlagen bereit.')}</p>
-          <p><strong>English:</strong> {t('docs.therapy_practice_en', currentLang, 'The Practice workspace manages clients, sessions, appointments, mileage and billing drafts locally. New Session provides structured templates for initial interviews, standard sessions, crisis interventions and final reports.')}</p>
-          <p>{t('docs.therapy_practice_shortcuts', currentLang, 'Workflow: Practice → tab auswählen → Eintrag anlegen → speichern. ESC schließt geöffnete Dialoge; die App nutzt dieselben Fenster-, Sprach- und Desktop-Steuerungen wie andere SOCDOF-Module.')}</p>
-        </div>
-      </section>
-
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 select-text">
+    <div className="flex flex-col h-full w-full min-h-0 bg-slate-50 dark:bg-slate-950 overflow-hidden select-text">
       {/* Top Portal Navigation Ribbon */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 text-slate-900 dark:text-white flex flex-wrap items-center justify-between gap-4 transition-colors">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 text-slate-900 dark:text-white flex flex-wrap items-center justify-between gap-4 transition-colors shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
             <BookOpen className="w-5 h-5" />
@@ -723,7 +796,7 @@ export const DocumentationApp: React.FC = () => {
       </div>
 
       {/* Main Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 min-h-0 ${activeTab === 'manual' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
         {/* 1. SHOWCASE & FEATURES TAB */}
         {activeTab === 'showcase' && (
           <div className="p-6 max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -910,6 +983,33 @@ export const DocumentationApp: React.FC = () => {
                   <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{getLoc({ de: 'Google Calendar & Offline-Agenda', en: 'Cloud & Local Calendar', fr: 'Calendrier Cloud & Local', es: 'Calendario en la nube y local' })}</span>
+                  </div>
+                </div>
+
+                {/* 7. Practice & Therapy */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-teal-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                    <Hospital className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {getLoc({
+                      de: 'Praxis & Therapie',
+                      en: 'Practice & Therapy',
+                      fr: 'Cabinet & Thérapie',
+                      es: 'Consulta y terapia'
+                    })}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {getLoc({
+                      de: 'Klientenkartei, strukturierte Sitzungsprotokolle, Notizen, Fahrtenbuch und Abrechnungsentwürfe für Therapeuten.',
+                      en: 'Client master cards, structured session notes, appointments, mileage log, and billing drafts for practitioners.',
+                      fr: 'Dossiers clients, comptes rendus de séance structurés, rendez-vous, carnet de route et facturation.',
+                      es: 'Ficha de clientes, actas de sesión estructuradas, citas, registro de kilometraje y facturación.'
+                    })}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{getLoc({ de: '100% Offline-Klientenarchiv', en: 'Private Offline Archive', fr: 'Archives hors ligne privées', es: 'Archivo privado fuera de línea' })}</span>
                   </div>
                 </div>
               </div>
@@ -1398,7 +1498,6 @@ export const DocumentationApp: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
     </div>
   );
 };

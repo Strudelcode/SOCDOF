@@ -38,16 +38,50 @@ export function getSystemLanguageLabel(): string {
   return 'de-DE';
 }
 
+export const DISCORD_BOT_TOKEN_STORAGE_KEY = 'socdof_discord_bot_token_v1';
+
+export function getDiscordBotToken(): string {
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(DISCORD_BOT_TOKEN_STORAGE_KEY);
+    if (local && local.trim()) return local.trim();
+  }
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_DISCORD_BOT_TOKEN) {
+    return (import.meta as any).env.VITE_DISCORD_BOT_TOKEN;
+  }
+  if (typeof process !== 'undefined' && (process.env as any)?.VITE_DISCORD_BOT_TOKEN) {
+    return (process.env as any).VITE_DISCORD_BOT_TOKEN;
+  }
+  if (typeof process !== 'undefined' && (process.env as any)?.DISCORD_BOT_TOKEN) {
+    return (process.env as any).DISCORD_BOT_TOKEN;
+  }
+  return '';
+}
+
+export function saveDiscordBotToken(token: string): void {
+  try {
+    const clean = (token || '').trim();
+    if (typeof localStorage !== 'undefined') {
+      if (clean) {
+        localStorage.setItem(DISCORD_BOT_TOKEN_STORAGE_KEY, clean);
+      } else {
+        localStorage.removeItem(DISCORD_BOT_TOKEN_STORAGE_KEY);
+      }
+    }
+    const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
+    if (electronApi?.saveDiscordBotToken) {
+      electronApi.saveDiscordBotToken(clean);
+    }
+  } catch {}
+}
+
 export const DISCORD_CONFIG = {
-  BOT_TOKEN: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_DISCORD_BOT_TOKEN) || 
-             (typeof process !== 'undefined' && (process.env as any)?.VITE_DISCORD_BOT_TOKEN) || 
-             (typeof process !== 'undefined' && (process.env as any)?.DISCORD_BOT_TOKEN) || 
-             '',
+  get BOT_TOKEN(): string {
+    return getDiscordBotToken();
+  },
   BUG_CHANNEL_ID: '1535709136363462757', // #🐛 | REPORT forum channel
   BUG_TAG_ID: '1535711015902384269',     // ⏳ Neue Einreichung (Prüfung ausstehend)
   IDEA_CHANNEL_ID: '1524133720876126408', // #💡vorschläge forum channel
   IDEA_TAG_ID: '1553317496159731722',     // SOCDOF tag
-  BOTGHOST_WEBHOOK: 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf',
 };
 
 export type DiscordReportStatus = 
@@ -952,7 +986,7 @@ export async function sendDiscordReport(
   };
 
   // Helper to record offline queued report
-  const recordQueued = (reason = 'offline') => {
+  const recordQueued = (reason = 'offline', errorDetail = '') => {
     const queueId = `offline_queued_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const originalTime = payload.originalOfflineCreatedAt || now.toISOString();
     const queuedReport: SubmittedDiscordReport = {
@@ -970,7 +1004,7 @@ export async function sendDiscordReport(
       tagId,
       tagName,
       status: 'queued',
-      statusLabel: 'In Warteschlange (Offline)',
+      statusLabel: 'In Warteschlange (Offline / Nicht gesendet)',
       originalOfflineCreatedAt: originalTime,
       queuedAt: now.toISOString(),
       createdAt: originalTime
@@ -986,127 +1020,141 @@ export async function sendDiscordReport(
       }
     } catch {}
 
+    const friendlyError = errorDetail || 'Discord-Server konnte nicht erreicht werden (Bot-Token fehlt oder Bot offline). Der Bericht wurde lokal in deiner Ticket-Übersicht gesichert.';
+
     return {
-      success: true,
+      success: false,
       queued: true,
       threadId: queueId,
-      message: 'Bericht wurde lokal in der Offline-Warteschlange gespeichert und wird bei Online-Verbindung automatisch an Discord gesendet.'
+      error: friendlyError,
+      message: friendlyError
     };
   };
 
   // If the browser/device is currently offline, queue immediately
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return recordQueued('navigator_offline');
+    return recordQueued('navigator_offline', 'Keine Internetverbindung vorhanden. Bericht wurde lokal gesichert.');
   }
 
-  // 1. Try Electron Main Process Webhook Bridge if running in Desktop App
   const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
-  if (electronApi?.discordWebhook && DISCORD_CONFIG.BOTGHOST_WEBHOOK) {
+  const botghostWebhookUrl = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+  const botghostApiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+
+  const botghostVariables = [
+    { name: 'Title', variable: '{webhook.title}', value: payload.title.trim() },
+    { name: 'Title (short)', variable: '{title}', value: payload.title.trim() },
+    { name: 'Reported By', variable: '{webhook.reported_by}', value: userMention },
+    { name: 'Reported By (short)', variable: '{reported_by}', value: userMention },
+    { name: 'User Mention', variable: '{webhook.user_mention}', value: userMention },
+    { name: 'User Mention (short)', variable: '{user_mention}', value: userMention },
+    { name: 'Username', variable: '{webhook.username}', value: cleanName },
+    { name: 'Username (short)', variable: '{username}', value: cleanName },
+    { name: 'Bug Location', variable: '{webhook.bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
+    { name: 'Bug Location (short)', variable: '{bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
+    { name: 'Location', variable: '{webhook.location}', value: payload.categoryOrLocation || 'Allgemein' },
+    { name: 'Category', variable: '{webhook.category}', value: payload.type },
+    { name: 'Category (short)', variable: '{category}', value: payload.type },
+    { name: 'Report Category', variable: '{webhook.report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+    { name: 'Report Category (short)', variable: '{report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+    { name: 'Report Type', variable: '{webhook.report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+    { name: 'Report Type (short)', variable: '{report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+    { name: 'Report Type Label', variable: '{webhook.report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
+    { name: 'Report Type Label (short)', variable: '{report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
+    { name: 'Bug Information', variable: '{webhook.bug_information}', value: payload.description || '' },
+    { name: 'Bug Information (short)', variable: '{bug_information}', value: payload.description || '' },
+    { name: 'Description', variable: '{webhook.description}', value: payload.description || '' },
+    { name: 'Description (short)', variable: '{description}', value: payload.description || '' },
+    { name: 'Browser Language', variable: '{webhook.browser_language}', value: systemLanguageStr },
+    { name: 'Browser Language (short)', variable: '{browser_language}', value: systemLanguageStr },
+    { name: 'Browsersprache', variable: '{webhook.browsersprache}', value: systemLanguageStr },
+    { name: 'Website Language', variable: '{webhook.website_language}', value: appLanguageStr },
+    { name: 'Website Language (short)', variable: '{website_language}', value: appLanguageStr },
+    { name: 'Webseitensprache', variable: '{webhook.webseitensprache}', value: appLanguageStr },
+    { name: 'App Version', variable: '{webhook.app_version}', value: appVersion },
+    { name: 'App Version (short)', variable: '{app_version}', value: appVersion },
+    { name: 'Project', variable: '{webhook.project}', value: 'SOCDOF' },
+    { name: 'Project (short)', variable: '{project}', value: 'SOCDOF' },
+    { name: 'Type', variable: '{webhook.type}', value: payload.type },
+    { name: 'Content', variable: '{webhook.content}', value: messageContent || `Neuer ${payload.type === 'bug' ? 'Bug-Report' : 'Vorschlag'} von ${cleanName}` }
+  ];
+
+  const bgPayload = {
+    variables: botghostVariables
+  };
+
+  // 1. Send via Electron Node.js IPC (bypasses browser CORS completely in Desktop App)
+  // Direct HTTPS from Node.js process to api.botghost.com - no localhost, no ports, no web proxy needed
+  if (electronApi?.triggerBotghostWebhook) {
     try {
-      const elecRes = await electronApi.discordWebhook({
-        url: DISCORD_CONFIG.BOTGHOST_WEBHOOK,
-        payload: {
-          username: cleanName,
-          content: messageContent,
-          embeds: [embed],
-          title: payload.title,
-          category: payload.categoryOrLocation,
-          type: payload.type
-        }
+      const bgIpcRes = await electronApi.triggerBotghostWebhook({
+        url: botghostWebhookUrl,
+        payload: bgPayload,
+        apiKey: botghostApiKey
       });
-      if (elecRes && elecRes.ok) {
-        const webhookThreadId = `electron_webhook_${Date.now()}`;
-        return recordSuccess(webhookThreadId);
+      if (bgIpcRes && bgIpcRes.success) {
+        const bgThreadId = bgIpcRes.data?.id || bgIpcRes.data?.threadId || `bg_${Date.now()}`;
+        return recordSuccess(bgThreadId);
+      } else {
+        const errMsg = bgIpcRes?.error || `HTTP ${bgIpcRes?.status || 'Fehler'}`;
+        console.warn('[SOCDOF Electron] BotGhost webhook IPC returned non-success:', bgIpcRes);
+        return recordQueued('botghost_error', `BotGhost Fehler (${bgIpcRes?.status || 'Fehler'}): ${errMsg}`);
       }
-    } catch (elecErr) {
-      console.warn('Electron discordWebhook IPC failed:', elecErr);
+    } catch (bgIpcErr: any) {
+      console.warn('[SOCDOF Electron] BotGhost webhook IPC failed with exception:', bgIpcErr);
+      return recordQueued('network_error', `Netzwerkfehler: ${bgIpcErr?.message || String(bgIpcErr)}`);
     }
   }
 
-  // 2. Try BotGhost Webhook first (direct HTTP POST from browser/client)
-  if (DISCORD_CONFIG.BOTGHOST_WEBHOOK) {
-    try {
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutTimer = controller ? setTimeout(() => controller.abort(), 12000) : null;
-
-      const webhookResp = await fetch(DISCORD_CONFIG.BOTGHOST_WEBHOOK, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: cleanName,
-          content: messageContent,
-          embeds: [embed],
-          title: payload.title,
-          category: payload.categoryOrLocation,
-          type: payload.type
-        }),
-        signal: controller ? controller.signal : undefined
-      });
-
-      if (timeoutTimer) clearTimeout(timeoutTimer);
-
-      if (webhookResp.ok || webhookResp.status === 200 || webhookResp.status === 204) {
-        const webhookThreadId = `webhook_${Date.now()}`;
-        return recordSuccess(webhookThreadId);
-      }
-    } catch (webhookErr) {
-      console.warn('BotGhost webhook request failed, trying proxy/fallback...', webhookErr);
-    }
-  }
-
-  // 2. Try via backend proxy route first (to bypass browser CORS)
+  // 2. Web mode: Send via Localhost / Backend Proxy (bypasses browser CORS in Web mode)
   try {
-    const proxyResp = await fetch('/api/discord/thread', {
+    const bgProxyResp = await fetch('/api/discord/botghost-webhook', {
       method: 'POST',
-      headers: {
+      headers: { 
         'Content-Type': 'application/json',
+        'Authorization': botghostApiKey,
+        'x-api-key': botghostApiKey
       },
       body: JSON.stringify({
-        channelId,
-        threadData: bodyData,
-      }),
+        webhookUrl: botghostWebhookUrl,
+        payload: bgPayload,
+        apiKey: botghostApiKey
+      })
+    });
+    if (bgProxyResp.ok) {
+      let bgData: any = {};
+      try { bgData = await bgProxyResp.json(); } catch {}
+      const bgThreadId = bgData?.data?.id || bgData?.data?.threadId || `bg_${Date.now()}`;
+      return recordSuccess(bgThreadId);
+    }
+  } catch (bgProxyErr) {
+    console.warn('Backend proxy BotGhost webhook failed, trying direct fetch...', bgProxyErr);
+  }
+
+  // 3. Direct fetch fallback (Web mode)
+  try {
+    const bgResp = await fetch(botghostWebhookUrl, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': botghostApiKey,
+        'x-api-key': botghostApiKey
+      },
+      body: JSON.stringify(bgPayload)
     });
 
-    if (proxyResp.ok) {
-      const result = await proxyResp.json();
-      if (result.success && result.threadId) {
-        return recordSuccess(result.threadId);
-      }
+    if (bgResp.ok || bgResp.status === 200 || bgResp.status === 204) {
+      let bgData: any = {};
+      try { bgData = await bgResp.json(); } catch {}
+      const bgThreadId = bgData?.id || bgData?.threadId || `bg_${Date.now()}`;
+      return recordSuccess(bgThreadId);
+    } else {
+      const errText = await bgResp.text();
+      return recordQueued('botghost_error', `BotGhost Webhook Fehler (${bgResp.status}): ${errText}`);
     }
-  } catch (proxyErr) {
-    console.warn('Backend proxy /api/discord/thread failed, trying direct Discord API fallback...', proxyErr);
+  } catch (bgErr: any) {
+    console.warn('Direct BotGhost Webhook trigger failed:', bgErr);
+    return recordQueued('network_error', `Netzwerkfehler: ${bgErr?.message || String(bgErr)}`);
   }
-
-  // 2. Direct Discord API Fallback (for Electron / native environments)
-  if (DISCORD_CONFIG.BOT_TOKEN) {
-    try {
-      const directResp = await fetch(`https://discord.com/api/v10/channels/${channelId}/threads`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bot ${DISCORD_CONFIG.BOT_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyData),
-      });
-
-      if (directResp.ok) {
-        const data = await directResp.json();
-        return recordSuccess(data.id);
-      } else {
-        const errText = await directResp.text();
-        console.warn('Direct Discord API returned error, queuing report locally:', directResp.status, errText);
-        return recordQueued('api_error');
-      }
-    } catch (directErr: any) {
-      console.warn('Direct Discord API call failed, queuing report locally:', directErr);
-      return recordQueued('network_error');
-    }
-  }
-
-  // If neither route succeeded (e.g. offline bot or network timeout), store in offline queue
-  return recordQueued('fallback_queued');
 }
 
 /**
@@ -1270,46 +1318,136 @@ async function sendDiscordReportDirect(
     message: { content: messageContent, embeds: [embed] },
   };
 
-  try {
-    const proxyResp = await fetch('/api/discord/thread', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelId, threadData: bodyData }),
-    });
-    if (proxyResp.ok) {
-      const result = await proxyResp.json();
-      if (result.success && result.threadId) {
+  const botghostWebhookUrl = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+  const botghostApiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+  const currentBotToken = getDiscordBotToken();
+  const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
+
+  // 1. Try BotGhost Webhook Event
+  if (botghostWebhookUrl) {
+    const botghostVariables = [
+      { name: 'Title', variable: '{webhook.title}', value: payload.title.trim() },
+      { name: 'Title (short)', variable: '{title}', value: payload.title.trim() },
+      { name: 'Reported By', variable: '{webhook.reported_by}', value: userMention },
+      { name: 'Reported By (short)', variable: '{reported_by}', value: userMention },
+      { name: 'User Mention', variable: '{webhook.user_mention}', value: userMention },
+      { name: 'User Mention (short)', variable: '{user_mention}', value: userMention },
+      { name: 'Username', variable: '{webhook.username}', value: cleanName },
+      { name: 'Username (short)', variable: '{username}', value: cleanName },
+      { name: 'Bug Location', variable: '{webhook.bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
+      { name: 'Bug Location (short)', variable: '{bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
+      { name: 'Location', variable: '{webhook.location}', value: payload.categoryOrLocation || 'Allgemein' },
+      { name: 'Category', variable: '{webhook.category}', value: payload.type },
+      { name: 'Category (short)', variable: '{category}', value: payload.type },
+      { name: 'Report Category', variable: '{webhook.report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+      { name: 'Report Category (short)', variable: '{report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+      { name: 'Report Type', variable: '{webhook.report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+      { name: 'Report Type (short)', variable: '{report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
+      { name: 'Report Type Label', variable: '{webhook.report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
+      { name: 'Report Type Label (short)', variable: '{report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
+      { name: 'Bug Information', variable: '{webhook.bug_information}', value: payload.description || '' },
+      { name: 'Bug Information (short)', variable: '{bug_information}', value: payload.description || '' },
+      { name: 'Description', variable: '{webhook.description}', value: payload.description || '' },
+      { name: 'Description (short)', variable: '{description}', value: payload.description || '' },
+      { name: 'Browser Language', variable: '{webhook.browser_language}', value: systemLanguageStr },
+      { name: 'Browser Language (short)', variable: '{browser_language}', value: systemLanguageStr },
+      { name: 'Browsersprache', variable: '{webhook.browsersprache}', value: systemLanguageStr },
+      { name: 'Website Language', variable: '{webhook.website_language}', value: appLanguageStr },
+      { name: 'Website Language (short)', variable: '{website_language}', value: appLanguageStr },
+      { name: 'Webseitensprache', variable: '{webhook.webseitensprache}', value: appLanguageStr },
+      { name: 'App Version', variable: '{webhook.app_version}', value: appVersion },
+      { name: 'App Version (short)', variable: '{app_version}', value: appVersion },
+      { name: 'Project', variable: '{webhook.project}', value: 'SOCDOF' },
+      { name: 'Project (short)', variable: '{project}', value: 'SOCDOF' },
+      { name: 'Type', variable: '{webhook.type}', value: payload.type },
+      { name: 'Content', variable: '{webhook.content}', value: messageContent || `Neuer ${payload.type === 'bug' ? 'Bug-Report' : 'Vorschlag'} von ${cleanName}` }
+    ];
+
+    const bgPayload = {
+      variables: botghostVariables
+    };
+
+    // 1. Send via Electron IPC (direct HTTPS to BotGhost)
+    if (electronApi?.triggerBotghostWebhook) {
+      try {
+        const bgIpcRes = await electronApi.triggerBotghostWebhook({
+          url: botghostWebhookUrl,
+          payload: bgPayload,
+          apiKey: botghostApiKey
+        });
+        if (bgIpcRes && bgIpcRes.success) {
+          const bgThreadId = bgIpcRes.data?.id || bgIpcRes.data?.threadId || `bg_${Date.now()}`;
+          return {
+            success: true,
+            threadId: bgThreadId,
+            threadUrl: `https://discord.com/channels/1517532430095876266/${channelId}`
+          };
+        } else {
+          return {
+            success: false,
+            error: bgIpcRes?.error || `BotGhost HTTP ${bgIpcRes?.status || 'Fehler'}`
+          };
+        }
+      } catch (ipcErr: any) {
         return {
-          success: true,
-          threadId: result.threadId,
-          threadUrl: `https://discord.com/channels/1517532430095876266/${result.threadId}`
+          success: false,
+          error: ipcErr?.message || String(ipcErr)
         };
       }
     }
+
+  // 2. Send via Backend / Localhost Proxy
+  try {
+    const bgProxyResp = await fetch('/api/discord/botghost-webhook', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': botghostApiKey,
+        'x-api-key': botghostApiKey
+      },
+      body: JSON.stringify({
+        webhookUrl: botghostWebhookUrl,
+        payload: bgPayload,
+        apiKey: botghostApiKey
+      })
+    });
+    if (bgProxyResp.ok) {
+      let bgData: any = {};
+      try { bgData = await bgProxyResp.json(); } catch {}
+      const bgThreadId = bgData?.data?.id || bgData?.data?.threadId || `bg_${Date.now()}`;
+      return {
+        success: true,
+        threadId: bgThreadId,
+        threadUrl: `https://discord.com/channels/1517532430095876266/${channelId}`
+      };
+    }
   } catch {}
 
-  if (DISCORD_CONFIG.BOT_TOKEN) {
-    try {
-      const directResp = await fetch(`https://discord.com/api/v10/channels/${channelId}/threads`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bot ${DISCORD_CONFIG.BOT_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyData),
-      });
-      if (directResp.ok) {
-        const data = await directResp.json();
-        return {
-          success: true,
-          threadId: data.id,
-          threadUrl: `https://discord.com/channels/1517532430095876266/${data.id}`
-        };
-      }
-    } catch {}
+  // 3. Direct fetch
+  try {
+    const bgResp = await fetch(botghostWebhookUrl, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': botghostApiKey,
+        'x-api-key': botghostApiKey
+      },
+      body: JSON.stringify(bgPayload)
+    });
+    if (bgResp.ok || bgResp.status === 200 || bgResp.status === 204) {
+      let bgData: any = {};
+      try { bgData = await bgResp.json(); } catch {}
+      const bgThreadId = bgData?.id || bgData?.threadId || `bg_${Date.now()}`;
+      return {
+        success: true,
+        threadId: bgThreadId,
+        threadUrl: `https://discord.com/channels/1517532430095876266/${channelId}`
+      };
+    }
+  } catch {}
   }
 
-  return { success: false, error: 'Could not send report to Discord' };
+  return { success: false, error: 'Could not reach BotGhost Webhook' };
 }
 
 // Global browser listener to auto-flush offline queue upon reconnecting

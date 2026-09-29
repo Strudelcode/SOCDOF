@@ -683,6 +683,47 @@ function discordFeedbackPlugin(): Plugin {
           return;
         }
 
+        // Endpoint: POST /api/discord/botghost-webhook (Trigger BotGhost webhook directly)
+        if ((cleanPath === '/api/discord/botghost-webhook' || cleanPath === '/api/botghost/webhook') && req.method === 'POST') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          try {
+            const body = await parseRequestBody(req);
+            const targetUrl = body.webhookUrl || 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+            const botghostApiKey = body.apiKey || '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+            const payload = body.payload || body;
+
+            const response = await fetch(targetUrl, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': botghostApiKey,
+                'x-api-key': botghostApiKey
+              },
+              body: JSON.stringify(payload)
+            });
+
+            const respText = await response.text();
+            let parsedData: any = {};
+            try { parsedData = JSON.parse(respText); } catch { parsedData = { raw: respText }; }
+
+            console.log('[BotGhost Webhook Proxy] Response:', response.status, parsedData);
+
+            res.statusCode = response.ok ? 200 : (response.status || 500);
+            res.end(JSON.stringify({
+              success: response.ok,
+              status: response.status,
+              data: parsedData
+            }));
+          } catch (err: any) {
+            console.error('[BotGhost Webhook Proxy Error]:', err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // Endpoint: POST /api/discord/thread (Create forum post)
         if (cleanPath === '/api/discord/thread' && req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json');

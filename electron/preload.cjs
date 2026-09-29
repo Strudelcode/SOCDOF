@@ -50,6 +50,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getPreferences: () => ipcRenderer.invoke('socdof:get-preferences'),
   savePreferences: (prefs) => ipcRenderer.invoke('socdof:save-preferences', prefs),
-  discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload),
-  discordWebhook: (payload) => ipcRenderer.invoke('socdof:discord-webhook', payload)
+  getDiscordBotToken: () => ipcRenderer.invoke('socdof:get-discord-token'),
+  saveDiscordBotToken: (token) => ipcRenderer.invoke('socdof:save-discord-token', token),
+  sendDiscordThread: (payload) => ipcRenderer.invoke('socdof:send-discord-thread', payload),
+  triggerBotghostWebhook: (payload) => ipcRenderer.invoke('socdof:trigger-botghost-webhook', payload),
+  discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload)
 });
