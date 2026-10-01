@@ -179,6 +179,55 @@ export function getAccentPreset(id?: string): AccentPreset {
   return ACCENT_PRESETS.indigo;
 }
 
+export function getHue(hex: string): number {
+  let cleanHex = hex.replace('#', '');
+  if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c + c).join('');
+  const r = (parseInt(cleanHex.substring(0, 2), 16) || 0) / 255;
+  const g = (parseInt(cleanHex.substring(2, 4), 16) || 0) / 255;
+  const b = (parseInt(cleanHex.substring(4, 6), 16) || 0) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0;
+  if (max === min) h = 0;
+  else if (max === r) h = ((g - b) / (max - min) + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / (max - min) + 2) * 60;
+  else if (max === b) h = ((r - g) / (max - min) + 4) * 60;
+  return Math.round(h);
+}
+
+export interface CompanionColor {
+  hex: string;
+  hoverHex: string;
+  lightRgba: string;
+  borderHex: string;
+}
+
+export function getContrastingCompanionColor(hex: string): CompanionColor {
+  const h = getHue(hex);
+  let companionHex = '#0d9488'; // Default vibrant Teal
+
+  // If accent is in the Green / Teal spectrum (65° to 185°), companion MUST NOT be green!
+  // Shift to vibrant Indigo/Purple so they never clash or look like both are green!
+  if (h >= 65 && h <= 185) {
+    companionHex = '#6366f1'; // Indigo
+  } else if (h >= 186 && h <= 250) {
+    // If accent is Blue / Indigo, companion is vibrant Teal / Emerald
+    companionHex = '#0d9488'; // Teal
+  } else if (h >= 251 && h <= 325) {
+    // If accent is Purple / Pink, companion is vibrant Emerald
+    companionHex = '#10b981'; // Emerald
+  } else {
+    // If accent is Red / Orange / Amber / Gold, companion is vibrant Cyan / Teal
+    companionHex = '#06b6d4'; // Cyan
+  }
+
+  return {
+    hex: companionHex,
+    hoverHex: adjustHex(companionHex, -20),
+    lightRgba: hexToRgba(companionHex, 0.18),
+    borderHex: adjustHex(companionHex, 20)
+  };
+}
+
 export function applyAccentColor(accentId?: string): AccentPreset {
   const preset = getAccentPreset(accentId);
   
@@ -194,6 +243,21 @@ export function applyAccentColor(accentId?: string): AccentPreset {
     root.style.setProperty('--accent-taskbar-bg', hexToRgba(preset.hex, 0.22));
     root.style.setProperty('--accent-taskbar-border', hexToRgba(preset.hex, 0.45));
     root.style.setProperty('--accent-glow', `0 0 20px ${hexToRgba(preset.hex, 0.35)}`);
+    root.style.setProperty('--accent-glow-subtle', `0 0 14px ${hexToRgba(preset.hex, 0.20)}`);
+    root.style.setProperty('--accent-border-subtle', hexToRgba(preset.hex, 0.22));
+    root.style.setProperty('--accent-border-hover', hexToRgba(preset.hex, 0.48));
+    root.style.setProperty('--accent-dark-border-subtle', hexToRgba(preset.hex, 0.30));
+    root.style.setProperty('--accent-ambient-glow', hexToRgba(preset.hex, 0.07));
+    root.style.setProperty('--accent-ambient-glow-dark', hexToRgba(preset.hex, 0.16));
+    root.style.setProperty('--accent-card-shadow', `0 4px 20px -2px ${hexToRgba(preset.hex, 0.07)}, 0 1px 3px 0 rgba(0, 0, 0, 0.03)`);
+    root.style.setProperty('--accent-card-shadow-hover', `0 8px 30px -4px ${hexToRgba(preset.hex, 0.20)}, 0 2px 6px 0 rgba(0, 0, 0, 0.04)`);
+    
+    // Dynamic Contrasting Companion Color for charts and dual indicators
+    const companion = getContrastingCompanionColor(preset.hex);
+    root.style.setProperty('--accent-companion', companion.hex);
+    root.style.setProperty('--accent-companion-hover', companion.hoverHex);
+    root.style.setProperty('--accent-companion-light', companion.lightRgba);
+    root.style.setProperty('--accent-companion-border', companion.borderHex);
     
     // Also save in localStorage for instant retrieval on next boot
     try {

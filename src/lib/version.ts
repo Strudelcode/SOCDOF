@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '23.18.13';
+export const APP_VERSION = '24.2.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,62 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.2.0',
+    date: '2026-09-30',
+    title: 'Mobile Therapy Dossier Timer, Window Auto-Fit Hardening & Responsive Verification (Phase 12)',
+    highlights: [
+      'Mobile consultation live timer in the client dossier: start/stop per client, crash-safe localStorage persistence, live running display with pulse state.',
+      'Quick session note bottom sheet: capture intervention & progress note directly from the dossier, duration auto-derived from the running timer.',
+      'Live viewport auto-fit for open windows: shrinking the viewport below 768px maximizes all open windows instead of leaving them clipped; enlarging restores last geometry.',
+      'Fixed duplicate day view rendering in the calendar on narrow windows (desktop day list no longer shows below the mobile hour agenda).',
+      'Full quad-language coverage for all new therapy mobile surfaces (DE, EN, FR, ES) and documentation portal chapters updated.'
+    ]
+  },
+  {
+    version: '24.1.0',
+    date: '2026-09-30',
+    title: 'Mobile Calendar Day Agenda & Support Time-Tracking Layouts (Responsive Phases 10 & 11)',
+    highlights: [
+      'Mobile calendar day view with hour-marker agenda timeline: empty slots are one-tap quick-create targets with live pre-filled times.',
+      'Quick appointment creation bottom sheet with touch-optimized 44px+ inputs, duration chips, category & storage destination selection.',
+      'Floating quick-add action button and next-upcoming-event quick bar in mobile day view.',
+      'Mobile time-tracking widget & touch-friendly ticket card stack replacing the desktop table in compact windows.',
+      'Responsive support header with icon-only primary actions on narrow screens.'
+    ]
+  },
+  {
+    version: '24.0.0',
+    date: '2026-09-30',
+    title: 'Mobile-Window Responsive Layout & Adaptive UI System',
+    highlights: [
+      'Introduced responsive mobile window layouts: shrinking windows below breakpoint thresholds triggers intuitive mobile card views and bottom touch actions.',
+      'Mobile-optimized Windows 11 Lock Screen & Login: refined typography, fluid touch-friendly avatar selection, and adaptive credential forms.',
+      'Touch-friendly mobile container architecture across all core modules and modals.'
+    ]
+  },
+  {
+    version: '23.19.1',
+    date: '2026-09-29',
+    title: 'Shortcuts Hub, Instant Feedback Hotkeys & Dynamic Accent Color Desktop Harmony',
+    highlights: [
+      'Added dedicated "Tastenkombinationen & Kürzel" hub in Settings with live search, physical keycaps and instant test buttons.',
+      'Implemented global Alt+B (Bug Report), Alt+I (Feature Idea), and Alt+R (Report Center) hotkeys accessible from anywhere.',
+      'Replaced stark flat white surfaces with warm ergonomic canvas tones (#f6f8fb) to prevent eye strain.',
+      'Dynamically infused user-chosen accent colors into active window frames (2.5px top bar, subtle titlebar wash), Mica ambient aura, and Aero Snap.',
+      'Integrated live interactive accent preview in Personalization settings demonstrating window titlebars and buttons in real time.'
+    ]
+  },
+  {
+    version: '23.18.13',
+    date: '2026-09-29',
+    title: 'Direct Electron Node.js HTTPS BotGhost Dispatch & Delivery Verification',
+    highlights: [
+      'Windows desktop app dispatches BotGhost reports directly via native Node.js HTTPS, completely eliminating localhost or port dependencies.',
+      'Strict verified delivery status: reports are marked sent only upon genuine HTTP 200 confirmation from BotGhost.',
+      'Automatic BotGhost filtering variables {webhook.project} (SOCDOF) and {webhook.report_category} passed on every submission.'
+    ]
+  },
   {
     version: '23.18.12',
     date: '2026-09-28',
