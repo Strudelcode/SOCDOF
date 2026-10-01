@@ -21,7 +21,104 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
-### 2.0 Latest Completed Milestone
+### 2.0 v24.0.0 — Mobile-Window Responsive Transformation (All Apps in Order)
+
+- [x] **Phase 1: Login, Lock Screen & Onboarding Mobile Adaptation**:
+  - [x] Adapt Windows 11 Lock Screen for mobile screens & narrow windows (scalable clock, date, responsive swipe-up gesture).
+  - [x] Adapt Login & User Selection screen for compact mobile screens (fluid avatar grid, full-width touch inputs, min 44px buttons).
+  - [x] Adapt First-Time Setup & Password Recovery dialogs (scrollable card layout, touch-friendly question dropdowns, keyboard avoidance).
+- [x] **Phase 2: Desktop Window Manager & Mobile Breakpoint Engine**:
+  - [x] Implement responsive container query width detection & CSS container rules (`.socdof-window-frame`, `@container window (max-width: 580px)`).
+  - [x] Compact mobile titlebar mode (streamlined icon, touch-friendly window controls, title truncation, dynamic minW: 340px resize).
+  - [x] Dynamic smartphone window dimension resizing down to 340px for live mobile testing on desktop.
+- [x] **Phase 3: ERP Dashboard Mobile Layout**:
+  - [x] Transform 4-column KPI grid into responsive container-adaptive vertical touch cards.
+  - [x] Responsive quick-action launchpad and streamlined zero-state onboarding.
+  - [x] Container queries for dual recent activity cards (Invoices & Stock moves).
+- [x] **Phase 4: Invoices & Billing Mobile Layout**:
+  - [x] Invoice list transformation into touch-friendly stack cards with status badges.
+  - [x] Responsive search/filter bar and mobile layout adaptations.
+- [x] **Phase 5: POS & Cash Register Mobile Layout**:
+  - [x] Mobile product grid with touch-friendly tiles and category selector.
+  - [x] Dedicated mobile tab switcher (Katalog vs. Warenkorb) and floating quick-checkout bar.
+- [x] **Phase 6: Accounting, BWA & Taxes Mobile Layout**:
+  - [x] Compact financial summary cards (Revenue, Expenses, Profit) with container query reflow.
+  - [x] Responsive collapsible BWA hierarchy and simplified VAT report table.
+- [x] **Phase 7: Contacts & CRM Mobile Layout**:
+  - [x] Contact cards with 1-tap call/mail direct action buttons and search bar.
+  - [x] Container queries for responsive contact cards grid.
+- [x] **Phase 8: Inventory & Products Mobile Layout**:
+  - [x] Product catalog mobile card stack with stock badges, EK/VK margin summary and 1-tap stock booking.
+  - [x] Mobile category dropdown filter with alert pills.
+- [x] **Phase 9: Purchases & Supplier Orders Mobile Layout**:
+  - [x] Purchase order mobile card stack with status pills, supplier details and quick receipt action.
+  - [x] Responsive KPI summary grid.
+- [x] **Phase 10: Calendar & Appointments Mobile Layout**:
+  - [x] Mobile daily agenda list view with hour markers.
+  - [x] Quick appointment creation bottom sheet.
+- [x] **Phase 11: Support & Time Tracking Mobile Layout**:
+  - [x] Mobile time recording widget and service ticket list.
+- [x] **Phase 12: Praxis & Therapy Mobile Layout**:
+  - [x] Client dossier mobile view with quick session notes and consultation timer.
+  - [x] Mobile appointment overview and mileage logging cards (existing v24 responsive grid/card stacks verified at 380px).
+- [x] **Phase 13: Bug Reports & Feedback Mobile Layout**:
+  - [x] Mobile Discord report composer with direct category selectors and error inspector (verified at 380px — responsive layout already in place from v24.0.0).
+- [x] **Phase 14: Settings & Personalization Mobile Layout**:
+  - [x] Mobile sidebar-to-content navigation with sticky back button and touch sliders (verified at 380px: start page, "Farben & Akzente" design-mode cards, dark-mode toggle — no clipping thanks to the live window auto-fit).
+- [x] **Phase 15: App Store & Documentation Mobile Layout**:
+  - [x] Responsive app cards and mobile book-style documentation reader (verified at 380px: hero stats, scrollable filter/category chips, single-column touch app cards, Handbuch portal incl. new `support_services` chapter).
+
+---
+
+### 2.0.1 Completed Phases Archive (v24 Mobile Transformation)
+
+The v24.2.0 ERP Dashboard Dynamic Accent & Anti-Clash Harmonization (roadmap 2.1: accent-driven KPI cards & quick launchpad, companion-colored secondary metrics incl. the new POS revenue KPI, full quad-language i18n) milestone is complete and archived in `todo/completed_todo.md`.
+
+The v24.2.0 Praxis & Therapy Mobile Layout (Phase 12: consultation timer with crash-safe persistence, quick session note bottom sheet, duration auto-booking) and Bug Reports & Feedback verification (Phase 13: confirmed responsive at 380px) milestone is complete and archived in `todo/completed_todo.md`.
+
+The v24.2.0 completion of Phase 14 & 15 verification (Settings & Personalization and App Store & Documentation confirmed at 380px) plus the new Web-Preview parity notice in Settings (transparent browser fallbacks for 1:1 web testing) is complete and archived in `todo/completed_todo.md`.
+
+The v24.1.0 Calendar & Appointments Mobile Layout (Phase 10: hour-marker day agenda, quick-create bottom sheet, floating add button, next-event quick bar) and Support & Time Tracking Mobile Layout (Phase 11: mobile time-recording widget, touch ticket card stack, responsive header actions) milestone is complete and archived in `todo/completed_todo.md`.
+
+### 2.1 Dynamic Accent & Anti-Clash Contrast Harmonization (All Apps)
+
+- [x] **Calendar & Appointments (`CalendarModule.tsx`)**:
+  - [x] Dynamic header actions, view switcher tabs, today date circle (`--accent`).
+  - [x] High-contrast weekday headers (`Mo-Fr` neutral dark/light, `Sa-So` companion accent `--accent-companion`).
+  - [x] Dynamic detail & create modals, search filter chips, status bar badges and dark mode polish.
+- [x] **ERP Dashboard (`Dashboard.tsx`)**:
+  - [x] Dynamic KPI card borders and highlight icons (`--accent`, `--accent-light`).
+  - [x] Anti-clash dual-series metrics (Revenue in `--accent`, secondary expenses/stock in `--accent-companion`).
+  - [x] Quick launchpad action buttons and onboarding cards.
+- [ ] **Invoices & Billing (`InvoicesModule.tsx`)**:
+  - [ ] Dynamic status pills, filter chips, and primary action buttons (`--accent`).
+  - [ ] Invoice detail modal, QR code scanner, and template editor accents.
+- [ ] **POS & Cash Register (`POSModule.tsx`)**:
+  - [ ] Dynamic cart counter badge, checkout action bar, mobile tab switcher.
+  - [ ] Payment method selection (Cash, Card, QR) with non-clashing companion highlights.
+- [ ] **Accounting, BWA & Taxes (`AccountingModule.tsx`)**:
+  - [ ] Non-clashing revenue vs. expense dual comparison charts using `--accent-companion`.
+  - [ ] BWA hierarchy rows, tax overview cards, and export action buttons.
+- [ ] **Contacts & CRM (`ContactsModule.tsx`)**:
+  - [ ] 1-Tap call/mail chips, contact category pills, and tag selector highlights.
+- [ ] **Inventory & Products (`ProductsModule.tsx`)**:
+  - [ ] Margin badges, low stock alert pills, and 1-tap booking action buttons.
+- [ ] **Purchases & Supplier Orders (`PurchasesModule.tsx`)**:
+  - [ ] Order status badges, supplier action chips, and purchase metric indicators.
+- [ ] **Support & Time Tracking (`SupportTicketsModule.tsx`)**:
+  - [ ] Timer start/stop widget, priority status badges, ticket timeline accents.
+- [ ] **Praxis & Therapy Module (`PraxisTherapyModule.tsx`)**:
+  - [ ] Consultation timer, therapy dossier tabs, diagnosis chips, mileage log indicators.
+- [ ] **Bug Reports & Discord Feedback (`DiscordBugReportModal.tsx`)**:
+  - [ ] Submit button, category tag pills, live embed preview highlights.
+- [ ] **Settings & Personalization (`SettingsWorkspace.tsx`)**:
+  - [ ] Color Picasso palette picker, active section tabs, toggle switches, accent preview cards.
+
+---
+
+### 2.1 Completed Milestones Archive
+
+The v23.18.13 Direct Electron Node.js HTTPS BotGhost Dispatch & Delivery Verification milestone is complete and archived in `todo/completed_todo.md`.
 
 The v23.18.12 Verified Discord Forum Bot Integration & Localhost Proxy in Desktop App milestone is complete and archived in `todo/completed_todo.md`.
 

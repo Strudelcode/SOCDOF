@@ -4,6 +4,105 @@
 
 ---
 
+### ERP Dashboard Dynamic Accent & Anti-Clash Harmonization (v24.2.0, Roadmap 2.1)
+- [x] **Dynamic KPI cards & highlight icons (`--accent`, `--accent-light`)**:
+  - All KPI icon chips, period filter chips, list header accents, empty-state CTAs and footer action buttons are driven by the live accent CSS variables and re-tint instantly with the Color Picasso accent (verified via a runtime accent override in the browser).
+- [x] **Anti-clash dual-series metrics (`--accent-companion`)**:
+  - Secondary series (POS revenue, inventory value, stock-move income) deliberately use the contrasting companion variable so primary and secondary money metrics never visually collide.
+  - New POS revenue KPI card surfacing the previously unused `totalPosRevenue` aggregation together with the POS order count; clicking opens the cash register.
+- [x] **Quick launchpad & onboarding cards**:
+  - New launchpad section with four one-tap daily workflow actions (new invoice, POS sale, new contact, stock booking) alternating accent & companion icon chips.
+  - Zero-state onboarding step cards moved from fixed purple/teal to dynamic accent variables; legacy seeded placeholder company names ("Your Company Name" / "Ihr Firmenname" / "SOCDOF") are filtered from the welcome headline (same trio as AuthGate onboarding).
+- [x] **Localization**: 70 new `dashboard.*` i18n keys across German, English, French, and Spanish; the dashboard module no longer contains hardcoded user-facing strings.
+- [x] **Verification**: `npm run lint` and `npm run build` passed; flows tested at 1280px and 380px viewports (KPI grid reflows to 1 column, launchpad to 2 columns, zero horizontal overflow, launchpad navigation to POS & stock modules confirmed).
+
+### Phases 14 & 15 Verification + Web-Preview Parity Notice (v24.2.0)
+- [x] **Phase 14: Settings & Personalization Mobile Layout**:
+  - [x] Visually verified at 380px: settings start page, "Colors & Accents" design-mode cards, dark-mode toggle — no clipping thanks to the live window auto-fit.
+  - [x] New web-preview parity notice in the Windows section: when running outside Electron, Settings explains which surfaces differ and that update install & backup folder picking already ship full browser fallbacks (`settings.web_preview_parity_*` keys in all 4 languages).
+- [x] **Phase 15: App Store & Documentation Mobile Layout**:
+  - [x] Visually verified at 380px: App Store hero stats, horizontally scrollable filter/category chips, single-column touch app cards; Handbuch portal with v24.2.0 badge, portal tabs and the new `support_services` documentation chapter.
+- [x] **Web/App Parity Audit**:
+  - [x] `isElectron()` gating audited across the app: `UpdatePromptModal` (simulated progress + browser .exe download) and `handlePickBackupFolder` (File System Access API + file-input fallback) already provide complete web fallbacks; `WindowsExeNotificationToast` correctly hides in Electron only.
+- [x] **Verification**: `npm run lint` and `npm run build` completed successfully; flows visually tested at 380px viewport.
+
+### Mobile Therapy Dossier Timer & Window Auto-Fit (v24.2.0)
+- [x] **Phase 12: Praxis & Therapy Mobile Layout**:
+  - [x] Mobile consultation timer in the client dossier with start/stop, live display and crash-safe localStorage persistence.
+  - [x] Quick session note bottom sheet capturing intervention & progress notes; duration auto-derived from the running timer.
+  - [x] Session booked directly into the practice session history with toast feedback.
+  - [x] All new therapy mobile surfaces translated across German, English, French, and Spanish (therapy.timer*, therapy.quick_note* keys).
+- [x] **Phase 13: Bug Reports & Feedback Mobile Layout**:
+  - [x] Visually verified at 380px: header, tab switcher, 3-step guidance, offline queue banner and Discord identity fields render touch-friendly (responsive layout inherited from v24.0.0).
+- [x] **Window Manager Hardening**:
+  - [x] Live viewport auto-fit: open windows maximize below 768px viewport width instead of remaining clipped; geometry clamped/restored on resize.
+  - [x] Calendar duplicate day view fixed on narrow windows (desktop list no longer renders below the mobile hour agenda).
+- [x] **Verification**: `npm run lint` and `npm run build` completed successfully; flows visually tested at 380px viewport.
+
+### Mobile Calendar Day Agenda & Support Time-Tracking Layouts (v24.1.0)
+- [x] **Phase 10: Calendar & Appointments Mobile Layout**:
+  - [x] Mobile daily agenda list view with hour markers (07:00 – 22:00 timeline, empty slots as one-tap quick-create targets).
+  - [x] Quick appointment creation bottom sheet with touch-optimized inputs (min 44px), duration chips, category & storage destination selection.
+  - [x] Floating quick-add action button and next-upcoming-event quick bar in mobile day view.
+  - [x] New i18n keys for mobile calendar surfaces across German, English, French, and Spanish.
+- [x] **Phase 11: Support & Time Tracking Mobile Layout**:
+  - [x] Mobile time recording widget with live running timer status, total booked hours and direct jump to the active ticket.
+  - [x] Mobile service ticket card stack replacing the desktop table in compact windows (status badges, customer, timesheet totals, quick edit/delete actions).
+  - [x] Responsive support header with icon-only primary actions on narrow screens.
+- [x] **Verification**: `npm run lint` and `npm run build` completed successfully.
+
+### Keyboard Shortcuts Hub, Independent Dual-Scroll Layout, Persistent Font Scaling & Dynamic Accent Color Desktop Harmony (v23.19.1)
+- [x] **Clean Window Header & Titlebar Clarity**:
+  - [x] Removed blurry radial color gradient bloat that created a foggy green haze over the top navigation area in modules.
+  - [x] Streamlined window titlebars into clean, native Windows 11 style without background color wash, keeping ambient glows focused cleanly on cards and borders.
+- [x] **Intelligent Anti-Clash Companion Colors for Dual-Metric Charts**:
+  - [x] Implemented hue-based dynamic companion color generator (`getContrastingCompanionColor` / `--accent-companion`).
+  - [x] Prevented identical colors when accent color matches standard chart series: Green/Emerald accents automatically shift secondary series to Indigo/Purple, preventing dual-green ambiguity.
+  - [x] Applied dynamic companion color to session bars, revenue cards, and dashboard metrics.
+- [x] **Subtle Ambient Accent Glow Across All Apps & Cards**:
+  - [x] Implemented global card and container border styling reflecting the active accent color (`var(--accent-border-subtle)`).
+  - [x] Added soft ambient shadow halos (`var(--accent-card-shadow)`) and interactive hover lift (`var(--accent-card-shadow-hover)`).
+  - [x] Added focus glow ring for inputs, search bars, and textareas across all apps.
+  - [x] Protected invoice print sheets and DIN 5008 documents from decorative glows.
+- [x] **Independent Dual-Scroll Navigation in Settings**:
+  - [x] Converted the Settings module layout from a single shared scrolling page into two decoupled, independently scrollable containers (`overflow-y-auto` for sidebar and content area).
+  - [x] When scrolling long setting pages (e.g. wallpapers or colors), the left sidebar remains pinned, accessible, and independently scrollable.
+- [x] **Persistent Font Scaling**:
+  - [x] Font scale slider (90% to 130%) and 100% Reset now immediately save to `localStorage` (`socdof_font_scale`), IndexedDB, and global app context on release.
+  - [x] Added early pre-hydration script in `index.html` ensuring font size persists across window closes, page reloads, and desktop app reboots without flickering.
+- [x] **Dedicated Settings Shortcuts Tab**:
+  - [x] Implemented `'shortcuts'` tab in `SettingsModule.tsx` categorized into Feedback, Navigation, Taskbar Launchers, Virtual Desktops, and Security.
+  - [x] Added instant search filtering for shortcuts, key combinations, and descriptions.
+  - [x] Added tactile `<kbd>` styling with realistic key depth, accent outlines, and clear badges.
+  - [x] Integrated interactive "Jetzt testen" triggers for reporting actions right within the settings panel.
+- [x] **Global Feedback & Reporting Hotkeys**:
+  - [x] `Alt + B`: Direct invocation of the Bug Report modal with prefilled system details.
+  - [x] `Alt + I`: Direct invocation of the Idea & Suggestion modal.
+  - [x] `Alt + R`: Direct access to the Feedback and Ticket Center.
+  - [x] Safe key filtering ensuring full compatibility with European AltGr layouts.
+- [x] **Dynamic Accent Color Aura & Desktop Harmony**:
+  - [x] Replaced stark flat pure white surfaces with softer, calm ergonomic tones (`#f6f8fb`) that prevent eye fatigue.
+  - [x] Infused the user's selected accent color throughout the desktop environment: active windows feature a 2.5px top accent line, subtle gradient titlebar wash, and icon rings.
+  - [x] Added dynamic Mica ambient wallpaper aura reacting in real-time to the chosen accent color.
+  - [x] Updated Aero Snap docking previews, desktop icon hover states, Spotlight command palette selection, and taskbar indicators to use dynamic accent color CSS variables.
+  - [x] Added interactive Live Accent Preview card in Settings (Personalization) showing active window titlebars and buttons in the selected color.
+- [x] **Full 4-Language Localization**:
+  - [x] Added complete i18n dictionaries for all shortcut actions and labels across German, English, French, and Spanish in `src/lib/i18n.ts`.
+
+---
+
+### Direct Electron Node.js HTTPS BotGhost Dispatch & Delivery Verification (v23.18.13)
+- [x] **Direct Windows Native HTTPS Communication (No Localhost / Port Dependency)**:
+  - [x] Configured Windows Desktop App (`.exe`) to dispatch BotGhost webhooks directly via Electron's Main Process using native Node.js `https.request` to `api.botghost.com:443`.
+  - [x] Completely detached desktop reporting from `localhost` / port conflicts so external developers or local servers never interfere with report submissions.
+- [x] **Strict Delivery Verification & Truthful Ticket Status**:
+  - [x] Reports are only marked as sent (`status: 'sent'`) in the Tickets drawer when BotGhost officially returns HTTP 200 `{"success": true}`.
+  - [x] If BotGhost returns any error, timeout, or the device is offline, the report is preserved in the local queue with diagnostic details and marked as offline/queued without false success flags.
+- [x] **BotGhost Event Variable Schema Compliance**:
+  - [x] Embedded `{webhook.project}` (`SOCDOF`) and `{webhook.report_category}` (`bug` / `idea`) into every submission for automated filtering in BotGhost events.
+
+---
+
 ### Verified Discord Forum Bot Integration & Localhost Proxy in Desktop App (v23.18.12)
 - [x] **Verified Discord Bot Forum Creation**:
   - [x] Connected app bug reports and ideas to the official Discord Bot REST API (`POST /channels/{id}/threads`).

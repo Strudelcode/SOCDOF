@@ -81,7 +81,26 @@ This document defines the core operational standards, versioning protocols, and 
 
 ---
 
-## 6. Quality & Build Verification
+## 7. Dynamic UI Accent & Smart Anti-Clash Contrast System
+
+- **Single Source of Truth for Accent & Companion Colors**:
+  - Every application, module, modal, and widget must strictly derive its primary highlight from the user-selected accent color (`var(--accent)`, `var(--accent-light)`, `var(--accent-ring)`, `var(--accent-border)`).
+  - Comparative and dual-metric elements must derive their secondary highlight from the dynamically computed companion color (`var(--accent-companion)`, `var(--accent-companion-light)`, `var(--accent-companion-border)`).
+- **Anti-Clash Contrast Principle (No Identical Neighbor Colors)**:
+  - When displaying dual metrics, side-by-side comparison charts, adjacent status badges, or dual payment/category buttons (e.g. Revenue vs. Sessions, Invoiced vs. Paid, Net Revenue vs. Operating Profit, Cash vs. Card), secondary and companion metrics **MUST NEVER** collide with or duplicate the primary accent color.
+  - The contrast system uses mathematical hue calculation (`getContrastingCompanionColor` in `src/lib/accent.ts`):
+    - If the user selects a Green/Teal accent (Hue 65°–185°), the companion color automatically shifts to **Indigo/Purple** (`#6366f1`). They will never both appear green.
+    - If the user selects an Orange/Amber/Sunset Gold accent, the companion color shifts to **Cyan/Teal** (`#06b6d4`).
+    - If the user selects a Blue/Indigo accent, the companion color shifts to **Teal/Emerald** (`#0d9488`).
+    - If the user selects a Purple/Pink accent, the companion color shifts to **Emerald** (`#10b981`).
+- **Clean Ambient Glow on Cards (No Header Hazes)**:
+  - Cards, panels, tables, and container borders automatically receive a subtle accent tint (`--accent-border-subtle`) and gentle ambient shadow halo (`--accent-card-shadow`) without intrusive foggy radial gradients or blurred washes across titlebars.
+  - DIN 5008 print sheets and PDF exports are strictly protected from decorative glows.
+- **Mandatory Standard**: This rule applies consistently across **ALL** existing modules and any newly built modules.
+
+---
+
+## 8. Quality & Build Verification
 
 Before finishing any modification turn:
 1. Run `npm run lint` (`lint_applet` / TypeScript check) to ensure no type errors.

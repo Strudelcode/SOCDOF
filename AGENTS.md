@@ -18,4 +18,8 @@ This repository follows the guidelines defined in [INSTRUCTIONS.md](./INSTRUCTIO
 5. **Todo Management & Archive**: 
    - Keep `todo/todo.md` clean and focused on open/planned tasks.
    - Move completed tasks to `todo/completed_todo.md` upon completion to maintain an organized archive.
-6. **Verification**: Always run `npm run lint` and `npm run build` after completing tasks to ensure code reliability.
+6. **Dynamic Accent & Anti-Clash Contrast System**:
+   - All modules, apps, and cards must derive their colors dynamically from the user's selected accent color (`var(--accent)`) and its mathematically computed contrasting companion color (`var(--accent-companion)` via `getContrastingCompanionColor` in `src/lib/accent.ts`).
+   - Side-by-side comparison metrics, dual-series charts, and adjacent payment/status elements must never collide or duplicate colors (e.g. green accents shift secondary series to indigo/purple).
+   - Card border glows (`--accent-card-shadow`, `--accent-border-subtle`) must remain subtle and never introduce blurry radial gradient blobs or header hazes.
+7. **Verification**: Always run `npm run lint` and `npm run build` after completing tasks to ensure code reliability.
