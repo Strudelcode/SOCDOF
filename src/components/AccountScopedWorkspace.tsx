@@ -148,16 +148,7 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
   const [scopeKey, setScopeKey] = useState<string | null>(() => {
     const session = getSession();
     const account = session && !session.locked ? getUserById(session.userId) : null;
-    if (account) {
-      try {
-        prepareUserWorkspace(account.id, account.accountType);
-        applyUserAppearance(account);
-        return `${account.id}:${account.accountType}`;
-      } catch (e) {
-        console.error('Failed to prepare account scope on init:', e);
-      }
-    }
-    return null;
+    return account ? `${account.id}:${account.accountType}` : null;
   });
 
   useEffect(() => {
@@ -165,7 +156,6 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       const session = getSession();
       const account = session && !session.locked ? getUserById(session.userId) : null;
       setActiveAccount(account);
-      applyUserAppearance(account);
     };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
     window.addEventListener('storage', refreshAccount);

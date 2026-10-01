@@ -541,6 +541,38 @@ export const DocumentationApp: React.FC = () => {
               es: 'Sincroniza citas con Google Calendar o gestiona plazos de pago y citas de clientes en vistas mensuales y semanales.'
             })}
           </p>
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {getLoc({
+              de: 'Mobile Tagesagenda & Schnell-Anlage (Handy & schmale Fenster)',
+              en: 'Mobile Day Agenda & Quick Creation (Smartphones & Narrow Windows)',
+              fr: 'Agenda mobile et création rapide (smartphones et fenêtres étroites)',
+              es: 'Agenda móvil y creación rápida (teléfonos y ventanas estrechas)'
+            })}
+          </h5>
+          <p className="text-slate-600 dark:text-slate-300">
+            {getLoc({
+              de: 'Auf schmalen Fenstern und Smartphones zeigt die Tagesansicht eine Stundenleiste (07:00 – 22:00) mit allen Terminen des Tages. Tippen Sie auf einen leeren Zeitslot, um sofort einen neuen Termin mit vorausgefüllter Uhrzeit anzulegen – das Bottom-Sheet-Formular bietet Dauer-Schnellwahl (15m bis Ganztägig), Kategorien und Zielspeicher-Auswahl. Ein runder "+"-Button und die „Nächster Termin"-Karte halten Sie immer über dem nächsten anstehenden Termin auf dem Laufenden.',
+              en: 'On narrow windows and smartphones, the day view renders an hour-marker timeline (07:00 – 22:00) listing every appointment of the day. Tap an empty time slot to instantly create a new appointment with the hour pre-filled — the bottom sheet form offers quick duration chips (15m to All-day), categories, and storage destination selection. A round "+" button and the "Next appointment" card keep you oriented on what is coming up next.',
+              fr: 'Sur les fenêtres étroites et les smartphones, la vue jour affiche une chronologie horaire (07h00 – 22h00) avec tous les rendez-vous du jour. Touchez un créneau libre pour créer instantanément un rendez-vous avec l’heure pré-remplie — le formulaire en feuille inférieure propose des durées rapides (15 min à toute la journée), des catégories et le choix du stockage. Un bouton « + » rond et la carte « Prochain rendez-vous » vous gardent orienté.',
+              es: 'En ventanas estrechas y teléfonos, la vista de día muestra una línea de tiempo por horas (07:00 – 22:00) con todas las citas del día. Toca un hueco libre para crear al instante una nueva cita con la hora prellenada; el formulario inferior ofrece duraciones rápidas (15 min a todo el día), categorías y destino de almacenamiento. Un botón «+» redondo y la tarjeta «Próxima cita» te mantienen orientado.'
+            })}
+          </p>
+          <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            {getLoc({
+              de: 'Live-Fensteranpassung auf schmalen Bildschirmen',
+              en: 'Live Window Auto-Fit on Narrow Screens',
+              fr: 'Ajustement automatique des fenêtres sur écrans étroits',
+              es: 'Ajuste automático de ventanas en pantallas estrechas'
+            })}
+          </h5>
+          <p className="text-slate-600 dark:text-slate-300">
+            {getLoc({
+              de: 'Verkleinern Sie das SOCDOF-Fenster oder den Bildschirm unter die Smartphone-Breite, passen sich alle offenen Fenster sofort automatisch an: Sie werden auf die volle Bildschirmbreite maximiert, statt abgeschnitten zu werden. Beim Vergrößern kehren sie in ihrer zuletzt genutzten Größe und Position zurück.',
+              en: 'When you shrink the SOCDOF window or screen below smartphone width, all open windows instantly auto-fit: they maximize to the full viewport width instead of being clipped. When enlarging again, windows return to their last used size and position.',
+              fr: 'Lorsque vous réduisez la fenêtre SOCDOF ou l’écran sous la largeur d’un smartphone, toutes les fenêtres ouvertes s’adaptent instantanément : elles sont maximisées sur toute la largeur au lieu d’être tronquées. En agrandissant à nouveau, elles retrouvent leur taille et position d’origine.',
+              es: 'Al reducir la ventana de SOCDOF o la pantalla por debajo del ancho de un smartphone, todas las ventanas abiertas se ajustan al instante: se maximizan al ancho completo en lugar de recortarse. Al ampliar de nuevo, recuperan su tamaño y posición anteriores.'
+            })}
+          </p>
         </div>
       )
     },
@@ -647,6 +679,24 @@ export const DocumentationApp: React.FC = () => {
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <h6 className="font-bold text-slate-900 dark:text-white">
                 {getLoc({
+                  de: 'Mobiler Beratungs-Timer & Schnell-Notiz',
+                  en: 'Mobile Consultation Timer & Quick Note',
+                  fr: 'Minuteur mobile & note rapide',
+                  es: 'Temporizador móvil y nota rápida'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Auf schmalen Fenstern und Smartphones startet der Timer-Button im Klienten-Dossier eine Beratungs-Zeitmessung, die auch bei App-Wechsel weiterläuft. Nach dem Stoppen öffnet sich ein Bottom-Sheet für Intervention & Sitzungsnotiz – die Dauer wird automatisch übernommen und in den Sitzungsverlauf gebucht.',
+                  en: 'On narrow windows and smartphones, the Timer button in the client dossier starts a consultation measurement that keeps running across app switches. Stopping opens a bottom sheet for intervention & session note — the duration is carried over automatically and booked into the session history.',
+                  fr: 'Sur les fenêtres étroites et les smartphones, le bouton Minuteur du dossier client lance une mesure de séance qui continue malgré les changements d’application. L’arrêt ouvre une feuille inférieure pour l’intervention & la note — la durée est reprise automatiquement dans l’historique.',
+                  es: 'En ventanas estrechas y teléfonos, el botón Temporizador del expediente inicia una medición de sesión que sigue activa al cambiar de app. Al detenerlo se abre un formulario inferior para la intervención y la nota; la duración se transfiere automáticamente al historial.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
                   de: 'Workflow & Tastatur',
                   en: 'Workflow & Navigation',
                   fr: 'Workflow & Navigation',
@@ -659,6 +709,88 @@ export const DocumentationApp: React.FC = () => {
                   en: 'Workflow: Practice → select section → create entry → save. ESC closes open dialogs; all records stay 100% offline.',
                   fr: 'Workflow : Cabinet → choisir section → créer entrée → enregistrer. Échap ferme les fenêtres ; données 100% locales.',
                   es: 'Flujo : Consulta → seleccionar área → crear registro → guardar. ESC cierra diálogos ; 100% fuera de línea.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'support_services',
+      title: getLoc({
+        de: 'Kundendienst & Zeiterfassung',
+        en: 'Customer Support & Time Tracking',
+        fr: 'Service client & Suivi du temps',
+        es: 'Atención al cliente y registro de tiempo'
+      }),
+      category: getLoc({
+        de: 'Service & Abrechnung',
+        en: 'Service & Billing',
+        fr: 'Service & Facturation',
+        es: 'Servicio y facturación'
+      }),
+      icon: Headphones,
+      summary: getLoc({
+        de: 'Tickets, Außendienst-Einsätze, Live-Zeiterfassung mit Pausen-Persistenz und Zeittabellen.',
+        en: 'Tickets, field service operations, live time tracking with crash-recovery persistence, and timesheets.',
+        fr: 'Tickets, interventions terrain, suivi du temps en direct et feuilles de temps.',
+        es: 'Tickets, servicios en campo, registro de tiempo en vivo y hojas de horas.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/60">
+            <h5 className="font-bold text-sm text-cyan-900 dark:text-cyan-100">
+              {getLoc({
+                de: 'Ticket-System mit Live-Timer',
+                en: 'Ticket System with Live Timer',
+                fr: 'Système de tickets avec chronomètre',
+                es: 'Sistema de tickets con cronómetro'
+              })}
+            </h5>
+            <p className="mt-2 text-cyan-900/80 dark:text-cyan-200/80">
+              {getLoc({
+                de: 'Verwalten Sie Support-Vorgänge als Tickets in Listen-, Kanban- und Galerieansicht. Der Live-Timer läuft pro Ticket, übersteht Neustands und crashes dank lokaler Persistenz und wird automatisch in die Zeittabelle des Tickets gebucht.',
+                en: 'Manage support operations as tickets in list, kanban, and gallery views. The live timer runs per ticket, survives restarts and crashes through local persistence, and is automatically booked into the ticket timesheet.',
+                fr: 'Gérez le support en tickets en vues liste, kanban et galerie. Le chronomètre tourne par ticket, survit aux redémarrages grâce à la persistance locale et s’inscrit automatiquement dans la feuille de temps.',
+                es: 'Gestione el soporte como tickets en vistas de lista, kanban y galería. El cronómetro funciona por ticket, sobrevive a reinicios gracias a la persistencia local y se registra automáticamente en la hoja de horas.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Mobiles Zeiterfassungs-Widget & Ticket-Karten',
+                  en: 'Mobile Time-Tracking Widget & Ticket Cards',
+                  fr: 'Widget mobile de suivi du temps & cartes de tickets',
+                  es: 'Widget móvil de registro de tiempo y tarjetas de tickets'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Auf schmalen Fenstern und Smartphones zeigt das Modul ein kompaktes Zeiterfassungs-Widget mit laufendem Timer und Gesamtstunden sowie touchfreundliche Ticket-Karten mit Status, Kunde, Stunden und Direktaktionen – die Desktop-Tabelle wird automatisch ersetzt.',
+                  en: 'On narrow windows and smartphones, the module shows a compact time-tracking widget with the running timer and total hours plus touch-friendly ticket cards with status, customer, hours, and quick actions — the desktop table is replaced automatically.',
+                  fr: 'Sur fenêtres étroites et smartphones, le module affiche un widget compact avec le chronomètre en cours et le total d’heures, ainsi que des cartes tactiles (statut, client, heures, actions) — le tableau de bureau est remplacé automatiquement.',
+                  es: 'En ventanas estrechas y teléfonos, el módulo muestra un widget compacto con el cronómetro activo y las horas totales, además de tarjetas táctiles de tickets con estado, cliente, horas y acciones rápidas; la tabla de escritorio se reemplaza automáticamente.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Workflow & Integration',
+                  en: 'Workflow & Integration',
+                  fr: 'Workflow & Intégration',
+                  es: 'Flujo de trabajo e integración'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Ablauf: Kundendienst → Ticket anlegen → Timer starten → Arbeit dokumentieren → Timer pausieren → Stunden prüfen. Über „Mobile App Sync" können Zeiterfassungen vom Smartphone per QR/JSON importiert werden. Alle Daten bleiben 100% lokal.',
+                  en: 'Workflow: Support → create ticket → start timer → document work → pause timer → review hours. Via "Mobile App Sync", time recordings can be imported from a smartphone via QR/JSON. All records stay 100% offline.',
+                  fr: 'Workflow : Service → créer ticket → démarrer le chronomètre → documenter → mettre en pause → vérifier les heures. « Sync App Mobile » importe les relevés du smartphone via QR/JSON. Données 100% locales.',
+                  es: 'Flujo: Soporte → crear ticket → iniciar cronómetro → documentar → pausar → revisar horas. Con «Sincronizar App Móvil» puedes importar registros del teléfono por QR/JSON. Datos 100% locales.'
                 })}
               </p>
             </div>

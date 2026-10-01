@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Users, 
   Search, 
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Client, Session, Appointment, Trip, BillingItem } from './types';
 import { Contact } from '../../types';
-import { useLanguage, t } from '../../lib/i18n';
+import { useLanguage, t, LanguageCode } from '../../lib/i18n';
 import { db } from '../../lib/db';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
@@ -46,6 +46,7 @@ interface TherapyClientsProps {
   onOpenNewAppointmentForClient: (clientId: string) => void;
   onOpenNewTripForClient: (clientId: string) => void;
   onEditContactInCRM?: (contactId: number | string) => void;
+  onQuickSessionSave?: (session: Session) => void;
 }
 
 export const TherapyClients: React.FC<TherapyClientsProps> = ({
@@ -64,7 +65,8 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   onOpenNewBillingForClient,
   onOpenNewAppointmentForClient,
   onOpenNewTripForClient,
-  onEditContactInCRM
+  onEditContactInCRM,
+  onQuickSessionSave
 }) => {
   const lang = useLanguage();
   const [search, setSearch] = useState('');
@@ -72,6 +74,110 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [syncToCRM, setSyncToCRM] = useState(true);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  // Mobile compact mode detection (Phase 12) — mirrors container width of the window frame
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const frame = rootRef.current;
+      const w = frame ? frame.clientWidth : 0;
+      setIsMobileLayout(w > 0 && w < 640);
+    };
+    checkMobile();
+    // Re-check after first paint & dossier mount (ref may be null on first pass)
+    const raf = requestAnimationFrame(checkMobile);
+    const t = setTimeout(checkMobile, 120);
+    window.addEventListener('resize', checkMobile);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, [activeClientId]);
+
+  // Mobile consultation live timer (Phase 12): per-client, crash-safe via localStorage
+  const [consultationTimer, setConsultationTimer] = useState<{ clientId: string; startedAt: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem('socdof_therapy_consultation_timer_v1');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+  const [consultationSeconds, setConsultationSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!consultationTimer) { setConsultationSeconds(0); return; }
+    const tick = () => setConsultationSeconds(Math.max(0, Math.floor((Date.now() - consultationTimer.startedAt) / 1000)));
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [consultationTimer]);
+
+  const startConsultationTimer = () => {
+    if (!activeClient) return;
+    const next = { clientId: activeClient.id, startedAt: Date.now() };
+    setConsultationTimer(next);
+    localStorage.setItem('socdof_therapy_consultation_timer_v1', JSON.stringify(next));
+  };
+
+  const stopConsultationTimer = () => {
+    if (!consultationTimer || !activeClient) return { seconds: 0 };
+    const seconds = Math.max(0, Math.floor((Date.now() - consultationTimer.startedAt) / 1000));
+    setConsultationTimer(null);
+    localStorage.removeItem('socdof_therapy_consultation_timer_v1');
+    return { seconds };
+  };
+
+  const formatTimer = (total: number) => {
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  // Mobile quick session note sheet state (Phase 12)
+  const [isQuickNoteOpen, setIsQuickNoteOpen] = useState(false);
+  const [quickNoteText, setQuickNoteText] = useState('');
+  const [quickNoteIntervention, setQuickNoteIntervention] = useState('');
+  const [isSubmittingQuickNote, setIsSubmittingQuickNote] = useState(false);
+
+  const handleSaveQuickSessionNote = async () => {
+    if (!activeClient || !quickNoteText.trim()) return;
+    setIsSubmittingQuickNote(true);
+    try {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const durationMinutes = consultationTimer && consultationTimer.clientId === activeClient.id
+        ? Math.max(1, Math.round((Date.now() - consultationTimer.startedAt) / 60000))
+        : 50;
+
+      const session: Session = {
+        id: `session_${Date.now()}`,
+        clientId: activeClient.id,
+        date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        startTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+        duration: durationMinutes,
+        intervention: quickNoteIntervention.trim() || (lang === 'de' ? 'Sitzung' : 'Session'),
+        progress: quickNoteText.trim(),
+        fee: activeClient.hourlyRate || undefined
+      };
+
+      onQuickSessionSave?.(session);
+
+      setIsQuickNoteOpen(false);
+      setQuickNoteText('');
+      setQuickNoteIntervention('');
+      if (consultationTimer && consultationTimer.clientId === activeClient.id) {
+        setConsultationTimer(null);
+        localStorage.removeItem('socdof_therapy_consultation_timer_v1');
+      }
+    } finally {
+      setIsSubmittingQuickNote(false);
+    }
+  };
 
   // Filtered clients list
   const filteredClients = useMemo(() => {
@@ -114,7 +220,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   // Client Dossier View
   if (activeClient) {
     return (
-      <div className="space-y-6">
+      <div ref={rootRef} className="space-y-6">
         {/* Back and Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3">
@@ -149,6 +255,32 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Mobile consultation timer toggle (Phase 12) */}
+            {isMobileLayout && (
+              consultationTimer && consultationTimer.clientId === activeClient.id ? (
+                <button
+                  onClick={() => {
+                    stopConsultationTimer();
+                    setIsQuickNoteOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-sm animate-pulse"
+                  title={t('therapy.timer_stop_note', lang as LanguageCode, 'Beratung beenden & Notiz erfassen')}
+                >
+                  <Clock3 className="w-3.5 h-3.5" />
+                  <span className="font-mono">{formatTimer(consultationSeconds)}</span>
+                  <span>{lang === 'de' ? 'Beenden' : 'Stop'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={startConsultationTimer}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
+                  title={t('therapy.timer_start', lang as LanguageCode, 'Beratungs-Timer starten')}
+                >
+                  <Clock3 className="w-3.5 h-3.5" />
+                  <span>{t('therapy.timer', lang as LanguageCode, 'Timer')}</span>
+                </button>
+              )
+            )}
             <button
               onClick={() => onOpenNewSessionForClient(activeClient.id)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs rounded-xl transition shadow-sm"
@@ -500,6 +632,97 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
           }}
           onClose={() => setClientToDelete(null)}
         />
+
+        {/* Mobile Quick Session Note Bottom Sheet (dossier-scoped, Phase 12) */}
+        {isQuickNoteOpen && (
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/50 backdrop-blur-xs"
+            onClick={() => setIsQuickNoteOpen(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-0 left-0 right-0 max-h-[88vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-x border-slate-200 dark:border-slate-800 animate-slide-up-sheet"
+            >
+              <div className="sticky top-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 flex justify-center rounded-t-3xl">
+                <div className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+              </div>
+
+              <div className="px-4 pb-6 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-teal-600 text-white shadow-xs">
+                      <Clock3 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                        {t('therapy.quick_note_title', lang as LanguageCode, 'Sitzungs-Notiz erfassen')}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 truncate max-w-[200px]">{activeClient.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsQuickNoteOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {consultationTimer && consultationTimer.clientId === activeClient.id && (
+                  <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                    <Clock3 className="w-3.5 h-3.5" />
+                    <span>{t('therapy.quick_note_running', lang as LanguageCode, 'Laufende Beratung')}:</span>
+                    <span className="font-mono">{formatTimer(consultationSeconds)}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('therapy.quick_note_intervention', lang as LanguageCode, 'Intervention / Methode')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={t('therapy.quick_note_intervention_ph', lang as LanguageCode, 'z.B. Gespräch, Verhaltenstherapie, Übungen...')}
+                    value={quickNoteIntervention}
+                    onChange={(e) => setQuickNoteIntervention(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-teal-500 focus:outline-none min-h-[44px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('therapy.quick_note_progress', lang as LanguageCode, 'Sitzungsnotiz / Verlauf')} *
+                  </label>
+                  <textarea
+                    rows={4}
+                    autoFocus
+                    placeholder={t('therapy.quick_note_progress_ph', lang as LanguageCode, 'Thema, Beobachtungen, vereinbarte Hausaufgaben...')}
+                    value={quickNoteText}
+                    onChange={(e) => setQuickNoteText(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-teal-500 focus:outline-none resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setIsQuickNoteOpen(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer min-h-[44px]"
+                  >
+                    {t('therapy.cancel', lang as LanguageCode, 'Abbrechen')}
+                  </button>
+                  <button
+                    onClick={handleSaveQuickSessionNote}
+                    disabled={!quickNoteText.trim() || isSubmittingQuickNote}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{t('therapy.quick_note_save', lang as LanguageCode, 'Notiz speichern')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -524,7 +747,8 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenCustomerPicker}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-2 px-4 py-2 hover:brightness-110 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer active:scale-95"
           >
             <BookUser className="w-4 h-4" />
             <span>{lang === 'de' ? '+ Klient aus Kundenbuch hinzufügen' : '+ Add Client from Contacts'}</span>
@@ -532,7 +756,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
           <button
             onClick={() => setIsManualModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl transition"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl transition cursor-pointer"
             title={lang === 'de' ? 'Manuell ohne Kontaktbuch anlegen' : 'Create manually'}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -543,21 +767,25 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
       {/* Clients Cards Grid */}
       {filteredClients.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center">
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-3">
+          <div 
+            style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center shadow-2xs"
+          >
             <Users className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
             {lang === 'de' ? 'Noch keine Klienten vorhanden' : 'No clients found'}
           </h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+          <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
             {lang === 'de' 
               ? 'Wählen Sie einen Kontakt direkt aus Ihrem Kundenbuch oder legen Sie einen neuen Klienten an.' 
               : 'Pick an existing contact from your CRM customer book or add a client manually.'}
           </p>
           <button
             onClick={onOpenCustomerPicker}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="inline-flex items-center gap-2 px-4 py-2 hover:brightness-110 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer active:scale-95"
           >
             <BookUser className="w-4 h-4" />
             <span>{lang === 'de' ? 'Kundenbuch öffnen & Klient wählen' : 'Open Customer Book & Select'}</span>

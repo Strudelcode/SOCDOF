@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -51,7 +51,7 @@ import {
   isEventOnDate,
   downloadICSFile
 } from '../lib/googleCalendar';
-import { useLanguage, t } from '../lib/i18n';
+import { useLanguage, t, LanguageCode } from '../lib/i18n';
 import { sounds } from '../lib/sound';
 
 interface CalendarModuleProps {
@@ -124,6 +124,14 @@ function addMinutesToTime(timeStr: string, minutesToAdd: number): string {
   return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
 }
 
+// Localized Weekday Short Names
+const WEEKDAY_SHORT_NAMES: Record<LanguageCode, string[]> = {
+  de: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+};
+
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
   invoices,
   company,
@@ -172,6 +180,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   // Modals & Inspection State
   const [isNewEventModalOpen, setIsNewEventModalOpen] = useState(false);
+  const [isQuickEventSheetOpen, setIsQuickEventSheetOpen] = useState(false);
   const [selectedEventForDetail, setSelectedEventForDetail] = useState<CalendarAppEvent | null>(null);
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -699,11 +708,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     return groups;
   }, [filteredEvents]);
 
-  // Open New Event Modal with pre-filled date & hour
-  const openNewEventModalWithDate = (dateStr?: string, defaultHour?: string) => {
-    sounds.playPop();
+  // Shared pre-fill for New Event modal & Mobile Quick-Create sheet (Phase 10)
+  const prepareNewEventStates = (dateStr?: string, defaultHour?: string) => {
     const d = dateStr || formatLocalDate(focusedDate);
-    
+
     let startH = defaultHour;
     let endH = '';
 
@@ -725,7 +733,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     setNewEventIsAllDay(false);
     setNewEventCategory('general');
     setNewEventTarget(accessToken ? 'google' : 'local');
+  };
+
+  // Open New Event Modal with pre-filled date & hour
+  const openNewEventModalWithDate = (dateStr?: string, defaultHour?: string) => {
+    sounds.playPop();
+    prepareNewEventStates(dateStr, defaultHour);
     setIsNewEventModalOpen(true);
+  };
+
+  // Open Mobile Quick-Create Bottom Sheet with pre-filled date & hour (Phase 10)
+  const openQuickEventSheet = (dateStr?: string, defaultHour?: string) => {
+    sounds.playPop();
+    prepareNewEventStates(dateStr, defaultHour);
+    setIsQuickEventSheetOpen(true);
   };
 
   // Quick duration setter for Create modal
@@ -790,6 +811,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
       refreshUnifiedEvents();
       setIsNewEventModalOpen(false);
+      setIsQuickEventSheetOpen(false);
     } catch (err: any) {
       sounds.playWarning();
       setStatusNotification({
@@ -935,6 +957,52 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     });
   }, [focusedDate, currentLang]);
 
+  // Next upcoming event from today onward (used by mobile quick-add sheet) — Phase 10
+  const nextUpcomingEvent = useMemo(() => {
+    const now = new Date();
+    const todayStr = formatLocalDate(now);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    const upcoming = filteredEvents.filter(e => {
+      if (!isEventOnDate(e, todayStr)) return false;
+      if (e.isAllDay) return true;
+      const [h, m] = (e.startTime || '00:00').split(':').map(Number);
+      return ((h || 0) * 60 + (m || 0)) >= nowMins;
+    });
+
+    if (upcoming.length > 0) {
+      return [...upcoming].sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))[0];
+    }
+
+    // Fallback: next event on any future date
+    const future = filteredEvents
+      .filter(e => e.startDate > todayStr)
+      .sort((a, b) => (a.startDate + (a.startTime || '')).localeCompare(b.startDate + (b.startTime || '')));
+    return future[0] || null;
+  }, [filteredEvents]);
+
+  // Mobile visual compact mode: below 480px container width (Phase 10)
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [mobileAgendaOpen, setMobileAgendaOpen] = useState(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const frame = rootRef.current;
+      const w = frame ? frame.clientWidth : 0;
+      setIsMobileLayout(w > 0 && w < 480);
+      if (w >= 480) {
+        setIsQuickEventSheetOpen(false);
+      }
+      if (w >= 768) {
+        setMobileAgendaOpen(true);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const focusedDayEvents = useMemo(() => {
     const dStr = formatLocalDate(focusedDate);
     return filteredEvents.filter(e => isEventOnDate(e, dStr));
@@ -945,7 +1013,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const currentMinute = now.getMinutes();
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans select-none">
+    <div ref={rootRef} className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans select-none">
       
       {/* 1. COMMAND HEADER & TOOLBAR */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs z-20">
@@ -966,7 +1034,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
             </button>
 
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <div 
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+              className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-xs"
+            >
               <CalendarIcon className="w-4 h-4" />
             </div>
             
@@ -978,7 +1049,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* Primary Action: "+ Neuer Termin" */}
           <button
             onClick={() => openNewEventModalWithDate()}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 hover:opacity-90 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
             title={t('calendar.new_event', currentLang, 'Neuen Termin anlegen')}
           >
             <Plus className="w-4 h-4" />
@@ -992,7 +1064,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition shadow-2xs cursor-pointer flex items-center gap-1.5"
               title={t('calendar.reset_today_title', currentLang, 'Zum heutigen Datum')}
             >
-              <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600" />
+              <CalendarCheck2 
+                style={{ color: 'var(--accent, #4f46e5)' }}
+                className="w-3.5 h-3.5" 
+              />
               <span>{t('calendar.today_btn', currentLang, 'Heute')}</span>
             </button>
 
@@ -1031,7 +1106,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               placeholder={t('calendar.search_placeholder', currentLang, 'Termine suchen...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition focus:outline-none"
+              className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-[var(--accent,#4f46e5)] focus:ring-1 focus:ring-[var(--accent,#4f46e5)] rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition focus:outline-none"
             />
             {searchQuery && (
               <button 
@@ -1065,9 +1140,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   sounds.playClick();
                   setViewMode(mode);
                 }}
+                style={viewMode === mode ? {
+                  backgroundColor: 'var(--accent, #4f46e5)',
+                  color: '#ffffff'
+                } : undefined}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                   viewMode === mode
-                    ? 'bg-blue-600 text-white shadow-2xs'
+                    ? 'shadow-2xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                 }`}
               >
@@ -1180,8 +1259,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
 
               {/* Weekday headers */}
-              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">
-                <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                {(WEEKDAY_SHORT_NAMES[currentLang] || WEEKDAY_SHORT_NAMES.de).map((dName, dIdx) => (
+                  <span key={dName} className={dIdx >= 5 ? 'text-[var(--accent-companion,#0d9488)]' : ''}>
+                    {dName}
+                  </span>
+                ))}
               </div>
 
               {/* 42 Mini-Days Grid */}
@@ -1194,11 +1277,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       setFocusedDate(cell.date);
                       setSelectedDay(cell.date);
                     }}
+                    style={cell.isSelected ? {
+                      backgroundColor: 'var(--accent, #4f46e5)',
+                      color: '#ffffff'
+                    } : cell.isToday ? {
+                      borderColor: 'var(--accent, #4f46e5)',
+                      color: 'var(--accent, #4f46e5)',
+                      backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))'
+                    } : undefined}
                     className={`h-6 rounded-md flex flex-col items-center justify-center font-medium relative transition cursor-pointer ${
                       cell.isSelected
-                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                        ? 'font-bold shadow-2xs'
                         : cell.isToday
-                        ? 'ring-1 ring-blue-500 text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/40'
+                        ? 'border font-bold'
                         : cell.isCurrentMonth
                         ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                         : 'text-slate-300 dark:text-slate-600'
@@ -1206,7 +1297,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   >
                     <span>{cell.dayNum}</span>
                     {cell.hasEvents && !cell.isSelected && (
-                      <span className="w-1 h-1 rounded-full bg-blue-500 absolute bottom-0.5" />
+                      <span 
+                        style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                        className="w-1 h-1 rounded-full absolute bottom-0.5" 
+                      />
                     )}
                   </button>
                 ))}
@@ -1217,7 +1311,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2.5">
               <div className="flex items-center justify-between text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                  <Layers 
+                    style={{ color: 'var(--accent, #4f46e5)' }}
+                    className="w-3.5 h-3.5" 
+                  />
                   <span>Meine Kalender</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">({filteredEvents.length})</span>
@@ -1317,8 +1414,18 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden min-h-[580px]">
               
               {/* Day of Week Headers */}
-              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 text-center py-2 text-xs font-bold text-slate-600 dark:text-slate-400">
-                <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span className="text-blue-600 dark:text-blue-400">Sa</span><span className="text-blue-600 dark:text-blue-400">So</span>
+              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 text-center py-2 text-xs font-bold">
+                {(WEEKDAY_SHORT_NAMES[currentLang] || WEEKDAY_SHORT_NAMES.de).map((dName, dIdx) => (
+                  <span 
+                    key={dName} 
+                    className={dIdx >= 5 
+                      ? 'text-[var(--accent-companion,#0d9488)]' 
+                      : 'text-slate-700 dark:text-slate-300'
+                    }
+                  >
+                    {dName}
+                  </span>
+                ))}
               </div>
 
               {/* 6-Row x 7-Col Month Cells */}
@@ -1330,9 +1437,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       setSelectedDay(cell.date);
                     }}
                     onDoubleClick={() => openNewEventModalWithDate(cell.dateStr)}
+                    style={cell.isToday ? {
+                      boxShadow: 'inset 0 0 0 1.5px var(--accent, #4f46e5)',
+                      backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.08))'
+                    } : undefined}
                     className={`p-1.5 flex flex-col justify-between transition-colors overflow-hidden group relative cursor-pointer ${
                       cell.isToday
-                        ? 'bg-blue-50/40 dark:bg-blue-950/20 ring-1 ring-blue-500/50 inset-0'
+                        ? 'inset-0'
                         : cell.isSelected
                         ? 'bg-slate-100/70 dark:bg-slate-800/40'
                         : cell.isWeekend
@@ -1344,13 +1455,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   >
                     {/* Day Number Header & Quick Add */}
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
-                        cell.isToday
-                          ? 'bg-blue-600 text-white shadow-2xs'
-                          : cell.isCurrentMonth
-                          ? 'text-slate-800 dark:text-slate-200'
-                          : 'text-slate-400'
-                      }`}>
+                      <span 
+                        style={cell.isToday ? {
+                          backgroundColor: 'var(--accent, #4f46e5)',
+                          color: '#ffffff'
+                        } : undefined}
+                        className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
+                          cell.isToday
+                            ? 'shadow-2xs'
+                            : cell.isCurrentMonth
+                            ? 'text-slate-800 dark:text-slate-200'
+                            : 'text-slate-400'
+                        }`}
+                      >
                         {cell.dayNum}
                       </span>
 
@@ -1403,7 +1520,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             setFocusedDate(cell.date);
                             setViewMode('day');
                           }}
-                          className="text-[9px] font-extrabold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-center"
+                          style={{ color: 'var(--accent, #4f46e5)' }}
+                          className="text-[9px] font-extrabold hover:underline cursor-pointer text-center"
                         >
                           +{cell.events.length - 3} weitere
                         </div>
@@ -1422,7 +1540,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               {/* Day Headers */}
               <div className={`grid ${viewMode === 'workweek' ? 'grid-cols-6' : 'grid-cols-8'} border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 divide-x divide-slate-200 dark:divide-slate-800 text-center py-2`}>
                 <div className="text-[11px] font-bold text-slate-400 flex items-center justify-center">
-                  Zeit
+                  {t('calendar.time', currentLang, 'Zeit')}
                 </div>
                 {currentWeekDays.map((w, idx) => (
                   <div 
@@ -1433,10 +1551,16 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     }}
                     className="flex flex-col items-center cursor-pointer"
                   >
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{w.dayName}</span>
-                    <span className={`w-6 h-6 mt-0.5 rounded-full flex items-center justify-center text-xs font-bold ${
-                      w.isToday ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-800 dark:text-slate-200'
-                    }`}>
+                    <span className={`text-[10px] font-bold uppercase ${w.date.getDay() === 0 || w.date.getDay() === 6 ? 'text-[var(--accent-companion,#0d9488)]' : 'text-slate-600 dark:text-slate-400'}`}>{w.dayName}</span>
+                    <span 
+                      style={w.isToday ? {
+                        backgroundColor: 'var(--accent, #4f46e5)',
+                        color: '#ffffff'
+                      } : undefined}
+                      className={`w-6 h-6 mt-0.5 rounded-full flex items-center justify-center text-xs font-bold ${
+                        w.isToday ? 'shadow-2xs' : 'text-slate-800 dark:text-slate-200'
+                      }`}
+                    >
                       {w.dayNum}
                     </span>
                   </div>
@@ -1501,7 +1625,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             <div
                               key={dIdx}
                               onClick={() => openNewEventModalWithDate(w.dateStr, hourStr)}
-                              className="p-1 relative hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition cursor-pointer"
+                              className="p-1 relative hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition cursor-pointer"
                             >
                               {/* Live Current Time Marker Line */}
                               {w.isToday && isCurrentHourSlot && (
@@ -1552,8 +1676,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
           )}
 
-          {/* VIEW: TAG (Day View) */}
-          {viewMode === 'day' && (
+          {/* VIEW: DESKTOP DAY (hidden on mobile compact mode) */}
+          {viewMode === 'day' && !isMobileLayout && (
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs p-4 overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
                 <div>
@@ -1566,7 +1690,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </div>
                 <button
                   onClick={() => openNewEventModalWithDate(formatLocalDate(focusedDate))}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  className="px-3.5 py-1.5 hover:opacity-90 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Termin hinzufügen</span>
@@ -1577,11 +1702,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <div className="space-y-2.5">
                 {focusedDayEvents.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 space-y-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                    <CalendarDays className="w-10 h-10 mx-auto opacity-40 text-blue-500" />
+                    <CalendarDays 
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-10 h-10 mx-auto opacity-40" 
+                    />
                     <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Keine Termine für diesen Tag eingetragen</p>
                     <button
                       onClick={() => openNewEventModalWithDate(formatLocalDate(focusedDate))}
-                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="text-xs font-bold hover:underline cursor-pointer inline-flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Jetzt ersten Termin anlegen</span>
@@ -1609,7 +1738,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800 font-bold">
                               {evt.source.toUpperCase()}
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-semibold">
+                            <span 
+                              style={{ 
+                                backgroundColor: 'var(--accent-light, rgba(79,70,229,0.12))', 
+                                color: 'var(--accent, #4f46e5)' 
+                              }}
+                              className="text-[10px] px-2 py-0.5 rounded-md font-semibold"
+                            >
                               ⏱ {durationStr}
                             </span>
                           </div>
@@ -1618,7 +1753,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                           )}
                           <div className="flex items-center gap-4 text-xs opacity-80 pt-1 font-medium">
                             <span className="flex items-center gap-1 font-mono">
-                              <Clock className="w-3.5 h-3.5 text-blue-600" />
+                              <Clock 
+                                style={{ color: 'var(--accent, #4f46e5)' }}
+                                className="w-3.5 h-3.5" 
+                              />
                               <span>{evt.isAllDay ? 'Ganztägig' : `${evt.startTime || '09:00'} - ${evt.endTime || '10:00'} Uhr`}</span>
                             </span>
                             {evt.location && (
@@ -1649,6 +1787,97 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
           )}
 
+          {/* VIEW: MOBILE DAY AGENDA WITH HOUR MARKERS (Phase 10) */}
+          {viewMode === 'day' && isMobileLayout && (
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
+              {/* Sticky agenda header: day label + event count */}
+              <div className="px-4 pt-3 pb-2 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white capitalize">
+                    {focusedDate.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </h3>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    {focusedDayEvents.length} {focusedDayEvents.length === 1 ? t('calendar.event_singular', currentLang, 'Termin') : t('calendar.event_plural', currentLang, 'Termine')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hour-marker agenda timeline */}
+              <div className="flex-1 overflow-y-auto overscroll-contain" onClick={() => mobileAgendaOpen && setMobileAgendaOpen(false)}>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/80" onClick={(e) => e.stopPropagation()}>
+                  {HOURS_RANGE.map(hour => {
+                    const hourStr = `${String(hour).padStart(2, '0')}:00`;
+                    const eventsInHour = focusedDayEvents.filter(evt => {
+                      if (evt.isAllDay) return hour === HOURS_RANGE[0];
+                      return (evt.startTime || '').startsWith(hourStr.slice(0, 3));
+                    });
+
+                    return (
+                      <div
+                        key={hour}
+                        onClick={() => {
+                          if (!mobileAgendaOpen) {
+                            sounds.playPop();
+                            openQuickEventSheet(formatLocalDate(focusedDate), hourStr);
+                          }
+                        }}
+                        className={`relative flex gap-2 items-stretch min-h-[56px] ${eventsInHour.length === 0 && !mobileAgendaOpen ? 'cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/40' : ''} transition-colors`}
+                      >
+                        {/* Hour marker column */}
+                        <div className="w-12 shrink-0 py-2 text-right pr-1">
+                          <span className={`text-[11px] font-mono font-bold ${eventsInHour.length > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                            {hourStr}
+                          </span>
+                          <div className="h-px bg-slate-200 dark:bg-slate-700 mt-1 w-8 ml-auto" />
+                        </div>
+
+                        {/* Event slots column */}
+                        <div className="flex-1 py-1.5 pr-2 flex flex-col gap-1.5">
+                          {eventsInHour.length === 0 ? (
+                            <div className={`h-full min-h-[44px] rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center ${mobileAgendaOpen ? 'opacity-30' : 'opacity-60'}`}>
+                              <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+                            </div>
+                        ) : (
+                          eventsInHour.map(evt => {
+                            const catKey = evt.category || (evt.source === 'google' ? 'google' : 'general');
+                            const catMeta = categoryColorMap[catKey] || categoryColorMap.general;
+
+                            return (
+                              <button
+                                key={evt.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sounds.playClick();
+                                  setSelectedEventForDetail(evt);
+                                  setMobileAgendaOpen(false);
+                                }}
+                                className={`text-left w-full p-2.5 rounded-xl border shadow-2xs active:scale-[0.98] transition ${catMeta.accentBar} ${catMeta.bg} ${catMeta.text} ${catMeta.border}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-bold truncate">{evt.title}</span>
+                                  <span className="text-[10px] font-mono opacity-75 shrink-0">
+                                    {evt.isAllDay ? t('calendar.all_day_short', currentLang, 'Ganztägig') : (evt.startTime || '09:00')}
+                                  </span>
+                                </div>
+                                {evt.location && (
+                                  <div className="flex items-center gap-1 text-[10px] opacity-75 mt-0.5">
+                                    <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                    <span className="truncate">{evt.location}</span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* VIEW: AGENDA (Chronological Grouped Overview) */}
           {viewMode === 'agenda' && (
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs p-4 overflow-y-auto">
@@ -1663,7 +1892,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </div>
                 <button
                   onClick={() => openNewEventModalWithDate()}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                  className="px-3 py-1.5 hover:opacity-90 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
                 >
                   <Plus className="w-4 h-4" />
                   <span>Neuer Termin</span>
@@ -1673,14 +1903,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <div className="space-y-4">
                 {agendaGroupedEvents.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 space-y-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                    <CalendarDays className="w-10 h-10 mx-auto opacity-40 text-blue-500" />
+                    <CalendarDays 
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-10 h-10 mx-auto opacity-40" 
+                    />
                     <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Keine anstehenden Termine gefunden</p>
                   </div>
                 ) : (
                   agendaGroupedEvents.map(group => (
                     <div key={group.dateStr} className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800 dark:text-slate-200 pt-1">
-                        <span className="w-2 h-2 rounded-full bg-blue-600" />
+                        <span 
+                          style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                          className="w-2 h-2 rounded-full" 
+                        />
                         <span className="capitalize">
                           {group.date.toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
@@ -1754,7 +1990,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-blue-600 text-white shadow-2xs">
+                <div 
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  className="p-2 rounded-xl text-white shadow-2xs"
+                >
                   <CalendarDays className="w-5 h-5" />
                 </div>
                 <div>
@@ -1784,7 +2023,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   placeholder="z.B. Kundengespräch mit Fa. Müller oder Projekt-Review"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-medium"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:ring-1 focus:ring-[var(--accent,#4f46e5)] focus:outline-none font-medium"
                 />
               </div>
 
@@ -1807,9 +2046,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       return next;
                     });
                   }}
+                  style={newEventIsAllDay ? {
+                    backgroundColor: 'var(--accent, #4f46e5)',
+                    borderColor: 'var(--accent, #4f46e5)',
+                    color: '#ffffff'
+                  } : undefined}
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                     newEventIsAllDay
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                      ? 'shadow-2xs'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:white hover:bg-slate-200/60'
                   }`}
                   title="Zwischen genauer Uhrzeit und ganztägigem Termin umschalten"
@@ -1836,7 +2080,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         setNewEventEndDate(e.target.value);
                       }
                     }}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-mono"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono"
                   />
                 </div>
 
@@ -1853,12 +2097,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         setNewEventStartTime(newStart);
                         setNewEventEndTime(addMinutesToTime(newStart, 60));
                       }}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-mono font-bold text-blue-600 dark:text-blue-400"
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono font-bold"
                     />
                   </div>
                 ) : (
                   <div className="flex flex-col justify-end pb-0.5">
-                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 text-center">
+                    <span 
+                      style={{
+                        backgroundColor: 'var(--accent-light, rgba(79,70,229,0.12))',
+                        color: 'var(--accent, #4f46e5)',
+                        borderColor: 'var(--accent-border-subtle, rgba(79,70,229,0.25))'
+                      }}
+                      className="text-[11px] font-bold px-2 py-1.5 rounded-xl border text-center"
+                    >
                       Ganzer Tag aktiv
                     </span>
                   </div>
@@ -1876,7 +2128,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     required
                     value={newEventEndDate}
                     onChange={(e) => setNewEventEndDate(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-mono"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono"
                   />
                 </div>
 
@@ -1889,7 +2141,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       type="time"
                       value={newEventEndTime}
                       onChange={(e) => setNewEventEndTime(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-mono font-bold text-blue-600 dark:text-blue-400"
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono font-bold"
                     />
                   </div>
                 ) : null}
@@ -1899,7 +2152,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                 <div className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-400">
                   <span>Dauer:</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">
+                  <span 
+                    style={{ color: 'var(--accent, #4f46e5)' }}
+                    className="font-bold"
+                  >
                     {getEventDurationString(newEventStartDate, newEventStartTime, newEventEndDate, newEventEndTime, newEventIsAllDay)}
                   </span>
                 </div>
@@ -1917,7 +2173,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       key={label}
                       type="button"
                       onClick={() => handleQuickDuration(mins)}
-                      className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-blue-50 hover:border-blue-400 text-[11px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                      className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-[var(--accent,#4f46e5)] text-[11px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
                     >
                       {label}
                     </button>
@@ -1934,7 +2190,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <select
                     value={newEventCategory}
                     onChange={(e) => setNewEventCategory(e.target.value as any)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-semibold"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-semibold"
                   >
                     <option value="general">Allgemein</option>
                     <option value="customer">Kundentermin</option>
@@ -1951,7 +2207,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <select
                     value={newEventTarget}
                     onChange={(e) => setNewEventTarget(e.target.value as any)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none font-semibold"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-semibold"
                   >
                     {accessToken && <option value="google">Google Kalender (Live Sync)</option>}
                     <option value="local">Lokale SOCDOF Datenbank</option>
@@ -1969,7 +2225,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   placeholder="z.B. Konferenzraum 2 oder Google Meet / Teams Link"
                   value={newEventLocation}
                   onChange={(e) => setNewEventLocation(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none"
                 />
               </div>
 
@@ -1983,7 +2239,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   placeholder="Agenda, Vorbereitung, Notizen..."
                   value={newEventDesc}
                   onChange={(e) => setNewEventDesc(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none"
                 />
               </div>
 
@@ -1998,7 +2254,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  className="px-5 py-1.5 rounded-xl hover:opacity-90 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>Termin speichern</span>
@@ -2120,7 +2377,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold cursor-pointer"
+                    style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                    className="px-4 py-1.5 rounded-xl hover:opacity-90 active:scale-95 text-white text-xs font-bold cursor-pointer"
                   >
                     Speichern
                   </button>
@@ -2132,16 +2390,25 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <h3 className="text-base font-black text-slate-900 dark:text-white">{selectedEventForDetail.title}</h3>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-mono">
                     <span className="flex items-center gap-1">
-                      <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <CalendarIcon 
+                        style={{ color: 'var(--accent, #4f46e5)' }}
+                        className="w-3.5 h-3.5" 
+                      />
                       <span>{selectedEventForDetail.startDate} {selectedEventForDetail.endDate && selectedEventForDetail.endDate !== selectedEventForDetail.startDate ? `bis ${selectedEventForDetail.endDate}` : ''}</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-blue-600" />
+                      <Clock 
+                        style={{ color: 'var(--accent, #4f46e5)' }}
+                        className="w-3.5 h-3.5" 
+                      />
                       <span>{selectedEventForDetail.isAllDay ? 'Ganztägig' : `${selectedEventForDetail.startTime || '09:00'} - ${selectedEventForDetail.endTime || '10:00'} Uhr`}</span>
                     </span>
                   </div>
                   <div className="mt-1">
-                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                    <span 
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="text-[11px] font-semibold"
+                    >
                       ⏱ Dauer: {getEventDurationString(selectedEventForDetail.startDate, selectedEventForDetail.startTime, selectedEventForDetail.endDate, selectedEventForDetail.endTime, selectedEventForDetail.isAllDay)}
                     </span>
                   </div>
@@ -2167,7 +2434,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       onOpenInvoice(selectedEventForDetail.invoiceId!);
                       setSelectedEventForDetail(null);
                     }}
-                    className="w-full p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-100 transition cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--accent-light, rgba(79,70,229,0.12))',
+                      color: 'var(--accent, #4f46e5)',
+                      borderColor: 'var(--accent-border-subtle, rgba(79,70,229,0.25))'
+                    }}
+                    className="w-full p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition cursor-pointer"
                   >
                     <Receipt className="w-4 h-4" />
                     <span>Zugehörige Rechnung #{selectedEventForDetail.invoiceNumber || selectedEventForDetail.invoiceId} öffnen</span>
@@ -2180,7 +2452,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     href={selectedEventForDetail.htmlLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                    style={{ color: 'var(--accent, #4f46e5)' }}
+                    className="text-xs hover:underline flex items-center gap-1 font-semibold"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>In Google Kalender Web öffnen</span>
@@ -2223,7 +2496,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       
                       <button
                         onClick={() => handleDuplicateEvent(selectedEventForDetail)}
-                        className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-semibold text-slate-500 hover:text-[var(--accent,#4f46e5)] flex items-center gap-1 cursor-pointer"
                         title="Diesen Termin als lokale Vorlage duplizieren"
                       >
                         <Copy className="w-3.5 h-3.5" />
@@ -2254,19 +2527,29 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Left: Event Count and Filter Status */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
-            <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <CalendarCheck2 
+              style={{ color: 'var(--accent, #4f46e5)' }}
+              className="w-3.5 h-3.5" 
+            />
             <span>
-              {filteredEvents.length} {filteredEvents.length === 1 ? 'Termin / Beleg' : 'Termine / Belege'}
+              {filteredEvents.length} {filteredEvents.length === 1 ? t('calendar.event_singular', currentLang, 'Termin') : t('calendar.event_plural', currentLang, 'Termine')}
             </span>
           </div>
 
           {searchQuery && (
-            <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 text-[11px] font-semibold">
-              <Search className="w-3 h-3 text-blue-500" />
+            <div 
+              style={{
+                backgroundColor: 'var(--accent-light, rgba(79,70,229,0.12))',
+                color: 'var(--accent, #4f46e5)',
+                borderColor: 'var(--accent-border-subtle, rgba(79,70,229,0.25))'
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold"
+            >
+              <Search className="w-3 h-3 opacity-80" />
               <span>Gefiltert nach: "{searchQuery}"</span>
               <button 
                 onClick={() => setSearchQuery('')}
-                className="hover:text-blue-900 dark:hover:text-white ml-0.5 cursor-pointer font-bold"
+                className="hover:opacity-80 ml-0.5 cursor-pointer font-bold"
                 title="Suchfilter aufheben"
               >
                 ✕
@@ -2275,7 +2558,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           )}
 
           {showInvoicesOnly && (
-            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+            <span 
+              style={{
+                backgroundColor: 'var(--accent-light, rgba(79,70,229,0.12))',
+                color: 'var(--accent, #4f46e5)',
+                borderColor: 'var(--accent-border-subtle, rgba(79,70,229,0.25))'
+              }}
+              className="text-[11px] font-mono px-1.5 py-0.5 rounded font-bold border"
+            >
               Nur Rechnungen aktiv
             </span>
           )}
@@ -2293,6 +2583,326 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* 5. MOBILE QUICK-ADD FAB (Phase 10) */}
+      {isMobileLayout && (
+        <button
+          onClick={() => openQuickEventSheet()}
+          title={t('calendar.quick_add', currentLang, 'Termin hinzufügen')}
+          style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+          className="absolute bottom-16 right-4 z-40 w-14 h-14 rounded-full text-white shadow-lg active:scale-90 transition flex items-center justify-center cursor-pointer"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* 6. MOBILE QUICK-CREATE BOTTOM SHEET (Phase 10) */}
+      {isQuickEventSheetOpen && (
+        <div
+          className="fixed inset-0 z-[9999] bg-slate-950/50 backdrop-blur-xs"
+          onClick={() => setIsQuickEventSheetOpen(false)}
+        >
+          <form
+            onSubmit={handleCreateEventSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-0 left-0 right-0 max-h-[88vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-x border-slate-200 dark:border-slate-800 animate-slide-up-sheet"
+          >
+            {/* Sheet drag handle */}
+            <div className="sticky top-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 flex justify-center rounded-t-3xl">
+              <div className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+            </div>
+
+            <div className="px-4 pb-6 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                    className="p-2 rounded-xl text-white shadow-xs"
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">{t('calendar.quick_add', currentLang, 'Termin hinzufügen')}</h3>
+                    <p className="text-[11px] text-slate-500 capitalize">
+                      {(() => {
+                        try {
+                          return parseLocalDate(newEventStartDate).toLocaleDateString(currentLang === 'de' ? 'de-DE' : currentLang === 'fr' ? 'fr-FR' : currentLang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+                        } catch {
+                          return newEventStartDate;
+                        }
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickEventSheetOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Title input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('calendar.title', currentLang, 'Betreff / Titel')} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder={t('calendar.title_placeholder', currentLang, 'z.B. Kundengespräch oder Projekt-Review')}
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:ring-1 focus:ring-[var(--accent,#4f46e5)] focus:outline-none font-medium min-h-[44px]"
+                />
+              </div>
+
+              {/* All-day toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {t('calendar.all_day', currentLang, 'Ganztägig')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playClick();
+                    setNewEventIsAllDay(prev => {
+                      const next = !prev;
+                      if (!next && (!newEventStartTime || !newEventEndTime)) {
+                        const { start, end } = getCurrentTimeFormatted();
+                        setNewEventStartTime(start);
+                        setNewEventEndTime(end);
+                      }
+                      return next;
+                    });
+                  }}
+                  style={newEventIsAllDay ? { backgroundColor: 'var(--accent, #4f46e5)', borderColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border min-h-[36px] ${
+                    newEventIsAllDay
+                      ? 'shadow-2xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{t('calendar.all_day', currentLang, 'Ganztägig')}</span>
+                  {newEventIsAllDay && <Check className="w-3 h-3 ml-0.5" />}
+                </button>
+              </div>
+
+              {/* Start Date & Time (2-col) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('calendar.start_date', currentLang, 'Startdatum')}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newEventStartDate}
+                    onChange={(e) => {
+                      setNewEventStartDate(e.target.value);
+                      if (newEventEndDate < e.target.value) {
+                        setNewEventEndDate(e.target.value);
+                      }
+                    }}
+                    className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono min-h-[44px]"
+                  />
+                </div>
+                {!newEventIsAllDay && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      {t('calendar.start_time', currentLang, 'Startzeit')}
+                    </label>
+                    <input
+                      type="time"
+                      value={newEventStartTime}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setNewEventStartTime(newStart);
+                        setNewEventEndTime(addMinutesToTime(newStart, 60));
+                      }}
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono font-bold min-h-[44px]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* End Date & Time (2-col) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('calendar.end_date', currentLang, 'Enddatum')}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newEventEndDate}
+                    onChange={(e) => setNewEventEndDate(e.target.value)}
+                    className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono min-h-[44px]"
+                  />
+                </div>
+                {!newEventIsAllDay && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      {t('calendar.end_time', currentLang, 'Endzeit')}
+                    </label>
+                    <input
+                      type="time"
+                      value={newEventEndTime}
+                      onChange={(e) => setNewEventEndTime(e.target.value)}
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-mono font-bold min-h-[44px]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Quick duration chips */}
+              <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mr-0.5">
+                  {t('calendar.duration', currentLang, 'Dauer')}:
+                </span>
+                {[
+                  { label: '15m', mins: 15 },
+                  { label: '30m', mins: 30 },
+                  { label: '45m', mins: 45 },
+                  { label: '1h', mins: 60 },
+                  { label: '2h', mins: 120 },
+                  { label: t('calendar.all_day', currentLang, 'Ganztägig'), mins: -1 }
+                ].map(({ label, mins }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => handleQuickDuration(mins)}
+                    className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 active:border-[var(--accent,#4f46e5)] text-[11px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer min-h-[32px]"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category & target storage */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('calendar.category', currentLang, 'Kategorie')}
+                  </label>
+                  <select
+                    value={newEventCategory}
+                    onChange={(e) => setNewEventCategory(e.target.value as any)}
+                    className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-semibold min-h-[44px]"
+                  >
+                    <option value="general">{t('calendar.cat_general', currentLang, 'Allgemein')}</option>
+                    <option value="customer">{t('calendar.cat_customer', currentLang, 'Kundentermin')}</option>
+                    <option value="meeting">{t('calendar.cat_meeting', currentLang, 'Meeting / Besprechung')}</option>
+                    <option value="deadline">{t('calendar.cat_deadline', currentLang, 'Frist / Deadline')}</option>
+                    <option value="personal">{t('calendar.cat_personal', currentLang, 'Privat')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('calendar.target_store', currentLang, 'Zielspeicher')}
+                  </label>
+                  <select
+                    value={newEventTarget}
+                    onChange={(e) => setNewEventTarget(e.target.value as any)}
+                    className="w-full px-2 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none font-semibold min-h-[44px]"
+                  >
+                    {accessToken && <option value="google">Google {t('calendar.google_live_sync', currentLang, 'Google Live 2-Wege-Sync')}</option>}
+                    <option value="local">{t('calendar.target_local', currentLang, 'Lokale SOCDOF Datenbank')}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Location (optional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('calendar.location', currentLang, 'Ort / Besprechungslink')} ({t('calendar.optional', currentLang, 'Optional')})
+                </label>
+                <input
+                  type="text"
+                  placeholder={t('calendar.location_placeholder', currentLang, 'z.B. Konferenzraum 2 oder Google Meet Link')}
+                  value={newEventLocation}
+                  onChange={(e) => setNewEventLocation(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              {/* Description (optional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('calendar.description', currentLang, 'Notizen & Agenda')} ({t('calendar.optional', currentLang, 'Optional')})
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder={t('calendar.desc_placeholder', currentLang, 'Agenda, Vorbereitung, Notizen...')}
+                  value={newEventDesc}
+                  onChange={(e) => setNewEventDesc(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[var(--accent,#4f46e5)] focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickEventSheetOpen(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer min-h-[44px]"
+                >
+                  {t('calendar.btn_cancel', currentLang, 'Abbrechen')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  className="flex-1 px-4 py-2.5 rounded-xl hover:opacity-90 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                >
+                  {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{t('calendar.btn_save', currentLang, 'Termin speichern')}</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 7. MOBILE DAY VIEW: NEXT-EVENT QUICK BAR (Phase 10) */}
+      {isMobileLayout && viewMode === 'day' && nextUpcomingEvent && !isQuickEventSheetOpen && (
+        <div className="absolute bottom-4 left-4 right-20 z-30">
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setSelectedEventForDetail(nextUpcomingEvent);
+            }}
+            className="w-full p-2.5 pl-3 rounded-2xl border shadow-lg flex items-center gap-2.5 active:scale-[0.98] transition cursor-pointer bg-white/95 dark:bg-slate-900/95 backdrop-blur text-left"
+            style={{ borderColor: 'var(--accent-border-subtle, rgba(79,70,229,0.25))' }}
+          >
+            <div
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+              className="p-1.5 rounded-xl text-white shrink-0"
+            >
+              <CalendarCheck2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {t('calendar.next_event', currentLang, 'Nächster Termin')}
+              </div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                {nextUpcomingEvent.title}
+              </div>
+            </div>
+            <span
+              style={{ color: 'var(--accent, #4f46e5)' }}
+              className="text-[11px] font-mono font-bold shrink-0"
+            >
+              {nextUpcomingEvent.isAllDay ? t('calendar.all_day_short', currentLang, 'Ganztägig') : (nextUpcomingEvent.startTime || '')}
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

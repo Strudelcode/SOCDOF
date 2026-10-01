@@ -1465,17 +1465,26 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
 
           {/* Header Action Controls */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Mobile Companion QR-Import Button */}
+            {/* New Ticket Primary Button (Mobile: icon-only) */}
+            <button
+              onClick={handleCreateNewTicket}
+              className="sm:hidden p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+              title={t('support.new_ticket', undefined, 'New Ticket')}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
+            {/* Mobile Companion QR-Import Button (Mobile: icon-only) */}
             <button
               onClick={() => {
                 sounds.playClick();
                 setIsMobileSyncOpen(true);
               }}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
               title={t('support.mobile_sync_tooltip', undefined, 'Daten von der mobilen App (TimeTracking / Außendienst) per QR-Code oder JSON importieren')}
             >
               <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <span>{t('support.mobile_sync_btn', undefined, 'Mobile App Sync')}</span>
+              <span className="hidden sm:inline">{t('support.mobile_sync_btn', undefined, 'Mobile App Sync')}</span>
             </button>
 
             {/* Support Settings Button */}
@@ -1709,7 +1718,136 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+                <>
+                {/* Mobile Ticket Card Stack with Time-Tracking Widget (Phase 11) */}
+                <div className="window-show-mobile sm:hidden space-y-2.5">
+                  {/* Compact mobile time-tracking summary widget */}
+                  <div className="bg-slate-900 dark:bg-black border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`p-2 rounded-xl shrink-0 ${activeRunningTicket ? 'bg-rose-600/20' : 'bg-slate-800'}`}>
+                        <Clock className={`w-4 h-4 ${activeRunningTicket ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {t('support.mobile_time_widget', undefined, 'Zeiterfassung')}
+                        </div>
+                        {activeRunningTicket ? (
+                          <div className="text-xs font-bold text-white truncate">
+                            {activeRunningTicket.ticketNumber} · <span className="font-mono text-cyan-300">{formatDetailedTimer(calculateTicketTimerSeconds(activeRunningTicket), lang)}</span>
+                          </div>
+                        ) : (
+                          <div className="text-xs font-semibold text-slate-300 truncate">
+                            {filteredTickets.reduce((s, tk) => s + (tk.timesheets.reduce((sh, ts) => sh + (Number(ts.hours) || 0), 0)), 0).toFixed(1)} h · {t('support.mobile_time_idle', undefined, 'Kein Timer aktiv')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {activeRunningTicket && (
+                      <button
+                        onClick={() => {
+                          sounds.playClick();
+                          setSelectedTicketId(activeRunningTicket.id);
+                          setViewMode('detail');
+                          setActiveTab('timesheets');
+                        }}
+                        className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition shrink-0 flex items-center gap-1 cursor-pointer min-h-[36px]"
+                      >
+                        <span>{t('support.open_ticket', undefined, 'Open ticket')}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {filteredTickets.map(ticket => {
+                    const hours = ticket.timesheets.reduce((s, ts) => s + (Number(ts.hours) || 0), 0);
+                    const stCfg = getStatusConfig(ticket.status);
+                    return (
+                      <div
+                        key={`mobile-ticket-${ticket.id}`}
+                        onClick={() => {
+                          sounds.playClick();
+                          setSelectedTicketId(ticket.id);
+                          setViewMode('detail');
+                        }}
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 active:bg-slate-50 dark:active:bg-slate-800/60 transition cursor-pointer flex flex-col gap-2 shadow-2xs"
+                      >
+                        {/* Row 1: Ticket No. + Priority + Status */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold text-xs">
+                              {ticket.ticketNumber}
+                            </span>
+                            {ticket.priority > 1 && (
+                              <span className="flex items-center text-amber-500">
+                                <Star className="w-3 h-3 fill-amber-400" />
+                              </span>
+                            )}
+                          </div>
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${stCfg.badgeColor}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
+                            <span>{stCfg.label}</span>
+                          </span>
+                        </div>
+
+                        {/* Row 2: Title */}
+                        <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                          {ticket.title}
+                        </div>
+
+                        {/* Row 3: Customer & Team */}
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="truncate font-medium">
+                            {ticket.contact_name || <span className="italic">{t('support.customer_none', undefined, '– No customer assigned –')}</span>}
+                          </span>
+                          {!settings.disableTeams && ticket.team && (
+                            <span className="shrink-0 flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              <span className="truncate">{ticket.assignedStaff || ticket.team}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Row 4: Timesheet + Live Timer + Touch Actions */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {hours.toFixed(1)} h
+                            </span>
+                            {ticket.isTimerRunning && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-mono text-[9px] font-bold animate-pulse flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5" />
+                                <span>{formatTimerDisplay(calculateTicketTimerSeconds(ticket))}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => {
+                                sounds.playClick();
+                                setSelectedTicketId(ticket.id);
+                                setViewMode('detail');
+                              }}
+                              className="p-2 rounded-xl text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition cursor-pointer"
+                              title="Edit Ticket"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setTicketToDelete(ticket)}
+                              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                              title={t('support.btn_delete', undefined, 'Delete Ticket')}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Ticket Table */}
+                <div className="hidden sm:block window-hide-mobile bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
                       <tr>
@@ -1832,6 +1970,7 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}

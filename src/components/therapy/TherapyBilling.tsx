@@ -185,7 +185,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
             {lang === 'de' ? 'Bereits bezahlt' : 'Total Paid'}
           </div>
-          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+          <div 
+            style={{ color: 'var(--accent-companion, #0d9488)' }}
+            className="text-2xl font-bold"
+          >
             {formatCurrencyDE(totalPaid, currency)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
@@ -197,7 +200,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
             {lang === 'de' ? 'Gesamtes Abrechnungsvolumen' : 'Total Billed Volume'}
           </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div 
+            style={{ color: 'var(--accent, #4f46e5)' }}
+            className="text-2xl font-bold text-slate-900 dark:text-white"
+          >
             {formatCurrencyDE(totalAmount, currency)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">

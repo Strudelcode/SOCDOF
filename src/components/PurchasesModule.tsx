@@ -276,7 +276,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
       </div>
 
       {/* KPI Overview Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="window-grid-kpi grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl flex items-center justify-between shadow-xs">
           <div>
             <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
@@ -371,9 +371,102 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
         </div>
       </div>
 
-      {/* PO Table */}
+      {/* PO Table & Mobile Card Stack */}
       <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
+        {/* Mobile PO Cards */}
+        <div className="window-show-mobile sm:hidden divide-y divide-slate-700/60">
+          {filteredPOs.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">
+              <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-xs">{t('purchases.empty_list', undefined, 'No purchase orders found.')}</p>
+            </div>
+          ) : (
+            filteredPOs.map((po) => (
+              <div
+                key={`mobile-po-${po.id}`}
+                onClick={() => {
+                  sounds.playClick();
+                  setSelectedPO(po);
+                }}
+                className="p-4 bg-slate-900/60 active:bg-slate-800 transition cursor-pointer flex flex-col gap-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span className="font-mono font-bold text-xs text-white">{po.number}</span>
+                  </div>
+
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1 ${
+                    po.status === 'received' 
+                      ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/40' 
+                      : po.status === 'ordered'
+                      ? 'bg-cyan-900/60 text-cyan-300 border border-cyan-700/40'
+                      : 'bg-slate-700 text-slate-300'
+                  }`}>
+                    {po.status === 'received' && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                    {po.status === 'ordered' && <Truck className="w-3 h-3 text-cyan-400" />}
+                    {po.status === 'draft' && <Clock className="w-3 h-3 text-slate-400" />}
+                    {po.status === 'draft' && t('purchases.filter_draft', undefined, 'Draft')}
+                    {po.status === 'ordered' && t('purchases.filter_ordered', undefined, 'Ordered')}
+                    {po.status === 'received' && t('purchases.filter_received', undefined, 'Goods Received')}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-white truncate">{po.vendor_name}</span>
+                  <span className="font-mono text-cyan-400 font-bold text-sm">
+                    {po.total.toFixed(2)} {companyProfile.currency}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-700/40">
+                  <span>Bestellt: {formatSystemDate(po.order_date)}</span>
+                  <span>Lieferung: {formatSystemDate(po.expected_delivery)}</span>
+                </div>
+
+                <div 
+                  onClick={(e) => e.stopPropagation()} 
+                  className="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/40"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setPrintPO(po);
+                    }}
+                    title="Drucken / PDF"
+                    className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDuplicatePO(po)}
+                    title="Duplizieren"
+                    className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+
+                  {po.status === 'ordered' && (
+                    <button
+                      type="button"
+                      onClick={() => handleReceiveGoods(po.id!)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" />
+                      <span>Wareneingang</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop PO Table */}
+        <div className="overflow-x-auto window-hide-mobile hidden sm:block">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-700 uppercase tracking-wider font-semibold text-[11px]">
               <tr>

@@ -158,6 +158,7 @@ export type SettingsSection =
   | 'personalization'
   | 'display'
   | 'language'
+  | 'shortcuts'
   | 'connections'
   | 'letterhead'
   | 'storage'
@@ -249,6 +250,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [importError, setImportError] = useState<string | null>(null);
   const [terminalTesting, setTerminalTesting] = useState(false);
   const [terminalTestResult, setTerminalTestResult] = useState<string | null>(null);
+  const [shortcutSearch, setShortcutSearch] = useState('');
 
   // Normalize profile for accurate dirty detection
   const normalizeProfileForComparison = (p?: Partial<CompanyProfile> | null): string => {
@@ -743,6 +745,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   // Recent Searches / Quick Links list
   const recentSearches = useMemo(() => [
     { id: 'personalization', title: t('settings.recent_darkmode_title', activeLang, 'Dark Mode & Design'), category: t('settings.recent_darkmode_cat', activeLang, 'Personalization'), icon: Palette, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/60' },
+    { id: 'shortcuts', title: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), category: t('settings.shortcuts_desc', activeLang, 'Hotkeys & Schnellzugriff'), icon: Keyboard, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
     { id: 'language', title: t('settings.recent_language_title', activeLang, 'Language & Region'), category: t('settings.recent_language_cat', activeLang, 'Language & Time'), icon: Globe, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/60' },
     { id: 'connections', title: t('settings.recent_calendar_title', activeLang, 'Google Calendar & iCal'), category: t('settings.recent_calendar_cat', activeLang, 'Connections'), icon: CalendarIcon, color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/60' },
     { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
@@ -777,6 +780,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       if (updatedProfile.language) {
         setLanguage(updatedProfile.language);
       }
+      if (updatedProfile.font_scale) {
+        document.documentElement.style.fontSize = `${updatedProfile.font_scale}%`;
+        try {
+          localStorage.setItem('socdof_font_scale', String(updatedProfile.font_scale));
+        } catch {}
+      }
 
       await db.settings.put({ key: 'company_profile', value: updatedProfile });
       onUpdateCompany(updatedProfile);
@@ -787,6 +796,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     } catch (err) {
       console.error(err);
       sounds.playError();
+    }
+  };
+
+  const handleUpdateFontScale = (scale: number, persist: boolean = false) => {
+    setProfile(prev => ({ ...prev, font_scale: scale }));
+    document.documentElement.style.fontSize = `${scale}%`;
+    try {
+      localStorage.setItem('socdof_font_scale', String(scale));
+    } catch {}
+    if (persist) {
+      const updated = { ...profile, font_scale: scale };
+      onUpdateCompany(updated);
+      db.settings.put({ key: 'company_profile', value: updated }).catch(console.error);
+      window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updated }));
     }
   };
 
@@ -1141,6 +1164,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       { id: 'letterhead', title: 'Briefkopf & DIN 5008', desc: 'Logo-Upload, Faltmarken, Fußzeilen', section: 'letterhead' as SettingsSection },
       { id: 'storage', title: 'Datensicherung & JSON Export', desc: 'Vollständiges Backup, Wiederherstellung', section: 'storage' as SettingsSection },
       { id: 'audio', title: 'Soundeffekte & Lautstärke', desc: 'Klicktöne, Bestätigungssounds', section: 'audio' as SettingsSection },
+      { id: 'shortcuts', title: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), desc: 'Hotkeys, Alt+B (Bug), Alt+I (Idee), Alt+R (Report), Ctrl+K, F1, F11, Alt+1..9, Virtuelle Desktops', section: 'shortcuts' as SettingsSection },
       { id: 'windows', title: 'Windows Desktop-App', desc: 'Lokaler Launcher, Autostart, Offline-App', section: 'windows' as SettingsSection },
       { id: 'users', title: t('users.title', activeLang, 'Users & Accounts'), desc: 'Benutzerverwaltung, Konten, Profil, Profilbild, Kennwort & Rollen', section: 'users' as SettingsSection },
       { id: 'danger', title: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.'), section: 'danger' as SettingsSection },
@@ -1191,6 +1215,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       items: [
         { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: 'Darkmode, Akzentfarben & Desktop-Design' },
         { id: 'language' as SettingsSection, label: t('settings.language', activeLang, 'Sprache & Sprachpakete'), icon: Globe, desc: 'Systemsprache, Währung & .JSON Pakete' },
+        { id: 'shortcuts' as SettingsSection, label: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), icon: Keyboard, desc: t('settings.shortcuts_desc', activeLang, 'Tastaturkürzel, Hotkeys & Schnellzugriff') },
         { id: 'audio' as SettingsSection, label: t('settings.audio', activeLang, 'Sound & Lautstärke'), icon: Volume2, desc: 'Kassentöne, Effekte & Lautstärkeregler' }
       ]
     },
@@ -1369,11 +1394,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       </div>
 
       {/* 2. Main Responsive Two-Column Layout (Windows Settings Style Sidebar + Content) */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 md:p-6 pb-28 max-w-6xl w-full mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
+      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 md:p-6 pb-2 max-w-6xl w-full mx-auto">
+        <div className="h-full min-h-0 flex flex-col md:flex-row gap-5 sm:gap-6 overflow-hidden">
         
-        {/* Left Sidebar Navigation (Desktop / Tablet view: side by side) */}
-        <div className="hidden md:block md:col-span-4 lg:col-span-3.5 xl:col-span-3 space-y-3 md:self-start">
+        {/* Left Sidebar Navigation (Desktop / Tablet view: side by side, independently scrollable) */}
+        <div className="hidden md:flex flex-col w-64 lg:w-72 xl:w-80 shrink-0 h-full min-h-0 overflow-y-auto space-y-3 pr-1.5 pb-24 scrollbar-thin">
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-3">
             {categoryGroups.map((group) => (
               <div key={group.id} className="space-y-1">
@@ -1513,8 +1538,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           )}
         </div>
 
-        {/* Right Content Area */}
-        <div className="w-full md:col-span-8 lg:col-span-8.5 xl:col-span-9 min-w-0 space-y-5 sm:space-y-6">
+        {/* Right Content Area (Independently scrollable) */}
+        <div className="flex-1 min-w-0 h-full min-h-0 overflow-y-auto pr-1.5 pb-28 scrollbar-thin space-y-5 sm:space-y-6 settings-pane">
 
           {/* SECTION: HOME / OVERVIEW (Recent Searches & Quick Tiles) */}
           {activeSection === 'home' && (
@@ -2816,7 +2841,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               )}
 
               {/* 2. Subcategory Navigation Grid (Responsive Windows 11 Style - No Horizontal Scrolling Required) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80">
+              <div className="settings-subtabs grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80">
                 {([
                   { id: 'wallpaper' as const, icon: Wallpaper, label: t('settings.sub_wallpaper', activeLang, 'Hintergrundbild & Blur') },
                   { id: 'colors' as const, icon: Palette, label: t('settings.sub_colors', activeLang, 'Farben & Akzente') },
@@ -3279,7 +3304,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 settings-tint-cards">
                       {[
                         { id: 'default', label: 'Standard Desktop', desc: 'Neutrales Hell / Dunkel' },
                         { id: 'accent', label: 'Akzentfarbe getönt', desc: 'Übernimmt die gewählte Farbe' },
@@ -3327,7 +3352,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <label className="text-xs font-bold text-slate-900 dark:text-white block">
                       {t('settings.theme_mode', activeLang, 'Design-Modus auswählen')}
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="settings-mode-cards grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {([
                         { mode: 'light' as const, icon: Sun, title: t('settings.light_mode', activeLang, 'Hellmodus (Light)'), desc: t('settings.light_mode_desc', activeLang, 'Klarer, kontrastreicher Hintergrund') },
                         { mode: 'dark' as const, icon: Moon, title: t('settings.dark_mode', activeLang, 'Dunkelmodus (Dark)'), desc: t('settings.dark_mode_desc', activeLang, 'Augenschonender dunkler Desktop-Look') },
@@ -3347,11 +3372,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                               ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-500/20'
                               : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750')}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className={'p-2 rounded-xl ' + (mode === 'light' ? 'bg-amber-100 text-amber-700' : mode === 'dark' ? 'bg-purple-900 text-purple-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={'p-2 rounded-xl shrink-0 ' + (mode === 'light' ? 'bg-amber-100 text-amber-700' : mode === 'dark' ? 'bg-purple-900 text-purple-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}>
                                 <Icon className="w-5 h-5" />
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="text-xs font-bold text-slate-900 dark:text-white">{title}</div>
                                 <div className="text-[11px] text-slate-500 dark:text-slate-400">{desc}</div>
                               </div>
@@ -3365,10 +3390,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
                   {/* Glass Overlay / Windows Mica Effect */}
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-indigo-500" />
+                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
                           <span>{t('settings.mica_glass', activeLang, 'Mica / Acryl Glas-Overlay')}</span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -3381,7 +3406,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           sounds.playClick();
                           setProfile(prev => ({ ...prev, glass_overlay: !prev.glass_overlay }));
                         }}
-                        className={`w-12 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
+                        className={`w-12 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
                           profile.glass_overlay !== false ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
                         }`}
                       >
@@ -3515,6 +3540,71 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           );
                         })}
                       </div>
+
+                      {/* Live Accent Preview Box */}
+                      <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-accent" />
+                            <span>Live-Vorschau: Gewähltes Akzent-Design</span>
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            Wirkt sich sofort auf alle Fenster, Buttons und Effekte aus
+                          </span>
+                        </div>
+
+                        {/* Interactive miniature window & UI mock */}
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5">
+                          {/* Miniature window titlebar with top accent line */}
+                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs">
+                            <div 
+                              className="h-[2.5px] w-full"
+                              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                            />
+                            <div 
+                              className="px-2.5 py-1.5 flex items-center justify-between text-[11px]"
+                              style={{
+                                background: isDark 
+                                  ? 'linear-gradient(to right, rgba(30, 41, 59, 0.95), var(--accent-light, rgba(79, 70, 229, 0.08)), rgba(30, 41, 59, 0.95))'
+                                  : 'linear-gradient(to right, rgba(255, 255, 255, 0.98), var(--accent-light, rgba(79, 70, 229, 0.06)), rgba(255, 255, 255, 0.98))'
+                              }}
+                            >
+                              <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--accent, #4f46e5)' }} />
+                                <span>Aktives Fenster</span>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-50">
+                                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Components row */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                            <button
+                              type="button"
+                              className="btn-accent px-3 py-1.5 rounded-xl font-bold text-[11px] shadow-xs cursor-default"
+                            >
+                              Hauptaktion / Speichern
+                            </button>
+                            <span 
+                              className="px-2.5 py-1 rounded-xl text-[10px] font-bold border"
+                              style={{
+                                backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))',
+                                borderColor: 'var(--accent-border, #6366f1)',
+                                color: 'var(--accent, #4f46e5)'
+                              }}
+                            >
+                              Aktiver Status
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                              + Ambiente Hintergrund-Aura & Taskleisten-Akzent
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -3545,8 +3635,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           type="button"
                           onClick={() => {
                             sounds.playClick();
-                            setProfile(prev => ({ ...prev, font_scale: 100 }));
-                            document.documentElement.style.fontSize = '100%';
+                            handleUpdateFontScale(100, true);
                           }}
                           className="px-2.5 py-1 text-[11px] rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                         >
@@ -3564,11 +3653,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           max="130"
                           step="5"
                           value={profile.font_scale || 100}
-                          onChange={(e) => {
-                            const scale = parseInt(e.target.value, 10);
-                            setProfile(prev => ({ ...prev, font_scale: scale }));
-                            document.documentElement.style.fontSize = `${scale}%`;
-                          }}
+                          onChange={(e) => handleUpdateFontScale(parseInt(e.target.value, 10), false)}
+                          onPointerUp={(e) => handleUpdateFontScale(parseInt((e.target as HTMLInputElement).value, 10), true)}
+                          onMouseUp={(e) => handleUpdateFontScale(parseInt((e.target as HTMLInputElement).value, 10), true)}
+                          onTouchEnd={(e) => handleUpdateFontScale(parseInt((e.target as HTMLInputElement).value, 10), true)}
+                          onKeyUp={(e) => handleUpdateFontScale(parseInt((e.target as HTMLInputElement).value, 10), true)}
                           className="flex-1 accent-indigo-600 cursor-pointer h-2.5 bg-slate-200 dark:bg-slate-700 rounded-lg"
                         />
                         <span className="text-base font-bold text-slate-700 dark:text-slate-300">130%</span>
@@ -5484,6 +5573,293 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           )}
 
+          {/* SECTION: KEYBOARD SHORTCUTS & HOTKEYS */}
+          {activeSection === 'shortcuts' && (() => {
+            const allShortcutGroups = [
+              {
+                id: 'feedback',
+                title: t('settings.shortcuts_feedback_title', activeLang, 'Fehlerberichte & Feedback-Kürzel'),
+                desc: t('settings.shortcuts_feedback_desc', activeLang, 'Öffnen Sie das Meldefenster für Fehler und Ideen blitzschnell von überall per Tastatur.'),
+                icon: Bug,
+                accentColor: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900/60',
+                items: [
+                  {
+                    keys: ['Alt', 'B'],
+                    label: t('settings.shortcuts_action_bug', activeLang, 'Bug-Meldefenster öffnen'),
+                    desc: t('settings.shortcuts_action_bug_desc', activeLang, 'Öffnet sofort das 3-Schritte-Meldefenster mit vorbefüllter Systemdiagnose.'),
+                    testType: 'bug' as const,
+                    badge: 'Bug'
+                  },
+                  {
+                    keys: ['Alt', 'I'],
+                    label: t('settings.shortcuts_action_idea', activeLang, 'Ideen- & Vorschlagsfenster öffnen'),
+                    desc: t('settings.shortcuts_action_idea_desc', activeLang, 'Öffnet sofort das Eingabefenster für Feature-Vorschläge und Verbesserungen.'),
+                    testType: 'idea' as const,
+                    badge: 'Idee'
+                  },
+                  {
+                    keys: ['Alt', 'R'],
+                    label: t('settings.shortcuts_action_report', activeLang, 'Feedback- & Ticket-Center öffnen'),
+                    desc: t('settings.shortcuts_action_report_desc', activeLang, 'Öffnet den Feedback-Dialog und Ihre Ticket-Historie.'),
+                    testType: 'bug' as const,
+                    badge: 'Report'
+                  }
+                ]
+              },
+              {
+                id: 'system',
+                title: t('settings.shortcuts_system_title', activeLang, 'Systemnavigation & Arbeitsbereich'),
+                desc: t('settings.shortcuts_desc', activeLang, 'Globale Tastaturaktionen für Spotlight, Handbuch und Fenstermanagement.'),
+                icon: Terminal,
+                accentColor: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-900/60',
+                items: [
+                  {
+                    keys: ['Ctrl', 'K'],
+                    label: t('settings.shortcuts_action_palette', activeLang, 'Spotlight Befehlspalette'),
+                    desc: t('settings.shortcuts_action_palette_desc', activeLang, 'Apps suchen, Schnellaktionen ausführen und Datensätze finden.')
+                  },
+                  {
+                    keys: ['Ctrl', 'Space'],
+                    label: t('settings.shortcuts_action_start', activeLang, 'Startmenü öffnen / schließen'),
+                    desc: t('settings.shortcuts_action_start_desc', activeLang, 'Öffnet oder schließt den Windows-inspirierten App-Starter.')
+                  },
+                  {
+                    keys: ['Alt', 'Tab'],
+                    label: t('settings.shortcuts_action_taskview', activeLang, 'Task View / Fenster-Übersicht'),
+                    desc: t('settings.shortcuts_action_taskview_desc', activeLang, 'Alle geöffneten Desktop-Fenster übersichtlich anzeigen und wechseln.')
+                  },
+                  {
+                    keys: ['F1'],
+                    label: t('settings.shortcuts_action_docs', activeLang, 'Handbuch & Dokumentationsportal'),
+                    desc: t('settings.shortcuts_action_docs_desc', activeLang, 'Öffnet das vollständige Offline-Portal mit Modul-Showcase und Anleitungen.')
+                  },
+                  {
+                    keys: ['F11'],
+                    label: t('settings.shortcuts_action_fullscreen', activeLang, 'Vollbildmodus umschalten'),
+                    desc: t('settings.shortcuts_action_fullscreen_desc', activeLang, 'Maximale Arbeitsfläche ohne Browser- oder Fensterränder aktivieren/deaktivieren.')
+                  },
+                  {
+                    keys: ['Esc'],
+                    label: t('settings.shortcuts_action_escape', activeLang, 'Aktiven Dialog / Overlay schließen'),
+                    desc: t('settings.shortcuts_action_escape_desc', activeLang, 'Schließt geöffnete Modals, Kontextmenüs, Paletten und Flyouts.')
+                  }
+                ]
+              },
+              {
+                id: 'taskbar',
+                title: t('settings.shortcuts_taskbar_title', activeLang, 'Taskleiste & App-Starter'),
+                desc: t('settings.shortcuts_action_taskbar_apps_desc', activeLang, 'Bringen Sie Ihre angepinnten Apps per Tastatur direkt in den Fokus.'),
+                icon: LayoutDashboard,
+                accentColor: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border-sky-200 dark:border-sky-900/60',
+                items: [
+                  {
+                    keys: ['Alt', '1...9'],
+                    label: t('settings.shortcuts_action_taskbar_apps', activeLang, 'Angepinnte App 1–9 starten / fokussieren'),
+                    desc: t('settings.shortcuts_action_taskbar_apps_desc', activeLang, 'Bringt die App auf Taskleisten-Platz 1 bis 9 sofort in den Vordergrund.')
+                  }
+                ]
+              },
+              {
+                id: 'virtual',
+                title: t('settings.shortcuts_virtual_title', activeLang, 'Virtuelle Desktops & Multitasking'),
+                desc: t('settings.shortcuts_action_vdesktop_switch_desc', activeLang, 'Nahtlos zwischen verschiedenen virtuellen Arbeitsflächen umschalten.'),
+                icon: Layers,
+                accentColor: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-900/60',
+                items: [
+                  {
+                    keys: ['Ctrl', 'Alt', '← / →'],
+                    label: t('settings.shortcuts_action_vdesktop_switch', activeLang, 'Virtuellen Desktop links / rechts wechseln'),
+                    desc: t('settings.shortcuts_action_vdesktop_switch_desc', activeLang, 'Nahtlos zwischen verschiedenen virtuellen Arbeitsflächen umschalten.')
+                  },
+                  {
+                    keys: ['Ctrl', 'Shift', 'D'],
+                    label: t('settings.shortcuts_action_vdesktop_new', activeLang, 'Neuen virtuellen Desktop erstellen'),
+                    desc: t('settings.shortcuts_action_vdesktop_new_desc', activeLang, 'Erstellt sofort einen neuen leeren Arbeitsbereich.')
+                  }
+                ]
+              },
+              {
+                id: 'security',
+                title: t('settings.shortcuts_security_title', activeLang, 'Sicherheit & Bildschirmsperre'),
+                desc: t('settings.shortcuts_action_lock_desc', activeLang, 'Sperrt sofort die Sitzung zum Schutz Ihrer Geschäftsdaten vor fremdem Zugriff.'),
+                icon: Lock,
+                accentColor: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60',
+                items: [
+                  {
+                    keys: ['Ctrl', 'Shift', 'L'],
+                    label: t('settings.shortcuts_action_lock', activeLang, 'Arbeitsbereich sperren (Lock Screen)'),
+                    desc: t('settings.shortcuts_action_lock_desc', activeLang, 'Sperrt sofort die Sitzung zum Schutz Ihrer Geschäftsdaten vor fremdem Zugriff.')
+                  }
+                ]
+              }
+            ];
+
+            const filterQuery = shortcutSearch.trim().toLowerCase();
+            const filteredGroups = allShortcutGroups.map(group => {
+              const matchedItems = group.items.filter(item => {
+                if (!filterQuery) return true;
+                const matchKeys = item.keys.join(' ').toLowerCase();
+                const matchLabel = item.label.toLowerCase();
+                const matchDesc = item.desc.toLowerCase();
+                return matchKeys.includes(filterQuery) || matchLabel.includes(filterQuery) || matchDesc.includes(filterQuery);
+              });
+              return { ...group, items: matchedItems };
+            }).filter(group => group.items.length > 0);
+
+            return (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 sm:p-6 space-y-6 animate-fade-in">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 rounded-2xl shadow-2xs">
+                      <Keyboard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                        <span>{t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel')}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                          Global Active
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t('settings.shortcuts_desc', activeLang, 'Schnellnavigation per Tastatur, Meldefenster-Kürzel & Systemaktionen.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Filter Search Box */}
+                  <div className="relative w-full sm:w-60 shrink-0">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={shortcutSearch}
+                      onChange={(e) => setShortcutSearch(e.target.value)}
+                      placeholder={t('settings.shortcuts_search_placeholder', activeLang, 'Tastenkürzel suchen...')}
+                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition"
+                    />
+                    {shortcutSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setShortcutSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Helpful Tip Banner for Alt+B / Alt+I / Alt+R */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-slate-50 dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/60 flex items-start gap-3">
+                  <div className="p-1.5 rounded-lg bg-indigo-600 text-white shrink-0 mt-0.5 shadow-2xs">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {t('settings.shortcuts_feedback_title', activeLang, 'Fehlerberichte & Feedback-Kürzel')}
+                    </span>
+                    : {t('settings.shortcuts_feedback_tip', activeLang, 'Tipp: Diese Tastenkombinationen funktionieren überall in der App! Drücken Sie einfach Alt+B, um direkt einen Fehler zu melden.')}
+                  </div>
+                </div>
+
+                {/* List of Shortcut Groups */}
+                <div className="space-y-6">
+                  {filteredGroups.map(group => {
+                    const GroupIcon = group.icon;
+                    return (
+                      <div key={group.id} className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                          <div className={`p-1.5 rounded-lg border ${group.accentColor}`}>
+                            <GroupIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                              {group.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {group.desc}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {group.items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-start justify-between gap-3 hover:border-indigo-300 dark:hover:border-indigo-700/60 transition group"
+                            >
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {item.label}
+                                  </span>
+                                  {'badge' in item && item.badge && (
+                                    <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                                  {item.desc}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                {/* Key combination badge */}
+                                <div className="flex items-center gap-1">
+                                  {item.keys.map((k, kIdx) => (
+                                    <React.Fragment key={kIdx}>
+                                      {kIdx > 0 && <span className="text-xs text-slate-400 font-bold">+</span>}
+                                      <kbd className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono font-bold text-slate-800 dark:text-slate-200 shadow-2xs">
+                                        {k}
+                                      </kbd>
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+
+                                {/* Optional Action Trigger (e.g. Try It Now for Feedback) */}
+                                {'testType' in item && item.testType && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      sounds.playPop();
+                                      window.dispatchEvent(new CustomEvent('socdof-open-feedback', { detail: { type: item.testType } }));
+                                    }}
+                                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/80 dark:hover:bg-indigo-900 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60 transition shadow-2xs flex items-center gap-1"
+                                  >
+                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    <span>{t('settings.shortcuts_test_btn', activeLang, 'Jetzt testen')}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {filteredGroups.length === 0 && (
+                    <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">
+                      <Keyboard className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                        {t('lang_modal.no_search_results', activeLang, 'Keine passenden Tastaturkürzel gefunden')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShortcutSearch('')}
+                        className="mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        {t('lang_modal.reset_search', activeLang, 'Suche zurücksetzen')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* SECTION: USERS & ACCOUNTS (Administrator only) */}
           {activeSection === 'users' && (
             <UserManagementSettings />
@@ -5492,6 +5868,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* SECTION: WINDOWS DESKTOP APP */}
           {activeSection === 'windows' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
+              {/* Web Preview Parity Notice (1:1 testability between Web & Desktop App) */}
+              {!isElectron() && (
+                <div className="p-4 rounded-2xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/60 flex items-start gap-3">
+                  <Globe className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-sky-900 dark:text-sky-200">
+                      {t('settings.web_preview_parity_title', activeLang, 'Web-Vorschau — gleicher Funktionsumfang wie die Desktop-App')}
+                    </div>
+                    <p className="text-[11px] text-sky-800/80 dark:text-sky-300/80 leading-relaxed">
+                      {t('settings.web_preview_parity_desc', activeLang, 'Diese Web-Vorschau nutzt exakt denselben Code wie die Windows-App. lediglich systemnahe Aktionen (In-App-Update-Installation, Ordner-Dialoge, automatischer Start) werden vom Browser übernommen bzw. stehen dort in vollem Umfang zur Verfügung. Alle Geschäftsfunktionen sind identisch und offline-fähig.')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
                   <Monitor className="w-5 h-5" />

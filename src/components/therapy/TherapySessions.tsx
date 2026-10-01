@@ -115,7 +115,8 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
             setAutoCreateBilling(true);
             setIsModalOpen(true);
           }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs rounded-xl transition shadow-sm"
+          style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+          className="flex items-center gap-1.5 px-4 py-2 hover:brightness-110 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>{lang === 'de' ? '+ Neue Sitzung dokumentieren' : '+ Document Session'}</span>
@@ -124,8 +125,11 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
 
       {/* Sessions Grid / List */}
       {filteredSessions.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 mx-auto flex items-center justify-center">
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-3">
+          <div 
+            style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center shadow-2xs"
+          >
             <Clock3 className="w-6 h-6" />
           </div>
           <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">

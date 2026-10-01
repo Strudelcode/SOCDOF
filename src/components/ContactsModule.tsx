@@ -456,7 +456,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+        <div className="window-grid-kpi grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
           {filteredContacts.map((c) => {
             return (
               <div
@@ -510,7 +510,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-3 space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                <div className="mt-3 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                   {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
                     <div className="flex items-center gap-1.5 font-bold font-mono text-cyan-700 dark:text-cyan-400">
                       <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
@@ -518,15 +518,35 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                     </div>
                   )}
                   {c.email && !c.email.includes('@import.local') && !c.email.includes('@kontakt.local') && (
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{c.email}</span>
+                    <div className="flex items-center justify-between gap-1.5 truncate">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{c.email}</span>
+                      </div>
+                      <a
+                        href={`mailto:${c.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                        title="E-Mail senden"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     </div>
                   )}
                   {c.phone && (
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{c.phone}</span>
+                    <div className="flex items-center justify-between gap-1.5 truncate">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{c.phone}</span>
+                      </div>
+                      <a
+                        href={`tel:${c.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                        title="Anrufen"
+                      >
+                        <Phone className="w-3 h-3" />
+                      </a>
                     </div>
                   )}
                   {c.city && (

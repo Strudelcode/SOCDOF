@@ -13,6 +13,17 @@
   --accent-ring: rgba(79, 70, 229, 0.35);
   --accent-border: #6366f1;
   --accent-dark-text: #818cf8;
+  --accent-border-subtle: rgba(79, 70, 229, 0.22);
+  --accent-border-hover: rgba(79, 70, 229, 0.48);
+  --accent-dark-border-subtle: rgba(129, 140, 248, 0.30);
+  --accent-ambient-glow: rgba(79, 70, 229, 0.07);
+  --accent-ambient-glow-dark: rgba(79, 70, 229, 0.16);
+  --accent-card-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  --accent-card-shadow-hover: 0 8px 30px -4px rgba(79, 70, 229, 0.20), 0 2px 6px 0 rgba(0, 0, 0, 0.04);
+  --accent-companion: #0d9488;
+  --accent-companion-hover: #0f766e;
+  --accent-companion-light: rgba(13, 148, 136, 0.18);
+  --accent-companion-border: #14b8a6;
 }
 
 @layer base {
@@ -54,7 +65,7 @@ html.dark body {
 }
 
 html:not(.dark) body {
-  background-color: #f8fafc;
+  background-color: #f6f8fb;
   color: #0f172a;
 }
 
@@ -227,6 +238,111 @@ html.dark [role="dialog"] .bg-slate-50:not([class*="dark:bg-"]) {
   border-top-color: var(--accent-taskbar-border, rgba(79, 70, 229, 0.4)) !important;
 }
 
+/* Dynamic Accent Buttons, Badges and Glows */
+.btn-accent {
+  background-color: var(--accent, #4f46e5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px -3px var(--accent-ring, rgba(79, 70, 229, 0.35));
+  transition: all 0.15s ease-out;
+}
+.btn-accent:hover {
+  background-color: var(--accent-hover, #4338ca) !important;
+  box-shadow: 0 6px 20px -3px var(--accent-ring, rgba(79, 70, 229, 0.45));
+}
+.btn-accent:active {
+  transform: scale(0.98);
+}
+
+.badge-accent {
+  background-color: var(--accent-light, rgba(79, 70, 229, 0.14)) !important;
+  color: var(--accent, #4f46e5) !important;
+  border: 1px solid var(--accent-border, #6366f1);
+}
+.dark .badge-accent {
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+.accent-glow-sm {
+  box-shadow: 0 2px 10px -2px var(--accent-ring, rgba(79, 70, 229, 0.25));
+}
+.accent-glow-md {
+  box-shadow: 0 8px 24px -4px var(--accent-ring, rgba(79, 70, 229, 0.35));
+}
+
+/* Dynamic Contrasting Companion Color Utilities */
+.text-accent-companion {
+  color: var(--accent-companion, #0d9488) !important;
+}
+.bg-accent-companion {
+  background-color: var(--accent-companion, #0d9488) !important;
+}
+.bg-accent-companion-light {
+  background-color: var(--accent-companion-light, rgba(13, 148, 136, 0.18)) !important;
+}
+.border-accent-companion {
+  border-color: var(--accent-companion, #0d9488) !important;
+}
+
+/* ========================================================================== */
+/* Subtle Accent Ambient Glow for App Cards, Panels, Borders & Controls       */
+/* ========================================================================== */
+
+/* App cards and containers in light mode: subtle accent border and ambient glow */
+html:not(.dark) .socdof-window-content [class*="border-slate-200"],
+html:not(.dark) .socdof-window-content [class*="border-slate-100"],
+html:not(.dark) .socdof-window-content [class*="border-slate-300"],
+html:not(.dark) .socdof-window-content [class*="border-gray-200"],
+html:not(.dark) .socdof-window-content [class*="border-zinc-200"] {
+  border-color: var(--accent-border-subtle, rgba(79, 70, 229, 0.22)) !important;
+  box-shadow: var(--accent-card-shadow, 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* App cards and containers in dark mode: subtle luminous neon rim and glow */
+html.dark .socdof-window-content [class*="border-slate-800"],
+html.dark .socdof-window-content [class*="border-slate-700"],
+html.dark .socdof-window-content [class*="border-gray-800"],
+html.dark .socdof-window-content [class*="border-zinc-800"] {
+  border-color: var(--accent-dark-border-subtle, rgba(129, 140, 248, 0.30)) !important;
+  box-shadow: 0 4px 20px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.16)), 0 0 12px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.12));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Interactive Card & Panel Hover Glow across all apps */
+.socdof-window-content [class*="hover:border-"]:hover,
+.socdof-window-content [class*="hover:shadow"]:hover {
+  border-color: var(--accent-border-hover, rgba(79, 70, 229, 0.48)) !important;
+  box-shadow: var(--accent-card-shadow-hover, 0 8px 30px -4px rgba(79, 70, 229, 0.20), 0 2px 6px 0 rgba(0, 0, 0, 0.04)) !important;
+}
+
+/* Form Inputs, Search Bars & Textareas Focus Glow across all apps */
+.socdof-window-content input:focus,
+.socdof-window-content textarea:focus,
+.socdof-window-content select:focus {
+  border-color: var(--accent, #4f46e5) !important;
+  box-shadow: 0 0 0 3px var(--accent-ring, rgba(79, 70, 229, 0.25)), 0 0 15px -1px var(--accent-light, rgba(79, 70, 229, 0.2)) !important;
+}
+
+/* Active window subtle outer glow */
+.socdof-window-frame {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Exempt invoice printable sheets & preview documents from decorative glows */
+.invoice-sheet-paper,
+.invoice-sheet-paper *,
+.print-container,
+.print-container * {
+  box-shadow: none !important;
+}
+
+@media print {
+  .socdof-window-content * {
+    box-shadow: none !important;
+    border-color: #000000 !important;
+  }
+}
+
 /* Sleek subtle scrollbars across all windows and modules */
 ::-webkit-scrollbar {
   width: 6px;
@@ -267,8 +383,84 @@ html.dark [role="dialog"] .bg-slate-50:not([class*="dark:bg-"]) {
   animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Mobile Quick-Create Bottom Sheet entrance (Phase 10) */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up-sheet {
+  animation: slideUpSheet 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-window-open {
   animation: windowOpen 0.18s ease-out forwards;
+}
+
+/* -------------------------------------------------------------------------- */
+/* SOCDOF v24 Mobile-Window Responsive System & Container Queries             */
+/* -------------------------------------------------------------------------- */
+.socdof-window-frame {
+  container-type: inline-size;
+  container-name: window;
+}
+
+/* When window is narrow or rendered on mobile viewport */
+.is-mobile-window .socdof-window-content {
+  padding: 0.75rem !important;
+}
+
+.window-show-mobile {
+  display: none;
+}
+
+/* Settings module right pane: adapts to its own width (window minus sidebar) */
+.settings-pane {
+  container-type: inline-size;
+  container-name: settingspane;
+}
+
+@container settingspane (max-width: 840px) {
+  /* Subcategory tabs: readable 2x2 grid instead of 4 clipped columns */
+  .settings-subtabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container settingspane (max-width: 700px) {
+  /* Design mode cards stack vertically so long labels never clip */
+  .settings-mode-cards {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  /* Taskbar tint options: 2 comfortable columns instead of 4 tight ones */
+  .settings-tint-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container window (max-width: 640px) {
+  .window-grid-kpi {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+  
+  .window-grid-dual {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+  }
+
+  .window-hide-mobile {
+    display: none !important;
+  }
+
+  .window-show-mobile {
+    display: block !important;
+  }
+
+  .window-flex-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
 }
 
 @media print {

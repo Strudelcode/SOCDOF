@@ -62,7 +62,8 @@ import {
   Bug,
   StickyNote,
   Zap,
-  Tv
+  Tv,
+  MoreHorizontal
 } from 'lucide-react';
 import { 
   ActiveModule, 
@@ -775,6 +776,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   }, []);
 
   const getDesktopPosition = (id: string, index: number) => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isMobile) {
+      const screenW = typeof window !== 'undefined' ? window.innerWidth : 360;
+      const cols = screenW < 440 ? 3 : 4;
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const colWidth = Math.floor((screenW - 24) / cols);
+      const itemWidth = 80;
+      const offsetX = 12 + col * colWidth + Math.max(0, Math.floor((colWidth - itemWidth) / 2));
+      const offsetY = 16 + row * 96;
+      return { x: offsetX, y: offsetY };
+    }
+
     if (desktopPositions[id]) {
       return desktopPositions[id];
     }
@@ -949,8 +963,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const getInitialWindowDimensions = () => {
     const screenW = typeof window !== 'undefined' ? window.innerWidth : 1280;
     const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const width = Math.max(920, Math.min(screenW - 60, 1140));
-    const height = Math.max(620, Math.min(screenH - 90, 740));
+    if (screenW < 768) {
+      return { width: screenW, height: Math.max(380, screenH - 48), x: 0, y: 0 };
+    }
+    const width = Math.max(720, Math.min(screenW - 60, 1140));
+    const height = Math.max(500, Math.min(screenH - 90, 740));
     const x = Math.max(20, Math.floor((screenW - width) / 2));
     const y = Math.max(20, Math.floor((screenH - height) / 2) - 20);
     return { width, height, x, y };
@@ -1199,6 +1216,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
   // Windows 11 Calendar & Agenda Flyout State
   const [isCalendarFlyoutOpen, setIsCalendarFlyoutOpen] = useState(false);
+  // Mobile (smartphone) taskbar: compact quick-settings tray for secondary actions
+  const [isTrayMenuOpen, setIsTrayMenuOpen] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date());
 
@@ -1262,6 +1281,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const startButtonRef = useRef<HTMLButtonElement>(null);
   const calendarFlyoutRef = useRef<HTMLDivElement>(null);
   const clockTrayButtonRef = useRef<HTMLButtonElement>(null);
+  const trayMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const trayMenuRef = useRef<HTMLDivElement>(null);
 
   // Global Outside Click Listener for Menus (Start Menu, Calendar Flyout, Context Menus)
   useEffect(() => {
@@ -1296,6 +1317,16 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           setIsCalendarFlyoutOpen(false);
         }
       }
+
+      // 3b. Close mobile quick-settings tray when clicking outside
+      if (isTrayMenuOpen) {
+        if (
+          trayMenuRef.current && !trayMenuRef.current.contains(target as Node) &&
+          trayMenuButtonRef.current && !trayMenuButtonRef.current.contains(target as Node)
+        ) {
+          setIsTrayMenuOpen(false);
+        }
+      }
     };
 
     // Use capture phase to ensure clicks anywhere (even inside stopPropagation containers) dismiss context menus
@@ -1303,7 +1334,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return () => {
       document.removeEventListener('pointerdown', handleGlobalPointerDown, true);
     };
-  }, [isStartMenuOpen, isCalendarFlyoutOpen, hasAnyContextMenu]);
+  }, [isStartMenuOpen, isCalendarFlyoutOpen, isTrayMenuOpen, hasAnyContextMenu]);
 
   // Global Keyboard Shortcuts (Ctrl+K / Cmd+K, F1, Alt+1..9, Esc, Ctrl+Space)
   useEffect(() => {
@@ -1315,6 +1346,35 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         closeAllContextMenus();
         setIsCommandPaletteOpen(prev => !prev);
         return;
+      }
+
+      // 1b. Alt + B / Alt + I / Alt + R: Instant Bug, Idea, or Report Modal
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const lowerKey = e.key.toLowerCase();
+        if (lowerKey === 'b') {
+          e.preventDefault();
+          sounds.playPop();
+          closeAllContextMenus();
+          setFeedbackInitialType('bug');
+          setIsFeedbackModalOpen(true);
+          return;
+        }
+        if (lowerKey === 'i') {
+          e.preventDefault();
+          sounds.playPop();
+          closeAllContextMenus();
+          setFeedbackInitialType('idea');
+          setIsFeedbackModalOpen(true);
+          return;
+        }
+        if (lowerKey === 'r') {
+          e.preventDefault();
+          sounds.playPop();
+          closeAllContextMenus();
+          setFeedbackInitialType('bug');
+          setIsFeedbackModalOpen(true);
+          return;
+        }
       }
 
       // 2. F1: Help & Documentation Showcase Portal
@@ -1590,8 +1650,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             let nextX = resizingWindow.initX;
             let nextY = resizingWindow.initY;
 
-            const minW = w.module === 'calculator' ? 320 : 520;
-            const minH = w.module === 'calculator' ? 480 : 380;
+            const minW = 340;
+            const minH = 320;
 
             // Horizontal resize
             if (dir.includes('e')) {
@@ -1891,7 +1951,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       let startH: number;
       let isMaximized = false;
 
-      if (saved) {
+      if (screenW < 768) {
+        startW = screenW;
+        startH = Math.max(380, screenH - 48);
+        startX = 0;
+        startY = 0;
+        isMaximized = true;
+      } else if (saved) {
         startW = Math.min(screenW - 20, Math.max(module === 'calculator' ? 320 : 340, saved.width || (module === 'calculator' ? 380 : 1000)));
         startH = Math.min(screenH - 60, Math.max(module === 'calculator' ? 480 : 350, saved.height || (module === 'calculator' ? 560 : 680)));
         startX = Math.max(10, Math.min(screenW - startW - 10, saved.x ?? 40));
@@ -1903,8 +1969,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         startX = Math.max(20, Math.min(screenW - startW - 20, Math.floor((screenW - startW) / 2) + offset));
         startY = Math.max(20, Math.min(screenH - startH - 50, Math.floor((screenH - startH) / 2) + offset));
       } else {
-        startW = Math.max(920, Math.min(screenW - 60, 1140));
-        startH = Math.max(620, Math.min(screenH - 90, 750));
+        startW = Math.max(680, Math.min(screenW - 60, 1140));
+        startH = Math.max(480, Math.min(screenH - 90, 750));
         startX = Math.max(20, Math.min(screenW - startW - 20, Math.floor((screenW - startW) / 2) + (offset - 50)));
         startY = Math.max(15, Math.min(screenH - startH - 55, Math.floor((screenH - startH) / 2) - 20 + (offset - 50)));
       }
@@ -1929,6 +1995,48 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       setActiveWindowId(newWin.id);
     }
   };
+
+  // Live viewport auto-fit: clamp & maximize open windows when the viewport resizes.
+  // Mirrors getInitialWindowDimensions/openWindow mobile behavior (< 768px => full-viewport maximized)
+  // so already-open windows never overflow narrow screens or smartphone viewports.
+  useEffect(() => {
+    const handleViewportResize = () => {
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      setWindows(prev => {
+        let changed = false;
+        const next = prev.map(w => {
+          let width = w.width;
+          let height = w.height;
+          let x = w.x;
+          let y = w.y;
+          let isMaximized = w.isMaximized;
+
+          if (screenW < 768) {
+            width = screenW;
+            height = Math.max(380, screenH - 48);
+            x = 0;
+            y = 0;
+            isMaximized = true;
+          } else {
+            width = Math.max(340, Math.min(width, screenW - 20));
+            height = Math.min(height, screenH - 60);
+            x = Math.max(10, Math.min(x, Math.max(10, screenW - width - 10)));
+            y = Math.max(10, Math.min(y, Math.max(10, screenH - height - 50)));
+          }
+
+          if (width !== w.width || height !== w.height || x !== w.x || y !== w.y || isMaximized !== w.isMaximized) {
+            changed = true;
+            return { ...w, width, height, x, y, isMaximized };
+          }
+          return w;
+        });
+        return changed ? next : prev;
+      });
+    };
+    window.addEventListener('resize', handleViewportResize);
+    return () => window.removeEventListener('resize', handleViewportResize);
+  }, []);
 
   // Automatically open detached window if invoked via multi-screen popout query
   useEffect(() => {
@@ -2232,25 +2340,40 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <div className={`absolute inset-0 ${isDark ? 'bg-slate-950/40 backdrop-blur-xs' : 'bg-white/20 backdrop-blur-2xs'}`} />
         </div>
       ) : isDark ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950/80 to-slate-900 pointer-events-none">
-          <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 pointer-events-none transition-colors duration-500 overflow-hidden">
+          <div 
+            className="absolute top-1/4 left-1/3 w-[650px] h-[650px] rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-700" 
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+          />
+          <div 
+            className="absolute bottom-1/3 right-1/4 w-[550px] h-[550px] rounded-full blur-3xl pointer-events-none opacity-15 transition-all duration-700" 
+            style={{ backgroundColor: 'var(--accent-hover, #4338ca)' }}
+          />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/60 to-blue-100/50 pointer-events-none">
-          <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 pointer-events-none transition-colors duration-500 overflow-hidden">
+          <div 
+            className="absolute top-1/4 left-1/3 w-[650px] h-[650px] rounded-full blur-3xl pointer-events-none opacity-25 transition-all duration-700" 
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+          />
+          <div 
+            className="absolute bottom-1/3 right-1/4 w-[550px] h-[550px] rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-700" 
+            style={{ backgroundColor: 'var(--accent-hover, #4338ca)' }}
+          />
         </div>
       )}
 
       {/* 2. Standby / Lockscreen Overlay if user clicked "Beenden" */}
       {isLockedStandby && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-white animate-fade-in">
-          <div className="w-20 h-20 rounded-3xl bg-indigo-600 flex items-center justify-center mb-6 shadow-2xl">
-            <Lock className="w-10 h-10 text-white" />
+        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 sm:p-6 text-white animate-fade-in select-none">
+          <div 
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl flex items-center justify-center mb-4 sm:mb-6 shadow-2xl"
+          >
+            <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">SOCDOF Beendet</h2>
-          <p className="text-sm text-slate-400 max-w-sm text-center mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2 text-center">SOCDOF Beendet</h2>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-xs sm:max-w-sm text-center mb-6 sm:mb-8 leading-relaxed">
             Ihre Sitzung wurde sicher beendet. Alle Daten sind lokal in Ihrer Datenbank gespeichert.
           </p>
           <button
@@ -2258,9 +2381,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playStartup();
               setIsLockedStandby(false);
             }}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-xl transition active:scale-95"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-2 px-5 sm:px-6 py-3 text-white font-bold rounded-2xl shadow-xl transition active:scale-95 text-xs sm:text-sm cursor-pointer min-h-[44px]"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
             <span>SOCDOF Desktop starten</span>
           </button>
         </div>
@@ -2334,25 +2458,52 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
         {/* Aero Snap Translucent Docking Preview */}
         {snapPreview === 'left' && (
-          <div className="absolute left-3 top-3 bottom-3 w-[calc(50%-12px)] rounded-3xl bg-indigo-500/15 border-2 border-indigo-400/80 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center">
-            <div className="px-4 py-2 rounded-2xl bg-indigo-900/90 text-white text-xs font-bold shadow-xl border border-indigo-400/40 flex items-center gap-2">
-              <PanelLeft className="w-4 h-4 text-indigo-300" />
+          <div 
+            className="absolute left-3 top-3 bottom-3 w-[calc(50%-12px)] rounded-3xl border-2 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center"
+            style={{ 
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.15))',
+              borderColor: 'var(--accent, #4f46e5)'
+            }}
+          >
+            <div 
+              className="px-4 py-2 rounded-2xl text-white text-xs font-bold shadow-xl border border-white/20 flex items-center gap-2"
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            >
+              <PanelLeft className="w-4 h-4 text-white" />
               <span>Links anordnen (50%)</span>
             </div>
           </div>
         )}
         {snapPreview === 'right' && (
-          <div className="absolute right-3 top-3 bottom-3 w-[calc(50%-12px)] rounded-3xl bg-indigo-500/15 border-2 border-indigo-400/80 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center">
-            <div className="px-4 py-2 rounded-2xl bg-indigo-900/90 text-white text-xs font-bold shadow-xl border border-indigo-400/40 flex items-center gap-2">
-              <PanelRight className="w-4 h-4 text-indigo-300" />
+          <div 
+            className="absolute right-3 top-3 bottom-3 w-[calc(50%-12px)] rounded-3xl border-2 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center"
+            style={{ 
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.15))',
+              borderColor: 'var(--accent, #4f46e5)'
+            }}
+          >
+            <div 
+              className="px-4 py-2 rounded-2xl text-white text-xs font-bold shadow-xl border border-white/20 flex items-center gap-2"
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            >
+              <PanelRight className="w-4 h-4 text-white" />
               <span>Rechts anordnen (50%)</span>
             </div>
           </div>
         )}
         {snapPreview === 'top' && (
-          <div className="absolute inset-3 rounded-3xl bg-indigo-500/15 border-2 border-indigo-400/80 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center">
-            <div className="px-4 py-2 rounded-2xl bg-indigo-900/90 text-white text-xs font-bold shadow-xl border border-indigo-400/40 flex items-center gap-2">
-              <Maximize2 className="w-4 h-4 text-indigo-300" />
+          <div 
+            className="absolute inset-3 rounded-3xl border-2 backdrop-blur-xs z-30 pointer-events-none transition-all duration-150 animate-pulse flex items-center justify-center"
+            style={{ 
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.15))',
+              borderColor: 'var(--accent, #4f46e5)'
+            }}
+          >
+            <div 
+              className="px-4 py-2 rounded-2xl text-white text-xs font-bold shadow-xl border border-white/20 flex items-center gap-2"
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            >
+              <Maximize2 className="w-4 h-4 text-white" />
               <span>Vollbild maximieren</span>
             </div>
           </div>
@@ -2488,7 +2639,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 } ${
                   isDark 
                     ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
-                    : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
+                    : 'bg-transparent border-transparent hover:bg-[var(--accent-light,rgba(79,70,229,0.1))] hover:border-[var(--accent-border,rgba(79,70,229,0.3))] active:bg-[var(--accent-light,rgba(79,70,229,0.2))]'
                 }`}
               >
                 <div className="relative">
@@ -2646,7 +2797,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 } ${
                   isDark 
                     ? 'bg-transparent border-transparent hover:bg-white/10 hover:border-white/20 active:bg-white/20 active:border-white/35' 
-                    : 'bg-transparent border-transparent hover:bg-sky-500/10 hover:border-sky-500/30 active:bg-sky-500/20 active:border-sky-500/40'
+                    : 'bg-transparent border-transparent hover:bg-[var(--accent-light,rgba(79,70,229,0.1))] hover:border-[var(--accent-border,rgba(79,70,229,0.3))] active:bg-[var(--accent-light,rgba(79,70,229,0.2))]'
                 }`}
               >
                 {/* Mini Apps Preview Squircle (iOS/macOS Liquid Glass Style) */}
@@ -2745,6 +2896,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         const isActive = activeWindowId === win.id;
         const meta = shortcutMeta[win.module] || { icon: Boxes, color: 'bg-indigo-600' };
         const WindowIcon = meta.icon;
+        const isMobileWindow = !win.isMaximized 
+          ? (win.width < 560) 
+          : (typeof window !== 'undefined' && window.innerWidth < 640);
 
         return (
           <div
@@ -2760,10 +2914,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               pointerEvents: isDraggingWidget ? 'none' : 'auto',
               ...(isActive && !win.isMaximized ? {
                 borderColor: 'var(--accent, #4f46e5)',
-                boxShadow: '0 20px 40px -15px var(--accent-ring, rgba(79, 70, 229, 0.3)), 0 0 0 1px var(--accent, #4f46e5)'
+                boxShadow: '0 20px 45px -12px var(--accent-ring, rgba(79, 70, 229, 0.35)), 0 0 0 1px var(--accent, #4f46e5), 0 0 25px 2px var(--accent-ambient-glow, rgba(79, 70, 229, 0.15))'
+              } : !win.isMaximized ? {
+                boxShadow: '0 12px 30px -10px rgba(0, 0, 0, 0.1), 0 0 12px -2px var(--accent-ambient-glow, rgba(79, 70, 229, 0.08))'
               } : {})
             }}
-            className={`flex flex-col bg-white dark:bg-slate-900 ${
+            className={`socdof-window-frame ${isMobileWindow ? 'is-mobile-window' : ''} flex flex-col bg-white dark:bg-slate-900 ${
               isDraggingWidget ? 'pointer-events-none select-none' : ''
             } ${
               win.isMaximized ? 'rounded-none border-0' : 'rounded-2xl border'
@@ -2777,19 +2933,29 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 : 'transition-[width,height,border-radius,top,left] duration-150 ease-out'
             } animate-window-open`}
           >
+            {/* Top Accent Line for Active Floating Window */}
+            {isActive && !win.isMaximized && (
+              <div 
+                className="h-[2px] w-full shrink-0 transition-all duration-300"
+                style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+              />
+            )}
             {/* Windows 11 Titlebar */}
             <div
               onMouseDown={(e) => startDrag(win.id, e)}
               onPointerDown={(e) => startDrag(win.id, e)}
               onDoubleClick={(e) => toggleMaximizeWindow(win.id, e)}
-              className={`h-10 px-3.5 flex items-center justify-between cursor-move select-none ${
+              className={`h-10 px-3.5 flex items-center justify-between cursor-move select-none transition-colors duration-150 ${
                 isActive 
-                  ? 'bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700' 
-                  : 'bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/60 dark:border-slate-800'
+                  ? 'bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800' 
+                  : 'bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/60 dark:border-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-5 h-5 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0 shadow-xs`}>
+                <div 
+                  className={`w-5 h-5 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0 shadow-xs transition-all duration-200 ${isActive ? 'ring-1' : ''}`}
+                  style={isActive ? { '--tw-ring-color': 'var(--accent, #4f46e5)' } as any : undefined}
+                >
                   <WindowIcon className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -2829,53 +2995,57 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                 onPointerDown={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
               >
-                {/* Snap Layout Quick Actions (Links / Rechts teilen) */}
-                <button
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'left'); }}
-                  title="Fenster links andocken (50% Split-View)"
-                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
-                >
-                  <PanelLeft className="w-3.5 h-3.5" />
-                </button>
+                {!isMobileWindow && (
+                  <>
+                    {/* Snap Layout Quick Actions (Links / Rechts teilen) */}
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'left'); }}
+                      title="Fenster links andocken (50% Split-View)"
+                      className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      <PanelLeft className="w-3.5 h-3.5" />
+                    </button>
 
-                <button
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'right'); }}
-                  title="Fenster rechts andocken (50% Split-View)"
-                  className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
-                >
-                  <PanelRight className="w-3.5 h-3.5" />
-                </button>
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); snapWindowTo(win.id, 'right'); }}
+                      title="Fenster rechts andocken (50% Split-View)"
+                      className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      <PanelRight className="w-3.5 h-3.5" />
+                    </button>
 
-                {/* Always on Top (Overlay Mode) */}
-                <button
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => toggleAlwaysOnTop(win.id, e)}
-                  title={win.isAlwaysOnTop ? 'Immer im Vordergrund lösen' : 'Immer im Vordergrund anheften (Overlay)'}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                    win.isAlwaysOnTop 
-                      ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/70 ring-1 ring-emerald-500/40' 
-                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <Pin className={`w-3.5 h-3.5 transition-transform ${win.isAlwaysOnTop ? 'rotate-45' : ''}`} />
-                </button>
+                    {/* Always on Top (Overlay Mode) */}
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => toggleAlwaysOnTop(win.id, e)}
+                      title={win.isAlwaysOnTop ? 'Immer im Vordergrund lösen' : 'Immer im Vordergrund anheften (Overlay)'}
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                        win.isAlwaysOnTop 
+                          ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/70 ring-1 ring-emerald-500/40' 
+                          : 'text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <Pin className={`w-3.5 h-3.5 transition-transform ${win.isAlwaysOnTop ? 'rotate-45' : ''}`} />
+                    </button>
 
-                <button
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => handlePopoutOrMoveMonitor(win, e)}
-                  title={t('display.popout_window', currentLang, 'Auf zweiten Monitor ausdocken')}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                </button>
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => handlePopoutOrMoveMonitor(win, e)}
+                      title={t('display.popout_window', currentLang, 'Auf zweiten Monitor ausdocken')}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      <Tv className="w-3.5 h-3.5" />
+                    </button>
 
-                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
+                    <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden sm:block" />
+                  </>
+                )}
 
                 <button
                   onMouseDown={(e) => e.stopPropagation()}
@@ -2914,7 +3084,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
 
             {/* Window Content Body with sleek inner scroll */}
-            <div className={`flex-1 min-h-0 ${
+            <div className={`socdof-window-content flex-1 min-h-0 ${
               ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator', 'settings'].includes(win.module)
                 ? 'overflow-hidden flex flex-col p-0'
                 : 'overflow-y-auto p-4 sm:p-6'
@@ -3526,9 +3696,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               setIsCommandPaletteOpen(true);
             }}
             title={`${t('nav.search_placeholder', currentLang, 'Apps, Kontakte, Rechnungen suchen...')} (${formatShortcut('Ctrl+K', currentLang, company.shortcut_modifier_style)})`}
-            className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-2xs group cursor-pointer"
+            className="hidden sm:flex items-center gap-2.5 h-9 px-3.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs border border-slate-300/60 dark:border-white/10 shadow-2xs group cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+            <Search className="w-3.5 h-3.5 text-accent group-hover:scale-110 transition-transform" />
             <span className="font-medium tracking-tight">{t('nav.search', currentLang, 'Suchen...')}</span>
           </button>
 
@@ -3740,7 +3910,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <button
             onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
             title="Sprache ändern / Change Language"
-            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold transition border border-slate-300/80 dark:border-slate-700"
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 text-[11px] font-extrabold transition border border-slate-300/80 dark:border-slate-700"
           >
             <FlagIcon code={currentLang} size="sm" />
             <span className="uppercase tracking-wider">{currentLang}</span>
@@ -3749,8 +3919,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Sound Toggle */}
           <button
             onClick={onToggleSound}
-            title={isMuted ? 'Ton aktivieren' : 'Ton stummschalten'}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            title={isMuted ? t('desktop.sound_on', currentLang, 'Ton aktivieren') : t('desktop.sound_off', currentLang, 'Ton stummschalten')}
+            className="hidden sm:inline-flex p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-500" />}
           </button>
@@ -3758,8 +3928,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Theme Toggle */}
           <button
             onClick={onToggleTheme}
-            title={isDark ? 'Zu hellem Design wechseln' : 'Zu dunklem Design wechseln'}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+            title={isDark ? t('desktop.theme_light', currentLang, 'Zu hellem Design wechseln') : t('desktop.theme_dark', currentLang, 'Zu dunklem Design wechseln')}
+            className="hidden sm:inline-flex p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
@@ -3771,13 +3941,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (${formatShortcut('F11', currentLang)})` 
               : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (${formatShortcut('F11', currentLang)})`
             }
-            className={`p-1.5 rounded-lg transition active:scale-95 cursor-pointer ${
+            className={`hidden sm:inline-flex p-1.5 rounded-lg transition active:scale-95 cursor-pointer ${
               isFullscreen 
                 ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/30' 
                 : 'hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          {/* Mobile Quick-Settings Trigger (⋯) — smartphone taskbar only */}
+          <button
+            ref={trayMenuButtonRef}
+            onClick={() => { sounds.playClick(); setIsTrayMenuOpen(!isTrayMenuOpen); }}
+            title={t('desktop.tray_more_title', currentLang, 'Weitere Optionen')}
+            aria-label={t('desktop.tray_more_title', currentLang, 'Weitere Optionen')}
+            className={`sm:hidden w-9 h-9 rounded-xl flex items-center justify-center transition cursor-pointer ${
+              isTrayMenuOpen
+                ? 'bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/40'
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" />
           </button>
 
           {/* Live Digital Clock & Calendar Trigger */}
@@ -3787,22 +3972,68 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               sounds.playClick();
               setIsCalendarFlyoutOpen(!isCalendarFlyoutOpen);
             }}
-            title="Datum, Uhrzeit & Kalender öffnen"
+            title={t('desktop.clock_open_title', currentLang, 'Datum, Uhrzeit & Kalender öffnen')}
             className={`text-right px-2.5 py-1 rounded-xl transition cursor-pointer select-none active:scale-95 ${
               isCalendarFlyoutOpen
                 ? 'bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/40 shadow-xs'
                 : 'hover:bg-black/5 dark:hover:bg-white/10'
             }`}
           >
-            <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+            <div className="text-[13px] sm:text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
               {formatSystemTime(currentTime, company.time_show_seconds !== false, company.timezone)}
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+            <div className="hidden sm:block text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               {formatSystemDate(currentTime, company.date_format || 'DD.MM.YYYY', company.timezone)}
             </div>
           </button>
         </div>
       </div>
+
+      {/* Mobile Quick-Settings Tray Panel (smartphone taskbar) */}
+      {isTrayMenuOpen && (
+        <div
+          ref={trayMenuRef}
+          className="sm:hidden fixed bottom-14 right-3 z-50 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800/90 rounded-2xl shadow-2xl p-2 text-slate-900 dark:text-slate-100 animate-scale-in"
+          style={{ transformOrigin: 'bottom right' }}
+        >
+          <div className="px-2.5 pt-1.5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            {t('desktop.tray_quick_title', currentLang, 'Schnellzugriff')}
+          </div>
+          {/* Language */}
+          <button
+            onClick={() => { sounds.playClick(); setIsTrayMenuOpen(false); setIsLanguageModalOpen(true); }}
+            className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            <FlagIcon code={currentLang} size="sm" />
+            <span className="flex-1 text-left">{t('desktop.tray_language', currentLang, 'Sprache')}</span>
+            <span className="uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">{currentLang}</span>
+          </button>
+          {/* Sound */}
+          <button
+            onClick={() => { sounds.playClick(); onToggleSound(); }}
+            className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-500" />}
+            <span className="flex-1 text-left">{isMuted ? t('desktop.sound_on', currentLang, 'Ton aktivieren') : t('desktop.sound_off', currentLang, 'Ton stummschalten')}</span>
+          </button>
+          {/* Theme */}
+          <button
+            onClick={() => { sounds.playClick(); onToggleTheme(); }}
+            className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+            <span className="flex-1 text-left">{isDark ? t('desktop.theme_light', currentLang, 'Zu hellem Design wechseln') : t('desktop.theme_dark', currentLang, 'Zu dunklem Design wechseln')}</span>
+          </button>
+          {/* Fullscreen */}
+          <button
+            onClick={() => { sounds.playClick(); setIsTrayMenuOpen(false); handleToggleFullscreen(); }}
+            className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4 text-emerald-500" /> : <Maximize2 className="w-4 h-4" />}
+            <span className="flex-1 text-left">{isFullscreen ? t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden') : t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')}</span>
+          </button>
+        </div>
+      )}
 
       {/* Windows 11 Style Calendar & Agenda Flyout Popup */}
       {isCalendarFlyoutOpen && (

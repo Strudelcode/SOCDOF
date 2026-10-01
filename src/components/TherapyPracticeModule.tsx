@@ -301,8 +301,19 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
     showToast(lang === 'de' ? 'Termin gelöscht' : 'Appointment deleted');
   };
 
+  // Quick mobile session note save (Phase 12)
+  const handleQuickSessionSave = (session: Session) => {
+    setData(prev => ({ ...prev, sessions: [session, ...prev.sessions] }));
+    showToast(
+      lang === 'de'
+        ? `Sitzungsnotiz für ${data.clients.find(c => c.id === session.clientId)?.name || 'Klient'} gespeichert`
+        : `Session note saved for ${data.clients.find(c => c.id === session.clientId)?.name || 'client'}`
+    );
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-full w-full py-4 sm:py-6 px-3 sm:px-6 space-y-6">
+      <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700 text-xs font-semibold animate-fade-in">
@@ -312,14 +323,15 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
       )}
 
       {/* Streamlined Top Navigation Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         {/* Clean Segmented Navigation Tabs without scrollbars */}
-        <div className="flex items-center flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl text-xs font-medium relative">
+        <div className="flex items-center flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl text-xs font-medium relative">
           <button
             onClick={() => { setTab('overview'); setActiveClientId(null); setIsMoreMenuOpen(false); }}
+            style={tab === 'overview' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
             className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl whitespace-nowrap transition ${
               tab === 'overview' 
-                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-xs font-bold' 
+                ? 'shadow-xs font-bold text-white' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -329,24 +341,28 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
 
           <button
             onClick={() => { setTab('clients'); setIsMoreMenuOpen(false); }}
+            style={tab === 'clients' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
             className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl whitespace-nowrap transition ${
               tab === 'clients' 
-                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-xs font-bold' 
+                ? 'shadow-xs font-bold text-white' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Users className="w-4 h-4" />
             <span>{lang === 'de' ? 'Klienten' : 'Clients'}</span>
-            <span className="ml-0.5 text-[10px] px-1.5 py-0.2 bg-slate-200 dark:bg-slate-600 rounded-full font-bold">
+            <span className={`ml-0.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              tab === 'clients' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
               {data.clients.length}
             </span>
           </button>
 
           <button
             onClick={() => { setTab('sessions'); setActiveClientId(null); setIsMoreMenuOpen(false); }}
+            style={tab === 'sessions' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
             className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl whitespace-nowrap transition ${
               tab === 'sessions' 
-                ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-xs font-bold' 
+                ? 'shadow-xs font-bold text-white' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -356,9 +372,10 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
 
           <button
             onClick={() => { setTab('billing'); setActiveClientId(null); setIsMoreMenuOpen(false); }}
+            style={tab === 'billing' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
             className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl whitespace-nowrap transition ${
               tab === 'billing' 
-                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold' 
+                ? 'shadow-xs font-bold text-white' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -370,9 +387,10 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
           <div className="relative">
             <button
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              style={tab === 'mileage' || tab === 'appointments' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
               className={`flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl whitespace-nowrap transition ${
                 tab === 'mileage' || tab === 'appointments'
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold'
+                  ? 'shadow-xs font-bold text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title={lang === 'de' ? 'Weitere Bereiche (Fahrtenbuch, Termine)' : 'More modules'}
@@ -395,20 +413,21 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setIsMoreMenuOpen(false)} 
                 />
-                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in">
+                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in">
                   <button
                     onClick={() => {
                       setTab('mileage');
                       setActiveClientId(null);
                       setIsMoreMenuOpen(false);
                     }}
+                    style={tab === 'mileage' ? { backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' } : undefined}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left transition ${
                       tab === 'mileage'
-                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-bold'
+                        ? 'font-bold'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <Car className="w-4 h-4 text-indigo-500" />
+                    <Car className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
                     <div>
                       <div className="font-semibold">{lang === 'de' ? 'Fahrtenbuch' : 'Mileage Log'}</div>
                       <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Dienstfahrten & Km' : 'Travel expenses'}</div>
@@ -421,13 +440,14 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                       setActiveClientId(null);
                       setIsMoreMenuOpen(false);
                     }}
+                    style={tab === 'appointments' ? { backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' } : undefined}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left transition ${
                       tab === 'appointments'
-                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-bold'
+                        ? 'font-bold'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <CalendarDays className="w-4 h-4 text-blue-500" />
+                    <CalendarDays className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
                     <div>
                       <div className="font-semibold">{lang === 'de' ? 'Termine & Kalender' : 'Appointments'}</div>
                       <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Praxis-Planung' : 'Schedule'}</div>
@@ -441,9 +461,9 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                       setIsMoreMenuOpen(false);
                       setIsTaxAdvisorLedgerOpen(true);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-[#1B365D] dark:text-blue-400" />
+                    <FileSpreadsheet className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
                     <div>
                       <div className="font-semibold">{lang === 'de' ? 'Kassenbuch (Excel)' : 'Cash Ledger (Excel)'}</div>
                       <div className="text-[10px] text-slate-400">{lang === 'de' ? 'Einnahmen-Ausgaben' : 'Income & Expenses'}</div>
@@ -459,20 +479,21 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
         <div className="flex items-center gap-2 text-xs">
           <button
             onClick={() => setIsTaxAdvisorLedgerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B365D] hover:bg-[#152a48] text-white font-bold rounded-xl shadow-xs transition"
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-white font-bold rounded-xl shadow-xs transition hover:brightness-110 active:scale-95 cursor-pointer"
             title={lang === 'de' ? 'Kassenbuch & 12-Monate-Excel-Export' : 'Cash Ledger & Excel'}
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>{lang === 'de' ? 'Kassenbuch' : 'Cash Ledger'}</span>
           </button>
 
           {onOpenInvoices && (
             <button
               onClick={onOpenInvoices}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold rounded-xl border border-blue-200/80 dark:border-blue-800 transition"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl border border-slate-200/80 dark:border-slate-700 transition"
               title={lang === 'de' ? 'Zur Rechnungs-App wechseln' : 'Open Invoices App'}
             >
-              <CreditCard className="w-3.5 h-3.5" />
+              <CreditCard className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span className="hidden lg:inline">{lang === 'de' ? 'Rechnungs-App' : 'Invoices'}</span>
             </button>
           )}
@@ -530,6 +551,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
               setActiveClientId(clientId);
               setTab('mileage');
             }}
+            onQuickSessionSave={handleQuickSessionSave}
           />
         )}
 
@@ -613,6 +635,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
           currency={currency}
         />
       )}
+      </div>
     </div>
   );
 };

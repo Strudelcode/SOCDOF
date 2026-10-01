@@ -14,7 +14,8 @@ import {
   Barcode, 
   Receipt, 
   UserCheck, 
-  RotateCcw 
+  RotateCcw,
+  ArrowRight
 } from 'lucide-react';
 import { Product, Contact, POSOrder, CompanyProfile } from '../types';
 import { sounds } from '../lib/sound';
@@ -50,6 +51,7 @@ export const POSModule: React.FC<POSModuleProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'nfc'>('cash');
   const [cashGiven, setCashGiven] = useState<string>('');
   const [completedOrder, setCompletedOrder] = useState<POSOrder | null>(null);
+  const [mobileTab, setMobileTab] = useState<'catalog' | 'cart'>('catalog');
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -192,8 +194,47 @@ export const POSModule: React.FC<POSModuleProps> = ({
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden bg-slate-900 text-slate-100">
+      {/* Mobile Tab Switcher */}
+      <div className="flex md:hidden items-center p-2.5 bg-slate-950 border-b border-slate-800 gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            setMobileTab('catalog');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'catalog'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-800 text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Katalog ({products.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            setMobileTab('cart');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
+            mobileTab === 'cart'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-800 text-slate-400 hover:text-white'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>Warenkorb</span>
+          {cart.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
+              {cart.reduce((s, i) => s + i.qty, 0)}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Left: Product Catalog */}
-      <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800">
+      <div className={`${mobileTab === 'catalog' ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0 border-r border-slate-800 relative`}>
         {/* Top Controls: Search, Barcode & Category Pills */}
         <div className="p-4 bg-slate-900/90 border-b border-slate-800 space-y-3">
           <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -297,10 +338,35 @@ export const POSModule: React.FC<POSModuleProps> = ({
             </div>
           )}
         </div>
+
+        {/* Floating Mobile Checkout Quick-Bar */}
+        {cart.length > 0 && (
+          <div className="md:hidden p-3 bg-slate-950/95 backdrop-blur border-t border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-lg">
+            <div>
+              <div className="text-[11px] text-slate-400">
+                {cart.reduce((s, i) => s + i.qty, 0)} {t('pos.items', undefined, 'Artikel im Warenkorb')}
+              </div>
+              <div className="text-sm font-bold text-emerald-400">
+                {total.toFixed(2)} {companyProfile.currency || '€'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setMobileTab('cart');
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Zur Kasse</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: Cart & Register */}
-      <div className="w-full md:w-96 flex flex-col bg-slate-950 border-t md:border-t-0 border-slate-800">
+      <div className={`${mobileTab === 'cart' ? 'flex' : 'hidden md:flex'} w-full md:w-96 flex-col bg-slate-950 border-t md:border-t-0 border-slate-800 flex-1 md:flex-initial`}>
         {/* Customer Selector & Cart Header */}
         <div className="p-4 border-b border-slate-800 bg-slate-900/40 space-y-2">
           <div className="flex items-center justify-between">
@@ -458,9 +524,14 @@ export const POSModule: React.FC<POSModuleProps> = ({
                   sounds.playClick();
                   setPaymentMethod('cash');
                 }}
+                style={paymentMethod === 'cash' ? {
+                  backgroundColor: 'var(--accent-companion-light, rgba(13, 148, 136, 0.18))',
+                  borderColor: 'var(--accent-companion, #0d9488)',
+                  color: 'var(--accent-companion, #0d9488)'
+                } : undefined}
                 className={`p-3 rounded-xl flex flex-col items-center gap-1.5 border text-xs font-semibold transition-all ${
                   paymentMethod === 'cash' 
-                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300' 
+                    ? 'shadow-xs font-bold' 
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
                 }`}
               >
@@ -473,9 +544,14 @@ export const POSModule: React.FC<POSModuleProps> = ({
                   sounds.playClick();
                   setPaymentMethod('card');
                 }}
+                style={paymentMethod === 'card' ? {
+                  backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.18))',
+                  borderColor: 'var(--accent, #4f46e5)',
+                  color: 'var(--accent, #4f46e5)'
+                } : undefined}
                 className={`p-3 rounded-xl flex flex-col items-center gap-1.5 border text-xs font-semibold transition-all ${
                   paymentMethod === 'card' 
-                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' 
+                    ? 'shadow-xs font-bold' 
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
                 }`}
               >

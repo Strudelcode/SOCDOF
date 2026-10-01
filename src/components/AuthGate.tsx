@@ -139,7 +139,7 @@ const getAuthCopy = (lang: LanguageCode) => ({
 });
 
 type AuthText = ReturnType<typeof getAuthCopy>;
-const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/40';
+const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-4 py-3 sm:py-2.5 text-base sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[44px] transition';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
 
 function computePasswordStrength(password: string): {
@@ -543,7 +543,7 @@ function FirstAccount({
   });
 
   const [businessDetails, setBusinessDetails] = useState({
-    companyName: initialCompany?.name && initialCompany?.name !== 'Ihr Firmenname' && initialCompany?.name !== 'SOCDOF' ? initialCompany.name : '',
+    companyName: initialCompany?.name && initialCompany?.name !== 'Ihr Firmenname' && initialCompany?.name !== 'SOCDOF' && initialCompany?.name !== 'Your Company Name' ? initialCompany.name : '',
     street: initialCompany?.street || '',
     zipCity: initialCompany?.zip_city || '',
     currency: initialCompany?.currency || '€',
@@ -605,6 +605,9 @@ function FirstAccount({
     if (form.password !== form.confirm) {
       return setError(text.mismatch);
     }
+    if (form.accountType === 'business' && !businessDetails.companyName.trim()) {
+      return setError(t('auth.company_name_required', lang));
+    }
 
     let recoveryQuestion: string | undefined = undefined;
     let recoveryAnswer: string | undefined = undefined;
@@ -648,15 +651,17 @@ function FirstAccount({
         const updatedCompany: CompanyProfile = {
           ...currentCompany,
           language: lang,
-          ...(form.accountType === 'business' && !isBusinessSetupSkipped ? {
+          ...(form.accountType === 'business' ? {
             name: businessDetails.companyName.trim() || currentCompany.name || '',
-            street: businessDetails.street.trim() || currentCompany.street || '',
-            zip_city: businessDetails.zipCity.trim() || currentCompany.zip_city || '',
-            currency: businessDetails.currency.trim() || currentCompany.currency || '€',
-            email: businessDetails.email.trim() || currentCompany.email || '',
-            phone: businessDetails.phone.trim() || currentCompany.phone || '',
-            letterhead_managing_director: businessDetails.managingDirector.trim() || currentCompany.letterhead_managing_director || '',
-            tax_id: businessDetails.taxId.trim() || currentCompany.tax_id || '',
+            ...(!isBusinessSetupSkipped ? {
+              street: businessDetails.street.trim() || currentCompany.street || '',
+              zip_city: businessDetails.zipCity.trim() || currentCompany.zip_city || '',
+              currency: businessDetails.currency.trim() || currentCompany.currency || '€',
+              email: businessDetails.email.trim() || currentCompany.email || '',
+              phone: businessDetails.phone.trim() || currentCompany.phone || '',
+              letterhead_managing_director: businessDetails.managingDirector.trim() || currentCompany.letterhead_managing_director || '',
+              tax_id: businessDetails.taxId.trim() || currentCompany.tax_id || '',
+            } : {})
           } : {})
         };
         await db.settings.put({ key: 'company_profile', value: updatedCompany });
@@ -793,10 +798,10 @@ function FirstAccount({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                        {t('auth.business_setup_title', lang, 'Firmendaten & Briefkopf (Optional)')}
+                        {t('auth.business_setup_title', lang, 'Firmendaten & Briefkopf')}
                       </h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                        {t('auth.business_setup_desc', lang, 'Geben Sie Ihre Firmendaten für Anschriften, Rechnungen und Währung an – oder überspringen Sie diesen Schritt und passen Sie alles später in den Einstellungen an.')}
+                        {t('auth.business_setup_desc', lang, 'Ihr Firmenname wird in der gesamten App verwendet. Weitere Angaben wie Anschrift und Währung sind optional und können später ergänzt werden.')}
                       </p>
                     </div>
                   </div>
@@ -811,10 +816,26 @@ function FirstAccount({
                   </button>
                 </div>
 
-                {isBusinessSetupSkipped ? (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {t('auth.company_name', lang, 'Wie heißt die Firma / Ihr Unternehmen?')} <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <input
+                      className={fieldClass}
+                      placeholder="z. B. Mustermann IT & Consulting GmbH"
+                      value={businessDetails.companyName}
+                      onChange={(e) => setBusinessDetails({ ...businessDetails, companyName: e.target.value })}
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-tight">
+                      {t('auth.company_name_hint', lang, 'Ihr Firmenname wird direkt überall verwendet: Startmenü, Dashboard, Rechnungen und alle Module.')}
+                    </p>
+                  </div>
+
+                  {isBusinessSetupSkipped ? (
                   <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between gap-3">
                     <span className="leading-tight">
-                      {t('auth.business_setup_skipped_notice', lang, 'Firmendaten übersprungen. Sie können Firmenkopf, Anschrift und Währung jederzeit unter Einstellungen > Stammdaten festlegen.')}
+                      {t('auth.business_setup_skipped_notice', lang, 'Weitere Angaben übersprungen – Ihr Firmenname ist bereits hinterlegt. Sie können Anschrift, Währung und Briefkopf jederzeit unter Einstellungen > Stammdaten ergänzen.')}
                     </span>
                     <button
                       type="button"
@@ -825,18 +846,7 @@ function FirstAccount({
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        {t('auth.company_name', lang, 'Wie heißt die Firma / Ihr Unternehmen?')}
-                      </label>
-                      <input
-                        className={fieldClass}
-                        placeholder="z. B. Mustermann IT & Consulting GmbH"
-                        value={businessDetails.companyName}
-                        onChange={(e) => setBusinessDetails({ ...businessDetails, companyName: e.target.value })}
-                      />
-                    </div>
+                  <>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
@@ -932,17 +942,9 @@ function FirstAccount({
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsBusinessSetupSkipped(true)}
-                        className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
-                      >
-                        {t('auth.btn_skip_business_setup', lang, 'Angaben überspringen & später einrichten')}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1150,8 +1152,8 @@ function FirstAccount({
 }
 
 function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'md' | 'lg' }) {
-  const sizeClass = size === 'lg' ? 'w-24 h-24' : size === 'sm' ? 'w-11 h-11' : 'w-16 h-16';
-  const iconSize = size === 'lg' ? 38 : size === 'sm' ? 19 : 28;
+  const sizeClass = size === 'lg' ? 'w-20 h-20 sm:w-24 sm:h-24' : size === 'sm' ? 'w-9 h-9 sm:w-11 sm:h-11' : 'w-14 h-14 sm:w-16 sm:h-16';
+  const iconSize = size === 'lg' ? 32 : size === 'sm' ? 16 : 24;
   const isImageAvatar = Boolean(
     user.avatar && (
       user.avatar.startsWith('data:image/') ||
@@ -1162,7 +1164,7 @@ function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'm
   );
 
   return (
-    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none`}>
+    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none transition-all`}>
       {isImageAvatar ? (
         <img src={user.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
       ) : user.avatar && user.avatar.length <= 2 ? (
@@ -1185,38 +1187,26 @@ function LoginBackdrop({
   wallpaper?: string;
   children: React.ReactNode;
 }) {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
   const background = wallpaper || company.desktop_wallpaper_url;
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white">
+    <div className="relative min-h-[100dvh] h-full w-full overflow-y-auto bg-slate-950 text-white select-none">
       {background ? (
-        <>
+        <div className="fixed inset-0 pointer-events-none z-0">
           <div
             aria-hidden="true"
             className="absolute -inset-6 bg-cover bg-center scale-105 blur-[18px]"
             style={{ backgroundImage: `url("${background}")` }}
           />
-          <div aria-hidden="true" className="absolute inset-0 bg-black/35" />
+          <div aria-hidden="true" className="absolute inset-0 bg-black/40" />
           <div aria-hidden="true" className="absolute inset-0 bg-slate-950/25 backdrop-blur-[2px]" />
-        </>
+        </div>
       ) : (
-        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+        <div aria-hidden="true" className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 pointer-events-none z-0" />
       )}
 
-      <div className="absolute top-8 left-0 right-0 text-center pointer-events-none select-none">
-        <div className="text-5xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
-          {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
-        </div>
-        <div className="mt-2 text-sm sm:text-base text-white/80 drop-shadow-lg">
-          {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
-        </div>
+      <div className="relative z-10 min-h-[100dvh] w-full flex flex-col justify-between p-3 sm:p-5">
+        {children}
       </div>
-
-      {children}
     </div>
   );
 }
@@ -1239,6 +1229,12 @@ function LoginScreen({
   onDismissSuccess?: () => void;
 }) {
   const lang = useLanguage();
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const activeUsers = users.filter((user) => user.active);
   const defaultUsername = initialUsername && activeUsers.some((u) => u.username === initialUsername)
     ? initialUsername
@@ -1316,11 +1312,12 @@ function LoginScreen({
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
-      <div className="absolute top-4 right-5 z-20">
+      {/* Top Header: Language Switcher */}
+      <div className="w-full flex items-center justify-end z-20 shrink-0">
         <select
           value={lang}
           onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-          className="text-xs font-medium rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/50"
+          className="text-xs font-medium rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/60 min-h-[36px]"
           title={t('auth.changeLanguage', lang)}
         >
           {SUPPORTED_LANGUAGES.map((l) => (
@@ -1331,63 +1328,73 @@ function LoginScreen({
         </select>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="w-full max-w-sm flex flex-col items-center text-center">
-          {selectedUser ? (
-            <AuthAvatar user={selectedUser} size="lg" />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg mx-auto shrink-0">
-              <UserRound size={38} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
-            </div>
+      {/* Clock & Date Display */}
+      <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
+        <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
+          {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
+        </div>
+        <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
+          {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
+        </div>
+      </div>
+
+      {/* Center Main Login Form Card */}
+      <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
+        {selectedUser ? (
+          <AuthAvatar user={selectedUser} size="lg" />
+        ) : (
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg mx-auto shrink-0">
+            <UserRound size={32} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
+          </div>
+        )}
+
+        <h1 className="mt-3.5 sm:mt-5 text-xl sm:text-2xl font-medium drop-shadow-xl text-white truncate max-w-full">
+          {selectedUser?.displayName || text.otherUser}
+        </h1>
+        {otherUser && <p className="mt-1 text-xs sm:text-sm text-white/65">{text.otherUserDesc}</p>}
+
+        <form onSubmit={submit} className="w-full mt-3.5 sm:mt-5 space-y-3">
+          {otherUser && (
+            <input
+              autoFocus
+              className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
+              placeholder={text.username}
+              value={username}
+              onChange={(event) => { setUsername(event.target.value); setError(''); }}
+            />
           )}
 
-          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">
-            {selectedUser?.displayName || text.otherUser}
-          </h1>
-          {otherUser && <p className="mt-1 text-sm text-white/65">{text.otherUserDesc}</p>}
-
-          <form onSubmit={submit} className="w-full mt-5 space-y-3">
-              {otherUser && (
-                <input
-                  autoFocus
-                  className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl px-4 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
-                  placeholder={text.username}
-                  value={username}
-                  onChange={(event) => { setUsername(event.target.value); setError(''); }}
-                />
-              )}
-
-              <div className="relative w-full">
-                <input
-                  autoFocus={!otherUser}
-                  className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4.5 pr-12 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
-                  type="password"
-                  placeholder={text.password}
-                  value={password}
-                  onChange={(event) => { setPassword(event.target.value); setError(''); }}
-                  disabled={remaining > 0}
-                />
-                <button
-                  type="submit"
-                  disabled={remaining > 0}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                  title={text.login}
-                  aria-label={text.login}
-                >
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-
-              {remaining > 0 && <p className="text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
-              {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
-              <button type="button" onClick={() => setRecover(true)} className="text-sm text-white/75 hover:text-white hover:underline drop-shadow cursor-pointer">
-                {text.forgot}
-              </button>
-            </form>
+          <div className="relative w-full">
+            <input
+              autoFocus={!otherUser}
+              className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4 pr-12 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
+              type="password"
+              placeholder={text.password}
+              value={password}
+              onChange={(event) => { setPassword(event.target.value); setError(''); }}
+              disabled={remaining > 0}
+            />
+            <button
+              type="submit"
+              disabled={remaining > 0}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              title={text.login}
+              aria-label={text.login}
+            >
+              <ArrowRight size={18} />
+            </button>
           </div>
-        </div>
 
-      <div className="absolute left-5 bottom-5 flex items-end gap-2.5 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+          {remaining > 0 && <p className="text-xs sm:text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
+          {error && <p className="text-xs sm:text-sm text-red-300 drop-shadow">{error}</p>}
+          <button type="button" onClick={() => setRecover(true)} className="text-xs sm:text-sm text-white/75 hover:text-white hover:underline drop-shadow cursor-pointer py-1 block mx-auto">
+            {text.forgot}
+          </button>
+        </form>
+      </div>
+
+      {/* Bottom User Picker Carousel */}
+      <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
         {activeUsers.map((user) => {
           const isSelected = selected === user.username && !otherUser;
           return (
@@ -1395,7 +1402,7 @@ function LoginScreen({
               key={user.id}
               type="button"
               onClick={() => chooseUser(user.username)}
-              className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+              className={`group flex flex-col items-center gap-1 sm:gap-1.5 rounded-2xl px-2.5 sm:px-3 py-1.5 sm:py-2 transition-all cursor-pointer select-none min-h-[56px] shrink-0 ${
                 isSelected 
                   ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
                   : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
@@ -1403,24 +1410,25 @@ function LoginScreen({
               title={user.displayName}
             >
               <AuthAvatar user={user} size="sm" />
-              <span className="max-w-[120px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{user.displayName}</span>
+              <span className="max-w-[80px] sm:max-w-[120px] truncate text-[11px] sm:text-xs font-medium text-white drop-shadow-sm text-center">{user.displayName}</span>
             </button>
           );
         })}
         <button
           type="button"
           onClick={() => { setOtherUser(true); setSelected(''); setUsername(''); setPassword(''); setError(''); }}
-          className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+          className={`group flex flex-col items-center gap-1 sm:gap-1.5 rounded-2xl px-2.5 sm:px-3 py-1.5 sm:py-2 transition-all cursor-pointer select-none min-h-[56px] shrink-0 ${
             otherUser 
               ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
               : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
           }`}
           title={text.otherUser}
         >
-          <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
-            <UserRound size={19} className="text-white/85" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+            <UserRound size={16} className="text-white/85 sm:hidden" />
+            <UserRound size={19} className="text-white/85 hidden sm:block" />
           </div>
-          <span className="max-w-[130px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{text.otherUser}</span>
+          <span className="max-w-[85px] sm:max-w-[130px] truncate text-[11px] sm:text-xs font-medium text-white drop-shadow-sm text-center">{text.otherUser}</span>
         </button>
       </div>
 
@@ -1429,7 +1437,7 @@ function LoginScreen({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 max-w-sm sm:max-w-md w-[calc(100%-2.5rem)] rounded-2xl border border-emerald-400/40 bg-emerald-950/90 backdrop-blur-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-emerald-100 shadow-2xl shadow-emerald-950/50 flex items-start justify-between gap-3 ring-1 ring-emerald-400/30 animate-fade-in transition-all"
+          className="fixed bottom-4 right-4 z-50 max-w-sm sm:max-w-md w-[calc(100%-2rem)] rounded-2xl border border-emerald-400/40 bg-emerald-950/90 backdrop-blur-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-emerald-100 shadow-2xl shadow-emerald-950/50 flex items-start justify-between gap-3 ring-1 ring-emerald-400/30 animate-fade-in transition-all"
         >
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400 shadow-xs">
@@ -1466,11 +1474,11 @@ function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount |
     return () => window.clearInterval(timer);
   }, []);
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white flex items-center justify-center">
+    <div className="relative min-h-[100dvh] h-full w-full overflow-hidden bg-slate-950 text-white flex items-center justify-center select-none">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
-      <div className="relative flex flex-col items-center text-center px-6">
-        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-24 h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl mx-auto shrink-0"><UserRound size={38} strokeWidth={1.6} className="text-white/55" /></div>}
-        <div className="mt-7 text-xl font-medium tracking-tight">{text.login}{dots}</div>
+      <div className="relative flex flex-col items-center text-center px-6 my-auto">
+        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl mx-auto shrink-0"><UserRound size={32} strokeWidth={1.6} className="text-white/55" /></div>}
+        <div className="mt-6 text-xl font-medium tracking-tight">{text.login}{dots}</div>
         <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
           {[0, 1, 2, 3].map((index) => <span key={index} className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />)}
         </div>
@@ -1536,11 +1544,12 @@ function LockScreen({
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
-      <div className="absolute top-4 right-5 z-20">
+      {/* Top Header: Language Switcher */}
+      <div className="w-full flex items-center justify-end z-20 shrink-0">
         <select
           value={currentLang}
           onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-          className="text-xs font-medium rounded-xl border border-white/20 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/50"
+          className="text-xs font-medium rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white px-2.5 sm:px-3 py-1.5 sm:py-2 outline-none focus:ring-2 focus:ring-white/40 cursor-pointer shadow-lg transition hover:bg-black/60 min-h-[36px]"
           title={t('auth.changeLanguage', currentLang)}
         >
           {SUPPORTED_LANGUAGES.map((l) => (
@@ -1551,37 +1560,47 @@ function LockScreen({
         </select>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center px-5 pt-16 pb-24">
-        <div className="w-full max-w-sm flex flex-col items-center text-center">
-          <AuthAvatar user={selectedUser} size="lg" />
-          <h1 className="mt-5 text-2xl font-medium drop-shadow-xl text-white">{selectedUser.displayName}</h1>
-          <p className="mt-1 text-sm text-white/65">{text.lockedTitle}</p>
-
-          <form onSubmit={submit} className="w-full mt-5 space-y-3">
-            <div className="relative w-full">
-              <input
-                autoFocus
-                className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4.5 pr-12 py-3 outline-none focus:ring-2 focus:ring-white/40 text-sm sm:text-base transition shadow-lg"
-                type="password"
-                placeholder={text.password}
-                value={password}
-                onChange={(event) => { setPassword(event.target.value); setError(''); }}
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
-                title={text.unlock}
-                aria-label={text.unlock}
-              >
-                <ArrowRight size={18} />
-              </button>
-            </div>
-            {error && <p className="text-sm text-red-300 drop-shadow">{error}</p>}
-          </form>
+      {/* Clock & Date Header */}
+      <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
+        <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
+          {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
+        </div>
+        <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
+          {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
         </div>
       </div>
 
-      <div className="absolute left-5 bottom-5 flex items-end gap-2.5 max-w-[calc(100vw-2.5rem)] overflow-x-auto pb-1">
+      {/* Center Lock Screen Form Card */}
+      <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
+        <AuthAvatar user={selectedUser} size="lg" />
+        <h1 className="mt-3.5 sm:mt-5 text-xl sm:text-2xl font-medium drop-shadow-xl text-white truncate max-w-full">{selectedUser.displayName}</h1>
+        <p className="mt-1 text-xs sm:text-sm text-white/65">{text.lockedTitle}</p>
+
+        <form onSubmit={submit} className="w-full mt-3.5 sm:mt-5 space-y-3">
+          <div className="relative w-full">
+            <input
+              autoFocus
+              className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4 pr-12 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
+              type="password"
+              placeholder={text.password}
+              value={password}
+              onChange={(event) => { setPassword(event.target.value); setError(''); }}
+            />
+            <button
+              type="submit"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+              title={text.unlock}
+              aria-label={text.unlock}
+            >
+              <ArrowRight size={18} />
+            </button>
+          </div>
+          {error && <p className="text-xs sm:text-sm text-red-300 drop-shadow">{error}</p>}
+        </form>
+      </div>
+
+      {/* Bottom User Picker Carousel */}
+      <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
         {activeUsers.map((account) => {
           const isSelected = selected === account.username;
           return (
@@ -1589,7 +1608,7 @@ function LockScreen({
               key={account.id}
               type="button"
               onClick={() => chooseUser(account.username)}
-              className={`group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 transition-all cursor-pointer select-none ${
+              className={`group flex flex-col items-center gap-1 sm:gap-1.5 rounded-2xl px-2.5 sm:px-3 py-1.5 sm:py-2 transition-all cursor-pointer select-none min-h-[56px] shrink-0 ${
                 isSelected 
                   ? 'bg-white/20 backdrop-blur-xl shadow-lg border border-white/30 text-white' 
                   : 'hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent'
@@ -1597,20 +1616,21 @@ function LockScreen({
               title={account.displayName}
             >
               <AuthAvatar user={account} size="sm" />
-              <span className="max-w-[120px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{account.displayName}</span>
+              <span className="max-w-[80px] sm:max-w-[120px] truncate text-[11px] sm:text-xs font-medium text-white drop-shadow-sm text-center">{account.displayName}</span>
             </button>
           );
         })}
         <button
           type="button"
           onClick={onSwitch}
-          className="group flex flex-col items-center gap-1.5 rounded-2xl px-3 py-2 hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent transition-all cursor-pointer select-none"
+          className="group flex flex-col items-center gap-1 sm:gap-1.5 rounded-2xl px-2.5 sm:px-3 py-1.5 sm:py-2 hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent transition-all cursor-pointer select-none min-h-[56px] shrink-0"
           title={text.switchUser}
         >
-          <div className="w-11 h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
-            <UserRound size={19} className="text-white/85" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+            <UserRound size={16} className="text-white/85 sm:hidden" />
+            <UserRound size={19} className="text-white/85 hidden sm:block" />
           </div>
-          <span className="max-w-[130px] truncate text-xs font-medium text-white drop-shadow-sm text-center">{text.switchUser}</span>
+          <span className="max-w-[85px] sm:max-w-[130px] truncate text-[11px] sm:text-xs font-medium text-white drop-shadow-sm text-center">{text.switchUser}</span>
         </button>
       </div>
     </LoginBackdrop>

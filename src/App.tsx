@@ -186,12 +186,25 @@ export default function App() {
           comp.language = current;
           await db.settings.put({ key: 'company_profile', value: comp });
         }
-        if (comp.font_scale) document.documentElement.style.fontSize = `${comp.font_scale}%`;
+        const cachedFontScale = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_font_scale') : null;
+        if (cachedFontScale) {
+          const parsed = parseInt(cachedFontScale, 10);
+          if (!isNaN(parsed) && parsed >= 90 && parsed <= 130) {
+            comp.font_scale = parsed;
+            document.documentElement.style.fontSize = `${parsed}%`;
+          }
+        } else if (comp.font_scale) {
+          document.documentElement.style.fontSize = `${comp.font_scale}%`;
+          try {
+            localStorage.setItem('socdof_font_scale', String(comp.font_scale));
+          } catch {}
+        }
       } else {
         applyAccentColor('indigo');
         const current = (getLanguage() || 'de') as LanguageCode;
         setLanguage(current);
-        document.documentElement.style.fontSize = '100%';
+        const cachedFontScale = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_font_scale') : null;
+        document.documentElement.style.fontSize = cachedFontScale ? `${cachedFontScale}%` : '100%';
       }
     } catch (err) {
       console.error('Database load error:', err);
@@ -209,6 +222,12 @@ export default function App() {
         setCompany(updated);
         if (updated.language) {
           setLanguage(updated.language);
+        }
+        if (updated.font_scale) {
+          document.documentElement.style.fontSize = `${updated.font_scale}%`;
+          try {
+            localStorage.setItem('socdof_font_scale', String(updated.font_scale));
+          } catch {}
         }
       }
     };

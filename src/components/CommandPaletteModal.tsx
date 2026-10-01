@@ -360,7 +360,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       >
         {/* Top Search Bar */}
         <div className="relative flex items-center px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-          <Search className="w-5 h-5 text-indigo-500 shrink-0 mr-3" />
+          <Search className="w-5 h-5 text-accent shrink-0 mr-3" />
           <input
             ref={inputRef}
             type="text"
@@ -413,9 +413,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition cursor-pointer ${
                     isSelected
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'text-white shadow-sm'
                       : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200'
                   }`}
+                  style={isSelected ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs ${item.iconColor}`}>

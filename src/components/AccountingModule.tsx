@@ -260,11 +260,17 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="window-grid-kpi grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
             <span>{t('pos.subtotal', undefined, 'Revenues (Net)')}</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
+            <div 
+              style={{
+                backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))',
+                color: 'var(--accent, #4f46e5)'
+              }}
+              className="w-7 h-7 rounded-lg flex items-center justify-center shadow-2xs"
+            >
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
@@ -294,11 +300,20 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium mb-1">
             <span>{t('accounting.tab_bwa', undefined, 'Operating Profit')}</span>
-            <div className={`w-7 h-7 rounded-lg ${operatingProfitNet >= 0 ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600' : 'bg-rose-50 dark:bg-rose-950/50 text-rose-600'} flex items-center justify-center`}>
+            <div 
+              style={operatingProfitNet >= 0 ? {
+                backgroundColor: 'var(--accent-companion-light, rgba(13, 148, 136, 0.18))',
+                color: 'var(--accent-companion, #0d9488)'
+              } : undefined}
+              className={`w-7 h-7 rounded-lg ${operatingProfitNet < 0 ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600' : 'shadow-2xs'} flex items-center justify-center`}
+            >
               <Calculator className="w-4 h-4" />
             </div>
           </div>
-          <div className={`text-xl font-extrabold ${operatingProfitNet >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600'}`}>
+          <div 
+            style={operatingProfitNet >= 0 ? { color: 'var(--accent-companion, #0d9488)' } : undefined}
+            className={`text-xl font-extrabold ${operatingProfitNet < 0 ? 'text-rose-600' : ''}`}
+          >
             {operatingProfitNet.toFixed(2)} {cur}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
