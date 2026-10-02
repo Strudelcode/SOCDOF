@@ -1448,8 +1448,14 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
         <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
           
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shadow-xs shrink-0 border border-slate-700/60 dark:border-slate-700">
-              <Headphones className="w-5 h-5 text-cyan-400" />
+            <div 
+              style={{
+                backgroundColor: 'var(--accent, #4f46e5)',
+                color: '#ffffff'
+              }}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs shrink-0"
+            >
+              <Headphones className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -1468,7 +1474,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             {/* New Ticket Primary Button (Mobile: icon-only) */}
             <button
               onClick={handleCreateNewTicket}
-              className="sm:hidden p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+              style={{
+                backgroundColor: 'var(--accent, #4f46e5)',
+                color: '#ffffff'
+              }}
+              className="sm:hidden p-2 hover:brightness-110 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
               title={t('support.new_ticket', undefined, 'New Ticket')}
             >
               <Plus className="w-4 h-4" />
@@ -1578,7 +1588,11 @@ export const SupportServicesModule: React.FC<SupportServicesModuleProps> = ({
             {/* New Ticket Primary Button */}
             <button
               onClick={handleCreateNewTicket}
-              className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+              style={{
+                backgroundColor: 'var(--accent, #4f46e5)',
+                color: '#ffffff'
+              }}
+              className="px-3.5 py-1.5 hover:brightness-110 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>{t('support.new_ticket', undefined, 'New Ticket')}</span>

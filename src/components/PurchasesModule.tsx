@@ -236,27 +236,30 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
-            <ShoppingCart className="w-7 h-7 text-cyan-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+            <ShoppingCart 
+              style={{ color: 'var(--accent, #4f46e5)' }}
+              className="w-6 h-6 sm:w-7 h-7" 
+            />
             {t('purchases.title', undefined, 'Purchases & Procurement')}
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             {t('purchases.subtitle', undefined, 'Supplier purchase orders, RFQs & automatic warehouse receipt booking')}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => {
               sounds.playClick();
               setIsReorderModalOpen(true);
             }}
-            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition"
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer"
             title="Nachbestell-Assistent für knappe Lagerbestände & Amazon-Warenkorb"
           >
             <ShoppingCart className="w-4 h-4" />
@@ -267,7 +270,11 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             type="button"
             id="btn-new-purchase-order"
             onClick={handleOpenNewPO}
-            className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-cyan-950/30 transition-colors"
+            style={{
+              backgroundColor: 'var(--accent, #4f46e5)',
+              color: '#ffffff'
+            }}
+            className="px-4 py-2 hover:brightness-110 active:scale-95 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {t('purchases.new_po', undefined, 'New Purchase Order')}
@@ -277,65 +284,89 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
 
       {/* KPI Overview Summary Cards */}
       <div className="window-grid-kpi grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
           <div>
-            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {t('purchases.kpi_volume', undefined, 'Procurement Volume')}
             </div>
-            <div className="text-xl font-bold text-white mt-1 font-mono">
+            <div className="text-xl font-bold text-slate-900 dark:text-white mt-1 font-mono">
               {stats.totalVolume.toFixed(2)} {companyProfile.currency}
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+          <div 
+            style={{
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))',
+              color: 'var(--accent, #4f46e5)'
+            }}
+            className="w-10 h-10 rounded-xl border border-transparent flex items-center justify-center"
+          >
             <DollarSign className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
           <div>
-            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {t('purchases.filter_ordered', undefined, 'Open In-Flight Orders')}
             </div>
-            <div className="text-xl font-bold text-cyan-400 mt-1">
+            <div 
+              style={{ color: 'var(--accent, #4f46e5)' }}
+              className="text-xl font-bold mt-1"
+            >
               {stats.openCount} {t('purchases.orders_unit', undefined, 'orders')}
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+          <div 
+            style={{
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))',
+              color: 'var(--accent, #4f46e5)'
+            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+          >
             <Truck className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
           <div>
-            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {t('purchases.filter_received', undefined, 'Goods Received')}
             </div>
-            <div className="text-xl font-bold text-emerald-400 mt-1">
+            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
               {stats.receivedCount} {t('purchases.orders_unit', undefined, 'completed')}
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
           <div>
-            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               {t('purchases.suppliers_count', undefined, 'Active Suppliers')}
             </div>
-            <div className="text-xl font-bold text-purple-400 mt-1">
+            <div 
+              style={{ color: 'var(--accent-companion, #7c3aed)' }}
+              className="text-xl font-bold mt-1"
+            >
               {vendors.length} {t('purchases.vendors_unit', undefined, 'vendors')}
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+          <div 
+            style={{
+              backgroundColor: 'var(--accent-light, rgba(124, 58, 237, 0.12))',
+              color: 'var(--accent-companion, #7c3aed)'
+            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+          >
             <Building className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="relative flex-1 w-full">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -343,7 +374,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
             placeholder={t('purchases.search_placeholder', undefined, 'Search purchase orders (e.g. PO/2026/0001, vendor)...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 text-white pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -356,10 +387,11 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 sounds.playClick();
                 setStatusFilter(st);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+              style={statusFilter === st ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : {}}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                 statusFilter === st 
-                  ? 'bg-cyan-600 text-white shadow-sm' 
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'shadow-xs font-bold' 
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               {st === 'all' && t('purchases.filter_all', undefined, 'All')}
@@ -372,9 +404,9 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
       </div>
 
       {/* PO Table & Mobile Card Stack */}
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         {/* Mobile PO Cards */}
-        <div className="window-show-mobile sm:hidden divide-y divide-slate-700/60">
+        <div className="window-show-mobile sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
           {filteredPOs.length === 0 ? (
             <div className="p-8 text-center text-slate-400">
               <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -388,23 +420,26 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                   sounds.playClick();
                   setSelectedPO(po);
                 }}
-                className="p-4 bg-slate-900/60 active:bg-slate-800 transition cursor-pointer flex flex-col gap-2.5"
+                className="p-4 bg-white dark:bg-slate-900 active:bg-slate-50 dark:active:bg-slate-800/60 transition cursor-pointer flex flex-col gap-2.5"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <span className="font-mono font-bold text-xs text-white">{po.number}</span>
+                    <FileText 
+                      style={{ color: 'var(--accent, #4f46e5)' }}
+                      className="w-4 h-4 shrink-0" 
+                    />
+                    <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">{po.number}</span>
                   </div>
 
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1 ${
                     po.status === 'received' 
-                      ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/40' 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400' 
                       : po.status === 'ordered'
-                      ? 'bg-cyan-900/60 text-cyan-300 border border-cyan-700/40'
-                      : 'bg-slate-700 text-slate-300'
+                      ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400'
+                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                   }`}>
-                    {po.status === 'received' && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                    {po.status === 'ordered' && <Truck className="w-3 h-3 text-cyan-400" />}
+                    {po.status === 'received' && <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                    {po.status === 'ordered' && <Truck className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
                     {po.status === 'draft' && <Clock className="w-3 h-3 text-slate-400" />}
                     {po.status === 'draft' && t('purchases.filter_draft', undefined, 'Draft')}
                     {po.status === 'ordered' && t('purchases.filter_ordered', undefined, 'Ordered')}
@@ -413,20 +448,23 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white truncate">{po.vendor_name}</span>
-                  <span className="font-mono text-cyan-400 font-bold text-sm">
+                  <span className="font-semibold text-slate-900 dark:text-white truncate">{po.vendor_name}</span>
+                  <span 
+                    style={{ color: 'var(--accent, #4f46e5)' }}
+                    className="font-mono font-bold text-sm"
+                  >
                     {po.total.toFixed(2)} {companyProfile.currency}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-700/40">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
                   <span>Bestellt: {formatSystemDate(po.order_date)}</span>
                   <span>Lieferung: {formatSystemDate(po.expected_delivery)}</span>
                 </div>
 
                 <div 
                   onClick={(e) => e.stopPropagation()} 
-                  className="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/40"
+                  className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800"
                 >
                   <button
                     type="button"
@@ -435,7 +473,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                       setPrintPO(po);
                     }}
                     title="Drucken / PDF"
-                    className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
+                    className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
                   </button>
@@ -444,7 +482,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                     type="button"
                     onClick={() => handleDuplicatePO(po)}
                     title="Duplizieren"
-                    className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
+                    className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -453,7 +491,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                     <button
                       type="button"
                       onClick={() => handleReceiveGoods(po.id!)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
                     >
                       <PackageCheck className="w-3.5 h-3.5" />
                       <span>Wareneingang</span>
@@ -467,8 +505,8 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
 
         {/* Desktop PO Table */}
         <div className="overflow-x-auto window-hide-mobile hidden sm:block">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-700 uppercase tracking-wider font-semibold text-[11px]">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 uppercase tracking-wider font-semibold text-[11px]">
               <tr>
                 <th className="px-5 py-3.5">{t('purchases.th_number', undefined, 'Order No.')}</th>
                 <th className="px-5 py-3.5">{t('purchases.th_vendor', undefined, 'Vendor / Supplier')}</th>
@@ -479,7 +517,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
                 <th className="px-5 py-3.5 text-right">{t('purchases.th_actions', undefined, 'Actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/60">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredPOs.map((po) => (
                 <tr 
                   key={po.id}

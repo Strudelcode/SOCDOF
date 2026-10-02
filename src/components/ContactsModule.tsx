@@ -292,7 +292,13 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md">
+          <div 
+            style={{
+              backgroundColor: 'var(--accent, #4f46e5)',
+              color: '#ffffff'
+            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md shrink-0"
+          >
             <Users className="w-5 h-5" />
           </div>
           <div>
@@ -309,7 +315,11 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
         <div className="flex flex-wrap items-center gap-2 relative">
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+            style={{
+              backgroundColor: 'var(--accent, #4f46e5)',
+              color: '#ffffff'
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 hover:brightness-110 active:scale-95 text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>{t('contact.btn_new', currentLang, 'New Contact')}</span>
@@ -320,12 +330,18 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition cursor-pointer"
             title={t('contacts.sequential_mode_banner', currentLang, 'Batch create contacts one after another with full details')}
           >
-            <Layers className="w-4 h-4 text-emerald-600" />
+            <Layers 
+              style={{ color: 'var(--accent, #4f46e5)' }}
+              className="w-4 h-4" 
+            />
             <span>{t('contacts.btn_batch', currentLang, '+ Batch Add Multiple')}</span>
           </button>
 
           <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition">
-            <Upload className="w-4 h-4 text-indigo-600" />
+            <Upload 
+              style={{ color: 'var(--accent-companion, #059669)' }}
+              className="w-4 h-4" 
+            />
             <span>{t('contacts.btn_import', currentLang, 'CSV / Outlook Import')}</span>
             <input
               type="file"

@@ -481,7 +481,11 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-xs transition shrink-0 cursor-pointer"
+            style={{
+              backgroundColor: 'var(--accent, #4f46e5)',
+              color: '#ffffff'
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 hover:brightness-110 active:scale-95 text-xs font-semibold rounded-xl shadow-xs transition shrink-0 cursor-pointer"
           >
             <PackagePlus className="w-3.5 h-3.5 shrink-0" />
             <span>{t('products.btn_new_product', currentLang, 'Neues Produkt')}</span>
@@ -517,7 +521,11 @@ export const ProductsModule: React.FC<ProductsModuleProps> = ({
               <button
                 type="button"
                 onClick={handleOpenCreate}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--accent, #4f46e5)',
+                  color: '#ffffff'
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 hover:brightness-110 active:scale-95 text-xs font-semibold rounded-xl shadow-xs transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>{t('products.btn_new_product', currentLang, 'Neues Produkt')}</span>

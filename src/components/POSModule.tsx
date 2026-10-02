@@ -202,9 +202,13 @@ export const POSModule: React.FC<POSModuleProps> = ({
             sounds.playClick();
             setMobileTab('catalog');
           }}
+          style={mobileTab === 'catalog' ? {
+            backgroundColor: 'var(--accent, #4f46e5)',
+            color: '#ffffff'
+          } : undefined}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'catalog'
-              ? 'bg-indigo-600 text-white shadow-xs'
+              ? 'shadow-xs'
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >
@@ -217,16 +221,23 @@ export const POSModule: React.FC<POSModuleProps> = ({
             sounds.playClick();
             setMobileTab('cart');
           }}
+          style={mobileTab === 'cart' ? {
+            backgroundColor: 'var(--accent, #4f46e5)',
+            color: '#ffffff'
+          } : undefined}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
             mobileTab === 'cart'
-              ? 'bg-indigo-600 text-white shadow-xs'
+              ? 'shadow-xs'
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >
           <Receipt className="w-4 h-4" />
           <span>Warenkorb</span>
           {cart.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
+            <span 
+              style={{ backgroundColor: 'var(--accent-companion, #0d9488)', color: '#ffffff' }}
+              className="px-1.5 py-0.2 rounded-full text-[10px] font-bold"
+            >
               {cart.reduce((s, i) => s + i.qty, 0)}
             </span>
           )}

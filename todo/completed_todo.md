@@ -4,6 +4,97 @@
 
 ---
 
+### Word (.docx) Table AST Engine, Templates Watcher & PDF Stationery (v24.4.0, Roadmap 2.4)
+- [x] **Deep Binary Word (.docx) Table AST Engine**:
+  - Full two-pass cell matrix resolution for complex Word tables across multiple pages (`matrix[rIdx][cIdx]`).
+  - Implemented vertical cell merging resolution (`w:vMerge` with `restart` and continuation calculating rowSpan, activeMerges map, and skip markers).
+  - Implemented horizontal grid spanning (`w:gridSpan` to colSpan calculation).
+  - Added support for row properties `w:trPr` including `w:cantSplit` preventing table rows from splitting across page breaks (`page-break-inside: avoid; break-inside: avoid;`) and row background shading (`w:shd`).
+  - Seamless support for nested XML tables inside cells (`parseDocxXmlContainerAsync`).
+- [x] **Desktop Templates Folder Watcher & Live Auto-Sync**:
+  - Real-time synchronization of the external templates folder `%APPDATA%/socdof/templates` (or portable `templates/` directory).
+  - Integrated Electron IPC file watcher with `onTemplatesFolderChanged` callback for instant UI updates when templates are added or edited.
+  - Enhanced Template Manager with live sync status badge ("Auto-Sync aktiv"), folder opener for Windows Explorer (`openTemplatesFolder`), and quick refresh.
+  - Detected template cards with format badges (`.docx`, `.pdf`, `.html`, `.json`), file size, last modified date, and 1-click import.
+- [x] **Direct PDF Form-Field Token Injection & Interactive Visual Placement Tool**:
+  - Interactive DIN-A4 visual placement canvas (`stationeryCanvasRef`) allowing users to position tokens directly onto PDF or image letterheads.
+  - Interactive mouse and touch drag-and-drop token placement with real-time percentage coordinates (`xPct`, `yPct`).
+  - Click-to-place capability: clicking any position on the canvas instantly moves the currently selected field there.
+  - Dedicated Token Inspector panel with:
+    - Variable selector dropdown (`AVAILABLE_INVOICE_VARIABLES`).
+    - Position X/Y sliders (0% – 95%) with numeric feedback.
+    - Width slider (10% – 90%).
+    - Font-size slider (8px – 28px).
+    - Font-weight selector (Normal vs. Bold).
+    - Text alignment selector (Left, Center, Right).
+    - Field deletion.
+  - Quick action to place default invoice layout tokens (`{Rechnungsnummer}`, `{Datum}`, `{Kunde_Name}`, `{Kunde_Adresse}`, `{Kunde_PLZ_Ort}`, `{Positionen_Tabelle}`, `{Gesamtbetrag}`).
+- [x] **High-Resolution PDF-to-Image Letterhead Rendering**:
+  - Implemented `renderPdfFirstPageToImageAsync` using `pdfjs-dist` to convert uploaded PDF letterheads into crisp, 2x print-resolution PNG graphics directly in the browser/Electron runtime.
+- [x] **Quad-Language Localization**:
+  - All new stationery and folder watcher UI strings translated across German, English, French, and Spanish.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+### Complete Suite Dynamic Accent & Anti-Clash Contrast Harmonization (v24.3.0, Roadmap 2.1)
+- [x] **Contacts & CRM (`ContactsModule.tsx`)**:
+  - Primary CTA button "New Contact" and header icon badge dynamically derived from `--accent`.
+  - Batch creation and CSV / Outlook import action chips highlighted with `--accent` and `--accent-companion`.
+  - Contact cards, 1-tap call/mail chips, and contact category pills harmonized for light and dark modes.
+- [x] **Inventory & Products (`ProductsModule.tsx`)**:
+  - Primary "New Product" and "Smart Reorder" action buttons driven dynamically by `--accent` and companion gradients.
+  - Active category pills and low stock warnings re-tint with dynamic accent and anti-clash rose alerts.
+  - 1-tap stock booking and mobile product stack cards styled for light and dark mode with zero collision.
+- [x] **Purchases & Supplier Orders (`PurchasesModule.tsx`)**:
+  - Full Light Mode and Dark Mode parity across container cards, headers, filters, and tables.
+  - "New Purchase Order" primary CTA driven dynamically by `--accent` with hover brightness.
+  - Procurement volume in `--accent` and active suppliers KPI in `--accent-companion` preventing metric collision.
+  - Goods receipt booking button with emerald highlight and responsive mobile purchase order cards.
+- [x] **Support & Time Tracking (`SupportServicesModule.tsx`)**:
+  - Header icon badge and primary "New Ticket" button (desktop & mobile) styled with dynamic `--accent`.
+  - Live timer widget and persistent crash-recovery session banner re-tint seamlessly.
+- [x] **Praxis & Therapy Module (`TherapyPracticeModule.tsx`)**:
+  - Segmented navigation tabs (Overview, Clients, Sessions, Billing, Mileage, Appointments) dynamically styled with `--accent`.
+  - Consultation timer, quick session note bottom sheet, and client counters fully harmonized.
+- [x] **Bug Reports & Discord Feedback (`DiscordFeedbackModal.tsx`)**:
+  - Submit buttons, category tag pills, and live embed preview highlights synchronized with dynamic theme.
+- [x] **Settings & Personalization (`SettingsModule.tsx`)**:
+  - Color Picasso custom palette picker with live HEX/RGB input and instant accent propagation.
+  - Fullscreen startup toggle switch and controls fully supporting light and dark modes using dynamic accent.
+- [x] **Top-Right Window Controls Hardening**:
+  - Top-right window controls bar features `-` (minimize), `▢` / `Minimize2` (smaller/larger toggle with F11), and `✕` (close window).
+  - Explicitly removed logout button from top-right window controls bar per user request.
+  - Full light mode and dark mode styling with translucent backdrop and crisp border contrast.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+### Invoices, POS & Accounting Dynamic Accent & Anti-Clash Harmonization (v24.3.0, Roadmap 2.1)
+- [x] **Invoices & Billing (`InvoicesModule.tsx`)**:
+  - Primary CTA buttons (New Invoice, XML Import, Template & Layout editor) driven dynamically by `--accent` and `--accent-light`.
+  - Invoice detail modal, posting action button, and customer selector card re-tint live with user accent.
+- [x] **POS & Cash Register (`POSModule.tsx`)**:
+  - Dynamic mobile catalog/cart tab switcher, checkout floating quick-bar, and cart counter badge.
+  - Payment method selector with non-clashing companion highlights (`--accent-companion`).
+- [x] **Accounting, BWA & Taxes (`AccountingModule.tsx`)**:
+  - Non-clashing operating profit and revenue comparison indicators using `--accent-companion`.
+  - Dynamic subtab navigation bars (BWA, UStVA, OPOS, Z-Bon) re-tinting seamlessly with `--accent`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+### Default Borderless Fullscreen & Top-Edge Quick Window Controls (v24.3.0)
+- [x] **Default Edge-to-Edge Fullscreen Mode**:
+  - The application defaults to full borderless fullscreen mode out of the box (`fullscreen: true`, `mainWindow.setFullScreen(true)` in Electron, automatic requestFullscreen on start in web).
+  - Edge-to-edge covering the Windows taskbar and system borders completely.
+- [x] **Top-Right Quick Window Controls Pill**:
+  - Added a floating frosted-glass controls pill at the top-right of the desktop canvas with 1-click actions:
+    - Minimieren (Minimize window to taskbar in Electron or shrink window)
+    - Vollbild / Fenster-Modus (F11 toggle between edge-to-edge fullscreen and windowed desktop mode)
+    - Abmelden (One-click secure session logout)
+- [x] **Universal F11 & Window Minimize Keyboard & IPC Architecture**:
+  - Native IPC handlers in Electron (`socdof:minimize-window`, `socdof:set-fullscreen`, `socdof:maximize-window`, `socdof:unmaximize-window`, `socdof:is-maximized`).
+  - Fullscreen toggle, minimize, and F11 shortcuts integrated into Lock Screen, Login, and Desktop Window Workspace.
+- [x] **Settings Toggle & Localization**:
+  - Toggle in Settings > Windows for "Standardmäßig im Vollbildmodus starten".
+  - Full quad-language coverage across German, English, French, and Spanish in `src/lib/i18n.ts`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
 ### ERP Dashboard Dynamic Accent & Anti-Clash Harmonization (v24.2.0, Roadmap 2.1)
 - [x] **Dynamic KPI cards & highlight icons (`--accent`, `--accent-light`)**:
   - All KPI icon chips, period filter chips, list header accents, empty-state CTAs and footer action buttons are driven by the live accent CSS variables and re-tint instantly with the Color Picasso accent (verified via a runtime accent override in the browser).
@@ -50,6 +141,53 @@
   - [x] Mobile service ticket card stack replacing the desktop table in compact windows (status badges, customer, timesheet totals, quick edit/delete actions).
   - [x] Responsive support header with icon-only primary actions on narrow screens.
 - [x] **Verification**: `npm run lint` and `npm run build` completed successfully.
+
+### Mobile-Window Responsive Transformation (v24.0.0, Phases 1-15)
+- [x] **Phase 1: Login, Lock Screen & Onboarding Mobile Adaptation**:
+  - [x] Adapt Windows 11 Lock Screen for mobile screens & narrow windows (scalable clock, date, responsive swipe-up gesture).
+  - [x] Adapt Login & User Selection screen for compact mobile screens (fluid avatar grid, full-width touch inputs, min 44px buttons).
+  - [x] Adapt First-Time Setup & Password Recovery dialogs (scrollable card layout, touch-friendly question dropdowns, keyboard avoidance).
+- [x] **Phase 2: Desktop Window Manager & Mobile Breakpoint Engine**:
+  - [x] Implement responsive container query width detection & CSS container rules (`.socdof-window-frame`, `@container window (max-width: 580px)`).
+  - [x] Compact mobile titlebar mode (streamlined icon, touch-friendly window controls, title truncation, dynamic minW: 340px resize).
+  - [x] Dynamic smartphone window dimension resizing down to 340px for live mobile testing on desktop.
+- [x] **Phase 3: ERP Dashboard Mobile Layout**:
+  - [x] Transform 4-column KPI grid into responsive container-adaptive vertical touch cards.
+  - [x] Responsive quick-action launchpad and streamlined zero-state onboarding.
+  - [x] Container queries for dual recent activity cards (Invoices & Stock moves).
+- [x] **Phase 4: Invoices & Billing Mobile Layout**:
+  - [x] Invoice list transformation into touch-friendly stack cards with status badges.
+  - [x] Responsive search/filter bar and mobile layout adaptations.
+- [x] **Phase 5: POS & Cash Register Mobile Layout**:
+  - [x] Mobile product grid with touch-friendly tiles and category selector.
+  - [x] Dedicated mobile tab switcher (Katalog vs. Warenkorb) and floating quick-checkout bar.
+- [x] **Phase 6: Accounting, BWA & Taxes Mobile Layout**:
+  - [x] Compact financial summary cards (Revenue, Expenses, Profit) with container query reflow.
+  - [x] Responsive collapsible BWA hierarchy and simplified VAT report table.
+- [x] **Phase 7: Contacts & CRM Mobile Layout**:
+  - [x] Contact cards with 1-tap call/mail direct action buttons and search bar.
+  - [x] Container queries for responsive contact cards grid.
+- [x] **Phase 8: Inventory & Products Mobile Layout**:
+  - [x] Product catalog mobile card stack with stock badges, EK/VK margin summary and 1-tap stock booking.
+  - [x] Mobile category dropdown filter with alert pills.
+- [x] **Phase 9: Purchases & Supplier Orders Mobile Layout**:
+  - [x] Purchase order mobile card stack with status pills, supplier details and quick receipt action.
+  - [x] Responsive KPI summary grid.
+- [x] **Phase 10: Calendar & Appointments Mobile Layout**:
+  - [x] Mobile daily agenda list view with hour markers.
+  - [x] Quick appointment creation bottom sheet.
+- [x] **Phase 11: Support & Time Tracking Mobile Layout**:
+  - [x] Mobile time recording widget and service ticket list.
+- [x] **Phase 12: Praxis & Therapy Mobile Layout**:
+  - [x] Client dossier mobile view with quick session notes and consultation timer.
+  - [x] Mobile appointment overview and mileage logging cards (existing v24 responsive grid/card stacks verified at 380px).
+- [x] **Phase 13: Bug Reports & Feedback Mobile Layout**:
+  - [x] Mobile Discord report composer with direct category selectors and error inspector (verified at 380px — responsive layout already in place from v24.0.0).
+- [x] **Phase 14: Settings & Personalization Mobile Layout**:
+  - [x] Mobile sidebar-to-content navigation with sticky back button and touch sliders (verified at 380px: start page, "Farben & Akzente" design-mode cards, dark-mode toggle — no clipping thanks to the live window auto-fit).
+- [x] **Phase 15: App Store & Documentation Mobile Layout**:
+  - [x] Responsive app cards and mobile book-style documentation reader (verified at 380px: hero stats, scrollable filter/category chips, single-column touch app cards, Handbuch portal incl. new `support_services` chapter).
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
 
 ### Keyboard Shortcuts Hub, Independent Dual-Scroll Layout, Persistent Font Scaling & Dynamic Accent Color Desktop Harmony (v23.19.1)
 - [x] **Clean Window Header & Titlebar Clarity**:

@@ -47,7 +47,14 @@ export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [posOrders, setPosOrders] = useState<POSOrder[]>([]);
-  const [company, setCompany] = useState<CompanyProfile>(defaultCompanyProfile);
+  const [company, setCompany] = useState<CompanyProfile>(() => {
+    const cachedAccent = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null;
+    return {
+      ...defaultCompanyProfile,
+      ...(cachedAccent ? { accent_color: cachedAccent } : {})
+    };
+  });
+  const isInitialDataLoadedRef = useRef<boolean>(false);
   const [isStudioOpen, setIsStudioOpen] = useState<boolean>(false);
 
   const applyThemeMode = useCallback((mode: CompanyProfile['theme_mode']) => {
@@ -168,8 +175,14 @@ export default function App() {
 
       if (settingRecord?.value) {
         const comp = settingRecord.value as CompanyProfile;
+        isInitialDataLoadedRef.current = true;
         setCompany(comp);
-        if (comp.accent_color) applyAccentColor(comp.accent_color);
+        const preferredAccent = comp.accent_color || (typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null) || 'indigo';
+        applyAccentColor(preferredAccent);
+        if (!comp.accent_color || comp.accent_color !== preferredAccent) {
+          comp.accent_color = preferredAccent;
+          await db.settings.put({ key: 'company_profile', value: comp });
+        }
 
         const explicitSavedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_language') : null;
         if (explicitSavedLang && (explicitSavedLang === 'de' || explicitSavedLang === 'en' || explicitSavedLang === 'fr' || explicitSavedLang === 'es')) {
@@ -200,7 +213,9 @@ export default function App() {
           } catch {}
         }
       } else {
-        applyAccentColor('indigo');
+        isInitialDataLoadedRef.current = true;
+        const cachedAccent = (typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null) || 'indigo';
+        applyAccentColor(cachedAccent);
         const current = (getLanguage() || 'de') as LanguageCode;
         setLanguage(current);
         const cachedFontScale = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_font_scale') : null;
@@ -219,7 +234,11 @@ export default function App() {
     const handleCompanyUpdate = (e: Event) => {
       const updated = (e as CustomEvent<CompanyProfile>).detail;
       if (updated) {
+        isInitialDataLoadedRef.current = true;
         setCompany(updated);
+        if (updated.accent_color) {
+          applyAccentColor(updated.accent_color);
+        }
         if (updated.language) {
           setLanguage(updated.language);
         }
@@ -236,6 +255,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!isInitialDataLoadedRef.current) return;
     if (company?.accent_color) applyAccentColor(company.accent_color);
     if (company?.font_scale) document.documentElement.style.fontSize = `${company.font_scale}%`;
   }, [company?.accent_color, company?.font_scale]);
@@ -355,11 +375,21 @@ export default function App() {
   };
 
   const handleUpdateCompany = async (updated: CompanyProfile) => {
+    isInitialDataLoadedRef.current = true;
     setCompany(updated);
     try {
       await db.settings.put({ key: 'company_profile', value: updated });
       if (updated.language) setLanguage(updated.language);
-      if (updated.accent_color) applyAccentColor(updated.accent_color);
+      if (updated.accent_color) {
+        applyAccentColor(updated.accent_color);
+        const session = getSession();
+        if (session && !session.locked) {
+          const user = getUserById(session.userId);
+          if (user && user.preferences.accentColor !== updated.accent_color) {
+            updateUserPreferences(user.id, { ...user.preferences, accentColor: updated.accent_color });
+          }
+        }
+      }
       if (updated.font_scale) document.documentElement.style.fontSize = `${updated.font_scale}%`;
       if (updated.theme_mode) {
         applyThemeMode(updated.theme_mode);

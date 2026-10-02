@@ -130,7 +130,12 @@ function applyUserAppearance(user: UserAccount | null): void {
       // ignore
     }
   }
-  applyAccentColor(user.preferences.accentColor ?? 'indigo');
+  // ACCENT COLOR: If the user account explicitly has an accent color preference, apply it.
+  // Otherwise, respect the saved system / company / localStorage accent color! DO NOT force 'indigo'!
+  const preferredAccent = user.preferences.accentColor || (typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null);
+  if (preferredAccent) {
+    applyAccentColor(preferredAccent);
+  }
   if (user.preferences.wallpaper) {
     root.style.setProperty('--socdof-user-wallpaper', `url("${user.preferences.wallpaper}")`);
     root.style.setProperty('--socdof-user-wallpaper-visible', '1');
@@ -157,11 +162,20 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       const account = session && !session.locked ? getUserById(session.userId) : null;
       setActiveAccount(account);
     };
+    const onAccentOrCompanyChanged = () => {
+      const session = getSession();
+      const account = session && !session.locked ? getUserById(session.userId) : null;
+      applyUserAppearance(account);
+    };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
     window.addEventListener('storage', refreshAccount);
+    window.addEventListener('socdof-company-updated', onAccentOrCompanyChanged);
+    window.addEventListener('socdof-accent-changed', onAccentOrCompanyChanged);
     return () => {
       window.removeEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
       window.removeEventListener('storage', refreshAccount);
+      window.removeEventListener('socdof-company-updated', onAccentOrCompanyChanged);
+      window.removeEventListener('socdof-accent-changed', onAccentOrCompanyChanged);
     };
   }, []);
 

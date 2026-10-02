@@ -9,6 +9,18 @@ if (typeof window !== 'undefined' && pdfjsLib) {
   } catch {}
 }
 
+export interface StationeryTokenField {
+  id: string;
+  tokenKey: string;
+  xPct: number; // 0 - 100% relative to left edge
+  yPct: number; // 0 - 100% relative to top edge
+  widthPct?: number; // optional width boundary
+  fontSize?: number; // font size in px
+  fontWeight?: 'normal' | 'bold';
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
 export interface InvoiceTemplate {
   id: string;
   name: string;
@@ -42,6 +54,11 @@ export interface InvoiceTemplate {
   useCustomLayout: boolean;
   customBodyTemplate?: string;
   showFoldMarks?: boolean;
+  // Stationery / Briefpapier background & visual placement
+  stationeryMode?: boolean;
+  stationeryPdfUrl?: string;
+  stationeryImageUrl?: string;
+  stationeryTokens?: StationeryTokenField[];
   createdAt: string;
 }
 
@@ -699,6 +716,34 @@ export function generateInvoiceHtml(
     ? '"JetBrains Mono", Consolas, "Courier New", Courier, monospace' 
     : 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
+  // 0. If Stationery mode is used (PDF / Image Briefpapier mit visueller Platzierung)
+  if (template.stationeryMode && (template.stationeryPdfUrl || template.stationeryImageUrl)) {
+    const bgUrl = template.stationeryImageUrl || template.stationeryPdfUrl;
+    const tokens = template.stationeryTokens || [];
+
+    const tokenHtml = tokens.map(tok => {
+      const val = vars[tok.tokenKey] || tok.tokenKey;
+      const left = `${tok.xPct.toFixed(2)}%`;
+      const top = `${tok.yPct.toFixed(2)}%`;
+      const width = tok.widthPct ? `${tok.widthPct.toFixed(2)}%` : 'auto';
+      const fontSize = tok.fontSize ? `${tok.fontSize}px` : '13px';
+      const fontWeight = tok.fontWeight || 'normal';
+      const tokColor = tok.color || '#0f172a';
+      const align = tok.align || 'left';
+
+      return `<div style="position: absolute; left: ${left}; top: ${top}; width: ${width}; font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${tokColor}; text-align: ${align}; line-height: 1.4; word-break: break-word;">${val}</div>`;
+    }).join('\n');
+
+    return `
+      <div class="stationery-container" style="position: relative; width: 210mm; min-height: 297mm; max-width: 100%; margin: 0 auto; background: #ffffff; overflow: hidden; font-family: ${font}; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <img src="${bgUrl}" alt="Briefpapier" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;" />
+        <div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 2;">
+          ${tokenHtml}
+        </div>
+      </div>
+    `;
+  }
+
   // 1. If custom body template is used
   if (template.useCustomLayout && template.customBodyTemplate) {
     let html = template.customBodyTemplate;
@@ -1013,7 +1058,73 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
     }
   }
 
-  const rowsHtml: string[] = [];
+  // Pre-calculate vertical merges across rows (w:vMerge AST resolution)
+  interface CellMeta {
+    tc: Element;
+    colSpan: number;
+    rowSpan: number;
+    skip: boolean;
+    colIdx: number;
+  }
+
+  const matrix: CellMeta[][] = [];
+  const activeMerges: Map<number, { masterRow: number; masterCol: number }> = new Map();
+
+  for (let rIdx = 0; rIdx < trs.length; rIdx++) {
+    const tr = trs[rIdx];
+    const tcs = getDirectChildrenByTagName(tr, 'w:tc');
+    const rowCells: CellMeta[] = [];
+    let currentGridCol = 0;
+
+    for (let cIdx = 0; cIdx < tcs.length; cIdx++) {
+      const tc = tcs[cIdx];
+      const tcPr = tc.getElementsByTagName('w:tcPr')[0];
+      let colSpan = 1;
+
+      if (tcPr) {
+        const gridSpan = tcPr.getElementsByTagName('w:gridSpan')[0];
+        if (gridSpan) {
+          colSpan = parseInt(gridSpan.getAttribute('w:val') || '1', 10);
+        }
+      }
+
+      const vMerge = tcPr ? tcPr.getElementsByTagName('w:vMerge')[0] : null;
+      let isSkip = false;
+
+      if (vMerge) {
+        const val = vMerge.getAttribute('w:val');
+        if (val === 'restart') {
+          // Starts a new vertical merge span
+          activeMerges.set(currentGridCol, { masterRow: rIdx, masterCol: rowCells.length });
+        } else {
+          // Continues an active merge
+          const active = activeMerges.get(currentGridCol);
+          if (active) {
+            matrix[active.masterRow][active.masterCol].rowSpan += 1;
+            isSkip = true;
+          }
+        }
+      } else {
+        // Clears any merge on this column
+        activeMerges.delete(currentGridCol);
+      }
+
+      rowCells.push({
+        tc,
+        colSpan,
+        rowSpan: 1,
+        skip: isSkip,
+        colIdx: currentGridCol
+      });
+
+      currentGridCol += colSpan;
+    }
+
+    matrix.push(rowCells);
+  }
+
+  const theadRows: string[] = [];
+  const tbodyRows: string[] = [];
 
   for (let rIdx = 0; rIdx < trs.length; rIdx++) {
     yieldCounter.count++;
@@ -1022,22 +1133,22 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
     }
 
     const tr = trs[rIdx];
-    const tcs = getDirectChildrenByTagName(tr, 'w:tc');
     const isHeaderRow = rIdx === 0 || tr.getElementsByTagName('w:tblHeader').length > 0;
+    const rowMeta = matrix[rIdx];
 
     const cellsHtml: string[] = [];
-    for (let cIdx = 0; cIdx < tcs.length; cIdx++) {
-      const tc = tcs[cIdx];
+    for (let cIdx = 0; cIdx < rowMeta.length; cIdx++) {
+      const cellMeta = rowMeta[cIdx];
+      if (cellMeta.skip) continue; // Continuing vertical merge
+
+      const tc = cellMeta.tc;
       const tcPr = tc.getElementsByTagName('w:tcPr')[0];
-      let colSpan = 1;
       let cellBg = '';
       let cellWidthPct = '';
+      let vAlign = 'top';
+      const cellBorderOverrides: string[] = [];
 
       if (tcPr) {
-        const gridSpan = tcPr.getElementsByTagName('w:gridSpan')[0];
-        if (gridSpan) {
-          colSpan = parseInt(gridSpan.getAttribute('w:val') || '1', 10);
-        }
         const shd = tcPr.getElementsByTagName('w:shd')[0];
         if (shd) {
           const fill = shd.getAttribute('w:fill');
@@ -1048,14 +1159,33 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
           const wVal = parseInt(tcW.getAttribute('w:w') || '0', 10);
           if (wVal > 0) cellWidthPct = `${Math.round((wVal / totalGridWidth) * 100)}%`;
         }
+        const vAlignNode = tcPr.getElementsByTagName('w:vAlign')[0];
+        if (vAlignNode) {
+          const vVal = vAlignNode.getAttribute('w:val');
+          if (vVal === 'center') vAlign = 'middle';
+          else if (vVal === 'bottom') vAlign = 'bottom';
+        }
+        // Custom cell borders
+        const tcBorders = tcPr.getElementsByTagName('w:tcBorders')[0];
+        if (tcBorders) {
+          const bTop = tcBorders.getElementsByTagName('w:top')[0];
+          const bBottom = tcBorders.getElementsByTagName('w:bottom')[0];
+          if (bTop && (bTop.getAttribute('w:val') === 'none' || bTop.getAttribute('w:val') === 'nil')) {
+            cellBorderOverrides.push('border-top: none');
+          }
+          if (bBottom && (bBottom.getAttribute('w:val') === 'none' || bBottom.getAttribute('w:val') === 'nil')) {
+            cellBorderOverrides.push('border-bottom: none');
+          }
+        }
       }
 
+      // Check for nested tables or container content
       let cellContent = (await parseDocxXmlContainerAsync(tc, yieldCounter)).trim();
       if (!cellContent) cellContent = '&nbsp;';
 
       const styleParts: string[] = [
         'padding: 8px 10px',
-        'vertical-align: top',
+        `vertical-align: ${vAlign}`,
         'font-size: 12px',
         'line-height: 1.4'
       ];
@@ -1064,6 +1194,10 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
         styleParts.push('border: 1px solid #cbd5e1');
       } else {
         styleParts.push('border: none');
+      }
+
+      if (cellBorderOverrides.length > 0) {
+        styleParts.push(...cellBorderOverrides);
       }
 
       if (cellBg) {
@@ -1075,11 +1209,32 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
       if (cellWidthPct) styleParts.push(`width: ${cellWidthPct}`);
 
       const tag = isHeaderRow ? 'th' : 'td';
-      const colSpanAttr = colSpan > 1 ? ` colspan="${colSpan}"` : '';
-      cellsHtml.push(`<${tag}${colSpanAttr} style="${styleParts.join('; ')}">${cellContent}</${tag}>`);
+      const colSpanAttr = cellMeta.colSpan > 1 ? ` colspan="${cellMeta.colSpan}"` : '';
+      const rowSpanAttr = cellMeta.rowSpan > 1 ? ` rowspan="${cellMeta.rowSpan}"` : '';
+      cellsHtml.push(`<${tag}${colSpanAttr}${rowSpanAttr} style="${styleParts.join('; ')}">${cellContent}</${tag}>`);
     }
 
-    rowsHtml.push(`  <tr>\n    ${cellsHtml.join('\n    ')}\n  </tr>`);
+    const trPr = tr.getElementsByTagName('w:trPr')[0];
+    const trStyleParts: string[] = [];
+    if (trPr) {
+      if (trPr.getElementsByTagName('w:cantSplit').length > 0) {
+        trStyleParts.push('page-break-inside: avoid', 'break-inside: avoid');
+      }
+      const trShd = trPr.getElementsByTagName('w:shd')[0];
+      if (trShd) {
+        const fill = trShd.getAttribute('w:fill');
+        if (fill && fill !== 'auto' && fill !== 'none') {
+          trStyleParts.push(`background-color: #${fill}`);
+        }
+      }
+    }
+    const trStyleAttr = trStyleParts.length > 0 ? ` style="${trStyleParts.join('; ')}"` : '';
+    const trHtml = `  <tr${trStyleAttr}>\n    ${cellsHtml.join('\n    ')}\n  </tr>`;
+    if (isHeaderRow) {
+      theadRows.push(trHtml);
+    } else {
+      tbodyRows.push(trHtml);
+    }
   }
 
   const tblStyleParts: string[] = [
@@ -1087,11 +1242,16 @@ async function parseDocxTableAsync(tblNode: Element, yieldCounter = { count: 0 }
     'border-collapse: collapse',
     'margin-top: 12px',
     'margin-bottom: 16px',
-    'font-size: 13px'
+    'font-size: 13px',
+    'page-break-inside: auto',
+    'break-inside: auto'
   ];
   if (tblBg) tblStyleParts.push(`background-color: ${tblBg}`);
 
-  return `<table style="${tblStyleParts.join('; ')}">\n${rowsHtml.join('\n')}\n</table>`;
+  const theadBlock = theadRows.length > 0 ? `<thead>\n${theadRows.join('\n')}\n</thead>\n` : '';
+  const tbodyBlock = `<tbody>\n${tbodyRows.join('\n')}\n</tbody>`;
+
+  return `<table style="${tblStyleParts.join('; ')}">\n${theadBlock}${tbodyBlock}\n</table>`;
 }
 
 function getDocxRuns(pNode: Element): Element[] {
@@ -1163,7 +1323,15 @@ function parseDocxParagraph(pNode: Element): string {
     const tNodes = Array.from(r.getElementsByTagName('w:t'));
     let text = tNodes.map(t => t.textContent || '').join('');
 
-    if (!text && r.getElementsByTagName('w:br').length > 0) {
+    const brs = Array.from(r.getElementsByTagName('w:br'));
+    const isPageBreak = brs.some(br => br.getAttribute('w:type') === 'page') || r.getElementsByTagName('w:lastRenderedPageBreak').length > 0;
+
+    if (isPageBreak) {
+      runHtmlParts.push('<div class="docx-page-break" style="page-break-after: always; break-after: page; height: 0; line-height: 0; margin: 0; padding: 0;"></div>');
+      continue;
+    }
+
+    if (!text && brs.length > 0) {
       runHtmlParts.push('<br/>');
       continue;
     }
@@ -1395,3 +1563,42 @@ export async function readUploadedTemplateFile(
     detectedVariables: [...recognized, ...unrecognized]
   };
 }
+
+/**
+ * Renders the first page of a PDF document to a high-resolution base64 PNG data URL
+ * Suitable for stationery background letterheads (Briefpapier)
+ */
+export async function renderPdfFirstPageToImageAsync(dataOrBuffer: ArrayBuffer | Uint8Array | File): Promise<string> {
+  let arrayBuffer: ArrayBuffer;
+  if (dataOrBuffer instanceof File) {
+    arrayBuffer = await dataOrBuffer.arrayBuffer();
+  } else if (dataOrBuffer instanceof Uint8Array) {
+    arrayBuffer = dataOrBuffer.buffer.slice(dataOrBuffer.byteOffset, dataOrBuffer.byteOffset + dataOrBuffer.byteLength);
+  } else {
+    arrayBuffer = dataOrBuffer;
+  }
+
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdfDoc = await loadingTask.promise;
+  const page = await pdfDoc.getPage(1);
+
+  // Render at 2.0 scale for crisp high-DPI display and print fidelity
+  const viewport = page.getViewport({ scale: 2.0 });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  const canvasContext = canvas.getContext('2d');
+
+  if (!canvasContext) {
+    throw new Error('Canvas 2D context unavailable');
+  }
+
+  await (page.render as any)({
+    canvasContext,
+    viewport,
+    canvas
+  }).promise;
+
+  return canvas.toDataURL('image/png');
+}
+

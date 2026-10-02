@@ -307,7 +307,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                 return (
                   <div key={d.monthKey} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                     {/* Tooltip on hover with European number format: 10.010,00 € or 1.000.000,00 € */}
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-slate-900 text-white text-[11px] rounded-lg px-2.5 py-1 shadow-lg whitespace-nowrap z-10 font-medium">
+                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white border border-slate-200/90 dark:border-slate-800 text-[11px] rounded-lg px-2.5 py-1 shadow-lg whitespace-nowrap z-10 font-medium">
                       {d.label}: {formatCurrencyDE(d.revenue, currency)} ({formatIntegerDE(d.sessions)} {lang === 'de' ? (d.sessions === 1 ? 'Sitzung' : 'Sitzungen') : (d.sessions === 1 ? 'session' : 'sessions')})
                     </div>
 

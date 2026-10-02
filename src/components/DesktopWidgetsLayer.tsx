@@ -407,7 +407,7 @@ export const DesktopWidgetsLayer: React.FC<DesktopWidgetsLayerProps> = ({
                 sounds.playClick();
                 setSettingsWidget(widget);
               }}
-              className="p-1.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 text-white backdrop-blur-md transition cursor-pointer shadow-xs hover:scale-105"
+              className="p-1.5 rounded-xl bg-white/90 dark:bg-slate-900/70 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-white border border-slate-200/80 dark:border-white/10 backdrop-blur-md transition cursor-pointer shadow-xs hover:scale-105"
               title={t('widgets.context_settings', currentLang, 'Widget-Einstellungen')}
             >
               <Settings className="w-3.5 h-3.5" />

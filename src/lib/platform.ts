@@ -27,6 +27,18 @@ export interface ElectronAPI {
   selectBackupFolder?: () => Promise<{ canceled: boolean; folderPath?: string; error?: string }>;
   openBackupFolder?: (targetPath?: string) => Promise<{ success: boolean; path?: string; error?: string }>;
   saveBackupFileToDisk?: (payload: { folderPath?: string; fileName: string; content: string }) => Promise<{ success: boolean; fullPath?: string; error?: string }>;
+  toggleFullscreen?: () => Promise<boolean>;
+  setFullscreen?: (flag: boolean) => Promise<boolean>;
+  isFullscreen?: () => Promise<boolean>;
+  minimizeWindow?: () => Promise<boolean>;
+  maximizeWindow?: () => Promise<boolean>;
+  unmaximizeWindow?: () => Promise<boolean>;
+  isMaximized?: () => Promise<boolean>;
+  getTemplatesFolderPath?: () => Promise<string>;
+  openTemplatesFolder?: () => Promise<{ success: boolean; path?: string }>;
+  listExternalTemplates?: () => Promise<{ success: boolean; path?: string; templates: Array<{ filename: string; path: string; size: number; updatedAt: string; ext: string }>; error?: string }>;
+  readExternalTemplateFile?: (filename: string) => Promise<{ success: boolean; filename?: string; path?: string; size?: number; base64?: string; ext?: string; error?: string }>;
+  onTemplatesFolderChanged?: (callback: (data: { eventType: string; filename: string }) => void) => () => void;
 }
 
 declare global {

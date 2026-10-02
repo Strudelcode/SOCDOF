@@ -341,25 +341,29 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       <div className="flex border-b border-slate-200 dark:border-slate-800 text-xs font-semibold gap-4">
         <button
           onClick={() => { sounds.playClick(); setActiveTab('bwa'); }}
-          className={`pb-2.5 transition border-b-2 ${activeTab === 'bwa' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          style={activeTab === 'bwa' ? { borderColor: 'var(--accent, #4f46e5)', color: 'var(--accent, #4f46e5)' } : undefined}
+          className={`pb-2.5 transition border-b-2 ${activeTab === 'bwa' ? 'font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
         >
           {t('accounting.tab_bwa', undefined, 'P&L Statement (BWA)')}
         </button>
         <button
           onClick={() => { sounds.playClick(); setActiveTab('ustva'); }}
-          className={`pb-2.5 transition border-b-2 ${activeTab === 'ustva' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          style={activeTab === 'ustva' ? { borderColor: 'var(--accent, #4f46e5)', color: 'var(--accent, #4f46e5)' } : undefined}
+          className={`pb-2.5 transition border-b-2 ${activeTab === 'ustva' ? 'font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
         >
           {t('accounting.tab_ustva', undefined, 'VAT Advance Return (UStVA)')}
         </button>
         <button
           onClick={() => { sounds.playClick(); setActiveTab('open_items'); }}
-          className={`pb-2.5 transition border-b-2 ${activeTab === 'open_items' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          style={activeTab === 'open_items' ? { borderColor: 'var(--accent, #4f46e5)', color: 'var(--accent, #4f46e5)' } : undefined}
+          className={`pb-2.5 transition border-b-2 ${activeTab === 'open_items' ? 'font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
         >
           {t('accounting.tab_open_items', undefined, 'Open Items (OPOS)')} ({openInvoices.length})
         </button>
         <button
           onClick={() => { sounds.playClick(); setActiveTab('z_bon'); }}
-          className={`pb-2.5 transition border-b-2 ${activeTab === 'z_bon' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          style={activeTab === 'z_bon' ? { borderColor: 'var(--accent, #4f46e5)', color: 'var(--accent, #4f46e5)' } : undefined}
+          className={`pb-2.5 transition border-b-2 ${activeTab === 'z_bon' ? 'font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
         >
           {t('module.pos', undefined, 'POS Z-Tape Report')}
         </button>

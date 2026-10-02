@@ -790,16 +790,21 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               sounds.playClick();
               setIsTemplateModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-2xs transition cursor-pointer active:scale-95"
+            style={{
+              backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))',
+              color: 'var(--accent, #4f46e5)',
+              borderColor: 'var(--accent-ring, rgba(79, 70, 229, 0.25))'
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border shadow-2xs transition cursor-pointer active:scale-95"
             title={t('invoice.templates_tooltip', undefined, 'Rechnungsvorlagen, DIN 5008 Layout, Firmenlogo und Variablen bearbeiten')}
           >
-            <Layout className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <Layout className="w-3.5 h-3.5" style={{ color: 'var(--accent, #4f46e5)' }} />
             <span className="hidden sm:inline">{t('invoice.btn_templates', undefined, 'Vorlagen & Layout')}</span>
             <span className="sm:hidden">{t('invoice.btn_templates_short', undefined, 'Vorlagen')}</span>
           </button>
 
           <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs transition cursor-pointer active:scale-95">
-            <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <Upload className="w-3.5 h-3.5" style={{ color: 'var(--accent, #4f46e5)' }} />
             <span className="hidden sm:inline">XML / FatturaPA importieren</span>
             <span className="sm:hidden">XML Import</span>
             <input
@@ -818,7 +823,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
               initNewInvoice(preselectedContactId);
               onOpenCreate?.(preselectedContactId);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-sm transition shrink-0 cursor-pointer"
+            style={{
+              backgroundColor: 'var(--accent, #4f46e5)',
+              color: '#ffffff'
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 active:scale-95 text-xs font-semibold rounded-xl shadow-sm transition shrink-0 cursor-pointer hover:opacity-90"
           >
             <Plus className="w-4 h-4" />
             <span>{t('invoice.new_invoice', undefined, 'Neue Rechnung')}</span>
@@ -1877,7 +1886,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handlePostInvoice()}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
+                  style={{
+                    backgroundColor: 'var(--accent, #4f46e5)',
+                    color: '#ffffff'
+                  }}
+                  className="px-5 py-2 hover:opacity-90 active:scale-95 text-xs font-semibold rounded-xl shadow-xs transition"
                 >
                   {t('invoice.modal_btn_post', undefined, 'Rechnung freigeben & Buchen (Post)')}
                 </button>

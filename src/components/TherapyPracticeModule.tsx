@@ -316,8 +316,8 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
       <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700 text-xs font-semibold animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 text-xs font-semibold animate-fade-in backdrop-blur-md">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}

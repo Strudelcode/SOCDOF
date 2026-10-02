@@ -147,7 +147,7 @@ import {
 import { StorageInspectorView } from './StorageInspectorView';
 import { StorageAsset, DesktopFolder } from '../types';
 import { StorageAssetPreviewModal } from './StorageAssetPreviewModal';
-import { getCurrentUser, verifyPassword, resetAuthSystem, type UserAccount } from '../lib/auth';
+import { getCurrentUser, getUserById, getSession, updateUserPreferences, verifyPassword, resetAuthSystem, type UserAccount } from '../lib/auth';
 import { UserManagementSettings } from './UserManagementSettings';
 import { DisplaySettingsSection } from './DisplaySettingsSection';
 
@@ -251,6 +251,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [terminalTesting, setTerminalTesting] = useState(false);
   const [terminalTestResult, setTerminalTestResult] = useState<string | null>(null);
   const [shortcutSearch, setShortcutSearch] = useState('');
+  const [startFullscreenPref, setStartFullscreenPref] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('socdof_start_fullscreen') !== 'false';
+    } catch {
+      return true;
+    }
+  });
 
   // Normalize profile for accurate dirty detection
   const normalizeProfileForComparison = (p?: Partial<CompanyProfile> | null): string => {
@@ -271,6 +278,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   useEffect(() => {
     savedBaselineRef.current = normalizeProfileForComparison(company);
+    if (company) {
+      setProfile(prev => {
+        // If user hasn't made unsaved changes in this session, keep profile in sync with company updates
+        if (normalizeProfileForComparison(prev) === savedBaselineRef.current) {
+          return { ...(company || {}), name: company?.name || 'Ihr Firmenname' };
+        }
+        return prev;
+      });
+    }
   }, [company]);
 
   // Detect Unsaved Changes - true only when user actually changed something
@@ -776,6 +792,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       
       if (updatedProfile.accent_color) {
         applyAccentColor(updatedProfile.accent_color);
+        try {
+          localStorage.setItem('socdof_accent_color', updatedProfile.accent_color);
+        } catch {}
+        const session = getSession();
+        if (session && !session.locked) {
+          const user = getUserById(session.userId);
+          if (user && user.preferences.accentColor !== updatedProfile.accent_color) {
+            updateUserPreferences(user.id, { ...user.preferences, accentColor: updatedProfile.accent_color });
+          }
+        }
       }
       if (updatedProfile.language) {
         setLanguage(updatedProfile.language);
@@ -789,6 +815,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
       await db.settings.put({ key: 'company_profile', value: updatedProfile });
       onUpdateCompany(updatedProfile);
+      try {
+        window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedProfile }));
+      } catch {}
       sounds.playSuccess();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2000);
@@ -3462,8 +3491,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                               value={(profile.accent_color?.startsWith('#') ? profile.accent_color : profile.accent_color?.startsWith('custom_') ? `#${profile.accent_color.replace('custom_', '')}` : '#4f46e5')}
                               onChange={(e) => {
                                 const newHex = e.target.value;
-                                setProfile(prev => ({ ...prev, accent_color: `custom_${newHex.replace('#', '')}` }));
-                                applyAccentColor(`custom_${newHex.replace('#', '')}`);
+                                const customAccent = `custom_${newHex.replace('#', '')}`;
+                                setProfile(prev => ({ ...prev, accent_color: customAccent }));
+                                applyAccentColor(customAccent);
+                                handleSaveProfile({ accent_color: customAccent });
                               }}
                               className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0"
                               title="Farbwähler öffnen"
@@ -3482,8 +3513,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             onClick={() => {
                               const quickColors = ['#ec4899', '#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#e11d48', '#3b82f6', '#14b8a6'];
                               const randomColor = quickColors[Math.floor(Math.random() * quickColors.length)];
-                              setProfile(prev => ({ ...prev, accent_color: `custom_${randomColor.replace('#', '')}` }));
-                              applyAccentColor(`custom_${randomColor.replace('#', '')}`);
+                              const customAccent = `custom_${randomColor.replace('#', '')}`;
+                              setProfile(prev => ({ ...prev, accent_color: customAccent }));
+                              applyAccentColor(customAccent);
+                              handleSaveProfile({ accent_color: customAccent });
                               sounds.playClick();
                             }}
                             className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-semibold transition flex items-center gap-1 cursor-pointer"
@@ -3507,6 +3540,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                                 sounds.playClick();
                                 setProfile(prev => ({ ...prev, accent_color: c.id }));
                                 applyAccentColor(c.id);
+                                handleSaveProfile({ accent_color: c.id });
                               }}
                               className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition group cursor-pointer ${
                                 isSelected 
@@ -5972,14 +6006,47 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   {t('desktop.fullscreen_desc', currentLang, 'SOCDOF nahtlos über den gesamten physischen Monitor ohne Titelleisten oder Fensterränder anzeigen. Nutzen Sie die Taste F11 jederzeit zum Umschalten.')}
                 </p>
 
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/50">
+                  <div className="space-y-0.5 max-w-md">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                      {t('settings.start_fullscreen_title', currentLang, 'Standardmäßig im Vollbildmodus starten')}
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                      {t('settings.start_fullscreen_desc', currentLang, 'Startet SOCDOF automatisch randlos über den gesamten Bildschirm bis zu den Kanten ohne störende Windows-Taskleiste.')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      const next = !startFullscreenPref;
+                      setStartFullscreenPref(next);
+                      try {
+                        localStorage.setItem('socdof_start_fullscreen', String(next));
+                      } catch {}
+                    }}
+                    style={startFullscreenPref ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      startFullscreenPref ? '' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        startFullscreenPref ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-3 pt-1">
                   {onToggleFullscreen && (
                     <button
                       onClick={onToggleFullscreen}
+                      style={!isFullscreen ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
                       className={`px-4 py-2 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer ${
                         isFullscreen
                           ? 'bg-slate-700 hover:bg-slate-600 text-white'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                          : 'hover:brightness-110 text-white'
                       }`}
                     >
                       {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

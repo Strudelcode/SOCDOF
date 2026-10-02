@@ -440,6 +440,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     show: false, // Prevents white/black flashing and unresponsive initial frame detection
+    fullscreen: true, // Default to true fullscreen edge-to-edge covering Windows taskbar
     title: 'SOCDOF - Strudel\'s Organization, Commerce & Documentation Offline Flow',
     icon: process.platform === 'win32'
       ? path.join(__dirname, '../public/socdof_icon.ico')
@@ -460,6 +461,7 @@ function createWindow() {
   // Reveal window once first paint is completed and DOM is ready
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) {
+      mainWindow.setFullScreen(true);
       mainWindow.show();
     }
   });
@@ -557,9 +559,54 @@ ipcMain.handle('socdof:toggle-fullscreen', () => {
   return false;
 });
 
+ipcMain.handle('socdof:set-fullscreen', (event, flag) => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(!!flag);
+    return mainWindow.isFullScreen();
+  }
+  return false;
+});
+
 ipcMain.handle('socdof:is-fullscreen', () => {
   if (mainWindow) {
     return mainWindow.isFullScreen();
+  }
+  return false;
+});
+
+ipcMain.handle('socdof:minimize-window', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('socdof:maximize-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    }
+    mainWindow.maximize();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('socdof:unmaximize-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    }
+    mainWindow.unmaximize();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('socdof:is-maximized', () => {
+  if (mainWindow) {
+    return mainWindow.isMaximized();
   }
   return false;
 });
@@ -981,6 +1028,143 @@ ipcMain.handle('socdof:save-local-language-file', async (_event, payload) => {
   }
 });
 
+// Templates directory manager (%APPDATA%/socdof/templates or local folder)
+function getTemplatesDirectory() {
+  if (process.env.SOCDOF_TEMPLATES_DIR && fs.existsSync(process.env.SOCDOF_TEMPLATES_DIR)) {
+    return process.env.SOCDOF_TEMPLATES_DIR;
+  }
+  try {
+    const exeDir = path.dirname(process.execPath);
+    const exeTplDir = path.join(exeDir, 'templates');
+    if (fs.existsSync(exeTplDir)) return exeTplDir;
+  } catch {}
+  try {
+    const cwd = process.cwd();
+    if (cwd && !cwd.toLowerCase().includes('system32') && cwd.length > 3) {
+      const cwdTplDir = path.join(cwd, 'templates');
+      if (fs.existsSync(cwdTplDir)) return cwdTplDir;
+    }
+  } catch {}
+  const tplDir = path.join(app.getPath('userData'), 'templates');
+  if (!fs.existsSync(tplDir)) {
+    try {
+      fs.mkdirSync(tplDir, { recursive: true });
+    } catch {}
+  }
+  return tplDir;
+}
+
+function ensureTemplatesReadme() {
+  const tplDir = getTemplatesDirectory();
+  const readmePath = path.join(tplDir, 'README.txt');
+  if (!fs.existsSync(readmePath)) {
+    try {
+      fs.writeFileSync(readmePath, `SOCDOF External Invoice & Document Templates Directory
+======================================================
+Directory: ${tplDir}
+
+Place external Office templates, letterheads or background PDFs here:
+- Microsoft Word Document (.docx / .doc)
+- Adobe PDF Background Stationery (.pdf)
+- JSON Invoice Templates (.json)
+- HTML Template Layouts (.html)
+
+SOCDOF automatically watches this folder and synchronizes all files into your template library.
+`, 'utf8');
+    } catch {}
+  }
+}
+
+let templatesWatcher = null;
+function setupTemplatesWatcher() {
+  try {
+    const tplDir = getTemplatesDirectory();
+    ensureTemplatesReadme();
+    if (templatesWatcher) {
+      try { templatesWatcher.close(); } catch {}
+    }
+    templatesWatcher = fs.watch(tplDir, { persistent: false }, (eventType, filename) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('socdof:templates-folder-changed', { eventType, filename });
+      }
+    });
+  } catch (err) {
+    console.warn('Could not setup templates watcher:', err);
+  }
+}
+
+ipcMain.handle('socdof:get-templates-folder-path', () => {
+  return getTemplatesDirectory();
+});
+
+ipcMain.handle('socdof:open-templates-folder', async () => {
+  const tplDir = getTemplatesDirectory();
+  ensureTemplatesReadme();
+  setupTemplatesWatcher();
+  await shell.openPath(tplDir);
+  return { success: true, path: tplDir };
+});
+
+ipcMain.handle('socdof:list-external-templates', async () => {
+  try {
+    const tplDir = getTemplatesDirectory();
+    ensureTemplatesReadme();
+    if (!fs.existsSync(tplDir)) return { success: true, templates: [] };
+
+    const files = fs.readdirSync(tplDir);
+    const validExtensions = ['.docx', '.doc', '.pdf', '.json', '.html', '.htm'];
+    const results = [];
+
+    for (const f of files) {
+      if (f.toLowerCase() === 'readme.txt') continue;
+      const ext = path.extname(f).toLowerCase();
+      if (!validExtensions.includes(ext)) continue;
+
+      const fullPath = path.join(tplDir, f);
+      try {
+        const stats = fs.statSync(fullPath);
+        if (stats.isFile()) {
+          results.push({
+            filename: f,
+            path: fullPath,
+            size: stats.size,
+            updatedAt: stats.mtime.toISOString(),
+            ext: ext.replace('.', '')
+          });
+        }
+      } catch {}
+    }
+
+    return { success: true, path: tplDir, templates: results };
+  } catch (err) {
+    console.error('Failed to list external templates:', err);
+    return { success: false, error: err.message, templates: [] };
+  }
+});
+
+ipcMain.handle('socdof:read-external-template-file', async (_event, filename) => {
+  try {
+    const tplDir = getTemplatesDirectory();
+    const cleanFilename = path.basename(filename);
+    const fullPath = path.join(tplDir, cleanFilename);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`File not found: ${cleanFilename}`);
+    }
+    const buffer = fs.readFileSync(fullPath);
+    const base64 = buffer.toString('base64');
+    return {
+      success: true,
+      filename: cleanFilename,
+      path: fullPath,
+      size: buffer.length,
+      base64,
+      ext: path.extname(cleanFilename).toLowerCase().replace('.', '')
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // Persistent Desktop Preferences (%APPDATA%/socdof/preferences.json)
 function getPreferencesFilePath() {
   const userDataDir = app.getPath('userData');
@@ -1253,6 +1437,7 @@ app.whenReady().then(() => {
       getBackupDirectory();
       ensureDefaultLanguageFiles();
       setupLanguagesFolderWatcher();
+      setupTemplatesWatcher();
     } catch (e) {
       console.warn('Background init error:', e);
     }

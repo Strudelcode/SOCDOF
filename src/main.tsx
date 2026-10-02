@@ -3,9 +3,13 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initPlatformEnvironment } from './lib/platform';
+import { applyAccentColor } from './lib/accent';
 
 // Initialize platform title and favicon
 initPlatformEnvironment();
+
+// Pre-initialize and apply saved accent color before any component mounts
+applyAccentColor();
 
 // Prevent unwanted touchpad pinch-to-zoom and Ctrl+wheel zoom on the web application
 if (typeof window !== 'undefined') {

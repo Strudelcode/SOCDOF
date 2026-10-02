@@ -166,14 +166,33 @@ export const ACCENT_PRESETS: Record<string, AccentPreset> = {
 
 export const ACCENT_LIST: AccentPreset[] = Object.values(ACCENT_PRESETS);
 
+export const SOCDOF_ACCENT_EVENT = 'socdof-accent-changed';
+
 export function getAccentPreset(id?: string): AccentPreset {
-  if (!id) return ACCENT_PRESETS.indigo;
-  if (ACCENT_PRESETS[id]) {
-    return ACCENT_PRESETS[id];
+  let effectiveId = id;
+  if (!effectiveId && typeof localStorage !== 'undefined') {
+    try {
+      effectiveId = localStorage.getItem('socdof_accent_color') || undefined;
+    } catch {}
   }
+  if (!effectiveId) return ACCENT_PRESETS.indigo;
+
+  const lowerId = effectiveId.toLowerCase();
+  if (ACCENT_PRESETS[lowerId]) {
+    return ACCENT_PRESETS[lowerId];
+  }
+  // Check if it matches any preset hex
+  const matchedByHex = Object.values(ACCENT_PRESETS).find(
+    p => p.hex.toLowerCase() === lowerId || p.hex.toLowerCase() === `#${lowerId.replace('#', '')}`
+  );
+  if (matchedByHex) {
+    return matchedByHex;
+  }
+
   // Check if it's a custom hex string or custom id
-  if (id.startsWith('custom_') || id.startsWith('#')) {
-    const hex = id.startsWith('custom_') ? `#${id.replace('custom_', '')}` : id;
+  if (lowerId.startsWith('custom_') || lowerId.startsWith('#') || /^[0-9a-f]{3,8}$/i.test(lowerId)) {
+    const clean = lowerId.replace('custom_', '').replace('#', '');
+    const hex = `#${clean}`;
     return generateCustomAccent(hex, 'Color Picasso (Benutzerdefiniert)');
   }
   return ACCENT_PRESETS.indigo;
@@ -269,6 +288,11 @@ export function applyAccentColor(accentId?: string): AccentPreset {
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', preset.hex);
     }
+
+    // Broadcast accent update across workspace components
+    try {
+      window.dispatchEvent(new CustomEvent(SOCDOF_ACCENT_EVENT, { detail: preset }));
+    } catch {}
   }
 
   return preset;

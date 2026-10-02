@@ -26,10 +26,17 @@ import {
   Boxes,
   ChevronDown,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Folder,
+  RefreshCw,
+  Layers,
+  Sliders,
+  Move,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   InvoiceTemplate, 
+  StationeryTokenField,
   DEFAULT_INVOICE_TEMPLATES, 
   AVAILABLE_INVOICE_VARIABLES, 
   getStoredInvoiceTemplates, 
@@ -39,11 +46,13 @@ import {
   scanTemplateVariables,
   generateInvoiceHtml,
   exportInvoiceToWord,
-  readUploadedTemplateFile
+  readUploadedTemplateFile,
+  renderPdfFirstPageToImageAsync
 } from '../lib/invoiceTemplateManager';
 import { Invoice, CompanyProfile } from '../types';
 import { useLanguage, t } from '../lib/i18n';
 import { sounds } from '../lib/sound';
+import { isElectron } from '../lib/platform';
 
 interface InvoiceTemplateModalProps {
   isOpen: boolean;
@@ -77,7 +86,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const [templates, setTemplates] = useState<InvoiceTemplate[]>(getStoredInvoiceTemplates);
   const [activeId, setActiveId] = useState<string>(getActiveInvoiceTemplateId);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(getActiveInvoiceTemplateId);
-  const [currentTab, setCurrentTab] = useState<'design' | 'content' | 'company' | 'variables' | 'import'>('design');
+  const [currentTab, setCurrentTab] = useState<'design' | 'content' | 'company' | 'variables' | 'import' | 'stationery'>('design');
   
   // Active editing draft
   const currentTemplate = templates.find(t => t.id === selectedTemplateId) || templates[0] || DEFAULT_INVOICE_TEMPLATES[0];
@@ -94,6 +103,14 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const [importedVarsNotice, setImportedVarsNotice] = useState<string[] | null>(null);
   const [isImportingFile, setIsImportingFile] = useState<boolean>(false);
   const [importStatusMessage, setImportStatusMessage] = useState<string>('');
+
+  // External templates folder synchronization (templates/)
+  const [externalTemplates, setExternalTemplates] = useState<Array<{ filename: string; path: string; size: number; updatedAt: string; ext: string }>>([]);
+  const [templatesFolderPath, setTemplatesFolderPath] = useState<string>('');
+  const [isLoadingExternal, setIsLoadingExternal] = useState<boolean>(false);
+
+  // Stationery visual placement state
+  const [selectedStationeryTokenId, setSelectedStationeryTokenId] = useState<string | null>(null);
   
   // Custom dropdown open states & zoom controls
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState<boolean>(false);
@@ -103,8 +120,39 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const fileTemplateInputRef = useRef<HTMLInputElement | null>(null);
+  const stationeryFileInputRef = useRef<HTMLInputElement | null>(null);
   const templateMenuRef = useRef<HTMLDivElement | null>(null);
   const sectionMenuRef = useRef<HTMLDivElement | null>(null);
+  const stationeryCanvasRef = useRef<HTMLDivElement | null>(null);
+
+  const loadExternalTemplates = async () => {
+    if (typeof (window as any).electronAPI?.listExternalTemplates === 'function') {
+      setIsLoadingExternal(true);
+      try {
+        const res = await (window as any).electronAPI.listExternalTemplates();
+        if (res && res.success) {
+          setExternalTemplates(res.templates || []);
+          if (res.path) setTemplatesFolderPath(res.path);
+        }
+      } catch (err) {
+        console.warn('Error listing external templates:', err);
+      } finally {
+        setIsLoadingExternal(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadExternalTemplates();
+      if (typeof (window as any).electronAPI?.onTemplatesFolderChanged === 'function') {
+        const cleanup = (window as any).electronAPI.onTemplatesFolderChanged(() => {
+          loadExternalTemplates();
+        });
+        return cleanup;
+      }
+    }
+  }, [isOpen]);
 
   // Close custom dropdown menus when clicking outside
   useEffect(() => {
@@ -355,6 +403,245 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
     }
   };
 
+  const handleOpenTemplatesFolder = async () => {
+    sounds.playClick();
+    if (typeof (window as any).electronAPI?.openTemplatesFolder === 'function') {
+      await (window as any).electronAPI.openTemplatesFolder();
+    } else {
+      alert(lang === 'de' 
+        ? 'Im Browser können Vorlagendateien über den Datei-Auswahldialog geladen werden.' 
+        : 'In browser mode, templates can be selected using the file upload button.');
+    }
+  };
+
+  const handleImportExternalTemplate = async (filename: string) => {
+    sounds.playClick();
+    if (typeof (window as any).electronAPI?.readExternalTemplateFile !== 'function') return;
+    setIsImportingFile(true);
+    setImportStatusMessage(`Lese ${filename}...`);
+
+    try {
+      const res = await (window as any).electronAPI.readExternalTemplateFile(filename);
+      if (res && res.success && res.base64) {
+        const binaryString = atob(res.base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const file = new File([bytes], filename, { type: res.ext === 'pdf' ? 'application/pdf' : 'application/octet-stream' });
+        
+        const extracted = await readUploadedTemplateFile(file, (msg) => setImportStatusMessage(msg));
+        const newTemplate: InvoiceTemplate = {
+          ...draft,
+          id: `template_import_${Date.now()}`,
+          name: filename.replace(/\.[^/.]+$/, ''),
+          presetType: 'custom',
+          useCustomLayout: true,
+          customBodyTemplate: extracted.content,
+          createdAt: new Date().toISOString()
+        };
+
+        const updated = [...templates, newTemplate];
+        setTemplates(updated);
+        saveStoredInvoiceTemplates(updated);
+        setSelectedTemplateId(newTemplate.id);
+        setDraft(newTemplate);
+        setImportedVarsNotice(extracted.detectedVariables);
+        sounds.playSuccess();
+      }
+    } catch (err: any) {
+      console.error(err);
+      sounds.playError();
+      alert(`Fehler beim Importieren: ${err.message}`);
+    } finally {
+      setIsImportingFile(false);
+      setImportStatusMessage('');
+    }
+  };
+
+  const [isDraggingToken, setIsDraggingToken] = useState<boolean>(false);
+  const draggingTokenIdRef = useRef<string | null>(null);
+
+  const handleStationeryFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    sounds.playClick();
+
+    try {
+      let imageUrl = '';
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        setIsImportingFile(true);
+        setImportStatusMessage(lang === 'de' ? 'Rendere PDF-Briefpapier in hochauflösende Druckgrafik...' : 'Rendering PDF letterhead to high-res image...');
+        imageUrl = await renderPdfFirstPageToImageAsync(file);
+      } else {
+        const reader = new FileReader();
+        imageUrl = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (imageUrl) {
+        setDraft(prev => ({
+          ...prev,
+          stationeryMode: true,
+          stationeryImageUrl: imageUrl,
+          stationeryTokens: prev.stationeryTokens && prev.stationeryTokens.length > 0 ? prev.stationeryTokens : [
+            { id: 'tok_num', tokenKey: '{Rechnungsnummer}', xPct: 65, yPct: 22, fontSize: 14, fontWeight: 'bold', align: 'right' },
+            { id: 'tok_date', tokenKey: '{Datum}', xPct: 65, yPct: 26, fontSize: 12, align: 'right' },
+            { id: 'tok_cust_name', tokenKey: '{Kunde_Name}', xPct: 12, yPct: 24, fontSize: 13, fontWeight: 'bold', align: 'left' },
+            { id: 'tok_cust_addr', tokenKey: '{Kunde_Adresse}', xPct: 12, yPct: 27, fontSize: 12, align: 'left' },
+            { id: 'tok_cust_city', tokenKey: '{Kunde_PLZ_Ort}', xPct: 12, yPct: 30, fontSize: 12, align: 'left' },
+            { id: 'tok_table', tokenKey: '{Positionen_Tabelle}', xPct: 10, yPct: 38, widthPct: 80, fontSize: 12, align: 'left' },
+            { id: 'tok_total', tokenKey: '{Gesamtbetrag}', xPct: 65, yPct: 82, fontSize: 16, fontWeight: 'bold', align: 'right' }
+          ]
+        }));
+        setSelectedStationeryTokenId('tok_num');
+        sounds.playSuccess();
+      }
+    } catch (err: any) {
+      console.error(err);
+      sounds.playError();
+      alert(`Fehler beim Laden des Briefpapiers: ${err.message}`);
+    } finally {
+      setIsImportingFile(false);
+      setImportStatusMessage('');
+    }
+  };
+
+  const handleUseExternalAsStationery = async (filename: string) => {
+    sounds.playClick();
+    if (typeof (window as any).electronAPI?.readExternalTemplateFile !== 'function') return;
+    setIsImportingFile(true);
+    setImportStatusMessage(`Lade Briefpapier ${filename}...`);
+
+    try {
+      const res = await (window as any).electronAPI.readExternalTemplateFile(filename);
+      if (res && res.success && res.base64) {
+        const binaryString = atob(res.base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        let imageUrl = '';
+        if (res.ext === 'pdf') {
+          imageUrl = await renderPdfFirstPageToImageAsync(bytes);
+        } else {
+          imageUrl = `data:image/${res.ext || 'png'};base64,${res.base64}`;
+        }
+
+        if (imageUrl) {
+          setDraft(prev => ({
+            ...prev,
+            stationeryMode: true,
+            stationeryImageUrl: imageUrl,
+            stationeryTokens: prev.stationeryTokens && prev.stationeryTokens.length > 0 ? prev.stationeryTokens : [
+              { id: 'tok_num', tokenKey: '{Rechnungsnummer}', xPct: 65, yPct: 22, fontSize: 14, fontWeight: 'bold', align: 'right' },
+              { id: 'tok_date', tokenKey: '{Datum}', xPct: 65, yPct: 26, fontSize: 12, align: 'right' },
+              { id: 'tok_cust_name', tokenKey: '{Kunde_Name}', xPct: 12, yPct: 24, fontSize: 13, fontWeight: 'bold', align: 'left' },
+              { id: 'tok_cust_addr', tokenKey: '{Kunde_Adresse}', xPct: 12, yPct: 27, fontSize: 12, align: 'left' },
+              { id: 'tok_cust_city', tokenKey: '{Kunde_PLZ_Ort}', xPct: 12, yPct: 30, fontSize: 12, align: 'left' },
+              { id: 'tok_table', tokenKey: '{Positionen_Tabelle}', xPct: 10, yPct: 38, widthPct: 80, fontSize: 12, align: 'left' },
+              { id: 'tok_total', tokenKey: '{Gesamtbetrag}', xPct: 65, yPct: 82, fontSize: 16, fontWeight: 'bold', align: 'right' }
+            ]
+          }));
+          setSelectedStationeryTokenId('tok_num');
+          setCurrentTab('stationery');
+          sounds.playSuccess();
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      sounds.playError();
+      alert(`Fehler beim Laden des Briefpapiers: ${err.message}`);
+    } finally {
+      setIsImportingFile(false);
+      setImportStatusMessage('');
+    }
+  };
+
+  const handleApplyDefaultStationeryTokens = () => {
+    sounds.playClick();
+    const defaults: StationeryTokenField[] = [
+      { id: 'tok_num', tokenKey: '{Rechnungsnummer}', xPct: 65, yPct: 22, fontSize: 14, fontWeight: 'bold', align: 'right' },
+      { id: 'tok_date', tokenKey: '{Datum}', xPct: 65, yPct: 26, fontSize: 12, align: 'right' },
+      { id: 'tok_cust_name', tokenKey: '{Kunde_Name}', xPct: 12, yPct: 24, fontSize: 13, fontWeight: 'bold', align: 'left' },
+      { id: 'tok_cust_addr', tokenKey: '{Kunde_Adresse}', xPct: 12, yPct: 27, fontSize: 12, align: 'left' },
+      { id: 'tok_cust_city', tokenKey: '{Kunde_PLZ_Ort}', xPct: 12, yPct: 30, fontSize: 12, align: 'left' },
+      { id: 'tok_table', tokenKey: '{Positionen_Tabelle}', xPct: 10, yPct: 38, widthPct: 80, fontSize: 12, align: 'left' },
+      { id: 'tok_total', tokenKey: '{Gesamtbetrag}', xPct: 65, yPct: 82, fontSize: 16, fontWeight: 'bold', align: 'right' }
+    ];
+    setDraft(prev => ({ ...prev, stationeryTokens: defaults }));
+    setSelectedStationeryTokenId('tok_num');
+  };
+
+  const handleAddStationeryToken = (tokenKey: string) => {
+    sounds.playClick();
+    const newToken: StationeryTokenField = {
+      id: `tok_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      tokenKey,
+      xPct: 15,
+      yPct: 35,
+      fontSize: 13,
+      fontWeight: 'normal',
+      align: 'left'
+    };
+    const nextTokens = [...(draft.stationeryTokens || []), newToken];
+    setDraft(prev => ({ ...prev, stationeryTokens: nextTokens }));
+    setSelectedStationeryTokenId(newToken.id);
+  };
+
+  const handleRemoveStationeryToken = (id: string) => {
+    sounds.playClick();
+    const nextTokens = (draft.stationeryTokens || []).filter(t => t.id !== id);
+    setDraft(prev => ({ ...prev, stationeryTokens: nextTokens }));
+    if (selectedStationeryTokenId === id) setSelectedStationeryTokenId(null);
+  };
+
+  const handleUpdateStationeryToken = (id: string, updates: Partial<StationeryTokenField>) => {
+    const nextTokens = (draft.stationeryTokens || []).map(t => t.id === id ? { ...t, ...updates } : t);
+    setDraft(prev => ({ ...prev, stationeryTokens: nextTokens }));
+  };
+
+  const handleTokenMouseDown = (e: React.MouseEvent, tokenId: string) => {
+    e.stopPropagation();
+    setSelectedStationeryTokenId(tokenId);
+    setIsDraggingToken(true);
+    draggingTokenIdRef.current = tokenId;
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingToken || !draggingTokenIdRef.current || !stationeryCanvasRef.current) return;
+    const rect = stationeryCanvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
+    handleUpdateStationeryToken(draggingTokenIdRef.current, {
+      xPct: Math.round(x * 10) / 10,
+      yPct: Math.round(y * 10) / 10
+    });
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (isDraggingToken) {
+      setIsDraggingToken(false);
+      draggingTokenIdRef.current = null;
+    }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingToken) return;
+    if (!selectedStationeryTokenId || !stationeryCanvasRef.current) return;
+    const rect = stationeryCanvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
+    handleUpdateStationeryToken(selectedStationeryTokenId, {
+      xPct: Math.round(x * 10) / 10,
+      yPct: Math.round(y * 10) / 10
+    });
+  };
+
   // Render preview HTML
   const previewHtml = generateInvoiceHtml(
     draft, 
@@ -364,7 +651,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
     isPreviewTestMode
   );
 
-  const sectionTabs: { id: 'design' | 'content' | 'company' | 'variables' | 'import'; label: string; icon: React.ReactNode }[] = [
+  const sectionTabs: { id: 'design' | 'content' | 'company' | 'variables' | 'import' | 'stationery'; label: string; icon: React.ReactNode }[] = [
     {
       id: 'design',
       label: lang === 'de' ? 'Design, Logo, Farben & Typografie' : lang === 'fr' ? 'Design, Logo & Typographie' : lang === 'es' ? 'Diseño, Logo & Tipografía' : 'Design, Logo & Typography',
@@ -381,13 +668,18 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
       icon: <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
     },
     {
+      id: 'stationery',
+      label: lang === 'de' ? 'PDF-Briefpapier & Platzierung' : lang === 'fr' ? 'Papier à en-tête & Disposition' : lang === 'es' ? 'Papel membretado & Posición' : 'PDF Stationery & Placement',
+      icon: <Layers className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+    },
+    {
       id: 'variables',
       label: lang === 'de' ? 'Platzhalter & Variablen' : lang === 'fr' ? 'Variables & Modèles' : lang === 'es' ? 'Variables & Plantillas' : 'Variables & Placeholders',
       icon: <Boxes className="w-3.5 h-3.5 text-purple-500 shrink-0" />
     },
     {
       id: 'import',
-      label: lang === 'de' ? 'Datei-Import (.docx / HTML)' : lang === 'fr' ? 'Importation de fichier (.docx / HTML)' : lang === 'es' ? 'Importar archivo (.docx / HTML)' : 'File Import (.docx / HTML)',
+      label: lang === 'de' ? 'Ordner-Sync & Import (.docx/PDF)' : lang === 'fr' ? 'Synchronisation & Importation' : lang === 'es' ? 'Sincronización & Importación' : 'Folder Sync & File Import',
       icon: <FileCode className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
     }
   ];
@@ -1116,6 +1408,494 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                       {lang === 'de' 
                         ? 'Geben Sie in Ihrer PDF- oder Word-Datei einfach Variablen in geschweiften Klammern an (z.B. {Rechnungsnummer}, {Datum}, {Kunde_Name}, {Gesamtbetrag}). Beim Import werden alle Variablen ausgelesen, 1:1 übergeben und bei der Erstellung echter Rechnungen automatisch mit den Echtdaten befüllt.' 
                         : 'Include variable placeholders like {Rechnungsnummer}, {Datum}, {Kunde_Name}, and {Gesamtbetrag} in your PDF or Word files. They are parsed 1:1 and populated automatically for invoices.'}
+                    </div>
+                  </div>
+
+                  {/* Desktop Templates Folder Watcher & Auto-Sync Section */}
+                  <div className="p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                          <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                            {lang === 'de' ? 'Lokaler Vorlagenordner (templates/) & Auto-Sync' : 'Local Templates Folder (templates/) & Auto-Sync'}
+                          </h4>
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>{lang === 'de' ? 'Auto-Sync aktiv' : 'Auto-Sync Active'}</span>
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-md" title={templatesFolderPath || 'templates/'}>
+                          {templatesFolderPath || (isElectron() ? '%APPDATA%/socdof/templates' : 'templates/')}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isElectron() && (
+                          <button
+                            type="button"
+                            onClick={handleOpenTemplatesFolder}
+                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-300 font-bold rounded-lg text-[11px] transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <Folder className="w-3 h-3" />
+                            <span>{lang === 'de' ? 'Im Explorer öffnen' : 'Open in Explorer'}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            loadExternalTemplates();
+                          }}
+                          disabled={isLoadingExternal}
+                          className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition cursor-pointer"
+                          title="Dateien neu einlesen"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isLoadingExternal ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Detected External Files */}
+                    {externalTemplates.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          {lang === 'de' ? `Gefundene Dateien im Vorlagenordner (${externalTemplates.length}):` : `Files in templates folder (${externalTemplates.length}):`}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {externalTemplates.map((f) => (
+                            <div 
+                              key={f.filename}
+                              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-2"
+                            >
+                              <div className="flex items-start justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-base shrink-0">
+                                    {f.ext === 'docx' || f.ext === 'doc' ? '📝' : f.ext === 'pdf' ? '📕' : f.ext === 'html' ? '🌐' : '⚙️'}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-slate-800 dark:text-slate-200 text-[11px] truncate" title={f.filename}>
+                                      {f.filename}
+                                    </div>
+                                    <div className="text-[9px] text-slate-400">
+                                      {Math.round(f.size / 1024)} KB • {new Date(f.updatedAt).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="uppercase text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  .{f.ext}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => handleImportExternalTemplate(f.filename)}
+                                  className="flex-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg text-[10px] transition text-center cursor-pointer"
+                                >
+                                  {lang === 'de' ? 'Als Vorlage laden' : 'Load as Template'}
+                                </button>
+                                {['pdf', 'png', 'jpg', 'jpeg'].includes(f.ext) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUseExternalAsStationery(f.filename)}
+                                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 font-bold rounded-lg text-[10px] transition text-center cursor-pointer"
+                                    title="Als Briefpapier-Hintergrund verwenden"
+                                  >
+                                    Briefpapier
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl text-[11px] text-slate-500 space-y-1">
+                        <div className="font-semibold text-slate-700 dark:text-slate-300">
+                          {lang === 'de' ? 'Noch keine externen Dateien im Ordner abgelegt.' : 'No external files in templates folder yet.'}
+                        </div>
+                        <p>
+                          {lang === 'de'
+                            ? 'Kopieren Sie Word (.docx), PDF oder HTML-Dateien direkt in den templates/-Ordner. SOCDOF überwacht den Ordner automatisch und zeigt Änderungen in Echtzeit an.'
+                            : 'Drop Word (.docx), PDF or HTML files into the templates/ folder. Changes sync automatically.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: PDF-BRIEFPAPIER & VISUELLE PLATZIERUNG */}
+              {currentTab === 'stationery' && (
+                <div className="space-y-4 text-xs">
+                  {/* Briefpapier Mode Switch */}
+                  <div className="p-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-rose-500" />
+                        <span>{lang === 'de' ? 'Briefpapier-Hintergrund & Visuelle Platzierung aktivieren' : 'Enable Stationery Background & Visual Placement'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {lang === 'de' ? 'Druckt Rechnungsdaten direkt auf Ihr grafisches Firmenbriefpapier oder PDF' : 'Print invoice data directly onto your graphic letterhead or PDF'}
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={draft.stationeryMode ?? false}
+                      onChange={e => setDraft({ ...draft, stationeryMode: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Letterhead File Selection & Actions */}
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span>📄</span>
+                        <span>{lang === 'de' ? 'Briefpapier-Datei (PDF oder Grafik):' : 'Letterhead file (PDF or Image):'}</span>
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={stationeryFileInputRef}
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg,.webp"
+                          onChange={handleStationeryFileUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => stationeryFileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{lang === 'de' ? 'PDF / Bild hochladen' : 'Upload PDF / Image'}</span>
+                        </button>
+                        {draft.stationeryImageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              setDraft(prev => ({ ...prev, stationeryImageUrl: undefined, stationeryMode: false }));
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition cursor-pointer"
+                            title="Briefpapier entfernen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick selection from external templates folder if any PDFs or images are detected */}
+                    {externalTemplates.filter(f => ['pdf', 'png', 'jpg', 'jpeg'].includes(f.ext)).length > 0 && (
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
+                          {lang === 'de' ? 'Schnellauswahl aus Desktop-Vorlagenordner:' : 'Quick select from templates/ folder:'}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {externalTemplates.filter(f => ['pdf', 'png', 'jpg', 'jpeg'].includes(f.ext)).map(f => (
+                            <button
+                              key={f.filename}
+                              type="button"
+                              onClick={() => handleUseExternalAsStationery(f.filename)}
+                              className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-rose-400 text-slate-700 dark:text-slate-200 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                            >
+                              <span>{f.ext === 'pdf' ? '📕' : '🖼️'}</span>
+                              <span className="truncate max-w-[140px]">{f.filename}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Visual Placement Studio */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
+                          <Move className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>{lang === 'de' ? 'Visueller Platzierungs-Editor (Interaktiv)' : 'Visual Placement Studio (Interactive)'}</span>
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          {lang === 'de' ? 'Klicken oder ziehen Sie Felder direkt auf dem Briefpapier, um die Position exakt anzupassen.' : 'Click or drag fields directly on the stationery to fine-tune placement.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleApplyDefaultStationeryTokens}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg text-[10px] transition cursor-pointer"
+                        >
+                          {lang === 'de' ? 'Standardfelder' : 'Default Fields'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddStationeryToken('{Rechnungsnummer}')}
+                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{lang === 'de' ? 'Feld hinzufügen' : 'Add Field'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Dual Column: Canvas & Inspector */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                      
+                      {/* Placement Canvas */}
+                      <div className="md:col-span-7 bg-slate-200 dark:bg-slate-950 p-2 sm:p-3 rounded-2xl border border-slate-300 dark:border-slate-800 flex justify-center items-center overflow-hidden">
+                        <div
+                          ref={stationeryCanvasRef}
+                          onClick={handleCanvasClick}
+                          onMouseMove={handleCanvasMouseMove}
+                          onMouseUp={handleCanvasMouseUp}
+                          onMouseLeave={handleCanvasMouseUp}
+                          className="relative w-full aspect-[210/297] max-h-[500px] bg-white rounded-lg shadow-lg border border-slate-300 select-none overflow-hidden cursor-crosshair"
+                          style={{
+                            backgroundImage: draft.stationeryImageUrl ? `url(${draft.stationeryImageUrl})` : undefined,
+                            backgroundSize: '100% 100%',
+                            backgroundPosition: 'center',
+                            backgroundRepeat: 'no-repeat'
+                          }}
+                        >
+                          {!draft.stationeryImageUrl && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-slate-400 pointer-events-none">
+                              <Layers className="w-8 h-8 mb-2 opacity-40 text-slate-500" />
+                              <span className="text-xs font-semibold">{lang === 'de' ? 'Kein Briefpapier geladen' : 'No Letterhead Loaded'}</span>
+                              <span className="text-[10px] opacity-75">{lang === 'de' ? 'Laden Sie ein PDF oder Bild oben hoch' : 'Upload a PDF or image above'}</span>
+                            </div>
+                          )}
+
+                          {/* Placed Tokens on Canvas */}
+                          {(draft.stationeryTokens || []).map(token => {
+                            const isSelected = selectedStationeryTokenId === token.id;
+                            return (
+                              <div
+                                key={token.id}
+                                onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sounds.playClick();
+                                  setSelectedStationeryTokenId(token.id);
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  left: `${token.xPct}%`,
+                                  top: `${token.yPct}%`,
+                                  width: token.widthPct ? `${token.widthPct}%` : 'auto',
+                                  fontSize: `${Math.max(8, Math.min(14, (token.fontSize || 12) * 0.7))}px`,
+                                  fontWeight: token.fontWeight || 'normal',
+                                  textAlign: token.align || 'left',
+                                  color: token.color || '#0f172a'
+                                }}
+                                className={`px-1.5 py-0.5 rounded cursor-move transition-shadow duration-150 border ${
+                                  isSelected
+                                    ? 'border-indigo-600 bg-indigo-500/20 shadow-md ring-2 ring-indigo-400 z-30'
+                                    : 'border-slate-400/80 bg-white/70 hover:bg-white/90 shadow-2xs z-20'
+                                }`}
+                                title={`${token.tokenKey} (X: ${token.xPct}%, Y: ${token.yPct}%)`}
+                              >
+                                <span className="font-mono text-[9px] font-bold block truncate">
+                                  {token.tokenKey}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Token Inspector & Properties */}
+                      <div className="md:col-span-5 space-y-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        {selectedStationeryTokenId ? (() => {
+                          const activeToken = (draft.stationeryTokens || []).find(t => t.id === selectedStationeryTokenId);
+                          if (!activeToken) return (
+                            <div className="p-4 text-center text-slate-400 text-xs">
+                              {lang === 'de' ? 'Kein Feld ausgewählt' : 'No field selected'}
+                            </div>
+                          );
+                          return (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                                  {lang === 'de' ? 'Feld-Eigenschaften' : 'Field Properties'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveStationeryToken(activeToken.id)}
+                                  className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                  title="Feld löschen"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>{lang === 'de' ? 'Löschen' : 'Delete'}</span>
+                                </button>
+                              </div>
+
+                              {/* Variable Key */}
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                  {lang === 'de' ? 'Variable / Platzhalter:' : 'Variable / Placeholder:'}
+                                </label>
+                                <select
+                                  value={activeToken.tokenKey}
+                                  onChange={e => handleUpdateStationeryToken(activeToken.id, { tokenKey: e.target.value })}
+                                  className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-semibold"
+                                >
+                                  {AVAILABLE_INVOICE_VARIABLES.map(v => (
+                                    <option key={v.key} value={v.key}>
+                                      {v.key} — {v.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* X and Y Position */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    X-Pos ({activeToken.xPct}%):
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={95}
+                                    step={0.5}
+                                    value={activeToken.xPct}
+                                    onChange={e => handleUpdateStationeryToken(activeToken.id, { xPct: parseFloat(e.target.value) })}
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    Y-Pos ({activeToken.yPct}%):
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={95}
+                                    step={0.5}
+                                    value={activeToken.yPct}
+                                    onChange={e => handleUpdateStationeryToken(activeToken.id, { yPct: parseFloat(e.target.value) })}
+                                    className="w-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Width and Font Size */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    {lang === 'de' ? 'Breite:' : 'Width:'} {activeToken.widthPct ? `${activeToken.widthPct}%` : 'Auto'}
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={10}
+                                    max={90}
+                                    value={activeToken.widthPct || 30}
+                                    onChange={e => handleUpdateStationeryToken(activeToken.id, { widthPct: parseInt(e.target.value, 10) })}
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    {lang === 'de' ? 'Größe:' : 'Size:'} {activeToken.fontSize || 12}px
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={8}
+                                    max={28}
+                                    value={activeToken.fontSize || 12}
+                                    onChange={e => handleUpdateStationeryToken(activeToken.id, { fontSize: parseInt(e.target.value, 10) })}
+                                    className="w-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Weight & Alignment */}
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    {lang === 'de' ? 'Stärke:' : 'Weight:'}
+                                  </label>
+                                  <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateStationeryToken(activeToken.id, { fontWeight: 'normal' })}
+                                      className={`flex-1 py-1 text-center font-normal transition text-[10px] ${
+                                        activeToken.fontWeight !== 'bold' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      Normal
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateStationeryToken(activeToken.id, { fontWeight: 'bold' })}
+                                      className={`flex-1 py-1 text-center font-bold transition text-[10px] ${
+                                        activeToken.fontWeight === 'bold' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      Fett
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                                    {lang === 'de' ? 'Ausrichtung:' : 'Align:'}
+                                  </label>
+                                  <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-[10px]">
+                                    {(['left', 'center', 'right'] as const).map(align => (
+                                      <button
+                                        key={align}
+                                        type="button"
+                                        onClick={() => handleUpdateStationeryToken(activeToken.id, { align })}
+                                        className={`flex-1 py-1 text-center capitalize transition ${
+                                          (activeToken.align || 'left') === align ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                                        }`}
+                                      >
+                                        {align === 'left' ? 'L' : align === 'center' ? 'M' : 'R'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <div className="py-6 text-center text-slate-400 text-xs space-y-1">
+                            <Sliders className="w-6 h-6 mx-auto opacity-40 text-slate-500" />
+                            <div>{lang === 'de' ? 'Wählen Sie ein Feld aus, um Eigenschaften anzupassen' : 'Select a field to adjust properties'}</div>
+                          </div>
+                        )}
+
+                        {/* List of all tokens for quick switching */}
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1">
+                          <div className="text-[10px] font-bold text-slate-500">
+                            {lang === 'de' ? 'Alle platzierten Felder:' : 'All placed fields:'} ({draft.stationeryTokens?.length || 0})
+                          </div>
+                          <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                            {(draft.stationeryTokens || []).map(tok => (
+                              <button
+                                key={tok.id}
+                                type="button"
+                                onClick={() => setSelectedStationeryTokenId(tok.id)}
+                                className={`w-full px-2 py-1 rounded-md text-left font-mono text-[10px] flex items-center justify-between transition cursor-pointer ${
+                                  selectedStationeryTokenId === tok.id
+                                    ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-300 dark:border-indigo-700'
+                                    : 'bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                <span className="truncate">{tok.tokenKey}</span>
+                                <span className="text-[9px] opacity-60">X:{tok.xPct}% Y:{tok.yPct}%</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>

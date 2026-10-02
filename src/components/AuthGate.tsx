@@ -18,7 +18,10 @@ import {
   Upload,
   UserRound,
   UserRoundCog,
-  X
+  X,
+  Minus,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import {
   AccountType,
@@ -46,6 +49,7 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
+import { applyAccentColor } from '../lib/accent';
 import {
   SUPPORTED_LANGUAGES,
   formatSystemDate,
@@ -186,6 +190,15 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); }, []);
   const currentUser = session ? getUserById(session.userId) : null;
   const text = getAuthCopy(lang);
+
+  useEffect(() => {
+    if (company?.accent_color) {
+      applyAccentColor(company.accent_color);
+    } else {
+      const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null;
+      if (cached) applyAccentColor(cached);
+    }
+  }, [company?.accent_color]);
 
   useEffect(() => { const onStorage = () => refresh(); window.addEventListener('storage', onStorage); window.addEventListener('socdof-auth-changed', onStorage); return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('socdof-auth-changed', onStorage); }; }, [refresh]);
   useEffect(() => {
@@ -1308,12 +1321,83 @@ function LoginScreen({
     }
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return !!((document as any).fullscreenElement || (document as any).webkitFullscreenElement);
+    }
+    return false;
+  });
+
+  const toggleFullscreen = useCallback(() => {
+    if (typeof (window as any).electronAPI?.toggleFullscreen === 'function') {
+      (window as any).electronAPI.toggleFullscreen().then((val: boolean) => setIsFullscreen(!!val)).catch(() => {});
+      return;
+    }
+    const doc = document as any;
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+      const el = document.documentElement as any;
+      if (el.requestFullscreen) el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      if (doc.exitFullscreen) doc.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  const handleMinimize = useCallback(() => {
+    if (typeof (window as any).electronAPI?.minimizeWindow === 'function') {
+      (window as any).electronAPI.minimizeWindow().catch(() => {});
+    } else if (isFullscreen) {
+      toggleFullscreen();
+    }
+  }, [isFullscreen, toggleFullscreen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    const handleFsChange = () => {
+      setIsFullscreen(!!((document as any).fullscreenElement || (document as any).webkitFullscreenElement));
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, [toggleFullscreen]);
+
   if (isSigningIn) return <AuthLoadingScreen text={text} user={selectedUser} />;
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
-      {/* Top Header: Language Switcher */}
-      <div className="w-full flex items-center justify-end z-20 shrink-0">
+      {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
+      <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
+        <button
+          type="button"
+          onClick={handleMinimize}
+          className="p-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white hover:bg-black/60 active:scale-95 transition cursor-pointer shadow-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+          title={t('desktop.minimize_app', lang, 'Fenster minimieren')}
+          aria-label={t('desktop.minimize_app', lang, 'Fenster minimieren')}
+        >
+          <Minus size={15} />
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="p-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white hover:bg-black/60 active:scale-95 transition cursor-pointer shadow-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+          title={isFullscreen ? `${t('desktop.exit_fullscreen', lang, 'Vollbildmodus beenden')} (F11)` : `${t('desktop.enter_fullscreen', lang, 'Vollbildmodus aktivieren')} (F11)`}
+          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        >
+          {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
+
         <select
           value={lang}
           onChange={(e) => setLanguage(e.target.value as LanguageCode)}
@@ -1540,12 +1624,83 @@ function LockScreen({
     setError('');
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return !!((document as any).fullscreenElement || (document as any).webkitFullscreenElement);
+    }
+    return false;
+  });
+
+  const toggleFullscreen = useCallback(() => {
+    if (typeof (window as any).electronAPI?.toggleFullscreen === 'function') {
+      (window as any).electronAPI.toggleFullscreen().then((val: boolean) => setIsFullscreen(!!val)).catch(() => {});
+      return;
+    }
+    const doc = document as any;
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+      const el = document.documentElement as any;
+      if (el.requestFullscreen) el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      if (doc.exitFullscreen) doc.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  const handleMinimize = useCallback(() => {
+    if (typeof (window as any).electronAPI?.minimizeWindow === 'function') {
+      (window as any).electronAPI.minimizeWindow().catch(() => {});
+    } else if (isFullscreen) {
+      toggleFullscreen();
+    }
+  }, [isFullscreen, toggleFullscreen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    const handleFsChange = () => {
+      setIsFullscreen(!!((document as any).fullscreenElement || (document as any).webkitFullscreenElement));
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, [toggleFullscreen]);
+
   const currentLang = useLanguage();
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
-      {/* Top Header: Language Switcher */}
-      <div className="w-full flex items-center justify-end z-20 shrink-0">
+      {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
+      <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
+        <button
+          type="button"
+          onClick={handleMinimize}
+          className="p-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white hover:bg-black/60 active:scale-95 transition cursor-pointer shadow-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+          title={t('desktop.minimize_app', currentLang, 'Fenster minimieren')}
+          aria-label={t('desktop.minimize_app', currentLang, 'Fenster minimieren')}
+        >
+          <Minus size={15} />
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="p-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white hover:bg-black/60 active:scale-95 transition cursor-pointer shadow-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+          title={isFullscreen ? `${t('desktop.exit_fullscreen', currentLang, 'Vollbildmodus beenden')} (F11)` : `${t('desktop.enter_fullscreen', currentLang, 'Vollbildmodus aktivieren')} (F11)`}
+          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        >
+          {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
+
         <select
           value={currentLang}
           onChange={(e) => setLanguage(e.target.value as LanguageCode)}

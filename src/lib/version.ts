@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.2.0';
+export const APP_VERSION = '24.4.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,30 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.4.0',
+    date: '2026-10-01',
+    title: 'Word (.docx) Multi-Page Table Engine, Templates Folder Watcher & PDF Stationery Placement',
+    highlights: [
+      'Deep Word (.docx) Table AST Engine: Full support for multi-page tables with vertical cell merges (w:vMerge restart/continue), cantSplit row boundaries, and nested table resolution.',
+      'Desktop Templates Folder Watcher: Real-time synchronization of the templates/ directory (%APPDATA%/socdof/templates) with live auto-sync badge and Explorer integration.',
+      'Interactive PDF Stationery Placement: Interactive DIN-A4 canvas with drag-and-drop token placement, live coordinate calculations, and dedicated token properties inspector.',
+      'PDF-to-Image Rendering: High-resolution client-side rendering of PDF letterhead backgrounds via pdfjs-dist for crisp print fidelity.',
+      'Full quad-language i18n support across German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '24.3.0',
+    date: '2026-10-01',
+    title: 'Default Edge-to-Edge Borderless Fullscreen & Top-Edge Quick Window Controls',
+    highlights: [
+      'Default Fullscreen Launch: SOCDOF automatically starts edge-to-edge covering the entire screen and Windows taskbar out of the box.',
+      'Top-Right Floating Quick Controls: Added dedicated Minimieren (Minimize), Vollbild/Fenster-Modus umschalten (F11), and Abmelden (Logout) pill at the top of the screen.',
+      'Universal F11 & Minimize Window Controls: Global F11 shortcut support across Lock Screen, Login, Desktop, and active windows with native Electron window minimization and Web Fullscreen API parity.',
+      'Settings Toggle: Added a persistent toggle in System Settings to control whether SOCDOF starts in Fullscreen Mode by default.',
+      'Full quad-language i18n support across German, English, French, and Spanish.'
+    ]
+  },
   {
     version: '24.2.0',
     date: '2026-09-30',

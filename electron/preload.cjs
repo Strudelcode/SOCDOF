@@ -39,7 +39,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openBackupFolder: (targetPath) => ipcRenderer.invoke('socdof:open-backup-folder', targetPath),
   saveBackupFileToDisk: (payload) => ipcRenderer.invoke('socdof:save-backup-file-to-disk', payload),
   toggleFullscreen: () => ipcRenderer.invoke('socdof:toggle-fullscreen'),
+  setFullscreen: (flag) => ipcRenderer.invoke('socdof:set-fullscreen', flag),
   isFullscreen: () => ipcRenderer.invoke('socdof:is-fullscreen'),
+  minimizeWindow: () => ipcRenderer.invoke('socdof:minimize-window'),
+  maximizeWindow: () => ipcRenderer.invoke('socdof:maximize-window'),
+  unmaximizeWindow: () => ipcRenderer.invoke('socdof:unmaximize-window'),
+  isMaximized: () => ipcRenderer.invoke('socdof:is-maximized'),
   getDisplays: () => ipcRenderer.invoke('socdof:get-displays'),
   moveWindowToDisplay: (payload) => ipcRenderer.invoke('socdof:move-window-to-display', payload),
   popoutWindow: (payload) => ipcRenderer.invoke('socdof:popout-window', payload),
@@ -50,6 +55,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getPreferences: () => ipcRenderer.invoke('socdof:get-preferences'),
   savePreferences: (prefs) => ipcRenderer.invoke('socdof:save-preferences', prefs),
+  getTemplatesFolderPath: () => ipcRenderer.invoke('socdof:get-templates-folder-path'),
+  openTemplatesFolder: () => ipcRenderer.invoke('socdof:open-templates-folder'),
+  listExternalTemplates: () => ipcRenderer.invoke('socdof:list-external-templates'),
+  readExternalTemplateFile: (filename) => ipcRenderer.invoke('socdof:read-external-template-file', filename),
+  onTemplatesFolderChanged: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:templates-folder-changed', listener);
+    return () => ipcRenderer.removeListener('socdof:templates-folder-changed', listener);
+  },
   getDiscordBotToken: () => ipcRenderer.invoke('socdof:get-discord-token'),
   saveDiscordBotToken: (token) => ipcRenderer.invoke('socdof:save-discord-token', token),
   sendDiscordThread: (payload) => ipcRenderer.invoke('socdof:send-discord-thread', payload),
