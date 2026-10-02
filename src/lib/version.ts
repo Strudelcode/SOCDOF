@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.4.0';
+export const APP_VERSION = '24.6.2';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,47 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.6.2',
+    date: '2026-10-02',
+    title: 'Polished Settings Overview & Clear Section Navigation',
+    highlights: [
+      'Replaced the low-contrast native compact-window selector with a grouped, themed menu that closes on Escape or outside click.',
+      'Refined the settings home with clean workspace empty states, clearer quick access, and dynamic accent/companion colors.',
+      'Improved keyboard accessibility and documented settings navigation in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '24.6.1',
+    date: '2026-10-02',
+    title: 'System-Default Onboarding & Descriptive App Cards',
+    highlights: [
+      'First-account theme now consistently defaults to System, even when a previous company profile specified another mode.',
+      'Replaced compact app checkboxes with responsive, icon-led cards showing descriptions and clear selection states.',
+      'Documented the optional onboarding workflow in German, English, French, and Spanish.'
+    ]
+  },
+  {
+    version: '24.6.0',
+    date: '2026-10-02',
+    title: 'Responsive Settings Navigation',
+    highlights: [
+      'Replaced clipped horizontal settings tabs on compact windows with a grouped, accessible section selector.',
+      'Adapted the settings toolbar, overview cards, and quick preferences for narrow windows while preserving desktop navigation.',
+      'Verified TypeScript, production build, and managed preview readiness.'
+    ]
+  },
+  {
+    version: '24.5.0',
+    date: '2026-10-02',
+    title: 'Optional First-Account Workspace Setup',
+    highlights: [
+      'Optional first-account setup for accent color, light/dark/system appearance, desktop wallpaper, and app templates.',
+      'Business and retail templates for invoices, accounting, inventory, purchases, and point of sale, with individually selectable apps.',
+      'Setup preferences are stored locally and scoped to the new account; users can skip setup and personalize the workspace later.',
+      'Complete German, English, French, and Spanish localization.'
+    ]
+  },
   {
     version: '24.4.0',
     date: '2026-10-01',

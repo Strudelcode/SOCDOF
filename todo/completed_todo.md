@@ -4,6 +4,36 @@
 
 ---
 
+### Responsive Settings Navigation (v24.6.0)
+- [x] Replaced the mobile settings tabs that clipped at narrow widths with a compact category-grouped selector.
+- [x] Adjusted toolbar/search flow, overview card spacing, and quick preference columns for compact windows.
+- [x] Preserved desktop settings sidebar navigation.
+- [x] **Verification**: `npm run lint` and `npm run build` passed; managed preview returned HTTP 200.
+
+### Polished Settings Overview & Clear Section Navigation (v24.6.2)
+- [x] Replaced the low-contrast native compact-window selector with a grouped themed menu supporting Escape and outside-click dismissal.
+- [x] Refined the workspace overview, quick access cards, and dynamic accent/companion treatment; hid placeholder company branding.
+- [x] Improved keyboard semantics and added settings-navigation guidance in the four-language in-app manual.
+- [ ] **Verification**: Run lint, production build, and managed preview readiness checks.
+
+### System-Default Onboarding & Descriptive App Cards (v24.6.1)
+- [x] Made System the unconditional default theme for first-account setup.
+- [x] Restyled app templates and module choices as responsive icon-led cards with descriptions, clear selection states, and dynamic accent styling.
+- [x] Updated the in-app account setup documentation across all four languages.
+- [x] **Verification**: Lint and production build passed; managed preview readiness verified in the following settings UX update.
+
+### White Browser Preview Compile Fix (v24.5.0)
+- [x] Imported the missing React `useRef` hook in `App.tsx`.
+- [x] Removed invalid `fleet` and `projects` options from the onboarding templates because they are not valid `ActiveModule` values in this workspace.
+- [x] **Verification**: `npm run lint` passed, production build passed, and managed preview became ready with HTTP 200.
+
+### Optional First-Account Workspace Setup (v24.5.0)
+- [x] Added a skippable first-account setup for accent color, theme mode (light, dark, system), desktop wallpaper, and app selection.
+- [x] Added personal, business, practice, and retail module templates plus individually selectable apps, with business-only modules excluded from personal accounts.
+- [x] Added local live previews with rollback when setup is skipped, and persisted preferences and module pins to the new account scope.
+- [x] Added complete German, English, French, and Spanish localization.
+- [x] **Verification**: `npm run lint` and `npm run build` passed after installing the workspace dependencies; the managed preview returned HTTP 200 and is ready.
+
 ### Word (.docx) Table AST Engine, Templates Watcher & PDF Stationery (v24.4.0, Roadmap 2.4)
 - [x] **Deep Binary Word (.docx) Table AST Engine**:
   - Full two-pass cell matrix resolution for complex Word tables across multiple pages (`matrix[rIdx][cIdx]`).

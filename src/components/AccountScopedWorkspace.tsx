@@ -129,6 +129,15 @@ function applyUserAppearance(user: UserAccount | null): void {
     } catch {
       // ignore
     }
+  } else if (user.preferences.theme === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.classList.toggle('dark', isDark);
+    root.style.colorScheme = isDark ? 'dark' : 'light';
+    try {
+      localStorage.removeItem('odoo_theme_dark');
+    } catch {
+      // ignore
+    }
   }
   // ACCENT COLOR: If the user account explicitly has an accent color preference, apply it.
   // Otherwise, respect the saved system / company / localStorage accent color! DO NOT force 'indigo'!
@@ -162,20 +171,18 @@ export const AccountScopedWorkspace: React.FC<React.PropsWithChildren> = ({ chil
       const account = session && !session.locked ? getUserById(session.userId) : null;
       setActiveAccount(account);
     };
-    const onAccentOrCompanyChanged = () => {
+    const onCompanyChanged = () => {
       const session = getSession();
       const account = session && !session.locked ? getUserById(session.userId) : null;
       applyUserAppearance(account);
     };
     window.addEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
     window.addEventListener('storage', refreshAccount);
-    window.addEventListener('socdof-company-updated', onAccentOrCompanyChanged);
-    window.addEventListener('socdof-accent-changed', onAccentOrCompanyChanged);
+    window.addEventListener('socdof-company-updated', onCompanyChanged);
     return () => {
       window.removeEventListener(AUTH_CHANGE_EVENT_NAME, refreshAccount);
       window.removeEventListener('storage', refreshAccount);
-      window.removeEventListener('socdof-company-updated', onAccentOrCompanyChanged);
-      window.removeEventListener('socdof-accent-changed', onAccentOrCompanyChanged);
+      window.removeEventListener('socdof-company-updated', onCompanyChanged);
     };
   }, []);
 
