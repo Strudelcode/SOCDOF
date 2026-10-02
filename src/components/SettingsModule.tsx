@@ -211,6 +211,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'home');
   const canManageUsers = getCurrentUser()?.role === 'admin' && getCurrentUser()?.active === true;
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileSectionMenuOpen, setIsMobileSectionMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Subcategory Navigation in Personalization (Windows 11 Style)
@@ -760,20 +761,39 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   // Recent Searches / Quick Links list
   const recentSearches = useMemo(() => [
-    { id: 'personalization', title: t('settings.recent_darkmode_title', activeLang, 'Dark Mode & Design'), category: t('settings.recent_darkmode_cat', activeLang, 'Personalization'), icon: Palette, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/60' },
-    { id: 'shortcuts', title: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), category: t('settings.shortcuts_desc', activeLang, 'Hotkeys & Schnellzugriff'), icon: Keyboard, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
-    { id: 'language', title: t('settings.recent_language_title', activeLang, 'Language & Region'), category: t('settings.recent_language_cat', activeLang, 'Language & Time'), icon: Globe, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/60' },
-    { id: 'connections', title: t('settings.recent_calendar_title', activeLang, 'Google Calendar & iCal'), category: t('settings.recent_calendar_cat', activeLang, 'Connections'), icon: CalendarIcon, color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/60' },
-    { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' },
-    { id: 'general', title: t('settings.recent_bank_title', activeLang, 'Bank Details & IBAN'), category: t('settings.recent_bank_cat', activeLang, 'Company'), icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60' },
-    { id: 'storage', title: t('settings.recent_backup_title', activeLang, 'JSON Data Backup'), category: t('settings.recent_backup_cat', activeLang, 'Storage'), icon: HardDrive, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60' },
-  ], [activeLang, canManageUsers]);
+    { id: 'personalization', title: t('settings.recent_darkmode_title', activeLang, 'Dark Mode & Design'), category: t('settings.recent_darkmode_cat', activeLang, 'Personalization'), icon: Palette },
+    { id: 'shortcuts', title: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), category: t('settings.shortcuts_desc', activeLang, 'Hotkeys & Schnellzugriff'), icon: Keyboard },
+    { id: 'language', title: t('settings.recent_language_title', activeLang, 'Language & Region'), category: t('settings.recent_language_cat', activeLang, 'Language & Time'), icon: Globe },
+    { id: 'connections', title: t('settings.recent_calendar_title', activeLang, 'Google Calendar & iCal'), category: t('settings.recent_calendar_cat', activeLang, 'Connections'), icon: CalendarIcon },
+    { id: 'letterhead', title: t('settings.recent_letterhead_title', activeLang, 'Letterhead & DIN 5008'), category: t('settings.recent_letterhead_cat', activeLang, 'Documents'), icon: FileText },
+    { id: 'general', title: t('settings.recent_bank_title', activeLang, 'Bank Details & IBAN'), category: t('settings.recent_bank_cat', activeLang, 'Company'), icon: CreditCard },
+    { id: 'storage', title: t('settings.recent_backup_title', activeLang, 'JSON Data Backup'), category: t('settings.recent_backup_cat', activeLang, 'Storage'), icon: HardDrive },
+  ], [activeLang]);
+
+  const companyName = profile.name?.trim() || '';
+  const companyNamePlaceholder = ['ihr firmenname', 'firmenname', 'unternehmensname', 'your company name', 'company name', 'your company', 'socdof'];
+  const companyDisplayName = companyName && !companyNamePlaceholder.includes(companyName.toLowerCase())
+    ? companyName
+    : '';
 
   useEffect(() => {
     loadStorageInfo();
     loadStoredSnapshots();
     setCustomCalendarEvents(getStoredCalendarEvents());
   }, [company]);
+
+  useEffect(() => {
+    if (!isMobileSectionMenuOpen) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsMobileSectionMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+  }, [isMobileSectionMenuOpen]);
 
   const loadStorageInfo = async () => {
     try {
@@ -1218,49 +1238,49 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       id: 'overview',
       label: t('settings.category_overview', activeLang, 'Übersicht'),
       items: [
-        { id: 'home' as SettingsSection, label: t('settings.home', activeLang, 'Startseite'), icon: Settings, desc: 'Schnellzugriff & Personalisierung' }
+        { id: 'home' as SettingsSection, label: t('settings.home', activeLang, 'Startseite'), icon: Settings, desc: t('settings.section_desc.home', activeLang, 'Quick access to workspace settings.') }
       ]
     },
     {
       id: 'system_display',
       label: t('settings.category_display', activeLang, 'Anzeige & Bildschirme'),
       items: [
-        { id: 'display' as SettingsSection, label: t('settings.display', activeLang, 'Bildschirme & Skalierung'), icon: Monitor, desc: 'Multi-Monitor, Bildschirmlayout, Skalierung & Nachtmodus' }
+        { id: 'display' as SettingsSection, label: t('settings.display', activeLang, 'Bildschirme & Skalierung'), icon: Monitor, desc: t('settings.section_desc.display', activeLang, 'Manage displays, scaling, and screen layout.') }
       ]
     },
     {
       id: 'business',
       label: t('settings.category_business', activeLang, 'Unternehmen & Workflow'),
       items: [
-        { id: 'general' as SettingsSection, label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2, desc: 'Firmenanschrift, Steuern & Basisdaten' },
-        { id: 'payments' as SettingsSection, label: t('settings.payments', activeLang, 'Zahlungsmethoden & Terminals'), icon: CreditCard, desc: t('settings.payments_desc', activeLang, 'Bankverbindung, IBAN/BIC, EC- & Kreditkarten-Terminals') },
-        { id: 'letterhead' as SettingsSection, label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText, desc: 'Logo, Faltmarken & PDF-Layout' },
-        { id: 'connections' as SettingsSection, label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, desc: 'Google Kalender 2-Way Sync & iCal' }
+        { id: 'general' as SettingsSection, label: t('settings.general', activeLang, 'Allgemein & Stammdaten'), icon: Building2, desc: t('settings.section_desc.general', activeLang, 'Company address, tax details, and master data.') },
+        { id: 'payments' as SettingsSection, label: t('settings.payments', activeLang, 'Zahlungsmethoden & Terminals'), icon: CreditCard, desc: t('settings.section_desc.payments', activeLang, 'Bank details, payment methods, and terminals.') },
+        { id: 'letterhead' as SettingsSection, label: t('settings.letterhead', activeLang, 'Briefkopf & DIN 5008'), icon: FileText, desc: t('settings.section_desc.letterhead', activeLang, 'Logo, folding marks, and invoice layout.') },
+        { id: 'connections' as SettingsSection, label: t('settings.connections', activeLang, 'Verbindungen & Kalender'), icon: Link2, desc: t('settings.section_desc.connections', activeLang, 'Google Calendar sync and iCal tools.') }
       ]
     },
     {
       id: 'interface',
       label: t('settings.category_interface', activeLang, 'System & Personalisierung'),
       items: [
-        { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: 'Darkmode, Akzentfarben & Desktop-Design' },
-        { id: 'language' as SettingsSection, label: t('settings.language', activeLang, 'Sprache & Sprachpakete'), icon: Globe, desc: 'Systemsprache, Währung & .JSON Pakete' },
-        { id: 'shortcuts' as SettingsSection, label: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), icon: Keyboard, desc: t('settings.shortcuts_desc', activeLang, 'Tastaturkürzel, Hotkeys & Schnellzugriff') },
-        { id: 'audio' as SettingsSection, label: t('settings.audio', activeLang, 'Sound & Lautstärke'), icon: Volume2, desc: 'Kassentöne, Effekte & Lautstärkeregler' }
+        { id: 'personalization' as SettingsSection, label: t('settings.personalization', activeLang, 'Personalisierung & Farben'), icon: Palette, desc: t('settings.section_desc.personalization', activeLang, 'Theme, accent colors, and desktop design.') },
+        { id: 'language' as SettingsSection, label: t('settings.language', activeLang, 'Sprache & Sprachpakete'), icon: Globe, desc: t('settings.section_desc.language', activeLang, 'App language, regional formats, and time.') },
+        { id: 'shortcuts' as SettingsSection, label: t('settings.shortcuts', activeLang, 'Tastenkombinationen & Kürzel'), icon: Keyboard, desc: t('settings.section_desc.shortcuts', activeLang, 'Keyboard shortcuts, hotkeys, and quick access.') },
+        { id: 'audio' as SettingsSection, label: t('settings.audio', activeLang, 'Sound & Lautstärke'), icon: Volume2, desc: t('settings.section_desc.audio', activeLang, 'Sound effects and volume controls.') }
       ]
     },
     {
       id: 'accounts',
       label: t('settings.category_accounts', activeLang, 'Konten & Profile'),
       items: [
-        { id: 'users' as SettingsSection, label: t('settings.user_accounts', activeLang, 'Benutzerkonto & Profilbild'), icon: UserCircle, desc: t('settings.user_accounts_desc', activeLang, 'Profilbild, Kontoinformationen, Rollen & Sicherheit'), badge: canManageUsers ? t('users.admin_badge', activeLang, 'Admin') : undefined }
+        { id: 'users' as SettingsSection, label: t('settings.user_accounts', activeLang, 'Benutzerkonto & Profilbild'), icon: UserCircle, desc: t('settings.section_desc.users', activeLang, 'Profile, account details, roles, and security.'), badge: canManageUsers ? t('users.admin_badge', activeLang, 'Admin') : undefined }
       ]
     },
     {
       id: 'admin',
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
-        { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: 'Offline-Betrieb, Autostart & EXE' },
-        { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: 'Snapshots, JSON Export & Backup-Ordner' },
+        { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: t('settings.section_desc.windows', activeLang, 'Offline app, startup, and desktop options.') },
+        { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: t('settings.section_desc.storage', activeLang, 'Snapshots, JSON export, and backup location.') },
         { id: 'danger' as SettingsSection, label: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.') }
       ]
     }
@@ -1272,16 +1292,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const CurrentIcon = currentNav?.icon || Settings;
 
   return (
-    <div ref={rootRef} className="relative h-full w-full flex flex-col overflow-hidden animate-fade-in text-slate-900 dark:text-slate-100">
+    <div
+      ref={rootRef}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setIsMobileSectionMenuOpen(false);
+      }}
+      className="relative h-full w-full flex flex-col overflow-hidden animate-fade-in text-slate-900 dark:text-slate-100"
+    >
       
       {/* 1. Sleek, Space-Efficient Top Toolbar */}
-      <div className="shrink-0 p-3 sm:p-4 pb-0 max-w-6xl w-full mx-auto space-y-2">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 shadow-xs">
-        <div className="flex items-center justify-between gap-3 sm:gap-4">
+      <div className="shrink-0 p-2.5 sm:p-4 pb-0 max-w-6xl w-full mx-auto space-y-2">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3 py-2.5 sm:px-3.5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:flex-nowrap sm:gap-4">
           
           {/* Left: Current View Indicator */}
           <div className="flex items-center gap-2.5 shrink-0 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 shadow-2xs" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>
               <CurrentIcon className="w-4 h-4" />
             </div>
             <div className="flex items-center gap-1.5 text-xs truncate">
@@ -1299,15 +1325,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           <div className="flex-1 min-w-2" />
 
           {/* Right: Fixed Position Search Box & Quick Save Action */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="relative w-44 xs:w-52 sm:w-60 md:w-64">
+          <div className="flex w-full min-w-0 items-center gap-2.5 sm:w-auto sm:shrink-0">
+            <div className="relative min-w-0 flex-1 sm:w-60 sm:flex-none md:w-64">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder={t('settings.search_placeholder', activeLang, 'Einstellungen suchen...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)] shadow-xs transition"
               />
               {searchQuery && (
                 <button
@@ -1365,17 +1391,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       handleSelectSection(r.section);
                       setSearchQuery('');
                     }}
-                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700/60 text-left transition flex items-center justify-between group"
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-[var(--accent-light)] border border-slate-200/80 dark:border-slate-700/60 text-left transition flex items-center justify-between group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   >
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[var(--accent)]">
                         {r.title}
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {r.desc}
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition" />
                   </button>
                 ))}
               </div>
@@ -1384,47 +1410,80 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         )}
       </div>
 
-      {/* Mobile / Small Screen Compact Horizontal Category Pills (prevents huge vertical stack) */}
-      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 -mt-2 px-1 scrollbar-none">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeSection === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                sounds.playClick();
-                handleSelectSection(item.id);
-              }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition shrink-0 ${
-                isActive
-                  ? item.danger
-                    ? 'bg-rose-600 text-white shadow-xs font-bold'
-                    : 'text-white shadow-xs font-bold'
-                  : item.danger
-                  ? 'text-rose-600 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60'
-                  : 'text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-              style={isActive && !item.danger ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* The themed section menu avoids the low-contrast native select popup on compact windows. */}
+      <div className="md:hidden -mt-1 px-2.5 sm:px-4 relative z-30">
+        <div className="relative">
+          <button
+            type="button"
+            aria-label={`${t('settings.mobile_sections', activeLang, 'Sections')}: ${currentNav?.label || t('settings.home', activeLang, 'Home')}`}
+            aria-expanded={isMobileSectionMenuOpen}
+            onClick={() => setIsMobileSectionMenuOpen((open) => !open)}
+            aria-controls="settings-mobile-section-menu"
+            className="w-full flex items-center gap-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-left shadow-xs transition hover:border-[var(--accent-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>
+              <CurrentIcon className="w-4 h-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {t('settings.mobile_sections', activeLang, 'Bereiche')}
+              </span>
+              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">
+                {currentNav?.label || t('settings.home', activeLang, 'Startseite')}
+              </span>
+            </span>
+            <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${isMobileSectionMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div id="settings-mobile-section-menu" className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] max-h-[60vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 shadow-xl ${isMobileSectionMenuOpen ? 'animate-fade-in' : 'hidden'}`}>
+            {categoryGroups.map((group) => (
+              <div key={group.id} className="mt-2 first:mt-0">
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  {group.label}
+                </div>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeSection === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-current={isActive ? 'page' : undefined}
+                        onClick={() => {
+                          sounds.playClick();
+                          handleSelectSection(item.id);
+                          setIsMobileSectionMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-xs font-semibold transition ${
+                          item.danger
+                            ? 'border-transparent text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                            : isActive
+                              ? 'text-[var(--accent)]'
+                              : 'border-transparent text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                        style={isActive && !item.danger
+                          ? { backgroundColor: 'var(--accent-light)', borderColor: 'var(--accent-border-subtle)' }
+                          : undefined}
+                      >
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {isActive && <Check className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />}
+                        {item.badge && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px]">{item.badge}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       </div>
 
       {/* 2. Main Responsive Two-Column Layout (Windows Settings Style Sidebar + Content) */}
-      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 md:p-6 pb-2 max-w-6xl w-full mx-auto">
-        <div className="h-full min-h-0 flex flex-col md:flex-row gap-5 sm:gap-6 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-4 md:p-6 pb-2 max-w-6xl w-full mx-auto">
+        <div className="h-full min-h-0 flex flex-col md:flex-row gap-3 sm:gap-5 md:gap-6 overflow-hidden">
         
         {/* Left Sidebar Navigation (Desktop / Tablet view: side by side, independently scrollable) */}
         <div className="hidden md:flex flex-col w-64 lg:w-72 xl:w-80 shrink-0 h-full min-h-0 overflow-y-auto space-y-3 pr-1.5 pb-24 scrollbar-thin">
@@ -1574,21 +1633,32 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {activeSection === 'home' && (
             <div className="space-y-6">
               
-              {/* Windows 11 Profile Banner */}
-              <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-800/40 relative overflow-hidden">
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-xl font-bold">
-                      {profile.name ? profile.name.slice(0, 2).toUpperCase() : 'SO'}
+              {/* Workspace overview */}
+              <div
+                className="rounded-3xl border p-4 sm:p-6 shadow-xs transition-colors"
+                style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--accent-border-subtle)' }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/80 dark:bg-slate-900/70 border border-white/70 dark:border-white/10 flex items-center justify-center text-lg font-bold shrink-0 shadow-xs" style={{ color: 'var(--accent)' }}>
+                      {companyDisplayName ? companyDisplayName.slice(0, 2).toUpperCase() : <Building2 className="w-6 h-6" />}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">{profile.name || t('settings.your_company', activeLang, 'Your Company')}</h3>
-                      <p className="text-xs text-indigo-200">{profile.email || t('settings.no_email_hint', activeLang, 'No email configured')} • {profile.city || t('settings.default_country', activeLang, 'Germany')}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                        {t('settings.category_overview', activeLang, 'Übersicht & Schnelleinstieg')}
+                      </p>
+                      <h3 className="mt-0.5 truncate text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                        {companyDisplayName || t('settings.workspace_title', activeLang, 'Your workspace')}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        {[profile.email, profile.city].filter(Boolean).join(' · ') || t('settings.workspace_local_ready', activeLang, 'Local workspace · Add your company details anytime.')}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/75 dark:bg-slate-900/70 text-emerald-700 dark:text-emerald-300 border border-emerald-500/15">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           {t('settings.offline_free_badge', activeLang, '100% Offline & Free')}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-white">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/75 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 border border-slate-500/10">
                           {t('settings.din5008_ready', activeLang, 'DIN 5008 Ready')}
                         </span>
                       </div>
@@ -1596,28 +1666,32 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handleSelectSection('general')}
-                    className="px-4 py-2 bg-white text-indigo-950 hover:bg-indigo-50 font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:scale-[0.98] self-stretch sm:self-auto shrink-0"
+                    style={{ backgroundColor: 'var(--accent)' }}
                   >
+                    <Sliders className="w-4 h-4" />
                     {t('settings.customize_profile', activeLang, 'Customize Profile')}
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Zuletzt gesucht & Empfohlene Einstellungen (Windows Inspired) */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+              {/* Quick access to recommended settings */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
                 <div>
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span>{t('settings.recent_quick_start', activeLang, 'Recent Searches & Quick Access')}</span>
+                    <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                    <span>{t('settings.recent_quick_start', activeLang, 'Quick access')}</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {t('settings.recent_quick_start_desc', activeLang, 'Frequently used settings and personalization options at a glance:')}
+                    {t('settings.recent_quick_start_desc', activeLang, 'Jump directly to commonly used settings.')}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {recentSearches.map((tile) => {
+                <div className="grid grid-cols-1 min-[520px]:grid-cols-2 gap-3">
+                  {recentSearches.map((tile, recentIndex) => {
                     const Icon = tile.icon;
                     return (
                       <button
@@ -1626,20 +1700,25 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           sounds.playClick();
                           handleSelectSection(tile.id as SettingsSection);
                         }}
-                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700/60 text-left transition group flex items-start gap-3.5"
+                        className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/60 text-left transition group flex items-start gap-3.5 hover:-translate-y-0.5 hover:shadow-md hover:border-[var(--accent-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                       >
-                        <div className={`p-2.5 rounded-xl ${tile.color} shrink-0 group-hover:scale-105 transition-transform`}>
+                        <div
+                          className="p-2.5 rounded-xl shrink-0 transition-transform group-hover:scale-105"
+                          style={recentIndex % 2 === 0
+                            ? { color: 'var(--accent)', backgroundColor: 'var(--accent-light)' }
+                            : { color: 'var(--accent-companion)', backgroundColor: 'var(--accent-companion-light)' }}
+                        >
                           <Icon className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[var(--accent)] truncate">
                             {tile.title}
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                             {tile.category}
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition shrink-0 mt-1" />
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition shrink-0 mt-1" />
                       </button>
                     );
                   })}
@@ -1647,15 +1726,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </div>
 
               {/* Quick Preferences Toggles */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 min-[620px]:grid-cols-3 gap-3">
                 {/* 1. Dark Mode Quick Switch */}
                 <div
                   onClick={() => {
                     sounds.playClick();
                     onToggleTheme();
                   }}
-                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
-                  role="button"
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-[var(--accent-border-subtle)] rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  role="switch"
+                  aria-checked={isDark}
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -1666,9 +1746,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0 ${
-                      isDark ? 'bg-purple-950/60 text-purple-400' : 'bg-amber-50 text-amber-600'
-                    }`}>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>
                       {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
@@ -1684,8 +1762,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   {/* Elegant Animated Toggle Switch */}
                   <div
                     className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      isDark ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'
+                      isDark ? '' : 'bg-slate-200 dark:bg-slate-700'
                     }`}
+                    style={isDark ? { backgroundColor: 'var(--accent)' } : undefined}
                   >
                     <span
                       className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
@@ -1701,8 +1780,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     sounds.playClick();
                     onToggleSound();
                   }}
-                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
-                  role="button"
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-[var(--accent-companion-border)] rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  role="switch"
+                  aria-checked={!isMuted}
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -1713,9 +1793,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0 ${
-                      !isMuted ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                    }`}>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0" style={!isMuted ? { backgroundColor: 'var(--accent-companion-light)', color: 'var(--accent-companion)' } : { backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>
                       {!isMuted ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
@@ -1731,8 +1809,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   {/* Elegant Animated Toggle Switch */}
                   <div
                     className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      !isMuted ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
+                      !isMuted ? '' : 'bg-slate-200 dark:bg-slate-700'
                     }`}
+                    style={!isMuted ? { backgroundColor: 'var(--accent-companion)' } : undefined}
                   >
                     <span
                       className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
@@ -1748,7 +1827,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     sounds.playClick();
                     handleSelectSection('connections');
                   }}
-                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none"
+                  className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-[var(--accent-border-subtle)] rounded-2xl flex items-center justify-between cursor-pointer transition shadow-xs group select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -1760,7 +1839,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center transition shrink-0">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center transition shrink-0" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>
                       <CalendarIcon className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
@@ -1772,7 +1851,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition shrink-0">
+                  <div className="flex items-center gap-1 text-xs font-semibold group-hover:translate-x-0.5 transition shrink-0" style={{ color: 'var(--accent)' }}>
                     <span>{t('settings.quick_open', activeLang, 'Öffnen')}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
@@ -1784,7 +1863,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                      <LayoutGrid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <LayoutGrid className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                       <span>{t('settings.category_overview', activeLang, 'Einstellungsbereiche & Module')}</span>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1793,7 +1872,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {categoryGroups.filter(g => g.id !== 'overview').map((group) => (
                     <div
                       key={group.id}
@@ -1801,7 +1880,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     >
                       <div>
                         <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
                             {group.label}
                           </span>
                         </div>
@@ -1818,14 +1897,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                                 className={`w-full p-2.5 rounded-2xl text-left transition flex items-start justify-between group ${
                                   item.danger
                                     ? 'hover:bg-rose-50/80 dark:hover:bg-rose-950/30'
-                                    : 'hover:bg-indigo-50/80 dark:hover:bg-indigo-950/30'
+                                    : 'hover:bg-[var(--accent-light)]'
                                 }`}
                               >
                                 <div className="flex items-start gap-2.5 min-w-0">
                                   <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${
-                                    item.danger
-                                      ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                                  item.danger
+                                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-[var(--accent-light)] group-hover:text-[var(--accent)]'
                                   }`}>
                                     <Icon className="w-3.5 h-3.5" />
                                   </div>
@@ -1833,7 +1912,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                                     <div className={`text-xs font-bold truncate ${
                                       item.danger
                                         ? 'text-rose-600 dark:text-rose-400'
-                                        : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                                        : 'text-slate-900 dark:text-white group-hover:text-[var(--accent)]'
                                     }`}>
                                       {item.label}
                                     </div>
@@ -1842,7 +1921,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                                     </div>
                                   </div>
                                 </div>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition shrink-0 mt-1" />
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition shrink-0 mt-1" />
                               </button>
                             );
                           })}
@@ -5770,7 +5849,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       value={shortcutSearch}
                       onChange={(e) => setShortcutSearch(e.target.value)}
                       placeholder={t('settings.shortcuts_search_placeholder', activeLang, 'Tastenkürzel suchen...')}
-                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition"
+                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)] shadow-xs transition"
                     />
                     {shortcutSearch && (
                       <button

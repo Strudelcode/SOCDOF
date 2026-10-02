@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Contact, 
   Product, 
@@ -121,11 +121,8 @@ export default function App() {
       if (session && !session.locked) {
         const user = getUserById(session.userId);
         if (user) {
-          const media = window.matchMedia('(prefers-color-scheme: dark)');
-          const enableDark = nextMode === 'dark' || (nextMode !== 'light' && media.matches);
-          const userTheme = enableDark ? 'dark' : 'light';
-          if (user.preferences.theme !== userTheme) {
-            updateUserPreferences(user.id, { ...user.preferences, theme: userTheme });
+          if (user.preferences.theme !== nextMode) {
+            updateUserPreferences(user.id, { ...user.preferences, theme: nextMode });
           }
         }
       }
@@ -397,11 +394,8 @@ export default function App() {
         if (session && !session.locked) {
           const user = getUserById(session.userId);
           if (user) {
-            const media = window.matchMedia('(prefers-color-scheme: dark)');
-            const enableDark = updated.theme_mode === 'dark' || (updated.theme_mode !== 'light' && media.matches);
-            const userTheme = enableDark ? 'dark' : 'light';
-            if (user.preferences.theme !== userTheme) {
-              updateUserPreferences(user.id, { ...user.preferences, theme: userTheme });
+            if (user.preferences.theme !== updated.theme_mode) {
+              updateUserPreferences(user.id, { ...user.preferences, theme: updated.theme_mode });
             }
           }
         }
