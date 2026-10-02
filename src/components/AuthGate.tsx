@@ -3,6 +3,25 @@ import {
   ArrowRight,
   Building2,
   Check,
+  BriefcaseBusiness,
+  ShoppingCart,
+  Calculator,
+  CalendarDays,
+  ChartNoAxesCombined,
+  ContactRound,
+  Download,
+  FileText,
+  CreditCard,
+  HeartPulse,
+  Layers,
+  LayoutGrid,
+  LifeBuoy,
+  MessageSquare,
+  Image as ImageIcon,
+  Moon,
+  Monitor,
+  Palette,
+  Sun,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -49,7 +68,8 @@ import {
   type UserRole,
   RECOVERY_QUESTIONS
 } from '../lib/auth';
-import { applyAccentColor } from '../lib/accent';
+import { ACCENT_LIST, applyAccentColor } from '../lib/accent';
+import type { ActiveModule } from '../types';
 import {
   SUPPORTED_LANGUAGES,
   formatSystemDate,
@@ -145,6 +165,80 @@ const getAuthCopy = (lang: LanguageCode) => ({
 type AuthText = ReturnType<typeof getAuthCopy>;
 const fieldClass = 'w-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-4 py-3 sm:py-2.5 text-base sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[44px] transition';
 const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
+const SETUP_CORE_MODULES: ActiveModule[] = ['dashboard', 'appstore', 'docs', 'settings'];
+const SETUP_MODULE_TEMPLATES: Record<string, ActiveModule[]> = {
+  personal: ['contacts', 'calendar', 'calculator', 'widgets'],
+  business: ['invoices', 'accounting', 'contacts', 'products', 'stock', 'purchases', 'calendar', 'calculator'],
+  practice: ['therapy_practice', 'contacts', 'calendar', 'invoices', 'accounting'],
+  retail: ['pos', 'products', 'stock', 'purchases', 'accounting', 'contacts', 'invoices'],
+};
+const SETUP_TEMPLATE_KEYS = ['personal', 'business', 'practice', 'retail'] as const;
+const SETUP_BUSINESS_ONLY_MODULES = new Set<ActiveModule>([
+  'invoices', 'accounting', 'purchases', 'pos', 'support_services'
+]);
+const SETUP_MODULE_OPTIONS: ActiveModule[] = [
+  'invoices', 'accounting', 'contacts', 'products', 'stock', 'purchases', 'calendar', 'calculator',
+  'therapy_practice', 'support_services', 'pos', 'widgets', 'feedback',
+];
+const SETUP_MODULE_ICONS: Partial<Record<ActiveModule, React.ComponentType<{ className?: string }>>> = {
+  invoices: FileText,
+  accounting: ChartNoAxesCombined,
+  contacts: ContactRound,
+  products: BriefcaseBusiness,
+  stock: Layers,
+  purchases: Download,
+  calendar: CalendarDays,
+  calculator: Calculator,
+  therapy_practice: HeartPulse,
+  support_services: LifeBuoy,
+  pos: CreditCard,
+  widgets: LayoutGrid,
+  feedback: MessageSquare,
+};
+const SETUP_MODULE_DESCRIPTIONS: Partial<Record<ActiveModule, string>> = {
+  invoices: 'auth.setupModuleDesc.invoices',
+  accounting: 'auth.setupModuleDesc.accounting',
+  contacts: 'auth.setupModuleDesc.contacts',
+  products: 'auth.setupModuleDesc.products',
+  stock: 'auth.setupModuleDesc.stock',
+  purchases: 'auth.setupModuleDesc.purchases',
+  calendar: 'auth.setupModuleDesc.calendar',
+  calculator: 'auth.setupModuleDesc.calculator',
+  therapy_practice: 'auth.setupModuleDesc.therapy_practice',
+  support_services: 'auth.setupModuleDesc.support_services',
+  pos: 'auth.setupModuleDesc.pos',
+  widgets: 'auth.setupModuleDesc.widgets',
+  feedback: 'auth.setupModuleDesc.feedback',
+};
+
+function getSetupModulesForAccount(modules: ActiveModule[], accountType: AccountType): ActiveModule[] {
+  return accountType === 'personal'
+    ? modules.filter((module) => !SETUP_BUSINESS_ONLY_MODULES.has(module))
+    : modules;
+}
+
+function resizeOnboardingWallpaper(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('image_read_failed'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('image_decode_failed'));
+      image.onload = () => {
+        const ratio = Math.min(1, 1920 / image.width, 1080 / image.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        const context = canvas.getContext('2d');
+        if (!context) return reject(new Error('image_canvas_failed'));
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/webp', 0.82));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function computePasswordStrength(password: string): {
   score: number;
@@ -294,7 +388,7 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   }
   if (currentUser.mustChangePassword) return <ForcedPasswordScreen text={text} user={currentUser} onDone={refresh} onLogout={logout} />;
   if (locked) return <LockScreen text={text} user={currentUser} users={users} company={company} onUnlock={login} onSwitch={logout} />;
-  return <div className="relative w-full h-full">{children}</div>;
+  return<div className="relative w-full h-full">{children}</div>;
 }
 
 function LanguageSelectionScreen({
@@ -415,12 +509,12 @@ function LanguageSelectionScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-4 sm:p-6 flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-7 flex flex-col h-[610px] max-h-[calc(100vh-2rem)]">
+   <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-4 sm:p-6 flex min-h-screen items-center justify-center">
+     <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-7 flex flex-col h-[610px] max-h-[calc(100vh-2rem)]">
         {/* Header with icon and step badge */}
-        <div className="shrink-0 mb-3.5">
-          <div className="flex items-center justify-between mb-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
+       <div className="shrink-0 mb-3.5">
+         <div className="flex items-center justify-between mb-3.5">
+           <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
               <Globe size={24} />
             </div>
             {isFirstRunOnboarding && (
@@ -440,7 +534,7 @@ function LanguageSelectionScreen({
 
         {/* Search bar when over 10 languages are present */}
         {availableLanguages.length > 10 && (
-          <div className="relative mb-3 shrink-0">
+         <div className="relative mb-3 shrink-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -463,7 +557,7 @@ function LanguageSelectionScreen({
         )}
 
         {/* Scrollable Language List */}
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
+       <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
           {filteredLanguages.map((language) => {
             const isSelected = selectedId === language.id;
             return (
@@ -477,7 +571,7 @@ function LanguageSelectionScreen({
                     : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
                 }`}
               >
-                <div className="w-12 h-11 rounded-xl bg-slate-100 dark:bg-white/10 font-bold text-sm tracking-wider flex items-center justify-center text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-white/10 shrink-0 select-none overflow-hidden">
+               <div className="w-12 h-11 rounded-xl bg-slate-100 dark:bg-white/10 font-bold text-sm tracking-wider flex items-center justify-center text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-white/10 shrink-0 select-none overflow-hidden">
                   {language.flagImage ? (
                     <img src={language.flagImage} alt="" className="w-7 h-5 object-cover rounded shadow-xs" />
                   ) : language.emoji && language.emoji.length > 0 && language.emoji !== '🏳️' ? (
@@ -503,7 +597,7 @@ function LanguageSelectionScreen({
             );
           })}
           {filteredLanguages.length === 0 && (
-            <div className="text-center py-6 px-3 border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+           <div className="text-center py-6 px-3 border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
               <Globe className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 {t('lang_modal.no_search_results', lang, 'Keine passende Sprache gefunden')}
@@ -543,6 +637,19 @@ function FirstAccount({
 }) {
   const lang = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
+  const [showInitialSetup, setShowInitialSetup] = useState(true);
+  const [setupAccent, setSetupAccent] = useState(() => initialCompany?.accent_color || (typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null) || 'indigo');
+  const [setupTheme, setSetupTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [setupWallpaper, setSetupWallpaper] = useState(() => initialCompany?.desktop_wallpaper_url || '');
+  const [setupApps, setSetupApps] = useState<ActiveModule[]>(() => [...SETUP_MODULE_TEMPLATES.personal]);
+  const previewBaselineRef = useRef({
+    isDark: typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+    colorScheme: typeof document !== 'undefined' ? document.documentElement.style.colorScheme : '',
+    storedAccent: typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null,
+    accent: initialCompany?.accent_color || (typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null) || 'indigo',
+  });
+  const keepSetupPreviewRef = useRef(false);
   const [form, setForm] = useState({
     username: '',
     displayName: '',
@@ -572,6 +679,86 @@ function FirstAccount({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const strength = computePasswordStrength(form.password);
+
+  const restoreSetupPreview = () => {
+    const root = document.documentElement;
+    const baseline = previewBaselineRef.current;
+    applyAccentColor(baseline.accent);
+    if (baseline.storedAccent === null) {
+      try {
+        localStorage.removeItem('socdof_accent_color');
+      } catch {
+        // Ignore storage failures while restoring the preview.
+      }
+    }
+    root.classList.toggle('dark', baseline.isDark);
+    root.style.colorScheme = baseline.colorScheme;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (!keepSetupPreviewRef.current) restoreSetupPreview();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showInitialSetup || setupTheme !== 'system') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemPreview = () => {
+      const isDark = media.matches;
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    };
+    applySystemPreview();
+    media.addEventListener?.('change', applySystemPreview);
+    return () => media.removeEventListener?.('change', applySystemPreview);
+  }, [showInitialSetup, setupTheme]);
+
+  const handleThemePreview = (mode: 'light' | 'dark' | 'system') => {
+    setSetupTheme(mode);
+    if (!showInitialSetup) return;
+    const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+  };
+
+  const handleAccentPreview = (accent: string) => {
+    setSetupAccent(accent);
+    if (showInitialSetup) applyAccentColor(accent);
+  };
+
+  const toggleInitialSetup = () => {
+    const nextEnabled = !showInitialSetup;
+    setShowInitialSetup(nextEnabled);
+    if (nextEnabled) {
+      applyAccentColor(setupAccent);
+      const isDark = setupTheme === 'dark' || (setupTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    } else {
+      restoreSetupPreview();
+    }
+  };
+
+  const handleSetupWallpaperFile = async (file?: File) => {
+    if (!file?.type.startsWith('image/')) return;
+    try {
+      setSetupWallpaper(await resizeOnboardingWallpaper(file));
+      setError('');
+    } catch {
+      setError(t('auth.setupWallpaperError', lang));
+    }
+  };
+
+  const selectAppTemplate = (template: keyof typeof SETUP_MODULE_TEMPLATES) => {
+    setSetupApps(getSetupModulesForAccount(SETUP_MODULE_TEMPLATES[template], form.accountType));
+  };
+
+  const toggleSetupApp = (module: ActiveModule) => {
+    setSetupApps((current) => current.includes(module)
+      ? current.filter((item) => item !== module)
+      : [...current, module]);
+  };
 
   const handleAvatarFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -646,24 +833,36 @@ function FirstAccount({
 
     try {
       setLanguage(lang);
-      await createUser({
+      const initialPreferences = showInitialSetup ? {
+        language: lang,
+        accentColor: setupAccent,
+        theme: setupTheme,
+        wallpaper: setupWallpaper || undefined,
+      } : { language: lang };
+      const createdUser = await createUser({
         username: form.username.trim(),
         displayName: form.displayName.trim(),
         password: form.password,
         accountType: form.accountType,
         avatar: form.avatar ? form.avatar : undefined,
-        preferences: { language: lang },
+        preferences: initialPreferences,
         recoveryQuestion,
         recoveryAnswer,
         autoLogin: false,
       });
 
+      let updatedCompany: CompanyProfile | undefined;
       try {
         const settingRecord = await db.settings.get('company_profile');
         const currentCompany: CompanyProfile = (settingRecord?.value as CompanyProfile) || initialCompany || ({} as CompanyProfile);
-        const updatedCompany: CompanyProfile = {
+        updatedCompany = {
           ...currentCompany,
           language: lang,
+          ...(showInitialSetup ? {
+            accent_color: setupAccent,
+            theme_mode: setupTheme,
+            desktop_wallpaper_url: setupWallpaper || undefined,
+          } : {}),
           ...(form.accountType === 'business' ? {
             name: businessDetails.companyName.trim() || currentCompany.name || '',
             ...(!isBusinessSetupSkipped ? {
@@ -678,9 +877,42 @@ function FirstAccount({
           } : {})
         };
         await db.settings.put({ key: 'company_profile', value: updatedCompany });
-        window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedCompany }));
       } catch (compErr) {
         console.error('Failed to update company profile from onboarding:', compErr);
+      }
+
+      if (showInitialSetup) {
+        const selectedModules = Array.from(new Set([
+          ...SETUP_CORE_MODULES,
+          ...getSetupModulesForAccount(setupApps, form.accountType),
+        ]));
+        const selectedDesktopPins = selectedModules;
+        const selectedTaskbarPins = ['dashboard', 'invoices', 'accounting', 'contacts', 'calendar', 'settings']
+          .filter((module): module is ActiveModule => selectedModules.includes(module as ActiveModule));
+        const moduleValues: Record<string, ActiveModule[]> = {
+          odoo_installed_modules: selectedModules,
+          odoo_pinned_desktop: selectedDesktopPins,
+          odoo_pinned_taskbar: selectedTaskbarPins,
+        };
+        const scopedPrefix = `socdof.user.${createdUser.id}.`;
+        try {
+          Object.entries(moduleValues).forEach(([key, value]) => {
+            const serialized = JSON.stringify(value);
+            localStorage.setItem(key, serialized);
+            localStorage.setItem(scopedPrefix + key, serialized);
+            localStorage.setItem(scopedPrefix + 'all.' + key, serialized);
+          });
+        } catch (storageErr) {
+          console.warn('Could not persist all onboarding module preferences:', storageErr);
+        }
+        applyAccentColor(setupAccent);
+        keepSetupPreviewRef.current = true;
+        const isDark = setupTheme === 'dark' || (setupTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      }
+      if (updatedCompany) {
+        window.dispatchEvent(new CustomEvent('socdof-company-updated', { detail: updatedCompany }));
       }
 
       clearSession();
@@ -701,16 +933,16 @@ function FirstAccount({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-3 sm:p-6 flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-lg my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-5 sm:p-7 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-y-auto">
+   <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/70 p-3 sm:p-6 flex min-h-screen items-center justify-center">
+     <div className="w-full max-w-lg my-auto rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-5 sm:p-7 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-y-auto">
         {/* Header with step indicator and language selector */}
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-white/5">
-          <div className="flex items-center gap-2">
+       <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-white/5">
+         <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
               {t('auth.stepAccount', lang)}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+         <div className="flex items-center gap-2">
             <select
               value={lang}
               onChange={(e) => setLanguage(e.target.value as LanguageCode)}
@@ -726,12 +958,12 @@ function FirstAccount({
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-3 shadow-lg shadow-indigo-600/20">
+       <div className="mb-4">
+         <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-3 shadow-lg shadow-indigo-600/20">
             <ShieldCheck size={23} />
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{text.welcome}</h1>
-          <div className="flex items-center justify-between mt-1 text-xs text-slate-500 dark:text-slate-400">
+         <div className="flex items-center justify-between mt-1 text-xs text-slate-500 dark:text-slate-400">
             <span>{text.setup}</span>
             <span className="text-rose-500 font-medium">{t('auth.requiredNotice', lang)}</span>
           </div>
@@ -776,10 +1008,13 @@ function FirstAccount({
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {text.account}
             </label>
-            <div className="grid grid-cols-2 gap-2">
+           <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setForm({ ...form, accountType: 'personal' })}
+                onClick={() => {
+                  setForm({ ...form, accountType: 'personal' });
+                  setSetupApps([...SETUP_MODULE_TEMPLATES.personal]);
+                }}
                 className={`rounded-xl border p-2.5 text-left text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                   form.accountType === 'personal'
                     ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 text-indigo-700 dark:text-indigo-300'
@@ -790,7 +1025,10 @@ function FirstAccount({
               </button>
               <button
                 type="button"
-                onClick={() => setForm({ ...form, accountType: 'business' })}
+                onClick={() => {
+                  setForm({ ...form, accountType: 'business' });
+                  setSetupApps([...SETUP_MODULE_TEMPLATES.business]);
+                }}
                 className={`rounded-xl border p-2.5 text-left text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                   form.accountType === 'business'
                     ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/15 ring-2 ring-indigo-500/20 text-indigo-700 dark:text-indigo-300'
@@ -803,10 +1041,10 @@ function FirstAccount({
 
             {/* Optional Business Details & Letterhead Questionnaire */}
             {form.accountType === 'business' && (
-              <div className="mt-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 bg-indigo-50/40 dark:bg-indigo-950/20 p-4 space-y-3.5 transition-all animate-fade-in shadow-xs">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+             <div className="mt-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 bg-indigo-50/40 dark:bg-indigo-950/20 p-4 space-y-3.5 transition-all animate-fade-in shadow-xs">
+               <div className="flex items-start justify-between gap-3">
+                 <div className="flex items-center gap-2.5">
+                   <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 shrink-0">
                       <Building2 className="w-4 h-4" />
                     </div>
                     <div>
@@ -829,7 +1067,7 @@ function FirstAccount({
                   </button>
                 </div>
 
-                <div className="space-y-3 pt-1">
+               <div className="space-y-3 pt-1">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       {t('auth.company_name', lang, 'Wie heißt die Firma / Ihr Unternehmen?')} <span className="text-rose-500 font-bold">*</span>
@@ -846,7 +1084,7 @@ function FirstAccount({
                   </div>
 
                   {isBusinessSetupSkipped ? (
-                  <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between gap-3">
+                 <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between gap-3">
                     <span className="leading-tight">
                       {t('auth.business_setup_skipped_notice', lang, 'Weitere Angaben übersprungen – Ihr Firmenname ist bereits hinterlegt. Sie können Anschrift, Währung und Briefkopf jederzeit unter Einstellungen > Stammdaten ergänzen.')}
                     </span>
@@ -861,7 +1099,7 @@ function FirstAccount({
                 ) : (
                   <>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           {t('auth.company_address', lang, 'Straße & Hausnummer')}
@@ -886,19 +1124,19 @@ function FirstAccount({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           {t('auth.company_currency', lang, 'Standard-Währung')}
                         </label>
-                        <div className="flex items-center gap-1.5">
+                       <div className="flex items-center gap-1.5">
                           <input
                             className={`${fieldClass} flex-1`}
                             placeholder="€"
                             value={businessDetails.currency}
                             onChange={(e) => setBusinessDetails({ ...businessDetails, currency: e.target.value })}
                           />
-                          <div className="flex items-center gap-1 shrink-0">
+                         <div className="flex items-center gap-1 shrink-0">
                             {['€', '$', 'CHF', '£'].map((curr) => (
                               <button
                                 key={curr}
@@ -929,7 +1167,7 @@ function FirstAccount({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           {t('auth.company_email', lang, 'Firmen-E-Mail (für Anschriften / Rechnungen)')}
@@ -962,20 +1200,211 @@ function FirstAccount({
             )}
           </div>
 
+          {/* Optional first-run appearance and app setup */}
+          <section className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-3.5 sm:p-4 space-y-3.5">
+           <div className="flex items-start justify-between gap-3">
+             <div className="flex items-start gap-2.5 min-w-0">
+                <span className="p-2 rounded-xl text-white shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
+                  <BriefcaseBusiness className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('auth.setupTitle', lang)}</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">{t('auth.setupDescription', lang)}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleInitialSetup}
+                aria-pressed={showInitialSetup}
+                className="shrink-0 text-[11px] font-semibold hover:underline cursor-pointer"
+                style={{ color: 'var(--accent)' }}
+              >
+                {showInitialSetup ? t('auth.setupSkip', lang) : t('auth.setupEnable', lang)}
+              </button>
+            </div>
+
+            {showInitialSetup ? (
+             <div className="space-y-3.5">
+                <div>
+                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <Palette size={14} /> {t('auth.setupAccent', lang)}
+                  </div>
+                 <div className="grid grid-cols-5 sm:grid-cols-9 gap-2">
+                    {ACCENT_LIST.map((accent) => (
+                      <button
+                        key={accent.id}
+                        type="button"
+                        aria-label={t(`auth.setupColor.${accent.id}`, lang, accent.label)}
+                        aria-pressed={setupAccent === accent.id}
+                        title={t(`auth.setupColor.${accent.id}`, lang, accent.label)}
+                        onClick={() => handleAccentPreview(accent.id)}
+                        className="h-9 rounded-xl border-2 transition-transform hover:scale-105 cursor-pointer flex items-center justify-center"
+                        style={{
+                          backgroundColor: accent.hex,
+                          borderColor: setupAccent === accent.id ? 'var(--accent-companion)' : 'transparent',
+                          boxShadow: setupAccent === accent.id ? '0 0 0 2px var(--accent)' : undefined,
+                        }}
+                      >
+                        {setupAccent === accent.id && <Check size={15} className="text-white drop-shadow" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <Sun size={14} /> {t('auth.setupTheme', lang)}
+                  </div>
+                 <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { mode: 'light', label: t('auth.setupLight', lang), Icon: Sun },
+                      { mode: 'dark', label: t('auth.setupDark', lang), Icon: Moon },
+                      { mode: 'system', label: t('auth.setupSystem', lang), Icon: Monitor },
+                    ] as const).map(({ mode, label, Icon }) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={setupTheme === mode}
+                        onClick={() => handleThemePreview(mode)}
+                        className="min-h-10 inline-flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-semibold transition-colors cursor-pointer"
+                        style={setupTheme === mode
+                          ? { borderColor: 'var(--accent)', color: 'var(--accent)', backgroundColor: 'var(--accent-light)' }
+                          : undefined}
+                      >
+                        <Icon size={14} /> {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <ImageIcon size={14} /> {t('auth.setupWallpaper', lang)}
+                  </div>
+                  <input
+                    ref={wallpaperInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      void handleSetupWallpaperFile(event.target.files?.[0]);
+                      event.target.value = '';
+                    }}
+                  />
+                 <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 p-2.5">
+                    {setupWallpaper ? (
+                      <img src={setupWallpaper} alt={t('auth.setupWallpaper', lang)} className="h-12 w-20 rounded-lg object-cover border border-slate-200 dark:border-white/10" />
+                    ) : (
+                     <div className="h-12 w-20 rounded-lg border border-dashed border-slate-300 dark:border-white/15 flex items-center justify-center text-slate-400">
+                        <ImageIcon size={18} />
+                      </div>
+                    )}
+                   <div className="min-w-0 flex-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{t('auth.setupWallpaperHint', lang)}</p>
+                     <div className="flex flex-wrap gap-2 mt-1.5">
+                        <button type="button" onClick={() => wallpaperInputRef.current?.click()} className="text-[11px] font-semibold hover:underline cursor-pointer" style={{ color: 'var(--accent)' }}>
+                          <span className="inline-flex items-center gap-1"><Upload size={12} /> {t('auth.setupWallpaperUpload', lang)}</span>
+                        </button>
+                        {setupWallpaper && (
+                          <button type="button" onClick={() => setSetupWallpaper('')} className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer">
+                            {t('auth.setupWallpaperRemove', lang)}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <BriefcaseBusiness size={14} /> {t('auth.setupTemplate', lang)}
+                  </div>
+                 <div className="grid grid-cols-1 min-[460px]:grid-cols-2 gap-2">
+                    {SETUP_TEMPLATE_KEYS.filter((template) => form.accountType === 'business' || template === 'personal' || template === 'practice').map((template) => {
+                      const templateApps = getSetupModulesForAccount(SETUP_MODULE_TEMPLATES[template], form.accountType);
+                      const isSelected = templateApps.length > 0 && templateApps.every((module) => setupApps.includes(module)) && setupApps.length === templateApps.length;
+                      const TemplateIcon = template === 'personal' ? UserRound : template === 'business' ? BriefcaseBusiness : template === 'practice' ? HeartPulse : ShoppingCart;
+                      return (
+                        <button
+                          key={template}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => selectAppTemplate(template)}
+                          className="min-h-[76px] rounded-2xl border p-3 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                          style={isSelected
+                            ? { borderColor: 'var(--accent)', backgroundColor: 'var(--accent-light)', boxShadow: '0 0 0 1px var(--accent-border-subtle)' }
+                            : undefined}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: isSelected ? 'var(--accent)' : 'var(--accent-light)', color: isSelected ? 'white' : 'var(--accent)' }}>
+                              <TemplateIcon size={16} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{t(`auth.setupTemplate.${template}`, lang)}</span>
+                            <span className="w-4 h-4 rounded-full border flex items-center justify-center shrink-0" style={isSelected ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' } : undefined}>
+                              {isSelected && <Check size={11} />}
+                            </span>
+                          </span>
+                          <span className="block mt-2 text-[10px] leading-snug text-slate-500 dark:text-slate-400">{t(`auth.setupTemplateDesc.${template}`, lang)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                 <div className="mt-3 flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">{t('auth.setupApps', lang)}</p>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{t('auth.setupAppsHint', lang)}</span>
+                  </div>
+                 <div className="mt-1.5 grid grid-cols-1 min-[460px]:grid-cols-2 gap-2">
+                    {SETUP_MODULE_OPTIONS.filter((module) => form.accountType === 'business' || !SETUP_BUSINESS_ONLY_MODULES.has(module)).map((module) => {
+                      const isSelected = setupApps.includes(module);
+                      const ModuleIcon = SETUP_MODULE_ICONS[module] || BriefcaseBusiness;
+                      return (
+                        <button
+                          key={module}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => toggleSetupApp(module)}
+                          className="group min-h-[68px] inline-flex items-start gap-2.5 rounded-2xl border p-2.5 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                          style={isSelected
+                            ? { borderColor: 'var(--accent)', backgroundColor: 'var(--accent-light)', boxShadow: '0 0 0 1px var(--accent-border-subtle)' }
+                            : undefined}
+                        >
+                          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors" style={{ backgroundColor: isSelected ? 'var(--accent)' : 'var(--accent-light)', color: isSelected ? 'white' : 'var(--accent)' }}>
+                            <ModuleIcon className="w-4 h-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-1.5">
+                              <span className="truncate text-[11px] font-semibold text-slate-800 dark:text-slate-100">{t(`module.${module}`, lang)}</span>
+                              <span className="w-4 h-4 rounded-md border flex items-center justify-center shrink-0" style={isSelected ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' } : undefined}>
+                                {isSelected && <Check size={11} />}
+                              </span>
+                            </span>
+                            <span className="block mt-1 text-[10px] leading-snug text-slate-500 dark:text-slate-400">{t(SETUP_MODULE_DESCRIPTIONS[module] || 'auth.setupModuleDesc.default', lang)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="pl-10 text-[11px] text-slate-500 dark:text-slate-400">{t('auth.setupSkippedNotice', lang)}</p>
+            )}
+          </section>
+
           {/* Profile Picture (Optional, gray silhouette default, upload/remove) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {t('auth.profilePhoto', lang)}
             </label>
-            <div className="flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/60 dark:bg-white/5">
-              <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-200/90 dark:bg-white/10 border border-slate-300 dark:border-white/15 flex items-center justify-center shrink-0 shadow-xs">
+           <div className="flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/60 dark:bg-white/5">
+             <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-200/90 dark:bg-white/10 border border-slate-300 dark:border-white/15 flex items-center justify-center shrink-0 shadow-xs">
                 {form.avatar ? (
                   <img src={form.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <UserRound size={26} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
                 )}
               </div>
-              <div className="flex-1 min-w-0">
+             <div className="flex-1 min-w-0">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -987,7 +1416,7 @@ function FirstAccount({
                     e.target.value = '';
                   }}
                 />
-                <div className="flex items-center gap-2">
+               <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -1016,7 +1445,7 @@ function FirstAccount({
 
           {/* Password with Strength Meter */}
           <div>
-            <div className="flex items-center justify-between mb-1">
+           <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {text.password} <span className="text-rose-500 font-bold">*</span>
               </label>
@@ -1026,7 +1455,7 @@ function FirstAccount({
                 </span>
               )}
             </div>
-            <div className="relative">
+           <div className="relative">
               <input
                 className={`${fieldClass} pr-10`}
                 type={showPassword ? 'text' : 'password'}
@@ -1049,8 +1478,8 @@ function FirstAccount({
 
             {/* Strength Bar */}
             {form.password && (
-              <div className="mt-2 space-y-1">
-                <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+             <div className="mt-2 space-y-1">
+               <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
                   <div
                     className={`h-full transition-all duration-300 rounded-full ${strength.colorClass}`}
                     style={{ width: `${strength.percent}%` }}
@@ -1084,8 +1513,8 @@ function FirstAccount({
           </div>
 
           {/* Security Question Section */}
-          <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
-            <div className="rounded-xl border border-amber-200/80 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 flex gap-2.5 leading-relaxed">
+         <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+           <div className="rounded-xl border border-amber-200/80 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 flex gap-2.5 leading-relaxed">
               <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <span>{t('auth.offlineNotice', lang)}</span>
             </div>
@@ -1147,7 +1576,7 @@ function FirstAccount({
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-xs sm:text-sm text-rose-600 dark:text-rose-400">
+           <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-xs sm:text-sm text-rose-600 dark:text-rose-400">
               {error}
             </div>
           )}
@@ -1177,7 +1606,7 @@ function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'm
   );
 
   return (
-    <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none transition-all`}>
+   <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none transition-all`}>
       {isImageAvatar ? (
         <img src={user.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
       ) : user.avatar && user.avatar.length <= 2 ? (
@@ -1202,9 +1631,9 @@ function LoginBackdrop({
 }) {
   const background = wallpaper || company.desktop_wallpaper_url;
   return (
-    <div className="relative min-h-[100dvh] h-full w-full overflow-y-auto bg-slate-950 text-white select-none">
+   <div className="relative min-h-[100dvh] h-full w-full overflow-y-auto bg-slate-950 text-white select-none">
       {background ? (
-        <div className="fixed inset-0 pointer-events-none z-0">
+       <div className="fixed inset-0 pointer-events-none z-0">
           <div
             aria-hidden="true"
             className="absolute -inset-6 bg-cover bg-center scale-105 blur-[18px]"
@@ -1217,7 +1646,7 @@ function LoginBackdrop({
         <div aria-hidden="true" className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 pointer-events-none z-0" />
       )}
 
-      <div className="relative z-10 min-h-[100dvh] w-full flex flex-col justify-between p-3 sm:p-5">
+     <div className="relative z-10 min-h-[100dvh] w-full flex flex-col justify-between p-3 sm:p-5">
         {children}
       </div>
     </div>
@@ -1377,7 +1806,7 @@ function LoginScreen({
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
       {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
-      <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
+     <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
         <button
           type="button"
           onClick={handleMinimize}
@@ -1413,21 +1842,21 @@ function LoginScreen({
       </div>
 
       {/* Clock & Date Display */}
-      <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
-        <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
+     <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
+       <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
           {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
         </div>
-        <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
+       <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
           {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
         </div>
       </div>
 
       {/* Center Main Login Form Card */}
-      <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
+     <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
         {selectedUser ? (
           <AuthAvatar user={selectedUser} size="lg" />
         ) : (
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg mx-auto shrink-0">
+         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-lg mx-auto shrink-0">
             <UserRound size={32} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500" />
           </div>
         )}
@@ -1448,7 +1877,7 @@ function LoginScreen({
             />
           )}
 
-          <div className="relative w-full">
+         <div className="relative w-full">
             <input
               autoFocus={!otherUser}
               className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4 pr-12 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
@@ -1478,7 +1907,7 @@ function LoginScreen({
       </div>
 
       {/* Bottom User Picker Carousel */}
-      <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
+     <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
         {activeUsers.map((user) => {
           const isSelected = selected === user.username && !otherUser;
           return (
@@ -1508,7 +1937,7 @@ function LoginScreen({
           }`}
           title={text.otherUser}
         >
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+         <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
             <UserRound size={16} className="text-white/85 sm:hidden" />
             <UserRound size={19} className="text-white/85 hidden sm:block" />
           </div>
@@ -1523,12 +1952,12 @@ function LoginScreen({
           aria-live="polite"
           className="fixed bottom-4 right-4 z-50 max-w-sm sm:max-w-md w-[calc(100%-2rem)] rounded-2xl border border-emerald-400/40 bg-emerald-950/90 backdrop-blur-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-emerald-100 shadow-2xl shadow-emerald-950/50 flex items-start justify-between gap-3 ring-1 ring-emerald-400/30 animate-fade-in transition-all"
         >
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400 shadow-xs">
+         <div className="flex items-start gap-3 min-w-0">
+           <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400 shadow-xs">
               <CheckCircle2 className="w-4 h-4" />
             </div>
-            <div className="min-w-0 text-left">
-              <div className="font-semibold text-emerald-300 text-[11px] uppercase tracking-wider mb-0.5">
+           <div className="min-w-0 text-left">
+             <div className="font-semibold text-emerald-300 text-[11px] uppercase tracking-wider mb-0.5">
                 {t('auth.accountCreatedToastTitle', lang, 'Account Created')}
               </div>
               <p className="leading-snug text-emerald-100/90 text-xs sm:text-sm">{successNotice}</p>
@@ -1558,12 +1987,12 @@ function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount |
     return () => window.clearInterval(timer);
   }, []);
   return (
-    <div className="relative min-h-[100dvh] h-full w-full overflow-hidden bg-slate-950 text-white flex items-center justify-center select-none">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
-      <div className="relative flex flex-col items-center text-center px-6 my-auto">
-        {user ? <AuthAvatar user={user} size="lg" /> : <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl mx-auto shrink-0"><UserRound size={32} strokeWidth={1.6} className="text-white/55" /></div>}
-        <div className="mt-6 text-xl font-medium tracking-tight">{text.login}{dots}</div>
-        <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
+   <div className="relative min-h-[100dvh] h-full w-full overflow-hidden bg-slate-950 text-white flex items-center justify-center select-none">
+     <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+     <div className="relative flex flex-col items-center text-center px-6 my-auto">
+        {user ? <AuthAvatar user={user} size="lg" /> :<div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-2xl mx-auto shrink-0"><UserRound size={32} strokeWidth={1.6} className="text-white/55" /></div>}
+       <div className="mt-6 text-xl font-medium tracking-tight">{text.login}{dots}</div>
+       <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
           {[0, 1, 2, 3].map((index) => <span key={index} className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />)}
         </div>
       </div>
@@ -1680,7 +2109,7 @@ function LockScreen({
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
       {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
-      <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
+     <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
         <button
           type="button"
           onClick={handleMinimize}
@@ -1716,23 +2145,23 @@ function LockScreen({
       </div>
 
       {/* Clock & Date Header */}
-      <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
-        <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
+     <div className="text-center select-none px-4 pt-1 sm:pt-3 shrink-0">
+       <div className="text-4xl sm:text-6xl font-light tracking-tight drop-shadow-2xl">
           {formatSystemTime(now, company.time_show_seconds === true, company.timezone)}
         </div>
-        <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
+       <div className="mt-1 text-xs sm:text-base text-white/85 drop-shadow-lg font-medium">
           {formatSystemDate(now, company.date_format || 'DD.MM.YYYY', company.timezone)}
         </div>
       </div>
 
       {/* Center Lock Screen Form Card */}
-      <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
+     <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 sm:py-6 w-full max-w-[340px] sm:max-w-sm mx-auto text-center my-auto z-10">
         <AuthAvatar user={selectedUser} size="lg" />
         <h1 className="mt-3.5 sm:mt-5 text-xl sm:text-2xl font-medium drop-shadow-xl text-white truncate max-w-full">{selectedUser.displayName}</h1>
         <p className="mt-1 text-xs sm:text-sm text-white/65">{text.lockedTitle}</p>
 
         <form onSubmit={submit} className="w-full mt-3.5 sm:mt-5 space-y-3">
-          <div className="relative w-full">
+         <div className="relative w-full">
             <input
               autoFocus
               className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4 pr-12 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
@@ -1755,7 +2184,7 @@ function LockScreen({
       </div>
 
       {/* Bottom User Picker Carousel */}
-      <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
+     <div className="w-full py-2 sm:py-3 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2.5 overflow-x-auto shrink-0 z-20">
         {activeUsers.map((account) => {
           const isSelected = selected === account.username;
           return (
@@ -1781,7 +2210,7 @@ function LockScreen({
           className="group flex flex-col items-center gap-1 sm:gap-1.5 rounded-2xl px-2.5 sm:px-3 py-1.5 sm:py-2 hover:bg-white/10 opacity-75 hover:opacity-100 text-white/90 border border-transparent transition-all cursor-pointer select-none min-h-[56px] shrink-0"
           title={text.switchUser}
         >
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
+         <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-white/30 bg-black/20 backdrop-blur-xl flex items-center justify-center">
             <UserRound size={16} className="text-white/85 sm:hidden" />
             <UserRound size={19} className="text-white/85 hidden sm:block" />
           </div>
@@ -1794,9 +2223,9 @@ function LockScreen({
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-4 sm:p-6 flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-white/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-indigo-600/20">
+   <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-slate-100 via-white to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-4 sm:p-6 flex min-h-screen items-center justify-center">
+     <div className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl border border-white/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 text-slate-900 dark:text-white backdrop-blur-2xl shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
+       <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-indigo-600/20">
           <ShieldCheck size={25} />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
@@ -1819,7 +2248,7 @@ export function UserManager({ text, currentUser, users, onClose, onRefresh, onLo
   const savePassword = async () => { try { await adminResetPassword(selected.id, newPassword); setNewPassword(''); setMessage(text.resetDone); onRefresh(); } catch { setMessage(text.short); } };
   const setAutoLock = (minutes: number) => { try { updateUser(selected.id, { preferences: { ...selected.preferences, autoLockMinutes: minutes } }); onRefresh(); } catch { setMessage(text.lastAdmin); } };
   const saveSecurity = () => { setSecurity(updateSecuritySettings(security)); setMessage(text.securitySaved); };
-  return <div className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-6"><div className="w-full max-w-5xl max-h-[92vh] overflow-auto rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-white/10 p-6"><div className="flex items-center justify-between mb-5"><div><h2 className="text-xl font-bold">{text.users}</h2><p className="text-sm text-slate-500">{text.current}: {currentUser.displayName}</p></div><button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><X size={18} /></button></div><div className="grid lg:grid-cols-[280px_1fr] gap-5"><div className="space-y-2">{users.map((user) => <button key={user.id} onClick={() => setSelectedId(user.id)} className={`w-full text-left p-3 rounded-2xl border ${selected.id === user.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}><div>{user.avatar ?? '●'} <span className="font-medium">{user.displayName}</span></div><div className="text-xs text-slate-500">@{user.username} · {user.role === 'admin' ? text.admin : text.user} · {user.active ? text.active : text.disabled}</div></button>)}</div><div className="space-y-4"><div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-4">{canManage && <><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} onClick={() => updateUser(selected.id, { avatar })} className={`w-9 h-9 rounded-xl border ${selected.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><div className="grid md:grid-cols-2 gap-2"><input className={fieldClass} value={selected.displayName} onChange={(e) => updateUser(selected.id, { displayName: e.target.value })} /><select className={fieldClass} value={selected.role} onChange={(e) => { try { updateUser(selected.id, { role: e.target.value as UserRole }); onRefresh(); } catch { setMessage(text.lastAdmin); } }}><option value="user">{text.user}</option><option value="admin">{text.admin}</option></select><select className={fieldClass} value={selected.accountType} onChange={(e) => { updateUser(selected.id, { accountType: e.target.value as AccountType }); onRefresh(); }}><option value="personal">{text.personal}</option><option value="business">{text.business}</option></select><select className={fieldClass} value={selected.preferences.autoLockMinutes ?? 15} onChange={(e) => setAutoLock(Number(e.target.value))}><option value={0}>{text.autoLock}: {text.off}</option><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option><option value={30}>30 {text.minutes}</option><option value={60}>60 {text.minutes}</option></select></div><div className="flex gap-2"><button onClick={saveProfile} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button><button onClick={toggle} className="rounded-xl border px-4 py-2">{selected.active ? text.deactivate : text.activate}</button><button onClick={remove} className="rounded-xl border border-red-200 text-red-600 px-4 py-2">{text.remove}</button></div></>}<div className="pt-3 border-t dark:border-white/10"><label className="text-xs text-slate-500">{text.passwordChange}</label><div className="flex gap-2 mt-2"><input className={fieldClass} type="password" placeholder={text.newPassword} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /><button onClick={savePassword} className="rounded-xl bg-indigo-600 text-white px-4">{text.save}</button></div><p className="text-xs text-slate-500 mt-2">{text.forcePassword}</p></div></div>
-{canManage && <div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-3"><h3 className="font-semibold">{text.security}</h3><div className="grid md:grid-cols-3 gap-2"><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.threshold}</span><select className={fieldClass} value={security.failedAttemptThreshold} onChange={(e) => setSecurity({ ...security, failedAttemptThreshold: Number(e.target.value) as SecuritySettings['failedAttemptThreshold'] })}><option value={3}>3</option><option value={5}>5</option><option value={10}>10</option></select></label><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.lockoutDuration}</span><select className={fieldClass} value={security.lockoutMinutes} onChange={(e) => setSecurity({ ...security, lockoutMinutes: Number(e.target.value) as SecuritySettings['lockoutMinutes'] })}><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option></select></label><label className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-3 mt-5"><input type="checkbox" checked={security.exponentialBackoff} onChange={(e) => setSecurity({ ...security, exponentialBackoff: e.target.checked })} /><span>{text.backoff}: {security.exponentialBackoff ? text.enabled : text.off}</span></label></div><button onClick={saveSecurity} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button></div>}
-{message && <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}</div></div><div className="mt-5 flex justify-between"><button onClick={onLogout} className="rounded-xl border px-4 py-2">{text.logout}</button>{canManage && <div className="grid grid-cols-5 gap-2 w-full max-w-3xl ml-4"><input className={fieldClass} placeholder={text.displayName} value={newUser.displayName} onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /><input className={fieldClass} placeholder={text.recoveryAnswer} value={newUser.recoveryAnswer} onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })} /><button onClick={create} className="rounded-xl bg-indigo-600 text-white flex items-center justify-center" title={text.add}><Plus size={17} /></button></div>}</div></div></div>;
+  return<div className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-6"><div className="w-full max-w-5xl max-h-[92vh] overflow-auto rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-white/10 p-6"><div className="flex items-center justify-between mb-5"><div><h2 className="text-xl font-bold">{text.users}</h2><p className="text-sm text-slate-500">{text.current}: {currentUser.displayName}</p></div><button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><X size={18} /></button></div><div className="grid lg:grid-cols-[280px_1fr] gap-5"><div className="space-y-2">{users.map((user) => <button key={user.id} onClick={() => setSelectedId(user.id)} className={`w-full text-left p-3 rounded-2xl border ${selected.id === user.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}><div>{user.avatar ?? '●'} <span className="font-medium">{user.displayName}</span></div><div className="text-xs text-slate-500">@{user.username} · {user.role === 'admin' ? text.admin : text.user} · {user.active ? text.active : text.disabled}</div></button>)}</div><div className="space-y-4"><div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-4">{canManage && <><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} onClick={() => updateUser(selected.id, { avatar })} className={`w-9 h-9 rounded-xl border ${selected.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><div className="grid md:grid-cols-2 gap-2"><input className={fieldClass} value={selected.displayName} onChange={(e) => updateUser(selected.id, { displayName: e.target.value })} /><select className={fieldClass} value={selected.role} onChange={(e) => { try { updateUser(selected.id, { role: e.target.value as UserRole }); onRefresh(); } catch { setMessage(text.lastAdmin); } }}><option value="user">{text.user}</option><option value="admin">{text.admin}</option></select><select className={fieldClass} value={selected.accountType} onChange={(e) => { updateUser(selected.id, { accountType: e.target.value as AccountType }); onRefresh(); }}><option value="personal">{text.personal}</option><option value="business">{text.business}</option></select><select className={fieldClass} value={selected.preferences.autoLockMinutes ?? 15} onChange={(e) => setAutoLock(Number(e.target.value))}><option value={0}>{text.autoLock}: {text.off}</option><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option><option value={30}>30 {text.minutes}</option><option value={60}>60 {text.minutes}</option></select></div><div className="flex gap-2"><button onClick={saveProfile} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button><button onClick={toggle} className="rounded-xl border px-4 py-2">{selected.active ? text.deactivate : text.activate}</button><button onClick={remove} className="rounded-xl border border-red-200 text-red-600 px-4 py-2">{text.remove}</button></div></>}<div className="pt-3 border-t dark:border-white/10"><label className="text-xs text-slate-500">{text.passwordChange}</label><div className="flex gap-2 mt-2"><input className={fieldClass} type="password" placeholder={text.newPassword} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /><button onClick={savePassword} className="rounded-xl bg-indigo-600 text-white px-4">{text.save}</button></div><p className="text-xs text-slate-500 mt-2">{text.forcePassword}</p></div></div>
+{canManage &&<div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-3"><h3 className="font-semibold">{text.security}</h3><div className="grid md:grid-cols-3 gap-2"><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.threshold}</span><select className={fieldClass} value={security.failedAttemptThreshold} onChange={(e) => setSecurity({ ...security, failedAttemptThreshold: Number(e.target.value) as SecuritySettings['failedAttemptThreshold'] })}><option value={3}>3</option><option value={5}>5</option><option value={10}>10</option></select></label><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.lockoutDuration}</span><select className={fieldClass} value={security.lockoutMinutes} onChange={(e) => setSecurity({ ...security, lockoutMinutes: Number(e.target.value) as SecuritySettings['lockoutMinutes'] })}><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option></select></label><label className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-3 mt-5"><input type="checkbox" checked={security.exponentialBackoff} onChange={(e) => setSecurity({ ...security, exponentialBackoff: e.target.checked })} /><span>{text.backoff}: {security.exponentialBackoff ? text.enabled : text.off}</span></label></div><button onClick={saveSecurity} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button></div>}
+{message && <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}</div></div><div className="mt-5 flex justify-between"><button onClick={onLogout} className="rounded-xl border px-4 py-2">{text.logout}</button>{canManage &&<div className="grid grid-cols-5 gap-2 w-full max-w-3xl ml-4"><input className={fieldClass} placeholder={text.displayName} value={newUser.displayName} onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /><input className={fieldClass} placeholder={text.recoveryAnswer} value={newUser.recoveryAnswer} onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })} /><button onClick={create} className="rounded-xl bg-indigo-600 text-white flex items-center justify-center" title={text.add}><Plus size={17} /></button></div>}</div></div></div>;
 }

@@ -7,6 +7,30 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+### v24.6.2
+- 🔄 **Geändert / Improved**:
+  - **Übersichtlichere Einstellungen / Clearer Settings**: Das schlecht lesbare native Menü wurde durch eine kontrastreiche, gruppierte Auswahl ersetzt. Die Startseite blendet Platzhalter-Firmendaten aus und bietet klarere Schnellzugriffe.
+  - **Mehrsprachige Navigation / Localized Navigation**: Tastaturbedienung und Einstellungen-Hilfe sind in Deutsch, Englisch, Französisch und Spanisch verfügbar.
+
+### v24.6.1
+- 🔄 **Geändert / Improved**:
+  - **Systemmodus als fester Standard / System Theme as the Default**: Die Ersteinrichtung wählt immer „System“ voraus, auch wenn zuvor ein anderer Firmenmodus gespeichert war.
+  - **Beschriebene App-Kacheln / Descriptive App Cards**: Apps werden mit Symbol, Kurzbeschreibung und klarer Auswahl dargestellt; alle Texte sind in vier Sprachen verfügbar.
+  - **Mehrsprachige Einrichtungs-Hilfe / Localized Onboarding Guide**: Die neue Ersteinrichtung ist im integrierten Handbuch erklärt.
+  - **Verifiziert / Verified**: Lint und Produktions-Build erfolgreich; die Vorschau wurde im folgenden Einstellungen-Update geprüft.
+
+### v24.6.0
+- 🔄 **Geändert / Improved**:
+  - **Einstellungen auf schmalen Fenstern / Settings on Narrow Windows**: Die abgeschnittene Kategorie-Leiste wurde durch eine kompakte, nach Bereichen gruppierte Auswahl ersetzt; Suchfeld, Übersichtskarten und Schnelloptionen passen sich an schmale Fenster an.
+
+### v24.5.0
+- 🚀 **Neu / What's New**:
+  - **Optionaler Einrichtungsassistent für neue Konten / Optional First-Account Setup**: Bei der ersten Kontoerstellung können Akzentfarbe, Hell-/Dunkel-/Systemmodus, ein lokales Hintergrundbild und passende App-Vorlagen gewählt werden.
+  - **App-Vorlagen / App Templates**: Privat, Geschäftlich, Praxis und Einzelhandel bieten passende Module wie Rechnungen, Buchhaltung, Lager, Einkauf und Kasse; Apps lassen sich zusätzlich einzeln auswählen.
+- 🔄 **Geändert / Improved**:
+  - **Überspringen und später anpassen / Skip and personalize later**: Die Einrichtung ist vollständig optional; Live-Vorschauen werden beim Überspringen zurückgesetzt und gewählte Einstellungen dem neuen lokalen Konto zugeordnet.
+  - **Mehrsprachige Einrichtung / Quad-Language Setup**: Alle neuen Texte sind auf Deutsch, Englisch, Französisch und Spanisch verfügbar.
+
 ### v24.4.0
 - 🚀 **Neu / What's New**:
   - **Word (.docx) Tabellen-Engine für mehrseitige Dokumente / Word (.docx) Multi-Page Table Engine**: Vollständige XML-AST-Analyse für komplexe Word-Tabellen mit vertikaler (`w:vMerge`) und horizontaler (`w:gridSpan`) Zellverschmelzung, Unterdrückung von Seitenumbrüchen innerhalb von Tabellenzeilen (`w:cantSplit`) und verschachtelten Tabellen.

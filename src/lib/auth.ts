@@ -5,7 +5,7 @@ export type AccountType = 'personal' | 'business';
 
 export interface UserPreferences {
   language?: 'en' | 'de' | 'fr' | 'es';
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'system';
   accentColor?: string;
   autoLockMinutes?: number;
   wallpaper?: string;

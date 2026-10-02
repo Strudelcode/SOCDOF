@@ -1,5 +1,38 @@
 # SOCDOF v24 Release Overview
 
+## v24.6.2 — Polished Settings Overview & Clear Section Navigation
+
+- Replaced the low-contrast native compact-window selector with a grouped themed menu that supports Escape and outside-click dismissal.
+- Refined the settings overview with a neutral local workspace state, concise quick access, and dynamic accent-aware cards.
+- Improved keyboard semantics and documented settings navigation in German, English, French, and Spanish.
+
+## v24.6.1 — System-Default Onboarding & Descriptive App Cards
+
+- First-account setup always starts with System appearance selected, even when an existing company profile stores another theme.
+- App templates and individually selected modules use responsive icon-led cards with translated descriptions and clear selected states.
+- Added onboarding and app selection guidance to the in-app guide in German, English, French, and Spanish.
+
+## v24.6.0 — Responsive Settings Navigation
+
+- Replaced the horizontally clipped mobile category strip with a grouped settings selector that fits compact windows and keeps all sections directly reachable.
+- Adapted the toolbar/search row, overview cards, and quick preference layout to narrow content widths.
+- Preserved the existing desktop sidebar navigation.
+
+## v24.5.0 — Optional First-Account Workspace Setup
+
+### Key Capabilities in v24.5.0:
+
+1. **Optional First-Run Personalization**:
+   - Choose an accent color, light/dark/system theme, and a local desktop wallpaper while creating the first administrator account.
+   - Live appearance previews restore the previous appearance when setup is skipped; preferences are saved to the new local account when accepted.
+
+2. **App Templates & Selection**:
+   - Start with personal, business, practice, or retail-oriented app selections, then toggle individual apps.
+   - Personal accounts omit business-only apps; module selection and desktop/taskbar pins are saved in the account scope.
+
+3. **Quad-Language Localization**:
+   - All new setup interface text is available in German, English, French, and Spanish.
+
 ## v24.2.0 — Mobile Therapy Dossier Timer & Window Auto-Fit (Phase 12)
 
 ### Key Capabilities in v24.2.0:
