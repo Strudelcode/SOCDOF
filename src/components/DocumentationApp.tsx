@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   BookOpen, 
   Search, 
@@ -36,7 +36,12 @@ import {
   Check,
   ArrowRight,
   Compass,
-  Hospital
+  Hospital,
+  X,
+  RotateCcw,
+  SlidersHorizontal,
+  Filter,
+  Tag
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
@@ -59,12 +64,74 @@ export const DocumentationApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<PortalTab>('showcase');
   const [activeSectionId, setActiveSectionId] = useState<string>('quickstart');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [releaseSearch, setReleaseSearch] = useState<string>('');
+  const [selectedMajorVersion, setSelectedMajorVersion] = useState<string>('all');
 
   const isGerman = currentLang === 'de';
   const isDesktop = isElectron();
 
   const getLoc = (dict: { de: string; en: string; fr: string; es: string }) => {
     return dict[currentLang as 'de' | 'en' | 'fr' | 'es'] || dict.en;
+  };
+
+  // Dynamically aggregate unique major versions (e.g. v24, v23, v22, v21...)
+  const availableMajorVersions = useMemo(() => {
+    const set = new Set<string>();
+    VERSION_HISTORY.forEach((rel) => {
+      const major = rel.version.split('.')[0];
+      if (major) set.add(`v${major}`);
+    });
+    return Array.from(set).sort((a, b) => {
+      const numA = parseInt(a.replace('v', ''), 10) || 0;
+      const numB = parseInt(b.replace('v', ''), 10) || 0;
+      return numB - numA;
+    });
+  }, []);
+
+  // Filter release history by selected major version and search text
+  const filteredReleases = useMemo(() => {
+    return VERSION_HISTORY.filter((rel) => {
+      // 1. Major version filter
+      if (selectedMajorVersion !== 'all') {
+        const major = `v${rel.version.split('.')[0]}`;
+        if (major !== selectedMajorVersion) return false;
+      }
+
+      // 2. Keyword/Version search filter
+      if (releaseSearch.trim()) {
+        const q = releaseSearch.toLowerCase().trim();
+        const fullVer = `v${rel.version.toLowerCase()}`;
+        const verStr = rel.version.toLowerCase();
+        const matchVer = fullVer.includes(q) || verStr.includes(q);
+        const matchTitle = rel.title.toLowerCase().includes(q);
+        const matchDate = rel.date.toLowerCase().includes(q);
+        const matchHighlights = rel.highlights.some((h) => h.toLowerCase().includes(q));
+
+        if (!matchVer && !matchTitle && !matchDate && !matchHighlights) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [selectedMajorVersion, releaseSearch]);
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === query.toLowerCase() ? (
+            <mark key={i} className="bg-amber-200 dark:bg-amber-900/80 text-slate-900 dark:text-amber-100 rounded px-0.5 py-0.2 font-semibold">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
   };
 
   const docSections: DocSection[] = [
@@ -1289,36 +1356,231 @@ export const DocumentationApp: React.FC = () => {
 
             {/* Version History Changelog */}
             <div className="space-y-4 pt-2">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <span>{getLoc({
-                  de: 'Versionshistorie & Release Notes',
-                  en: 'Release History & Changelog',
-                  fr: 'Historique des versions & Changelog',
-                  es: 'Historial de versiones y notas'
-                })}</span>
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <span>{getLoc({
+                    de: 'Versionshistorie & Release Notes',
+                    en: 'Release History & Changelog',
+                    fr: 'Historique des versions & Changelog',
+                    es: 'Historial de versiones y notas'
+                  })}</span>
+                </h3>
 
-              <div className="space-y-3">
-                {VERSION_HISTORY.map((rel) => (
-                  <div key={rel.version} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-600 text-white">
-                          v{rel.version}
-                        </span>
-                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{rel.title}</span>
-                      </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{rel.date}</span>
-                    </div>
-                    <ul className="list-disc pl-5 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                      {rel.highlights.map((h, i) => (
-                        <li key={i}>{h}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {getLoc({
+                    de: `${filteredReleases.length} von ${VERSION_HISTORY.length} Releases`,
+                    en: `${filteredReleases.length} of ${VERSION_HISTORY.length} releases`,
+                    fr: `${filteredReleases.length} sur ${VERSION_HISTORY.length} versions`,
+                    es: `${filteredReleases.length} de ${VERSION_HISTORY.length} versiones`
+                  })}
+                  {selectedMajorVersion !== 'all' && ` (${selectedMajorVersion}.x)`}
+                </span>
               </div>
+
+              {/* Major Version Filters & Search Control Bar */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3.5">
+                {/* Search input & Reset */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={releaseSearch}
+                      onChange={(e) => setReleaseSearch(e.target.value)}
+                      placeholder={getLoc({
+                        de: 'Release, Version oder Stichwort suchen (z.B. v24, v23, Rechnungen)...',
+                        en: 'Search releases, versions, or keywords (e.g. v24, v23, Invoices)...',
+                        fr: 'Rechercher une version ou un mot-clé (ex. v24, v23, factures)...',
+                        es: 'Buscar versión o palabra clave (ej. v24, v23, facturas)...'
+                      })}
+                      className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-slate-900 dark:text-white transition"
+                    />
+                    {releaseSearch && (
+                      <button
+                        onClick={() => setReleaseSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full"
+                        title={getLoc({ de: 'Suche löschen', en: 'Clear search', fr: 'Effacer la recherche', es: 'Borrar búsqueda' })}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {(selectedMajorVersion !== 'all' || releaseSearch !== '') && (
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setSelectedMajorVersion('all');
+                        setReleaseSearch('');
+                      }}
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 shrink-0 transition cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{getLoc({
+                        de: 'Filter zurücksetzen',
+                        en: 'Reset filters',
+                        fr: 'Réinitialiser',
+                        es: 'Restablecer filtros'
+                      })}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Major Version Filter Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                    {getLoc({
+                      de: 'Versionen:',
+                      en: 'Versions:',
+                      fr: 'Versions:',
+                      es: 'Versiones:'
+                    })}
+                  </span>
+
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setSelectedMajorVersion('all');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                      selectedMajorVersion === 'all'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span>{getLoc({ de: 'Alle', en: 'All', fr: 'Toutes', es: 'Todas' })}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      selectedMajorVersion === 'all' ? 'bg-indigo-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                    }`}>
+                      {VERSION_HISTORY.length}
+                    </span>
+                  </button>
+
+                  {availableMajorVersions.map((mv) => {
+                    const count = VERSION_HISTORY.filter(r => `v${r.version.split('.')[0]}` === mv).length;
+                    const isSelected = selectedMajorVersion === mv;
+                    return (
+                      <button
+                        key={mv}
+                        onClick={() => {
+                          sounds.playClick();
+                          setSelectedMajorVersion(mv);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>{mv}.x</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                          isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Popular Quick Search Tags */}
+                <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                  <span className="flex items-center gap-1 mr-0.5">
+                    <Tag className="w-3 h-3 text-slate-400" />
+                    {getLoc({ de: 'Schnellsuchbegriffe:', en: 'Quick Search:', fr: 'Mots-clés:', es: 'Búsqueda rápida:' })}
+                  </span>
+                  {['v24', 'v23', 'v22', 'Rechnungen', 'Discord', 'Tabelle'].map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        sounds.playClick();
+                        setReleaseSearch(tag);
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition text-[11px] font-medium cursor-pointer"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Releases List */}
+              {filteredReleases.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredReleases.map((rel) => (
+                    <div key={rel.version} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-indigo-200 dark:hover:border-indigo-900/50 transition">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              sounds.playClick();
+                              const major = `v${rel.version.split('.')[0]}`;
+                              setSelectedMajorVersion(major);
+                            }}
+                            className="px-2.5 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white transition cursor-pointer"
+                            title={getLoc({ de: `Alle ${rel.version.split('.')[0]}.x Versionen filtern`, en: `Filter all ${rel.version.split('.')[0]}.x versions`, fr: `Filtrer la version ${rel.version.split('.')[0]}.x`, es: `Filtrar versión ${rel.version.split('.')[0]}.x` })}
+                          >
+                            v{highlightMatch(rel.version, releaseSearch)}
+                          </button>
+                          <span className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                            {highlightMatch(rel.title, releaseSearch)}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          {highlightMatch(rel.date, releaseSearch)}
+                        </span>
+                      </div>
+                      <ul className="list-disc pl-5 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                        {rel.highlights.map((h, i) => (
+                          <li key={i}>{highlightMatch(h, releaseSearch)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                      {getLoc({
+                        de: 'Keine Releases gefunden',
+                        en: 'No releases found',
+                        fr: 'Aucune version trouvée',
+                        es: 'No se encontraron versiones'
+                      })}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                      {getLoc({
+                        de: `Es wurden keine Release-Einträge für "${releaseSearch}" in Version ${selectedMajorVersion === 'all' ? 'allen Versionen' : selectedMajorVersion} gefunden.`,
+                        en: `No release entries match "${releaseSearch}" in ${selectedMajorVersion === 'all' ? 'all versions' : selectedMajorVersion}.`,
+                        fr: `Aucune entrée ne correspond à "${releaseSearch}".`,
+                        es: `No hay publicaciones que coincidan con "${releaseSearch}".`
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setSelectedMajorVersion('all');
+                      setReleaseSearch('');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{getLoc({
+                      de: 'Alle Filter zurücksetzen',
+                      en: 'Reset all filters',
+                      fr: 'Réinitialiser tous les filtres',
+                      es: 'Restablecer todos los filtros'
+                    })}</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

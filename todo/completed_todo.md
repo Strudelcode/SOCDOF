@@ -4,6 +4,28 @@
 
 ---
 
+### Default Table View & Seamless Invoices App Transfer Synchronization (v24.6.8)
+- [x] Configured Table View as the default display mode for all practice billing entries with persistent preference storage (`socdof_therapy_billing_view`).
+- [x] Implemented robust end-to-end atomic transfer for single and batch invoices directly into `db.invoices` and `db.contacts`.
+- [x] Added `onSaveBatchBilling` batch persistence handler to prevent race conditions during bulk transfer.
+- [x] Ensured immediate dispatch of `socdof:invoices-changed` and `socdof:contacts-changed` events with instant window focus on the Invoices app.
+- [x] Smoothed entrance animations and layout of the blue bulk action bar to prevent jarring shifts when selecting items.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+### Fix False "Post existiert nicht mehr" in Discord Ticket Overview (v24.6.7)
+- [x] Resolved false deleted flag on Discord reports created via BotGhost and webhooks by restricting channel API queries to real snowflake IDs (`/^\d{17,20}$/`).
+- [x] Prevented HTTP 401/403 or non-channel responses from falsely marking tickets as deleted.
+- [x] Implemented auto-healing for existing local reports to restore active tickets automatically on app load and sync.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+### Multi-Selection Checkboxes, 1-Click Paid Bulk Actions & Direct Invoicing Sync (v24.6.6)
+- [x] Added selection checkboxes to each invoice item in both Table and Card (Kästchen) views with a Master Select All checkbox.
+- [x] Implemented a dynamic Bulk Action Toolbar with 1-click **"Als bezahlt markieren / Mark as Paid"** (without requiring payment method dialogs) and **"Als offen markieren / Mark as Open"**.
+- [x] Added bulk and individual transfer / synchronization to the central Invoicing module (`db.invoices`).
+- [x] Added interactive pencil edit icons across all client cards, hourly rate badges, session boxes, and invoice rows.
+- [x] Fully localized all keys, tooltips, dialogs, and actions across German, English, French, and Spanish.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
 ### Responsive Settings Navigation (v24.6.0)
 - [x] Replaced the mobile settings tabs that clipped at narrow widths with a compact category-grouped selector.
 - [x] Adjusted toolbar/search flow, overview card spacing, and quick preference columns for compact windows.

@@ -16,11 +16,13 @@ import {
   Users,
   Send,
   BookUser,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { BillingItem, Client, Session } from './types';
 import { CompanyProfile } from '../../types';
-import { useLanguage } from '../../lib/i18n';
+import { useLanguage, t } from '../../lib/i18n';
 import { db } from '../../lib/db';
 import { formatCurrencyDE, formatIntegerDE } from '../../lib/formatters';
 import { TherapyInvoicePrintModal } from './TherapyInvoicePrintModal';
@@ -34,6 +36,7 @@ interface TherapyBillingProps {
   company?: CompanyProfile;
   currency: string;
   onSaveBilling: (item: BillingItem) => void;
+  onSaveBatchBilling?: (items: BillingItem[]) => void;
   onDeleteBilling: (id: string) => void;
   onOpenCustomerPicker: () => void;
   onShowToast: (msg: string) => void;
@@ -47,6 +50,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   company,
   currency,
   onSaveBilling,
+  onSaveBatchBilling,
   onDeleteBilling,
   onOpenCustomerPicker,
   onShowToast,
@@ -56,13 +60,30 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'paid'>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    try {
+      const saved = localStorage.getItem('socdof_therapy_billing_view');
+      return (saved === 'cards' || saved === 'table') ? saved : 'table';
+    } catch {
+      return 'table';
+    }
+  });
+
+  const handleSetViewMode = (mode: 'table' | 'cards') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('socdof_therapy_billing_view', mode);
+    } catch {}
+  };
   
-  // Modal states
+  // Modal & Selection states
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BillingItem | null>(null);
   const [printPreviewItem, setPrintPreviewItem] = useState<BillingItem | null>(null);
   const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<BillingItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
 
   // Filtered billing entries
   const filteredBilling = useMemo(() => {
@@ -86,6 +107,229 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
     }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [billing, clients, search, statusFilter, clientFilter]);
 
+  // Selection handlers
+  const isAllSelected = useMemo(() => {
+    return filteredBilling.length > 0 && filteredBilling.every(b => selectedIds.has(b.id));
+  }, [filteredBilling, selectedIds]);
+
+  const handleToggleSelect = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredBilling.map(b => b.id)));
+    }
+  };
+
+  const handleBatchMarkPaid = () => {
+    const itemsToUpdate = billing.filter(b => selectedIds.has(b.id));
+    const updated = itemsToUpdate.map(item => ({ ...item, status: 'paid' as const }));
+    if (onSaveBatchBilling) {
+      onSaveBatchBilling(updated);
+    } else {
+      updated.forEach(item => onSaveBilling(item));
+    }
+    onShowToast(
+      lang === 'de'
+        ? `${itemsToUpdate.length} Rechnungen als bezahlt markiert!`
+        : `${itemsToUpdate.length} invoices marked as paid!`
+    );
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchMarkOpen = () => {
+    const itemsToUpdate = billing.filter(b => selectedIds.has(b.id));
+    const updated = itemsToUpdate.map(item => ({ ...item, status: 'ready' as const }));
+    if (onSaveBatchBilling) {
+      onSaveBatchBilling(updated);
+    } else {
+      updated.forEach(item => onSaveBilling(item));
+    }
+    onShowToast(
+      lang === 'de'
+        ? `${itemsToUpdate.length} Rechnungen als offen markiert!`
+        : `${itemsToUpdate.length} invoices marked as open!`
+    );
+    setSelectedIds(new Set());
+  };
+
+  // Helper to ensure client has a corresponding contact in db.contacts
+  const resolveContactInfo = async (client?: Client) => {
+    if (!client) {
+      return { contactId: 0, contactName: 'Klient', contactEmail: '', contactAddress: '' };
+    }
+    const cId = client.contactId ? Number(client.contactId) : 0;
+    if (cId > 0) {
+      try {
+        const existing = await db.contacts.get(cId);
+        if (existing) {
+          const addr = [existing.street, existing.zip, existing.city].filter(Boolean).join(', ');
+          return {
+            contactId: cId,
+            contactName: existing.name || client.name,
+            contactEmail: existing.email || client.email || '',
+            contactAddress: addr || (client.address ? `${client.address}, ${client.zip || ''} ${client.city || ''}`.trim() : '')
+          };
+        }
+      } catch {}
+    }
+
+    try {
+      const allContacts = await db.contacts.toArray();
+      const byName = allContacts.find(c => c.name && client.name && c.name.trim().toLowerCase() === client.name.trim().toLowerCase());
+      if (byName && byName.id) {
+        const addr = [byName.street, byName.zip, byName.city].filter(Boolean).join(', ');
+        return {
+          contactId: byName.id,
+          contactName: byName.name,
+          contactEmail: byName.email || client.email || '',
+          contactAddress: addr || (client.address ? `${client.address}, ${client.zip || ''} ${client.city || ''}`.trim() : '')
+        };
+      }
+
+      // Create new contact in CRM
+      const newId = await db.contacts.add({
+        name: client.name || 'Klient',
+        email: client.email || '',
+        phone: client.phone || '',
+        company: '',
+        street: client.address || '',
+        zip: client.zip || '',
+        city: client.city || '',
+        type: 'customer',
+        createdAt: new Date().toISOString()
+      });
+
+      return {
+        contactId: Number(newId),
+        contactName: client.name || 'Klient',
+        contactEmail: client.email || '',
+        contactAddress: client.address ? `${client.address}, ${client.zip || ''} ${client.city || ''}`.trim() : ''
+      };
+    } catch (e) {
+      console.error('Error resolving contact info for invoice:', e);
+      return {
+        contactId: 0,
+        contactName: client.name || 'Klient',
+        contactEmail: client.email || '',
+        contactAddress: client.address ? `${client.address}, ${client.zip || ''} ${client.city || ''}`.trim() : ''
+      };
+    }
+  };
+
+  const handleBatchTransferToInvoices = async () => {
+    const itemsToTransfer = billing.filter(b => selectedIds.has(b.id));
+    if (itemsToTransfer.length === 0) return;
+
+    let count = 0;
+    const updatedBillingItems: BillingItem[] = [];
+
+    for (const item of itemsToTransfer) {
+      try {
+        const client = getClient(item.clientId);
+        const contactInfo = await resolveContactInfo(client);
+        const amount = Number(item.amount) || 0;
+        const taxRate = item.taxRate || 0;
+        const taxAmount = (amount * taxRate) / 100;
+        const total = amount + taxAmount;
+        const invoiceNumber = item.invoiceNumber || `PRAXIS-${Date.now().toString().slice(-6)}-${count + 1}`;
+
+        const invRecord = {
+          contact_id: contactInfo.contactId,
+          contact_name: contactInfo.contactName,
+          contact_email: contactInfo.contactEmail,
+          contact_address: contactInfo.contactAddress,
+          number: invoiceNumber,
+          type: 'out_invoice' as const,
+          status: item.status === 'paid' ? 'paid' as const : 'posted' as const,
+          date: item.date || new Date().toISOString().slice(0, 10),
+          due_date: item.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          subtotal: amount,
+          tax_total: taxAmount,
+          total: total,
+          paid_at: item.status === 'paid' ? (item.date || new Date().toISOString().slice(0, 10)) : undefined,
+          payment_method: item.paymentMethod === 'bank' ? 'transfer' as const : item.paymentMethod === 'cash' ? 'cash' as const : undefined,
+          payment_terms: 'Zahlbar innerhalb von 14 Tagen nach Rechnungsstellung ohne Abzug.',
+          items: [
+            {
+              id: `item_${Date.now()}_${count}`,
+              product_id: 0,
+              product_name: item.service || 'Therapieleistung / Beratung',
+              sku: 'THERAPY-01',
+              qty: 1,
+              unit_price: amount,
+              tax_rate: taxRate,
+              discount: 0,
+              subtotal: amount
+            }
+          ],
+          notes: item.notes || 'Erstellt aus Praxis-Modul (Heilbehandlung / Psychotherapie)'
+        };
+
+        const existingInv = await db.invoices.where('number').equals(invoiceNumber).first();
+        if (existingInv && existingInv.id) {
+          await db.invoices.update(existingInv.id, invRecord);
+        } else {
+          await db.invoices.add(invRecord);
+        }
+
+        updatedBillingItems.push({
+          ...item,
+          invoiceNumber,
+          status: item.status === 'paid' ? 'paid' : 'invoiced'
+        });
+        count++;
+      } catch (err) {
+        console.error('Batch transfer error:', err);
+      }
+    }
+
+    if (onSaveBatchBilling) {
+      onSaveBatchBilling(updatedBillingItems);
+    } else {
+      updatedBillingItems.forEach(item => onSaveBilling(item));
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('socdof:invoices-changed'));
+      window.dispatchEvent(new CustomEvent('socdof:contacts-changed'));
+    }
+
+    onShowToast(
+      lang === 'de'
+        ? `${count} Rechnungen erfolgreich in die Rechnungs-App übertragen!`
+        : `${count} invoices successfully transferred to Invoices app!`
+    );
+    setSelectedIds(new Set());
+    if (onOpenInvoices) {
+      onOpenInvoices();
+    }
+  };
+
+  const handleBatchDelete = () => {
+    const idsToDelete = Array.from(selectedIds);
+    idsToDelete.forEach(id => onDeleteBilling(id));
+    onShowToast(
+      lang === 'de'
+        ? `${idsToDelete.length} Rechnungen gelöscht.`
+        : `${idsToDelete.length} invoices deleted.`
+    );
+    setSelectedIds(new Set());
+    setIsBatchDeleteModalOpen(false);
+  };
+
   // Statistics
   const totalAmount = useMemo(() => {
     return billing.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
@@ -103,29 +347,33 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
     return clients.find(c => c.id === clientId);
   };
 
-  // Transfer billing item to SOCDOF Invoices Database (db.invoices)
+  // Transfer single billing item to SOCDOF Invoices Database (db.invoices)
   const handleTransferToInvoicesApp = async (item: BillingItem) => {
     try {
       const client = getClient(item.clientId);
+      const contactInfo = await resolveContactInfo(client);
       const amount = Number(item.amount) || 0;
       const taxRate = item.taxRate || 0;
       const taxAmount = (amount * taxRate) / 100;
       const total = amount + taxAmount;
-
       const invoiceNumber = item.invoiceNumber || `PRAXIS-${Date.now().toString().slice(-6)}`;
 
-      await db.invoices.add({
-        contact_id: client?.contactId ? Number(client.contactId) : 0,
-        contact_name: client?.name || 'Klient',
-        contact_email: client?.email,
+      const invRecord = {
+        contact_id: contactInfo.contactId,
+        contact_name: contactInfo.contactName,
+        contact_email: contactInfo.contactEmail,
+        contact_address: contactInfo.contactAddress,
         number: invoiceNumber,
-        type: 'out_invoice',
-        status: item.status === 'paid' ? 'paid' : 'posted',
+        type: 'out_invoice' as const,
+        status: item.status === 'paid' ? 'paid' as const : 'posted' as const,
         date: item.date || new Date().toISOString().slice(0, 10),
         due_date: item.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
         subtotal: amount,
         tax_total: taxAmount,
         total: total,
+        paid_at: item.status === 'paid' ? (item.date || new Date().toISOString().slice(0, 10)) : undefined,
+        payment_method: item.paymentMethod === 'bank' ? 'transfer' as const : item.paymentMethod === 'cash' ? 'cash' as const : undefined,
+        payment_terms: 'Zahlbar innerhalb von 14 Tagen nach Rechnungsstellung ohne Abzug.',
         items: [
           {
             id: `item_${Date.now()}`,
@@ -140,7 +388,14 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           }
         ],
         notes: item.notes || 'Erstellt aus Praxis-Modul (Heilbehandlung / Psychotherapie)'
-      });
+      };
+
+      const existingInv = await db.invoices.where('number').equals(invoiceNumber).first();
+      if (existingInv && existingInv.id) {
+        await db.invoices.update(existingInv.id, invRecord);
+      } else {
+        await db.invoices.add(invRecord);
+      }
 
       // Update local item status to invoiced if not already
       onSaveBilling({
@@ -148,6 +403,11 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
         invoiceNumber,
         status: item.status === 'paid' ? 'paid' : 'invoiced'
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('socdof:invoices-changed'));
+        window.dispatchEvent(new CustomEvent('socdof:contacts-changed'));
+      }
 
       onShowToast(
         lang === 'de' 
@@ -268,8 +528,38 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           </select>
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons & View Switcher */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* View mode toggle: Table (Default) vs. Kästchen (Cards) */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('table')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                viewMode === 'table' 
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' 
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title={t('therapy.tableView', lang, 'Tabellen-Ansicht (Standard)')}
+            >
+              <List className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">{t('therapy.tableView', lang, 'Tabelle')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('cards')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                viewMode === 'cards' 
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' 
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title={t('therapy.cardView', lang, 'Kästchen-Ansicht')}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('therapy.cardView', lang, 'Kästchen')}</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setIsTaxAdvisorLedgerOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-[#1B365D] hover:bg-[#152a48] text-white font-bold text-xs rounded-xl shadow-md transition"
@@ -303,7 +593,80 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
         </div>
       </div>
 
-      {/* Main Professional Invoicing Table */}
+      {/* Bulk Action Bar (Visible when items are selected) */}
+      {selectedIds.size > 0 && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 text-white p-3.5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={handleToggleSelectAll}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-400 bg-white cursor-pointer"
+              title={isAllSelected ? (lang === 'de' ? 'Auswahl aufheben' : 'Deselect all') : (lang === 'de' ? 'Alle auswählen' : 'Select all')}
+            />
+            <span className="font-bold text-xs sm:text-sm">
+              {selectedIds.size} {lang === 'de' ? 'Rechnungen ausgewählt' : 'invoices selected'}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 1-Click Mark as Paid (no bank/cash prompt required!) */}
+            <button
+              type="button"
+              onClick={handleBatchMarkPaid}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+              title={lang === 'de' ? 'Ausgewählte Rechnungen als bezahlt markieren' : 'Mark selected invoices as paid'}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{lang === 'de' ? 'Als bezahlt markieren' : 'Mark as Paid'}</span>
+            </button>
+
+            {/* 1-Click Mark as Open */}
+            <button
+              type="button"
+              onClick={handleBatchMarkOpen}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+              title={lang === 'de' ? 'Ausgewählte Rechnungen als offen markieren' : 'Mark selected invoices as open'}
+            >
+              <Clock className="w-4 h-4" />
+              <span>{lang === 'de' ? 'Als offen markieren' : 'Mark as Open'}</span>
+            </button>
+
+            {/* Bulk Transfer to Invoices App */}
+            <button
+              type="button"
+              onClick={handleBatchTransferToInvoices}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white font-bold text-xs rounded-xl transition border border-white/30 backdrop-blur-xs cursor-pointer"
+              title={lang === 'de' ? 'Ausgewählte in Rechnungs-App übertragen' : 'Transfer selected to Invoices'}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{lang === 'de' ? 'In Rechnungs-App' : 'To Invoices App'}</span>
+            </button>
+
+            {/* Batch Delete */}
+            <button
+              type="button"
+              onClick={() => setIsBatchDeleteModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/80 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer"
+              title={lang === 'de' ? 'Ausgewählte löschen' : 'Delete selected'}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{lang === 'de' ? 'Löschen' : 'Delete'}</span>
+            </button>
+
+            {/* Deselect */}
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2.5 py-1.5 bg-black/20 hover:bg-black/30 text-white/90 text-xs rounded-xl transition cursor-pointer"
+            >
+              {lang === 'de' ? 'Abwählen' : 'Clear'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Professional Invoicing Table / Cards */}
       {filteredBilling.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center">
@@ -318,12 +681,160 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
               : 'Create your first invoice draft or convert documented sessions into invoices.'}
           </p>
         </div>
+      ) : viewMode === 'cards' ? (
+        /* Kästchen- / Karten-Ansicht (Boxes View) */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBilling.map(item => {
+            const client = getClient(item.clientId);
+            const isPaid = item.status === 'paid';
+            const isSelected = selectedIds.has(item.id);
+
+            return (
+              <div 
+                key={item.id} 
+                className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-sm transition flex flex-col justify-between group ${
+                  isSelected 
+                    ? 'border-blue-500 dark:border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20' 
+                    : 'border-slate-200/80 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => handleToggleSelect(item.id, e as any)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        title={isSelected ? (lang === 'de' ? 'Abwählen' : 'Deselect') : (lang === 'de' ? 'Auswählen' : 'Select')}
+                      />
+                      <span className="font-bold text-xs text-slate-900 dark:text-white font-mono">
+                        {item.invoiceNumber || `PRAXIS-${item.id.slice(-6).toUpperCase()}`}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSaveBilling({
+                          ...item,
+                          status: isPaid ? 'ready' : 'paid'
+                        });
+                      }}
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold rounded-full transition cursor-pointer ${
+                        isPaid 
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                      }`}
+                      title={isPaid ? (lang === 'de' ? 'Als offen markieren' : 'Mark open') : (lang === 'de' ? 'Als bezahlt markieren' : 'Mark paid')}
+                    >
+                      {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                      <span>{isPaid ? (lang === 'de' ? 'Bezahlt' : 'Paid') : (lang === 'de' ? 'Offen' : 'Pending')}</span>
+                    </button>
+                  </div>
+
+                  <div className="mb-2">
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                      {client ? client.name : 'Unbekannter Klient'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                      <span>{item.date}</span>
+                      {item.dueDate && <span>• Fällig: {item.dueDate}</span>}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl mb-3 line-clamp-2">
+                    {item.service || 'Therapieleistung'}
+                  </div>
+
+                  {/* Prominent Amount / Fee box with direct edit pencil */}
+                  <div className="flex items-center justify-between p-2.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100/60 dark:border-blue-900/40 rounded-xl mb-3">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      {lang === 'de' ? 'Honorar / Betrag:' : 'Amount / Fee:'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black text-slate-900 dark:text-white">
+                        {formatCurrencyDE(Number(item.amount) || 0, currency)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItem(item);
+                          setIsNewModalOpen(true);
+                        }}
+                        className="p-1 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition cursor-pointer"
+                        title={t('therapy.editFee', lang, 'Honorar / Betrag bearbeiten')}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Action Footer */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPrintPreviewItem(item)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                      title={lang === 'de' ? 'Drucken / PDF' : 'Print / PDF'}
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTransferToInvoicesApp(item)}
+                      className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition cursor-pointer"
+                      title={lang === 'de' ? 'In Rechnungs-App übertragen' : 'Transfer to Invoices'}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingItem(item);
+                        setIsNewModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition cursor-pointer"
+                      title={t('therapy.editBilling', lang, 'Rechnung bearbeiten')}
+                    >
+                      <Edit2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                      <span>{lang === 'de' ? 'Bearbeiten' : 'Edit'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmItem(item)}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition cursor-pointer"
+                      title={lang === 'de' ? 'Löschen' : 'Delete'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        /* Tabellen-Ansicht (Table View) */
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                 <tr>
+                  <th className="w-10 py-3 px-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      title={isAllSelected ? (lang === 'de' ? 'Auswahl aufheben' : 'Deselect all') : (lang === 'de' ? 'Alle auswählen' : 'Select all')}
+                    />
+                  </th>
                   <th className="py-3 px-4">{lang === 'de' ? 'Rechnungs-Nr.' : 'Invoice #'}</th>
                   <th className="py-3 px-4">{lang === 'de' ? 'Klient' : 'Client'}</th>
                   <th className="py-3 px-4">{lang === 'de' ? 'Datum' : 'Date'}</th>
@@ -337,9 +848,27 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                 {filteredBilling.map(item => {
                   const client = getClient(item.clientId);
                   const isPaid = item.status === 'paid';
+                  const isSelected = selectedIds.has(item.id);
 
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                    <tr 
+                      key={item.id} 
+                      className={`transition ${
+                        isSelected 
+                          ? 'bg-blue-50/60 dark:bg-blue-900/20' 
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Select Checkbox */}
+                      <td className="w-10 py-3.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => handleToggleSelect(item.id, e as any)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Invoice Number */}
                       <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
                         {item.invoiceNumber || `PRAXIS-${item.id.slice(-6).toUpperCase()}`}
@@ -367,18 +896,41 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                         {item.service || 'Therapieleistung'}
                       </td>
 
-                      {/* Amount */}
+                      {/* Amount with pencil icon */}
                       <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                        {formatCurrencyDE(Number(item.amount) || 0, currency)}
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <span>{formatCurrencyDE(Number(item.amount) || 0, currency)}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingItem(item);
+                              setIsNewModalOpen(true);
+                            }}
+                            className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title={t('therapy.editFee', lang, 'Honorar / Betrag bearbeiten')}
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
 
                       {/* Status */}
                       <td className="py-3.5 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full ${
-                          isPaid 
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                        }`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSaveBilling({
+                              ...item,
+                              status: isPaid ? 'ready' : 'paid'
+                            });
+                          }}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full transition cursor-pointer ${
+                            isPaid 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200' 
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 hover:bg-amber-200'
+                          }`}
+                          title={isPaid ? (lang === 'de' ? 'Klicken um als offen zu markieren' : 'Click to mark open') : (lang === 'de' ? 'Klicken um als bezahlt zu markieren' : 'Click to mark paid')}
+                        >
                           {isPaid ? (
                             <>
                               <CheckCircle2 className="w-3 h-3" />
@@ -390,7 +942,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                               {lang === 'de' ? 'Offen' : 'Pending'}
                             </>
                           )}
-                        </span>
+                        </button>
                       </td>
 
                       {/* Actions */}
@@ -399,7 +951,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                           {/* Print / PDF preview */}
                           <button
                             onClick={() => setPrintPreviewItem(item)}
-                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                             title={lang === 'de' ? 'Rechnung drucken / PDF-Vorschau' : 'Print / Preview'}
                           >
                             <Printer className="w-3.5 h-3.5" />
@@ -408,7 +960,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                           {/* Transfer to official Invoices App */}
                           <button
                             onClick={() => handleTransferToInvoicesApp(item)}
-                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
+                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition cursor-pointer"
                             title={lang === 'de' ? 'In Rechnungs-App übertragen' : 'Transfer to Invoices Module'}
                           >
                             <Send className="w-3.5 h-3.5" />
@@ -422,7 +974,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                                 status: isPaid ? 'ready' : 'paid'
                               });
                             }}
-                            className={`p-1.5 rounded-lg transition ${
+                            className={`p-1.5 rounded-lg transition cursor-pointer ${
                               isPaid 
                                 ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20' 
                                 : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
@@ -438,7 +990,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                               setEditingItem(item);
                               setIsNewModalOpen(true);
                             }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                             title={lang === 'de' ? 'Bearbeiten' : 'Edit'}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -687,6 +1239,18 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           }
         }}
         onClose={() => setDeleteConfirmItem(null)}
+      />
+
+      {/* Batch Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={isBatchDeleteModalOpen}
+        title={lang === 'de' ? 'Ausgewählte Rechnungen löschen?' : 'Delete Selected Invoices?'}
+        itemName={`${selectedIds.size} ${lang === 'de' ? 'Rechnungen' : 'Invoices'}`}
+        description={lang === 'de' 
+          ? `Möchten Sie die ${selectedIds.size} ausgewählten Honorarabrechnungen wirklich unwiderruflich löschen?` 
+          : `Are you sure you want to permanently delete the ${selectedIds.size} selected invoices?`}
+        onConfirm={handleBatchDelete}
+        onClose={() => setIsBatchDeleteModalOpen(false)}
       />
     </div>
   );

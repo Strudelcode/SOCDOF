@@ -797,7 +797,8 @@ function discordFeedbackPlugin(): Plugin {
 
           try {
             const body = await parseRequestBody(req);
-            const threadIds: string[] = Array.isArray(body.threadIds) ? body.threadIds : [];
+            const rawThreadIds: string[] = Array.isArray(body.threadIds) ? body.threadIds : [];
+            const threadIds = rawThreadIds.filter(id => typeof id === 'string' && /^\d{17,20}$/.test(id));
             const botToken = body.botToken || getDiscordBotToken();
 
             if (!botToken) {
@@ -937,7 +938,7 @@ function discordFeedbackPlugin(): Plugin {
                 } else {
                   threadResults[threadId] = {
                     id: threadId,
-                    notFound: resp.status === 404,
+                    notFound: resp.status === 404 || resp.status === 410,
                     httpStatus: resp.status,
                     lastSyncedAt: new Date().toISOString()
                   };

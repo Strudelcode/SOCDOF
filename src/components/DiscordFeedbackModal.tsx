@@ -26,7 +26,8 @@ import {
   Tag,
   XCircle,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  User
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -841,54 +842,6 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
           ) : (
             /* TAB 1 & 2: REPORT CREATION FORM */
             <form onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* Instruction Checklist Box */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-xs">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">i</span>
-                  <span>{activeTab === 'bug' ? t('feedback.guide_title_bug', lang, 'Anleitung für Bug-Meldung:') : t('feedback.guide_title_idea', lang, 'Anleitung für Feedback & Vorschläge:')}</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                  <div className={`flex items-center gap-1.5 p-2 rounded-xl border transition ${
-                    (activeTab === 'bug' ? !!bugTitle.trim() : !!ideaTitle.trim())
-                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}>
-                    {(activeTab === 'bug' ? !!bugTitle.trim() : !!ideaTitle.trim()) ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    ) : (
-                      <CircleDot className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    )}
-                    <span className="truncate">{t('feedback.step1_label', lang, '1. Titel / Stichwort')}</span>
-                  </div>
-
-                  <div className={`flex items-center gap-1.5 p-2 rounded-xl border transition ${
-                    (activeTab === 'bug' ? isBugStep2Complete : isIdeaStep2Complete)
-                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}>
-                    {(activeTab === 'bug' ? isBugStep2Complete : isIdeaStep2Complete) ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    ) : (
-                      <CircleDot className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    )}
-                    <span className="truncate">{t('feedback.step2_label', lang, '2. Ort / App wählen')}</span>
-                  </div>
-
-                  <div className={`flex items-center gap-1.5 p-2 rounded-xl border transition ${
-                    (activeTab === 'bug' ? !!bugDescription.trim() : !!ideaDescription.trim())
-                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}>
-                    {(activeTab === 'bug' ? !!bugDescription.trim() : !!ideaDescription.trim()) ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    ) : (
-                      <CircleDot className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    )}
-                    <span className="truncate">{activeTab === 'bug' ? t('feedback.step3_bug_label', lang, '3. Fehlerbeschreibung') : t('feedback.step3_idea_label', lang, '3. Ideenbeschreibung')}</span>
-                  </div>
-                </div>
-              </div>
 
               {/* Bot Offline / Offline Mode Info Banner */}
               {!botStatus.online && (
@@ -918,74 +871,77 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
                 </div>
               )}
 
-              {/* Discord Identity Card */}
-              <div className="p-3.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/10 space-y-2.5">
-                <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold text-xs">
-                  <AtSign className="w-3.5 h-3.5" />
-                  <span>{t('feedback.identity_title', lang, 'Discord-Identität für Erwähnung / Ping:')}</span>
+              {/* Sender / Identity Card (Optional) */}
+              <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                    <User className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>{t('feedback.sender_title', lang, 'Absender & Kontakt (Optional)')}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {lang === 'de' ? 'Freiwillig' : 'Optional'}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">
-                      {t('feedback.discord_name', lang, 'Discord-Name:')}
+                      {t('feedback.sender_name_label', lang, 'Dein Name / Absender:')}
                     </label>
                     <input
                       type="text"
                       value={discordName}
                       onChange={e => setDiscordName(e.target.value)}
-                      placeholder={t('feedback.discord_name_placeholder', lang, 'z. B. DeinDiscordName (oder leer lassen für Anonym)')}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder={t('feedback.sender_name_placeholder', lang, 'z. B. Max Mustermann (oder leer lassen)')}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-0.5">
                       <label className="text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                        {t('feedback.discord_user_id', lang, 'Discord User-ID (Optional):')}
+                        {t('feedback.sender_id_label', lang, 'Discord-Benutzername / ID (Optional):')}
                       </label>
-                      <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
-                        {discordUserId ? `${discordUserId.length}/20` : t('feedback.discord_user_id_hint', lang, '17–20 Ziffern für echten Ping')}
-                      </span>
                     </div>
                     <input
                       type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={20}
                       value={discordUserId}
                       onChange={e => handleUserIdChange(e.target.value)}
-                      placeholder="z. B. 1498764033518735441"
-                      className={`w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 font-mono transition ${
-                        !isUserIdLengthValid
-                          ? 'border-amber-400 focus:ring-amber-500 bg-amber-50/20'
-                          : 'border-slate-200 dark:border-slate-700 focus:ring-indigo-500'
-                      }`}
+                      placeholder={t('feedback.sender_id_placeholder', lang, 'z. B. @max_muster (Optional)')}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
+
+                <p className="text-[10px] text-slate-400">
+                  {lang === 'de' 
+                    ? '💡 Optional: Wenn du deinen Namen angibst, können Entwickler dir bei Rückfragen antworten.' 
+                    : '💡 Optional: If provided, developers can notify or reply regarding updates.'}
+                </p>
               </div>
 
               {/* Form Fields: Bug Mode */}
               {activeTab === 'bug' && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-3.5 shadow-xs">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-xs">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step1_bug_title', lang, 'Schritt 1: Bug-Titel / Kurzbeschreibung:')}
+                      <span>{t('feedback.bug_title_label', lang, 'Bug-Titel / Kurzbeschreibung')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     <input
                       type="text"
                       value={bugTitle}
                       onChange={e => setBugTitle(e.target.value)}
                       placeholder={t('feedback.step1_bug_placeholder', lang, 'z. B. Rechnungsdruck schneidet Fußzeile ab')}
-                      className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step2_bug_title', lang, 'Schritt 2: Ort des Fehlers (App / Modul):')}
+                      <span>{t('feedback.bug_location_label', lang, 'Ort des Fehlers (App / Modul)')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     
                     {!bugLocation ? (
@@ -996,10 +952,10 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
                           setPickerTarget('bug');
                           setIsAppPickerOpen(true);
                         }}
-                        className="w-full flex items-center justify-between p-3 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-orange-400 dark:hover:border-orange-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs"
+                        className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-orange-400 dark:hover:border-orange-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-orange-500 group-hover:text-white flex items-center justify-center transition-colors">
+                          <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 group-hover:bg-orange-500 group-hover:text-white flex items-center justify-center transition-colors">
                             <Search className="w-3.5 h-3.5" />
                           </div>
                           <span>{t('feedback.select_location_btn', lang, 'Wähle einen Ort aus...')}</span>
@@ -1053,14 +1009,15 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step3_bug_title', lang, 'Schritt 3: Genaue Fehlerbeschreibung (Bug Information):')}
+                      <span>{t('feedback.bug_desc_label', lang, 'Genaue Fehlerbeschreibung')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     <textarea
                       rows={3}
                       value={bugDescription}
                       onChange={e => setBugDescription(e.target.value)}
                       placeholder={t('feedback.step3_bug_placeholder', lang, '1. Was haben Sie gemacht?\n2. Welcher Fehler trat auf?\n3. Erwartetes Verhalten...')}
-                      className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
                       required
                     />
                   </div>
@@ -1069,24 +1026,26 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
 
               {/* Form Fields: Idea Mode */}
               {activeTab === 'idea' && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-3.5 shadow-xs">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-xs">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step1_idea_title', lang, 'Schritt 1: Vorschlag / Titel der Idee:')}
+                      <span>{t('feedback.idea_title_label', lang, 'Vorschlag / Titel der Idee')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     <input
                       type="text"
                       value={ideaTitle}
                       onChange={e => setIdeaTitle(e.target.value)}
                       placeholder={t('feedback.step1_idea_placeholder', lang, 'z. B. Automatischer PDF-Massenexport für Steuerberater')}
-                      className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step2_idea_title', lang, 'Schritt 2: Kategorie / Bereich wählen:')}
+                      <span>{t('feedback.idea_category_label', lang, 'Kategorie / Bereich wählen')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     
                     {!ideaCategory ? (
@@ -1097,10 +1056,10 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
                           setPickerTarget('idea');
                           setIsAppPickerOpen(true);
                         }}
-                        className="w-full flex items-center justify-between p-3 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs"
+                        className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer group shadow-2xs"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-colors">
+                          <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-colors">
                             <Search className="w-3.5 h-3.5" />
                           </div>
                           <span>{t('feedback.select_category_btn', lang, 'Wähle eine Kategorie aus...')}</span>
@@ -1154,22 +1113,41 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {t('feedback.step3_idea_title', lang, 'Schritt 3: Genaue Beschreibung der Idee & Nutzen:')}
+                      <span>{t('feedback.idea_desc_label', lang, 'Genaue Beschreibung der Idee & Nutzen')}</span>
+                      <span className="text-rose-500 font-bold ml-1">*</span>
                     </label>
                     <textarea
                       rows={3}
                       value={ideaDescription}
                       onChange={e => setIdeaDescription(e.target.value)}
                       placeholder={t('feedback.step3_idea_placeholder', lang, 'Beschreiben Sie Ihren Wunsch, wie der Ablauf sein sollte und welchen Nutzen es bringt...')}
-                      className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
                   </div>
                 </div>
               )}
 
-              {/* Discord Live Preview Box - Always Live & Authentic */}
-              <div className="space-y-2">
+              {/* Discord Live Preview Box Container */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        {t('feedback.preview_title', lang, 'Vorschau deiner Meldung')}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {t('feedback.preview_subtitle', lang, 'So wird dein Beitrag im Community-Forum dargestellt')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
+                    {t('feedback.live_badge', lang, 'Live-Vorschau')}
+                  </span>
+                </div>
+
                 <DiscordEmbedPreview
                   type={activeTab === 'bug' ? 'bug' : 'idea'}
                   title={activeTab === 'bug' ? bugTitle : ideaTitle}
@@ -1185,10 +1163,10 @@ export const DiscordFeedbackModal: React.FC<DiscordFeedbackModalProps> = ({
                 />
 
                 {!(activeTab === 'bug' ? isBugFormComplete : isIdeaFormComplete) && (
-                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
                       <CircleDot className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span>{lang === 'de' ? 'Vorschau aktualisiert sich live bei der Eingabe. Füllen Sie alle 3 Schritte aus, um den Beitrag abzusenden.' : t('feedback.preview_hint_active', lang, 'Live Discord forum embed preview updates automatically while typing.')}</span>
+                      <span>{lang === 'de' ? 'Vorschau aktualisiert sich live bei der Eingabe. Füllen Sie alle Pflichtfelder (*) aus, um den Beitrag abzusenden.' : t('feedback.preview_hint_active', lang, 'Live Discord forum embed preview updates automatically while typing.')}</span>
                     </div>
                   </div>
                 )}

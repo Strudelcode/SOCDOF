@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.6.2';
+export const APP_VERSION = '24.6.9';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,83 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.6.9',
+    date: '2026-10-04',
+    title: 'Handbook Version Filtering & Release Search Engine',
+    highlights: [
+      'Added interactive Major Version filter pills (v24.x, v23.x, v22.x, etc.) in the Documentation Handbook',
+      'Integrated real-time keyword and version search engine with instant highlight matches across titles, dates, versions, and release notes',
+      'Added clear search reset controls, result counters, and zero-match empty states with quick reset actions',
+      'Full quad-lingual support across German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '24.6.8',
+    date: '2026-10-04',
+    title: 'Default Table View & Seamless Invoices App Transfer Synchronization',
+    highlights: [
+      'Set Table View (Tabellenansicht) as the default view for billing invoices with persistent view mode memory',
+      'Fixed and strengthened full synchronization when transferring billing entries to the Invoices app (db.invoices & db.contacts)',
+      'Added atomic batch state updating (onSaveBatchBilling) to prevent race conditions during bulk transfer',
+      'Smoothed selection toolbar rendering with fluid entrance animations and zero layout distortion'
+    ]
+  },
+  {
+    version: '24.6.7',
+    date: '2026-10-04',
+    title: 'Fix False "Post existiert nicht mehr" in Discord Ticket Overview',
+    highlights: [
+      'Resolved false deleted flag on Discord reports created via BotGhost and webhooks',
+      'Restricted remote Discord channel sync exclusively to valid 17-20 digit snowflake thread IDs',
+      'Prevented HTTP 401/403 permission/unauthorized states from incorrectly marking tickets as deleted',
+      'Added automatic self-healing for legacy reports that had false deleted status flags in local storage'
+    ]
+  },
+  {
+    version: '24.6.6',
+    date: '2026-10-04',
+    title: 'Multi-Selection Checkboxes, 1-Click Paid Bulk Actions & Direct Invoicing Sync',
+    highlights: [
+      'Added checkboxes to every invoice item and a Master Select All checkbox in both Table and Card (Kästchen) views',
+      'Introduced a dedicated Bulk Action Toolbar with 1-click "Mark as Paid" (no payment method prompt required) and "Mark as Open"',
+      'Added bulk synchronization and export of selected billing items directly to the Invoices app (db.invoices)',
+      'Integrated direct edit pencil buttons across all client cards, hourly rate badges, session boxes, and invoice rows',
+      'Complete multilingual support across German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '24.6.5',
+    date: '2026-10-04',
+    title: 'Direct Edit Pencils & Hourly Rate Controls for Therapy Practice Boxes',
+    highlights: [
+      'Added direct edit pencil buttons across all client cards, invoices, sessions, and appointment boxes.',
+      'Prominent Stundensatz (hourly rate) badge on client cards with direct edit pencil and inline quick-save in client dossier.',
+      'Expanded client edit modal with hourly rate, billing/insurance type, full postal address, and birth date.',
+      'Introduced card view (Kästchen-Ansicht) toggle for invoices in Therapy Billing with direct amount/fee editing.',
+      'Connected invoice editing and delete actions to billing items in the client dossier.'
+    ]
+  },
+  {
+    version: '24.6.4',
+    date: '2026-10-04',
+    title: 'Disable Automatic Browser Fullscreen Hijacking',
+    highlights: [
+      'Removed automatic HTML5 fullscreen request on pointerdown in web browser view when clicking apps or desktop icons.',
+      'Auto-fullscreen on launch is now strictly restricted to the native Electron desktop app when configured in settings.',
+      'Manual fullscreen toggle remains accessible via F11 or the taskbar button on demand.'
+    ]
+  },
+  {
+    version: '24.6.3',
+    date: '2026-10-04',
+    title: 'Arbitrary Click-to-Open & Edit for Therapy Sessions',
+    highlights: [
+      'Users can now click directly on any session card in the Sessions overview, Dashboard recent logs, or Client history to immediately open and edit it.',
+      'Centralized the session editing modal with full clinical notes, intervention suggestions, date, duration, fee, and billing draft generation.',
+      'Added explicit edit buttons, hover cues, and quad-lingual translations (DE, EN, FR, ES) for seamless session navigation.'
+    ]
+  },
   {
     version: '24.6.2',
     date: '2026-10-02',

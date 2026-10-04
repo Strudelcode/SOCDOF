@@ -254,9 +254,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [shortcutSearch, setShortcutSearch] = useState('');
   const [startFullscreenPref, setStartFullscreenPref] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('socdof_start_fullscreen') !== 'false';
+      const val = localStorage.getItem('socdof_start_fullscreen');
+      if (val === null) return isElectron();
+      return val === 'true';
     } catch {
-      return true;
+      return false;
     }
   });
 

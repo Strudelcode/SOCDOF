@@ -765,12 +765,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       }).catch(() => {});
     }
 
-    // 2. Default to Fullscreen Mode on start (covering entire physical screen edge-to-edge, hiding Windows taskbar)
-    const startFullscreenPref = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_start_fullscreen') : null;
-    const shouldStartFullscreen = startFullscreenPref !== 'false';
+    // 2. In native desktop Electron only: Default to borderless fullscreen if preferred
+    if (isElectron()) {
+      const startFullscreenPref = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_start_fullscreen') : null;
+      const shouldStartFullscreen = startFullscreenPref !== 'false';
 
-    if (shouldStartFullscreen) {
-      if (typeof (window as any).electronAPI?.toggleFullscreen === 'function') {
+      if (shouldStartFullscreen && typeof (window as any).electronAPI?.toggleFullscreen === 'function') {
         (window as any).electronAPI.isFullscreen().then((isFull: boolean) => {
           if (!isFull) {
             (window as any).electronAPI.toggleFullscreen().then((nowFull: boolean) => {
@@ -778,32 +778,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             }).catch(() => {});
           }
         }).catch(() => {});
-      } else if (typeof document !== 'undefined') {
-        const doc = document as any;
-        const isFull = !!(
-          doc.fullscreenElement ||
-          doc.webkitFullscreenElement ||
-          doc.mozFullScreenElement ||
-          doc.msFullscreenElement
-        );
-        if (!isFull) {
-          const tryRequestFullscreen = () => {
-            window.removeEventListener('pointerdown', tryRequestFullscreen, true);
-            window.removeEventListener('keydown', tryRequestFullscreen, true);
-            const docEl = document.documentElement as any;
-            if (docEl.requestFullscreen) {
-              docEl.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-            } else if (docEl.webkitRequestFullscreen) {
-              docEl.webkitRequestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-            }
-          };
-          window.addEventListener('pointerdown', tryRequestFullscreen, true);
-          window.addEventListener('keydown', tryRequestFullscreen, true);
-          return () => {
-            window.removeEventListener('pointerdown', tryRequestFullscreen, true);
-            window.removeEventListener('keydown', tryRequestFullscreen, true);
-          };
-        }
       }
     }
   }, []);
@@ -3378,7 +3352,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   currency={company.currency}
                   companyProfile={company}
                   onOpenContacts={() => openWindow('contacts', 'Kontakte & Kunden')}
-                  onOpenInvoices={() => openWindow('invoices', 'Rechnungen')}
+                  onOpenInvoices={() => {
+                    onRefreshData();
+                    openWindow('invoices', 'Rechnungen');
+                  }}
                   onOpenAccounting={() => openWindow('accounting', 'Buchhaltung & Finanzen')}
                 />
               )}

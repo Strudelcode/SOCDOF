@@ -13,7 +13,8 @@ import {
   Calendar,
   Sparkles,
   FileText,
-  Building2
+  Building2,
+  Edit2
 } from 'lucide-react';
 import { Client, Session, Appointment, Trip, BillingItem } from './types';
 import { useLanguage, t } from '../../lib/i18n';
@@ -32,6 +33,7 @@ interface TherapyDashboardProps {
   onOpenNewBilling: () => void;
   onOpenNewTrip: () => void;
   onSelectClient: (clientId: string) => void;
+  onEditSession?: (session: Session) => void;
 }
 
 export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
@@ -46,7 +48,8 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
   onOpenNewSession,
   onOpenNewBilling,
   onOpenNewTrip,
-  onSelectClient
+  onSelectClient,
+  onEditSession
 }) => {
   const lang = useLanguage();
 
@@ -471,7 +474,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                 <div 
                   key={app.id} 
                   onClick={() => onSelectClient(app.clientId)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-slate-100 dark:border-slate-800 transition cursor-pointer"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-slate-100 dark:border-slate-800 transition cursor-pointer"
                 >
                   <div>
                     <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
@@ -481,12 +484,25 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                       {app.date} {app.time ? `• ${app.time} Uhr` : ''} {app.notes ? `• ${app.notes}` : ''}
                     </div>
                   </div>
-                  <span 
-                    style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
-                    className="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                  >
-                    {lang === 'de' ? 'Geplant' : 'Scheduled'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span 
+                      style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                      className="px-2 py-0.5 text-[10px] font-bold rounded-md"
+                    >
+                      {lang === 'de' ? 'Geplant' : 'Scheduled'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateTab('appointments');
+                      }}
+                      className="p-1 rounded-md text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition"
+                      title={lang === 'de' ? 'Termin anzeigen / bearbeiten' : 'View / edit appointment'}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -530,24 +546,62 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
               {recentSessions.map(sess => (
                 <div 
                   key={sess.id} 
-                  onClick={() => onSelectClient(sess.clientId)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-slate-100 dark:border-slate-800 transition cursor-pointer"
+                  onClick={() => {
+                    if (onEditSession) {
+                      onEditSession(sess);
+                    } else {
+                      onSelectClient(sess.clientId);
+                    }
+                  }}
+                  className="group flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/90 border border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer"
+                  title={t('therapy.clickToEditSession', lang, 'Klicken zum Öffnen und Bearbeiten der Sitzung')}
                 >
-                  <div className="truncate max-w-[75%]">
-                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">
-                      {getClientName(sess.clientId)}
+                  <div className="truncate max-w-[70%]">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectClient(sess.clientId);
+                        }}
+                        className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate hover:text-teal-600 dark:hover:text-teal-400 transition"
+                        title={lang === 'de' ? 'Zum Klientenprofil wechseln' : 'Go to client profile'}
+                      >
+                        {getClientName(sess.clientId)}
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 font-medium">
+                        {sess.duration} Min
+                      </span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                      {sess.date} • {sess.duration} Min • {sess.intervention || 'Beratung'}
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate flex items-center gap-1.5">
+                      <span>{sess.date}</span>
+                      {sess.startTime && <span>• {sess.startTime}</span>}
+                      <span>• {sess.intervention || (lang === 'de' ? 'Sitzung' : 'Session')}</span>
                     </div>
                   </div>
-                  {sess.fee ? (
-                    <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                      {formatCurrencyDE(sess.fee, currency)}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-400">{sess.duration}m</span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {sess.fee ? (
+                      <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                        {formatCurrencyDE(sess.fee, currency)}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">{sess.duration}m</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditSession) {
+                          onEditSession(sess);
+                        } else {
+                          onSelectClient(sess.clientId);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:bg-white dark:group-hover:bg-slate-700 transition shadow-2xs"
+                      title={t('therapy.editSession', lang, 'Sitzung bearbeiten')}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

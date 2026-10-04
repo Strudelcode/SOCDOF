@@ -248,7 +248,16 @@ export default function App() {
       }
     };
     window.addEventListener('socdof-company-updated', handleCompanyUpdate as EventListener);
-    return () => window.removeEventListener('socdof-company-updated', handleCompanyUpdate as EventListener);
+
+    const handleInvoicesChanged = () => {
+      refreshData();
+    };
+    window.addEventListener('socdof:invoices-changed', handleInvoicesChanged);
+
+    return () => {
+      window.removeEventListener('socdof-company-updated', handleCompanyUpdate as EventListener);
+      window.removeEventListener('socdof:invoices-changed', handleInvoicesChanged);
+    };
   }, []);
 
   useEffect(() => {

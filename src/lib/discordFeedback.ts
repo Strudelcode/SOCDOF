@@ -334,7 +334,16 @@ export function getSubmittedDiscordReports(): SubmittedDiscordReport[] {
   try {
     const raw = localStorage.getItem(SUBMITTED_REPORTS_STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((r: any) => {
+          // Auto-heal reports that were falsely marked as deleted (e.g. non-snowflake or false 403/404)
+          if (r.isDeleted && (!r.threadId || !/^\d{17,20}$/.test(r.threadId))) {
+            return { ...r, isDeleted: false };
+          }
+          return r;
+        });
+      }
     }
   } catch {}
   return [];
@@ -455,22 +464,18 @@ export async function syncDiscordReports(
     processDiscordOfflineQueue().catch(() => {});
   }
 
-  // Only query remote Discord for reports that have real snowflake thread IDs (not local queued ones)
+  // Only query remote Discord for reports that have real snowflake thread IDs (17-20 digits)
+  const isSnowflake = (id?: string) => typeof id === 'string' && /^\d{17,20}$/.test(id);
   const threadIds = reports
-    .filter(r => r.status !== 'queued' && !r.threadId.startsWith('offline_queued_'))
-    .map(r => r.threadId)
-    .filter(Boolean);
-
-  if (threadIds.length === 0) {
-    return { updatedReports: reports, changedCount: 0 };
-  }
+    .filter(r => r.status !== 'queued' && !r.threadId.startsWith('offline_queued_') && isSnowflake(r.threadId))
+    .map(r => r.threadId);
 
   let changedCount = 0;
   let syncedThreadMap: Record<string, any> = {};
 
   // 0. Try Electron IPC Bridge if running in Desktop App
   const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
-  if (electronApi?.discordRequest) {
+  if (electronApi?.discordRequest && threadIds.length > 0) {
     try {
       for (const threadId of threadIds.slice(0, 20)) {
         const res = await electronApi.discordRequest({
@@ -505,7 +510,8 @@ export async function syncDiscordReports(
             messageCount: directData.total_message_sent ?? directData.message_count ?? 1,
             lastSyncedAt: new Date().toISOString()
           };
-        } else if (res.status === 404 || res.status === 410 || res.status === 403) {
+        } else if (res.status === 404 || res.status === 410) {
+          // Only true 404/410 means deleted; 403 or 401 is unauthorized/forbidden
           syncedThreadMap[threadId] = {
             notFound: true,
             isDeleted: true,
@@ -518,8 +524,8 @@ export async function syncDiscordReports(
     }
   }
 
-  // 1. Try Backend Proxy Sync if syncedThreadMap is empty
-  if (Object.keys(syncedThreadMap).length === 0) {
+  // 1. Try Backend Proxy Sync if syncedThreadMap is empty and we have snowflake IDs
+  if (Object.keys(syncedThreadMap).length === 0 && threadIds.length > 0) {
     try {
       const resp = await fetch('/api/discord/sync-threads', {
         method: 'POST',
@@ -541,8 +547,8 @@ export async function syncDiscordReports(
     }
   }
 
-  // 2. Direct Discord API Fallback if proxy returned nothing
-  if (Object.keys(syncedThreadMap).length === 0) {
+  // 2. Direct Discord API Fallback if proxy returned nothing and we have snowflake IDs
+  if (Object.keys(syncedThreadMap).length === 0 && threadIds.length > 0 && DISCORD_CONFIG.BOT_TOKEN) {
     for (const threadId of threadIds.slice(0, 20)) {
       try {
         const directResp = await fetch(`https://discord.com/api/v10/channels/${threadId}`, {
@@ -578,7 +584,7 @@ export async function syncDiscordReports(
             messageCount: directData.total_message_sent ?? directData.message_count ?? 1,
             lastSyncedAt: new Date().toISOString()
           };
-        } else if (directResp.status === 404 || directResp.status === 410 || directResp.status === 403) {
+        } else if (directResp.status === 404 || directResp.status === 410) {
           syncedThreadMap[threadId] = {
             notFound: true,
             isDeleted: true,
@@ -591,6 +597,16 @@ export async function syncDiscordReports(
 
   // Merge synchronized data with stored reports
   const updatedReports = reports.map(rep => {
+    // Non-snowflake IDs (like BotGhost bg_...) were posted via webhook and cannot be queried as channels.
+    // They must NEVER be marked as deleted. Auto-heal them if previously flagged.
+    if (!isSnowflake(rep.threadId)) {
+      if (rep.isDeleted) {
+        changedCount++;
+        return { ...rep, isDeleted: false };
+      }
+      return rep;
+    }
+
     const syncInfo = syncedThreadMap[rep.threadId];
     if (syncInfo && (syncInfo.notFound || syncInfo.isDeleted)) {
       if (!rep.isDeleted) {
@@ -603,6 +619,11 @@ export async function syncDiscordReports(
       };
     }
     if (!syncInfo) {
+      // If we could not contact Discord or thread wasn't checked, preserve the report without deleting
+      if (rep.isDeleted) {
+        changedCount++;
+        return { ...rep, isDeleted: false };
+      }
       return rep;
     }
 
@@ -614,12 +635,13 @@ export async function syncDiscordReports(
     );
     const hasNewMsgCount = syncInfo.messageCount !== undefined && syncInfo.messageCount !== rep.messageCount;
 
-    if (hasNewStatus || hasNewTags || hasNewMsgCount || syncInfo.isArchived !== rep.isArchived) {
+    if (hasNewStatus || hasNewTags || hasNewMsgCount || syncInfo.isArchived !== rep.isArchived || rep.isDeleted) {
       changedCount++;
     }
 
     return {
       ...rep,
+      isDeleted: false,
       status: newStatus,
       appliedTags: syncInfo.appliedTags || rep.appliedTags || [{ id: rep.tagId, name: rep.tagName }],
       isArchived: syncInfo.isArchived ?? rep.isArchived,

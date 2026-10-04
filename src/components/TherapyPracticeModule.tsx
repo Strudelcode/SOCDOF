@@ -30,6 +30,7 @@ import { TherapyBilling } from './therapy/TherapyBilling';
 import { TherapyMileage } from './therapy/TherapyMileage';
 import { TherapyAppointments } from './therapy/TherapyAppointments';
 import { TherapyTaxAdvisorLedgerModal } from './therapy/TherapyTaxAdvisorLedgerModal';
+import { TherapySessionModal } from './therapy/TherapySessionModal';
 
 export interface TherapyPracticeModuleProps {
   contacts?: Contact[];
@@ -86,6 +87,32 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isTaxAdvisorLedgerOpen, setIsTaxAdvisorLedgerOpen] = useState(false);
+
+  // Dedicated central session modal state for seamless opening & editing across all tabs
+  const [sessionModalState, setSessionModalState] = useState<{ isOpen: boolean; session: Session | null }>({
+    isOpen: false,
+    session: null
+  });
+
+  const handleOpenEditSession = (session: Session) => {
+    setSessionModalState({ isOpen: true, session });
+  };
+
+  const handleOpenNewSession = (clientId?: string) => {
+    const targetClient = clientId ? data.clients.find(c => c.id === clientId) : data.clients[0];
+    const newSession: Session = {
+      id: `sess_new_${Date.now()}`,
+      clientId: targetClient?.id || '',
+      date: new Date().toISOString().slice(0, 10),
+      startTime: '10:00',
+      endTime: '11:00',
+      duration: 60,
+      intervention: '',
+      progress: '',
+      fee: targetClient?.hourlyRate || 90
+    };
+    setSessionModalState({ isOpen: true, session: newSession });
+  };
 
   // Customer picker modal state
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
@@ -248,6 +275,19 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
         return { ...prev, billing: updated };
       }
       return { ...prev, billing: [item, ...prev.billing] };
+    });
+  };
+
+  const handleSaveBatchBilling = (itemsToUpdate: BillingItem[]) => {
+    setData(prev => {
+      const updateMap = new Map(itemsToUpdate.map(item => [item.id, item]));
+      const nextBilling = prev.billing.map(b => updateMap.has(b.id) ? updateMap.get(b.id)! : b);
+      itemsToUpdate.forEach(item => {
+        if (!prev.billing.some(b => b.id === item.id)) {
+          nextBilling.unshift(item);
+        }
+      });
+      return { ...prev, billing: nextBilling };
     });
   };
 
@@ -512,13 +552,14 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             currency={currency}
             onNavigateTab={newTab => { setTab(newTab); setActiveClientId(null); }}
             onOpenCustomerPicker={() => setIsCustomerPickerOpen(true)}
-            onOpenNewSession={() => setTab('sessions')}
+            onOpenNewSession={() => handleOpenNewSession()}
             onOpenNewBilling={() => setTab('billing')}
             onOpenNewTrip={() => setTab('mileage')}
             onSelectClient={clientId => {
               setActiveClientId(clientId);
               setTab('clients');
             }}
+            onEditSession={handleOpenEditSession}
           />
         )}
 
@@ -535,10 +576,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             onOpenCustomerPicker={() => setIsCustomerPickerOpen(true)}
             onSaveClient={handleSaveClient}
             onDeleteClient={handleDeleteClient}
-            onOpenNewSessionForClient={clientId => {
-              setActiveClientId(clientId);
-              setTab('sessions');
-            }}
+            onOpenNewSessionForClient={clientId => handleOpenNewSession(clientId)}
             onOpenNewBillingForClient={clientId => {
               setActiveClientId(clientId);
               setTab('billing');
@@ -552,6 +590,10 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
               setTab('mileage');
             }}
             onQuickSessionSave={handleQuickSessionSave}
+            onEditSession={handleOpenEditSession}
+            onDeleteSession={handleDeleteSession}
+            onSaveBilling={handleSaveBilling}
+            onDeleteBilling={handleDeleteBilling}
           />
         )}
 
@@ -567,6 +609,8 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
               setTab('clients');
             }}
             onShowToast={showToast}
+            onEditSession={handleOpenEditSession}
+            onOpenNewSession={() => handleOpenNewSession()}
           />
         )}
 
@@ -578,6 +622,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
             company={companyProfile}
             currency={currency}
             onSaveBilling={handleSaveBilling}
+            onSaveBatchBilling={handleSaveBatchBilling}
             onDeleteBilling={handleDeleteBilling}
             onOpenCustomerPicker={() => setIsCustomerPickerOpen(true)}
             onShowToast={showToast}
@@ -635,6 +680,28 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
           currency={currency}
         />
       )}
+
+      {/* Central Therapy Session Modal (enables opening and editing any session arbitrarily) */}
+      <TherapySessionModal
+        isOpen={sessionModalState.isOpen}
+        session={sessionModalState.session}
+        clients={data.clients}
+        currency={currency}
+        onSave={(savedSession, autoBilling) => {
+          handleSaveSession(savedSession, autoBilling);
+          setSessionModalState({ isOpen: false, session: null });
+        }}
+        onClose={() => setSessionModalState({ isOpen: false, session: null })}
+        onDelete={(sessionId) => {
+          handleDeleteSession(sessionId);
+          setSessionModalState({ isOpen: false, session: null });
+        }}
+        onSelectClient={(clientId) => {
+          setSessionModalState({ isOpen: false, session: null });
+          setActiveClientId(clientId);
+          setTab('clients');
+        }}
+      />
       </div>
     </div>
   );

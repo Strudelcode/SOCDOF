@@ -21,7 +21,9 @@ import {
   Link2, 
   ExternalLink,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Check,
+  X
 } from 'lucide-react';
 import { Client, Session, Appointment, Trip, BillingItem } from './types';
 import { Contact } from '../../types';
@@ -47,6 +49,10 @@ interface TherapyClientsProps {
   onOpenNewTripForClient: (clientId: string) => void;
   onEditContactInCRM?: (contactId: number | string) => void;
   onQuickSessionSave?: (session: Session) => void;
+  onEditSession?: (session: Session) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onSaveBilling?: (item: BillingItem) => void;
+  onDeleteBilling?: (id: string) => void;
 }
 
 export const TherapyClients: React.FC<TherapyClientsProps> = ({
@@ -66,7 +72,11 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   onOpenNewAppointmentForClient,
   onOpenNewTripForClient,
   onEditContactInCRM,
-  onQuickSessionSave
+  onQuickSessionSave,
+  onEditSession,
+  onDeleteSession,
+  onSaveBilling,
+  onDeleteBilling
 }) => {
   const lang = useLanguage();
   const [search, setSearch] = useState('');
@@ -74,6 +84,17 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [syncToCRM, setSyncToCRM] = useState(true);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  // Inline quick-editing states for Stundensatz (hourly rate), Abrechnungsart & Diagnosis
+  const [isEditingRate, setIsEditingRate] = useState(false);
+  const [editingRateValue, setEditingRateValue] = useState('');
+  const [isEditingInsurance, setIsEditingInsurance] = useState(false);
+  const [isEditingDiagnosis, setIsEditingDiagnosis] = useState(false);
+  const [diagnosisValue, setDiagnosisValue] = useState('');
+
+  // Billing item edit modal & delete state
+  const [editingBillingItem, setEditingBillingItem] = useState<BillingItem | null>(null);
+  const [billingItemToDelete, setBillingItemToDelete] = useState<BillingItem | null>(null);
 
   // Mobile compact mode detection (Phase 12) — mirrors container width of the window frame
   const rootRef = useRef<HTMLDivElement>(null);
@@ -216,6 +237,199 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
     if (!activeClientId) return [];
     return trips.filter(t => t.clientId === activeClientId).sort((a, b) => b.date.localeCompare(a.date));
   }, [trips, activeClientId]);
+
+  // Reusable Edit Client Modal (used in both Dossier and Overview Grid)
+  const renderEditClientModal = () => {
+    if (!editingClient) return null;
+    return (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
+        <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            {lang === 'de' ? 'Klient bearbeiten' : 'Edit Client'}
+          </h3>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {lang === 'de' ? 'Name' : 'Name'} *
+              </label>
+              <input
+                type="text"
+                value={editingClient.name}
+                onChange={e => setEditingClient({ ...editingClient, name: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+              />
+            </div>
+
+            {/* Hourly Rate & Insurance Type */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? `Stundensatz (${currency}/Std)` : `Hourly Rate (${currency}/h)`}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editingClient.hourlyRate !== undefined ? editingClient.hourlyRate : ''}
+                  onChange={e => setEditingClient({
+                    ...editingClient,
+                    hourlyRate: e.target.value === '' ? undefined : Number(e.target.value)
+                  })}
+                  placeholder="90.00"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'Abrechnungsart' : 'Billing Type'}
+                </label>
+                <select
+                  value={editingClient.insuranceType || 'self'}
+                  onChange={e => setEditingClient({
+                    ...editingClient,
+                    insuranceType: e.target.value
+                  })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                >
+                  <option value="self">{lang === 'de' ? 'Selbstzahler' : 'Self-payer'}</option>
+                  <option value="private">{lang === 'de' ? 'Privatversicherung' : 'Private insurance'}</option>
+                  <option value="statutory">{lang === 'de' ? 'Gesetzlich / Kostenerstattung' : 'Statutory / Reimbursement'}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'Telefon' : 'Phone'}
+                </label>
+                <input
+                  type="text"
+                  value={editingClient.phone || ''}
+                  onChange={e => setEditingClient({ ...editingClient, phone: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'E-Mail' : 'Email'}
+                </label>
+                <input
+                  type="email"
+                  value={editingClient.email || ''}
+                  onChange={e => setEditingClient({ ...editingClient, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Address & City */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'Straße & Hausnr.' : 'Street Address'}
+                </label>
+                <input
+                  type="text"
+                  value={editingClient.address || ''}
+                  onChange={e => setEditingClient({ ...editingClient, address: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'PLZ & Ort' : 'ZIP & City'}
+                </label>
+                <input
+                  type="text"
+                  value={`${editingClient.zip || ''} ${editingClient.city || ''}`.trim()}
+                  onChange={e => {
+                    const parts = e.target.value.split(' ');
+                    const zip = parts[0] || '';
+                    const city = parts.slice(1).join(' ');
+                    setEditingClient({ ...editingClient, zip, city });
+                  }}
+                  placeholder="10115 Berlin"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'Diagnose / Schwerpunkt' : 'Diagnosis / Focus'}
+                </label>
+                <input
+                  type="text"
+                  value={editingClient.diagnosis || ''}
+                  onChange={e => setEditingClient({ ...editingClient, diagnosis: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === 'de' ? 'Geburtsdatum' : 'Date of Birth'}
+                </label>
+                <input
+                  type="date"
+                  value={editingClient.birthDate || ''}
+                  onChange={e => setEditingClient({ ...editingClient, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {lang === 'de' ? 'Praxisnotizen' : 'Notes'}
+              </label>
+              <textarea
+                rows={3}
+                value={editingClient.notes || ''}
+                onChange={e => setEditingClient({ ...editingClient, notes: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setClientToDelete(editingClient);
+              }}
+              className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{lang === 'de' ? 'Löschen' : 'Delete'}</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingClient(null)}
+                className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              >
+                {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSaveClient(editingClient);
+                  setEditingClient(null);
+                }}
+                className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-sm cursor-pointer"
+              >
+                {lang === 'de' ? 'Speichern' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Client Dossier View
   if (activeClient) {
@@ -375,20 +589,93 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
 
             <hr className="border-slate-100 dark:border-slate-800" />
 
-            <div>
-              <div className="text-[11px] font-semibold text-slate-400 mb-1">
-                {lang === 'de' ? 'Abrechnungsart & Stundensatz' : 'Billing Type & Hourly Rate'}
+            {/* Billing Type & Hourly Rate with direct inline quick-edit */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11px] font-semibold text-slate-400">
+                  {lang === 'de' ? 'Abrechnungsart & Stundensatz' : 'Billing Type & Hourly Rate'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRateValue(activeClient.hourlyRate?.toString() || '90');
+                    setIsEditingRate(true);
+                  }}
+                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition"
+                  title={t('therapy.editHourlyRate', lang, 'Stundensatz bearbeiten')}
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <div className="flex items-center justify-between text-xs font-medium text-slate-800 dark:text-slate-200">
-                <span>
-                  {activeClient.insuranceType === 'private' ? (lang === 'de' ? 'Privatversicherung' : 'Private') :
-                   activeClient.insuranceType === 'statutory' ? (lang === 'de' ? 'Gesetzlich / Kostenerstattung' : 'Statutory') :
-                   (lang === 'de' ? 'Selbstzahler' : 'Self-payer')}
-                </span>
-                <span className="font-bold text-blue-600">
-                  {activeClient.hourlyRate ? `${activeClient.hourlyRate.toFixed(2)} ${currency}/h` : (lang === 'de' ? 'Standard' : 'Default')}
-                </span>
-              </div>
+
+              {isEditingRate ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    autoFocus
+                    value={editingRateValue}
+                    onChange={e => setEditingRateValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const val = parseFloat(editingRateValue);
+                        onSaveClient({ ...activeClient, hourlyRate: isNaN(val) ? undefined : val });
+                        setIsEditingRate(false);
+                      } else if (e.key === 'Escape') {
+                        setIsEditingRate(false);
+                      }
+                    }}
+                    placeholder="90.00"
+                    className="w-24 px-2 py-1 bg-white dark:bg-slate-900 border border-blue-500 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                  <span className="text-xs font-bold text-slate-500">{currency}/h</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = parseFloat(editingRateValue);
+                      onSaveClient({ ...activeClient, hourlyRate: isNaN(val) ? undefined : val });
+                      setIsEditingRate(false);
+                    }}
+                    className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition"
+                    title={lang === 'de' ? 'Speichern' : 'Save'}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingRate(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition"
+                    title={lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs font-medium text-slate-800 dark:text-slate-200">
+                  <span>
+                    {activeClient.insuranceType === 'private' ? (lang === 'de' ? 'Privatversicherung' : 'Private') :
+                     activeClient.insuranceType === 'statutory' ? (lang === 'de' ? 'Gesetzlich / Kostenerstattung' : 'Statutory') :
+                     (lang === 'de' ? 'Selbstzahler' : 'Self-payer')}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      {activeClient.hourlyRate ? `${activeClient.hourlyRate.toFixed(2)} ${currency}/h` : (lang === 'de' ? 'Standard (90 €/h)' : 'Default (90/h)')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRateValue(activeClient.hourlyRate?.toString() || '90');
+                        setIsEditingRate(true);
+                      }}
+                      className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-md transition"
+                      title={t('therapy.editHourlyRate', lang, 'Stundensatz bearbeiten')}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {activeClient.notes && (
@@ -429,14 +716,46 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
               ) : (
                 <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                   {clientSessions.map(s => (
-                    <div key={s.id} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div 
+                      key={s.id} 
+                      onClick={() => onEditSession?.(s)}
+                      className="group p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition cursor-pointer"
+                      title={t('therapy.clickToEditSession', lang, 'Klicken zum Öffnen und Bearbeiten der Sitzung')}
+                    >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {s.date} {s.startTime ? `• ${s.startTime}` : ''}
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition flex items-center gap-1.5">
+                          <Clock3 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                          <span>{s.date} {s.startTime ? `• ${s.startTime} Uhr` : ''}</span>
                         </span>
-                        <span className="font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded text-[10px]">
-                          {s.duration} Min {s.fee ? `• ${s.fee.toFixed(2)} ${currency}` : ''}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded text-[10px]">
+                            {s.duration} Min {s.fee ? `• ${s.fee.toFixed(2)} ${currency}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditSession?.(s);
+                            }}
+                            className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition"
+                            title={t('therapy.editSession', lang, 'Sitzung bearbeiten')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          {onDeleteSession && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteSession(s.id);
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                              title={lang === 'de' ? 'Sitzung löschen' : 'Delete session'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {s.intervention && (
                         <div className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-1">
@@ -478,7 +797,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
               ) : (
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {clientBilling.map(b => (
-                    <div key={b.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
+                    <div key={b.id} className="group flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-800 text-xs transition">
                       <div>
                         <div className="font-semibold text-slate-800 dark:text-slate-200">
                           {b.service || (lang === 'de' ? 'Therapieleistung' : 'Service')}
@@ -487,7 +806,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                           {b.date} {b.invoiceNumber ? `• ${b.invoiceNumber}` : ''}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 dark:text-white">
                           {(Number(b.amount) || 0).toFixed(2)} {currency}
                         </span>
@@ -498,6 +817,22 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                         }`}>
                           {b.status === 'paid' ? (lang === 'de' ? 'Bezahlt' : 'Paid') : (lang === 'de' ? 'Offen' : 'Draft')}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingBillingItem(b)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 transition"
+                          title={t('therapy.editBilling', lang, 'Rechnung bearbeiten')}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBillingItemToDelete(b)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition"
+                          title={lang === 'de' ? 'Löschen' : 'Delete'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -508,22 +843,46 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
         </div>
 
         {/* Edit Client Modal */}
-        {editingClient && (
+        {renderEditClientModal()}
+
+        {/* Edit Billing Item Modal (Dossier-scoped) */}
+        {editingBillingItem && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {lang === 'de' ? 'Klient bearbeiten' : 'Edit Client'}
+                {lang === 'de' ? 'Abrechnung / Rechnung bearbeiten' : 'Edit Billing Item'}
               </h3>
 
               <div className="space-y-3 text-xs">
                 <div>
                   <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Name' : 'Name'} *
+                    {lang === 'de' ? 'Leistungsbezeichnung' : 'Service Description'} *
                   </label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[
+                      { label: 'Sitzung 60m', fee: 90, name: 'Psychotherapeutische Einzelsitzung (60 Min)' },
+                      { label: 'Sitzung 50m', fee: 80, name: 'Psychotherapie / Beratung (50 Min)' },
+                      { label: 'Erstgespräch', fee: 130, name: 'Erstanamnese & Beratungsgespräch (90 Min)' },
+                    ].map(preset => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setEditingBillingItem({
+                          ...editingBillingItem,
+                          service: preset.name,
+                          amount: preset.fee
+                        })}
+                        className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 transition"
+                      >
+                        {preset.label} ({preset.fee} {currency})
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="text"
-                    value={editingClient.name}
-                    onChange={e => setEditingClient({ ...editingClient, name: e.target.value })}
+                    value={editingBillingItem.service}
+                    onChange={e => setEditingBillingItem({ ...editingBillingItem, service: e.target.value })}
+                    required
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
                   />
                 </div>
@@ -531,88 +890,110 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {lang === 'de' ? 'Telefon' : 'Phone'}
+                      {lang === 'de' ? `Honorar / Betrag (${currency})` : `Amount (${currency})`} *
                     </label>
                     <input
-                      type="text"
-                      value={editingClient.phone || ''}
-                      onChange={e => setEditingClient({ ...editingClient, phone: e.target.value })}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editingBillingItem.amount}
+                      onChange={e => setEditingBillingItem({ ...editingBillingItem, amount: Number(e.target.value) || 0 })}
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      {lang === 'de' ? 'Status' : 'Status'}
+                    </label>
+                    <select
+                      value={editingBillingItem.status}
+                      onChange={e => setEditingBillingItem({ ...editingBillingItem, status: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                    >
+                      <option value="ready">{lang === 'de' ? 'Offen / Bereit' : 'Open / Ready'}</option>
+                      <option value="paid">{lang === 'de' ? 'Bezahlt' : 'Paid'}</option>
+                      <option value="draft">{lang === 'de' ? 'Entwurf' : 'Draft'}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      {lang === 'de' ? 'Datum' : 'Date'}
+                    </label>
+                    <input
+                      type="date"
+                      value={editingBillingItem.date || ''}
+                      onChange={e => setEditingBillingItem({ ...editingBillingItem, date: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
                     />
                   </div>
                   <div>
                     <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {lang === 'de' ? 'E-Mail' : 'Email'}
+                      {lang === 'de' ? 'Rechnungsnummer' : 'Invoice Number'}
                     </label>
                     <input
-                      type="email"
-                      value={editingClient.email || ''}
-                      onChange={e => setEditingClient({ ...editingClient, email: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                      type="text"
+                      value={editingBillingItem.invoiceNumber || ''}
+                      onChange={e => setEditingBillingItem({ ...editingBillingItem, invoiceNumber: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-[11px]"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Diagnose / Behandlungsschwerpunkt' : 'Diagnosis / Focus'}
+                    {lang === 'de' ? 'Notizen / Steuerhinweis' : 'Notes'}
                   </label>
                   <input
                     type="text"
-                    value={editingClient.diagnosis || ''}
-                    onChange={e => setEditingClient({ ...editingClient, diagnosis: e.target.value })}
+                    value={editingBillingItem.notes || ''}
+                    onChange={e => setEditingBillingItem({ ...editingBillingItem, notes: e.target.value })}
+                    placeholder="z.B. Umsatzsteuerfrei gem. § 4 Nr. 14 UStG"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Praxisnotizen' : 'Notes'}
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editingClient.notes || ''}
-                    onChange={e => setEditingClient({ ...editingClient, notes: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl resize-none"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingBillingItem(null)}
+                  className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+                >
+                  {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setClientToDelete(editingClient);
+                    onSaveBilling?.(editingBillingItem);
+                    setEditingBillingItem(null);
                   }}
-                  className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-sm"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{lang === 'de' ? 'Löschen' : 'Delete'}</span>
+                  {lang === 'de' ? 'Rechnung speichern' : 'Save Invoice'}
                 </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingClient(null)}
-                    className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
-                  >
-                    {lang === 'de' ? 'Abbrechen' : 'Cancel'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSaveClient(editingClient);
-                      setEditingClient(null);
-                    }}
-                    className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-sm cursor-pointer"
-                  >
-                    {lang === 'de' ? 'Speichern' : 'Save'}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Delete Billing Item Modal */}
+        <ConfirmDeleteModal
+          isOpen={Boolean(billingItemToDelete)}
+          title={lang === 'de' ? 'Abrechnung löschen?' : 'Delete Billing Item?'}
+          itemName={billingItemToDelete ? (billingItemToDelete.invoiceNumber || billingItemToDelete.service) : ''}
+          description={lang === 'de' ? 'Möchten Sie diese Honorarabrechnung unwiderruflich löschen?' : 'Are you sure you want to delete this billing entry?'}
+          onConfirm={() => {
+            if (billingItemToDelete) {
+              onDeleteBilling?.(billingItemToDelete.id);
+              setBillingItemToDelete(null);
+            }
+          }}
+          onClose={() => setBillingItemToDelete(null)}
+        />
 
         {/* Delete Confirmation Modal for Dossier */}
         <ConfirmDeleteModal
@@ -825,16 +1206,29 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                       </div>
                     </div>
 
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition" />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingClient(client);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        title={t('therapy.editClient', lang, 'Klient bearbeiten')}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition" />
+                    </div>
                   </div>
 
                   {client.diagnosis && (
-                    <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg mb-3 line-clamp-1">
+                    <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg mb-2.5 line-clamp-1">
                       {client.diagnosis}
                     </div>
                   )}
 
-                  <div className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+                  <div className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400 mb-2.5">
                     {client.phone && (
                       <div className="flex items-center gap-1.5">
                         <Phone className="w-3 h-3 text-slate-400" />
@@ -847,6 +1241,29 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                         <span className="truncate">{client.email}</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* Hourly Rate (Stundensatz) Row with direct edit button */}
+                  <div className="flex items-center justify-between px-2.5 py-1.5 mb-2.5 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100/60 dark:border-blue-900/40 text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
+                      {t('therapy.hourlyRate', lang, 'Stundensatz')}:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                        {client.hourlyRate ? `${client.hourlyRate.toFixed(2)} ${currency}/Std` : (lang === 'de' ? '90,00 €/Std' : `90.00 ${currency}/h`)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingClient(client);
+                        }}
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-100/60 dark:hover:bg-blue-900/40 transition"
+                        title={t('therapy.editHourlyRate', lang, 'Stundensatz bearbeiten')}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1035,6 +1452,9 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
         }}
         onClose={() => setClientToDelete(null)}
       />
+
+      {/* Edit Client Modal for Overview */}
+      {renderEditClientModal()}
     </div>
   );
 };

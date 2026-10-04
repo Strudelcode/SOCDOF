@@ -50,6 +50,7 @@ import { parseFatturaPaXml, convertFatturaPaToInvoice, ParsedFatturaPa } from '.
 import { isSdIReceiptXml, parseSdIReceiptXml, ParsedSdIReceipt, SDI_ERROR_CATALOG } from '../lib/sdiReceiptParser';
 import { FatturaPaInspectorModal } from './FatturaPaInspectorModal';
 import { DunningModal } from './DunningModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface InvoicesModuleProps {
   invoices: Invoice[];
@@ -86,6 +87,7 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
   const [sdiInspectorInvoice, setSdiInspectorInvoice] = useState<Invoice | null>(null);
   const [dunningInvoice, setDunningInvoice] = useState<Invoice | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [incomingReceiptModal, setIncomingReceiptModal] = useState<{
     receipt: ParsedSdIReceipt;
     invoiceId?: number;
@@ -1009,7 +1011,11 @@ export const InvoicesModule: React.FC<InvoicesModuleProps> = ({
                   </button>
 
                   <button
-                    onClick={(e) => inv.id && handleDeleteInvoice(inv.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sounds.playClick();
+                      setInvoiceToDelete(inv);
+                    }}
                     title="Löschen"
                     className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                   >

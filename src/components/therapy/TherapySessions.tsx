@@ -14,8 +14,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Session, Client, BillingItem } from './types';
-import { useLanguage } from '../../lib/i18n';
+import { useLanguage, t } from '../../lib/i18n';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { TherapySessionModal } from './TherapySessionModal';
 
 interface TherapySessionsProps {
   sessions: Session[];
@@ -25,6 +26,8 @@ interface TherapySessionsProps {
   onDeleteSession: (id: string) => void;
   onSelectClient: (clientId: string) => void;
   onShowToast: (msg: string) => void;
+  onEditSession?: (session: Session) => void;
+  onOpenNewSession?: () => void;
 }
 
 export const TherapySessions: React.FC<TherapySessionsProps> = ({
@@ -34,16 +37,17 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
   onSaveSession,
   onDeleteSession,
   onSelectClient,
-  onShowToast
+  onShowToast,
+  onEditSession,
+  onOpenNewSession
 }) => {
   const lang = useLanguage();
   const [search, setSearch] = useState('');
   const [clientFilter, setClientFilter] = useState<string>('all');
   
-  // Modal states
+  // Fallback modal states if onEditSession / onOpenNewSession not provided
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
-  const [autoCreateBilling, setAutoCreateBilling] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
 
   const filteredSessions = useMemo(() => {
@@ -100,20 +104,23 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
         {/* Add Session button */}
         <button
           onClick={() => {
-            const defaultClient = clients[0];
-            setEditingSession({
-              id: `sess_${Date.now()}`,
-              clientId: defaultClient?.id || '',
-              date: new Date().toISOString().slice(0, 10),
-              startTime: '10:00',
-              endTime: '11:00',
-              duration: 60,
-              intervention: '',
-              progress: '',
-              fee: defaultClient?.hourlyRate || 90
-            });
-            setAutoCreateBilling(true);
-            setIsModalOpen(true);
+            if (onOpenNewSession) {
+              onOpenNewSession();
+            } else {
+              const defaultClient = clients[0];
+              setEditingSession({
+                id: `sess_new_${Date.now()}`,
+                clientId: defaultClient?.id || '',
+                date: new Date().toISOString().slice(0, 10),
+                startTime: '10:00',
+                endTime: '11:00',
+                duration: 60,
+                intervention: '',
+                progress: '',
+                fee: defaultClient?.hourlyRate || 90
+              });
+              setIsModalOpen(true);
+            }
           }}
           style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
           className="flex items-center gap-1.5 px-4 py-2 hover:brightness-110 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer active:scale-95"
@@ -149,19 +156,32 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
             return (
               <div
                 key={session.id}
-                className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-400 dark:hover:border-teal-600 transition shadow-sm space-y-2.5"
+                onClick={() => {
+                  if (onEditSession) {
+                    onEditSession(session);
+                  } else {
+                    setEditingSession(session);
+                    setIsModalOpen(true);
+                  }
+                }}
+                className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition space-y-2.5 cursor-pointer relative"
+                title={t('therapy.clickToEditSession', lang, 'Klicken zum Öffnen und Bearbeiten der Sitzung')}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                   <div className="flex items-center gap-3">
                     <div 
-                      onClick={() => onSelectClient(session.clientId)}
-                      className="cursor-pointer group flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectClient(session.clientId);
+                      }}
+                      className="cursor-pointer group/client flex items-center gap-2"
+                      title={lang === 'de' ? 'Zum Klientenprofil wechseln' : 'Go to client profile'}
                     >
                       <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center">
                         {client ? client.name.substring(0, 2).toUpperCase() : 'KL'}
                       </div>
                       <div>
-                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-teal-600 transition">
+                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover/client:text-teal-600 transition">
                           {client ? client.name : 'Unbekannter Klient'}
                         </div>
                         <div className="text-[11px] text-slate-400">
@@ -172,23 +192,49 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
-                      {session.duration} Min {session.fee ? `• ${session.fee.toFixed(2)} ${currency}` : ''}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditSession) {
+                          onEditSession(session);
+                        } else {
+                          setEditingSession(session);
+                          setIsModalOpen(true);
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition cursor-pointer inline-flex items-center gap-1.5"
+                      title={t('therapy.editFee', lang, 'Honorar / Stundensatz bearbeiten')}
+                    >
+                      <span>{session.duration} Min</span>
+                      <span>•</span>
+                      <span className="font-bold">{session.fee ? `${session.fee.toFixed(2)} ${currency}` : (lang === 'de' ? 'Honorar erfassen' : 'Set fee')}</span>
+                      <Edit2 className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                    </button>
 
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => {
-                          setEditingSession(session);
-                          setIsModalOpen(true);
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onEditSession) {
+                            onEditSession(session);
+                          } else {
+                            setEditingSession(session);
+                            setIsModalOpen(true);
+                          }
                         }}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        title={lang === 'de' ? 'Bearbeiten' : 'Edit'}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        title={t('therapy.editSession', lang, 'Sitzung bearbeiten')}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => setSessionToDelete(session)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSessionToDelete(session);
+                        }}
                         className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition cursor-pointer"
                         title={lang === 'de' ? 'Löschen' : 'Delete'}
                       >
@@ -225,176 +271,30 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
         </div>
       )}
 
-      {/* New / Edit Session Modal */}
+      {/* Fallback New / Edit Session Modal */}
       {isModalOpen && editingSession && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4 my-8">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Clock3 className="w-5 h-5 text-teal-600" />
-              <span>{lang === 'de' ? 'Sitzung dokumentieren' : 'Document Session'}</span>
-            </h3>
-
-            <form onSubmit={e => {
-              e.preventDefault();
-              onSaveSession(editingSession, autoCreateBilling);
-              setIsModalOpen(false);
-              setEditingSession(null);
-              onShowToast(lang === 'de' ? 'Sitzung gespeichert' : 'Session saved');
-            }} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {lang === 'de' ? 'Klient' : 'Client'} *
-                </label>
-                <select
-                  value={editingSession.clientId}
-                  onChange={e => {
-                    const selectedC = clients.find(c => c.id === e.target.value);
-                    setEditingSession({
-                      ...editingSession,
-                      clientId: e.target.value,
-                      fee: selectedC?.hourlyRate || editingSession.fee
-                    });
-                  }}
-                  required
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                >
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Datum' : 'Date'} *
-                  </label>
-                  <input
-                    type="date"
-                    value={editingSession.date}
-                    onChange={e => setEditingSession({ ...editingSession, date: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Uhrzeit von' : 'Time from'}
-                  </label>
-                  <input
-                    type="time"
-                    value={editingSession.startTime || ''}
-                    onChange={e => setEditingSession({ ...editingSession, startTime: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Dauer (Min)' : 'Duration (min)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={editingSession.duration}
-                    onChange={e => setEditingSession({ ...editingSession, duration: Number(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              {/* Duration Presets */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-400">{lang === 'de' ? 'Schnellauswahl:' : 'Quick set:'}</span>
-                {[30, 50, 60, 90].map(mins => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => setEditingSession({ ...editingSession, duration: mins })}
-                    className={`px-2 py-0.5 text-[11px] rounded-md font-medium transition ${
-                      editingSession.duration === mins
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {lang === 'de' ? 'Thema & Methoden / Intervention' : 'Topic & Intervention'}
-                </label>
-                <input
-                  type="text"
-                  value={editingSession.intervention}
-                  onChange={e => setEditingSession({ ...editingSession, intervention: e.target.value })}
-                  placeholder="z.B. Kognitive Umstrukturierung, Klärungsgespräch..."
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {lang === 'de' ? 'Verlauf, Klientenreaktion & Nächste Schritte' : 'Progress & Clinical Notes'}
-                </label>
-                <textarea
-                  rows={4}
-                  value={editingSession.progress}
-                  onChange={e => setEditingSession({ ...editingSession, progress: e.target.value })}
-                  placeholder={lang === 'de' ? 'Dokumentieren Sie den Verlauf...' : 'Document progress...'}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === 'de' ? 'Honorar (€)' : 'Fee'}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editingSession.fee || ''}
-                    onChange={e => setEditingSession({ ...editingSession, fee: Number(e.target.value) || 0 })}
-                    placeholder="90.00"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-
-                <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={autoCreateBilling}
-                      onChange={e => setAutoCreateBilling(e.target.checked)}
-                      className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
-                    />
-                    <span>{lang === 'de' ? 'Abrechnungsposten erzeugen' : 'Auto-create invoice draft'}</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setEditingSession(null);
-                  }}
-                  className="px-3.5 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
-                >
-                  {lang === 'de' ? 'Abbrechen' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-xl transition shadow-sm"
-                >
-                  {lang === 'de' ? 'Sitzung speichern' : 'Save Session'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TherapySessionModal
+          isOpen={isModalOpen}
+          session={editingSession}
+          clients={clients}
+          currency={currency}
+          onSave={(savedSession, autoBilling) => {
+            onSaveSession(savedSession, autoBilling);
+            setIsModalOpen(false);
+            setEditingSession(null);
+            onShowToast(lang === 'de' ? 'Sitzung gespeichert' : 'Session saved');
+          }}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSession(null);
+          }}
+          onDelete={(id) => {
+            onDeleteSession(id);
+            setIsModalOpen(false);
+            setEditingSession(null);
+          }}
+          onSelectClient={onSelectClient}
+        />
       )}
 
       {/* Delete Confirmation Modal */}
