@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.6.9';
+export const APP_VERSION = '24.8.2';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,153 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.8.2',
+    date: '2026-10-08',
+    title: 'Company Contacts with Sub-contacts, Split Name Fields & Country Live Autocomplete',
+    highlights: [
+      'Company-first contact workflow: create business contacts with company name only (Fa.) without requiring personal individual name inputs',
+      'Full sub-contacts (Kontaktpersonen) support for companies: manage team members with first name, last name, email, phone, role, and primary contact star toggle',
+      'Divided first and last name fields: separated first name and last name into dedicated inputs across individual contacts and company sub-contacts',
+      'Interactive live country autocomplete with keyboard navigation: real-time suggestions with flag emojis, localized names, and ISO codes on typing, navigable via arrow keys and Enter',
+      'Sub-contact visibility in contact details and deep search integration: view all colleagues in ContactDetailModal with 1-click copy and find companies by employee details'
+    ]
+  },
+  {
+    version: '24.8.1',
+    date: '2026-10-07',
+    title: 'Reports App Icon Enhancement, Universal Label Alignment & GUI Layout Polish',
+    highlights: [
+      'Introduced dedicated DynamicReportsIcon with high-DPI squircle gradient, layered micro-badge, and multi-size variants (sm, md, lg, xl)',
+      'Universal module label alignment across all 4 languages: shortened to clean "Reports" / "Rapports" / "Reportes" across desktop icons, Start Menu, taskbar, sidebar, and launcher, preventing awkward text clipping',
+      'Enhanced Discord contact callout in Step 3 with prominent bold badge and clear explanation',
+      'Responsive split layout for report wizard and live Discord preview card across medium and large displays'
+    ]
+  },
+  {
+    version: '24.8.0',
+    date: '2026-10-07',
+    title: 'Guided 3-Step Report Wizard, Persistent Live Discord Embed Preview & Desktop Icon GUI Polish',
+    highlights: [
+      'Introduced a guided 3-step report wizard for the Reports app: Step 1 Category Selection (Bug, Idea, Feedback), Step 2 Details & Location with App Picker, Step 3 Contact & Submission',
+      'Persistent Live Discord Embed Preview: preview card is permanently visible right beside the wizard across all 3 steps, reacting in real time to every keystroke and selection',
+      'Prominent Discord Contact prompt: boldly highlighted callout for optional & recommended Discord username / User ID so dev team can reply and ping users on the server',
+      'Fixed desktop and window icon GUI flaws: eliminated obsolete --tw-ring-color style creating dark ring artifacts in window headers, separated active indicator bar from desktop icon label, and enabled graceful two-line text wrapping'
+    ]
+  },
+  {
+    version: '24.7.9',
+    date: '2026-10-07',
+    title: 'Praxis App Icon & Header Banner GUI Polish',
+    highlights: [
+      'Fixed Praxis header banner app icon: replaced disparate generic office building glyph with official dedicated medical/therapy practice symbol (Hospital house with plus sign)',
+      'Upgraded app icon container from washed-out translucent glass to a solid crisp white card with high-contrast accent-colored icon, perfectly harmonizing with adjacent solid action buttons',
+      'Unified practice module icon gradients across App Launcher, Desktop Window Workspace titlebars, App Store, and Command Palette to prevent teal color clashes'
+    ]
+  },
+  {
+    version: '24.7.8',
+    date: '2026-10-06',
+    title: 'Harmonious Color Balance, Anti-Clash Companion Tones & Practice GUI Refinements',
+    highlights: [
+      'Eliminated hardcoded teal/green buttons, badges, borders, and icons across the Practice module (Client details, Sessions list, Modals, Ledgers), binding all elements dynamically to user accent color',
+      'Refined contrasting companion color mathematics to prevent unwanted green/cyan hues for warm accents (Sunset Gold, Amber, Orange, Red pair harmoniously with Indigo)',
+      'Softened background radial gradients and backdrop orbs into a gentle, relaxing watercolor ambient ambiance without blotchy color patches',
+      'Balanced dual-series monthly chart with anchored baseline indicators for zero-value series and normalized KPI card padding'
+    ]
+  },
+  {
+    version: '24.7.7',
+    date: '2026-10-06',
+    title: 'Harmonized Solid Action Buttons, Chart Guidelines & Viewport Optimization',
+    highlights: [
+      'Standardized all Practice header quick actions to crisp, solid white buttons with sharp accent color typography, eliminating all translucent ghosting',
+      'Added subtle dashed gridlines to the monthly trend chart for clear visual financial scale and orientation',
+      'Refined dashboard vertical rhythm, card padding, and bottom breathing room to present upcoming appointments and recent sessions clearly within the window',
+      'Streamlined button copy (+ Neuer Klient, + Sitzung, + Abrechnung) for clean responsive presentation'
+    ]
+  },
+  {
+    version: '24.7.6',
+    date: '2026-10-06',
+    title: 'Praxis GUI Polish: Header Banner Buttons, Chart Zero-Value Rendering, Grammar & Metrics Alignment',
+    highlights: [
+      'Fixed low-contrast and washed-out buttons in the Practice welcome banner, removing background haze and adding high-contrast borders and active hover states',
+      'Eliminated ghost pill stubs in monthly revenue/sessions charts for months with zero recorded volume, replacing them with clean baseline markers',
+      'Resolved duplicate currency figures under "Durchschnitt pro Sitzung" in Practice metrics, showing descriptive session count context instead',
+      'Corrected German singular/plural grammar on session KPI cards ("1 dokumentierte Sitzung" vs "X dokumentierte Sitzungen")',
+      'Enhanced bottom scroll padding in the Practice module to prevent bottom cards from clipping at the window edge'
+    ]
+  },
+  {
+    version: '24.7.5',
+    date: '2026-10-06',
+    title: 'Monochromatic Ambient Background Gradient Harmonization',
+    highlights: [
+      'Eliminated unexpected green/cyan hue shifts in window backgrounds when selecting warm accents like Sunset Gold or Red',
+      'Unified all ambient background radial gradients, backdrop orbs, and preview swatches to derive purely from the active accent color',
+      'Reserved contrasting companion tones strictly for comparison metrics and dual data series to avoid conflicting colors on workspace canvas',
+      'Verified smooth ambient gradient rendering across light and dark themes'
+    ]
+  },
+  {
+    version: '24.7.4',
+    date: '2026-10-06',
+    title: 'Soft Ambient Background Gradient & Harmonious Frosted Glass Aesthetics',
+    highlights: [
+      'Replaced harsh contrast borders with a dreamy, softly blurred ambient color gradient flowing gently in the window background',
+      'Refined card and panel containers into elegant frosted glass surfaces with subtle translucency and gentle borders, allowing the background ambient wash to shine through without sterile white glare',
+      'Embedded organic blurred gradient aura backdrops into the Practice module and application windows matching the selected accent color and complementary companion tone',
+      'Added live interactive visual preview in Settings under Personalization & Colors with instant quad-lingual reactive feedback',
+      'Guaranteed pure white preservation for printable invoices, cash receipts, and document export previews'
+    ]
+  },
+  {
+    version: '24.7.3',
+    date: '2026-10-05',
+    title: 'Vibrant Color & Contrast Mode Across All Apps (Weniger Weiß & Mehr Farbe)',
+    highlights: [
+      'Expanded the color contrast mode across the entire desktop suite to reduce plain sterile white in all windows (Invoices, Accounting, Contacts, Practice, Products, Calendar, etc.)',
+      'Transforms window backgrounds into subtle dual-ambient color gradients matching the selected accent color',
+      'Infuses cards, boxes, and panels with elegant soft pastel washes and distinctive colored borders with enhanced contrast',
+      'Maintains clean printable invoice sheets and pure white export preview documents',
+      'Full quad-lingual localization in German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '24.7.2',
+    date: '2026-10-05',
+    title: 'Colorful Practice Mode (Farbiger Praxis-Modus) for Enhanced Contrast & Reduced Plain White',
+    highlights: [
+      'Added an optional "Colorful Practice Mode" setting in Settings -> Personalization & Colors to reduce plain white backgrounds in the Practice app',
+      'When enabled, applies soft rich accent color washes and distinct colored card borders around boxes and containers',
+      'Persisted across app restarts via localStorage with instant reactive preview and quad-lingual translations (DE, EN, FR, ES)'
+    ]
+  },
+  {
+    version: '24.7.1',
+    date: '2026-10-05',
+    title: 'Praxis Sync Popout Menu, Searchable Client Filter Dialog & Streamlined View Controls',
+    highlights: [
+      'Replaced cumbersome top banners with a compact, dedicated "Rechnungs-Sync" options popout in the header with live sync statistics, real-time sync toggle, and 1-click full sync',
+      'Introduced a searchable in-app Client Filter dialog (TherapyClientFilterModal) in Billing and Sessions with instant keyboard search, client details (city, phone, email, invoice counts), and reset actions',
+      'Refined the Billing View mode control into an intuitive "Ansicht: Tabelle / Kästchen" dropdown with clear descriptions and checkmark indicators',
+      'Full quad-lingual support across German, English, French, and Spanish'
+    ]
+  },
+  {
+    version: '24.7.0',
+    date: '2026-10-05',
+    title: 'Praxis & Invoices Real-Time Two-Way Synchronization Engine',
+    highlights: [
+      'Built-in real-time auto-synchronization between Therapy Practice (Praxis & Therapie) and the SOCDOF Invoices app (db.invoices)',
+      '1-Click "Sync All with Invoices" action in both module top bar and billing header with animated progress and detailed verification counts',
+      'Two-way payment status synchronization: payment registrations in the Invoices app automatically reflect live in Praxis billing and vice versa',
+      'Automated session-to-invoice synchronization creating official invoices immediately upon saving clinical session documentation',
+      'Visual sync status badges in Table View and Card View with 1-click manual retry triggers and quick links to the Invoices app',
+      'Full quad-lingual translations across German, English, French, and Spanish'
+    ]
+  },
   {
     version: '24.6.9',
     date: '2026-10-04',

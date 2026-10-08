@@ -17,7 +17,12 @@ import {
   ShieldCheck,
   Tag,
   AlertTriangle,
-  AlertCircle
+  AlertCircle,
+  Users,
+  Star,
+  Plus,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Contact, Invoice, CompanyProfile } from '../types';
 import { t, useLanguage, formatSystemDate } from '../lib/i18n';
@@ -52,6 +57,16 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'info' | 'invoices' | 'products' | 'notes'>('info');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isEmailDraftModalOpen, setIsEmailDraftModalOpen] = useState(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const handleCopy = (text: string, label: string) => {
+    sounds.playClick();
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(null), 2000);
+    }
+  };
 
   // Handle ESC key press
   useEffect(() => {
@@ -392,6 +407,91 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
                       {contact.zip} {contact.city}
                       {contact.country ? ` (${contact.country})` : ''}
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-contacts / Kontaktpersonen list */}
+              {contact.contact_persons && contact.contact_persons.length > 0 && (
+                <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-2xs">
+                        <Users className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          {t('contact.subcontacts_title', currentLang, 'Kontaktpersonen (Unterkontakte)')}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {contact.contact_persons.length} {contact.contact_persons.length === 1 ? t('contact.single_contact_person', currentLang, 'Kontaktperson') : t('contact.multiple_contact_persons', currentLang, 'Kontaktpersonen')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {contact.contact_persons.map((person, idx) => (
+                      <div 
+                        key={person.id || idx}
+                        className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/50 shadow-2xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              {person.first_name} {person.last_name}
+                            </span>
+                            {person.is_primary && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[9px] font-bold">
+                                <Star className="w-2.5 h-2.5 fill-indigo-600 dark:fill-indigo-400 text-indigo-600 dark:text-indigo-400" />
+                                <span>{t('contact.primary_badge', currentLang, 'Hauptkontakt')}</span>
+                              </span>
+                            )}
+                            {person.role && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                                {person.role}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                          {person.email && (
+                            <div className="flex items-center gap-1.5">
+                              <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                              <a href={`mailto:${person.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                {person.email}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(person.email!, `cp_email_${idx}`)}
+                                className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                                title="E-Mail kopieren"
+                              >
+                                {copiedText === `cp_email_${idx}` ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          )}
+
+                          {person.phone && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                              <a href={`tel:${person.phone}`} className="text-slate-800 dark:text-slate-200 hover:underline">
+                                {person.phone}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(person.phone!, `cp_phone_${idx}`)}
+                                className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                                title="Telefonnummer kopieren"
+                              >
+                                {copiedText === `cp_phone_${idx}` ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

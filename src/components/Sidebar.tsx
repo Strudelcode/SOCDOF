@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'feedback' as ActiveModule,
-      label: t('module.feedback', lang, 'Bug-Reports'),
+      label: t('module.feedback', lang, 'Reports'),
       icon: Bug,
       badge: 'Discord',
       badgeColor: 'bg-orange-500 text-white'

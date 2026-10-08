@@ -5,7 +5,7 @@ import {
   Download, 
   FileText, 
   Settings, 
-  Building2, 
+  Hospital, 
   CheckCircle2, 
   Sparkles 
 } from 'lucide-react';
@@ -68,8 +68,11 @@ export const TherapyInvoicePrintModal: React.FC<TherapyInvoicePrintModalProps> =
           {/* Left: Module title & template selection */}
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
-                <Building2 className="w-4 h-4" />
+              <div 
+                style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-xs"
+              >
+                <Hospital className="w-4 h-4" />
               </div>
               <span className="font-bold text-sm text-slate-800 hidden sm:inline">
                 {lang === 'de' ? 'Praxisrechnung' : 'Therapy Invoice'}
@@ -78,7 +81,7 @@ export const TherapyInvoicePrintModal: React.FC<TherapyInvoicePrintModalProps> =
 
             {/* Template dropdown switcher */}
             <div className="flex items-center gap-1.5 ml-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
-              <FileText className="w-3.5 h-3.5 text-teal-600" />
+              <FileText className="w-3.5 h-3.5" style={{ color: 'var(--accent, #4f46e5)' }} />
               <select
                 value={activeTemplate.id}
                 onChange={(e) => handleSelectTemplate(e.target.value)}
@@ -104,7 +107,8 @@ export const TherapyInvoicePrintModal: React.FC<TherapyInvoicePrintModalProps> =
 
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold rounded-xl transition shadow-md"
+              style={{ background: 'linear-gradient(135deg, var(--accent, #4f46e5) 0%, var(--accent-hover, #4338ca) 100%)' }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 hover:brightness-110 text-white font-bold rounded-xl transition shadow-md cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{lang === 'de' ? 'Drucken / PDF' : 'Print / PDF'}</span>

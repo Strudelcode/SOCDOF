@@ -165,7 +165,7 @@ export const PICKER_APP_ITEMS: AppPickerItem[] = [
     descKey: 'desc.therapy_practice',
     defaultDesc: 'Klienten, Sitzungen & Heilbehandlung',
     icon: Hospital,
-    color: 'bg-gradient-to-br from-teal-600 to-indigo-700',
+    color: 'bg-gradient-to-br from-blue-600 to-indigo-700',
     category: 'ops'
   },
   {

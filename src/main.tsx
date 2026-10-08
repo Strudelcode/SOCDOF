@@ -11,6 +11,13 @@ initPlatformEnvironment();
 // Pre-initialize and apply saved accent color before any component mounts
 applyAccentColor();
 
+// Initialize colorful apps & contrast mode attribute
+try {
+  const isColorful = localStorage.getItem('socdof_colorful_apps_mode') === 'true' || localStorage.getItem('socdof_colorful_practice_mode') === 'true';
+  document.documentElement.setAttribute('data-colorful-apps', isColorful ? 'true' : 'false');
+  document.documentElement.setAttribute('data-colorful-practice', isColorful ? 'true' : 'false');
+} catch {}
+
 // Prevent unwanted touchpad pinch-to-zoom and Ctrl+wheel zoom on the web application
 if (typeof window !== 'undefined') {
   // Prevent Ctrl+Wheel / Trackpad pinch zoom

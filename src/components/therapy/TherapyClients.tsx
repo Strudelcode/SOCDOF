@@ -487,7 +487,8 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
               ) : (
                 <button
                   onClick={startConsultationTimer}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
+                  style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 hover:brightness-110 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer"
                   title={t('therapy.timer_start', lang as LanguageCode, 'Beratungs-Timer starten')}
                 >
                   <Clock3 className="w-3.5 h-3.5" />
@@ -497,7 +498,8 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
             )}
             <button
               onClick={() => onOpenNewSessionForClient(activeClient.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs rounded-xl transition shadow-sm"
+              style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+              className="flex items-center gap-1.5 px-3 py-1.5 hover:brightness-110 text-white font-medium text-xs rounded-xl transition shadow-xs cursor-pointer"
             >
               <Clock3 className="w-3.5 h-3.5" />
               <span>{lang === 'de' ? '+ Sitzung' : '+ Session'}</span>
@@ -696,14 +698,15 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Clock3 className="w-4 h-4 text-teal-600" />
+                  <Clock3 className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                     {lang === 'de' ? 'Behandlungs- & Sitzungsverlauf' : 'Session History'} ({clientSessions.length})
                   </h3>
                 </div>
                 <button
                   onClick={() => onOpenNewSessionForClient(activeClient.id)}
-                  className="text-xs text-teal-600 hover:underline font-medium"
+                  style={{ color: 'var(--accent, #4f46e5)' }}
+                  className="text-xs hover:underline font-bold"
                 >
                   {lang === 'de' ? '+ Neue Sitzung' : '+ New Session'}
                 </button>
@@ -723,12 +726,15 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                       title={t('therapy.clickToEditSession', lang, 'Klicken zum Öffnen und Bearbeiten der Sitzung')}
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition flex items-center gap-1.5">
-                          <Clock3 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:opacity-80 transition flex items-center gap-1.5">
+                          <Clock3 className="w-3.5 h-3.5" style={{ color: 'var(--accent, #4f46e5)' }} />
                           <span>{s.date} {s.startTime ? `• ${s.startTime} Uhr` : ''}</span>
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded text-[10px]">
+                          <span 
+                            style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                            className="font-medium px-2 py-0.5 rounded text-[10px]"
+                          >
                             {s.duration} Min {s.fee ? `• ${s.fee.toFixed(2)} ${currency}` : ''}
                           </span>
                           <button
@@ -1031,7 +1037,10 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
               <div className="px-4 pb-6 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-teal-600 text-white shadow-xs">
+                    <div 
+                      style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                      className="p-2 rounded-xl text-white shadow-xs"
+                    >
                       <Clock3 className="w-4 h-4" />
                     </div>
                     <div>
@@ -1066,7 +1075,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                     placeholder={t('therapy.quick_note_intervention_ph', lang as LanguageCode, 'z.B. Gespräch, Verhaltenstherapie, Übungen...')}
                     value={quickNoteIntervention}
                     onChange={(e) => setQuickNoteIntervention(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-teal-500 focus:outline-none min-h-[44px]"
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[var(--accent,#4f46e5)] focus:border-transparent focus:outline-none min-h-[44px]"
                   />
                 </div>
 
@@ -1080,7 +1089,7 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                     placeholder={t('therapy.quick_note_progress_ph', lang as LanguageCode, 'Thema, Beobachtungen, vereinbarte Hausaufgaben...')}
                     value={quickNoteText}
                     onChange={(e) => setQuickNoteText(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-teal-500 focus:outline-none resize-none"
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[var(--accent,#4f46e5)] focus:border-transparent focus:outline-none resize-none"
                   />
                 </div>
 
@@ -1094,7 +1103,8 @@ export const TherapyClients: React.FC<TherapyClientsProps> = ({
                   <button
                     onClick={handleSaveQuickSessionNote}
                     disabled={!quickNoteText.trim() || isSubmittingQuickNote}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                    style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                    className="flex-1 px-4 py-2.5 rounded-xl hover:brightness-110 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>{t('therapy.quick_note_save', lang as LanguageCode, 'Notiz speichern')}</span>

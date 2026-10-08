@@ -162,7 +162,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
                 });
               }}
               required
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
             >
               <option value="" disabled>{lang === 'de' ? '– Bitte Klient auswählen –' : '– Please select client –'}</option>
               {clients.map(c => (
@@ -184,7 +184,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
                 value={formData.date}
                 onChange={e => setFormData({ ...formData, date: e.target.value })}
                 required
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
               />
             </div>
 
@@ -196,7 +196,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
                 type="time"
                 value={formData.startTime || ''}
                 onChange={e => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
               />
             </div>
 
@@ -211,7 +211,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
                 value={formData.duration || 60}
                 onChange={e => setFormData({ ...formData, duration: Number(e.target.value) || 0 })}
                 required
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
               value={formData.intervention || ''}
               onChange={e => setFormData({ ...formData, intervention: e.target.value })}
               placeholder={lang === 'de' ? 'z.B. Kognitive Umstrukturierung, Klärungsgespräch, Psychoedukation...' : 'e.g. Cognitive restructuring, psychoeducation, intake...'}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
             />
 
             {/* Quick intervention suggestion pills */}
@@ -288,7 +288,7 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
               placeholder={lang === 'de' 
                 ? 'Themen der Sitzung, emotionale Verfassung des Klienten, Vereinbarungen für die nächste Woche, Beobachtungen...' 
                 : 'Session discussion, client reaction, assigned homework, observations, next steps...'}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white resize-y font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white resize-y font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
             />
           </div>
 
@@ -305,20 +305,27 @@ export const TherapySessionModal: React.FC<TherapySessionModalProps> = ({
                 value={formData.fee !== undefined && formData.fee !== null ? formData.fee : ''}
                 onChange={e => setFormData({ ...formData, fee: e.target.value === '' ? undefined : Number(e.target.value) })}
                 placeholder="90.00"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,teal)]"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)]"
               />
             </div>
 
-            <div className="flex items-end pb-1.5">
+            <div className="flex flex-col justify-end pb-1.5 space-y-1">
               <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 font-medium select-none">
                 <input
                   type="checkbox"
                   checked={autoCreateBilling}
                   onChange={e => setAutoCreateBilling(e.target.checked)}
-                  className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                  style={{ accentColor: 'var(--accent, #4f46e5)' }}
+                  className="rounded w-4 h-4 cursor-pointer"
                 />
-                <span>{lang === 'de' ? 'Abrechnungsposten / Honorarrechnung erzeugen' : 'Generate invoice draft item'}</span>
+                <span>{lang === 'de' ? 'Abrechnungsposten erzeugen' : 'Generate invoice draft item'}</span>
               </label>
+              {autoCreateBilling && (
+                <div className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold pl-6 flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>{lang === 'de' ? 'Wird automatisch mit Rechnungs-App synchronisiert' : 'Automatically synced with Invoices app'}</span>
+                </div>
+              )}
             </div>
           </div>
 

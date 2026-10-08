@@ -277,6 +277,13 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     deleted: t('users.deleted', lang, 'Konto gelöscht.'),
     passwordReset: t('users.password_reset', lang, 'Neues temporäres Passwort gesetzt.'),
     securitySaved: t('users.security_saved', lang, 'Sicherheitsrichtlinien gespeichert.'),
+    autoLoginTitle: t('users.autologin_title', lang, 'Automatische Anmeldung (Direkt zum Desktop)'),
+    autoLoginDesc: t('users.autologin_desc', lang, 'Überspringt den Anmeldebildschirm und öffnet beim Start direkt den Desktop. Nur möglich, wenn genau 1 Benutzer existiert. Bei aktiver Option kann kein 2. Benutzer erstellt werden.'),
+    autoLoginActiveBadge: t('users.autologin_active_badge', lang, 'Auto-Login aktiv'),
+    autoLoginInactiveBadge: t('users.autologin_inactive_badge', lang, 'Auto-Login aus'),
+    autoLoginSingleOnlyHint: t('users.autologin_single_only_hint', lang, 'Nur bei genau 1 registrierten Benutzerkonto verfügbar. Bei mehreren Konten ist der Anmeldebildschirm zur Benutzer-Auswahl erforderlich.'),
+    autoLoginBlockCreateTitle: t('users.autologin_block_create_title', lang, 'Erstellung eines 2. Benutzers gesperrt'),
+    autoLoginBlockCreateDesc: t('users.autologin_block_create_desc', lang, 'Automatische Anmeldung ist aktiv. Um einen zweiten Benutzer anzulegen, deaktivieren Sie bitte zuerst die automatische Anmeldung in den Sicherheitsrichtlinien.'),
     changePhoto: t('users.change_photo', lang, 'Foto ändern'),
     removePhoto: t('users.remove_photo', lang, 'Foto entfernen'),
     wallpaper: t('users.wallpaper', lang, 'Desktop-Hintergrundbild'),
@@ -386,6 +393,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
 
   // Admin: Create user
   const handleCreate = async () => {
+    if (security.autoLoginSingleUser && users.length >= 1) {
+      setAdminMessage(labels.autoLoginBlockCreateDesc);
+      sounds.playError();
+      return;
+    }
     if (!newUser.username.trim() || !newUser.displayName.trim() || !newUser.password) {
       setAdminMessage(labels.required);
       return;
@@ -413,11 +425,13 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     } catch (error) {
       const reason = String((error as Error).message);
       setAdminMessage(
-        reason === 'username_exists'
-          ? labels.usernameExists
-          : reason === 'password_too_short'
-            ? labels.passwordTooShort
-            : labels.required
+        reason === 'cannot_create_second_user_while_autologin_active'
+          ? labels.autoLoginBlockCreateDesc
+          : reason === 'username_exists'
+            ? labels.usernameExists
+            : reason === 'password_too_short'
+              ? labels.passwordTooShort
+              : labels.required
       );
       sounds.playError();
     }
@@ -797,6 +811,23 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
           <div className="grid lg:grid-cols-[300px_1fr] gap-5 p-6">
             {/* Accounts list sidebar */}
             <div className="space-y-2">
+              {/* Auto-login active pill */}
+              {security.autoLoginSingleUser && users.length === 1 && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="font-bold truncate">{labels.autoLoginActiveBadge}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('security')}
+                    className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                  >
+                    Details
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between px-1 mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels.accountList}</span>
                 <button
@@ -880,6 +911,24 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     <UserRoundPlus className="w-4 h-4 text-indigo-500" />
                     {labels.create}
                   </div>
+
+                  {security.autoLoginSingleUser && users.length >= 1 && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-1">
+                        <div className="font-bold">{labels.autoLoginBlockCreateTitle}</div>
+                        <p className="text-[11px] leading-relaxed opacity-90">{labels.autoLoginBlockCreateDesc}</p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('security')}
+                          className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer pt-0.5"
+                        >
+                          <span>{labels.tabSecurity} öffnen</span> →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-2">
                     <input
                       className={fieldClass}
@@ -952,8 +1001,10 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   </div>
                   <button
                     type="button"
+                    disabled={Boolean(security.autoLoginSingleUser && users.length >= 1)}
                     onClick={handleCreate}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                    title={security.autoLoginSingleUser && users.length >= 1 ? labels.autoLoginBlockCreateDesc : labels.create}
                   >
                     <Check className="w-4 h-4" />
                     {labels.create}

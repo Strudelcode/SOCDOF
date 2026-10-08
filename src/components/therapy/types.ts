@@ -66,6 +66,8 @@ export type BillingItem = {
   dueDate?: string;
   notes?: string;
   paymentMethod?: 'bank' | 'cash' | string;
+  syncedToInvoices?: boolean;
+  syncedAt?: string;
 };
 
 export type PracticeData = {

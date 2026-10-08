@@ -4,7 +4,7 @@ import { useLanguage, t } from '../lib/i18n';
 import { APP_VERSION } from '../lib/version';
 
 interface DiscordEmbedPreviewProps {
-  type: 'bug' | 'idea';
+  type: 'bug' | 'idea' | 'feedback';
   title: string;
   categoryOrLocation: string;
   description: string;
@@ -34,6 +34,7 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
 }) => {
   const lang = useLanguage();
   const isBug = type === 'bug';
+  const isFeedback = type === 'feedback';
 
   const cleanName = discordName.trim().replace(/^@/, '') || 'Anonym';
   const isAnonymous = !discordName.trim() || cleanName.toLowerCase() === 'anonym';
@@ -44,9 +45,9 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
     ? `@${cleanName} (@${cleanName})`
     : (isAnonymous ? '@Anonym' : `@${cleanName}`);
 
-  const channelName = isBug ? '#🐛 | REPORT' : '#💡vorschläge';
-  const tagName = isBug ? '⏳ Neue Einreichung' : '🌐 SOCDOF';
-  const embedColor = isBug ? '#ed4245' : '#5865F2';
+  const channelName = isBug ? '#🐛 | REPORT' : '#💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ';
+  const tagName = isBug ? '⏳ Neue Einreichung' : isFeedback ? '💬 Feedback' : '🌐 SOCDOF';
+  const embedColor = isBug ? '#ed4245' : isFeedback ? '#38bdf8' : '#5865F2';
 
   const displayTitle = title.trim() || (lang === 'de' ? 'Titel des Beitrags...' : lang === 'fr' ? 'Titre de la publication...' : lang === 'es' ? 'Título de la publicación...' : 'Post title summary...');
   const displayLocation = categoryOrLocation.trim() || (lang === 'de' ? 'Noch kein Ort gewählt' : lang === 'fr' ? 'Aucun emplacement sélectionné' : lang === 'es' ? 'Ninguna ubicación seleccionada' : 'No location selected');
@@ -60,7 +61,7 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
   const nowTime = new Date().toLocaleTimeString(lang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="rounded-2xl bg-[#1e1f22] text-[#dbdee1] font-sans border border-[#2b2d31] shadow-xl overflow-hidden animate-fade-in select-text">
+    <div className="rounded-3xl sm:rounded-[28px] bg-[#1e1f22] text-[#dbdee1] font-sans border border-[#2b2d31] shadow-2xl overflow-hidden animate-fade-in select-text">
       {/* Discord Header Bar */}
       <div className="px-4 py-2.5 bg-[#2b2d31] border-b border-[#1e1f22] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">

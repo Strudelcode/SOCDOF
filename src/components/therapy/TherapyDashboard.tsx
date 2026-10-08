@@ -13,7 +13,7 @@ import {
   Calendar,
   Sparkles,
   FileText,
-  Building2,
+  Hospital,
   Edit2
 } from 'lucide-react';
 import { Client, Session, Appointment, Trip, BillingItem } from './types';
@@ -124,27 +124,27 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       {/* Top Welcome & Quick Actions Banner */}
       <div 
         style={{ 
           background: 'linear-gradient(135deg, var(--accent, #4f46e5) 0%, var(--accent-hover, #4338ca) 100%)',
-          boxShadow: '0 10px 25px -5px var(--accent-ring, rgba(79, 70, 229, 0.25)), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          boxShadow: '0 8px 20px -4px var(--accent-ring, rgba(79, 70, 229, 0.25)), 0 2px 4px -2px rgba(0, 0, 0, 0.05)'
         }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-white p-5 sm:p-6 rounded-2xl relative overflow-hidden"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-white py-3.5 px-4 sm:px-5 rounded-2xl relative overflow-hidden"
       >
-        {/* Subtle decorative glow watermark */}
-        <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shrink-0 shadow-2xs">
-            <Building2 className="w-6 h-6" />
+        <div className="relative z-10 flex items-center gap-3">
+          <div 
+            style={{ color: 'var(--accent, #4f46e5)' }}
+            className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center shrink-0"
+          >
+            <Hospital className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold tracking-tight leading-tight">
               {lang === 'de' ? 'Praxis-Übersicht & Statistik' : 'Practice Dashboard & Performance'}
             </h2>
-            <p className="text-white/80 text-xs sm:text-sm mt-0.5 font-medium">
+            <p className="text-white/85 text-xs mt-0.5 font-medium">
               {lang === 'de' 
                 ? 'Verwaltung von Klienten, Behandlungsdokumentation, Abrechnung & Fahrten' 
                 : 'Manage clients, session logs, invoicing and mileage logs'}
@@ -156,15 +156,16 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
           <button
             onClick={onOpenCustomerPicker}
             style={{ color: 'var(--accent, #4f46e5)' }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 font-bold text-xs sm:text-sm rounded-xl transition shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 font-bold text-xs sm:text-sm rounded-xl transition shadow-xs hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <Users className="w-4 h-4" />
-            <span>{lang === 'de' ? '+ Neuer Klient (Kundenbuch)' : '+ New Client (CRM)'}</span>
+            <span>{lang === 'de' ? '+ Neuer Klient' : '+ New Client'}</span>
           </button>
 
           <button
             onClick={onOpenNewSession}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs sm:text-sm rounded-xl transition backdrop-blur-xs cursor-pointer"
+            style={{ color: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 font-bold text-xs sm:text-sm rounded-xl transition shadow-xs hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <Clock3 className="w-4 h-4" />
             <span>{lang === 'de' ? '+ Sitzung' : '+ Session'}</span>
@@ -172,7 +173,8 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
 
           <button
             onClick={onOpenNewBilling}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white font-semibold text-xs sm:text-sm rounded-xl transition backdrop-blur-xs cursor-pointer"
+            style={{ color: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 font-bold text-xs sm:text-sm rounded-xl transition shadow-xs hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <CreditCard className="w-4 h-4" />
             <span>{lang === 'de' ? '+ Abrechnung' : '+ Invoice'}</span>
@@ -181,10 +183,10 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-3.5">
         <div 
           onClick={() => onNavigateTab('clients')}
-          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -207,13 +209,16 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
 
         <div 
           onClick={() => onNavigateTab('sessions')}
-          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {lang === 'de' ? 'Therapiestunden' : 'Session Hours'}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-105 transition shadow-2xs">
+            <div 
+              style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+              className="w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-105 transition shadow-2xs"
+            >
               <Clock3 className="w-4 h-4" />
             </div>
           </div>
@@ -221,24 +226,22 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
             {totalHours} <span className="text-sm font-normal text-slate-400">Std</span>
           </div>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-            {sessions.length} {lang === 'de' ? 'dokumentierte Sitzungen' : 'logged sessions'}
+            {sessions.length === 1 
+              ? (lang === 'de' ? '1 dokumentierte Sitzung' : '1 logged session') 
+              : (lang === 'de' ? `${sessions.length} dokumentierte Sitzungen` : `${sessions.length} logged sessions`)}
           </p>
         </div>
 
         <div 
           onClick={() => onNavigateTab('billing')}
-          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {lang === 'de' ? 'Gesamthonorar' : 'Total Revenue'}
             </span>
             <div 
-              style={{
-                backgroundColor: 'var(--accent-companion-light, rgba(13, 148, 136, 0.18))',
-                color: 'var(--accent-companion, #0d9488)'
-              }}
-              className="w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-105 transition shadow-2xs"
+              className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition shadow-2xs"
             >
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -246,31 +249,32 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
             {formatCurrencyDE(totalBilled, currency)}
           </div>
-          <p 
-            style={{ color: 'var(--accent-companion, #0d9488)' }}
-            className="text-[11px] mt-1 font-medium"
-          >
+          <p className="text-[11px] mt-1 font-medium text-emerald-600 dark:text-emerald-400">
             {formatCurrencyDE(totalPaid, currency)} {lang === 'de' ? 'bereits bezahlt' : 'paid'}
           </p>
         </div>
 
         <div 
           onClick={() => onNavigateTab('billing')}
-          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {lang === 'de' ? 'Offene Forderungen' : 'Pending Invoices'}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition shadow-2xs"
+            >
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
             {formatCurrencyDE(totalPending, currency)}
           </div>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
-            {billing.filter(b => b.status !== 'paid').length} {lang === 'de' ? 'Posten offen' : 'pending items'}
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-medium flex items-center justify-between">
+            <span>{billing.filter(b => b.status !== 'paid').length} {lang === 'de' ? 'Posten offen' : 'pending items'}</span>
+            <span className="text-slate-400 dark:text-slate-500 font-normal text-[10px]">
+              {billing.filter(b => b.syncedToInvoices || Boolean(b.invoiceNumber && b.invoiceNumber.startsWith('PRAXIS-'))).length}/{billing.length} {lang === 'de' ? 'synchronisiert' : 'synced'}
+            </span>
           </p>
         </div>
       </div>
@@ -291,46 +295,61 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 font-bold" style={{ color: 'var(--accent, #4f46e5)' }}>
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--accent, #4f46e5)' }}></span>
-                {lang === 'de' ? `Umsatz (${currency})` : 'Revenue'}
+                {lang === 'de' ? 'Umsatz' : 'Revenue'}
               </span>
-              <span className="flex items-center gap-1.5 font-bold" style={{ color: 'var(--accent-companion, #0d9488)' }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--accent-companion, #0d9488)' }}></span>
+              <span className="flex items-center gap-1.5 font-bold" style={{ color: 'var(--accent-companion, #6366f1)' }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--accent-companion, #6366f1)' }}></span>
                 {lang === 'de' ? 'Sitzungen' : 'Sessions'}
               </span>
             </div>
           </div>
 
-          {/* SVG Line & Area Visualization */}
-          <div className="h-52 w-full pt-2">
-            <div className="relative h-44 w-full flex items-end justify-between gap-2 px-2 border-b border-slate-200 dark:border-slate-800">
+          {/* Chart Visualization */}
+          <div className="h-48 w-full pt-2">
+            <div className="relative h-40 w-full flex items-end justify-between gap-2 px-2 border-b border-slate-200 dark:border-slate-800">
+              {/* Subtle Horizontal Grid Guidelines */}
+              <div className="absolute inset-x-2 top-2 bottom-0 flex flex-col justify-between pointer-events-none opacity-40 dark:opacity-20">
+                <div className="border-b border-dashed border-slate-300 dark:border-slate-700 w-full" />
+                <div className="border-b border-dashed border-slate-200 dark:border-slate-800 w-full" />
+                <div className="border-b border-dashed border-slate-200 dark:border-slate-800 w-full" />
+              </div>
               {chartData.map((d, idx) => {
-                const revenueHeight = Math.max(8, Math.round((d.revenue / (maxRevenue || 1)) * 130));
-                const sessionHeight = Math.max(8, Math.round((d.sessions / (maxSessions || 1)) * 130));
+                const revenueHeight = d.revenue > 0 ? Math.max(10, Math.round((d.revenue / (maxRevenue || 1)) * 130)) : 0;
+                const sessionHeight = d.sessions > 0 ? Math.max(10, Math.round((d.sessions / (maxSessions || 1)) * 130)) : 0;
+                const hasActivity = d.revenue > 0 || d.sessions > 0;
 
                 return (
                   <div key={d.monthKey} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                     {/* Tooltip on hover with European number format: 10.010,00 € or 1.000.000,00 € */}
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white border border-slate-200/90 dark:border-slate-800 text-[11px] rounded-lg px-2.5 py-1 shadow-lg whitespace-nowrap z-10 font-medium">
+                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white border border-slate-200/90 dark:border-slate-800 text-[11px] rounded-lg px-2.5 py-1 shadow-lg whitespace-nowrap z-20 font-medium">
                       {d.label}: {formatCurrencyDE(d.revenue, currency)} ({formatIntegerDE(d.sessions)} {lang === 'de' ? (d.sessions === 1 ? 'Sitzung' : 'Sitzungen') : (d.sessions === 1 ? 'session' : 'sessions')})
                     </div>
 
-                    <div className="flex items-end gap-1.5 w-full max-w-[48px] justify-center">
-                      {/* Revenue Bar with dynamic user accent */}
-                      <div 
-                        style={{ 
-                          height: `${revenueHeight}px`,
-                          background: 'linear-gradient(to top, var(--accent, #4f46e5), var(--accent-border, #6366f1))'
-                        }} 
-                        className="w-4 rounded-t-md transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                      />
-                      {/* Session Bar with dynamic contrasting companion color */}
-                      <div 
-                        style={{ 
-                          height: `${sessionHeight}px`,
-                          background: 'linear-gradient(to top, var(--accent-companion, #0d9488), var(--accent-companion-border, #14b8a6))'
-                        }} 
-                        className="w-4 rounded-t-md transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                      />
+                    <div className="flex items-end gap-1.5 w-full max-w-[48px] justify-center h-full">
+                      {hasActivity ? (
+                        <>
+                          <div 
+                            style={{ 
+                              height: `${revenueHeight || 3}px`,
+                              background: revenueHeight > 0 
+                                ? 'linear-gradient(to top, var(--accent, #4f46e5), var(--accent-border, #6366f1))'
+                                : 'var(--accent-light, rgba(79, 70, 229, 0.18))'
+                            }} 
+                            className={`w-3.5 sm:w-4 ${revenueHeight > 0 ? 'rounded-t-md shadow-2xs group-hover:brightness-110' : 'rounded-full mb-0.5'} transition-all duration-300`}
+                          />
+                          <div 
+                            style={{ 
+                              height: `${sessionHeight || 3}px`,
+                              background: sessionHeight > 0 
+                                ? 'linear-gradient(to top, var(--accent-companion, #6366f1), var(--accent-companion-border, #818cf8))'
+                                : 'var(--accent-companion-light, rgba(99, 102, 241, 0.18))'
+                            }} 
+                            className={`w-3.5 sm:w-4 ${sessionHeight > 0 ? 'rounded-t-md shadow-2xs group-hover:brightness-110' : 'rounded-full mb-0.5'} transition-all duration-300`}
+                          />
+                        </>
+                      ) : (
+                        <div className="w-5 h-1 rounded-full bg-slate-200/80 dark:bg-slate-700/60 mb-0.5" />
+                      )}
                     </div>
                   </div>
                 );
@@ -380,7 +399,10 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
 
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-2xs">
+                  <div 
+                    style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center shadow-2xs"
+                  >
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div>
@@ -388,11 +410,15 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                       {lang === 'de' ? 'Durchschnitt pro Sitzung' : 'Avg. per Session'}
                     </div>
                     <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                      {sessions.length > 0 ? formatCurrencyDE(totalBilled / sessions.length, currency) : `0,00 ${currency}`}
+                      {sessions.length > 0 
+                        ? (lang === 'de' 
+                            ? `${sessions.length} ${sessions.length === 1 ? 'Sitzung ausgewertet' : 'Sitzungen ausgewertet'}` 
+                            : `${sessions.length} ${sessions.length === 1 ? 'session evaluated' : 'sessions evaluated'}`) 
+                        : (lang === 'de' ? 'Keine Sitzungen' : 'No sessions')}
                     </div>
                   </div>
                 </div>
-                <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                <span className="font-extrabold text-sm" style={{ color: 'var(--accent, #4f46e5)' }}>
                   {sessions.length > 0 ? formatCurrencyDE(totalBilled / sessions.length, currency) : `0,00 ${currency}`}
                 </span>
               </div>
@@ -513,7 +539,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Clock3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <Clock3 className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 {lang === 'de' ? 'Zuletzt dokumentierte Sitzungen' : 'Recent Session Logs'}
               </h3>
@@ -563,7 +589,7 @@ export const TherapyDashboard: React.FC<TherapyDashboardProps> = ({
                           e.stopPropagation();
                           onSelectClient(sess.clientId);
                         }}
-                        className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate hover:text-teal-600 dark:hover:text-teal-400 transition"
+                        className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate hover:opacity-80 transition"
                         title={lang === 'de' ? 'Zum Klientenprofil wechseln' : 'Go to client profile'}
                       >
                         {getClientName(sess.clientId)}

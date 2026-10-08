@@ -22,6 +22,7 @@ export interface SecuritySettings {
   failedAttemptThreshold: 3 | 5 | 10;
   lockoutMinutes: 5 | 10 | 15;
   exponentialBackoff: boolean;
+  autoLoginSingleUser?: boolean;
 }
 
 export interface UserAccount {
@@ -71,6 +72,7 @@ const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   failedAttemptThreshold: 5,
   lockoutMinutes: 5,
   exponentialBackoff: true,
+  autoLoginSingleUser: false,
 };
 const AUTH_CHANGE_EVENT = 'socdof-auth-changed';
 
@@ -112,6 +114,7 @@ function parseSecurity(raw: unknown): SecuritySettings {
     lockoutMinutes:
       parsed.lockoutMinutes === 10 || parsed.lockoutMinutes === 15 ? parsed.lockoutMinutes : 5,
     exponentialBackoff: parsed.exponentialBackoff !== false,
+    autoLoginSingleUser: Boolean(parsed.autoLoginSingleUser),
   };
 }
 
@@ -199,6 +202,15 @@ export function initializeAuthStore(): Promise<void> {
 
       cacheSecurity(indexedSecurity);
 
+      if (indexedSecurity.autoLoginSingleUser && indexedUsers.length === 1 && indexedUsers[0].active) {
+        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('socdof_explicit_logout') !== 'true') {
+          const existingSession = getSession();
+          if (!existingSession) {
+            tryAutoLoginSingleUser();
+          }
+        }
+      }
+
       if (!securityRecord && hasStorage()) {
         await db.settings.put({ key: AUTH_DB_SECURITY_KEY, value: legacySecurity });
       }
@@ -265,6 +277,9 @@ export function getSecuritySettings(): SecuritySettings {
 export function updateSecuritySettings(patch: Partial<SecuritySettings>): SecuritySettings {
   requireAdmin();
   const current = getSecuritySettings();
+  if (patch.autoLoginSingleUser && usersCache.length > 1) {
+    throw new Error('single_user_required_for_autologin');
+  }
   const next: SecuritySettings = {
     failedAttemptThreshold:
       patch.failedAttemptThreshold === 3 || patch.failedAttemptThreshold === 10
@@ -279,10 +294,44 @@ export function updateSecuritySettings(patch: Partial<SecuritySettings>): Securi
           ? 5
           : current.lockoutMinutes,
     exponentialBackoff: patch.exponentialBackoff ?? current.exponentialBackoff,
+    autoLoginSingleUser:
+      patch.autoLoginSingleUser !== undefined
+        ? Boolean(patch.autoLoginSingleUser)
+        : Boolean(current.autoLoginSingleUser),
   };
 
   void persistSecurity(next);
   return next;
+}
+
+export function tryAutoLoginSingleUser(): AuthSession | null {
+  const security = getSecuritySettings();
+  if (!security.autoLoginSingleUser) return null;
+  const users = getUsers();
+  if (users.length !== 1) return null;
+  const user = users[0];
+  if (!user.active) return null;
+  if (getLockoutRemaining(user) > 0) return null;
+
+  const now = Date.now();
+  const session: AuthSession = {
+    userId: user.id,
+    sessionId: toBase64(randomBytes(24)),
+    createdAt: now,
+    lastActivityAt: now,
+    locked: false,
+  };
+
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.removeItem('socdof_explicit_logout');
+  }
+  notifyAuthChanged();
+  return session;
+}
+
+export function isAutoLoginSingleUserActive(): boolean {
+  return Boolean(securityCache.autoLoginSingleUser && usersCache.length === 1 && usersCache[0]?.active);
 }
 
 const randomBytes = (length: number) => {
@@ -385,6 +434,10 @@ export async function createUser(input: {
   const users = [...usersCache];
 
   if (users.length > 0) requireAdmin();
+
+  if (securityCache.autoLoginSingleUser && users.length >= 1) {
+    throw new Error('cannot_create_second_user_while_autologin_active');
+  }
 
   const username = input.username.trim();
   const displayName = input.displayName.trim();

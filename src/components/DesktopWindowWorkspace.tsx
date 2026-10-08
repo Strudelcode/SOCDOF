@@ -106,6 +106,7 @@ import { IOSBillingModule } from './IOSBillingModule';
 import { SupportServicesModule } from './SupportServicesModule';
 import { CalendarModule } from './CalendarModule';
 import { DynamicCalendarIcon } from './DynamicCalendarIcon';
+import { DynamicReportsIcon } from './DynamicReportsIcon';
 import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
@@ -1813,8 +1814,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-gradient-to-br from-blue-500 to-sky-600' },
     calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
-    therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: Hospital, color: 'bg-gradient-to-br from-teal-600 to-indigo-700' },
-    feedback: { title: t('module.feedback', currentLang, 'Bug-Reports'), subtitle: t('desc.feedback', currentLang, 'Fehler melden & Discord-Tickets'), icon: Bug, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
+    therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: Hospital, color: 'bg-gradient-to-br from-blue-600 to-indigo-700' },
+    feedback: { title: t('module.feedback', currentLang, 'Reports'), subtitle: t('desc.feedback', currentLang, 'Report einreichen & Tickets'), icon: Bug, color: 'bg-gradient-to-br from-orange-500 via-amber-500 to-rose-500' },
     widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
     appstore: { title: t('module.appstore', currentLang, 'App Store'), subtitle: t('desc.appstore', currentLang, 'Module verwalten'), icon: Package, color: 'bg-gradient-to-br from-fuchsia-500 to-pink-600' },
     docs: { title: t('module.docs', currentLang, 'Handbuch'), subtitle: t('desc.docs', currentLang, 'Dokumentation & Hilfe'), icon: BookOpen, color: 'bg-gradient-to-br from-sky-500 to-blue-600' },
@@ -2723,6 +2724,10 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     <div className="group-hover:scale-105 transition-transform duration-200">
                       <DynamicCalendarIcon size="lg" />
                     </div>
+                  ) : modId === 'feedback' ? (
+                    <div className="group-hover:scale-105 transition-transform duration-200">
+                      <DynamicReportsIcon size="lg" />
+                    </div>
                   ) : (
                     <div className={`w-12 h-12 rounded-2xl ${meta.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200`}>
                       <Icon className="w-6 h-6" />
@@ -2733,7 +2738,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   {badge !== undefined && typeof badge === 'number' && badge > 0 && (
                     <span 
                       title={`${badge} Benachrichtigungen`}
-                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-black rounded-full shadow-md flex items-center justify-center border-2 border-white dark:border-slate-900 animate-scale-up"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-black rounded-full shadow-md flex items-center justify-center border-2 border-white dark:border-slate-900 animate-scale-up z-20"
                     >
                       {badge}
                     </span>
@@ -2742,7 +2747,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   {/* Modern Active Indicator Bar (Subtle & Elegant) */}
                   {isOpen && (
                     <span 
-                      className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full transition-all duration-300 ${
+                      className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full transition-all duration-300 pointer-events-none z-10 ${
                         isCurrentActive 
                           ? 'w-5 h-1 bg-indigo-500 shadow-sm' 
                           : 'w-2.5 h-1 bg-slate-400/80 dark:bg-slate-500/80'
@@ -2750,7 +2755,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     />
                   )}
                 </div>
-                <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center truncate max-w-[85px] ${
+                <span className={`mt-3.5 text-xs font-semibold drop-shadow-sm leading-tight text-center line-clamp-2 max-w-[92px] px-0.5 break-words ${
                   isDark ? 'text-white' : 'text-slate-800'
                 }`}>
                   {meta.title}
@@ -3028,12 +3033,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div 
-                  className={`w-5 h-5 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0 shadow-xs transition-all duration-200 ${isActive ? 'ring-1' : ''}`}
-                  style={isActive ? { '--tw-ring-color': 'var(--accent, #4f46e5)' } as any : undefined}
-                >
-                  <WindowIcon className="w-3.5 h-3.5" />
-                </div>
+                {win.module === 'feedback' ? (
+                  <div className="flex-shrink-0">
+                    <DynamicReportsIcon size="sm" />
+                  </div>
+                ) : (
+                  <div 
+                    className={`w-5 h-5 rounded-lg ${meta.color} text-white flex items-center justify-center flex-shrink-0 shadow-xs transition-all duration-200 ${isActive ? 'ring-1 ring-[var(--accent,#4f46e5)] ring-offset-1 ring-offset-white dark:ring-offset-slate-900' : ''}`}
+                  >
+                    <WindowIcon className="w-3.5 h-3.5" />
+                  </div>
+                )}
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                   {(() => {
                     const metaTitle = shortcutMeta[win.module]?.title;
@@ -3576,9 +3586,19 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     }}
                     className="flex flex-col items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition text-center group cursor-pointer"
                   >
-                    <div className={`w-10 h-10 rounded-xl ${meta.color} flex items-center justify-center text-white mb-1 shadow-xs group-hover:scale-105 transition-transform`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
+                    {modId === 'calendar' ? (
+                      <div className="mb-1">
+                        <DynamicCalendarIcon size="md" />
+                      </div>
+                    ) : modId === 'feedback' ? (
+                      <div className="mb-1">
+                        <DynamicReportsIcon size="md" />
+                      </div>
+                    ) : (
+                      <div className={`w-10 h-10 rounded-xl ${meta.color} flex items-center justify-center text-white mb-1 shadow-xs group-hover:scale-105 transition-transform`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                    )}
                     <span className="text-[11px] font-medium truncate max-w-[70px]">
                       {meta.title}
                     </span>
@@ -3588,7 +3608,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Quick Links: Language, Docs, GitHub & Bug-Reports */}
+          {/* Quick Links: Language, Docs, GitHub & Reports */}
           <div className="py-2 grid grid-cols-4 gap-1.5">
             <button
               onClick={() => { 
@@ -3632,8 +3652,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               }}
               className="flex items-center justify-center gap-1 p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-[11px] font-semibold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition border border-orange-200 dark:border-orange-800/40 cursor-pointer"
             >
-              <Bug className="w-3.5 h-3.5" />
-              <span>{t('module.feedback', currentLang, 'Bug-Reports')}</span>
+              <DynamicReportsIcon size="sm" />
+              <span>{t('module.feedback', currentLang, 'Reports')}</span>
             </button>
           </div>
 
@@ -3932,6 +3952,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     >
                       {modId === 'calendar' ? (
                         <DynamicCalendarIcon size="sm" />
+                      ) : modId === 'feedback' ? (
+                        <DynamicReportsIcon size="sm" />
                       ) : (
                         <Icon 
                           className="w-4 h-4 flex-shrink-0" 

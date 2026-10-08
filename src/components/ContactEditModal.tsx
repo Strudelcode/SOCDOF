@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   UserPlus, 
@@ -10,17 +10,25 @@ import {
   Phone, 
   MapPin, 
   Save, 
-  Sparkles,
-  Layers,
-  CheckCircle2,
-  ArrowRight,
-  ListPlus,
-  Check
+  Sparkles, 
+  Layers, 
+  CheckCircle2, 
+  ArrowRight, 
+  ListPlus, 
+  Check,
+  Users,
+  User,
+  Plus,
+  Trash2,
+  Star,
+  Globe,
+  Briefcase
 } from 'lucide-react';
-import { Contact, ContactType } from '../types';
+import { Contact, ContactType, ContactPerson } from '../types';
 import { db } from '../lib/db';
 import { sounds } from '../lib/sound';
 import { useLanguage, t } from '../lib/i18n';
+import { searchCountries, getLocalizedCountryName, CountryItem } from '../lib/countries';
 
 export interface ContactEditModalProps {
   isOpen: boolean;
@@ -42,8 +50,18 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   onBatchComplete
 }) => {
   const currentLang = useLanguage();
+
+  // Mode: Company (Fa.) vs Individual Person
+  const [isCompany, setIsCompany] = useState<boolean>(true);
+
+  // Sub-contacts / Contact persons for this company
+  const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
+
+  // Main Form Data
   const [formData, setFormData] = useState<Partial<Contact>>({
     name: '',
+    first_name: '',
+    last_name: '',
     company: '',
     email: '',
     phone: '',
@@ -60,25 +78,81 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
     notes: '',
     default_hourly_rate: undefined
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showItalianFields, setShowItalianFields] = useState(false);
   const [isSequentialMode, setIsSequentialMode] = useState(false);
   const [createdInBatch, setCreatedInBatch] = useState<Contact[]>([]);
   const [lastSavedName, setLastSavedName] = useState<string | null>(null);
 
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  // Country Auto-Suggest
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [activeCountryIndex, setActiveCountryIndex] = useState<number>(-1);
+  const countryInputContainerRef = useRef<HTMLDivElement>(null);
+
+  const companyInputRef = useRef<HTMLInputElement>(null);
+  const firstNameInputRef = useRef<HTMLInputElement>(null);
   const formScrollRef = useRef<HTMLFormElement>(null);
 
+  // Filtered country suggestions based on query
+  const countrySuggestions = useMemo(() => {
+    return searchCountries(formData.country || '', currentLang);
+  }, [formData.country, currentLang]);
+
+  // Close country dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        countryInputContainerRef.current && 
+        !countryInputContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsCountryDropdownOpen(false);
+        setActiveCountryIndex(-1);
+      }
+    };
+    if (isCountryDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isCountryDropdownOpen]);
+
+  // Load initial contact state
   useEffect(() => {
     if (isOpen) {
       if (contact) {
         setIsSequentialMode(false);
+
+        // Determine if company or individual
+        const hasCompanyExplicit = contact.is_company !== undefined 
+          ? contact.is_company 
+          : Boolean(contact.company && (!contact.first_name || contact.company === contact.name));
+        
+        setIsCompany(hasCompanyExplicit);
+
+        // Split name into first and last name if not explicitly set (only for individuals)
+        let fName = contact.first_name || '';
+        let lName = contact.last_name || '';
+        if (!hasCompanyExplicit && !fName && !lName && contact.name) {
+          const parts = contact.name.trim().split(' ');
+          if (parts.length > 1) {
+            fName = parts[0];
+            lName = parts.slice(1).join(' ');
+          } else {
+            fName = parts[0];
+          }
+        }
+
         setFormData({
           ...contact,
+          first_name: fName,
+          last_name: lName,
           country: contact.country || 'Deutschland',
           type: contact.type || 'customer',
           default_hourly_rate: contact.default_hourly_rate !== undefined ? contact.default_hourly_rate : undefined
         });
+
+        setContactPersons(contact.contact_persons ? [...contact.contact_persons] : []);
+
         if (contact.fiscal_code || contact.sdi_recipient_code || contact.pec || contact.is_public_admin) {
           setShowItalianFields(true);
         } else {
@@ -86,8 +160,12 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         }
       } else {
         setIsSequentialMode(Boolean(initialSequentialMode));
+        setIsCompany(true); // Default to company as requested
+        setContactPersons([]);
         setFormData({
           name: '',
+          first_name: '',
+          last_name: '',
           company: '',
           email: '',
           phone: '',
@@ -109,9 +187,13 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         setCreatedInBatch([]);
       }
 
-      // Auto-focus the Name field
+      // Auto-focus primary input
       setTimeout(() => {
-        nameInputRef.current?.focus();
+        if (contact?.is_company === false) {
+          firstNameInputRef.current?.focus();
+        } else {
+          companyInputRef.current?.focus();
+        }
       }, 80);
     }
   }, [isOpen, contact, initialSequentialMode]);
@@ -120,6 +202,10 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen && !isSubmitting) {
+        if (isCountryDropdownOpen) {
+          setIsCountryDropdownOpen(false);
+          return;
+        }
         if (isSequentialMode && createdInBatch.length > 0) {
           handleFinishBatch();
         } else {
@@ -147,17 +233,76 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, isSequentialMode, createdInBatch, formData]);
+  }, [isOpen, isSubmitting, isSequentialMode, createdInBatch, isCountryDropdownOpen]);
 
   if (!isOpen) return null;
 
   const isEditing = Boolean(formData.id);
 
+  // Sub-contact helpers
+  const handleAddPerson = () => {
+    sounds.playClick();
+    const newPerson: ContactPerson = {
+      id: `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      role: '',
+      is_primary: contactPersons.length === 0
+    };
+    setContactPersons(prev => [...prev, newPerson]);
+  };
+
+  const handleUpdatePerson = (id: string, patch: Partial<ContactPerson>) => {
+    setContactPersons(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  };
+
+  const handleRemovePerson = (id: string) => {
+    sounds.playClick();
+    setContactPersons(prev => {
+      const filtered = prev.filter(p => p.id !== id);
+      if (filtered.length > 0 && !filtered.some(p => p.is_primary)) {
+        filtered[0].is_primary = true;
+      }
+      return filtered;
+    });
+  };
+
+  const handleSetPrimaryPerson = (id: string) => {
+    sounds.playClick();
+    setContactPersons(prev => prev.map(p => ({
+      ...p,
+      is_primary: p.id === id
+    })));
+  };
+
+  const handleSelectCountry = (item: CountryItem) => {
+    sounds.playClick();
+    const localized = getLocalizedCountryName(item, currentLang);
+    setFormData(prev => ({ ...prev, country: localized }));
+    setIsCountryDropdownOpen(false);
+    setActiveCountryIndex(-1);
+  };
+
   const handleSaveContact = async (keepOpenForNext: boolean) => {
-    if (!formData.name?.trim() && !formData.company?.trim()) {
-      sounds.playError();
-      nameInputRef.current?.focus();
-      return;
+    const trimmedCompany = formData.company?.trim() || '';
+    const trimmedFirst = formData.first_name?.trim() || '';
+    const trimmedLast = formData.last_name?.trim() || '';
+
+    // Validation
+    if (isCompany) {
+      if (!trimmedCompany) {
+        sounds.playError();
+        companyInputRef.current?.focus();
+        return;
+      }
+    } else {
+      if (!trimmedFirst && !trimmedLast && !formData.name?.trim()) {
+        sounds.playError();
+        firstNameInputRef.current?.focus();
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -167,49 +312,61 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           ? Number(formData.default_hourly_rate)
           : undefined;
 
-      if (formData.id) {
-        const updatePayload: Partial<Contact> = {
-          name: formData.name ? formData.name.trim() : (formData.company?.trim() || ''),
-          company: formData.company?.trim() || '',
-          email: formData.email?.trim() || '',
-          phone: formData.phone?.trim() || '',
-          type: (formData.type as ContactType) || 'customer',
-          street: formData.street?.trim() || '',
-          zip: formData.zip?.trim() || '',
-          city: formData.city?.trim() || '',
-          country: formData.country?.trim() || 'Deutschland',
-          taxId: formData.taxId?.trim() || '',
-          fiscal_code: formData.fiscal_code?.trim() || '',
-          sdi_recipient_code: formData.sdi_recipient_code?.trim() || '',
-          pec: formData.pec?.trim() || '',
-          is_public_admin: formData.is_public_admin || false,
-          notes: formData.notes?.trim() || '',
-          default_hourly_rate: parsedHourlyRate && parsedHourlyRate > 0 ? parsedHourlyRate : undefined
-        };
+      // Construct normalized full name
+      const computedPersonName = `${trimmedFirst} ${trimmedLast}`.trim();
+      const effectiveName = isCompany 
+        ? trimmedCompany 
+        : (computedPersonName || trimmedCompany || formData.name?.trim() || '');
 
-        await db.contacts.update(formData.id, updatePayload);
+      // Sanitize sub-contacts
+      const sanitizedPersons = contactPersons
+        .filter(p => p.first_name.trim() || p.last_name.trim() || p.email?.trim() || p.phone?.trim())
+        .map(p => ({
+          ...p,
+          first_name: p.first_name.trim(),
+          last_name: p.last_name.trim(),
+          email: p.email?.trim() || '',
+          phone: p.phone?.trim() || '',
+          role: p.role?.trim() || ''
+        }));
+
+      // If company has contact persons and primary is selected, pick its email/phone as default if empty
+      const primaryPerson = sanitizedPersons.find(p => p.is_primary) || sanitizedPersons[0];
+      const fallbackEmail = formData.email?.trim() || (isCompany && primaryPerson?.email ? primaryPerson.email : '');
+      const fallbackPhone = formData.phone?.trim() || (isCompany && primaryPerson?.phone ? primaryPerson.phone : '');
+
+      const payload: Partial<Contact> = {
+        name: effectiveName,
+        first_name: trimmedFirst || (isCompany && primaryPerson ? primaryPerson.first_name : ''),
+        last_name: trimmedLast || (isCompany && primaryPerson ? primaryPerson.last_name : ''),
+        is_company: isCompany,
+        company: isCompany ? trimmedCompany : (trimmedCompany || ''),
+        email: fallbackEmail,
+        phone: fallbackPhone,
+        type: (formData.type as ContactType) || 'customer',
+        street: formData.street?.trim() || '',
+        zip: formData.zip?.trim() || '',
+        city: formData.city?.trim() || '',
+        country: formData.country?.trim() || 'Deutschland',
+        taxId: formData.taxId?.trim() || '',
+        fiscal_code: formData.fiscal_code?.trim() || '',
+        sdi_recipient_code: formData.sdi_recipient_code?.trim() || '',
+        pec: formData.pec?.trim() || '',
+        is_public_admin: formData.is_public_admin || false,
+        notes: formData.notes?.trim() || '',
+        contact_persons: sanitizedPersons,
+        default_hourly_rate: parsedHourlyRate && parsedHourlyRate > 0 ? parsedHourlyRate : undefined
+      };
+
+      if (formData.id) {
+        await db.contacts.update(formData.id, payload);
         const saved = await db.contacts.get(formData.id);
         sounds.playSuccess();
-        onSaveSuccess(saved || { ...(formData as Contact), ...updatePayload });
+        onSaveSuccess(saved || { ...(formData as Contact), ...payload });
         onClose();
       } else {
         const newRecord: Omit<Contact, 'id'> = {
-          name: formData.name ? formData.name.trim() : (formData.company?.trim() || ''),
-          company: formData.company?.trim() || '',
-          email: formData.email?.trim() || '',
-          phone: formData.phone?.trim() || '',
-          type: (formData.type as ContactType) || 'customer',
-          street: formData.street?.trim() || '',
-          zip: formData.zip?.trim() || '',
-          city: formData.city?.trim() || '',
-          country: formData.country?.trim() || 'Deutschland',
-          taxId: formData.taxId?.trim() || '',
-          fiscal_code: formData.fiscal_code?.trim() || '',
-          sdi_recipient_code: formData.sdi_recipient_code?.trim() || '',
-          pec: formData.pec?.trim() || '',
-          is_public_admin: formData.is_public_admin || false,
-          notes: formData.notes?.trim() || '',
-          default_hourly_rate: parsedHourlyRate && parsedHourlyRate > 0 ? parsedHourlyRate : undefined,
+          ...(payload as Contact),
           avatar_color: (createdInBatch.length % 2 === 0) ? 'bg-indigo-600' : 'bg-emerald-600',
           createdAt: new Date().toISOString()
         };
@@ -225,9 +382,12 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           setCreatedInBatch(prev => [savedContact, ...prev]);
           setLastSavedName(savedContact.name);
 
-          // Reset form for next contact while maintaining type and country
+          // Reset form for next contact
+          setContactPersons([]);
           setFormData({
             name: '',
+            first_name: '',
+            last_name: '',
             company: '',
             email: '',
             phone: '',
@@ -245,12 +405,15 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
             default_hourly_rate: undefined
           });
 
-          // Scroll back to top & re-focus name input
           if (formScrollRef.current) {
             formScrollRef.current.scrollTop = 0;
           }
           setTimeout(() => {
-            nameInputRef.current?.focus();
+            if (isCompany) {
+              companyInputRef.current?.focus();
+            } else {
+              firstNameInputRef.current?.focus();
+            }
           }, 60);
         } else {
           if (onBatchComplete && createdInBatch.length > 0) {
@@ -268,8 +431,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
   };
 
   const handleFinishBatch = () => {
-    // If user filled in name, ask if they want to save it first
-    if (formData.name?.trim() || formData.company?.trim()) {
+    if (formData.company?.trim() || formData.first_name?.trim() || formData.name?.trim()) {
       const wantSave = confirm(t('contacts.confirm_save_current_before_exit', currentLang, 'Möchten Sie den aktuell eingegebenen Kontakt vor dem Beenden noch speichern?'));
       if (wantSave) {
         handleSaveContact(false);
@@ -302,16 +464,16 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
     >
       <div 
         id="contact-edit-modal-container"
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col animate-scale-in"
+        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col animate-scale-in"
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl ${isSequentialMode ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'} flex items-center justify-center font-bold shadow-2xs transition`}>
+            <div className={`w-10 h-10 rounded-2xl ${isCompany ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'} flex items-center justify-center font-bold shadow-2xs transition`}>
               {isEditing ? (
                 <Edit2 className="w-5 h-5" />
-              ) : isSequentialMode ? (
-                <Layers className="w-5 h-5" />
+              ) : isCompany ? (
+                <Building2 className="w-5 h-5" />
               ) : (
                 <UserPlus className="w-5 h-5" />
               )}
@@ -322,7 +484,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   {isEditing 
                     ? t('contact.modal_edit_title', currentLang, 'Edit Contact') 
                     : isSequentialMode
-                      ? t('contacts.sequential_mode_title', currentLang, 'Batch Create Contacts (Sequential Entry)')
+                      ? t('contacts.sequential_mode_title', currentLang, 'Batch Create Contacts')
                       : t('contact.modal_create_title', currentLang, 'Create New Contact')}
                 </h3>
                 {isSequentialMode && (
@@ -333,7 +495,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isEditing && (formData.company || formData.name)
-                  ? `${formData.name || ''} ${formData.company ? `(${formData.company})` : ''}`
+                  ? `${formData.name || ''} ${formData.company && formData.company !== formData.name ? `(${formData.company})` : ''}`
                   : isSequentialMode
                     ? `${t('contacts.sequential_counter', currentLang, 'Created in this batch:')} ${createdInBatch.length}`
                     : t('contact.title', currentLang, 'Contacts & Address Book')}
@@ -355,11 +517,11 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form ref={formScrollRef} onSubmit={handleSubmit} className="space-y-3.5 overflow-y-auto pr-1 flex-1">
+        <form ref={formScrollRef} onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-1 flex-1">
           {/* Sequential Mode Banner & Feedback */}
           {isSequentialMode && (
             <div className="space-y-2">
-              {lastSavedName ? (
+              {lastSavedName && (
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs animate-fade-in">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -371,97 +533,318 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                     #{createdInBatch.length}
                   </span>
                 </div>
-              ) : (
-                <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-300 text-xs">
-                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">
-                      {t('contacts.sequential_mode_banner', currentLang, 'Enter contacts one after another with full details. After saving, the form is immediately refreshed for the next contact until you click "All Entered".')}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t('contacts.sequential_tip', currentLang, 'Tip: Use Ctrl + Enter or the button below to capture contacts in quick succession.')}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* History pills of contacts saved in current session */}
-              {createdInBatch.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span className="font-medium shrink-0">{t('contacts.sequential_counter', currentLang, 'Created in this batch:')} ({createdInBatch.length}):</span>
-                  {createdInBatch.slice(0, 5).map((c, i) => (
-                    <span key={c.id || i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 shrink-0 border border-slate-200/60 dark:border-slate-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      {c.name}
-                    </span>
-                  ))}
-                  {createdInBatch.length > 5 && (
-                    <span className="text-[10px] text-slate-400 shrink-0">
-                      +{createdInBatch.length - 5}
-                    </span>
-                  )}
-                </div>
               )}
             </div>
           )}
 
-          {/* Row 1: Name & Company */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_name', currentLang, 'Full Name *')}
-              </label>
-              <input
-                ref={nameInputRef}
-                type="text"
-                required
-                placeholder={t('contact.modal_name_placeholder', currentLang, 'e.g. Dr. Alex Weber')}
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
-            </div>
+          {/* Contact Classification Switcher: Company (Fa.) vs. Individual Person */}
+          <div className="p-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setIsCompany(true);
+                setTimeout(() => companyInputRef.current?.focus(), 50);
+              }}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                isCompany
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Building2 className="w-4 h-4 shrink-0 text-indigo-500" />
+              <span>{t('contact.entry_type_company', currentLang, 'Firma / Unternehmen (Fa.)')}</span>
+            </button>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_company', currentLang, 'Company / Business')}
-              </label>
-              <input
-                type="text"
-                placeholder={t('contact.modal_company_placeholder', currentLang, 'e.g. Tech Solutions AG')}
-                value={formData.company || ''}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setIsCompany(false);
+                setTimeout(() => firstNameInputRef.current?.focus(), 50);
+              }}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                !isCompany
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <User className="w-4 h-4 shrink-0 text-emerald-500" />
+              <span>{t('contact.entry_type_person', currentLang, 'Privatperson / Einzelperson')}</span>
+            </button>
           </div>
 
-          {/* Row 2: Email & Phone */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* COMPANY MODE: Firmenname (Fa.) & Sub-contacts */}
+          {isCompany ? (
+            <div className="space-y-3.5 animate-fade-in">
+              {/* Firmenname (Fa.) Input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('contact.company_name', currentLang, 'Firmenname (Fa.) *')}
+                </label>
+                <div className="relative">
+                  <input
+                    ref={companyInputRef}
+                    type="text"
+                    required
+                    placeholder={t('contact.modal_company_placeholder', currentLang, 'z. B. Tech Solutions AG')}
+                    value={formData.company || ''}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2.5 text-xs font-medium bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
+                  />
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              {/* KONTAKTPERSONEN (UNTERKONTAKTE) SECTION */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/60 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        {t('contact.subcontacts_title', currentLang, 'Kontaktpersonen (Unterkontakte)')}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t('contact.subcontacts_desc', currentLang, 'Ansprechpartner und Mitarbeiter dieser Firma')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddPerson}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t('contact.btn_add_person', currentLang, '+ Kontaktperson hinzufügen')}</span>
+                  </button>
+                </div>
+
+                {/* Sub-contacts list */}
+                {contactPersons.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/60 bg-white/70 dark:bg-slate-900/60 text-center space-y-1">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      {t('contact.no_subcontacts', currentLang, 'Noch keine Kontaktpersonen hinterlegt')}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Klicken Sie oben auf „+ Kontaktperson hinzufügen“, um Ansprechpartner mit aufgeteiltem Vor- & Nachnamen, E-Mail und Durchwahl anzulegen.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {contactPersons.map((person, index) => (
+                      <div 
+                        key={person.id}
+                        className={`p-3 rounded-2xl border transition-all ${
+                          person.is_primary
+                            ? 'bg-white dark:bg-slate-900 border-indigo-300 dark:border-indigo-700 shadow-xs ring-1 ring-indigo-500/20'
+                            : 'bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800'
+                        }`}
+                      >
+                        {/* Header of Person Card */}
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center">
+                              {index + 1}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {person.first_name || person.last_name 
+                                ? `${person.first_name} ${person.last_name}`.trim() 
+                                : `Ansprechpartner #${index + 1}`}
+                            </span>
+                            {person.is_primary && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[10px] font-bold">
+                                <Star className="w-3 h-3 fill-indigo-600 dark:fill-indigo-400 text-indigo-600 dark:text-indigo-400" />
+                                <span>{t('contact.primary_badge', currentLang, 'Hauptkontakt')}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {!person.is_primary && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryPerson(person.id)}
+                                className="text-[11px] font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer"
+                              >
+                                {t('contact.mark_primary', currentLang, 'Als Hauptkontakt festlegen')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePerson(person.id)}
+                              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                              title="Kontaktperson entfernen"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Fields: Aufgeteilt in Vorname und Nachname */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              {t('contact.first_name', currentLang, 'Vorname')}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="z. B. Julia"
+                              value={person.first_name}
+                              onChange={(e) => handleUpdatePerson(person.id, { first_name: e.target.value })}
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              {t('contact.last_name', currentLang, 'Nachname')}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="z. B. Schmidt"
+                              value={person.last_name}
+                              onChange={(e) => handleUpdatePerson(person.id, { last_name: e.target.value })}
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Fields: E-Mail & Telefon & Rolle */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              {t('contact.modal_email', currentLang, 'E-Mail-Adresse')}
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="j.schmidt@firma.de"
+                              value={person.email || ''}
+                              onChange={(e) => handleUpdatePerson(person.id, { email: e.target.value })}
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              {t('contact.modal_phone', currentLang, 'Telefonnummer')}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="+49 (0) 123 45678"
+                              value={person.phone || ''}
+                              onChange={(e) => handleUpdatePerson(person.id, { phone: e.target.value })}
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">
+                              {t('contact.role_position', currentLang, 'Position / Rolle')}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={t('contact.role_placeholder', currentLang, 'z. B. Einkauf')}
+                              value={person.role || ''}
+                              onChange={(e) => handleUpdatePerson(person.id, { role: e.target.value })}
+                              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* PERSON MODE: Aufgeteilte Felder für Vorname und Nachname */
+            <div className="space-y-3.5 animate-fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('contact.first_name_required', currentLang, 'Vorname *')}
+                  </label>
+                  <input
+                    ref={firstNameInputRef}
+                    type="text"
+                    required={!formData.last_name}
+                    placeholder="z. B. Maximilian"
+                    value={formData.first_name || ''}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t('contact.last_name_required', currentLang, 'Nachname *')}
+                  </label>
+                  <input
+                    type="text"
+                    required={!formData.first_name}
+                    placeholder="z. B. Mustermann"
+                    value={formData.last_name || ''}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Company / Employer for individual */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('contact.modal_company', currentLang, 'Firma / Arbeitgeber')} <span className="text-[11px] font-normal text-slate-400">({t('common.optional', currentLang, 'optional')})</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="z. B. Freiberuflich oder Arbeitgeber..."
+                    value={formData.company || ''}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                  />
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* General Email & Phone (Main company contact or person contact) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_email', currentLang, 'Email Address')} <span className="text-[11px] font-normal text-slate-400">({t('common.optional', currentLang, 'optional')})</span>
+                {isCompany ? t('contact.modal_company_email', currentLang, 'Zentrale E-Mail-Adresse') : t('contact.modal_email', currentLang, 'E-Mail-Adresse')} <span className="text-[11px] font-normal text-slate-400">({t('common.optional', currentLang, 'optional')})</span>
               </label>
-              <input
-                type="email"
-                placeholder={t('contact.modal_email_placeholder', currentLang, 'contact@domain.com (optional)')}
-                value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  placeholder={isCompany ? 'info@firma.de' : 'kontakt@domain.de'}
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_phone', currentLang, 'Phone Number')}
+                {isCompany ? t('contact.modal_company_phone', currentLang, 'Zentrale Telefonnummer') : t('contact.modal_phone', currentLang, 'Telefonnummer')}
               </label>
-              <input
-                type="text"
-                placeholder={t('contact.modal_phone_placeholder', currentLang, '+1 (555) 000-0000')}
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="+49 (0) ..."
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
             </div>
           </div>
 
@@ -470,7 +853,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" />
-                <span>{t('contact.modal_hourly_rate', currentLang, 'Standard Hourly Rate')}</span>
+                <span>{t('contact.modal_hourly_rate', currentLang, 'Standard-Stundensatz')}</span>
               </label>
               <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
                 {t('contact.modal_hourly_rate_tag', currentLang, 'Support & Service')}
@@ -482,7 +865,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 type="number"
                 step="0.5"
                 min="0"
-                placeholder={t('contact.modal_hourly_rate_placeholder', currentLang, 'e.g. 95.00')}
+                placeholder={t('contact.modal_hourly_rate_placeholder', currentLang, 'z.B. 95.00')}
                 value={formData.default_hourly_rate ?? ''}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -491,102 +874,183 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                     default_hourly_rate: val === '' ? undefined : parseFloat(val) || 0
                   });
                 }}
-                className="w-full pl-3 pr-16 py-2 text-xs font-mono bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full pl-3 pr-16 py-2 text-xs font-mono bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               />
-              <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-mono font-medium text-slate-400 dark:text-slate-400 pointer-events-none">
+              <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-mono font-medium text-slate-400 pointer-events-none">
                 {currency} / h
               </span>
             </div>
-
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {t('contact.modal_hourly_rate_hint', currentLang, 'Auto-applied to Support & Service tickets for this client.')}
-            </p>
           </div>
 
-          {/* Row 3: Street & Contact Type */}
+          {/* Street & Contact Type */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_street', currentLang, 'Street & House No.')}
+                {t('contact.modal_street', currentLang, 'Straße & Hausnummer')}
               </label>
               <input
                 type="text"
+                placeholder="Musterstraße 12"
                 value={formData.street || ''}
                 onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_type', currentLang, 'Contact Type')}
+                {t('contact.modal_type', currentLang, 'Kontakttyp')}
               </label>
               <select
                 value={formData.type || 'customer'}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as ContactType })}
-                className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               >
-                <option value="customer">{t('contact.type_customer', currentLang, 'Customer')}</option>
+                <option value="customer">{t('contact.type_customer', currentLang, 'Kunde')}</option>
                 <option value="guest">{t('contact.type_guest', currentLang, 'Gästebuch / Privat')}</option>
-                <option value="vendor">{t('contact.type_vendor', currentLang, 'Supplier / Vendor')}</option>
-                <option value="both">{t('contact.type_both', currentLang, 'Both')}</option>
+                <option value="vendor">{t('contact.type_vendor', currentLang, 'Lieferant')}</option>
+                <option value="both">{t('contact.type_both', currentLang, 'Beide')}</option>
               </select>
             </div>
           </div>
 
-          {/* Row 4: ZIP & City */}
+          {/* ZIP & City */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_zip', currentLang, 'Postal Code / ZIP')}
+                {t('contact.modal_zip', currentLang, 'Postleitzahl')}
               </label>
               <input
                 type="text"
                 placeholder="10115"
                 value={formData.zip || ''}
                 onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               />
             </div>
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_city', currentLang, 'City / Town')}
+                {t('contact.modal_city', currentLang, 'Stadt / Ort')}
               </label>
               <input
                 type="text"
                 placeholder="Berlin"
                 value={formData.city || ''}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               />
             </div>
           </div>
 
-          {/* Row 5: Country & Tax ID */}
+          {/* Country with Live Auto-Suggest & Tax ID */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_country', currentLang, 'Country')}
-              </label>
-              <input
-                type="text"
-                placeholder={t('contact.modal_country_placeholder', currentLang, 'e.g. Germany')}
-                value={formData.country || ''}
-                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-              />
+            {/* LAND INPUT WITH LIVE AUTO-SUGGESTION */}
+            <div ref={countryInputContainerRef} className="relative">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {t('contact.modal_country', currentLang, 'Land')}
+                </label>
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <Globe className="w-3 h-3 text-indigo-500" />
+                  <span>Vorschläge bei Eingabe</span>
+                </span>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={t('contact.modal_country_placeholder', currentLang, 'z. B. Deutschland')}
+                  value={formData.country || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, country: e.target.value });
+                    setIsCountryDropdownOpen(true);
+                    setActiveCountryIndex(0);
+                  }}
+                  onFocus={() => {
+                    setIsCountryDropdownOpen(true);
+                    setActiveCountryIndex(0);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!isCountryDropdownOpen) {
+                      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        setIsCountryDropdownOpen(true);
+                        setActiveCountryIndex(0);
+                        e.preventDefault();
+                      }
+                      return;
+                    }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setActiveCountryIndex((prev) => 
+                        prev < countrySuggestions.length - 1 ? prev + 1 : 0
+                      );
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setActiveCountryIndex((prev) => 
+                        prev > 0 ? prev - 1 : countrySuggestions.length - 1
+                      );
+                    } else if (e.key === 'Enter') {
+                      if (activeCountryIndex >= 0 && activeCountryIndex < countrySuggestions.length) {
+                        e.preventDefault();
+                        handleSelectCountry(countrySuggestions[activeCountryIndex]);
+                      }
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setIsCountryDropdownOpen(false);
+                      setActiveCountryIndex(-1);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  autoComplete="off"
+                />
+
+                {/* Country Suggestion Dropdown Popover */}
+                {isCountryDropdownOpen && countrySuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 max-h-52 overflow-y-auto p-1.5 space-y-0.5 animate-scale-in">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {t('contact.country_suggestions', currentLang, 'Vorgeschlagene Länder')}
+                    </div>
+                    {countrySuggestions.map((item, index) => {
+                      const localizedName = getLocalizedCountryName(item, currentLang);
+                      const isSelected = (formData.country || '').trim().toLowerCase() === localizedName.toLowerCase();
+                      const isHighlighted = activeCountryIndex === index;
+                      return (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => handleSelectCountry(item)}
+                          onMouseEnter={() => setActiveCountryIndex(index)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition cursor-pointer ${
+                            isSelected || isHighlighted
+                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold' 
+                              : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-base leading-none select-none">{item.flag}</span>
+                            <span className="font-medium">{localizedName}</span>
+                          </div>
+                          <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                            {item.code}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                {t('contact.modal_tax_id', currentLang, 'Tax ID / VAT No.')}
+                {t('contact.modal_tax_id', currentLang, 'USt-IdNr. / Steuernummer')}
               </label>
               <input
                 type="text"
                 placeholder="DE 000000000 / IT01234567890"
                 value={formData.taxId || ''}
                 onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               />
             </div>
           </div>
@@ -631,7 +1095,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                       placeholder={t('contact.fiscal_code_placeholder', currentLang, 'e.g. RSSMRA80A01H501U')}
                       value={formData.fiscal_code || ''}
                       onChange={(e) => setFormData({ ...formData, fiscal_code: e.target.value.toUpperCase() })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono focus:outline-none focus:border-emerald-500"
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
@@ -645,7 +1109,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                       placeholder={formData.is_public_admin ? 'UF6Z01 (6)' : '0000000 (7)'}
                       value={formData.sdi_recipient_code || ''}
                       onChange={(e) => setFormData({ ...formData, sdi_recipient_code: e.target.value.toUpperCase() })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold focus:outline-none focus:border-emerald-500"
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
@@ -658,7 +1122,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                       placeholder="kunde@pec.it"
                       value={formData.pec || ''}
                       onChange={(e) => setFormData({ ...formData, pec: e.target.value })}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500"
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -669,14 +1133,14 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
           {/* Internal Notes */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              {t('contact.modal_notes', currentLang, 'Internal Notes & Remarks')}
+              {t('contact.modal_notes', currentLang, 'Interne Notizen & Bemerkungen')}
             </label>
             <textarea
               rows={2}
-              placeholder={t('contact.notes_placeholder', currentLang, 'Optional customer notes, terms or contact person...')}
+              placeholder={t('contact.notes_placeholder', currentLang, 'Optionale Kundennotizen, Vereinbarungen oder Details...')}
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition resize-none"
+              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-none"
             />
           </div>
 
@@ -700,7 +1164,7 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                   disabled={isSubmitting}
                   className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
                 >
-                  {t('contact.btn_cancel', currentLang, 'Cancel')}
+                  {t('contact.btn_cancel', currentLang, 'Abbrechen')}
                 </button>
               )}
             </div>
@@ -735,13 +1199,13 @@ export const ContactEditModal: React.FC<ContactEditModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>
                     {isSubmitting 
                       ? '...' 
-                      : (isEditing ? t('contact.btn_save', currentLang, 'Save Contact') : t('contacts.btn_new', currentLang, 'Create Contact'))}
+                      : (isEditing ? t('contact.btn_save', currentLang, 'Kontakt speichern') : t('contacts.btn_new', currentLang, 'Kontakt erstellen'))}
                   </span>
                 </button>
               )}

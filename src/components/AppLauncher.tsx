@@ -181,7 +181,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       category: t('cat.productivity', currentLang, 'Produktivität'),
       description: t('desc.therapy_practice', currentLang, 'Klienten, Sitzungen, Termine, Fahrtenbuch & Abrechnung'),
       icon: <Hospital className="w-8 h-8 text-white" />,
-      color: 'bg-gradient-to-br from-teal-600 to-indigo-700',
+      color: 'bg-gradient-to-br from-blue-600 to-indigo-700',
       badge: undefined
     },
     {
@@ -204,12 +204,12 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     },
     {
       id: 'feedback',
-      name: t('module.feedback', currentLang, 'Bug-Reports & Meldungen'),
+      name: t('module.feedback', currentLang, 'Reports'),
       category: t('cat.support', currentLang, 'Support & Tickets'),
-      description: t('desc.feedback', currentLang, 'Fehlerberichte & Verbesserungsvorschläge einreichen und eigene Tickets einsehen'),
+      description: t('desc.feedback', currentLang, 'Report einreichen (Bug, Idee, Feedback) und Tickets live auf Discord verfolgen'),
       icon: <Bug className="w-8 h-8 text-white" />,
-      color: 'bg-gradient-to-br from-orange-500 to-amber-600',
-      badge: 'Tickets',
+      color: 'bg-gradient-to-br from-orange-500 via-amber-500 to-rose-500',
+      badge: 'Discord',
       badgeColor: 'bg-orange-100 text-orange-900 font-bold'
     },
     {

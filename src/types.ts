@@ -1,8 +1,22 @@
 export type ContactType = 'customer' | 'vendor' | 'both' | 'guest';
 
+export interface ContactPerson {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  role?: string; // e.g. "Geschäftsführer", "Einkauf", "Buchhaltung", "Vertrieb"
+  notes?: string;
+  is_primary?: boolean;
+}
+
 export interface Contact {
   id?: number;
   name: string;
+  first_name?: string;
+  last_name?: string;
+  is_company?: boolean;
   email: string;
   phone: string;
   company: string;
@@ -19,6 +33,7 @@ export interface Contact {
   notes?: string;
   avatar_color?: string;
   default_hourly_rate?: number;
+  contact_persons?: ContactPerson[];
   createdAt: string;
 }
 

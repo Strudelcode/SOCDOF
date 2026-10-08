@@ -83,20 +83,33 @@ export const CustomerPickerModal: React.FC<CustomerPickerModalProps> = ({
       const q = searchQuery.toLowerCase().trim();
       const name = (c.name || '').toLowerCase();
       const company = (c.company || '').toLowerCase();
+      const firstName = (c.first_name || '').toLowerCase();
+      const lastName = (c.last_name || '').toLowerCase();
       const email = (c.email || '').toLowerCase();
       const phone = (c.phone || '').toLowerCase();
       const city = (c.city || '').toLowerCase();
       const street = (c.street || '').toLowerCase();
       const taxId = (c.taxId || '').toLowerCase();
 
+      const matchesPersons = c.contact_persons?.some(p =>
+        (p.first_name && p.first_name.toLowerCase().includes(q)) ||
+        (p.last_name && p.last_name.toLowerCase().includes(q)) ||
+        (p.email && p.email.toLowerCase().includes(q)) ||
+        (p.phone && p.phone.toLowerCase().includes(q)) ||
+        (p.role && p.role.toLowerCase().includes(q))
+      );
+
       return (
         name.includes(q) ||
         company.includes(q) ||
+        firstName.includes(q) ||
+        lastName.includes(q) ||
         email.includes(q) ||
         phone.includes(q) ||
         city.includes(q) ||
         street.includes(q) ||
-        taxId.includes(q)
+        taxId.includes(q) ||
+        Boolean(matchesPersons)
       );
     });
   }, [contacts, searchQuery, typeFilter]);
@@ -331,6 +344,16 @@ export const CustomerPickerModal: React.FC<CustomerPickerModalProps> = ({
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 capitalize">
                           {c.type}
                         </span>
+                        {c.contact_persons && c.contact_persons.length > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                            <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <span>
+                              {c.contact_persons.find(p => p.is_primary)
+                                ? `${c.contact_persons.find(p => p.is_primary)!.first_name} ${c.contact_persons.find(p => p.is_primary)!.last_name}`
+                                : `${c.contact_persons.length} ${c.contact_persons.length === 1 ? t('contact.single_contact_person', lang, 'Kontaktperson') : t('contact.multiple_contact_persons', lang, 'Kontaktpersonen')}`}
+                            </span>
+                          </span>
+                        )}
                         {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
                           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-mono font-bold bg-cyan-50 dark:bg-cyan-950/70 text-cyan-700 dark:text-cyan-300 border border-cyan-200/60 dark:border-cyan-800/60">
                             <Clock className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />

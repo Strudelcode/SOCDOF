@@ -173,7 +173,10 @@ export const TherapyTaxAdvisorLedgerModal: React.FC<TherapyTaxAdvisorLedgerModal
         {/* Top Header & Actions Toolbar (Hidden on Print) */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden text-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#1B365D] to-teal-600 text-white flex items-center justify-center shadow-md">
+            <div 
+              style={{ background: 'linear-gradient(135deg, var(--accent, #4f46e5) 0%, var(--accent-hover, #4338ca) 100%)' }}
+              className="w-10 h-10 rounded-2xl text-white flex items-center justify-center shadow-md"
+            >
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
@@ -211,7 +214,7 @@ export const TherapyTaxAdvisorLedgerModal: React.FC<TherapyTaxAdvisorLedgerModal
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-xl border border-slate-200 dark:border-slate-600 transition shadow-2xs"
               title={t.carryOverModalTitle}
             >
-              <Sliders className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <Sliders className="w-3.5 h-3.5" style={{ color: 'var(--accent, #4f46e5)' }} />
               <span>{t.btnJanCarryOver}</span>
             </button>
 
@@ -534,7 +537,10 @@ export const TherapyTaxAdvisorLedgerModal: React.FC<TherapyTaxAdvisorLedgerModal
                             <div className="flex items-center gap-2">
                               <span>{tx.description}</span>
                               {tx.source === 'therapy_billing' && (
-                                <span className="text-[9px] px-1.5 py-0.2 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 rounded font-semibold print:hidden">
+                                <span 
+                                  style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                                  className="text-[9px] px-1.5 py-0.2 rounded font-semibold print:hidden"
+                                >
                                   Praxis
                                 </span>
                               )}
@@ -600,7 +606,7 @@ export const TherapyTaxAdvisorLedgerModal: React.FC<TherapyTaxAdvisorLedgerModal
           <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <Sliders className="w-4 h-4" style={{ color: 'var(--accent, #4f46e5)' }} />
                 <span>{t.carryOverModalTitle}</span>
               </h3>
               <button onClick={() => setIsCarryOverModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -651,7 +657,8 @@ export const TherapyTaxAdvisorLedgerModal: React.FC<TherapyTaxAdvisorLedgerModal
               <button
                 type="button"
                 onClick={handleSaveCarryOver}
-                className="px-4 py-1.5 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-sm transition"
+                style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+                className="px-4 py-1.5 text-xs font-bold hover:brightness-110 text-white rounded-xl shadow-xs transition cursor-pointer"
               >
                 {t.btnSave}
               </button>

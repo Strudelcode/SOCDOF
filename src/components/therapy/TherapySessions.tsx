@@ -11,12 +11,16 @@ import {
   CheckCircle2,
   FileText,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Users,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { Session, Client, BillingItem } from './types';
 import { useLanguage, t } from '../../lib/i18n';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { TherapySessionModal } from './TherapySessionModal';
+import { TherapyClientFilterModal } from './TherapyClientFilterModal';
 
 interface TherapySessionsProps {
   sessions: Session[];
@@ -44,6 +48,9 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
   const lang = useLanguage();
   const [search, setSearch] = useState('');
   const [clientFilter, setClientFilter] = useState<string>('all');
+  const [isClientFilterModalOpen, setIsClientFilterModalOpen] = useState(false);
+
+  const activeClient = useMemo(() => clients.find(c => c.id === clientFilter), [clients, clientFilter]);
   
   // Fallback modal states if onEditSession / onOpenNewSession not provided
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,21 +91,46 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={lang === 'de' ? 'Sitzungen, Thema, Klient durchsuchen...' : 'Search sessions...'}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[var(--accent,#4f46e5)] focus:border-transparent"
             />
           </div>
 
-          {/* Client Filter */}
-          <select
-            value={clientFilter}
-            onChange={e => setClientFilter(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
-          >
-            <option value="all">{lang === 'de' ? 'Alle Klienten' : 'All Clients'}</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          {/* Client Filter Popout Trigger */}
+          {clientFilter === 'all' ? (
+            <button
+              type="button"
+              onClick={() => setIsClientFilterModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              title={lang === 'de' ? 'Klienten suchen & filtern' : 'Search & filter clients'}
+            >
+              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{lang === 'de' ? 'Alle Klienten' : 'All Clients'}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 font-bold text-slate-600 dark:text-slate-300">
+                {clients.length}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <button
+                type="button"
+                onClick={() => setIsClientFilterModalOpen(true)}
+                className="hover:underline cursor-pointer max-w-[130px] sm:max-w-[170px] truncate font-bold text-left"
+                title={activeClient?.name}
+              >
+                {activeClient?.name || (lang === 'de' ? 'Klient' : 'Client')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientFilter('all')}
+                className="p-0.5 hover:bg-blue-200/60 dark:hover:bg-blue-900 rounded-md text-blue-500 hover:text-rose-600 transition cursor-pointer ml-0.5"
+                title={lang === 'de' ? 'Filter aufheben' : 'Clear filter'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Add Session button */}
@@ -164,7 +196,7 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                     setIsModalOpen(true);
                   }
                 }}
-                className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition space-y-2.5 cursor-pointer relative"
+                className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition space-y-2.5 cursor-pointer relative"
                 title={t('therapy.clickToEditSession', lang, 'Klicken zum Öffnen und Bearbeiten der Sitzung')}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
@@ -177,11 +209,14 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                       className="cursor-pointer group/client flex items-center gap-2"
                       title={lang === 'de' ? 'Zum Klientenprofil wechseln' : 'Go to client profile'}
                     >
-                      <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center">
+                      <div 
+                        style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                        className="w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center shadow-2xs"
+                      >
                         {client ? client.name.substring(0, 2).toUpperCase() : 'KL'}
                       </div>
                       <div>
-                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover/client:text-teal-600 transition">
+                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover/client:opacity-80 transition">
                           {client ? client.name : 'Unbekannter Klient'}
                         </div>
                         <div className="text-[11px] text-slate-400">
@@ -203,13 +238,14 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                           setIsModalOpen(true);
                         }
                       }}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition cursor-pointer inline-flex items-center gap-1.5"
+                      style={{ backgroundColor: 'var(--accent-light, rgba(79, 70, 229, 0.12))', color: 'var(--accent, #4f46e5)' }}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg hover:brightness-105 transition cursor-pointer inline-flex items-center gap-1.5"
                       title={t('therapy.editFee', lang, 'Honorar / Stundensatz bearbeiten')}
                     >
                       <span>{session.duration} Min</span>
                       <span>•</span>
                       <span className="font-bold">{session.fee ? `${session.fee.toFixed(2)} ${currency}` : (lang === 'de' ? 'Honorar erfassen' : 'Set fee')}</span>
-                      <Edit2 className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                      <Edit2 className="w-3 h-3" style={{ color: 'var(--accent, #4f46e5)' }} />
                     </button>
 
                     <div className="flex items-center gap-1">
@@ -224,7 +260,7 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
                             setIsModalOpen(true);
                           }
                         }}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                         title={t('therapy.editSession', lang, 'Sitzung bearbeiten')}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -310,6 +346,15 @@ export const TherapySessions: React.FC<TherapySessionsProps> = ({
           }
         }}
         onClose={() => setSessionToDelete(null)}
+      />
+
+      {/* Client Filter Modal Popout */}
+      <TherapyClientFilterModal
+        isOpen={isClientFilterModalOpen}
+        onClose={() => setIsClientFilterModalOpen(false)}
+        clients={clients}
+        selectedClientId={clientFilter}
+        onSelectClient={setClientFilter}
       />
     </div>
   );

@@ -40,7 +40,8 @@ import {
   X,
   Minus,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Sparkles
 } from 'lucide-react';
 import {
   AccountType,
@@ -61,6 +62,7 @@ import {
   recordSessionActivity,
   resetPasswordWithRecovery,
   saveSession,
+  tryAutoLoginSingleUser,
   updateSecuritySettings,
   updateUser,
   type SecuritySettings,
@@ -278,10 +280,26 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
   const [onboardingLanguageChosen, setOnboardingLanguageChosen] = useState(false);
   const [createdNotice, setCreatedNotice] = useState<string | null>(null);
   const [preselectedUsername, setPreselectedUsername] = useState<string | null>(null);
-  const [session, setSession] = useState(() => getSession());
+  const [session, setSession] = useState(() => {
+    const existing = getSession();
+    if (existing) return existing;
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('socdof_explicit_logout') === 'true') {
+      return null;
+    }
+    return tryAutoLoginSingleUser();
+  });
   const lang = useLanguage();
   const [locked, setLocked] = useState(() => Boolean(getSession()?.locked));
-  const refresh = useCallback(() => { setUsers(getUsers()); const current = getSession(); setSession(current); setLocked(Boolean(current?.locked)); }, []);
+  const refresh = useCallback(() => {
+    const currentUsers = getUsers();
+    setUsers(currentUsers);
+    let current = getSession();
+    if (!current && (typeof sessionStorage === 'undefined' || sessionStorage.getItem('socdof_explicit_logout') !== 'true')) {
+      current = tryAutoLoginSingleUser();
+    }
+    setSession(current);
+    setLocked(Boolean(current?.locked));
+  }, []);
   const currentUser = session ? getUserById(session.userId) : null;
   const text = getAuthCopy(lang);
 
@@ -302,6 +320,9 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
         lockSession();
         setLocked(true);
       } else if (action === 'logout' || action === 'switch-user') {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('socdof_explicit_logout', 'true');
+        }
         clearSession();
         setSession(null);
         setLocked(false);
@@ -335,6 +356,9 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
     const startedAt = Date.now();
     const result = await authenticate(username, password);
     if (!result.ok) { refresh(); return { ok: false as const, reason: result.reason, retryAt: result.retryAt }; }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('socdof_explicit_logout');
+    }
     const remaining = Math.max(0, 2200 - (Date.now() - startedAt));
     if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
     setSession(result.session);
@@ -347,7 +371,14 @@ export function AuthGate({ children, company }: { children: React.ReactNode; com
     }
     return { ok: true as const };
   };
-  const logout = () => { clearSession(); setSession(null); setLocked(false); };
+  const logout = () => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('socdof_explicit_logout', 'true');
+    }
+    clearSession();
+    setSession(null);
+    setLocked(false);
+  };
 
   if (!languageReady || (!hasUsers() && !onboardingLanguageChosen)) {
     return (
@@ -1875,6 +1906,34 @@ function LoginScreen({
               value={username}
               onChange={(event) => { setUsername(event.target.value); setError(''); }}
             />
+          )}
+
+          {getSecuritySettings().autoLoginSingleUser && activeUsers.length === 1 && (
+            <div className="w-full p-2.5 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 text-xs text-white text-center flex items-center justify-between gap-2 shadow-lg animate-fade-in">
+              <div className="flex items-center gap-1.5 text-left min-w-0">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                <span className="truncate text-[11px] font-medium leading-tight">
+                  {t('auth.autologin_active_notice', lang, 'Automatische Anmeldung aktiv')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  sounds.playClick();
+                  setIsSigningIn(true);
+                  if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('socdof_explicit_logout');
+                  }
+                  const session = tryAutoLoginSingleUser();
+                  if (session) {
+                    window.location.reload();
+                  }
+                }}
+                className="px-2.5 py-1 rounded-xl bg-white/30 hover:bg-white/40 active:bg-white/50 text-white text-[11px] font-bold shrink-0 transition cursor-pointer shadow-xs"
+              >
+                {t('auth.autologin_quick_enter', lang, 'Direkt zum Desktop')} →
+              </button>
+            </div>
           )}
 
          <div className="relative w-full">

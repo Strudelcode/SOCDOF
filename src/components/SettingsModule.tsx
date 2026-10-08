@@ -219,6 +219,36 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [customWallpaperUrl, setCustomWallpaperUrl] = useState('');
   const [customStartMenuUrl, setCustomStartMenuUrl] = useState('');
   const [personalizationToast, setPersonalizationToast] = useState<string | null>(null);
+  const [isColorfulApps, setIsColorfulApps] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('socdof_colorful_apps_mode') === 'true' || localStorage.getItem('socdof_colorful_practice_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleColorfulApps = () => {
+    sounds.playClick();
+    const next = !isColorfulApps;
+    setIsColorfulApps(next);
+    try {
+      localStorage.setItem('socdof_colorful_apps_mode', next ? 'true' : 'false');
+      localStorage.setItem('socdof_colorful_practice_mode', next ? 'true' : 'false');
+      document.documentElement.setAttribute('data-colorful-apps', next ? 'true' : 'false');
+      document.documentElement.setAttribute('data-colorful-practice', next ? 'true' : 'false');
+      window.dispatchEvent(new CustomEvent('socdof:colorful-apps-changed'));
+      window.dispatchEvent(new CustomEvent('socdof:colorful-practice-changed'));
+      showToast(
+        activeLang === 'de'
+          ? (next ? 'Sanfter verschwommener Farbverlauf im Hintergrund aktiviert' : 'Ambiente-Farbverlauf deaktiviert')
+          : activeLang === 'fr'
+          ? (next ? 'Dégradé flou en arrière-plan activé' : 'Mode ambiance désactivé')
+          : activeLang === 'es'
+          ? (next ? 'Degradado suave de fondo activado' : 'Modo ambiente desactivado')
+          : (next ? 'Soft blurred color gradient in background enabled' : 'Ambient gradient mode disabled')
+      );
+    } catch {}
+  };
   const startMenuInputRef = useRef<HTMLInputElement>(null);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
   const [currentUserState] = useState<UserAccount | null>(() => getCurrentUser());
@@ -3719,6 +3749,90 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             </span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Soft Ambient Gradient & Color Mode for All Apps */}
+                      <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3.5">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                                  {t('settings.colorfulAppsTitle', activeLang, 'Sanfter Farbverlauf & Ambiente Hintergrund (Alle Apps)')}
+                                </h4>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                  isColorfulApps
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                }`}>
+                                  {isColorfulApps 
+                                    ? (activeLang === 'de' ? 'Aktiviert' : 'Enabled') 
+                                    : (activeLang === 'de' ? 'Standard (Aus)' : 'Default (Off)')}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {t('settings.colorfulAppsDesc', activeLang, 'Ersetzt steriles reines Weiß durch einen leichten, verschwommenen Farbverlauf im Hintergrund und dezente Glas-Optik für Karten & Kästchen (standardmäßig aus).')}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleToggleColorfulApps}
+                            className={`w-12 h-6.5 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer ${
+                              isColorfulApps ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+                            }`}
+                            title={isColorfulApps ? 'Farbmodus deaktivieren' : 'Farbmodus aktivieren'}
+                          >
+                            <div className={`w-5.5 h-5.5 rounded-full bg-white transition-transform shadow-xs ${
+                              isColorfulApps ? 'translate-x-5.5' : 'translate-x-0'
+                            }`} />
+                          </button>
+                        </div>
+
+                        {/* Interactive Scope Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/70 dark:border-slate-700/60 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                          <span className="text-slate-400 dark:text-slate-500">{activeLang === 'de' ? 'Gilt für:' : 'Applies to:'}</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Praxis & Therapie</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Rechnungen</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Buchhaltung</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Kontakte</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Artikel & Lager</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600">Kalender</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold">+ Alle App-Fenster</span>
+                        </div>
+
+                        {/* Live Ambient Gradient Preview when enabled */}
+                        {isColorfulApps && (
+                          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden relative shadow-xs">
+                            <div className="absolute inset-0 pointer-events-none -z-0 overflow-hidden">
+                              <div 
+                                className="absolute -top-10 -left-10 w-40 h-40 rounded-full opacity-20 blur-2xl"
+                                style={{ background: 'var(--accent, #4f46e5)' }}
+                              />
+                              <div 
+                                className="absolute -bottom-10 -right-10 w-40 h-40 rounded-full opacity-15 blur-2xl"
+                                style={{ background: 'var(--accent, #4f46e5)' }}
+                              />
+                            </div>
+                            <div className="relative z-10 flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="font-semibold text-slate-800 dark:text-slate-100">
+                                  {activeLang === 'de' 
+                                    ? 'Live-Vorschau: Sanfter Farbverlauf im Hintergrund aktiv' 
+                                    : 'Live Preview: Soft ambient gradient active in background'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-800/70 border border-white/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium backdrop-blur-xs">
+                                {activeLang === 'de' ? 'Kein steriles Weiß' : 'No sterile white'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

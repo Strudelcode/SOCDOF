@@ -4,6 +4,133 @@
 
 ---
 
+### Company Contacts with Sub-contacts, Split Name Fields & Country Live Autocomplete (v24.8.2)
+- [x] Implemented company-first contact creation workflow allowing users to enter only the company name (`Firmenname (Fa.) *`) without forcing individual personal name inputs.
+- [x] Added support for company sub-contacts (Kontaktpersonen / Unterkontakte):
+  - Dedicated separated fields for First Name (`Vorname`) and Last Name (`Nachname`).
+  - Contact details: Email address and phone number with 1-click dial/mailto integration and copy buttons.
+  - Role & position designation (e.g. Geschäftsführer, Einkauf, Buchhaltung, Vertrieb).
+  - Primary contact star badge toggle (`Hauptkontakt`).
+- [x] Divided First and Last Name into separate fields (`Vorname *` and `Nachname *`) for individual person contacts.
+- [x] Implemented interactive live country autocomplete dropdown with flag emojis, localized country names, and ISO codes.
+- [x] Added full keyboard navigation (`ArrowDown` / `ArrowUp` to navigate, `Enter` to select, `Escape` to close) for the country autocomplete dropdown.
+- [x] Integrated sub-contacts display into `ContactDetailModal.tsx` with 1-click copy buttons for email and phone numbers.
+- [x] Updated search filtering in `ContactsModule.tsx` and `CustomerPickerModal.tsx` to search through sub-contacts (`first_name`, `last_name`, `email`, `phone`, `role`).
+- [x] Displayed sub-contact pill badge in `ContactsModule.tsx` card view with primary contact name and role.
+- [x] Updated all translations across all 4 supported languages (`de`, `en`, `fr`, `es`) in `src/lib/i18n.ts`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Reports App Icon Enhancement, Universal Label Alignment & GUI Layout Polish (v24.8.1)
+- [x] Designed and implemented dedicated `DynamicReportsIcon` component with high-DPI squircle gradient, layered micro-badge, and multi-size variants (`sm`, `md`, `lg`, `xl`).
+- [x] Aligned icon rendering across Desktop Window Workspace shortcuts, taskbar, Start Menu, and floating window titlebars.
+- [x] Universal module label alignment across all 4 languages (DE, EN, FR, ES) to concise "Reports" to resolve text-clipping and overflow issues.
+- [x] Enhanced Step 3 Discord contact callout with prominent bold badge (`★ OPTIONAL & EMPFOHLEN`).
+- [x] Upgraded report wizard and live Discord preview card to a responsive split layout on medium and large screens (`md:grid-cols-12`).
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Guided 3-Step Report Wizard, Persistent Live Discord Embed Preview & Desktop Icon Polish (v24.8.0)
+- [x] Transformed report creation into an intuitive 3-step guided wizard:
+  - **Step 1**: Category selection (Bug / Defect, Feature Idea, Feedback & Opinion) with interactive selection cards.
+  - **Step 2**: Details & Location input with live App Location Picker modal integration.
+  - **Step 3**: Contact & final submission review.
+- [x] Integrated a persistent live Discord embed preview column directly beside the wizard across all 3 steps with real-time keystroke reactivity.
+- [x] Implemented a prominent, boldly highlighted Discord contact box in Step 3 (optional & recommended) explaining why entering a username or User ID allows the dev team to reply and ping on the community server.
+- [x] Fixed desktop icon and window titlebar GUI flaws (removed obsolete `--tw-ring-color`, separated active indicator bar from icon label, enabled 2-line text wrapping).
+- [x] Added complete 4-language i18n translations (DE, EN, FR, ES) for all wizard steps and prompt texts.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Praxis App Icon & Header Banner GUI Polish (v24.7.9)
+- [x] Fixed app icon visual defect in the Practice header banner: upgraded from washed-out translucent glass (`bg-white/20`) to a solid, crisp white card (`bg-white shadow-xs`) with sharp accent-colored icon typography (`var(--accent)`).
+- [x] Aligned app icon glyph: replaced generic office building (`Building2`) with the official medical/therapy practice symbol (`Hospital` with cross).
+- [x] Harmonized practice module icon color gradients in App Launcher and Desktop Window Workspace.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Harmonious Color Balance, Anti-Clash Companion Tones & Practice GUI Refinements (v24.7.8)
+- [x] Bound all hardcoded teal/green buttons (`+ Sitzung`, `Timer`, Quick Note, Invoicing modals, Cash ledger) across the Practice module dynamically to `var(--accent, #4f46e5)` and `var(--accent-light)`.
+- [x] Recomputed companion colors in `src/lib/accent.ts`: warm tones (Sunset Gold, Amber, Orange, Red) pair with refined Indigo (`#6366f1`) to completely eliminate green/cyan clashes.
+- [x] Softened radial background gradients and ambient backdrop orbs to gentle, soothing watercolor hues without heavy blotches.
+- [x] Balanced dual-series charts with anchored zero-activity baselines and normalized KPI card dimensions.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Harmonized Solid Action Buttons, Chart Guidelines & Viewport Optimization (v24.7.7)
+- [x] Standardized all Practice header quick actions (`+ Neuer Klient`, `+ Sitzung`, `+ Abrechnung`) into uniform solid white buttons with sharp accent color typography.
+- [x] Added dashed horizontal guidelines in monthly trend chart for clear visual scale orientation.
+- [x] Optimized dashboard vertical rhythm, card padding, and bottom breathing room to ensure upcoming appointments and recent sessions are fully visible without clipping.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Praxis GUI Polish & Layout Fixes (v24.7.6)
+- [x] Fixed low-contrast and obscured action buttons in the Practice module welcome banner (`+ Sitzung`, `+ Abrechnung`).
+- [x] Removed header blur watermark that caused haze over action buttons.
+- [x] Fixed monthly charts rendering 8px ghost pill bars for months with 0 revenue and 0 sessions.
+- [x] Corrected duplicate currency metric under "Durchschnitt pro Sitzung" in Practice metrics.
+- [x] Fixed German singular/plural grammar on session KPI cards ("1 dokumentierte Sitzung").
+- [x] Added `pb-20` bottom breathing room in `TherapyPracticeModule` to eliminate cutoff of bottom cards.
+- [x] Harmonized `Rechnungs-Sync` button styling to avoid clashing solid blue block next to accent elements.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Monochromatic Ambient Background Gradient Harmonization (v24.7.5)
+- [x] Fixed green/cyan hue on the right side of window backgrounds when warm accent colors (e.g. Sunset Gold) were selected.
+- [x] Harmonized background radial gradients and ambient blur orbs to derive strictly from the selected accent color (`var(--accent-rgb)`).
+- [x] Preserved contrasting companion colors exclusively for dual-series charts and comparison indicators.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Soft Ambient Background Gradient & Harmonious Frosted Glass Aesthetics (v24.7.4)
+- [x] Replaced harsh, jarring contrast borders with a dreamy, softly blurred ambient color gradient flowing gently in the window background.
+- [x] Styled cards and boxes into refined frosted glass surfaces (`backdrop-filter: blur(16px)`, `rgba(255, 255, 255, 0.82)`) with delicate, tranquil borders.
+- [x] Added organic blurred ambient gradient aura orbs (`blur-3xl`, Gaussian blur) inside the Practice module and suite-wide window backgrounds matching `--accent` and `--accent-companion`.
+- [x] Added interactive live status preview in *Settings -> Personalization & Colors* showing active gradient aura.
+- [x] Updated settings labels, descriptions, toasts, and fallback texts across German, English, French, and Spanish.
+- [x] Strictly maintained pure white backgrounds for printable invoices and export previews.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Vibrant Color & Contrast Mode Across All Apps (v24.7.3)
+- [x] Extended the color contrast mode across the entire desktop suite to eliminate sterile plain white in all windows (Invoices, Accounting, Contacts, Practice, Products, Calendar, POS, Restaurant, etc.).
+- [x] Converted window backgrounds to dynamic dual-ambient gradients harmonized with the user's accent color.
+- [x] Transformed cards, panels, and metric boxes into soft pastel washes with distinct colored accent borders (`Kästchen`).
+- [x] Styled table headers and key elements with cohesive tinted backgrounds while strictly protecting printable invoices and export previews.
+- [x] Added master toggle in *Settings -> Personalization & Colors* with persistent storage in `localStorage` (`socdof_colorful_apps_mode`).
+- [x] Verified quad-lingual localization in German, English, French, and Spanish.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Colorful Practice Mode (Farbiger Praxis-Modus) for Enhanced Contrast & Reduced Plain White (v24.7.2)
+- [x] Added an optional **"Colorful Practice Mode"** setting toggle in *Settings -> Personalization & Colors* (`Personalisierung & Farben`) to reduce plain white backgrounds in the Practice module.
+- [x] Configured it to be disabled by default ("standardmäßig ist das nicht so eingestellt") to preserve standard clean styling unless opted in.
+- [x] Implemented rich accent color washes and distinct colored card borders around boxes (`Kästchen`) when enabled.
+- [x] Persisted user preference across app restarts via `localStorage` (`socdof_colorful_practice_mode`).
+- [x] Verified quad-lingual localization in German, English, French, and Spanish.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Praxis Sync Popout Menu, Searchable Client Filter Dialog & Streamlined View Controls (v24.7.1)
+- [x] Converted the blue "Rechnungs-Sync" button in the module header into a comprehensive sync options popout (live stats, real-time toggle, 1-click sync now, link to invoices app).
+- [x] Connected `TherapyClientFilterModal` in both Billing and Sessions views with real-time text search, client details, avatars, and 1-click selection.
+- [x] Streamlined the billing display mode selector into an intuitive "Ansicht: Tabelle / Kästchen" dropdown with checkmark indicators.
+- [x] Verified quad-lingual localization in German, English, French, and Spanish.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
 ### Default Table View & Seamless Invoices App Transfer Synchronization (v24.6.8)
 - [x] Configured Table View as the default display mode for all practice billing entries with persistent preference storage (`socdof_therapy_billing_view`).
 - [x] Implemented robust end-to-end atomic transfer for single and batch invoices directly into `db.invoices` and `db.contacts`.

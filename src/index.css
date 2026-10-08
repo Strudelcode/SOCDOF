@@ -8,6 +8,7 @@
 
 :root {
   --accent: #4f46e5;
+  --accent-rgb: 79, 70, 229;
   --accent-hover: #4338ca;
   --accent-light: rgba(79, 70, 229, 0.12);
   --accent-ring: rgba(79, 70, 229, 0.35);
@@ -21,6 +22,7 @@
   --accent-card-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03);
   --accent-card-shadow-hover: 0 8px 30px -4px rgba(79, 70, 229, 0.20), 0 2px 6px 0 rgba(0, 0, 0, 0.04);
   --accent-companion: #0d9488;
+  --accent-companion-rgb: 13, 148, 136;
   --accent-companion-hover: #0f766e;
   --accent-companion-light: rgba(13, 148, 136, 0.18);
   --accent-companion-border: #14b8a6;
@@ -347,6 +349,135 @@ html.dark .socdof-window-content [class*="border-zinc-800"] {
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+
+/* ==========================================================================
+   Soft Ambient Blurred Gradient Mode (All Apps) - [data-colorful-apps="true"]
+   Replaces sterile plain white with a dreamy, softly blurred ambient
+   color gradient in the background, paired with refined frosted-glass cards.
+   No harsh or jarring contrast borders - pure gentle aesthetic harmony.
+   ========================================================================== */
+
+/* 1. Window Content: dreamy soft blurred ambient gradient mesh in the background */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content,
+html[data-colorful-practice="true"]:not(.dark) .socdof-window-content {
+  background-color: #f8fafc !important;
+  background-image: 
+    radial-gradient(ellipse 75% 60% at 12% 10%, rgba(var(--accent-rgb, 79, 70, 229), 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(var(--accent-rgb, 79, 70, 229), 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 65% at 50% 60%, rgba(var(--accent-rgb, 79, 70, 229), 0.04) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 85% 88%, rgba(var(--accent-rgb, 79, 70, 229), 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 90%, rgba(var(--accent-rgb, 79, 70, 229), 0.05) 0%, transparent 55%),
+    linear-gradient(180deg, #fcfdff 0%, #f1f5f9 100%) !important;
+  background-attachment: local !important;
+  position: relative;
+}
+
+html[data-colorful-apps="true"].dark .socdof-window-content,
+html[data-colorful-practice="true"].dark .socdof-window-content {
+  background-color: #0b1120 !important;
+  background-image: 
+    radial-gradient(ellipse 75% 60% at 12% 10%, rgba(var(--accent-rgb, 79, 70, 229), 0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(var(--accent-rgb, 79, 70, 229), 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 65% at 50% 60%, rgba(var(--accent-rgb, 79, 70, 229), 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 85% 88%, rgba(var(--accent-rgb, 79, 70, 229), 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 90%, rgba(var(--accent-rgb, 79, 70, 229), 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #090e17 0%, #0d1527 100%) !important;
+  background-attachment: local !important;
+  position: relative;
+}
+
+/* 2. Cards, Panels & Boxes: sleek frosted glass cards allowing the blurred gradient to shine through */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-white:not(.invoice-sheet-paper):not(.print-container):not(.mce-content-body),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-slate-50:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="bg-white/"]:not(.invoice-sheet-paper),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-white:not(.invoice-sheet-paper),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-slate-50,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="bg-white/"] {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.80) !important;
+  box-shadow: 0 4px 20px -2px rgba(var(--accent-rgb, 79, 70, 229), 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.02) !important;
+}
+
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-900,
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-800,
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-950,
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-900/"],
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-800/"],
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-900,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-800,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper [class*="dark:bg-slate-900/"] {
+  background: rgba(30, 41, 59, 0.76) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 3. Subtle, calm border styling without harsh colored outlines */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-200"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-100"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-300"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-gray-200"]:not(.invoice-sheet-paper),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-200"],
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-100"],
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-300"] {
+  border-color: rgba(226, 232, 240, 0.80) !important;
+}
+
+/* 4. Table Headers & Controls in Ambient Mode */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content thead tr,
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content thead th,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper thead tr,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper thead th {
+  background-color: rgba(248, 250, 252, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  color: var(--accent-hover, #4338ca) !important;
+}
+html[data-colorful-apps="true"].dark .socdof-window-content thead tr,
+html[data-colorful-apps="true"].dark .socdof-window-content thead th,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper thead tr,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper thead th {
+  background-color: rgba(15, 23, 42, 0.80) !important;
+  backdrop-filter: blur(10px) !important;
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+/* 5. Practice & Therapy Module: clean frosted ambient container */
+html[data-colorful-apps="true"]:not(.dark) .therapy-module-wrapper,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper {
+  background: rgba(255, 255, 255, 0.40) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.70) !important;
+  border-radius: 1.5rem;
+  padding: 0.75rem;
+}
+
+html[data-colorful-apps="true"].dark .therapy-module-wrapper,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 1.5rem;
+  padding: 0.75rem;
+}
+
+/* 6. Exemptions: Always keep printable invoice sheets and preview docs clean pure white */
+[data-colorful-apps="true"] .invoice-sheet-paper,
+[data-colorful-apps="true"] .invoice-sheet-paper *,
+[data-colorful-apps="true"] .print-container,
+[data-colorful-apps="true"] .print-container *,
+[data-colorful-practice="true"] .invoice-sheet-paper,
+[data-colorful-practice="true"] .invoice-sheet-paper *,
+[data-colorful-practice="true"] .print-container,
+[data-colorful-practice="true"] .print-container * {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

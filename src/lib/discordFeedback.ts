@@ -7,7 +7,7 @@
 import { APP_VERSION } from './version';
 
 export interface DiscordReportPayload {
-  type: 'bug' | 'idea';
+  type: 'bug' | 'idea' | 'feedback';
   title: string;
   categoryOrLocation: string;
   description: string;
@@ -226,7 +226,7 @@ export async function fetchDiscordChannelTags(channelId: string): Promise<Discor
 /**
  * Dynamically resolves the best tag ID and name for a new forum submission
  */
-export async function resolveSubmissionTag(channelId: string, type: 'bug' | 'idea'): Promise<{ tagId: string; tagName: string }> {
+export async function resolveSubmissionTag(channelId: string, type: 'bug' | 'idea' | 'feedback'): Promise<{ tagId: string; tagName: string }> {
   try {
     const tags = await fetchDiscordChannelTags(channelId);
     if (tags && tags.length > 0) {
@@ -305,7 +305,7 @@ const SUBMITTED_REPORTS_STORAGE_KEY = 'socdof_discord_submitted_reports_v1';
 
 export interface SubmittedDiscordReport {
   id: string;
-  type: 'bug' | 'idea';
+  type: 'bug' | 'idea' | 'feedback';
   title: string;
   categoryOrLocation: string;
   description: string;

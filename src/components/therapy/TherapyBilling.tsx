@@ -18,7 +18,14 @@ import {
   BookUser,
   FileSpreadsheet,
   LayoutGrid,
-  List
+  List,
+  RefreshCw,
+  CheckCheck,
+  Zap,
+  ExternalLink,
+  ChevronDown,
+  Check,
+  X
 } from 'lucide-react';
 import { BillingItem, Client, Session } from './types';
 import { CompanyProfile } from '../../types';
@@ -28,6 +35,13 @@ import { formatCurrencyDE, formatIntegerDE } from '../../lib/formatters';
 import { TherapyInvoicePrintModal } from './TherapyInvoicePrintModal';
 import { TherapyTaxAdvisorLedgerModal } from './TherapyTaxAdvisorLedgerModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { TherapyClientFilterModal } from './TherapyClientFilterModal';
+import { 
+  syncAllPracticeBilling, 
+  syncBillingItemToDb, 
+  isAutoSyncEnabled, 
+  setAutoSyncEnabled 
+} from './therapyInvoiceSync';
 
 interface TherapyBillingProps {
   billing: BillingItem[];
@@ -84,6 +98,76 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<BillingItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
+  const [isAutoSyncOn, setIsAutoSyncOn] = useState<boolean>(isAutoSyncEnabled);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isClientFilterModalOpen, setIsClientFilterModalOpen] = useState(false);
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
+
+  const activeClient = useMemo(() => clients.find(c => c.id === clientFilter), [clients, clientFilter]);
+
+  // Sync metrics & summary
+  const syncStats = useMemo(() => {
+    const synced = billing.filter(b => b.syncedToInvoices || Boolean(b.invoiceNumber && b.invoiceNumber.trim().length > 0));
+    return {
+      syncedCount: synced.length,
+      pendingCount: Math.max(0, billing.length - synced.length),
+      allSynced: billing.length > 0 && synced.length === billing.length
+    };
+  }, [billing]);
+
+  const handleToggleAutoSync = () => {
+    const nextVal = !isAutoSyncOn;
+    setIsAutoSyncOn(nextVal);
+    setAutoSyncEnabled(nextVal);
+    if (nextVal) {
+      handleSyncAll();
+    } else {
+      onShowToast(t('therapy.sync_status_inactive', lang, 'Auto-Sync pausiert'));
+    }
+  };
+
+  const handleSyncAll = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const res = await syncAllPracticeBilling(billing, clients);
+      if (onSaveBatchBilling) {
+        onSaveBatchBilling(res.updatedBilling);
+      } else {
+        res.updatedBilling.forEach(b => onSaveBilling(b));
+      }
+      onShowToast(
+        lang === 'de'
+          ? `Mit Rechnungs-App synchronisiert: ${res.syncedCount} Rechnungen (${res.newCount} neu, ${res.statusUpdatedCount} bezahlt)`
+          : `Synced with Invoices app: ${res.syncedCount} invoices (${res.newCount} new, ${res.statusUpdatedCount} paid)`
+      );
+    } catch (err) {
+      console.error('Error in handleSyncAll:', err);
+      onShowToast(lang === 'de' ? 'Fehler beim Synchronisieren' : 'Sync error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSingleSync = async (item: BillingItem) => {
+    try {
+      const client = getClient(item.clientId);
+      const res = await syncBillingItemToDb(item, client);
+      onSaveBilling(res.updatedItem);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('socdof:invoices-changed'));
+        window.dispatchEvent(new CustomEvent('socdof:contacts-changed'));
+      }
+      onShowToast(
+        lang === 'de'
+          ? `Rechnung ${res.updatedItem.invoiceNumber} erfolgreich synchronisiert!`
+          : `Invoice ${res.updatedItem.invoiceNumber} successfully synced!`
+      );
+    } catch (err) {
+      console.error('Error syncing single item:', err);
+      onShowToast(lang === 'de' ? 'Fehler beim Synchronisieren' : 'Sync error');
+    }
+  };
 
   // Filtered billing entries
   const filteredBilling = useMemo(() => {
@@ -515,49 +599,107 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
             </button>
           </div>
 
-          {/* Client Filter Dropdown */}
-          <select
-            value={clientFilter}
-            onChange={e => setClientFilter(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
-          >
-            <option value="all">{lang === 'de' ? 'Alle Klienten' : 'All Clients'}</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          {/* Client Filter Popout Trigger */}
+          {clientFilter === 'all' ? (
+            <button
+              type="button"
+              onClick={() => setIsClientFilterModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              title={lang === 'de' ? 'Klienten suchen & filtern' : 'Search & filter clients'}
+            >
+              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{lang === 'de' ? 'Alle Klienten' : 'All Clients'}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 font-bold text-slate-600 dark:text-slate-300">
+                {clients.length}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <button
+                type="button"
+                onClick={() => setIsClientFilterModalOpen(true)}
+                className="hover:underline cursor-pointer max-w-[130px] sm:max-w-[170px] truncate font-bold text-left"
+                title={activeClient?.name}
+              >
+                {activeClient?.name || (lang === 'de' ? 'Klient' : 'Client')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientFilter('all')}
+                className="p-0.5 hover:bg-blue-200/60 dark:hover:bg-blue-900 rounded-md text-blue-500 hover:text-rose-600 transition cursor-pointer ml-0.5"
+                title={lang === 'de' ? 'Filter aufheben' : 'Clear filter'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Action buttons & View Switcher */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* View mode toggle: Table (Default) vs. Kästchen (Cards) */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+          {/* View mode dropdown: "Ansicht" */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => handleSetViewMode('table')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
-                viewMode === 'table' 
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' 
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-              title={t('therapy.tableView', lang, 'Tabellen-Ansicht (Standard)')}
+              onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-200/80 dark:border-slate-700"
+              title={lang === 'de' ? 'Ansicht auswählen' : 'Select view'}
             >
-              <List className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">{t('therapy.tableView', lang, 'Tabelle')}</span>
+              {viewMode === 'table' ? (
+                <List className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <LayoutGrid className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              )}
+              <span className="text-slate-400 font-normal">
+                {lang === 'de' ? 'Ansicht:' : lang === 'fr' ? 'Vue :' : lang === 'es' ? 'Vista:' : 'View:'}
+              </span>
+              <span className="font-bold">
+                {viewMode === 'table' 
+                  ? (lang === 'de' ? 'Tabelle' : lang === 'fr' ? 'Tableau' : lang === 'es' ? 'Tabla' : 'Table') 
+                  : (lang === 'de' ? 'Kästchen' : lang === 'fr' ? 'Cartes' : lang === 'es' ? 'Tarjetas' : 'Cards')}
+              </span>
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isViewMenuOpen ? 'rotate-180' : ''}`} />
             </button>
-            <button
-              type="button"
-              onClick={() => handleSetViewMode('cards')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
-                viewMode === 'cards' 
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' 
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-              title={t('therapy.cardView', lang, 'Kästchen-Ansicht')}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t('therapy.cardView', lang, 'Kästchen')}</span>
-            </button>
+
+            {isViewMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsViewMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-scale-up">
+                  <button
+                    type="button"
+                    onClick={() => { handleSetViewMode('table'); setIsViewMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
+                      viewMode === 'table' 
+                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold' 
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <List className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>{t('therapy.tableView', lang, 'Tabellen-Ansicht')}</span>
+                    </div>
+                    {viewMode === 'table' && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleSetViewMode('cards'); setIsViewMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
+                      viewMode === 'cards' 
+                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold' 
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <span>{t('therapy.cardView', lang, 'Kästchen-Ansicht')}</span>
+                    </div>
+                    {viewMode === 'cards' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <button
@@ -595,7 +737,10 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
 
       {/* Bulk Action Bar (Visible when items are selected) */}
       {selectedIds.size > 0 && (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 text-white p-3.5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-200">
+        <div 
+          style={{ background: 'linear-gradient(135deg, var(--accent, #4f46e5) 0%, var(--accent-hover, #4338ca) 100%)' }}
+          className="text-white p-3.5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-200"
+        >
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -743,6 +888,26 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                     </div>
                   </div>
 
+                  {/* Sync status chip in Card View */}
+                  <div className="flex items-center justify-between mb-2">
+                    {item.syncedToInvoices || (item.invoiceNumber && item.invoiceNumber.startsWith('PRAXIS-')) ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
+                        <CheckCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <span>{t('therapy.sync_status_synced', lang, 'Mit Rechnungs-App synchronisiert')}</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSingleSync(item)}
+                        className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300 hover:text-blue-700 font-semibold bg-amber-50 dark:bg-amber-950/40 hover:bg-blue-50 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                        title={t('therapy.sync_now', lang, 'Jetzt mit Rechnungs-App synchronisieren')}
+                      >
+                        <RefreshCw className="w-2.5 h-2.5 text-amber-600" />
+                        <span>{t('therapy.sync_status_pending', lang, 'Nicht synchronisiert (Klicken zum Abgleichen)')}</span>
+                      </button>
+                    )}
+                  </div>
+
                   <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl mb-3 line-clamp-2">
                     {item.service || 'Therapieleistung'}
                   </div>
@@ -841,6 +1006,7 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                   <th className="py-3 px-4">{lang === 'de' ? 'Leistung / Beschreibung' : 'Service Description'}</th>
                   <th className="py-3 px-4 text-right">{lang === 'de' ? 'Betrag' : 'Amount'}</th>
                   <th className="py-3 px-4 text-center">{lang === 'de' ? 'Status' : 'Status'}</th>
+                  <th className="py-3 px-4 text-center">{lang === 'de' ? 'Rechnungs-Sync' : 'Invoices Sync'}</th>
                   <th className="py-3 px-4 text-right">{lang === 'de' ? 'Aktionen' : 'Actions'}</th>
                 </tr>
               </thead>
@@ -943,6 +1109,29 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
                             </>
                           )}
                         </button>
+                      </td>
+
+                      {/* Invoices Sync Status */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {item.syncedToInvoices || (item.invoiceNumber && item.invoiceNumber.startsWith('PRAXIS-')) ? (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800"
+                            title={t('therapy.syncedWithInvoices', lang, 'Mit Rechnungs-App synchronisiert')}
+                          >
+                            <CheckCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>{lang === 'de' ? 'Synchronisiert' : 'Synced'}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSingleSync(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 hover:bg-blue-50 hover:text-blue-700 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-blue-950/40 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                            title={t('therapy.sync_now', lang, 'Jetzt mit Rechnungs-App synchronisieren')}
+                          >
+                            <RefreshCw className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            <span>{lang === 'de' ? 'Sync ausstehend' : 'Sync pending'}</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -1251,6 +1440,16 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
           : `Are you sure you want to permanently delete the ${selectedIds.size} selected invoices?`}
         onConfirm={handleBatchDelete}
         onClose={() => setIsBatchDeleteModalOpen(false)}
+      />
+
+      {/* Client Filter Modal Popout */}
+      <TherapyClientFilterModal
+        isOpen={isClientFilterModalOpen}
+        onClose={() => setIsClientFilterModalOpen(false)}
+        clients={clients}
+        selectedClientId={clientFilter}
+        onSelectClient={setClientFilter}
+        billing={billing}
       />
     </div>
   );

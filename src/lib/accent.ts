@@ -24,6 +24,18 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Convert Hex to raw RGB comma-separated string (e.g. "79, 70, 229")
+function hexToRgbValues(hex: string): string {
+  let cleanHex = hex.replace('#', '');
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex.split('').map(c => c + c).join('');
+  }
+  const r = parseInt(cleanHex.substring(0, 2), 16) || 79;
+  const g = parseInt(cleanHex.substring(2, 4), 16) || 70;
+  const b = parseInt(cleanHex.substring(4, 6), 16) || 229;
+  return `${r}, ${g}, ${b}`;
+}
+
 // Adjust Hex Brightness
 function adjustHex(hex: string, amount: number): string {
   let cleanHex = hex.replace('#', '');
@@ -222,21 +234,23 @@ export interface CompanionColor {
 
 export function getContrastingCompanionColor(hex: string): CompanionColor {
   const h = getHue(hex);
-  let companionHex = '#0d9488'; // Default vibrant Teal
+  let companionHex = '#6366f1'; // Default Indigo
 
-  // If accent is in the Green / Teal spectrum (65° to 185°), companion MUST NOT be green!
-  // Shift to vibrant Indigo/Purple so they never clash or look like both are green!
+  // Harmonic contrasting companion color computation:
+  // Eliminates unpleasing green/cyan hue clashes across warm and neutral accents.
   if (h >= 65 && h <= 185) {
+    // If accent is in the Green / Teal spectrum (65° to 185°), companion is vibrant Indigo/Purple so they never collide
     companionHex = '#6366f1'; // Indigo
   } else if (h >= 186 && h <= 250) {
-    // If accent is Blue / Indigo, companion is vibrant Teal / Emerald
-    companionHex = '#0d9488'; // Teal
+    // If accent is Blue / Indigo, companion is warm, vibrant Amber/Gold for high-contrast duality
+    companionHex = '#f59e0b'; // Amber
   } else if (h >= 251 && h <= 325) {
-    // If accent is Purple / Pink, companion is vibrant Emerald
-    companionHex = '#10b981'; // Emerald
+    // If accent is Purple / Pink / Violet, companion is warm Amber / Coral
+    companionHex = '#f59e0b'; // Amber
   } else {
-    // If accent is Red / Orange / Amber / Gold, companion is vibrant Cyan / Teal
-    companionHex = '#06b6d4'; // Cyan
+    // If accent is Red / Orange / Amber / Gold (Warm tones, 0-64° or 326-360°),
+    // companion is a refined, complementary Indigo / Violet — NEVER green or cyan!
+    companionHex = '#6366f1'; // Indigo
   }
 
   return {
@@ -253,6 +267,7 @@ export function applyAccentColor(accentId?: string): AccentPreset {
   if (typeof document !== 'undefined') {
     const root = document.documentElement;
     root.style.setProperty('--accent', preset.hex);
+    root.style.setProperty('--accent-rgb', hexToRgbValues(preset.hex));
     root.style.setProperty('--accent-hover', preset.hoverHex);
     root.style.setProperty('--accent-light', preset.lightRgba);
     root.style.setProperty('--accent-ring', preset.ringRgba);
@@ -274,6 +289,7 @@ export function applyAccentColor(accentId?: string): AccentPreset {
     // Dynamic Contrasting Companion Color for charts and dual indicators
     const companion = getContrastingCompanionColor(preset.hex);
     root.style.setProperty('--accent-companion', companion.hex);
+    root.style.setProperty('--accent-companion-rgb', hexToRgbValues(companion.hex));
     root.style.setProperty('--accent-companion-hover', companion.hoverHex);
     root.style.setProperty('--accent-companion-light', companion.lightRgba);
     root.style.setProperty('--accent-companion-border', companion.borderHex);

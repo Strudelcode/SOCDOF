@@ -113,13 +113,23 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
       c.type === filterType || 
       (filterType !== 'guest' && c.type === 'both');
 
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
+    const matchesPersons = c.contact_persons?.some(p =>
+      (p.first_name && p.first_name.toLowerCase().includes(q)) ||
+      (p.last_name && p.last_name.toLowerCase().includes(q)) ||
+      (p.email && p.email.toLowerCase().includes(q)) ||
+      (p.phone && p.phone.toLowerCase().includes(q)) ||
+      (p.role && p.role.toLowerCase().includes(q))
+    );
     const matchesSearch = 
       (c.name && c.name.toLowerCase().includes(q)) ||
       (c.company && c.company.toLowerCase().includes(q)) ||
+      (c.first_name && c.first_name.toLowerCase().includes(q)) ||
+      (c.last_name && c.last_name.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q)) ||
       (c.city && c.city.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.toLowerCase().includes(q));
+      (c.phone && c.phone.toLowerCase().includes(q)) ||
+      Boolean(matchesPersons);
 
     return matchesType && matchesSearch;
   });
@@ -527,6 +537,16 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({
                 </div>
 
                 <div className="mt-3 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                  {c.contact_persons && c.contact_persons.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-medium truncate">
+                      <Users className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">
+                        {c.contact_persons.find(p => p.is_primary)
+                          ? `${c.contact_persons.find(p => p.is_primary)!.first_name} ${c.contact_persons.find(p => p.is_primary)!.last_name}${c.contact_persons.find(p => p.is_primary)!.role ? ` (${c.contact_persons.find(p => p.is_primary)!.role})` : ''}`
+                          : `${c.contact_persons.length} ${c.contact_persons.length === 1 ? t('contact.single_contact_person', currentLang, 'Kontaktperson') : t('contact.multiple_contact_persons', currentLang, 'Kontaktpersonen')}`}
+                      </span>
+                    </div>
+                  )}
                   {c.default_hourly_rate !== undefined && c.default_hourly_rate > 0 && (
                     <div className="flex items-center gap-1.5 font-bold font-mono text-cyan-700 dark:text-cyan-400">
                       <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
