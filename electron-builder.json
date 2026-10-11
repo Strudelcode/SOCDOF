@@ -41,9 +41,9 @@
     "deleteAppDataOnUninstall": false,
     "installerIcon": "public/socdof_icon.ico",
     "uninstallerIcon": "public/socdof_icon.ico",
-    "installerHeader": "build/installerHeader.bmp",
+    "installerHeader": "public/installerHeader.bmp",
     "installerHeaderIcon": "public/socdof_icon.ico",
-    "installerSidebar": "build/installerSidebar.bmp",
-    "uninstallerSidebar": "build/uninstallerSidebar.bmp"
+    "installerSidebar": "public/installerSidebar.bmp",
+    "uninstallerSidebar": "public/uninstallerSidebar.bmp"
   }
 }
