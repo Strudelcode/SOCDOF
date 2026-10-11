@@ -18,6 +18,7 @@ import {
   FileText, 
   Printer, 
   ChevronRight,
+  ChevronDown,
   Info,
   Smartphone,
   ExternalLink,
@@ -41,7 +42,9 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Filter,
-  Tag
+  Tag,
+  Zap,
+  Download
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION, VERSION_HISTORY } from '../lib/version';
@@ -65,7 +68,10 @@ export const DocumentationApp: React.FC = () => {
   const [activeSectionId, setActiveSectionId] = useState<string>('quickstart');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [releaseSearch, setReleaseSearch] = useState<string>('');
-  const [selectedMajorVersion, setSelectedMajorVersion] = useState<string>('all');
+  const [selectedMajorVersion, setSelectedMajorVersion] = useState<string>('recent');
+  const INITIAL_RELEASE_LIMIT = 15;
+  const RELEASE_STEP = 20;
+  const [visibleReleaseCount, setVisibleReleaseCount] = useState<number>(INITIAL_RELEASE_LIMIT);
 
   const isGerman = currentLang === 'de';
   const isDesktop = isElectron();
@@ -88,16 +94,17 @@ export const DocumentationApp: React.FC = () => {
     });
   }, []);
 
+  // Compute the two latest major versions (e.g. ['v24', 'v23'])
+  const latestTwoMajors = useMemo(() => {
+    return availableMajorVersions.slice(0, 2);
+  }, [availableMajorVersions]);
+
   // Filter release history by selected major version and search text
   const filteredReleases = useMemo(() => {
     return VERSION_HISTORY.filter((rel) => {
-      // 1. Major version filter
-      if (selectedMajorVersion !== 'all') {
-        const major = `v${rel.version.split('.')[0]}`;
-        if (major !== selectedMajorVersion) return false;
-      }
+      const major = `v${rel.version.split('.')[0]}`;
 
-      // 2. Keyword/Version search filter
+      // 1. Keyword/Version search filter (searches across all versions when active)
       if (releaseSearch.trim()) {
         const q = releaseSearch.toLowerCase().trim();
         const fullVer = `v${rel.version.toLowerCase()}`;
@@ -107,14 +114,29 @@ export const DocumentationApp: React.FC = () => {
         const matchDate = rel.date.toLowerCase().includes(q);
         const matchHighlights = rel.highlights.some((h) => h.toLowerCase().includes(q));
 
-        if (!matchVer && !matchTitle && !matchDate && !matchHighlights) {
-          return false;
-        }
+        return matchVer || matchTitle || matchDate || matchHighlights;
+      }
+
+      // 2. Preset or specific major version filter (when not searching)
+      if (selectedMajorVersion === 'recent') {
+        if (!latestTwoMajors.includes(major)) return false;
+      } else if (selectedMajorVersion !== 'all') {
+        if (major !== selectedMajorVersion) return false;
       }
 
       return true;
     });
-  }, [selectedMajorVersion, releaseSearch]);
+  }, [selectedMajorVersion, releaseSearch, latestTwoMajors]);
+
+  // Determine if progressive pagination applies
+  const isLimited = !releaseSearch.trim() && filteredReleases.length > visibleReleaseCount;
+
+  const displayedReleases = useMemo(() => {
+    if (releaseSearch.trim()) {
+      return filteredReleases;
+    }
+    return filteredReleases.slice(0, visibleReleaseCount);
+  }, [filteredReleases, releaseSearch, visibleReleaseCount]);
 
   const highlightMatch = (text: string, query: string) => {
     if (!query.trim()) return text;
@@ -688,6 +710,62 @@ export const DocumentationApp: React.FC = () => {
               </p>
             </div>
           </div>
+
+          {/* New Custom Download Screen & Background Update Splash Explanation */}
+          <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-200">
+                <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>{getLoc({
+                  de: 'Maßgeschneiderter Download-Screen & Update-Fenster',
+                  en: 'Custom Download Screen & Background Updating Window',
+                  fr: 'Écran de téléchargement personnalisé et fenêtre de mise à jour',
+                  es: 'Pantalla de descarga personalizada y ventana de actualización'
+                })}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playPop();
+                    window.dispatchEvent(new CustomEvent('socdof:open-download-modal'));
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] transition cursor-pointer"
+                >
+                  {getLoc({
+                    de: 'Download-Screen öffnen',
+                    en: 'Open Download Screen',
+                    fr: 'Ouvrir l’écran de téléchargement',
+                    es: 'Abrir pantalla de descarga'
+                  })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playPop();
+                    window.dispatchEvent(new CustomEvent('socdof:open-updating-splash', { detail: { version: '24.8.8' } }));
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900 dark:bg-slate-800 hover:bg-black text-white font-bold text-[10px] transition cursor-pointer"
+                >
+                  {getLoc({
+                    de: 'Update-Fenster testen',
+                    en: 'Test Updating Splash',
+                    fr: 'Tester la fenêtre de mise à jour',
+                    es: 'Probar ventana de actualización'
+                  })}
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              {getLoc({
+                de: 'SOCDOF verfügt über einen interaktiven Download-Hub mit Schritt-für-Schritt-Installationsbegleiter und SmartScreen-Erklärung. Während eines Hintergrund-Updates schließt sich SOCDOF kurz und blendet ein dezentes Fenster ("Updating to Version...") ein, bis der geräuschlose Installer fertiggestellt ist und SOCDOF automatisch neu gestartet wird.',
+                en: 'SOCDOF features an interactive download hub with a step-by-step installation companion and SmartScreen guide. During background updates, SOCDOF closes briefly and displays a dedicated "Updating to Version..." splash window until the silent installer completes and SOCDOF relaunches automatically.',
+                fr: 'SOCDOF intègre un hub de téléchargement interactif avec guide d’installation pas à pas et explication SmartScreen. Pendant les mises à jour en arrière-plan, SOCDOF se ferme brièvement et affiche une fenêtre dédiée (« Updating to Version... ») jusqu’à ce que l’installateur silencieux se termine et redémarre SOCDOF automatiquement.',
+                es: 'SOCDOF incluye un centro de descarga interactivo con guía de instalación paso a paso y nota de SmartScreen. Durante las actualizaciones en segundo plano, SOCDOF se cierra brevemente y muestra una ventana dedicada («Updating to Version...») hasta que el instalador silencioso finaliza y reinicia SOCDOF automáticamente.'
+              })}
+            </p>
+          </div>
+
           <p className="text-slate-500 dark:text-slate-400">
             {t('docs.updates_shortcut', currentLang, 'Keyboard shortcut: No dedicated keyboard shortcut is required for the update workflow.')}
           </p>
@@ -869,6 +947,775 @@ export const DocumentationApp: React.FC = () => {
                   en: 'Workflow: Support → create ticket → start timer → document work → pause timer → review hours. Via "Mobile App Sync", time recordings can be imported from a smartphone via QR/JSON. All records stay 100% offline.',
                   fr: 'Workflow : Service → créer ticket → démarrer le chronomètre → documenter → mettre en pause → vérifier les heures. « Sync App Mobile » importe les relevés du smartphone via QR/JSON. Données 100% locales.',
                   es: 'Flujo: Soporte → crear ticket → iniciar cronómetro → documentar → pausar → revisar horas. Con «Sincronizar App Móvil» puedes importar registros del teléfono por QR/JSON. Datos 100% locales.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'products_inventory',
+      title: getLoc({
+        de: 'Artikel- & Lagerverwaltung',
+        en: 'Products & Inventory Management',
+        fr: 'Articles & Gestion des stocks',
+        es: 'Artículos y gestión de existencias'
+      }),
+      category: getLoc({
+        de: 'Warenwirtschaft & Logistik',
+        en: 'Merchandise & Logistics',
+        fr: 'Gestion commerciale & Logistique',
+        es: 'Gestión comercial y logística'
+      }),
+      icon: Package,
+      summary: getLoc({
+        de: 'Artikelstamm, Barcode-Scanning, Mindestbestände, Chargen und automatischer Bestandsabgleich bei Rechnungen.',
+        en: 'Product master directory, barcode scanning, reorder points, batch lots, and automated stock deduction on invoices.',
+        fr: 'Catalogue d’articles, lecteur code-barres, seuils de réapprovisionnement et déstockage automatique.',
+        es: 'Catálogo de productos, escaneo de códigos, puntos de pedido, lotes y reducción automática de existencias.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+            <h5 className="font-bold text-sm text-amber-900 dark:text-amber-100">
+              {getLoc({
+                de: 'Zentraler Artikelstamm & Echtzeit-Lagerbestand',
+                en: 'Central Product Master & Real-Time Stock Ledger',
+                fr: 'Catalogue d’articles & Suivi des stocks en temps réel',
+                es: 'Catálogo central de productos y control de existencias en tiempo real'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Verwalten Sie Handelswaren, Dienstleistungen, Materialien und Rohstoffe. Jeder Artikel verfügt über Netto-/Bruttopreise, USt-Sätze, Barcodes (EAN), Einkaufspreise und Lagermengen. Beim Druck von Rechnungen oder POS-Kassenbons wird der Bestand auf Wunsch automatisch abgebucht.',
+                en: 'Manage merchandise, services, materials, and supplies. Each item includes net/gross pricing, tax rates, barcodes (EAN), purchase costs, and stock levels. Invoices and POS receipts automatically deduct stock levels in real time.',
+                fr: 'Gérez marchandises, prestations, matières et fournitures. Chaque article comprend prix HT/TTC, TVA, codes-barres (EAN), coût d’achat et stocks. La facturation déstocke automatiquement.',
+                es: 'Gestiona mercancías, servicios, materiales y suministros. Cada artículo incluye precios neto/bruto, IVA, código de barras (EAN), coste y existencias. La facturación deduce stock automáticamente.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Barcode- & Schnellsuche',
+                  en: 'Barcode & Quick Search',
+                  fr: 'Code-barres & Recherche rapide',
+                  es: 'Código de barras y búsqueda ágil'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Nutzen Sie Standard-USB- oder Bluetooth-Barcodescanner. Das Modul erkennt EAN-Codes sofort und öffnet den passenden Artikel ohne manuelle Tipparbeit.',
+                  en: 'Plug in standard USB or Bluetooth barcode scanners. Scans instantly locate products and prefill lines in POS and invoices.',
+                  fr: 'Compatible avec les lecteurs code-barres USB et Bluetooth. Recherche instantanée sans saisie manuelle.',
+                  es: 'Compatible con lectores de códigos de barras USB o Bluetooth. Búsqueda instantánea sin teclear.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Mindestbestand & Warnung',
+                  en: 'Reorder Levels & Alerts',
+                  fr: 'Seuils d’alerte & Rupture',
+                  es: 'Punto de pedido y alertas'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Hinterlegen Sie Mindestbestände. Unterschreitet ein Artikel das Limit, wird er farblich hervorgehoben und kann direkt auf die Einkaufsbestellliste gesetzt werden.',
+                  en: 'Set minimum safety stock thresholds. Depleted products are flagged visually and can be exported directly to purchase orders.',
+                  fr: 'Définissez des stocks minimums de sécurité. Les alertes visuelles préviennent les ruptures de stock.',
+                  es: 'Define niveles mínimos de seguridad. Las alertas visuales previenen roturas de inventario.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Warenein- & Warenausgang',
+                  en: 'Receipts & Issues',
+                  fr: 'Entrées & Sorties de stock',
+                  es: 'Entradas y salidas de stock'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Buchen Sie Lieferungen mit Lieferantennummer ein oder dokumentieren Sie Bruch und Schwund mit nachvollziehbaren Begründungen im Bewegungsprotokoll.',
+                  en: 'Book supplier deliveries with PO tracking or document scrap and loss with audit-compliant notes in the stock movement ledger.',
+                  fr: 'Enregistrez les réceptions fournisseurs et justifiez les pertes ou casses dans le journal des mouvements.',
+                  es: 'Registra recepciones de pedidos y documenta mermas en el historial auditado de movimientos.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'purchases_suppliers',
+      title: getLoc({
+        de: 'Einkauf & Lieferanten',
+        en: 'Purchasing & Suppliers',
+        fr: 'Achats & Fournisseurs',
+        es: 'Compras y proveedores'
+      }),
+      category: getLoc({
+        de: 'Warenwirtschaft & Logistik',
+        en: 'Merchandise & Logistics',
+        fr: 'Gestion commerciale & Logistique',
+        es: 'Gestión comercial y logística'
+      }),
+      icon: ShoppingCart,
+      summary: getLoc({
+        de: 'Lieferantenstammdaten, Bestellwesen, Wareneingangskontrolle und Zuordnung zu Betriebsausgaben.',
+        en: 'Supplier records, purchase orders, incoming goods verification, and automatic operating expense booking.',
+        fr: 'Fichier fournisseurs, commandes d’achat, contrôle de réception et affectation aux charges d’exploitation.',
+        es: 'Ficha de proveedores, pedidos de compra, control de albaranes y registro de gastos de explotación.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60">
+            <h5 className="font-bold text-sm text-sky-900 dark:text-sky-100">
+              {getLoc({
+                de: 'Ganzheitlicher Einkaufs- & Beschaffungsprozess',
+                en: 'Comprehensive Purchasing & Procurement Cycle',
+                fr: 'Cycle complet d’approvisionnement et d’achat',
+                es: 'Ciclo integral de compras y aprovisionamiento'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Vermeiden Sie Lieferengpässe durch strukturierte Einkaufsbestellungen. Verknüpfen Sie Lieferanten mit hinterlegten Artikelpreisen, Zahlungszielen und Skontovereinbarungen. Nach Lieferung wird die Einkaufsrechnung geprüft und direkt in die Buchhaltung übernommen.',
+                en: 'Streamline procurement with structured purchase orders. Link suppliers to contract prices, credit terms, and cash discount rules. Once received, vendor invoices feed directly into expense accounting.',
+                fr: 'Structurez vos achats et évitez les ruptures. Associez fournisseurs, tarifs négociés et délais de paiement.',
+                es: 'Optimiza compras con pedidos estructurados. Asocia proveedores con tarifas acordadas y plazos de pago.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Bestellzyklus & Lieferscheine',
+                  en: 'Order Cycle & Delivery Slips',
+                  fr: 'Cycle de commande & Bons de livraison',
+                  es: 'Ciclo de pedidos y albaranes'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Erstellen Sie Bestellungen, senden Sie diese als PDF an den Lieferanten und buchen Sie bei Eintreffen den Lieferschein mit Mengenabgleich direkt ins Lager.',
+                  en: 'Generate purchase orders, email PDF copies to vendors, and mark line items as received to auto-populate warehouse stock.',
+                  fr: 'Créez des bons de commande, exportez-les en PDF et réceptionnez les articles directement en stock.',
+                  es: 'Genera pedidos de compra, expórtalos a PDF y recepciona artículos directamente al inventario.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Vorsteuer & BWA-Erfassung',
+                  en: 'Input Tax & P&L Impact',
+                  fr: 'TVA déductible & Impact financier',
+                  es: 'IVA deducible e impacto contable'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Eingangsrechnungen buchen den Nettobetrag auf das passende Aufwandskonto und die abziehbare Vorsteuer auf das Steuerkonto – für eine saubere USt-Voranmeldung.',
+                  en: 'Vendor bills allocate net amounts to expense accounts and recoverable input VAT to tax ledgers for accurate quarterly filings.',
+                  fr: 'Les factures fournisseurs ventilent montants HT et TVA déductible pour une déclaration fiscale rigoureuse.',
+                  es: 'Las facturas de proveedores desglosan importes netos e IVA soportado para una liquidación tributaria exacta.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'restaurant_hospitality',
+      title: getLoc({
+        de: 'Gastronomie & Restaurant-Suite',
+        en: 'Hospitality & Restaurant Suite',
+        fr: 'Restauration & Gestion de salle',
+        es: 'Hostelería y gestión de sala'
+      }),
+      category: getLoc({
+        de: 'Branchen & Spezialmodule',
+        en: 'Specialized & Industry Modules',
+        fr: 'Modules spécialisés',
+        es: 'Módulos especializados'
+      }),
+      icon: UtensilsCrossed,
+      summary: getLoc({
+        de: 'Interaktiver Tischplan, Farbcodierte Tischzustände, Küchenbons, Gangsteuerung und Rechnungs-Splitting.',
+        en: 'Interactive floor plan, color-coded table states, kitchen tickets, course scheduling, and flexible bill splitting.',
+        fr: 'Plan de salle interactif, statuts de table couleur, bons de cuisine, gestion des services et partage d’addition.',
+        es: 'Plano interactivo de mesas, estados de mesa por colores, comandas de cocina y división flexible de facturas.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/60">
+            <h5 className="font-bold text-sm text-orange-900 dark:text-orange-100">
+              {getLoc({
+                de: 'Komplettlösung für Gastronomie & Bewirtung',
+                en: 'All-in-One Hospitality & Table Management',
+                fr: 'Solution complète pour bars, restaurants & traiteurs',
+                es: 'Solución integral para hostelería, bares y restaurantes'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Entwickelt für Bars, Cafés und Restaurants: Verwalten Sie Gasträume, Terrassen und Theken visuell. Bestellungen werden tischbezogen erfasst, Sonderwünsche vermerkt und Küchen- bzw. Bar-Bons getrennt ausgegeben.',
+                en: 'Designed for bars, cafes, and dining rooms: visually layout tables, patios, and counters. Waitstaff books orders per table with kitchen modifier notes and split course timing.',
+                fr: 'Conçu pour restaurants, cafés et bars : agencement visuel des tables et terrasses, bons cuisine/bar et suivi des services.',
+                es: 'Diseñado para bares, cafeterías y restaurantes: distribución visual de mesas, terrazas, comandas y notas de cocina.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Farbkodierte Tische',
+                  en: 'Color-Coded Tables',
+                  fr: 'Statuts de table en couleur',
+                  es: 'Mesas codificadas por color'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Grün = Frei, Gelb = Offene Bestellung, Rot = Rechnung erbeten. Jeder Tisch zeigt Gastanzahl, Verweildauer und den aktuellen Zwischenbetrag live an.',
+                  en: 'Green = Free, Yellow = Active order, Red = Bill requested. Real-time overview of guest count, occupancy duration, and balance.',
+                  fr: 'Vert = Libre, Jaune = Occupée, Rouge = Addition demandée. Visibilité instantanée sur la durée et le montant en cours.',
+                  es: 'Verde = Libre, Amarillo = En curso, Rojo = Cuenta solicitada. Información en tiempo real del saldo acumulado.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Küchenbons & Gänge',
+                  en: 'Kitchen Tickets & Courses',
+                  fr: 'Bons de cuisine & Services',
+                  es: 'Tickets de cocina y tiempos'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Gliedern Sie Bestellungen in Vorspeise, Hauptgang und Dessert. Ein Klick druckt den Bon am Bon-Drucker oder übergibt ihn an das Küchen-Display.',
+                  en: 'Structure meals into appetizers, mains, and desserts. Print kitchen tickets with special dietary instructions with one click.',
+                  fr: 'Organisez les services (entrées, plats, desserts) et éditez les tickets cuisine avec mentions spécifiques.',
+                  es: 'Organiza los pedidos por entrantes, principales y postres, imprimiendo comandas con observaciones personalizadas.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Tisch-Splitting & Z-Bon',
+                  en: 'Bill Splitting & Daily Z-Report',
+                  fr: 'Partage d’addition & Clôture Z',
+                  es: 'División de cuenta y cierre Z'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Gäste möchten getrennt zahlen? Teilen Sie Rechnungen per Klick nach Gerichten, Personen oder gleichen Beträgen. Am Tagesende wird der Z-Bon GoBD-konform erzeugt.',
+                  en: 'Split bills by item, seat, or even split. At shift close, the daily Z-report reconciles cash, cards, and tax amounts seamlessly.',
+                  fr: 'Partagez l’addition par article ou par convive. Clôture journalière Z conforme aux normes fiscales.',
+                  es: 'Divide cuentas por comensal o por artículo. Al final del día, emite el informe Z de cierre de caja reglamentario.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'business_calculator',
+      title: getLoc({
+        de: 'Kaufmännischer Rechner & Preiskalkulation',
+        en: 'Commercial Calculator & Pricing Math',
+        fr: 'Calculateur commercial & Marges',
+        es: 'Calculadora comercial y fijación de precios'
+      }),
+      category: getLoc({
+        de: 'Finanzen & Werkzeuge',
+        en: 'Finance & Tools',
+        fr: 'Finances & Outils',
+        es: 'Finanzas y herramientas'
+      }),
+      icon: Calculator,
+      summary: getLoc({
+        de: 'Handelsspanne (Margin), Kalkulationsaufschlag (Markup), Mehrwertsteuer-Expressrechner und Skontoprüfung.',
+        en: 'Margin percentage, markup pricing, instant VAT toggling, and early payment cash discount simulation.',
+        fr: 'Taux de marque, marge commerciale, conversion rapide de TVA et calcul d’escompte.',
+        es: 'Margen comercial, recargo sobre coste, conversor rápido de IVA y cálculo de descuento por pronto pago.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+            <h5 className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
+              {getLoc({
+                de: 'Präzise Preisfindung & kaufmännische Schnellkalkulation',
+                en: 'Accurate Pricing Calculations & Commercial Math',
+                fr: 'Fixation précise des prix & calculs commerciaux instantanés',
+                es: 'Fijación de precios exacta y cálculos comerciales rápidos'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Fehlerhafte Preiskalkulationen kosten bares Geld. Der integrierte kaufmännische Rechner unterstützt Sie bei Verhandlungen, Angebotserstellungen und Rabattprüfungen – direkt als schwebendes Fenster neben Ihren Rechnungen.',
+                en: 'Miscalculated pricing erodes profits. The built-in commercial calculator helps you during client negotiations, quote generation, and discount checks right beside your active invoices.',
+                fr: 'Une mauvaise marge érode la rentabilité. La calculatrice commerciale intégrée sécurise vos devis et négociations.',
+                es: 'Un cálculo erróneo reduce tus beneficios. La calculadora comercial integrada te ayuda en presupuestos y negociaciones.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Spanne vs. Aufschlag',
+                  en: 'Margin vs. Markup',
+                  fr: 'Marge vs. Taux de marque',
+                  es: 'Margen vs. Recargo'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Klären Sie Missverständnisse: Handelsspanne berechnet sich vom Verkaufspreis (z.B. 30%), Kalkulationsaufschlag vom Einkaufspreis (z.B. +42,8%). Beide Werte werden synchron ermittelt.',
+                  en: 'Distinguish margin (% of selling price) from markup (% added to cost). Both values compute synchronously as you adjust amounts.',
+                  fr: 'Distinguez marge commerciale et taux de marque en temps réel avec conversion instantanée.',
+                  es: 'Distingue margen sobre ventas y recargo sobre coste en tiempo real con conversión instantánea.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Mehrwertsteuer-Express',
+                  en: 'Instant VAT Converter',
+                  fr: 'Convertisseur TVA instantané',
+                  es: 'Conversor rápido de IVA'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Wechseln Sie blitzschnell zwischen Netto und Brutto für 19%, 7%, 22% (Italien), 10%, 4% oder 0% mit kaufmännisch korrekter Cent-Rundung.',
+                  en: 'Toggle effortlessly between net and gross across common European rates (19%, 7%, 22%, 10%, 4%, 0%) with exact cent rounding.',
+                  fr: 'Convertissez instantanément HT et TTC sur les taux européens courants avec arrondi exact au centime.',
+                  es: 'Convierte al instante entre base imponible y total con los tipos de IVA europeos y redondeo exacto.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Skonto & Barzahlungsrabatt',
+                  en: 'Cash Discounts & Terms',
+                  fr: 'Escomptes & Conditions',
+                  es: 'Descuento por pronto pago'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Berechnen Sie, wie viel Skonto (z.B. 2% oder 3%) in Euro ausmacht und welcher Zahlungsbetrag fällig ist, wenn innerhalb der Skontofrist bezahlt wird.',
+                  en: 'Simulate early payment discounts (e.g. 2% or 3% within 10 days) and compute exact payable amounts and annual interest rates.',
+                  fr: 'Calculez la déduction d’escompte (2% ou 3%) et le net à payer en cas de règlement anticipé.',
+                  es: 'Calcula la deducción exacta por pronto pago (2% o 3%) y el importe neto a abonar en plazo.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'widgets_desktop',
+      title: getLoc({
+        de: 'Desktop-Widgets & Taskleiste',
+        en: 'Desktop Widgets & Taskbar Pins',
+        fr: 'Widgets de bureau & Épingles',
+        es: 'Widgets de escritorio y anclajes'
+      }),
+      category: getLoc({
+        de: 'Desktop & Bedienung',
+        en: 'Desktop & Interface',
+        fr: 'Bureau & Interface',
+        es: 'Escritorio e interfaz'
+      }),
+      icon: LayoutGrid,
+      summary: getLoc({
+        de: 'Pinnbare Widgets, Sticky Notes (Haftnotizen), Schnellzugriffe und benutzerspezifische Taskleisten-Pins.',
+        en: 'Pinnable widgets, sticky notes, quick launcher tiles, and user-specific taskbar pinning.',
+        fr: 'Widgets épinglables, pense-bêtes, raccourcis et personnalisation de la barre des tâches.',
+        es: 'Widgets anclables, notas adhesivas, accesos directos y anclajes en la barra de tareas.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60">
+            <h5 className="font-bold text-sm text-purple-900 dark:text-purple-100">
+              {getLoc({
+                de: 'Individuelle Arbeitsumgebung für Ihren Alltag',
+                en: 'Personalized Desktop Workstation Environment',
+                fr: 'Environnement de travail personnalisé sur votre bureau',
+                es: 'Entorno de trabajo personalizado en tu escritorio'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Gestalten Sie den SOCDOF-Desktop nach Ihren Wünschen. Platzieren Sie interaktive Widgets auf dem Schreibtisch, heften Sie wichtige Apps an die Taskleiste und nutzen Sie Haftnotizen für schnelle Gedanken – alles wird automatisch lokal pro Benutzer gesichert.',
+                en: 'Tailor the SOCDOF desktop canvas to your daily routine. Pin interactive widgets, arrange taskbar shortcuts, and post sticky notes for quick memos — persisted locally per user profile.',
+                fr: 'Personnalisez le bureau SOCDOF : widgets interactifs, épingles de barre des tâches et post-its mémorisés localement.',
+                es: 'Personaliza el escritorio SOCDOF: widgets interactivos, accesos en la barre de tareas y notas guardadas localmente.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Haftnotizen (Sticky Notes)',
+                  en: 'Sticky Notes',
+                  fr: 'Pense-bêtes (Sticky Notes)',
+                  es: 'Notas adhesivas (Sticky Notes)'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Farbige Notizen für Telefonate, Aufgaben und Kundenerinnerungen. Sticky Notes bleiben auch bei App-Neustarts an exakt derselben Position auf dem Desktop erhalten.',
+                  en: 'Color-coded notes for quick phone memos and to-dos. Sticky notes retain position and text across app restarts.',
+                  fr: 'Notes colorées pour mémos et rappels. Restent à la même position après redémarrage.',
+                  es: 'Notas de colores para recados rápidos. Conservan su posición exacta tras reiniciar la aplicación.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'KPI- & Schnellkacheln',
+                  en: 'KPI & Metric Tiles',
+                  fr: 'Indicateurs clés & Tuiles KPI',
+                  es: 'Indicadores KPI y accesos'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Überblick über heutige Umsätze, anstehende Termine und offene Rechnungen direkt auf dem Desktop, ohne erst ein Fenster öffnen zu müssen.',
+                  en: 'Instant summary of daily turnover, upcoming calendar meetings, and outstanding invoices directly on the desktop canvas.',
+                  fr: 'Aperçu immédiat du chiffre d’affaires du jour, des rendez-vous et des factures en attente.',
+                  es: 'Vista rápida de la facturación diaria, citas programadas y facturas pendientes desde el escritorio.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Taskleisten-Anheftung',
+                  en: 'Taskbar Pinning',
+                  fr: 'Épinglage en barre des tâches',
+                  es: 'Fijar en la barra de tareas'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Häufig genutzte Module (z.B. Faktura, Kasse, Praxis) heften Sie mit einem Klick an die Taskleiste. Die Reihenfolge passen Sie in den Einstellungen flexibel an.',
+                  en: 'Pin preferred modules (invoicing, POS, practice) permanently to the bottom taskbar. Reorder pins in Settings anytime.',
+                  fr: 'Épinglez vos modules favoris dans la barre des tâches inférieure et organisez leur ordre.',
+                  es: 'Fija tus módulos favoritos en la barra de tareas inferior y reorganiza su orden en Ajustes.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'appstore_modules',
+      title: getLoc({
+        de: 'App Store & Modul-Management',
+        en: 'App Store & Modular Ecosystem',
+        fr: 'App Store & Écosystème modulaire',
+        es: 'App Store y modularidad'
+      }),
+      category: getLoc({
+        de: 'System & Konfiguration',
+        en: 'System & Configuration',
+        fr: 'Système & Configuration',
+        es: 'Sistema y configuración'
+      }),
+      icon: Layers,
+      summary: getLoc({
+        de: 'Modulare Architektur: Fachbereiche flexibel aktivieren/deaktivieren, RAM schonen und Workstation optimieren.',
+        en: 'Modular architecture: enable or disable specialized modules, conserve RAM/CPU, and optimize desktop workflows.',
+        fr: 'Architecture modulaire : activez/désactivez les modules selon votre activité pour économiser les ressources.',
+        es: 'Arquitectura modular: activa o desactiva módulos especializados para ahorrar recursos y simplificar tu flujo.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
+            <h5 className="font-bold text-sm text-indigo-900 dark:text-indigo-100">
+              {getLoc({
+                de: 'Modulare Flexibilität ohne Systemballast',
+                en: 'Modular Flexibility Without Bloat',
+                fr: 'Flexibilité modulaire sans surcharge',
+                es: 'Flexibilidad modular sin sobrecarga'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'SOCDOF wächst mit Ihren Anforderungen. Über den App Store aktivieren Sie nur jene Module, die Sie tatsächlich im Arbeitsalltag benötigen. Nicht benötigte Branchenmodule bleiben unsichtbar und verbrauchen keinerlei Systemressourcen.',
+                en: 'SOCDOF scales with your business needs. Enable only the modules relevant to your operations via the App Store. Unused industry extensions remain unloaded and consume zero CPU or memory.',
+                fr: 'SOCDOF s’adapte à votre métier. Activez uniquement les modules utiles ; les autres ne consomment aucune ressource.',
+                es: 'SOCDOF se adapta a tu negocio. Activa únicamente los módulos que necesitas; las extensiones inactivas no consumen memoria.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Ein-Klick Aktivierung & Deaktivierung',
+                  en: 'One-Click Toggle',
+                  fr: 'Activation en un clic',
+                  es: 'Activación con un clic'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Ein Klick im App Store genügt: Das Modul erscheint sofort im Startmenü und auf dem Desktop. Deaktivieren Sie es, wird es aufgeräumt ausgeblendet – Ihre Daten bleiben dabei lokal sicher gespeichert.',
+                  en: 'A single toggle in App Store adds the module to your Start Menu. Deactivating cleans up menus without deleting stored records.',
+                  fr: 'Un simple interrupteur ajoute le module au menu Démarrer. La désactivation ne supprime aucune donnée enregistrée.',
+                  es: 'Un interruptor añade el módulo al menú Inicio. Desactivarlo oculta los accesos sin borrar ningún dato guardado.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Geschützte System-Apps',
+                  en: 'Protected Core Utilities',
+                  fr: 'Applications système protégées',
+                  es: 'Aplicaciones del sistema protegidas'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Kritische Systemkomponenten wie Einstellungen, Authentifizierung, Daten-Backup und Handbuch sind als geschützt markiert, um Fehlbedienungen und Datenverlust auszuschließen.',
+                  en: 'Essential core apps such as Settings, Security, Backup, and Documentation are protected to ensure consistent system stability.',
+                  fr: 'Les outils vitaux (Paramètres, Sauvegarde, Sécurité, Manuel) sont protégés pour garantir la stabilité.',
+                  es: 'Las herramientas clave (Ajustes, Copias de seguridad, Seguridad, Manual) están protegidas contra errores.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'sync_integrations',
+      title: getLoc({
+        de: 'Rechnungs-Sync & Tabellen-Kassenbuch',
+        en: 'Invoice Sync & Spreadsheet Cash Book',
+        fr: 'Synchronisation factures & Livre de caisse',
+        es: 'Sincronización de facturas y libro de caja'
+      }),
+      category: getLoc({
+        de: 'Service & Abrechnung',
+        en: 'Service & Billing',
+        fr: 'Service & Facturation',
+        es: 'Servicio y facturación'
+      }),
+      icon: ArrowRight,
+      summary: getLoc({
+        de: 'Direkte Übernahme von Praxis-Sitzungen und Kundendienst-Zeiten in die Fakturierung sowie tabellarischer Kassenbuch-Export.',
+        en: 'Direct push of therapy sessions and support hours into invoicing, plus spreadsheet-ready cash journal export.',
+        fr: 'Transfert direct des séances et tickets d’assistance vers la facturation et export tabulaire du journal de caisse.',
+        es: 'Transferencia directa de sesiones de terapia y horas de soporte a facturación y exportación del libro de caja.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60">
+            <h5 className="font-bold text-sm text-teal-900 dark:text-teal-100">
+              {getLoc({
+                de: 'Nahtlose Synergie zwischen Fachmodulen & Hauptfaktura',
+                en: 'Seamless Synergy Between Industry Modules & Master Invoicing',
+                fr: 'Synergie fluide entre modules métier & facturation principale',
+                es: 'Sinergia fluida entre módulos especializados y facturación central'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Sparen Sie wertvolle Zeit und vermeiden Sie Übertragungsfehler: Erfasste Leistungen aus Praxis & Therapie oder abgerechnete Stunden aus dem Kundendienst werden mit einem Klick in offizielle Rechnungsentwürfe übernommen – inklusive Klientenadresse, Steuersatz und Leistungsbeschreibung.',
+                en: 'Eliminate double-entry errors: documented therapy appointments or logged customer support tickets convert into master invoice drafts with one click — carrying over client details, tax rates, and line items.',
+                fr: 'Évitez les doubles saisies : séances de consultation et tickets d’assistance se convertissent en factures en un clic.',
+                es: 'Evita la doble introducción de datos: las sesiones y los partes de soporte se convierten en borradores de factura con un clic.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Rechnungs-Sync Menü',
+                  en: 'Invoice Sync Dropdown',
+                  fr: 'Menu Sync Factures',
+                  es: 'Menú de sincronización'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Über die Menütaste in der Praxis-Toolbar öffnen Sie den Rechnungsabgleich. Wählen Sie offene Sitzungen aus und erzeugen Sie die Rechnung sofort im gewünschten Design.',
+                  en: 'Open the sync popout in the practice toolbar to review pending sessions and generate clean invoices in one step.',
+                  fr: 'Ouvrez le menu de synchronisation dans la barre d’outils du cabinet pour facturer les séances en attente.',
+                  es: 'Abre el menú desplegable de sincronización en la barra de consulta para facturar sesiones pendientes.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Tabellen-Kassenbuch',
+                  en: 'Spreadsheet Cash Book',
+                  fr: 'Livre de caisse tabulaire',
+                  es: 'Libro de caja en tabla'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Das integrierte Kassenbuch fasst alle Einnahmen, Barzahlungen und Banküberweisungen chronologisch zusammen. Mit Tabellenexport für Excel, Numbers oder Ihren Steuerberater.',
+                  en: 'The built-in cash book lists cash receipts and bank settlements chronologically with 1-click spreadsheet export for accountants.',
+                  fr: 'Le livre de caisse regroupe recettes et règlements bancaires avec export direct vers Excel ou votre expert-comptable.',
+                  es: 'El libro de caja reúne cobros en efectivo y transferencias con exportación directa para tu asesor o gestoría.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'DSGVO & Diskretion',
+                  en: 'GDPR Privacy Barrier',
+                  fr: 'Confidentialité & RGPD',
+                  es: 'Privacidad y RGPD'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Strenge Trennung: Vertrauliche Therapieberichte und medizinische Diagnosen verbleiben in der gesicherten Klientenakte und werden niemals auf Steuerbelege übertragen.',
+                  en: 'Strict privacy wall: clinical session notes and diagnoses remain exclusively inside the encrypted client dossier, never on invoices.',
+                  fr: 'Protection rigoureuse : les notes médicales et diagnostics restent strictement dans le dossier client sécurisé.',
+                  es: 'Privacidad estricta: las notas clínicas permanecen protegidas en el expediente y jamás aparecen en facturas.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'poweruser_shortcuts',
+      title: getLoc({
+        de: 'Power-User Shortcuts & Multi-Window',
+        en: 'Power-User Shortcuts & Multi-Window',
+        fr: 'Raccourcis avancés & Multi-fenêtres',
+        es: 'Atajos avanzados y multiventana'
+      }),
+      category: getLoc({
+        de: 'Desktop & Bedienung',
+        en: 'Desktop & Interface',
+        fr: 'Bureau & Interface',
+        es: 'Escritorio e interfaz'
+      }),
+      icon: Keyboard,
+      summary: getLoc({
+        de: 'Spotlight Command Palette (Ctrl+K), intelligentes Fenster-Snapping, Tastenkombinationen und 100% Offline-Speed.',
+        en: 'Spotlight command palette (Ctrl+K), multi-window snapping, keyboard workflow velocity, and offline responsiveness.',
+        fr: 'Palette de commandes Spotlight (Ctrl+K), ancrage de fenêtres et vitesse maximale hors ligne.',
+        es: 'Paleta de comandos Spotlight (Ctrl+K), ajuste de ventanas y velocidad máxima sin conexión.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-900 border border-slate-800">
+            <div className="flex items-center justify-between gap-2">
+              <h5 className="font-bold text-sm text-white">
+                {getLoc({
+                  de: 'Professionelle Desktop-Bedienung mit Tastatur & Maus',
+                  en: 'Professional Desktop Workstation Velocity',
+                  fr: 'Vitesse de travail professionnelle au clavier & à la souris',
+                  es: 'Control profesional del escritorio con teclado y ratón'
+                })}
+              </h5>
+              <span className="px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-mono text-[10px] font-bold">
+                Ctrl + K
+              </span>
+            </div>
+            <p className="mt-2 text-slate-300">
+              {getLoc({
+                de: 'Steuern Sie Ihre Arbeitsstation wie ein Profi: Öffnen Sie mehrere Fenster parallel, positionieren Sie Dokumente nebeneinander und durchsuchen Sie Ihre gesamte Datenbank in Millisekunden über die globale Spotlight-Befehlspalette.',
+                en: 'Operate your workstation like a pro: open multiple windows simultaneously, tile documents side by side, and search your entire company database in milliseconds via the global Spotlight Command Palette.',
+                fr: 'Pilotez votre poste de travail comme un pro : ouvrez plusieurs fenêtres côte à côte et effectuez des recherches instantanées.',
+                es: 'Controla tu estación de trabajo como un profesional: abre múltiples ventanas en paralelo y busca al instante con la paleta Spotlight.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Spotlight (Ctrl+K / Cmd+K)',
+                  en: 'Spotlight Palette',
+                  fr: 'Palette Spotlight',
+                  es: 'Paleta Spotlight'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Drücken Sie Strg+K (bzw. Cmd+K am Mac). Tippen Sie Kundenname, Rechnungsnummer oder Modulnamen ein und drücken Sie Enter für sofortigen Direktaufruf.',
+                  en: 'Press Ctrl+K (or Cmd+K on Mac). Search contacts, invoice IDs, or module titles, then press Enter to jump directly to any record.',
+                  fr: 'Appuyez sur Ctrl+K. Recherchez clients, factures ou modules et validez avec Entrée.',
+                  es: 'Pulsa Ctrl+K. Busca clientes, facturas o módulos y pulsa Intro para abrir cualquier elemento.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Fenster-Snapping & Kachelung',
+                  en: 'Window Snapping & Tiling',
+                  fr: 'Ancrage & Affichage côte à côte',
+                  es: 'Ajuste de ventanas en mosaico'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Vergleichen Sie Rechnungen und Zeiterfassungen nebeneinander. Doppelklick auf die Titelleiste schaltet zwischen Vollbild und Fenstermodus um.',
+                  en: 'Compare invoices and timesheets side by side. Double-click any window title bar to toggle maximize and restored view.',
+                  fr: 'Comparez factures et feuilles d’heures côte à côte. Double-cliquez sur la barre de titre pour maximiser.',
+                  es: 'Compara facturas y partes de horas en paralelo. Doble clic en la barra de título para maximizar.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'ESC-Stacking & Fokus',
+                  en: 'ESC Hierarchical Stacking',
+                  fr: 'Fermeture hiérarchique Échap',
+                  es: 'Cierre ordenado con Escape'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Drücken der Escape-Taste schließt geöffnete Dropdowns, Suchvorschläge und Unterdialoge schichtweise von oben nach unten, ohne aktive Eingaben zu löschen.',
+                  en: 'Pressing ESC cleanly dismisses topmost popouts, drop-down sheets, and modals in reverse order without discarding unsaved inputs.',
+                  fr: 'La touche Échap referme menus et fenêtres modales du haut vers le bas sans perdre vos saisies en cours.',
+                  es: 'La tecla Escape cierra menús emergentes y cuadros de diálogo en cascada sin perder los datos introducidos.'
                 })}
               </p>
             </div>
@@ -1222,6 +2069,87 @@ export const DocumentationApp: React.FC = () => {
                     <span>{getLoc({ de: '100% Offline-Klientenarchiv', en: 'Private Offline Archive', fr: 'Archives hors ligne privées', es: 'Archivo privado fuera de línea' })}</span>
                   </div>
                 </div>
+
+                {/* 8. Hospitality & Restaurant */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-orange-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-950 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-200 dark:border-orange-800">
+                    <UtensilsCrossed className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {getLoc({
+                      de: 'Gastronomie & Restaurant',
+                      en: 'Hospitality & Dining',
+                      fr: 'Restauration & Salle',
+                      es: 'Hostelería y comedor'
+                    })}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {getLoc({
+                      de: 'Interaktiver Tischplan mit Farbstatus, Bon-Druck für Küche/Bar, Gang-Timing und Rechnungs-Splits.',
+                      en: 'Interactive table floor plan, kitchen/bar ticket routing, course coordination, and instant bill splits.',
+                      fr: 'Plan de salle interactif, bons cuisine/bar, cadencement des services et partage d’addition.',
+                      es: 'Plano interactivo de mesas, comandas a cocina/barra, tiempos de pase y división de cuentas.'
+                    })}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{getLoc({ de: 'Tischplan & Küchenbons', en: 'Table Matrix & Kitchen Routing', fr: 'Gestion de salle & Bons', es: 'Mesas y comandas de cocina' })}</span>
+                  </div>
+                </div>
+
+                {/* 9. Support & Live Time Tracking */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-cyan-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-200 dark:border-cyan-800">
+                    <Headphones className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {getLoc({
+                      de: 'Kundendienst & Tickets',
+                      en: 'Support & Tickets',
+                      fr: 'Support & Tickets',
+                      es: 'Soporte y tickets'
+                    })}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {getLoc({
+                      de: 'Ticket-System mit absturzsicherem Live-Timer, Außendienst-Protokollen und Zeiterfassungs-Export.',
+                      en: 'Field service tickets with crash-resilient live timers, labor logging, and timesheet export.',
+                      fr: 'Tickets d’intervention avec chronomètre persistant, fiches terrain et export d’heures.',
+                      es: 'Tickets de servicio con cronómetro persistente, partes de trabajo y exportación de horas.'
+                    })}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{getLoc({ de: 'Live-Timer & Stundenjournal', en: 'Live Timer & Ledger', fr: 'Chronomètre & Journal', es: 'Cronómetro y registro' })}</span>
+                  </div>
+                </div>
+
+                {/* 10. Desktop Widgets & Personalisierung */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-purple-500 transition">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-200 dark:border-purple-800">
+                    <LayoutGrid className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    {getLoc({
+                      de: 'Desktop-Widgets & Pins',
+                      en: 'Desktop Widgets & Pins',
+                      fr: 'Widgets & Épingles bureau',
+                      es: 'Widgets y accesos anclados'
+                    })}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {getLoc({
+                      de: 'Pinnbare Haftnotizen, KPI-Schnellkacheln, Taskleisten-Favoriten und drag-and-drop Arbeitsfläche.',
+                      en: 'Pinnable sticky memos, metric tiles, custom taskbar favorites, and drag-and-drop canvas layout.',
+                      fr: 'Pense-bêtes repositionnables, tuiles KPI, favoris en barre des tâches et bureau libre.',
+                      es: 'Notas adhesivas, indicadores KPI, favoritos en barra de tareas y escritorio flexible.'
+                    })}
+                  </p>
+                  <div className="pt-2 flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{getLoc({ de: 'Lokal persistente Widgets', en: 'Locally Persisted Widgets', fr: 'Widgets mémorisés localement', es: 'Widgets guardados localmente' })}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1368,13 +2296,23 @@ export const DocumentationApp: React.FC = () => {
                 </h3>
 
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {getLoc({
-                    de: `${filteredReleases.length} von ${VERSION_HISTORY.length} Releases`,
-                    en: `${filteredReleases.length} of ${VERSION_HISTORY.length} releases`,
-                    fr: `${filteredReleases.length} sur ${VERSION_HISTORY.length} versions`,
-                    es: `${filteredReleases.length} de ${VERSION_HISTORY.length} versiones`
-                  })}
-                  {selectedMajorVersion !== 'all' && ` (${selectedMajorVersion}.x)`}
+                  {isLimited ? (
+                    getLoc({
+                      de: `${displayedReleases.length} von ${filteredReleases.length} Releases angezeigt`,
+                      en: `Showing ${displayedReleases.length} of ${filteredReleases.length} releases`,
+                      fr: `${displayedReleases.length} sur ${filteredReleases.length} versions affichées`,
+                      es: `Mostrando ${displayedReleases.length} de ${filteredReleases.length} versiones`
+                    })
+                  ) : (
+                    getLoc({
+                      de: `${filteredReleases.length} von ${VERSION_HISTORY.length} Releases`,
+                      en: `${filteredReleases.length} of ${VERSION_HISTORY.length} releases`,
+                      fr: `${filteredReleases.length} sur ${VERSION_HISTORY.length} versions`,
+                      es: `${filteredReleases.length} de ${VERSION_HISTORY.length} versiones`
+                    })
+                  )}
+                  {selectedMajorVersion === 'recent' && ` (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')})`}
+                  {selectedMajorVersion !== 'all' && selectedMajorVersion !== 'recent' && ` (${selectedMajorVersion}.x)`}
                 </span>
               </div>
 
@@ -1407,25 +2345,56 @@ export const DocumentationApp: React.FC = () => {
                     )}
                   </div>
 
-                  {(selectedMajorVersion !== 'all' || releaseSearch !== '') && (
+                  {(selectedMajorVersion !== 'recent' || releaseSearch !== '' || visibleReleaseCount > INITIAL_RELEASE_LIMIT) && (
                     <button
                       onClick={() => {
                         sounds.playClick();
-                        setSelectedMajorVersion('all');
+                        setSelectedMajorVersion('recent');
                         setReleaseSearch('');
+                        setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
                       }}
                       className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 shrink-0 transition cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>{getLoc({
-                        de: 'Filter zurücksetzen',
-                        en: 'Reset filters',
-                        fr: 'Réinitialiser',
-                        es: 'Restablecer filtros'
+                        de: 'Filter zurücksetzen (V24 & V23)',
+                        en: 'Reset filters (V24 & V23)',
+                        fr: 'Réinitialiser (V24 & V23)',
+                        es: 'Restablecer (V24 y V23)'
                       })}</span>
                     </button>
                   )}
                 </div>
+
+                {/* Performance Notice for Fast Mode */}
+                {selectedMajorVersion === 'recent' && !releaseSearch.trim() && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/50 text-[11px] text-emerald-900 dark:text-emerald-200">
+                    <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="flex-1">
+                      {getLoc({
+                        de: `⚡ Blitzschneller Performance-Modus aktiv: Standardmäßig werden die neuesten Hauptversionen (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) geladen, um flüssiges Scrollen und minimale Ladezeiten zu sichern.`,
+                        en: `⚡ Fast high-performance mode: Loading latest major versions (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) to guarantee 60fps scrolling and zero DOM lag.`,
+                        fr: `⚡ Mode performance rapide : Chargement des versions majeures récentes (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) pour un affichage fluide.`,
+                        es: `⚡ Modo de alto rendimiento: Cargando las versiones principales recientes (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) para una navegación fluida.`
+                      })}
+                    </span>
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setSelectedMajorVersion('all');
+                        setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
+                      }}
+                      className="underline hover:no-underline font-semibold cursor-pointer shrink-0"
+                    >
+                      {getLoc({
+                        de: 'Ältere anzeigen',
+                        en: 'Show older',
+                        fr: 'Voir anciennes',
+                        es: 'Ver anteriores'
+                      })}
+                    </button>
+                  </div>
+                )}
 
                 {/* Major Version Filter Pills */}
                 <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -1439,10 +2408,34 @@ export const DocumentationApp: React.FC = () => {
                     })}
                   </span>
 
+                  {/* 1. Recent (V24 & V23) Button */}
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setSelectedMajorVersion('recent');
+                      setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                      selectedMajorVersion === 'recent'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{getLoc({ de: 'Neueste (V24 & V23)', en: 'Latest (V24 & V23)', fr: 'Dernières (V24 & V23)', es: 'Últimas (V24 y V23)' })}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      selectedMajorVersion === 'recent' ? 'bg-indigo-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                    }`}>
+                      {VERSION_HISTORY.filter(r => latestTwoMajors.includes(`v${r.version.split('.')[0]}`)).length}
+                    </span>
+                  </button>
+
+                  {/* 2. All Versions Button */}
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setSelectedMajorVersion('all');
+                      setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
                     }}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
                       selectedMajorVersion === 'all'
@@ -1507,9 +2500,9 @@ export const DocumentationApp: React.FC = () => {
               </div>
 
               {/* Releases List */}
-              {filteredReleases.length > 0 ? (
+              {displayedReleases.length > 0 ? (
                 <div className="space-y-3">
-                  {filteredReleases.map((rel) => (
+                  {displayedReleases.map((rel) => (
                     <div key={rel.version} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 hover:border-indigo-200 dark:hover:border-indigo-900/50 transition">
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-2">
@@ -1539,6 +2532,90 @@ export const DocumentationApp: React.FC = () => {
                       </ul>
                     </div>
                   ))}
+
+                  {/* Progressive Disclosure Load-More Panel */}
+                  {isLimited && (
+                    <div className="mt-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {getLoc({
+                            de: `Zeige die neuesten ${displayedReleases.length} von ${filteredReleases.length} Versionen${selectedMajorVersion === 'recent' ? ` (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')})` : ''}`,
+                            en: `Showing the latest ${displayedReleases.length} of ${filteredReleases.length} versions${selectedMajorVersion === 'recent' ? ` (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')})` : ''}`,
+                            fr: `Affichage des ${displayedReleases.length} dernières versions sur ${filteredReleases.length}${selectedMajorVersion === 'recent' ? ` (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')})` : ''}`,
+                            es: `Mostrando las últimas ${displayedReleases.length} de ${filteredReleases.length} versiones${selectedMajorVersion === 'recent' ? ` (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')})` : ''}`
+                          })}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {getLoc({
+                            de: 'Schnellere Ladezeit & flüssiges Scrollen. Ältere Versionen können bei Bedarf geladen werden.',
+                            en: 'Faster loading & smooth scrolling. Older versions can be loaded on demand.',
+                            fr: 'Chargement rapide et défilement fluide. Les versions antérieures peuvent être chargées à la demande.',
+                            es: 'Carga rápida y desplazamiento fluido. Las versiones anteriores se pueden cargar a petición.'
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            setVisibleReleaseCount(prev => Math.min(prev + RELEASE_STEP, filteredReleases.length));
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                          <span>
+                            {getLoc({
+                              de: `Mehr laden (+${Math.min(RELEASE_STEP, filteredReleases.length - displayedReleases.length)})`,
+                              en: `Load more (+${Math.min(RELEASE_STEP, filteredReleases.length - displayedReleases.length)})`,
+                              fr: `Charger plus (+${Math.min(RELEASE_STEP, filteredReleases.length - displayedReleases.length)})`,
+                              es: `Cargar más (+${Math.min(RELEASE_STEP, filteredReleases.length - displayedReleases.length)})`
+                            })}
+                          </span>
+                        </button>
+
+                        {selectedMajorVersion === 'recent' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              setSelectedMajorVersion('all');
+                              setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
+                            }}
+                            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+                          >
+                            <span>
+                              {getLoc({
+                                de: 'Ältere Versionen (V22, V21...) anzeigen',
+                                en: 'Show older versions (V22, V21...)',
+                                fr: 'Afficher versions antérieures (V22, V21...)',
+                                es: 'Ver versiones anteriores (V22, V21...)'
+                              })}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              setVisibleReleaseCount(filteredReleases.length);
+                            }}
+                            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+                          >
+                            <span>
+                              {getLoc({
+                                de: 'Alle laden',
+                                en: 'Load all',
+                                fr: 'Tout charger',
+                                es: 'Cargar todo'
+                              })}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
@@ -1568,6 +2645,7 @@ export const DocumentationApp: React.FC = () => {
                       sounds.playClick();
                       setSelectedMajorVersion('all');
                       setReleaseSearch('');
+                      setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
                     }}
                     className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
                   >

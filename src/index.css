@@ -388,12 +388,12 @@ html[data-colorful-practice="true"].dark .socdof-window-content {
 }
 
 /* 2. Cards, Panels & Boxes: sleek frosted glass cards allowing the blurred gradient to shine through */
-html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-white:not(.invoice-sheet-paper):not(.print-container):not(.mce-content-body),
-html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-slate-50:not(.invoice-sheet-paper),
-html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="bg-white/"]:not(.invoice-sheet-paper),
-html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-white:not(.invoice-sheet-paper),
-html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-slate-50,
-html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="bg-white/"] {
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-white:not(.invoice-sheet-paper):not(.print-container):not(.mce-content-body):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-slate-50:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="bg-white/"]:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-white:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-slate-50:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="bg-white/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]) {
   background: rgba(255, 255, 255, 0.82) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
@@ -401,14 +401,14 @@ html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="
   box-shadow: 0 4px 20px -2px rgba(var(--accent-rgb, 79, 70, 229), 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.02) !important;
 }
 
-html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-900,
-html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-800,
-html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-950,
-html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-900/"],
-html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-800/"],
-html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-900,
-html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-800,
-html[data-colorful-practice="true"].dark .therapy-module-wrapper [class*="dark:bg-slate-900/"] {
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-900:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-800:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-950:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-900/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-800/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-900:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-800:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper [class*="dark:bg-slate-900/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]) {
   background: rgba(30, 41, 59, 0.76) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
@@ -478,6 +478,58 @@ html[data-colorful-practice="true"].dark .therapy-module-wrapper {
   background: #ffffff !important;
   border-color: #cbd5e1 !important;
   box-shadow: none !important;
+}
+
+/* Popover menus, dropdown options, and floating context panels must ALWAYS remain 100% opaque, crisp in foreground */
+.popover-solid,
+[data-popover="true"],
+[data-dropdown="true"],
+[data-colorful-apps="true"] .popover-solid,
+[data-colorful-apps="true"] [data-popover="true"],
+[data-colorful-apps="true"] [data-dropdown="true"],
+[data-colorful-practice="true"] .popover-solid,
+[data-colorful-practice="true"] [data-popover="true"],
+[data-colorful-practice="true"] [data-dropdown="true"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.dark .popover-solid,
+html.dark [data-popover="true"],
+html.dark [data-dropdown="true"],
+html[data-colorful-apps="true"].dark .popover-solid,
+html[data-colorful-apps="true"].dark [data-popover="true"],
+html[data-colorful-apps="true"].dark [data-dropdown="true"],
+html[data-colorful-practice="true"].dark .popover-solid,
+html[data-colorful-practice="true"].dark [data-popover="true"],
+html[data-colorful-practice="true"].dark [data-dropdown="true"] {
+  background-color: #0f172a !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Internal elements inside solid popovers stay clean, crisp and non-translucent */
+[data-popover="true"] .bg-slate-50,
+.popover-solid .bg-slate-50 {
+  background-color: #f8fafc !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.dark [data-popover="true"] [class*="dark:bg-slate-800"],
+html.dark .popover-solid [class*="dark:bg-slate-800"] {
+  background-color: #1e293b !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

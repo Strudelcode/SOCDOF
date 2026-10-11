@@ -1050,7 +1050,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                               <span>{t('feedback.type_idea_title', lang, 'Idee & Verbesserung')}</span>
                               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300/40">
-                                #💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ
+                                #💡idea-suggestions
                               </span>
                             </h3>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
@@ -1090,7 +1090,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                               <span>{t('feedback.type_feedback_title', lang, 'Feedback & Meinung')}</span>
                               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300/40">
-                                #💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ
+                                #💡idea-suggestions
                               </span>
                             </h3>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${

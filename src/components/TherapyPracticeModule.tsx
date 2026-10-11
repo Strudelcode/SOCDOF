@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Building2, 
   Users, 
@@ -125,6 +125,24 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
       window.removeEventListener('socdof:colorful-practice-changed', handleColorful);
     };
   }, []);
+
+  const syncMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isSyncMenuOpen && !isMoreMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node;
+      if (isSyncMenuOpen && syncMenuRef.current && !syncMenuRef.current.contains(target)) {
+        setIsSyncMenuOpen(false);
+      }
+      if (isMoreMenuOpen && moreMenuRef.current && !moreMenuRef.current.contains(target)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [isSyncMenuOpen, isMoreMenuOpen]);
 
   // Sync statistics summary
   const syncSummary = useMemo(() => {
@@ -536,7 +554,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
       )}
 
       {/* Streamlined Top Navigation Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+      <div className={`relative ${isSyncMenuOpen || isMoreMenuOpen ? 'z-50' : 'z-20'} flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs`}>
         {/* Clean Segmented Navigation Tabs without scrollbars */}
         <div className="flex items-center flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl text-xs font-medium relative">
           <button
@@ -597,7 +615,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
           </button>
 
           {/* "Weiteres" / "Mehr" Dropdown Menu with 3 lines (Menu) icon */}
-          <div className="relative">
+          <div ref={moreMenuRef} className={`relative ${isMoreMenuOpen ? 'z-50' : ''}`}>
             <button
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
               style={tab === 'mileage' || tab === 'appointments' ? { backgroundColor: 'var(--accent, #4f46e5)', color: '#ffffff' } : undefined}
@@ -626,7 +644,11 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setIsMoreMenuOpen(false)} 
                 />
-                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in">
+                <div 
+                  data-popover="true"
+                  role="menu"
+                  className="popover-solid absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-fade-in opacity-100"
+                >
                   <button
                     onClick={() => {
                       setTab('mileage');
@@ -690,9 +712,34 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
 
         {/* Quick Tools & Shortcuts */}
         <div className="flex items-center flex-wrap gap-2 text-xs">
-          {/* Synchronization Options Dropdown Popover */}
-          <div className="relative">
+          {/* Tabellen-Button / Kassenbuch (Excel) */}
+          <button
+            type="button"
+            onClick={() => setIsTaxAdvisorLedgerOpen(true)}
+            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-white font-bold rounded-xl shadow-xs transition hover:brightness-110 active:scale-95 cursor-pointer"
+            title={lang === 'de' ? 'Kassenbuch & 12-Monate-Excel-Export' : 'Cash Ledger & Excel'}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>{lang === 'de' ? 'Kassenbuch' : 'Cash Ledger'}</span>
+          </button>
+
+          {onOpenInvoices && (
             <button
+              type="button"
+              onClick={onOpenInvoices}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl border border-slate-200/80 dark:border-slate-700 transition cursor-pointer"
+              title={lang === 'de' ? 'Zur Rechnungs-App wechseln' : 'Open Invoices App'}
+            >
+              <CreditCard className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span className="hidden lg:inline">{lang === 'de' ? 'Rechnungs-App' : 'Invoices'}</span>
+            </button>
+          )}
+
+          {/* Synchronization Options Dropdown Popover */}
+          <div ref={syncMenuRef} className={`relative ${isSyncMenuOpen ? 'z-50' : ''}`}>
+            <button
+              type="button"
               onClick={() => setIsSyncMenuOpen(!isSyncMenuOpen)}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
               title={lang === 'de' ? 'Optionen zur Rechnungs-Synchronisation' : 'Invoices sync options'}
@@ -713,7 +760,11 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setIsSyncMenuOpen(false)} 
                 />
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-88 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-scale-up space-y-3.5">
+                <div 
+                  data-popover="true"
+                  role="menu"
+                  className="popover-solid absolute right-0 top-full mt-2 w-80 sm:w-88 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-scale-up space-y-3.5 opacity-100"
+                >
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -737,6 +788,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                       </span>
 
                       <button
+                        type="button"
                         onClick={() => setIsSyncMenuOpen(false)}
                         className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                       >
@@ -746,7 +798,7 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
                   </div>
 
                   {/* Sync Status Info */}
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1">
+                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs space-y-1 border border-slate-100 dark:border-slate-700/60">
                     <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 font-medium">
                       <span>{lang === 'de' ? 'Synchronisiert:' : 'Synchronized:'}</span>
                       <span className="font-bold text-slate-900 dark:text-white">
@@ -818,32 +870,11 @@ export const TherapyPracticeModule: React.FC<TherapyPracticeModuleProps> = ({
               </>
             )}
           </div>
-
-          <button
-            onClick={() => setIsTaxAdvisorLedgerOpen(true)}
-            style={{ backgroundColor: 'var(--accent, #4f46e5)' }}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-white font-bold rounded-xl shadow-xs transition hover:brightness-110 active:scale-95 cursor-pointer"
-            title={lang === 'de' ? 'Kassenbuch & 12-Monate-Excel-Export' : 'Cash Ledger & Excel'}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>{lang === 'de' ? 'Kassenbuch' : 'Cash Ledger'}</span>
-          </button>
-
-          {onOpenInvoices && (
-            <button
-              onClick={onOpenInvoices}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl border border-slate-200/80 dark:border-slate-700 transition"
-              title={lang === 'de' ? 'Zur Rechnungs-App wechseln' : 'Open Invoices App'}
-            >
-              <CreditCard className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-              <span className="hidden lg:inline">{lang === 'de' ? 'Rechnungs-App' : 'Invoices'}</span>
-            </button>
-          )}
         </div>
       </div>
 
       {/* Main Tab Content */}
-      <main>
+      <main className="relative z-0">
         {tab === 'overview' && (
           <TherapyDashboard
             clients={data.clients}

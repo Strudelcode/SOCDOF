@@ -51,8 +51,10 @@ jobs:
           npm install
           npm install --save-dev electron electron-builder
 
-      - name: Build Web Frontend (Vite)
-        run: npm run build
+      - name: Build Web Frontend & NSIS Assets
+        run: |
+          node scripts/generate_nsis_bitmaps.js
+          npm run build
         env:
           VITE_DISCORD_BOT_TOKEN: ${{ secrets.VITE_DISCORD_BOT_TOKEN || secrets.DISCORD_BOT_TOKEN || '' }}
 

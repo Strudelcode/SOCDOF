@@ -45,7 +45,7 @@ export const DiscordEmbedPreview: React.FC<DiscordEmbedPreviewProps> = ({
     ? `@${cleanName} (@${cleanName})`
     : (isAnonymous ? '@Anonym' : `@${cleanName}`);
 
-  const channelName = isBug ? '#🐛 | REPORT' : '#💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ';
+  const channelName = isBug ? '#🐛 | REPORT' : '#💡idea-suggestions';
   const tagName = isBug ? '⏳ Neue Einreichung' : isFeedback ? '💬 Feedback' : '🌐 SOCDOF';
   const embedColor = isBug ? '#ed4245' : isFeedback ? '#38bdf8' : '#5865F2';
 

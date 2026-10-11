@@ -10,6 +10,7 @@ export interface ElectronAPI {
   getPlatformInfo: () => Promise<{ isElectron: boolean; platform: string; version: string }>;
   quitApp: () => Promise<void>;
   downloadAndInstallUpdate: (payload: { downloadUrl: string; version: string }) => Promise<{ success: boolean; error?: string }>;
+  testUpdatingSplash?: (version?: string) => Promise<{ success: boolean }>;
   onUpdateDownloadProgress: (callback: (data: { percent: number; downloadedBytes?: number; totalBytes?: number; isFinished?: boolean }) => void) => () => void;
   onPrepareForUpdate?: (callback: (data: { requestId: string }) => void) => () => void;
   reportUpdateBackupReady?: (requestId: string, result: { success: boolean; error?: string; backupPath?: string }) => void;

@@ -18,6 +18,7 @@ import {
 import { UpdateInfo, setVersionSkipped, snoozeUpdateNotification } from '../lib/updateChecker';
 import { GITHUB_RELEASES_URL, isElectron, downloadAndInstallDesktopUpdate, quitDesktopApp } from '../lib/platform';
 import { sounds } from '../lib/sound';
+import { SocdofLogo } from './SocdofLogo';
 
 interface UpdatePromptModalProps {
   updateInfo: UpdateInfo | null;
@@ -293,16 +294,34 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
           {downloadStep === 'installing' && (
             <div className="py-6 space-y-4 text-center animate-fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
-                <Loader2 className="w-8 h-8 animate-spin" />
+              <div 
+                className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl relative"
+                style={{ backgroundColor: 'var(--accent, #6366f1)' }}
+              >
+                <SocdofLogo size="md" />
+                <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-white" />
+                </span>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
-                  Update wird geräuschlos installiert...
+                <h4 className="font-extrabold text-lg text-slate-900 dark:text-white">
+                  Updating to Version v{updateInfo.latestVersion}...
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                  SOCDOF schließt sich kurz, installiert Version <strong>v{updateInfo.latestVersion}</strong> direkt im bestehenden Pfad und startet die Anwendung anschließend automatisch neu.
+                  SOCDOF schließt sich kurz, installiert Version <strong>v{updateInfo.latestVersion}</strong> im Hintergrund mit dem neuen Update-Begleiter und startet die Anwendung anschließend automatisch neu.
+                </p>
+                <div className="w-52 mx-auto bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700 mt-3">
+                  <div 
+                    className="h-full rounded-full animate-pulse"
+                    style={{
+                      background: 'linear-gradient(90deg, var(--accent, #6366f1), var(--accent-companion, #f59e0b))',
+                      width: '80%'
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium pt-1">
+                  🔒 Alle lokalen Rechnungen, Kontakte &amp; Einstellungen bleiben 100% erhalten
                 </p>
               </div>
             </div>

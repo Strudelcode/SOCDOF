@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.8.2';
+export const APP_VERSION = '24.8.8';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,72 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.8.8',
+    date: '2026-10-11',
+    title: 'Custom Download Hub, Setup Companion & Background "Updating to Version..." Splash',
+    highlights: [
+      'Custom Download Hub & Setup Companion: introduced a dedicated, interactive download screen featuring direct Windows .EXE installer downloads, live download progress indicator, and a 4-step installation companion guide',
+      'Windows SmartScreen Guidance: integrated an intuitive visual explanation for Windows Defender SmartScreen ("More Info" -> "Run Anyway") ensuring seamless first-time installation for new users',
+      'Native Background "Updating to Version..." Splash: when SOCDOF closes during automated updates to allow NSIS to replace binary files, a lightweight native frameless Windows splash window stays active on the user\'s screen showing real-time updating status and progress',
+      'In-App Update & Splash Preview: integrated a live simulation test button allowing users to preview and test the exact "Updating to Version..." window directly in the browser and manual'
+    ]
+  },
+  {
+    version: '24.8.7',
+    date: '2026-10-10',
+    title: 'High-Performance Dual-Major Changelog Preset & Comprehensive User Manual Expansion',
+    highlights: [
+      'Dual-major default preset (V24 & V23): the documentation changelog now defaults to loading exclusively the two newest major version cycles, pruning initial DOM nodes and ensuring smooth 60fps scrolling',
+      'Instant older release on-demand loading: added explicit "Show older versions (V22, V21...)" and "Reset filters (V24 & V23)" controls alongside full-archive keyword search across all 240+ releases',
+      'Expanded Documentation & Manual: integrated 8 comprehensive new chapters into the manual (Products & Inventory, Purchasing & Suppliers, Hospitality & Restaurant Suite, Commercial Calculator & Margin Math, Desktop Widgets & Taskbar Pins, App Store Modular Management, Invoice Sync & Cash Book, Power-User Shortcuts & Window Snapping)',
+      'Enhanced Showcase Matrix: enriched feature showcase with dedicated interactive overview cards for Hospitality & Dining, Customer Support Tickets, and Desktop Widgets'
+    ]
+  },
+  {
+    version: '24.8.6',
+    date: '2026-10-10',
+    title: 'Manual Changelog Performance Optimization & Progressive Loading',
+    highlights: [
+      'Progressive changelog rendering: the documentation app now initially renders the newest 15 releases instead of rendering all 240+ releases simultaneously, eliminating tab-switching frame drops and scroll lag',
+      'On-demand version expansion: introduced intuitive controls ("Load more versions (+20)" and "Load all") to load older releases progressively without freezing the DOM',
+      'Adaptive search & major filters: searching keywords or clicking specific major version pills (v24.x, v23.x...) immediately surfaces all matching releases without pagination restrictions'
+    ]
+  },
+  {
+    version: '24.8.5',
+    date: '2026-10-10',
+    title: 'Solid Opaque Popover Surfaces & Ambient Theme Exemption',
+    highlights: [
+      'Eliminated semi-transparent popovers: exempted popover menus, dropdowns, and flyout dialogs from ambient blurred frosted glass transparency rules so they always render 100% solid and opaque',
+      'Foreground clarity: enforced high z-index (z-50) and rich elevation shadows on Rechnungs-Sync and Praxis navigation menus to prevent any background text or cards from bleeding through',
+      'Solid inner cards: ensured status summaries and toggle rows inside dropdowns retain crisp, high-contrast, non-translucent background surfaces in both light and dark modes'
+    ]
+  },
+  {
+    version: '24.8.4',
+    date: '2026-10-10',
+    title: 'Praxis App Toolbar Alignment, Popout Stacking Context & Foreground Fix',
+    highlights: [
+      'Z-index stacking context elevation: raised the practice top navigation bar above the main content canvas so the Rechnungs-Sync dropdown menu renders completely in the foreground',
+      'Resolved visual bleed: eliminated overlap where dashboard action pills (+ Neuer Klient) and KPI cards were drawn on top of the open sync popout menu',
+      'Logical toolbar grouping: placed Kassenbuch (table / spreadsheet export) on the left side of the practice toolbar alongside navigation tabs',
+      'Clean popout anchoring: moved Rechnungs-Sync to the rightmost position so its sync options popout menu opens inward with right-aligned boundary without stranding the table button',
+      'Responsive boundary constraint: capped sync popout maximum width to prevent viewport overflows on narrow windows'
+    ]
+  },
+  {
+    version: '24.8.3',
+    date: '2026-10-09',
+    title: 'Single-User Auto-Login (Direct to Desktop), Multi-User Safeguard & Standard Discord Channel Naming',
+    highlights: [
+      'Single-User Auto-Login option in Settings: skip the login screen and launch directly into the desktop workspace without password prompts on startup',
+      'Strict single-user protection: auto-login can only be activated when exactly 1 account exists, and creating a second user is strictly prevented while auto-login is active',
+      'Comprehensive security controls: configure auto-login in Security Policies with live status badges, warnings in the user creation panel, and error enforcement',
+      'Desktop bypass on login screen: display instant direct-entry button on explicit logout so single users can return to the desktop with a single click',
+      'Normalized Discord channel labeling: updated idea and feedback forum channel labels to standard clean text (#💡idea-suggestions)'
+    ]
+  },
   {
     version: '24.8.2',
     date: '2026-10-08',

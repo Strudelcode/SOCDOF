@@ -1,7 +1,7 @@
 {
   "name": "socdof",
   "private": true,
-  "version": "24.8.2",
+  "version": "24.8.8",
   "description": "Strudel's Organization, Commerce & Documentation Offline Flow - Offline-first Windows ERP Desktop Suite & Web Workspace",
   "author": "Yuri / Strudel",
   "publisher": "Yuri / Strudel",
@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
-    "build:exe": "vite build && npx electron-builder --win --x64 --config electron-builder.json",
+    "build:bitmaps": "node scripts/generate_nsis_bitmaps.js",
+    "build:exe": "node scripts/generate_nsis_bitmaps.js && vite build && npx electron-builder --win --x64 --config electron-builder.json",
     "sign:exe": "powershell -ExecutionPolicy Bypass -File ./scripts/sign-windows-exe.ps1",
     "build:signed": "npm run build:exe && npm run sign:exe",
     "preview": "vite preview",

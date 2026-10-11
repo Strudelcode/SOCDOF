@@ -4,6 +4,67 @@
 
 ---
 
+### Custom Download Hub, Setup Companion & Background "Updating to Version..." Splash (v24.8.8)
+- [x] Designed custom TrueColor BMP3 branding graphics (`uninstallerSidebar.bmp`, `installerSidebar.bmp`, `installerHeader.bmp`) replacing the generic blue NSIS laptop banner with custom SOCDOF dark luxury styling.
+- [x] Configured `electron-builder.json` with custom NSIS sidebar, header, and icon paths for both installer and uninstaller.
+- [x] Designed and created `CustomDownloadModal.tsx`: A dedicated custom download screen with official Windows .EXE download, animated progress bar, and 4-step setup companion.
+- [x] Integrated visual Windows SmartScreen helper card explaining the 1-click workaround ("More info" -> "Run anyway") for newly built releases.
+- [x] Added native background "Updating to Version..." splash window in `electron/main.cjs` via lightweight PowerShell WPF window: When SOCDOF closes during silent updates, the splash stays on screen indicating real-time progress until the updated app relaunches.
+- [x] Created `UpdatingSplashModal.tsx` for live in-app simulation and testing in both web preview and desktop app.
+- [x] Integrated download hub triggers into the Start Menu, Windows notification toast, Windows Desktop Manager, and the User Manual.
+- [x] Added full translation support across all 4 languages (`de`, `en`, `fr`, `es`) in `src/lib/i18n.ts`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Dual-Major Changelog Preset & Comprehensive User Manual Expansion (v24.8.7)
+- [x] Configured documentation changelog to default to the two newest major version cycles (`V24 & V23`), eliminating DOM element overload and ensuring 60fps scrolling.
+- [x] Added dedicated preset button `[⚡ Neueste (V24 & V23)]` alongside `[Alle]` and individual major version pills.
+- [x] Added on-demand buttons to load older versions (`V22, V21...`) or load the entire 240+ release history.
+- [x] Retained instantaneous global keyword search across all 240+ releases when typing in the search bar.
+- [x] Added 8 comprehensive new chapters to the User Manual in all 4 languages (`de`, `en`, `fr`, `es`):
+  1. Products & Inventory Management
+  2. Purchasing & Supplier Management
+  3. Hospitality & Restaurant Suite
+  4. Commercial Calculator & Pricing Math
+  5. Desktop Widgets & Taskbar Pins
+  6. App Store & Modular Management
+  7. Invoice Sync & Spreadsheet Cash Book
+  8. Power-User Shortcuts & Multi-Window Velocity
+- [x] Enriched the Feature Showcase with 3 new interactive module cards (Restaurant, Support, Widgets).
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Manual Changelog Performance Optimization & Progressive Loading (v24.8.6)
+- [x] Implemented progressive disclosure for release history in `src/components/DocumentationApp.tsx`: defaults to loading the newest 15 releases instead of 240+ releases all at once.
+- [x] Added on-demand controls ("Mehr Versionen laden (+20)" and "Alle laden") at the end of the changelog list.
+- [x] Configured smart filter bypass: searching keywords or clicking specific major version pills (`v24.x`, `v23.x`...) instantly renders all matching results.
+- [x] Updated all localized UI texts across `de`, `en`, `fr`, and `es`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Solid Opaque Popover Surfaces & Ambient Theme Exemption (v24.8.5)
+- [x] Fixed semi-transparent dropdown popovers: exempted `.popover-solid`, `[data-popover="true"]`, and `[data-dropdown="true"]` from ambient theme frosted glass transparency rules in `src/index.css`.
+- [x] Enforced 100% solid, opaque backgrounds (`#ffffff` in light mode, `#0f172a` in dark mode) with `opacity: 1` and `backdrop-filter: none`.
+- [x] Eliminated background bleed-through: background cards, text, and tables no longer show through open menus.
+- [x] Ensured inner status boxes and toggle panels in dropdowns maintain solid, high-contrast surfaces.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Praxis App Toolbar Alignment, Popout Stacking Context & Foreground Fix (v24.8.4)
+- [x] Fixed stacking context ordering in `TherapyPracticeModule.tsx`: elevated top navigation bar (`relative z-20` / `z-40` when open) above `<main className="relative z-0">`.
+- [x] Prevented elements inside `<main>` (`+ Neuer Klient`, `Ansicht: Tabelle`, KPI cards) from rendering on top of the open `Rechnungs-Sync` dropdown menu.
+- [x] Added `pointerdown` outside-click listener with component refs (`syncMenuRef`, `moreMenuRef`) to dismiss dropdown menus when clicking elsewhere.
+- [x] Repositioned the table export button (`Kassenbuch (Excel)` / `FileSpreadsheet`) to the left of the quick-action cluster in `TherapyPracticeModule.tsx`, aligning it with the practice navigation tabs.
+- [x] Anchored `Rechnungs-Sync` to the far right of the toolbar so its options popout menu opens flush with `right-0` without stranding the table button or causing visual dislocation.
+- [x] Added `max-w-[calc(100vw-2rem)]` constraint to sync popout menu to prevent horizontal viewport clipping on narrow screens.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
 ### Company Contacts with Sub-contacts, Split Name Fields & Country Live Autocomplete (v24.8.2)
 - [x] Implemented company-first contact creation workflow allowing users to enter only the company name (`Firmenname (Fa.) *`) without forcing individual personal name inputs.
 - [x] Added support for company sub-contacts (Kontaktpersonen / Unterkontakte):
@@ -921,3 +982,21 @@
 - [x] Integrated `CustomerPickerModal` from the contacts CRM into `TherapyPracticeModule.tsx`, matching the Support module UX for selecting customers.
 - [x] Enabled auto-filling of patient form fields upon selecting a contact from the CRM.
 - [x] Integrated `ContactEditModal` for inline editing of contact details without leaving the Praxis & Therapy workspace.
+
+---
+
+### Company-Only Contacts with Sub-Contacts, Split Name Fields & Country Autocomplete (v24.8.2)
+- [x] Implemented company-only contact creation workflow (`Firmenname (Fa.) *`) without requiring personal name fields.
+- [x] Added complete sub-contacts / contact persons management for companies with first name, last name, email, phone, role, and primary star toggle.
+- [x] Split first and last name fields across individual contacts and sub-contacts.
+- [x] Implemented real-time live country autocomplete suggestions with flag emojis, ISO codes, and keyboard navigation.
+- [x] Integrated sub-contact cards in `ContactDetailModal` and deep search indexing across `ContactsModule` and `CustomerPickerModal`.
+
+---
+
+### Single-User Auto-Login (Direct to Desktop), Multi-User Safeguard & Standard Discord Channel Naming (v24.8.3)
+- [x] Implemented single-user auto-login toggle in Settings under Security Policies, skipping the login screen to enter the desktop directly on application launch.
+- [x] Enforced strict single-user restriction: auto-login can only be toggled when exactly 1 user exists; creating a second user is blocked at UI and logic levels while auto-login is active.
+- [x] Added seamless explicit logout handling with 1-click desktop bypass button on login screen.
+- [x] Standardized Discord channel naming from small-caps `#💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ` to standard clean text `#💡idea-suggestions`.
+

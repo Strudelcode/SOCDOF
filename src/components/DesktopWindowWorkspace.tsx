@@ -100,6 +100,8 @@ import { AccountingModule } from './AccountingModule';
 import { AppStoreModule } from './AppStoreModule';
 import { DocumentationApp } from './DocumentationApp';
 import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
+import { CustomDownloadModal } from './CustomDownloadModal';
+import { UpdatingSplashModal } from './UpdatingSplashModal';
 import { DesktopFolderModal } from './DesktopFolderModal';
 import { RestaurantModule } from './RestaurantModule';
 import { IOSBillingModule } from './IOSBillingModule';
@@ -109,6 +111,7 @@ import { DynamicCalendarIcon } from './DynamicCalendarIcon';
 import { DynamicReportsIcon } from './DynamicReportsIcon';
 import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../lib/googleCalendar';
 import { SocdofLogo } from './SocdofLogo';
+import { APP_VERSION } from '../lib/version';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
 import { getCurrentUser, getSession, getUserById } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
@@ -1015,6 +1018,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isPowerMenuOpen, setIsPowerMenuOpen] = useState(false);
   const [isLockedStandby, setIsLockedStandby] = useState(false);
   const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isUpdatingSplashOpen, setIsUpdatingSplashOpen] = useState(false);
+  const [splashUpdateVersion, setSplashUpdateVersion] = useState<string>(APP_VERSION);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isWebPreviewModalOpen, setIsWebPreviewModalOpen] = useState(false);
   const [isWebPreviewExitMode, setIsWebPreviewExitMode] = useState(false);
@@ -1023,7 +1029,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [feedbackInitialType, setFeedbackInitialType] = useState<'bug' | 'idea'>('bug');
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Listen for global open-feedback event
+  // Listen for global open-feedback event & download / update splash events
   useEffect(() => {
     const handleOpenFeedback = (e: any) => {
       if (e.detail?.type) {
@@ -1031,8 +1037,26 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       }
       setIsFeedbackModalOpen(true);
     };
+    const handleOpenDownload = () => {
+      sounds.playPop();
+      setIsDownloadModalOpen(true);
+    };
+    const handleOpenSplash = (e: any) => {
+      sounds.playPop();
+      if (e.detail?.version) {
+        setSplashUpdateVersion(e.detail.version);
+      }
+      setIsUpdatingSplashOpen(true);
+    };
+
     window.addEventListener('socdof-open-feedback', handleOpenFeedback);
-    return () => window.removeEventListener('socdof-open-feedback', handleOpenFeedback);
+    window.addEventListener('socdof:open-download-modal', handleOpenDownload);
+    window.addEventListener('socdof:open-updating-splash', handleOpenSplash);
+    return () => {
+      window.removeEventListener('socdof-open-feedback', handleOpenFeedback);
+      window.removeEventListener('socdof:open-download-modal', handleOpenDownload);
+      window.removeEventListener('socdof:open-updating-splash', handleOpenSplash);
+    };
   }, []);
 
   // Settings Dirty State & Save-on-Close Confirmation
@@ -3608,6 +3632,37 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
+          {/* Windows Desktop App Download Banner inside Start Menu */}
+          <div className="py-1">
+            <button
+              onClick={() => {
+                sounds.playPop();
+                setIsStartMenuOpen(false);
+                setIsDownloadModalOpen(true);
+              }}
+              className="w-full flex items-center justify-between p-2 rounded-2xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 transition cursor-pointer group text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div 
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs shrink-0"
+                  style={{ backgroundColor: 'var(--accent, #6366f1)' }}
+                >
+                  <Download className="w-3.5 h-3.5 group-hover:animate-bounce" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+                    <span>{t('download.hub_title', currentLang, 'SOCDOF Desktop herunterladen')}</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">.EXE</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                    Offline-Suite &bull; Setup-Begleiter &bull; v{APP_VERSION}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0 ml-1" />
+            </button>
+          </div>
+
           {/* Quick Links: Language, Docs, GitHub & Reports */}
           <div className="py-2 grid grid-cols-4 gap-1.5">
             <button
@@ -4382,6 +4437,25 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         onClose={() => setIsWindowsModalOpen(false)}
       />
 
+      {/* Custom SOCDOF Download Screen & Setup Companion */}
+      <CustomDownloadModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+        currentLang={currentLang}
+        onOpenUpdateSplash={(ver) => {
+          setSplashUpdateVersion(ver || APP_VERSION);
+          setIsUpdatingSplashOpen(true);
+        }}
+      />
+
+      {/* Modern Background Updater Splash Modal ("Updating to Version...") */}
+      <UpdatingSplashModal
+        isOpen={isUpdatingSplashOpen}
+        targetVersion={splashUpdateVersion}
+        onClose={() => setIsUpdatingSplashOpen(false)}
+        currentLang={currentLang}
+      />
+
       {/* Language Selection Modal */}
       <LanguageSelectionModal
         isOpen={isLanguageModalOpen}
@@ -4397,6 +4471,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       <WindowsExeNotificationToast
         disabled={Boolean(company.disable_exe_reminders)}
         onOpenWindowsManager={() => setIsWindowsModalOpen(true)}
+        onOpenDownloadModal={() => setIsDownloadModalOpen(true)}
       />
 
       {/* Web Preview Info & Download Modal (Only when in Web Preview) */}

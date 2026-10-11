@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatformInfo: () => ipcRenderer.invoke('socdof:get-platform'),
   quitApp: () => ipcRenderer.invoke('socdof:quit-app'),
   downloadAndInstallUpdate: (payload) => ipcRenderer.invoke('socdof:download-and-install-update', payload),
+  testUpdatingSplash: (version) => ipcRenderer.invoke('socdof:test-updating-splash', version),
   onPrepareForUpdate: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('socdof:prepare-for-update', listener);

@@ -1283,8 +1283,9 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     // Launch installer detached with silent in-place update flags (/S --force-run)
     // This updates the existing installation directory without prompting for paths and relaunches the app automatically
     setTimeout(() => {
+      let child = null;
       try {
-        const child = spawn(installerPath, ['/S', '--force-run'], {
+        child = spawn(installerPath, ['/S', '--force-run'], {
           detached: true,
           stdio: 'ignore'
         });
@@ -1293,6 +1294,9 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
         console.error('Failed to spawn installer, opening with shell:', spawnErr);
         shell.openPath(installerPath);
       }
+
+      // Show native Windows "Updating to Version..." splash window while installer runs
+      spawnWindowsUpdatingSplash(safeVersion, child ? child.pid : 0);
 
       // Exit app cleanly to allow the installer to overwrite files
       app.exit(0);
@@ -1303,6 +1307,137 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     console.error('Update download & execution failed:', err);
     return { success: false, error: err.message };
   }
+});
+
+// Native Windows Background Updater Splash Window ("Updating to Version...")
+function spawnWindowsUpdatingSplash(targetVersion, installerPid) {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const tempDir = app.getPath('temp');
+    const psScriptPath = path.join(tempDir, `socdof-updating-splash-${Date.now()}.ps1`);
+    const cleanVer = (targetVersion || 'update').replace(/[^a-zA-Z0-9._-]/g, '');
+    const cleanPid = parseInt(installerPid, 10) || 0;
+
+    const psContent = `
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+
+$targetVersion = "${cleanVer}"
+$installerPid = ${cleanPid}
+
+$xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SOCDOF Updater"
+        Height="210" Width="430"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="True">
+    <Border CornerRadius="20" Background="#0B0F19" BorderBrush="#4F46E5" BorderThickness="1.5">
+        <Border.Effect>
+            <DropShadowEffect Color="#4F46E5" BlurRadius="30" ShadowDepth="0" Opacity="0.45"/>
+        </Border.Effect>
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Brand Header -->
+            <StackPanel Orientation="Horizontal" Grid.Row="0" VerticalAlignment="Center">
+                <Border Width="38" Height="38" CornerRadius="12" Background="#4F46E5" Margin="0,0,12,0">
+                    <TextBlock Text="S" Foreground="White" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="SOCDOF Desktop" Foreground="#FFFFFF" FontWeight="Bold" FontSize="15" Margin="0,0,8,0"/>
+                        <Border Background="#1E1B4B" BorderBrush="#4338CA" BorderThickness="1" CornerRadius="6" Padding="6,1,6,1" VerticalAlignment="Center">
+                            <TextBlock Text="v$targetVersion" Foreground="#A5B4FC" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="Updating to Version v$targetVersion..." Foreground="#818CF8" FontWeight="SemiBold" FontSize="11" Margin="0,2,0,0"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Status Description -->
+            <TextBlock Grid.Row="1" Text="Update wird im Hintergrund installiert. SOCDOF schließt sich kurz und startet gleich automatisch neu..."
+                       Foreground="#94A3B8" FontSize="11" Margin="0,14,0,10" TextWrapping="Wrap"/>
+
+            <!-- Progress Bar -->
+            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="5" Background="#1E293B" Foreground="#4F46E5" BorderThickness="0" Margin="0,0,0,12"/>
+
+            <!-- Footer Notes -->
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="🔒 Lokale Daten &amp; Backups bleiben 100% erhalten" Foreground="#64748B" FontSize="10" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Strudelcode" Foreground="#475569" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
+"@
+
+try {
+    $stringReader = New-Object System.IO.StringReader($xaml)
+    $xmlReader = [System.Xml.XmlReader]::Create($stringReader)
+    $window = [System.Windows.Markup.XamlReader]::Load($xmlReader)
+
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(800)
+    $script:elapsedSec = 0
+
+    $timer.Add_Tick({
+        $script:elapsedSec += 0.8
+        $installerRunning = $false
+        if ($installerPid -gt 0) {
+            try {
+                $p = Get-Process -Id $installerPid -ErrorAction SilentlyContinue
+                if ($p -and -not $p.HasExited) {
+                    $installerRunning = $true
+                }
+            } catch {}
+        }
+        if ((-not $installerRunning -and $script:elapsedSec -gt 4) -or ($script:elapsedSec -ge 45)) {
+            $timer.Stop()
+            $window.Close()
+            try { Remove-Item -Path $PSCommandPath -Force -ErrorAction SilentlyContinue } catch {}
+        }
+    })
+    $timer.Start()
+
+    $window.ShowDialog() | Out-Null
+} catch {
+    exit 0
+}
+`;
+    fs.writeFileSync(psScriptPath, psContent, 'utf8');
+    const splashProc = spawn('powershell.exe', [
+      '-NoProfile',
+      '-WindowStyle', 'Hidden',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', psScriptPath
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    splashProc.unref();
+  } catch (err) {
+    console.warn('Failed to launch updating splash screen:', err);
+  }
+}
+
+ipcMain.handle('socdof:test-updating-splash', (_event, targetVersion) => {
+  spawnWindowsUpdatingSplash(targetVersion || '24.8.8', 0);
+  return { success: true };
 });
 
 // Backup directory manager - ensures Documents/SOCDOF/backups is pre-created and ready

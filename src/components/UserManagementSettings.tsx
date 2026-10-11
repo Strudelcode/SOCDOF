@@ -1498,6 +1498,89 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
               </label>
             </div>
 
+            {/* Dedicated Auto-Login Section */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{labels.autoLoginTitle}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        security.autoLoginSingleUser && users.length === 1
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                      }`}>
+                        {security.autoLoginSingleUser && users.length === 1 ? labels.autoLoginActiveBadge : labels.autoLoginInactiveBadge}
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {labels.autoLoginDesc}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status and Toggle Box */}
+              <div className={`p-4 rounded-2xl border transition ${
+                users.length === 1
+                  ? security.autoLoginSingleUser
+                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
+                    : 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80'
+                  : 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-200 dark:border-slate-700/60 opacity-80'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1 max-w-xl">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <span>{users.length === 1 ? `1 Benutzer registriert (@${users[0]?.username})` : `${users.length} Benutzer registriert`}</span>
+                      <span className="text-slate-400">•</span>
+                      <span className={users.length === 1 ? 'text-emerald-600 dark:text-emerald-400 text-[11px]' : 'text-amber-600 dark:text-amber-400 text-[11px]'}>
+                        {users.length === 1 ? 'Single-User-Modus kompatibel' : 'Multi-User-Modus aktiv'}
+                      </span>
+                    </div>
+                    {users.length > 1 ? (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                        {labels.autoLoginSingleOnlyHint}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {security.autoLoginSingleUser
+                          ? 'Beim App-Start wird automatisch @' + (users[0]?.username || 'admin') + ' angemeldet und direkt der Desktop geöffnet. Keine Passworteingabe nötig.'
+                          : 'Aktivieren Sie diese Option, um den Anmeldebildschirm zu überspringen und beim Start direkt auf den Desktop zu gelangen.'}
+                      </p>
+                    )}
+                  </div>
+
+                  <label className={`inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition select-none ${
+                    users.length === 1
+                      ? 'cursor-pointer hover:border-indigo-400 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white shadow-2xs'
+                      : 'cursor-not-allowed opacity-50 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      disabled={users.length !== 1}
+                      checked={Boolean(security.autoLoginSingleUser && users.length === 1)}
+                      onChange={(e) => {
+                        const nextVal = e.target.checked;
+                        setSecurity(prev => ({ ...prev, autoLoginSingleUser: nextVal }));
+                        try {
+                          updateSecuritySettings({ autoLoginSingleUser: nextVal });
+                          setAdminMessage(labels.securitySaved);
+                          sounds.playSuccess();
+                        } catch {
+                          sounds.playError();
+                        }
+                      }}
+                      className="rounded text-indigo-600 focus:ring-indigo-500/30"
+                    />
+                    <span>{security.autoLoginSingleUser && users.length === 1 ? labels.autoLoginActiveBadge : labels.autoLoginTitle}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={saveSecurity}

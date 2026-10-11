@@ -11,7 +11,8 @@ import {
   Lock,
   Sparkles,
   FolderPlus,
-  MousePointerClick
+  MousePointerClick,
+  ChevronRight
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { SocdofLogo } from './SocdofLogo';
@@ -209,6 +210,28 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
                   <span>.EXE Releases</span>
                 </a>
               </div>
+
+              {/* Open Modern Custom Download Hub & Companion Button */}
+              <button
+                onClick={() => {
+                  sounds.playPop();
+                  window.dispatchEvent(new CustomEvent('socdof:open-download-modal'));
+                  onClose();
+                }}
+                className="w-full p-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-md flex items-center justify-between group active:scale-98 text-left cursor-pointer"
+                style={{ backgroundColor: 'var(--accent, #6366f1)' }}
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-white" />
+                    <span className="text-xs">SOCDOF Download-Hub &amp; Setup-Begleiter öffnen</span>
+                  </div>
+                  <p className="text-[10px] text-white/80 font-normal">
+                    Interaktiver Installations-Assistent, .EXE-Installer &amp; Update-Vorschau
+                  </p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/80 group-hover:translate-x-1 transition-transform shrink-0" />
+              </button>
 
               {/* Action Buttons for Script Downloads */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

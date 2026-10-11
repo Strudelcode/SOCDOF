@@ -14,11 +14,13 @@ import { APP_VERSION } from '../lib/version';
 
 interface WindowsExeNotificationToastProps {
   onOpenWindowsManager?: () => void;
+  onOpenDownloadModal?: () => void;
   disabled?: boolean;
 }
 
 export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastProps> = ({
   onOpenWindowsManager,
+  onOpenDownloadModal,
   disabled = false
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -117,6 +119,11 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
 
   const handleDownloadExe = () => {
     sounds.playSuccess();
+    if (onOpenDownloadModal) {
+      setIsVisible(false);
+      onOpenDownloadModal();
+      return;
+    }
     setDownloadSuccess(true);
     // Direct link to the latest detected release
     window.open(downloadUrl, '_blank');

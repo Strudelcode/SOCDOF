@@ -666,7 +666,11 @@ export const TherapyBilling: React.FC<TherapyBillingProps> = ({
             {isViewMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsViewMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-scale-up">
+                <div 
+                  data-popover="true"
+                  role="menu"
+                  className="popover-solid absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-scale-up opacity-100"
+                >
                   <button
                     type="button"
                     onClick={() => { handleSetViewMode('table'); setIsViewMenuOpen(false); }}
