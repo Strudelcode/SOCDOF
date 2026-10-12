@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.8.8';
+export const APP_VERSION = '24.9.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,29 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.9.0',
+    date: '2026-10-12',
+    title: 'Discord-Style One-Click Installer & Frameless Startup Splash Window',
+    highlights: [
+      'One-Click Modern Installation: replaced the legacy multi-step Windows setup wizard with a seamless Discord/Claude-style One-Click installer installing silently to %LOCALAPPDATA%',
+      'Eliminated Wizard Prompts: removed all confusing legacy dialogs ("Installationsoption wählen", "Für wen installieren", "Weiter/Abbrechen") for zero-friction setup',
+      'Native Frameless Startup Splash: introduced an instant, dark glassmorphic startup window (320x380 px) with animated pulsing logo and shimmer progress bar, eliminating 10-15s blank launch waits',
+      'Seamless Transition: automatically reveals full-screen main window and destroys splash window the exact moment DOM and Electron runtime finish loading'
+    ]
+  },
+  {
+    version: '24.8.9',
+    date: '2026-10-12',
+    title: 'Multilingual BotGhost Webhook Translation Engine (Original, German & English)',
+    highlights: [
+      'Automatic Dual-Language Translation: user bug reports and feature ideas are automatically translated into German (german_...) and English (english_...) prior to BotGhost webhook dispatch',
+      'Original Input Preservation: user inputs are strictly preserved in their unaltered form across standard and original_ variables',
+      'HTTP 429 Prevention via Batched Pipeline: bundled all text fields (title, description, location, subarea) into a single batched translation call per language with multi-tier fallback to MyMemory and original text',
+      'Context-Aware Anonymity & Mentions: anonymous submitters are formatted as (@Anonym) in German and (@Anonymous) in English, while real Discord mentions (<@...>) and usernames are kept untouched',
+      'Complete 8-Way Variable Matrix & Top-Level Keys: provides all short and long webhook variable formats alongside top-level JSON fields for seamless BotGhost embedding'
+    ]
+  },
   {
     version: '24.8.8',
     date: '2026-10-11',

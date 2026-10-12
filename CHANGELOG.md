@@ -7,6 +7,22 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+### v24.9.0 — One-Click Setup & Frameless Startup-Splash (wie bei Discord & Claude)
+
+🚀 **Neu / What's New**:
+- **Modernes One-Click Setup ohne weiße Dialoge**: Der alte weiße Windows-Assistent mit "Für wen soll installiert werden?", "Weiter" und "Abbrechen" wurde komplett abgeschafft. SOCDOF installiert sich per Doppelklick in 2–3 Sekunden lautlos und automatisch in `%LOCALAPPDATA%` (genau wie Discord und Claude).
+- **Sofortiges Dark-Mode Startup-Splash-Fenster**: Wenn man SOCDOF startet, öffnet sich ab sofort in unter 100 ms ein kleines, edles Dark-Mode-Fenster (320×380 px) mit pulsierendem SOCDOF-Logo, animiertem Ladebalken und Status-Text ("Wird gestartet...").
+- **Keine 15 Sekunden Wartezeit mehr ohne Feedback**: Man weiß sofort, dass der Klick funktioniert hat. Sobald die Haupt-App bereit ist, verschwindet das kleine Splash-Fenster geschmeidig und das Dashboard öffnet sich.
+
+### v24.8.9 — Mehrsprachige BotGhost-Webhook-Übermittlung (Original, Deutsch & Englisch)
+
+🚀 **Neu / What's New**:
+- **Automatische Übersetzung & Text-Veredelung**: Jeder gesendete Bug-Report und Vorschlag wird vor der Weiterleitung an BotGhost automatisch in klares Deutsch (`german_...`) und Englisch (`english_...`) übersetzt, während die Originaleingabe (`original_...` und Standardvariablen) 100% erhalten bleibt.
+- **Rate-Limit Schutz durch Batch-Bündelung**: Alle Textfelder (Titel, Beschreibung, Bereich, Unterbereich) werden in einer einzigen gebündelten Anfrage übersetzt – das verhindert HTTP 429 Sperren zuverlässig.
+- **Anonymitäts- & Discord-Mention Erkennung**: Bei anonymen Meldungen wird automatisch `german_reported_by = (@Anonym)` und `english_reported_by = (@Anonymous)` gesetzt, während echte Discord-Pings (`<@...>`) unverändert bleiben.
+- **Nahtloses, gestochen scharfes Header-Banner (Option 1)**: Der obere Header im Installer besitzt ab sofort einen reinweißen Hintergrund (`#FFFFFF`), sodass der harte schwarze Kastenrand komplett verschwindet. Mit 4x Supersampling und Lanczos-Filter gerendert für kristallklare Darstellung ohne jegliche Pixelkanten auf High-DPI und 4K Bildschirmen.
+- **Komplette 8-Wege-Variablen-Matrix**: Alle Variablen stehen in BotGhost als Lang- und Kurzform sowie als Top-Level-JSON-Felder zur Verfügung.
+
 ### v24.8.8 — Custom Download-Hub & Hintergrund-Update-Fenster ("Updating to Version...")
 
 🚀 **Neu / What's New**:

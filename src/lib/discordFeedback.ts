@@ -5,12 +5,15 @@
  */
 
 import { APP_VERSION } from './version';
+import { buildMultilingualBotghostPayload } from './botghostTranslator';
 
 export interface DiscordReportPayload {
   type: 'bug' | 'idea' | 'feedback';
   title: string;
   categoryOrLocation: string;
+  subarea?: string;
   description: string;
+  imageUrl?: string;
   discordName?: string;
   discordUserId?: string;
   originalOfflineCreatedAt?: string;
@@ -1062,47 +1065,20 @@ export async function sendDiscordReport(
   const botghostWebhookUrl = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
   const botghostApiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
 
-  const botghostVariables = [
-    { name: 'Title', variable: '{webhook.title}', value: payload.title.trim() },
-    { name: 'Title (short)', variable: '{title}', value: payload.title.trim() },
-    { name: 'Reported By', variable: '{webhook.reported_by}', value: userMention },
-    { name: 'Reported By (short)', variable: '{reported_by}', value: userMention },
-    { name: 'User Mention', variable: '{webhook.user_mention}', value: userMention },
-    { name: 'User Mention (short)', variable: '{user_mention}', value: userMention },
-    { name: 'Username', variable: '{webhook.username}', value: cleanName },
-    { name: 'Username (short)', variable: '{username}', value: cleanName },
-    { name: 'Bug Location', variable: '{webhook.bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
-    { name: 'Bug Location (short)', variable: '{bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
-    { name: 'Location', variable: '{webhook.location}', value: payload.categoryOrLocation || 'Allgemein' },
-    { name: 'Category', variable: '{webhook.category}', value: payload.type },
-    { name: 'Category (short)', variable: '{category}', value: payload.type },
-    { name: 'Report Category', variable: '{webhook.report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-    { name: 'Report Category (short)', variable: '{report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-    { name: 'Report Type', variable: '{webhook.report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-    { name: 'Report Type (short)', variable: '{report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-    { name: 'Report Type Label', variable: '{webhook.report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
-    { name: 'Report Type Label (short)', variable: '{report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
-    { name: 'Bug Information', variable: '{webhook.bug_information}', value: payload.description || '' },
-    { name: 'Bug Information (short)', variable: '{bug_information}', value: payload.description || '' },
-    { name: 'Description', variable: '{webhook.description}', value: payload.description || '' },
-    { name: 'Description (short)', variable: '{description}', value: payload.description || '' },
-    { name: 'Browser Language', variable: '{webhook.browser_language}', value: systemLanguageStr },
-    { name: 'Browser Language (short)', variable: '{browser_language}', value: systemLanguageStr },
-    { name: 'Browsersprache', variable: '{webhook.browsersprache}', value: systemLanguageStr },
-    { name: 'Website Language', variable: '{webhook.website_language}', value: appLanguageStr },
-    { name: 'Website Language (short)', variable: '{website_language}', value: appLanguageStr },
-    { name: 'Webseitensprache', variable: '{webhook.webseitensprache}', value: appLanguageStr },
-    { name: 'App Version', variable: '{webhook.app_version}', value: appVersion },
-    { name: 'App Version (short)', variable: '{app_version}', value: appVersion },
-    { name: 'Project', variable: '{webhook.project}', value: 'SOCDOF' },
-    { name: 'Project (short)', variable: '{project}', value: 'SOCDOF' },
-    { name: 'Type', variable: '{webhook.type}', value: payload.type },
-    { name: 'Content', variable: '{webhook.content}', value: messageContent || `Neuer ${payload.type === 'bug' ? 'Bug-Report' : 'Vorschlag'} von ${cleanName}` }
-  ];
-
-  const bgPayload = {
-    variables: botghostVariables
-  };
+  const { payload: bgPayload, variables: botghostVariables } = await buildMultilingualBotghostPayload({
+    title: payload.title,
+    description: payload.description,
+    type: payload.type,
+    location: payload.categoryOrLocation,
+    subarea: payload.subarea,
+    userMention,
+    cleanName,
+    imageUrl: payload.imageUrl,
+    systemLanguageStr,
+    appLanguageStr,
+    appVersion,
+    messageContent
+  });
 
   // 1. Send via Electron Node.js IPC (bypasses browser CORS completely in Desktop App)
   // Direct HTTPS from Node.js process to api.botghost.com - no localhost, no ports, no web proxy needed
@@ -1347,47 +1323,20 @@ async function sendDiscordReportDirect(
 
   // 1. Try BotGhost Webhook Event
   if (botghostWebhookUrl) {
-    const botghostVariables = [
-      { name: 'Title', variable: '{webhook.title}', value: payload.title.trim() },
-      { name: 'Title (short)', variable: '{title}', value: payload.title.trim() },
-      { name: 'Reported By', variable: '{webhook.reported_by}', value: userMention },
-      { name: 'Reported By (short)', variable: '{reported_by}', value: userMention },
-      { name: 'User Mention', variable: '{webhook.user_mention}', value: userMention },
-      { name: 'User Mention (short)', variable: '{user_mention}', value: userMention },
-      { name: 'Username', variable: '{webhook.username}', value: cleanName },
-      { name: 'Username (short)', variable: '{username}', value: cleanName },
-      { name: 'Bug Location', variable: '{webhook.bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
-      { name: 'Bug Location (short)', variable: '{bug_location}', value: payload.categoryOrLocation || 'Allgemein' },
-      { name: 'Location', variable: '{webhook.location}', value: payload.categoryOrLocation || 'Allgemein' },
-      { name: 'Category', variable: '{webhook.category}', value: payload.type },
-      { name: 'Category (short)', variable: '{category}', value: payload.type },
-      { name: 'Report Category', variable: '{webhook.report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-      { name: 'Report Category (short)', variable: '{report_category}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-      { name: 'Report Type', variable: '{webhook.report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-      { name: 'Report Type (short)', variable: '{report_type}', value: payload.type === 'bug' ? 'bug' : 'idea' },
-      { name: 'Report Type Label', variable: '{webhook.report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
-      { name: 'Report Type Label (short)', variable: '{report_type_label}', value: payload.type === 'bug' ? 'Bug-Report' : 'Idee / Vorschlag' },
-      { name: 'Bug Information', variable: '{webhook.bug_information}', value: payload.description || '' },
-      { name: 'Bug Information (short)', variable: '{bug_information}', value: payload.description || '' },
-      { name: 'Description', variable: '{webhook.description}', value: payload.description || '' },
-      { name: 'Description (short)', variable: '{description}', value: payload.description || '' },
-      { name: 'Browser Language', variable: '{webhook.browser_language}', value: systemLanguageStr },
-      { name: 'Browser Language (short)', variable: '{browser_language}', value: systemLanguageStr },
-      { name: 'Browsersprache', variable: '{webhook.browsersprache}', value: systemLanguageStr },
-      { name: 'Website Language', variable: '{webhook.website_language}', value: appLanguageStr },
-      { name: 'Website Language (short)', variable: '{website_language}', value: appLanguageStr },
-      { name: 'Webseitensprache', variable: '{webhook.webseitensprache}', value: appLanguageStr },
-      { name: 'App Version', variable: '{webhook.app_version}', value: appVersion },
-      { name: 'App Version (short)', variable: '{app_version}', value: appVersion },
-      { name: 'Project', variable: '{webhook.project}', value: 'SOCDOF' },
-      { name: 'Project (short)', variable: '{project}', value: 'SOCDOF' },
-      { name: 'Type', variable: '{webhook.type}', value: payload.type },
-      { name: 'Content', variable: '{webhook.content}', value: messageContent || `Neuer ${payload.type === 'bug' ? 'Bug-Report' : 'Vorschlag'} von ${cleanName}` }
-    ];
-
-    const bgPayload = {
-      variables: botghostVariables
-    };
+    const { payload: bgPayload, variables: botghostVariables } = await buildMultilingualBotghostPayload({
+      title: payload.title,
+      description: payload.description,
+      type: payload.type,
+      location: payload.categoryOrLocation,
+      subarea: payload.subarea,
+      userMention,
+      cleanName,
+      imageUrl: payload.imageUrl,
+      systemLanguageStr,
+      appLanguageStr,
+      appVersion,
+      messageContent
+    });
 
     // 1. Send via Electron IPC (direct HTTPS to BotGhost)
     if (electronApi?.triggerBotghostWebhook) {

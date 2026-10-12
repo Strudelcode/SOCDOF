@@ -27,7 +27,8 @@ if (fs.existsSync(assetsJsonPath)) {
 const files = [
   { name: 'installerHeader.bmp', b64Key: 'installerHeader' },
   { name: 'installerSidebar.bmp', b64Key: 'installerSidebar' },
-  { name: 'uninstallerSidebar.bmp', b64Key: 'uninstallerSidebar' }
+  { name: 'uninstallerSidebar.bmp', b64Key: 'uninstallerSidebar' },
+  { name: 'installerSplash.bmp', b64Key: 'installerSplash' }
 ];
 
 for (const item of files) {

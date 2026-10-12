@@ -433,6 +433,45 @@ function startMobileSyncServer(preferredPort = 3000) {
 // Disable default top menu bar (File, Edit, View, Window)
 Menu.setApplicationMenu(null);
 
+let splashWindow = null;
+
+function createSplashWindow() {
+  if (splashWindow) return;
+  try {
+    splashWindow = new BrowserWindow({
+      width: 320,
+      height: 380,
+      frame: false,
+      transparent: false,
+      backgroundColor: '#070A14',
+      resizable: false,
+      center: true,
+      show: true,
+      skipTaskbar: false,
+      alwaysOnTop: true,
+      title: 'SOCDOF Desktop',
+      icon: process.platform === 'win32'
+        ? path.join(__dirname, '../public/socdof_icon.ico')
+        : path.join(__dirname, '../public/socdof_icon.png'),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false
+      }
+    });
+
+    const splashPath = path.join(__dirname, 'splash.html');
+    if (fs.existsSync(splashPath)) {
+      splashWindow.loadFile(splashPath);
+    }
+    splashWindow.on('closed', () => {
+      splashWindow = null;
+    });
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Splash window creation warning:', err);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -463,7 +502,18 @@ function createWindow() {
     if (mainWindow) {
       mainWindow.setFullScreen(true);
       mainWindow.show();
+      mainWindow.focus();
     }
+
+    // Smoothly close splash screen once main window is visible
+    setTimeout(() => {
+      if (splashWindow) {
+        try {
+          splashWindow.destroy();
+        } catch (_) {}
+        splashWindow = null;
+      }
+    }, 450);
   });
 
   // Load the compiled Vite app
@@ -1564,6 +1614,7 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  createSplashWindow();
   createWindow();
 
   // Defer background language seed & backup folder readiness so the UI thread renders immediately

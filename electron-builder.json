@@ -31,8 +31,9 @@
     ]
   },
   "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
+    "oneClick": true,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "SOCDOF Desktop",
@@ -41,9 +42,8 @@
     "deleteAppDataOnUninstall": false,
     "installerIcon": "public/socdof_icon.ico",
     "uninstallerIcon": "public/socdof_icon.ico",
-    "installerHeader": "public/installerHeader.bmp",
     "installerHeaderIcon": "public/socdof_icon.ico",
-    "installerSidebar": "public/installerSidebar.bmp",
+    "installerSplashScreen": "public/installerSplash.bmp",
     "uninstallerSidebar": "public/uninstallerSidebar.bmp"
   }
 }

@@ -4,6 +4,26 @@
 
 ---
 
+### Discord-Style One-Click Installer & Frameless Startup Splash Window (v24.9.0)
+- [x] Configured One-Click modern installation (`oneClick: true`, `perMachine: false`) in `electron-builder.json`, eliminating all legacy multi-step wizard dialogs ("Installationsoption wählen", "Für wen installieren", "Weiter/Abbrechen").
+- [x] Created `electron/splash.html`: Lightweight, modern, frameless startup splash screen (320x380 px) with dark theme, breathing logo glow, localized status text ("Wird gestartet..." / "Starting..."), and animated gradient shimmer bar.
+- [x] Integrated `createSplashWindow()` into `electron/main.cjs` to appear immediately within 100ms on application launch, with smooth graceful handoff to `mainWindow` on `ready-to-show`.
+- [x] Generated 4x supersampled `installerSplash.bmp` for NSIS extraction phase and synchronized via `scripts/generate_nsis_bitmaps.js`.
+- [x] **Verification**: `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
+### Multilingual BotGhost Webhook Translation Engine (v24.8.9)
+- [x] Implemented `src/lib/botghostTranslator.ts`: Automatic dual-language translation engine creating German (`german_...`) and English (`english_...`) variables while strictly preserving original inputs (`original_...` and standard variables).
+- [x] Implemented single-request batch bundling (`\n~~~STRUDEL_SEP~~~\n`) to prevent Google Translate HTTP 429 rate limits, with multi-stage fallbacks to MyMemory API and original fields.
+- [x] Integrated context-aware anonymity detection (`(@Anonym)` for German, `(@Anonymous)` for English) and Discord mention preservation (`<@...>` and `@username`).
+- [x] Provided complete 8-way variable matrix (`{webhook.field}`, `{field}`, `{webhook.original_field}`, `{original_field}`, `{webhook.german_field}`, `{german_field}`, `{webhook.english_field}`, `{english_field}`) and top-level JSON properties.
+- [x] Integrated into `submitDiscordReportWithStatus` and `sendDiscordReport` in `src/lib/discordFeedback.ts`.
+- [x] Redesigned NSIS installer header banner with seamless white background (`#FFFFFF`) and 4x supersampling (Option 1) to eliminate black box cutoff and pixelation on high-DPI displays.
+- [x] **Verification**: Tested pipeline in Node.js, `npm run lint` and `npm run build` passed with zero errors.
+
+---
+
 ### Custom Download Hub, Setup Companion & Background "Updating to Version..." Splash (v24.8.8)
 - [x] Designed custom TrueColor BMP3 branding graphics (`uninstallerSidebar.bmp`, `installerSidebar.bmp`, `installerHeader.bmp`) replacing the generic blue NSIS laptop banner with custom SOCDOF dark luxury styling.
 - [x] Configured `electron-builder.json` with custom NSIS sidebar, header, and icon paths for both installer and uninstaller.
