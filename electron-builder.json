@@ -43,7 +43,6 @@
     "installerIcon": "public/socdof_icon.ico",
     "uninstallerIcon": "public/socdof_icon.ico",
     "installerHeaderIcon": "public/socdof_icon.ico",
-    "installerSplashScreen": "public/installerSplash.bmp",
     "uninstallerSidebar": "public/uninstallerSidebar.bmp"
   }
 }
