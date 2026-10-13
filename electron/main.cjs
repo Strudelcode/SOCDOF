@@ -31,11 +31,11 @@ function createSplashWindow() {
     show: false,
     skipTaskbar: false,
     backgroundColor: '#101116',
-    title: 'SOCDOF wird gestartet',
+    title: 'Starting SOCDOF',
     icon: process.platform === 'win32'
       ? path.join(__dirname, '../public/socdof_icon.ico')
       : path.join(__dirname, '../public/socdof_icon.png'),
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   splashWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
