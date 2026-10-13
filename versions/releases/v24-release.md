@@ -2,6 +2,8 @@
 
 ## v24.10.0 — Selectable Installer & Immediate Branded Startup Splash
 
+- Added an instant-launch Windows bootstrapper with real download progress, install-directory selection, and a clean dark setup window.
+
 - Restored a guided Windows setup flow with a selectable installation directory and a Local AppData per-user default.
 - Applied SOCDOF's custom installer header and sidebar assets to the setup flow.
 - Added a minimal frameless branded splash while the desktop workspace initializes, dismissing it when the main window is ready.
