@@ -215,7 +215,7 @@ namespace SOCDOF.Bootstrapper
                 }
                 downloaded = true;
                 State("Ready to install", "You can still change the installation location.", 100, false);
-                install.Text = "Installation starten";
+                install.Text = "Install SOCDOF";
                 install.Enabled = true;
             }
             catch (Exception ex)
