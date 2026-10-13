@@ -57,7 +57,7 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [latestVersion, setLatestVersion] = useState<string>(APP_VERSION);
   const [downloadUrl, setDownloadUrl] = useState<string>(
-    `https://github.com/Strudelcode/SOCDOF/releases/download/v${APP_VERSION}/SOCDOF-Setup-${APP_VERSION}.exe`
+    `https://github.com/Strudelcode/SOCDOF/releases/download/v${APP_VERSION}/SOCDOF-Installer.exe`
   );
 
   const [isLocallyDownloaded, setIsLocallyDownloaded] = useState<boolean>(() => isDesktopInstalledOrDownloaded());
@@ -74,7 +74,9 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
         if (!isMounted || !data) return;
         const tag = data.tag_name ? data.tag_name.replace(/^v/, '') : APP_VERSION;
         setLatestVersion(tag || APP_VERSION);
-        const exeAsset = data.assets?.find((a: any) => 
+        const exeAsset = data.assets?.find((a: any) =>
+          typeof a.name === 'string' && a.name.toLowerCase() === 'socdof-installer.exe'
+        ) ?? data.assets?.find((a: any) =>
           typeof a.name === 'string' && a.name.toLowerCase().endsWith('.exe')
         );
         if (exeAsset?.browser_download_url) {
@@ -308,7 +310,7 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
                       <span>Offizielles SOCDOF Windows Setup</span>
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Dateiname: <code className="font-mono text-slate-700 dark:text-slate-300">SOCDOF-Setup-{latestVersion}.exe</code> (~95 MB)
+                      Dateiname: <code className="font-mono text-slate-700 dark:text-slate-300">SOCDOF-Installer.exe</code> (öffnet sofort ein Installationsfenster)
                     </p>
                   </div>
 
@@ -345,7 +347,7 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
                         {downloadStep === 'downloading' ? (
                           <>
                             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
-                            <span>Download läuft: SOCDOF-Setup-{latestVersion}.exe</span>
+                            <span>Download läuft: SOCDOF-Installer.exe</span>
                           </>
                         ) : (
                           <>
