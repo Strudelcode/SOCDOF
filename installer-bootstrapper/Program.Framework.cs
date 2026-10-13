@@ -222,7 +222,7 @@ namespace SOCDOF.Bootstrapper
             {
                 State("Download failed", "Check your internet connection and try again.", 0, false);
                 detail.Text = ex.Message.Length > 110 ? ex.Message.Substring(0, 110) + "…" : ex.Message;
-                install.Text = "Erneut versuchen";
+                install.Text = "Try again";
                 install.Enabled = true;
             }
         }
@@ -258,7 +258,7 @@ namespace SOCDOF.Bootstrapper
                 {
                     if (process == null) throw new InvalidOperationException("The setup could not be started.");
                     await Task.Run(delegate { process.WaitForExit(); });
-                    if (process.ExitCode != 0) throw new InvalidOperationException("Setup exited with error code " + process.ExitCode + " beendet.");
+                    if (process.ExitCode != 0) throw new InvalidOperationException("Setup exited with error code " + process.ExitCode + ".");
                 }
                 installed = true;
                 State("Installation complete", "SOCDOF was installed successfully.", 100, false);
