@@ -116,9 +116,9 @@ namespace SOCDOF.Bootstrapper
             bar.Tag = track;
             bar.Size = new Size(0, 5);
 
-            Label pathHeading = new Label { Text = "INSTALLATIONSORT", Location = new Point(0, 298), Size = new Size(300, 18), Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold), ForeColor = muted };
+            Label pathHeading = new Label { Text = "INSTALLATIONSORT", Location = new Point(0, 270), Size = new Size(300, 18), Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold), ForeColor = muted };
             content.Controls.Add(pathHeading);
-            Panel pathPanel = new Panel { Location = new Point(0, 322), Size = new Size(636, 48), BackColor = panel };
+            Panel pathPanel = new Panel { Location = new Point(0, 294), Size = new Size(636, 48), BackColor = panel };
             content.Controls.Add(pathPanel);
             pathText.SetBounds(16, 0, 475, 48);
             pathText.Text = target;
