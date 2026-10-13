@@ -29,6 +29,18 @@ jobs:
       - name: Build web application
         run: npm run build
 
+      - name: Package Windows NSIS installer
+        run: npx --yes electron-builder --win --x64 --config electron-builder.json --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Windows installer artifact
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem release -Filter 'SOCDOF-Setup-*.exe' -File | Select-Object -First 1
+          if (-not $setup) { throw "Electron Builder did not produce the expected SOCDOF-Setup-*.exe artifact." }
+          Write-Host "Verified installer artifact: $($setup.FullName) ($($setup.Length) bytes)"
+
       - name: Compile instant-launch bootstrapper
         shell: powershell
         run: |
