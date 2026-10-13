@@ -20,7 +20,8 @@ export const VERSION_HISTORY: VersionRelease[] = [
     highlights: [
       'Selectable Windows installation directory while retaining per-user installation under Local AppData by default',
       'Added a compact branded startup splash that appears while the SOCDOF workspace initializes, then closes when the main window is ready',
-      'Applied SOCDOF installer header and sidebar branding to the location-selection setup flow'
+      'Applied SOCDOF installer header and sidebar branding to the location-selection setup flow',
+      'Added a lightweight Windows bootstrapper that opens immediately, downloads the latest setup with real progress, and supports a custom installation directory'
     ]
   },
   {
