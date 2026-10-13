@@ -31,7 +31,7 @@ function createSplashWindow() {
     show: false,
     skipTaskbar: false,
     backgroundColor: '#101116',
-    title: 'SOCDOF wird gestartet',
+    title: 'Starting SOCDOF',
     icon: process.platform === 'win32'
       ? path.join(__dirname, '../public/socdof_icon.ico')
       : path.join(__dirname, '../public/socdof_icon.png'),
