@@ -400,7 +400,7 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
                       <span>Datei herunterladen</span>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
-                      Die Datei <code className="text-indigo-600 dark:text-indigo-400 font-mono">SOCDOF-Setup-{latestVersion}.exe</code> wird in Ihrem gewohnten Windows-Download-Ordner gespeichert.
+                      Die Datei <code className="text-indigo-600 dark:text-indigo-400 font-mono">SOCDOF-Installer.exe</code> wird in Ihrem gewohnten Windows-Download-Ordner gespeichert.
                     </p>
                   </div>
 
