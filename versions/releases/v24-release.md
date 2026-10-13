@@ -1,5 +1,11 @@
 # SOCDOF v24 Release Overview
 
+## v24.10.0 — Selectable Installer & Immediate Branded Startup Splash
+
+- Restored a guided Windows setup flow with a selectable installation directory and a Local AppData per-user default.
+- Applied SOCDOF's custom installer header and sidebar assets to the setup flow.
+- Added a minimal frameless branded splash while the desktop workspace initializes, dismissing it when the main window is ready.
+
 ## v24.6.2 — Polished Settings Overview & Clear Section Navigation
 
 - Replaced the low-contrast native compact-window selector with a grouped themed menu that supports Escape and outside-click dismissal.
