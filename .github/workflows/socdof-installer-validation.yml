@@ -29,6 +29,12 @@ jobs:
       - name: Build web application
         run: npm run build
 
+      - name: Prepare NSIS artwork
+        run: node scripts/generate_nsis_bitmaps.js
+
+      - name: Install Electron packaging tools
+        run: npm install --no-save --no-package-lock electron electron-builder
+
       - name: Package Windows NSIS installer
         run: npx --yes electron-builder --win --x64 --config electron-builder.json --publish never
         env:
