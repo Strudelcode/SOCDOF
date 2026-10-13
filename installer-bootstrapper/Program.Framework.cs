@@ -56,7 +56,7 @@ namespace SOCDOF.Bootstrapper
             ForeColor = Color.White;
             ShowInTaskbar = true;
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width + 1, Height + 1));
+            Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 18, 18));
             Compose();
             Shown += async delegate { await DownloadLatestAsync(); };
             FormClosed += delegate { http.Dispose(); };
