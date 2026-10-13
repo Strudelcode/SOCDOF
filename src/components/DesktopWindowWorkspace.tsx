@@ -117,6 +117,13 @@ import { getCurrentUser, getSession, getUserById } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
+import { 
+  evaluateStartMenuDownloadBanner, 
+  isDesktopInstalledOrDownloaded, 
+  onDesktopDownloadStateChanged, 
+  markDesktopAsInstalled, 
+  type StartMenuBannerState 
+} from '../lib/desktopDownloadStatus';
 import { CommandPaletteModal } from './CommandPaletteModal';
 import { TaskViewModal } from './TaskViewModal';
 import { DesktopWidgetsLayer } from './DesktopWidgetsLayer';
@@ -1240,14 +1247,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Automatic GitHub Release Update Notification state
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isUpdatePromptOpen, setIsUpdatePromptOpen] = useState(false);
+  const latestKnownReleaseRef = useRef<string | undefined>(undefined);
+  const [downloadBannerState, setDownloadBannerState] = useState<StartMenuBannerState>(() =>
+    evaluateStartMenuDownloadBanner()
+  );
+
+  // Sync download banner whenever local download/installed state changes
+  useEffect(() => {
+    const unsub = onDesktopDownloadStateChanged(() => {
+      setDownloadBannerState(evaluateStartMenuDownloadBanner(latestKnownReleaseRef.current));
+    });
+    return unsub;
+  }, []);
 
   // Background update check on startup (respecting snooze and skipped versions)
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
         const info = await checkForAppUpdates();
-        if (info && info.hasUpdate) {
-          if (!isVersionSkipped(info.latestVersion) && !isUpdateSnoozed()) {
+        if (info) {
+          latestKnownReleaseRef.current = info.latestVersion;
+          setDownloadBannerState(evaluateStartMenuDownloadBanner(info.latestVersion));
+          if (info.hasUpdate && !isVersionSkipped(info.latestVersion) && !isUpdateSnoozed()) {
             setUpdateInfo(info);
             setIsUpdatePromptOpen(true);
             sounds.playPop();
@@ -3632,36 +3653,74 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Windows Desktop App Download Banner inside Start Menu */}
-          <div className="py-1">
-            <button
-              onClick={() => {
-                sounds.playPop();
-                setIsStartMenuOpen(false);
-                setIsDownloadModalOpen(true);
-              }}
-              className="w-full flex items-center justify-between p-2 rounded-2xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 transition cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div 
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs shrink-0"
-                  style={{ backgroundColor: 'var(--accent, #6366f1)' }}
-                >
-                  <Download className="w-3.5 h-3.5 group-hover:animate-bounce" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
-                    <span>{t('download.hub_title', currentLang, 'SOCDOF Desktop herunterladen')}</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">.EXE</span>
+          {/* Windows Desktop App Download Banner inside Start Menu - Only shown if not downloaded yet OR if newer version available */}
+          {downloadBannerState.show && (
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  sounds.playPop();
+                  setIsStartMenuOpen(false);
+                  setIsDownloadModalOpen(true);
+                }}
+                className={`w-full flex items-center justify-between p-2 rounded-2xl border transition cursor-pointer group text-left ${
+                  downloadBannerState.isUpdate
+                    ? 'bg-gradient-to-r from-amber-50 to-indigo-50 hover:from-amber-100/80 hover:to-indigo-100/80 dark:from-amber-950/30 dark:to-indigo-950/40 dark:hover:from-amber-950/50 dark:hover:to-indigo-950/60 border-amber-300/80 dark:border-amber-700/60 shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700/80'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div 
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs shrink-0"
+                    style={{ backgroundColor: downloadBannerState.isUpdate ? '#f59e0b' : 'var(--accent, #6366f1)' }}
+                  >
+                    {downloadBannerState.isUpdate ? (
+                      <Sparkles className="w-3.5 h-3.5 animate-pulse text-white" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 group-hover:animate-bounce" />
+                    )}
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                    Offline-Suite &bull; Setup-Begleiter &bull; v{APP_VERSION}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+                      <span>
+                        {downloadBannerState.isUpdate
+                          ? t('download.update_banner_title', currentLang, 'Neues Update verfügbar')
+                          : t('download.hub_title', currentLang, 'SOCDOF Desktop herunterladen')}
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
+                        downloadBannerState.isUpdate
+                          ? 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
+                          : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+                      }`}>
+                        {downloadBannerState.isUpdate ? `v${downloadBannerState.versionToDisplay}` : '.EXE'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                      {downloadBannerState.isUpdate
+                        ? t('download.update_banner_sub', currentLang, 'Neuere Version bereit • Klick zum Aktualisieren')
+                        : `Offline-Suite • Setup-Begleiter • v${APP_VERSION}`}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0 ml-1" />
-            </button>
-          </div>
+                <div className="flex items-center gap-1 shrink-0 ml-1">
+                  {!downloadBannerState.isUpdate && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sounds.playSuccess();
+                        markDesktopAsInstalled(true);
+                      }}
+                      title={t('download.mark_as_downloaded', currentLang, 'Bereits heruntergeladen? Hier klicken')}
+                      className="p-1 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
+                </div>
+              </button>
+            </div>
+          )}
 
           {/* Quick Links: Language, Docs, GitHub & Reports */}
           <div className="py-2 grid grid-cols-4 gap-1.5">
@@ -4050,7 +4109,13 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {!isDesktopApp && (
             <button
               onClick={() => { sounds.playPop(); setIsWebPreviewModalOpen(true); }}
-              title={t('preview.taskbar_title', currentLang, 'Web-Vorschau aktiv – Klick für Download der vollen Windows Desktop App (.exe)')}
+              title={
+                downloadBannerState.isUpdate
+                  ? t('preview.taskbar_update_title', currentLang, 'Update verfügbar – Klick für Download der neuesten Windows App (.exe)')
+                  : isDesktopInstalledOrDownloaded()
+                  ? t('preview.taskbar_installed_title', currentLang, 'Web-Vorschau aktiv (Windows Desktop App bereits heruntergeladen)')
+                  : t('preview.taskbar_title', currentLang, 'Web-Vorschau aktiv – Klick für Download der vollen Windows Desktop App (.exe)')
+              }
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-pink-500/15 hover:from-indigo-500/25 hover:to-pink-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition shadow-xs group"
             >
               <span className="relative flex h-2 w-2">

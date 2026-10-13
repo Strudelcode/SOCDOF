@@ -339,13 +339,7 @@ export function getSubmittedDiscordReports(): SubmittedDiscordReport[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.map((r: any) => {
-          // Auto-heal reports that were falsely marked as deleted (e.g. non-snowflake or false 403/404)
-          if (r.isDeleted && (!r.threadId || !/^\d{17,20}$/.test(r.threadId))) {
-            return { ...r, isDeleted: false };
-          }
-          return r;
-        });
+        return parsed;
       }
     }
   } catch {}
@@ -357,6 +351,54 @@ export function saveSubmittedDiscordReport(report: SubmittedDiscordReport): void
     const existing = getSubmittedDiscordReports();
     const updated = [report, ...existing.filter(r => r.id !== report.id && r.threadId !== report.threadId)];
     localStorage.setItem(SUBMITTED_REPORTS_STORAGE_KEY, JSON.stringify(updated.slice(0, 50)));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('socdof:discord-reports-changed', { detail: { reports: updated } }));
+    }
+  } catch {}
+}
+
+export function markSubmittedReportDeleted(idOrThreadId: string): void {
+  try {
+    const existing = getSubmittedDiscordReports();
+    const updated = existing.map(r => {
+      if (r.id === idOrThreadId || r.threadId === idOrThreadId) {
+        return { ...r, isDeleted: true, lastSyncedAt: new Date().toISOString() };
+      }
+      return r;
+    });
+    localStorage.setItem(SUBMITTED_REPORTS_STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('socdof:discord-reports-changed', { detail: { reports: updated } }));
+    }
+  } catch {}
+}
+
+export function clearDeletedDiscordReports(): void {
+  try {
+    const existing = getSubmittedDiscordReports();
+    const updated = existing.filter(r => !r.isDeleted);
+    localStorage.setItem(SUBMITTED_REPORTS_STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('socdof:discord-reports-changed', { detail: { reports: updated } }));
+    }
+  } catch {}
+}
+
+export function updateSubmittedDiscordReportStatus(idOrThreadId: string, status: DiscordReportStatus, isDeleted?: boolean): void {
+  try {
+    const existing = getSubmittedDiscordReports();
+    const updated = existing.map(r => {
+      if (r.id === idOrThreadId || r.threadId === idOrThreadId) {
+        return {
+          ...r,
+          status,
+          isDeleted: isDeleted !== undefined ? isDeleted : r.isDeleted,
+          lastSyncedAt: new Date().toISOString()
+        };
+      }
+      return r;
+    });
+    localStorage.setItem(SUBMITTED_REPORTS_STORAGE_KEY, JSON.stringify(updated));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('socdof:discord-reports-changed', { detail: { reports: updated } }));
     }
@@ -600,13 +642,8 @@ export async function syncDiscordReports(
 
   // Merge synchronized data with stored reports
   const updatedReports = reports.map(rep => {
-    // Non-snowflake IDs (like BotGhost bg_...) were posted via webhook and cannot be queried as channels.
-    // They must NEVER be marked as deleted. Auto-heal them if previously flagged.
+    // Non-snowflake IDs (like BotGhost bg_...) were posted via webhook and cannot be directly queried as channels.
     if (!isSnowflake(rep.threadId)) {
-      if (rep.isDeleted) {
-        changedCount++;
-        return { ...rep, isDeleted: false };
-      }
       return rep;
     }
 
@@ -622,11 +659,7 @@ export async function syncDiscordReports(
       };
     }
     if (!syncInfo) {
-      // If we could not contact Discord or thread wasn't checked, preserve the report without deleting
-      if (rep.isDeleted) {
-        changedCount++;
-        return { ...rep, isDeleted: false };
-      }
+      // If we could not contact Discord or thread wasn't checked, preserve report state as is
       return rep;
     }
 
@@ -706,7 +739,14 @@ export interface DiscordThreadMessage {
  */
 export async function fetchDiscordThreadMessages(
   threadId: string
-): Promise<{ success: boolean; messages: DiscordThreadMessage[]; error?: string }> {
+): Promise<{ 
+  success: boolean; 
+  messages: DiscordThreadMessage[]; 
+  isDeleted?: boolean;
+  notFound?: boolean;
+  isTokenMissing?: boolean;
+  error?: string; 
+}> {
   if (!threadId) {
     return { success: false, messages: [], error: 'Thread ID is required' };
   }
@@ -744,6 +784,11 @@ export async function fetchDiscordThreadMessages(
           };
         });
         return { success: true, messages: sorted };
+      } else if (res.status === 404 || res.status === 410 || res.error?.includes('10003') || res.error?.includes('Unknown Channel')) {
+        markSubmittedReportDeleted(threadId);
+        return { success: false, messages: [], notFound: true, isDeleted: true, error: 'thread_deleted' };
+      } else if (res.status === 401 || res.status === 403) {
+        return { success: false, messages: [], isTokenMissing: true, error: 'token_missing' };
       }
     } catch {}
   }
@@ -759,59 +804,78 @@ export async function fetchDiscordThreadMessages(
       })
     });
 
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.success && Array.isArray(data.messages)) {
-        return { success: true, messages: data.messages };
-      }
+    let data: any = {};
+    try { data = await resp.json(); } catch {}
+
+    if (resp.ok && data.success && Array.isArray(data.messages)) {
+      return { success: true, messages: data.messages };
+    }
+
+    if (data.notFound || data.isDeleted || resp.status === 404 || resp.status === 410 || String(data.error).includes('10003') || String(data.error).includes('Unknown Channel')) {
+      markSubmittedReportDeleted(threadId);
+      return { success: false, messages: [], notFound: true, isDeleted: true, error: 'thread_deleted' };
+    }
+
+    if (resp.status === 400 && String(data.error).includes('No Discord bot token configured')) {
+      return { success: false, messages: [], isTokenMissing: true, error: 'token_missing' };
     }
   } catch (proxyErr) {
     console.warn('Backend proxy /api/discord/thread-messages failed, trying direct API...', proxyErr);
   }
 
   // 2. Direct Discord API Fallback
-  try {
-    const directResp = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages?limit=50`, {
-      headers: {
-        Authorization: `Bot ${DISCORD_CONFIG.BOT_TOKEN}`,
-        'Content-Type': 'application/json'
+  if (DISCORD_CONFIG.BOT_TOKEN) {
+    try {
+      const directResp = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages?limit=50`, {
+        headers: {
+          Authorization: `Bot ${DISCORD_CONFIG.BOT_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (directResp.ok) {
+        const rawMessages = await directResp.json();
+        if (Array.isArray(rawMessages)) {
+          const sorted = [...rawMessages].reverse().map((msg: any) => {
+            const avatarUrl = msg.author?.avatar
+              ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png?size=80`
+              : `https://cdn.discordapp.com/embed/avatars/${(parseInt(msg.author?.id || '0', 10) || 0) % 5}.png`;
+
+            return {
+              id: msg.id,
+              content: msg.content || '',
+              author: {
+                id: msg.author?.id || '',
+                username: msg.author?.username || 'Discord User',
+                globalName: msg.author?.global_name,
+                avatar: msg.author?.avatar,
+                avatarUrl,
+                bot: !!msg.author?.bot
+              },
+              timestamp: msg.timestamp,
+              embeds: msg.embeds,
+              attachments: msg.attachments
+            };
+          });
+
+          return { success: true, messages: sorted };
+        }
+      } else {
+        const errText = await directResp.text();
+        if (directResp.status === 404 || directResp.status === 410 || errText.includes('10003') || errText.includes('Unknown Channel')) {
+          markSubmittedReportDeleted(threadId);
+          return { success: false, messages: [], notFound: true, isDeleted: true, error: 'thread_deleted' };
+        }
+        if (directResp.status === 401 || directResp.status === 403) {
+          return { success: false, messages: [], isTokenMissing: true, error: 'token_missing' };
+        }
+        return { success: false, messages: [], error: `Discord HTTP ${directResp.status}: ${errText}` };
       }
-    });
-
-    if (directResp.ok) {
-      const rawMessages = await directResp.json();
-      if (Array.isArray(rawMessages)) {
-        // Chronological order: oldest to newest
-        const sorted = [...rawMessages].reverse().map((msg: any) => {
-          const avatarUrl = msg.author?.avatar
-            ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png?size=80`
-            : `https://cdn.discordapp.com/embed/avatars/${(parseInt(msg.author?.id || '0', 10) || 0) % 5}.png`;
-
-          return {
-            id: msg.id,
-            content: msg.content || '',
-            author: {
-              id: msg.author?.id || '',
-              username: msg.author?.username || 'Discord User',
-              globalName: msg.author?.global_name,
-              avatar: msg.author?.avatar,
-              avatarUrl,
-              bot: !!msg.author?.bot
-            },
-            timestamp: msg.timestamp,
-            embeds: msg.embeds,
-            attachments: msg.attachments
-          };
-        });
-
-        return { success: true, messages: sorted };
-      }
-    } else {
-      const errText = await directResp.text();
-      return { success: false, messages: [], error: `Discord HTTP ${directResp.status}: ${errText}` };
+    } catch (err: any) {
+      return { success: false, messages: [], error: err?.message || String(err) };
     }
-  } catch (err: any) {
-    return { success: false, messages: [], error: err?.message || String(err) };
+  } else {
+    return { success: false, messages: [], isTokenMissing: true, error: 'token_missing' };
   }
 
   return { success: false, messages: [], error: 'Unable to fetch thread messages' };

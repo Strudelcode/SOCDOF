@@ -117,6 +117,7 @@ import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '
 import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
 import { checkForAppUpdates, UpdateInfo } from '../lib/updateChecker';
+import { markDesktopAsInstalled } from '../lib/desktopDownloadStatus';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import {
   getStoredBackupSnapshots,
@@ -6398,13 +6399,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   onClick={() => {
                     const next = !profile.disable_exe_reminders;
                     handleSaveProfile({ disable_exe_reminders: next });
-                    if (next) {
-                      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
-                      localStorage.setItem('socdof_exe_installed', 'true');
-                    } else {
-                      localStorage.removeItem('socdof_dismiss_exe_reminder');
-                      localStorage.removeItem('socdof_exe_installed');
-                    }
+                    markDesktopAsInstalled(next);
                   }}
                   className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
                     profile.disable_exe_reminders ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'

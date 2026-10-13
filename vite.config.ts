@@ -936,9 +936,11 @@ function discordFeedbackPlugin(): Plugin {
                     lastSyncedAt: new Date().toISOString()
                   };
                 } else {
+                  const isNotFound = resp.status === 404 || resp.status === 410;
                   threadResults[threadId] = {
                     id: threadId,
-                    notFound: resp.status === 404 || resp.status === 410,
+                    notFound: isNotFound,
+                    isDeleted: isNotFound,
                     httpStatus: resp.status,
                     lastSyncedAt: new Date().toISOString()
                   };
@@ -1026,9 +1028,16 @@ function discordFeedbackPlugin(): Plugin {
               res.statusCode = 200;
               res.end(JSON.stringify({ success: true, threadId, messages }));
             } else {
+              const isNotFound = response.status === 404 || response.status === 410;
               const errText = await response.text();
-              res.statusCode = response.status;
-              res.end(JSON.stringify({ success: false, status: response.status, error: errText }));
+              res.statusCode = isNotFound ? 200 : response.status;
+              res.end(JSON.stringify({ 
+                success: false, 
+                notFound: isNotFound,
+                isDeleted: isNotFound,
+                status: response.status, 
+                error: isNotFound ? 'Unknown Channel' : errText 
+              }));
             }
           } catch (err: any) {
             res.statusCode = 500;

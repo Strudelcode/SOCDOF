@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Download,
   CheckCircle2,
+  Check,
   Monitor,
   ExternalLink,
   ShieldCheck,
@@ -29,6 +30,12 @@ import {
   downloadPowerShellSetupWizard,
   OFFICIAL_RELEASES_PAGE_URL 
 } from '../lib/windowsExeDownloader';
+import {
+  recordDesktopDownloaded,
+  isDesktopInstalledOrDownloaded,
+  getDownloadedDesktopVersion,
+  markDesktopAsInstalled
+} from '../lib/desktopDownloadStatus';
 
 interface CustomDownloadModalProps {
   isOpen: boolean;
@@ -52,6 +59,9 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
   const [downloadUrl, setDownloadUrl] = useState<string>(
     `https://github.com/Strudelcode/SOCDOF/releases/download/v${APP_VERSION}/SOCDOF-Setup-${APP_VERSION}.exe`
   );
+
+  const [isLocallyDownloaded, setIsLocallyDownloaded] = useState<boolean>(() => isDesktopInstalledOrDownloaded());
+  const [downloadedVer, setDownloadedVer] = useState<string | null>(() => getDownloadedDesktopVersion());
 
   // Check for latest GitHub release
   useEffect(() => {
@@ -86,10 +96,29 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleToggleDownloadedState = (status: boolean) => {
+    if (status) {
+      sounds.playSuccess();
+      markDesktopAsInstalled(true);
+      setIsLocallyDownloaded(true);
+      setDownloadedVer(latestVersion);
+    } else {
+      sounds.playClick();
+      markDesktopAsInstalled(false);
+      setIsLocallyDownloaded(false);
+      setDownloadedVer(null);
+    }
+  };
+
   const handleStartDownload = () => {
     sounds.playSuccess();
     setDownloadStep('downloading');
     setDownloadProgress(20);
+
+    // Save download state so the home screen banner knows the user has downloaded it!
+    recordDesktopDownloaded(latestVersion);
+    setIsLocallyDownloaded(true);
+    setDownloadedVer(latestVersion);
 
     // Open actual direct download or release URL
     window.open(downloadUrl, '_blank');
@@ -99,6 +128,9 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
     const timer2 = setTimeout(() => {
       setDownloadProgress(100);
       setDownloadStep('completed');
+      recordDesktopDownloaded(latestVersion);
+      setIsLocallyDownloaded(true);
+      setDownloadedVer(latestVersion);
       sounds.playSuccess();
     }, 1400);
 
@@ -226,7 +258,41 @@ export const CustomDownloadModal: React.FC<CustomDownloadModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Download & Installation Status Card */}
+          {isLocallyDownloaded ? (
+            <div className="flex items-center justify-between p-3 px-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-xs shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="font-semibold text-emerald-900 dark:text-emerald-200 truncate">
+                  {t('download.already_downloaded_badge', activeLang, 'Bereits heruntergeladen & auf diesem PC vorhanden')}
+                  {downloadedVer && <span className="ml-1 text-[11px] font-mono opacity-80">(v{downloadedVer})</span>}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleDownloadedState(false)}
+                className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 underline cursor-pointer shrink-0 ml-2"
+              >
+                {t('download.mark_as_not_downloaded', activeLang, 'Status zurücksetzen')}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 px-4 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                {t('download.already_have_app_question', activeLang, 'Haben Sie SOCDOF bereits auf diesen PC heruntergeladen?')}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleToggleDownloadedState(true)}
+                className="px-3 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 font-bold hover:bg-emerald-200 dark:hover:bg-emerald-900 transition cursor-pointer flex items-center gap-1.5 self-start sm:self-auto border border-emerald-300 dark:border-emerald-800"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{t('download.mark_as_downloaded', activeLang, 'Als installiert markieren')}</span>
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: WINDOWS INSTALLER */}
           {activeTab === 'installer' && (
             <div className="space-y-5">

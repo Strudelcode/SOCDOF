@@ -4,6 +4,16 @@
 
 ---
 
+### Smart Homescreen Download Intelligence & Version-Aware Update Prompts (v24.9.1)
+- [x] Refactored `src/lib/desktopDownloadStatus.ts` and `src/components/DesktopWindowWorkspace.tsx` to conditionally display the Start Menu download banner only when the app has not yet been downloaded, or when an actual newer version is officially available on GitHub.
+- [x] Implemented version comparison via semver checks: hides "Herunterladen" banner when running current or higher version, and converts banner into an update prompt ("Neues Update verfügbar: vX.X.X") when a newer release is published.
+- [x] Added persistent download and install markers (`socdof_desktop_downloaded`, `socdof_exe_installed`, `socdof_downloaded_version`) across user sessions, automatically set on download from `CustomDownloadModal`, `WebPreviewModal`, and `WindowsDesktopManagerModal`.
+- [x] Added 1-click "Bereits installiert" toggle and status indicator in `CustomDownloadModal` and quick-check dismiss button in Start Menu.
+- [x] Suppressed periodic reminder toasts (`WindowsExeNotificationToast`) and updated taskbar tooltips for users who already have the app.
+- [x] Added full localization across `de`, `en`, `fr`, and `es` in `src/lib/i18n.ts`.
+
+---
+
 ### Discord-Style One-Click Installer & Frameless Startup Splash Window (v24.9.0)
 - [x] Configured One-Click modern installation (`oneClick: true`, `perMachine: false`) in `electron-builder.json`, eliminating all legacy multi-step wizard dialogs ("Installationsoption wählen", "Für wen installieren", "Weiter/Abbrechen").
 - [x] Created `electron/splash.html`: Lightweight, modern, frameless startup splash screen (320x380 px) with dark theme, breathing logo glow, localized status text ("Wird gestartet..." / "Starting..."), and animated gradient shimmer bar.

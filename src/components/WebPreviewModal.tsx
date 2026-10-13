@@ -17,6 +17,7 @@ import {
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL } from '../lib/platform';
 import { useLanguage, t } from '../lib/i18n';
 import { APP_VERSION } from '../lib/version';
+import { recordDesktopDownloaded } from '../lib/desktopDownloadStatus';
 
 interface WebPreviewModalProps {
   isOpen: boolean;
@@ -133,6 +134,7 @@ export const WebPreviewModal: React.FC<WebPreviewModalProps> = ({
               href={GITHUB_RELEASES_URL}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => recordDesktopDownloaded(APP_VERSION)}
               className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition group"
             >
               <div className="flex items-center gap-3">

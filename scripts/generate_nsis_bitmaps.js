@@ -47,8 +47,7 @@ for (const item of files) {
     fs.copyFileSync(buildPath, publicPath);
     console.log(`✓ Synchronized ${item.name} from build/ to public/`);
   } else {
-    console.warn(`Warning: Could not find or generate ${item.name}`);
   }
 }
 
-console.log('NSIS graphics preparation completed.');
+console.log('NSIS assets preparation completed.');

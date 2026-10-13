@@ -11,6 +11,11 @@ import {
 } from 'lucide-react';
 import { sounds } from '../lib/sound';
 import { APP_VERSION } from '../lib/version';
+import { 
+  isDesktopInstalledOrDownloaded, 
+  recordDesktopDownloaded, 
+  markDesktopAsInstalled 
+} from '../lib/desktopDownloadStatus';
 
 interface WindowsExeNotificationToastProps {
   onOpenWindowsManager?: () => void;
@@ -77,8 +82,10 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
 
     // 2. Never show if user dismissed it permanently, marked as installed, or closed this session
     const isDismissed = typeof window !== 'undefined' && (
+      isDesktopInstalledOrDownloaded() ||
       localStorage.getItem('socdof_dismiss_exe_reminder') === 'true' ||
       localStorage.getItem('socdof_exe_installed') === 'true' ||
+      localStorage.getItem('socdof_desktop_downloaded') === 'true' ||
       sessionStorage.getItem('socdof_toast_closed') === 'true'
     );
 
@@ -89,6 +96,7 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
     // Schedule prompt after 40 seconds of use in the browser preview
     const timer = setTimeout(() => {
       const checkAgain = 
+        isDesktopInstalledOrDownloaded() ||
         localStorage.getItem('socdof_dismiss_exe_reminder') === 'true' ||
         sessionStorage.getItem('socdof_toast_closed') === 'true';
       if (!checkAgain) {
@@ -110,15 +118,13 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
 
   const handleDismissForever = () => {
     sounds.playSuccess();
-    try {
-      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
-      localStorage.setItem('socdof_exe_installed', 'true');
-    } catch {}
+    markDesktopAsInstalled(true);
     setIsVisible(false);
   };
 
   const handleDownloadExe = () => {
     sounds.playSuccess();
+    recordDesktopDownloaded(latestVersion);
     if (onOpenDownloadModal) {
       setIsVisible(false);
       onOpenDownloadModal();
@@ -127,9 +133,6 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
     setDownloadSuccess(true);
     // Direct link to the latest detected release
     window.open(downloadUrl, '_blank');
-    try {
-      localStorage.setItem('socdof_dismiss_exe_reminder', 'true');
-    } catch {}
     setTimeout(() => {
       setIsVisible(false);
       setDownloadSuccess(false);

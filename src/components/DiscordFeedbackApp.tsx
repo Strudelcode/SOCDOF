@@ -28,7 +28,9 @@ import {
   User,
   Sparkles,
   HelpCircle,
-  Hash
+  Hash,
+  KeyRound,
+  SlidersHorizontal
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -37,11 +39,16 @@ import {
   saveStoredDiscordIdentity, 
   getSubmittedDiscordReports, 
   deleteSubmittedDiscordReport, 
+  clearDeletedDiscordReports,
+  updateSubmittedDiscordReportStatus,
+  markSubmittedReportDeleted,
+  getDiscordBotToken,
   syncDiscordReports, 
   checkDiscordBotStatus, 
   getAppLanguageLabel, 
   getSystemLanguageLabel, 
-  SubmittedDiscordReport 
+  SubmittedDiscordReport,
+  DiscordReportStatus
 } from '../lib/discordFeedback';
 import { APP_VERSION } from '../lib/version';
 import { sounds } from '../lib/sound';
@@ -50,6 +57,7 @@ import { AppLocationPickerModal } from './AppLocationPickerModal';
 import { DiscordEmbedPreview } from './DiscordEmbedPreview';
 import { DynamicReportsIcon } from './DynamicReportsIcon';
 import { DiscordThreadInspectorModal } from './DiscordThreadInspectorModal';
+import { DiscordBotTokenModal } from './DiscordBotTokenModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface DiscordFeedbackAppProps {
@@ -103,6 +111,8 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
   // Live 30s Polling State
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(null);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [statusMenuReportId, setStatusMenuReportId] = useState<string | null>(null);
 
   // Submission Status
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -574,16 +584,60 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? t('feedback.syncing', lang, 'Synchronisiere...') : t('feedback.sync_now', lang, 'Synchronisieren')}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setIsTokenModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-bold transition cursor-pointer"
+                    title={t('feedback.bot_token_title', lang, 'Discord Bot-Token konfigurieren')}
+                  >
+                    <KeyRound className="w-3 h-3 text-indigo-500" />
+                    <span>{t('feedback.bot_token_title', lang, 'Bot-Token')}</span>
+                    {Boolean(getDiscordBotToken()) && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isSyncing ? t('feedback.syncing', lang, 'Synchronisiere...') : t('feedback.sync_now', lang, 'Synchronisieren')}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Banner for Deleted tickets if any */}
+              {submittedReports.filter(r => r.isDeleted).length > 0 && (
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3 text-xs animate-fade-in">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>
+                      {lang === 'de'
+                        ? `${submittedReports.filter(r => r.isDeleted).length} Ticket(s) wurden auf Discord gelöscht`
+                        : `${submittedReports.filter(r => r.isDeleted).length} ticket(s) were deleted on Discord`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      clearDeletedDiscordReports();
+                      setSubmittedReports(getSubmittedDiscordReports());
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{t('feedback.clear_deleted_tickets', lang, 'Gelöschte Tickets bereinigen')}</span>
+                  </button>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="relative flex-1 max-w-md">
@@ -743,7 +797,12 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                           )}
 
                           {/* Live Discord Status Pill */}
-                          {rep.status === 'rejected' ? (
+                          {rep.isDeleted ? (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                              <Trash2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                              <span>{t('feedback.status_deleted', lang, '🗑️ Auf Discord gelöscht')}</span>
+                            </span>
+                          ) : rep.status === 'rejected' ? (
                             <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex items-center gap-1">
                               <XCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                               <span>{t('feedback.status_rejected', lang, '❌ Abgelehnt')}</span>
@@ -872,17 +931,74 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                           </button>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            sounds.playClick();
-                            setReportToDelete(rep);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 transition cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                          title={t('feedback.delete_item_title', lang, 'Aus lokalem Verlauf entfernen')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setStatusMenuReportId(statusMenuReportId === rep.id ? null : rep.id)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                              title={t('feedback.change_status_manually', lang, 'Status manuell ändern')}
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                            {statusMenuReportId === rep.id && (
+                              <div className="absolute right-0 bottom-full mb-1.5 w-52 py-1 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 text-xs">
+                                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                  {t('feedback.change_status_manually', lang, 'Status manuell ändern')}
+                                </div>
+                                {[
+                                  { id: 'pending', label: t('feedback.status_pending', lang, '⏳ Neue Einreichung') },
+                                  { id: 'reviewing', label: t('feedback.status_reviewing', lang, '🔍 In Überprüfung') },
+                                  { id: 'in_progress', label: t('feedback.status_in_progress', lang, '🔨 Problem-Fix in Bearbeitung') },
+                                  { id: 'forwarded', label: t('feedback.status_forwarded', lang, '↗️ Bestätigt & Weitergeleitet') },
+                                  { id: 'resolved', label: t('feedback.status_resolved', lang, '✅ Behoben / Erledigt') },
+                                  { id: 'rejected', label: t('feedback.status_rejected', lang, '❌ Abgelehnt') }
+                                ].map(st => (
+                                  <button
+                                    key={st.id}
+                                    type="button"
+                                    onClick={() => {
+                                      sounds.playClick();
+                                      updateSubmittedDiscordReportStatus(rep.id, st.id as DiscordReportStatus, false);
+                                      setSubmittedReports(getSubmittedDiscordReports());
+                                      setStatusMenuReportId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-between font-medium cursor-pointer"
+                                  >
+                                    <span>{st.label}</span>
+                                    {rep.status === st.id && !rep.isDeleted && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                                  </button>
+                                ))}
+                                <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    sounds.playClick();
+                                    markSubmittedReportDeleted(rep.id);
+                                    setSubmittedReports(getSubmittedDiscordReports());
+                                    setStatusMenuReportId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 flex items-center gap-1.5 font-medium cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>{t('feedback.mark_as_deleted', lang, 'Als gelöscht markieren')}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sounds.playClick();
+                              setReportToDelete(rep);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 transition cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                            title={t('feedback.delete_item_title', lang, 'Aus lokalem Verlauf entfernen')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1533,6 +1649,14 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
         onClose={() => setIsInspectorOpen(false)}
         report={inspectorReport}
         onRefreshReport={() => performSync(false)}
+        onOpenTokenSettings={() => setIsTokenModalOpen(true)}
+      />
+
+      {/* Discord Bot Token Configuration Modal */}
+      <DiscordBotTokenModal
+        isOpen={isTokenModalOpen}
+        onClose={() => setIsTokenModalOpen(false)}
+        onSaved={() => performSync(true)}
       />
 
       {/* Clear History Confirmation Modal */}

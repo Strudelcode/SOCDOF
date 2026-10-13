@@ -22,6 +22,7 @@ import {
   downloadWindowsInstallerBat,
   downloadPowerShellSetupWizard
 } from '../lib/windowsExeDownloader';
+import { recordDesktopDownloaded } from '../lib/desktopDownloadStatus';
 
 interface WindowsDesktopManagerModalProps {
   isOpen: boolean;
@@ -60,10 +61,12 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
       const { outcome } = await installPrompt.userChoice;
       if (outcome === 'accepted') {
         sounds.playSuccess();
+        recordDesktopDownloaded(APP_VERSION);
         setIsInstalled(true);
       }
       setInstallPrompt(null);
     } else {
+      recordDesktopDownloaded(APP_VERSION);
       alert(
         'Windows App Installation:\n\n' +
         '1. Klicken Sie in der Browser-Adressleiste auf das Symbol "App installieren" (oder im Menü auf "Apps > Als App installieren").\n' +
@@ -74,16 +77,19 @@ export const WindowsDesktopManagerModal: React.FC<WindowsDesktopManagerModalProp
 
   const handleDownloadCmd = () => {
     sounds.playSuccess();
+    recordDesktopDownloaded(APP_VERSION);
     downloadWindowsInstallerCmd();
   };
 
   const handleDownloadBat = () => {
     sounds.playSuccess();
+    recordDesktopDownloaded(APP_VERSION);
     downloadWindowsInstallerBat();
   };
 
   const handleDownloadPowerShell = () => {
     sounds.playSuccess();
+    recordDesktopDownloaded(APP_VERSION);
     downloadPowerShellSetupWizard();
   };
 

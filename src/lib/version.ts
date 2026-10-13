@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.9.0';
+export const APP_VERSION = '24.9.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.9.1',
+    date: '2026-10-13',
+    title: 'Smart Homescreen Download Intelligence & Version-Aware Update Prompts',
+    highlights: [
+      'Smart Homescreen Download Intelligence: download banners and prompts only appear if the desktop app has not yet been downloaded, or if a newer/higher version is officially published on GitHub releases',
+      'Persistent Download State Tracking: automatically records downloaded and installed versions across sessions and suppresses obsolete download banners',
+      'One-Click Installed Status Toggle: added an intuitive "Already downloaded" badge and 1-click status toggle in CustomDownloadModal and Start Menu',
+      'Context-Aware Taskbar Tray & Toasts: updated Web Preview taskbar tooltips and disabled repetitive notification toasts when the app is already downloaded'
+    ]
+  },
   {
     version: '24.9.0',
     date: '2026-10-12',
