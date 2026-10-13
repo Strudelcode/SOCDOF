@@ -1,0 +1,39 @@
+name: Validate SOCDOF App and Installer
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: TypeScript validation
+        run: npm run lint
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Compile instant-launch bootstrapper
+        shell: powershell
+        run: |
+          $msbuild = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Filter MSBuild.exe -Recurse | Where-Object { $_.FullName -match "Current\\Bin\\MSBuild.exe$" } | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild.exe was not found on the Windows runner." }
+          & $msbuild.FullName installer-bootstrapper\SOCDOF.Bootstrapper.Framework.csproj /p:Configuration=Release /p:Platform=AnyCPU /m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path release\bootstrapper\SOCDOF-Installer.exe)) { throw "Bootstrapper executable was not produced." }
