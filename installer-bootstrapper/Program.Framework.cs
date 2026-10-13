@@ -89,7 +89,7 @@ namespace SOCDOF.Bootstrapper
             version.SetBounds(23, 69, 570, 22);
             version.Font = new Font("Segoe UI", 9.5f);
             version.ForeColor = Color.FromArgb(190, 193, 204);
-            version.Text = "Neueste Version wird gesucht …";
+            version.Text = "Searching for the latest version...";
             content.Controls.Add(version);
 
             Panel card = new Panel { Location = new Point(0, 108), Size = new Size(636, 171), BackColor = panel };
@@ -97,12 +97,12 @@ namespace SOCDOF.Bootstrapper
             status.SetBounds(22, 20, 590, 30);
             status.Font = new Font("Segoe UI Semibold", 13f, FontStyle.Bold);
             status.ForeColor = Color.FromArgb(245, 246, 250);
-            status.Text = "Installation wird vorbereitet …";
+            status.Text = "Preparing installation...";
             card.Controls.Add(status);
             detail.SetBounds(22, 55, 590, 38);
             detail.Font = new Font("Segoe UI", 9.5f);
             detail.ForeColor = muted;
-            detail.Text = "SOCDOF wird sicher heruntergeladen und vorbereitet.";
+            detail.Text = "SOCDOF will be downloaded and prepared securely.";
             card.Controls.Add(detail);
 
             Panel track = new Panel { Location = new Point(22, 109), Size = new Size(590, 5), BackColor = Color.FromArgb(57, 59, 68) };
@@ -116,7 +116,7 @@ namespace SOCDOF.Bootstrapper
             bar.Tag = track;
             bar.Size = new Size(0, 5);
 
-            Label pathHeading = new Label { Text = "INSTALLATIONSORT", Location = new Point(0, 270), Size = new Size(300, 18), Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold), ForeColor = muted };
+            Label pathHeading = new Label { Text = "INSTALLATION LOCATION", Location = new Point(0, 270), Size = new Size(300, 18), Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold), ForeColor = muted };
             content.Controls.Add(pathHeading);
             Panel pathPanel = new Panel { Location = new Point(0, 294), Size = new Size(636, 48), BackColor = panel };
             content.Controls.Add(pathPanel);
@@ -127,7 +127,7 @@ namespace SOCDOF.Bootstrapper
             pathText.ForeColor = Color.FromArgb(230, 232, 239);
             pathText.AutoEllipsis = true;
             pathPanel.Controls.Add(pathText);
-            browse.Text = "Ändern";
+            browse.Text = "Change";
             browse.SetBounds(520, 8, 104, 32);
             browse.FlatStyle = FlatStyle.Flat;
             browse.FlatAppearance.BorderSize = 0;
@@ -138,7 +138,7 @@ namespace SOCDOF.Bootstrapper
             browse.Click += Browse;
             pathPanel.Controls.Add(browse);
 
-            install.Text = "Download wird vorbereitet …";
+            install.Text = "Preparing download...";
             install.SetBounds(32, 432, 636, 44);
             install.FlatStyle = FlatStyle.Flat;
             install.FlatAppearance.BorderSize = 0;
@@ -156,8 +156,8 @@ namespace SOCDOF.Bootstrapper
 
         private async Task DownloadLatestAsync()
         {
-            State("Neueste Version wird gesucht …", "Verbindung zu GitHub wird hergestellt.", 0, true);
-            install.Text = "Download wird vorbereitet …";
+            State("Searching for the latest version...", "Connecting to GitHub.", 0, true);
+            install.Text = "Preparing download...";
             install.Enabled = false;
             try
             {
@@ -167,7 +167,7 @@ namespace SOCDOF.Bootstrapper
                 http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
                 string json = await http.GetStringAsync("https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest");
                 Dictionary<string, object> release = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
-                version.Text = "Version " + Convert.ToString(release["tag_name"]) + " · Windows 64-Bit";
+                version.Text = "Version " + Convert.ToString(release["tag_name"]) + " · Windows 64-bit";
                 string url = null;
                 long size = 0;
                 ArrayList assets = release["assets"] as ArrayList;
@@ -186,9 +186,9 @@ namespace SOCDOF.Bootstrapper
                         }
                     }
                 }
-                if (String.IsNullOrEmpty(url)) throw new InvalidOperationException("Kein passendes SOCDOF-Setup im neuesten Release gefunden.");
+                if (String.IsNullOrEmpty(url)) throw new InvalidOperationException("No compatible SOCDOF setup was found in the latest release.");
                 packagePath = Path.Combine(Path.GetTempPath(), "SOCDOF-Setup-" + Guid.NewGuid().ToString("N") + ".exe");
-                State("SOCDOF wird heruntergeladen …", "Das Installationspaket wird im Hintergrund geladen.", 0, false);
+                State("Downloading SOCDOF...", "The installation package is downloading in the background.", 0, false);
                 using (HttpResponseMessage response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
                 {
                     response.EnsureSuccessStatusCode();
@@ -206,21 +206,21 @@ namespace SOCDOF.Bootstrapper
                             if (total > 0)
                             {
                                 int pct = (int)Math.Max(0, Math.Min(100, got * 100L / total));
-                                bar.Value = pct;
-                                detail.Text = "Installationspaket wird heruntergeladen … " + pct + "%";
+                                SetProgress(pct);
+                                detail.Text = "Downloading installation package... " + pct + "%";
                             }
                         }
                         await output.FlushAsync();
                     }
                 }
                 downloaded = true;
-                State("Bereit zur Installation", "Sie können den Installationsordner noch ändern.", 100, false);
+                State("Ready to install", "You can still change the installation location.", 100, false);
                 install.Text = "Installation starten";
                 install.Enabled = true;
             }
             catch (Exception ex)
             {
-                State("Download nicht möglich", "Prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.", 0, false);
+                State("Download failed", "Check your internet connection and try again.", 0, false);
                 detail.Text = ex.Message.Length > 110 ? ex.Message.Substring(0, 110) + "…" : ex.Message;
                 install.Text = "Erneut versuchen";
                 install.Enabled = true;
@@ -231,7 +231,7 @@ namespace SOCDOF.Bootstrapper
         {
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "Wählen Sie den übergeordneten Ordner für SOCDOF.";
+                dialog.Description = "Choose the parent folder for SOCDOF.";
                 dialog.ShowNewFolderButton = true;
                 dialog.SelectedPath = Path.GetDirectoryName(target);
                 if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -249,25 +249,25 @@ namespace SOCDOF.Bootstrapper
             installing = true;
             install.Enabled = false;
             browse.Enabled = false;
-            State("SOCDOF wird installiert …", "Die Anwendung wird eingerichtet. Bitte lassen Sie dieses Fenster geöffnet.", 0, true);
+            State("Installing SOCDOF...", "Setting up the application. Please keep this window open.", 0, true);
             try
             {
                 Directory.CreateDirectory(target);
                 ProcessStartInfo info = new ProcessStartInfo { FileName = packagePath, Arguments = "/S /D=" + target, UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetTempPath() };
                 using (Process process = Process.Start(info))
                 {
-                    if (process == null) throw new InvalidOperationException("Das Setup konnte nicht gestartet werden.");
+                    if (process == null) throw new InvalidOperationException("The setup could not be started.");
                     await Task.Run(delegate { process.WaitForExit(); });
-                    if (process.ExitCode != 0) throw new InvalidOperationException("Das Setup wurde mit Fehlercode " + process.ExitCode + " beendet.");
+                    if (process.ExitCode != 0) throw new InvalidOperationException("Setup exited with error code " + process.ExitCode + " beendet.");
                 }
                 installed = true;
-                State("Installation abgeschlossen", "SOCDOF wurde erfolgreich installiert.", 100, false);
-                install.Text = "SOCDOF starten";
+                State("Installation complete", "SOCDOF was installed successfully.", 100, false);
+                install.Text = "Launch SOCDOF";
                 install.Enabled = true;
             }
             catch (Exception ex)
             {
-                State("Installation fehlgeschlagen", "Das Setup konnte nicht abgeschlossen werden.", 0, false);
+                State("Installation failed", "Setup could not be completed.", 0, false);
                 detail.Text = ex.Message.Length > 110 ? ex.Message.Substring(0, 110) + "…" : ex.Message;
                 install.Text = "Erneut versuchen";
                 install.Enabled = true;
@@ -280,11 +280,11 @@ namespace SOCDOF.Bootstrapper
             string exe = Path.Combine(target, "SOCDOF.exe");
             if (!File.Exists(exe))
             {
-                MessageBox.Show(this, "Die Anwendung wurde nicht gefunden:\n" + exe, "SOCDOF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "The application could not be found:\n" + exe, "SOCDOF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true }); Close(); }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "SOCDOF konnte nicht gestartet werden", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not launch SOCDOF", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
 
         private void State(string heading, string description, int percent, bool marquee)
