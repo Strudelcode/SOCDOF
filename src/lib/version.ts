@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.9.1';
+export const APP_VERSION = '24.10.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,17 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.10.0',
+    date: '2026-10-13',
+    title: 'Selectable Installer & Immediate Branded Startup Splash',
+    highlights: [
+      'Selectable Windows installation directory while retaining per-user installation under Local AppData by default',
+      'Added a compact branded startup splash that appears while the SOCDOF workspace initializes, then closes when the main window is ready',
+      'Applied SOCDOF installer header and sidebar branding to the location-selection setup flow',
+      'Added a lightweight Windows bootstrapper that opens immediately, downloads the latest setup with real progress, and supports a custom installation directory'
+    ]
+  },
   {
     version: '24.9.1',
     date: '2026-10-13',

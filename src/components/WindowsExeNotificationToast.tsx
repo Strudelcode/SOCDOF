@@ -50,7 +50,12 @@ export const WindowsExeNotificationToast: React.FC<WindowsExeNotificationToastPr
         const tag = data.tag_name ? data.tag_name.replace(/^v/, '') : APP_VERSION;
         setLatestVersion(tag || APP_VERSION);
         
-        const exeAsset = data.assets?.find((a: any) => typeof a.name === 'string' && a.name.toLowerCase().endsWith('.exe'));
+        const assets = Array.isArray(data.assets) ? data.assets : [];
+        const exeAsset = assets.find((asset: any) =>
+          typeof asset.name === 'string' && asset.name.toLowerCase() === 'socdof-installer.exe'
+        ) ?? assets.find((asset: any) =>
+          typeof asset.name === 'string' && asset.name.toLowerCase().endsWith('.exe')
+        );
         if (exeAsset?.browser_download_url) {
           setDownloadUrl(exeAsset.browser_download_url);
         } else if (data.html_url) {

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOCDOF</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,"Segoe UI",system-ui,sans-serif;background:#101116;color:#f5f6fa}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 110%,rgba(74,87,190,.22),transparent 60%),#101116}
+main{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 34px;position:relative}
+.logo{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(90,120,255,.24));animation:breathe 2.8s ease-in-out infinite}
+h1{font-size:22px;letter-spacing:.02em;font-weight:650;margin:17px 0 6px}
+p{font-size:12px;color:#a5a9b8;margin:0 0 25px;letter-spacing:.015em}
+.track{height:3px;width:100%;max-width:280px;border-radius:99px;background:#2b2d36;overflow:hidden}
+.bar{height:100%;width:38%;border-radius:99px;background:linear-gradient(90deg,#6677f6,#9c8aff,#6caeff);animation:travel 1.5s cubic-bezier(.4,0,.2,1) infinite}
+.footer{position:absolute;bottom:17px;font-size:10px;color:#646979;letter-spacing:.09em;text-transform:uppercase}
+@keyframes travel{0%{transform:translateX(-115%)}100%{transform:translateX(370%)}}
+@keyframes breathe{0%,100%{transform:scale(1);filter:drop-shadow(0 8px 20px rgba(90,120,255,.18))}50%{transform:scale(1.035);filter:drop-shadow(0 8px 27px rgba(110,120,255,.35))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important}.bar{width:65%}}
+</style>
+</head>
+<body>
+<main>
+<img class="logo" src="../public/socdof_icon.png" alt="">
+<h1>SOCDOF</h1>
+<p>Der Arbeitsbereich wird vorbereitet …</p>
+<div class="track" role="progressbar" aria-label="SOCDOF wird gestartet"><div class="bar"></div></div>
+<div class="footer">Strudelcode · Yuri / Strudel</div>
+</main>
+</body>
+</html>

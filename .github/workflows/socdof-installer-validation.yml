@@ -1,0 +1,74 @@
+name: Validate SOCDOF App and Installer
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: TypeScript validation
+        run: npm run lint
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Prepare NSIS artwork
+        run: node scripts/generate_nsis_bitmaps.js
+
+      - name: Install Electron packaging tools
+        run: npm install --no-save --no-package-lock electron electron-builder
+
+      - name: Package Windows NSIS installer
+        run: npx --yes electron-builder --win --x64 --config electron-builder.json --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Windows installer artifact
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem release -Filter 'SOCDOF-Setup-*.exe' -File | Select-Object -First 1
+          if (-not $setup) { throw "Electron Builder did not produce the expected SOCDOF-Setup-*.exe artifact." }
+          Write-Host "Verified installer artifact: $($setup.FullName) ($($setup.Length) bytes)"
+
+      - name: Smoke-test fresh install and in-place upgrade
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem release -Filter 'SOCDOF-Setup-*.exe' -File | Select-Object -First 1
+          if (-not $setup) { throw "No SOCDOF NSIS installer is available for smoke testing." }
+          $installPath = Join-Path $env:RUNNER_TEMP 'SOCDOF-SmokeInstall'
+          $firstInstall = Start-Process -FilePath $setup.FullName -ArgumentList @('/S', "/D=$installPath") -Wait -PassThru
+          if ($firstInstall.ExitCode -ne 0) { throw "Fresh install failed with exit code $($firstInstall.ExitCode)." }
+          $appExe = Join-Path $installPath 'SOCDOF.exe'
+          if (-not (Test-Path $appExe)) { throw "Fresh install did not produce SOCDOF.exe at the selected install path." }
+          Get-Process -Name 'SOCDOF' -ErrorAction SilentlyContinue | Stop-Process -Force
+          $upgrade = Start-Process -FilePath $setup.FullName -ArgumentList @('/S', "/D=$installPath") -Wait -PassThru
+          if ($upgrade.ExitCode -ne 0) { throw "In-place upgrade failed with exit code $($upgrade.ExitCode)." }
+          if (-not (Test-Path $appExe)) { throw "In-place upgrade removed or failed to preserve SOCDOF.exe." }
+          Get-Process -Name 'SOCDOF' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Write-Host "Fresh install and in-place upgrade passed at $installPath."
+
+      - name: Compile instant-launch bootstrapper
+        shell: powershell
+        run: |
+          $msbuild = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Filter MSBuild.exe -Recurse | Where-Object { $_.FullName -match "Current\\Bin\\MSBuild.exe$" } | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild.exe was not found on the Windows runner." }
+          & $msbuild.FullName installer-bootstrapper\SOCDOF.Bootstrapper.Framework.csproj /p:Configuration=Release /p:Platform=AnyCPU /m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path release\bootstrapper\SOCDOF-Installer.exe)) { throw "Bootstrapper executable was not produced." }

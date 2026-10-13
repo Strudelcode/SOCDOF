@@ -15,6 +15,42 @@ if (!gotSingleInstanceLock) {
 }
 
 let mainWindow;
+let splashWindow = null;
+
+// Show a lightweight branded window while the main workspace initializes.
+function createSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) return;
+  splashWindow = new BrowserWindow({
+    width: 390,
+    height: 300,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    movable: true,
+    center: true,
+    show: false,
+    skipTaskbar: false,
+    backgroundColor: '#101116',
+    title: 'SOCDOF wird gestartet',
+    icon: process.platform === 'win32'
+      ? path.join(__dirname, '../public/socdof_icon.ico')
+      : path.join(__dirname, '../public/socdof_icon.png'),
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  splashWindow.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+  });
+  splashWindow.on('closed', () => { splashWindow = null; });
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+}
+
+function closeSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    const current = splashWindow;
+    splashWindow = null;
+    current.close();
+  }
+}
 let mobileSyncHttpServer = null;
 const mobileSyncStore = new Map();
 
@@ -461,6 +497,7 @@ function createWindow() {
   // Reveal window once first paint is completed and DOM is ready
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) {
+      closeSplashWindow();
       mainWindow.setFullScreen(true);
       mainWindow.show();
       mainWindow.focus();
@@ -1565,6 +1602,7 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  createSplashWindow();
   createWindow();
 
   // Defer background language seed & backup folder readiness so the UI thread renders immediately

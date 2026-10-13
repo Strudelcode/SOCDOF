@@ -63,6 +63,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build lightweight instant-launch bootstrapper
+        shell: powershell
+        run: |
+          $msbuild = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Filter MSBuild.exe -Recurse | Where-Object { $_.FullName -match "Current\\Bin\\MSBuild.exe$" } | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild.exe was not found on the Windows runner." }
+          & $msbuild.FullName installer-bootstrapper\SOCDOF.Bootstrapper.Framework.csproj /p:Configuration=Release /p:Platform=AnyCPU /m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item release\bootstrapper\SOCDOF-Installer.exe release\SOCDOF-Installer.exe -Force
+          if (-not (Test-Path release\SOCDOF-Installer.exe)) { throw "SOCDOF-Installer.exe was not produced." }
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:

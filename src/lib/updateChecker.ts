@@ -153,10 +153,12 @@ export async function checkForAppUpdates(): Promise<UpdateInfo | null> {
     const cleanTag = tagName.replace(/^v/i, '').trim();
     const hasUpdate = compareSemver(cleanTag, APP_VERSION) > 0;
 
-    // Find any .exe attachment asset if present
-    const exeAsset = Array.isArray(data.assets) 
-      ? data.assets.find((a: any) => a.name?.toLowerCase().endsWith('.exe'))
-      : null;
+    // The in-app updater must download the actual NSIS setup, not the
+    // instant-launch bootstrapper (which is interactive and does not accept updater flags).
+    const assets = Array.isArray(data.assets) ? data.assets : [];
+    const exeAsset = assets.find((asset: any) =>
+      typeof asset.name === 'string' && /^socdof-setup-.*\.exe$/i.test(asset.name)
+    ) || null;
 
     return {
       hasUpdate,
