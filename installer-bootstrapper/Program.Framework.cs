@@ -49,12 +49,14 @@ namespace SOCDOF.Bootstrapper
             Text = "SOCDOF Installer";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.None;
-            ClientSize = new Size(620, 430);
-            MinimumSize = new Size(620, 430);
-            MaximumSize = new Size(620, 430);
+            ClientSize = new Size(700, 500);
+            MinimumSize = new Size(700, 500);
+            MaximumSize = new Size(700, 500);
+            AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = bg;
             ForeColor = Color.White;
             ShowInTaskbar = true;
+            DoubleBuffered = true;
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 18, 18));
             Compose();
@@ -64,61 +66,72 @@ namespace SOCDOF.Bootstrapper
 
         private void Compose()
         {
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = bg };
+            Panel top = new Panel { Dock = DockStyle.Top, Height = 54, BackColor = Color.FromArgb(25, 26, 30) };
             top.MouseDown += Drag;
             Controls.Add(top);
-            PictureBox smallLogo = new PictureBox { Location = new Point(22, 13), Size = new Size(22, 22), SizeMode = PictureBoxSizeMode.Zoom, Image = Icon == null ? null : Icon.ToBitmap(), BackColor = Color.Transparent };
+            PictureBox smallLogo = new PictureBox { Location = new Point(24, 16), Size = new Size(22, 22), SizeMode = PictureBoxSizeMode.Zoom, Image = Icon == null ? null : Icon.ToBitmap(), BackColor = Color.Transparent };
             top.Controls.Add(smallLogo);
-            Label title = new Label { Text = "SOCDOF Setup", Location = new Point(52, 14), AutoSize = true, ForeColor = Color.FromArgb(226, 228, 235), Font = new Font("Segoe UI", 9.5f) };
+            Label title = new Label { Text = "SOCDOF", Location = new Point(56, 15), AutoSize = true, ForeColor = Color.FromArgb(226, 228, 235), Font = new Font("Segoe UI", 10f) };
             title.MouseDown += Drag;
             top.Controls.Add(title);
-            Button close = new Button { Text = "×", Location = new Point(568, 6), Size = new Size(44, 36), FlatStyle = FlatStyle.Flat, BackColor = bg, ForeColor = Color.FromArgb(205, 207, 215), Font = new Font("Segoe UI", 16f), Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Button close = new Button { Text = "×", Location = new Point(646, 7), Size = new Size(42, 38), FlatStyle = FlatStyle.Flat, BackColor = top.BackColor, ForeColor = Color.FromArgb(190, 193, 204), Font = new Font("Segoe UI Light", 19f), Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             close.FlatAppearance.BorderSize = 0;
             close.FlatAppearance.MouseOverBackColor = Color.FromArgb(190, 55, 65);
             close.Click += delegate { Close(); };
             top.Controls.Add(close);
 
-            Controls.Add(new PictureBox { Location = new Point(42, 78), Size = new Size(58, 58), SizeMode = PictureBoxSizeMode.Zoom, Image = Icon == null ? null : Icon.ToBitmap(), BackColor = Color.Transparent });
-            Controls.Add(new Label { Text = "SOCDOF installieren", Location = new Point(118, 78), Size = new Size(440, 36), Font = new Font("Segoe UI Semibold", 20f, FontStyle.Bold), ForeColor = Color.White });
-            version.SetBounds(120, 117, 440, 22);
+            Panel content = new Panel { Location = new Point(32, 76), Size = new Size(636, 392), BackColor = bg };
+            Controls.Add(content);
+            Panel brandMark = new Panel { Location = new Point(0, 4), Size = new Size(4, 56), BackColor = accent };
+            content.Controls.Add(brandMark);
+            content.Controls.Add(new Label { Text = "SOCDOF", Location = new Point(20, 0), Size = new Size(500, 43), Font = new Font("Segoe UI Semibold", 25f, FontStyle.Bold), ForeColor = Color.White });
+            content.Controls.Add(new Label { Text = "DESKTOP · WINDOWS 64-BIT", Location = new Point(23, 43), Size = new Size(450, 20), Font = new Font("Segoe UI", 9f), ForeColor = muted });
+            version.SetBounds(23, 69, 570, 22);
             version.Font = new Font("Segoe UI", 9.5f);
-            version.ForeColor = muted;
+            version.ForeColor = Color.FromArgb(190, 193, 204);
             version.Text = "Neueste Version wird gesucht …";
-            Controls.Add(version);
-            Controls.Add(new Panel { Location = new Point(36, 157), Size = new Size(548, 1), BackColor = Color.FromArgb(57, 59, 66) });
+            content.Controls.Add(version);
 
-            status.SetBounds(40, 181, 530, 27);
-            status.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
-            status.ForeColor = Color.FromArgb(240, 241, 246);
+            Panel card = new Panel { Location = new Point(0, 108), Size = new Size(636, 171), BackColor = panel };
+            content.Controls.Add(card);
+            status.SetBounds(22, 20, 590, 30);
+            status.Font = new Font("Segoe UI Semibold", 13f, FontStyle.Bold);
+            status.ForeColor = Color.FromArgb(245, 246, 250);
             status.Text = "Installation wird vorbereitet …";
-            Controls.Add(status);
-            detail.SetBounds(40, 211, 540, 36);
-            detail.Font = new Font("Segoe UI", 9f);
+            card.Controls.Add(status);
+            detail.SetBounds(22, 55, 590, 38);
+            detail.Font = new Font("Segoe UI", 9.5f);
             detail.ForeColor = muted;
             detail.Text = "SOCDOF wird sicher heruntergeladen und vorbereitet.";
-            Controls.Add(detail);
-            bar.SetBounds(40, 257, 540, 5);
-            bar.Style = ProgressBarStyle.Marquee;
-            bar.MarqueeAnimationSpeed = 25;
-            bar.BackColor = panel;
-            bar.ForeColor = accent;
-            Controls.Add(bar);
+            card.Controls.Add(detail);
 
-            Controls.Add(new Label { Text = "INSTALLATIONSORDNER", Location = new Point(40, 286), AutoSize = true, Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold), ForeColor = muted });
-            Panel pathPanel = new Panel { Location = new Point(40, 307), Size = new Size(540, 42), BackColor = panel, Padding = new Padding(12, 0, 0, 0) };
-            Controls.Add(pathPanel);
-            pathText.SetBounds(12, 0, 405, 42);
+            Panel track = new Panel { Location = new Point(22, 109), Size = new Size(590, 5), BackColor = Color.FromArgb(57, 59, 68) };
+            card.Controls.Add(track);
+            bar.SetBounds(0, 0, 0, 5);
+            bar.Style = ProgressBarStyle.Continuous;
+            bar.MarqueeAnimationSpeed = 0;
+            bar.BackColor = accent;
+            bar.ForeColor = accent;
+            track.Controls.Add(bar);
+            bar.Tag = track;
+            bar.Size = new Size(0, 5);
+
+            Label pathHeading = new Label { Text = "INSTALLATIONSORT", Location = new Point(0, 298), Size = new Size(300, 18), Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold), ForeColor = muted };
+            content.Controls.Add(pathHeading);
+            Panel pathPanel = new Panel { Location = new Point(0, 322), Size = new Size(636, 48), BackColor = panel };
+            content.Controls.Add(pathPanel);
+            pathText.SetBounds(16, 0, 475, 48);
             pathText.Text = target;
             pathText.TextAlign = ContentAlignment.MiddleLeft;
-            pathText.Font = new Font("Segoe UI", 9f);
-            pathText.ForeColor = Color.FromArgb(224, 226, 234);
+            pathText.Font = new Font("Segoe UI", 9.5f);
+            pathText.ForeColor = Color.FromArgb(230, 232, 239);
             pathText.AutoEllipsis = true;
             pathPanel.Controls.Add(pathText);
             browse.Text = "Ändern";
-            browse.SetBounds(431, 6, 96, 30);
+            browse.SetBounds(520, 8, 104, 32);
             browse.FlatStyle = FlatStyle.Flat;
-            browse.FlatAppearance.BorderColor = Color.FromArgb(75, 78, 88);
-            browse.BackColor = panel;
+            browse.FlatAppearance.BorderSize = 0;
+            browse.BackColor = Color.FromArgb(55, 58, 67);
             browse.ForeColor = Color.White;
             browse.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
             browse.Cursor = Cursors.Hand;
@@ -126,17 +139,19 @@ namespace SOCDOF.Bootstrapper
             pathPanel.Controls.Add(browse);
 
             install.Text = "Download wird vorbereitet …";
-            install.SetBounds(40, 366, 540, 42);
+            install.SetBounds(32, 432, 636, 44);
             install.FlatStyle = FlatStyle.Flat;
             install.FlatAppearance.BorderSize = 0;
             install.BackColor = accent;
-            install.ForeColor = Color.White;
-            install.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
+            install.ForeColor = Color.FromArgb(17, 20, 37);
+            install.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
             install.Cursor = Cursors.Hand;
             install.Enabled = false;
             install.Click += async delegate { if (installed) Launch(); else await InstallAsync(); };
+            install.MouseEnter += delegate { if (install.Enabled) install.BackColor = Color.FromArgb(133, 145, 255); };
+            install.MouseLeave += delegate { install.BackColor = accent; };
             Controls.Add(install);
-            Controls.Add(new Label { Text = "STRUDELCODE  ·  YURI", Location = new Point(40, 411), Size = new Size(540, 14), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7f, FontStyle.Bold), ForeColor = Color.FromArgb(103, 106, 117) });
+            Controls.Add(new Label { Text = "STRUDELCODE  /  SOCDOF", Location = new Point(32, 480), Size = new Size(636, 14), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7.5f), ForeColor = Color.FromArgb(105, 109, 122) });
         }
 
         private async Task DownloadLatestAsync()
@@ -276,8 +291,19 @@ namespace SOCDOF.Bootstrapper
         {
             status.Text = heading;
             detail.Text = description;
-            if (marquee) { bar.Style = ProgressBarStyle.Marquee; bar.MarqueeAnimationSpeed = 25; }
-            else { bar.Style = ProgressBarStyle.Continuous; bar.MarqueeAnimationSpeed = 0; bar.Value = Math.Max(0, Math.Min(100, percent)); }
+            if (marquee) { bar.Style = ProgressBarStyle.Marquee; bar.MarqueeAnimationSpeed = 25; bar.Width = ((Panel)bar.Tag).Width; }
+            else { bar.Style = ProgressBarStyle.Continuous; bar.MarqueeAnimationSpeed = 0; SetProgress(percent); }
+        }
+
+        private void SetProgress(int percent)
+        {
+            Panel track = bar.Tag as Panel;
+            if (track == null) return;
+            bar.Width = (int)(track.Width * (Math.Max(0, Math.Min(100, percent)) / 100.0));
+            bar.Height = track.Height;
+            bar.Left = 0;
+            bar.Top = 0;
+            bar.BackColor = accent;
         }
 
         private static void Drag(object sender, MouseEventArgs e)
