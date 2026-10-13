@@ -47,6 +47,23 @@ jobs:
           if (-not $setup) { throw "Electron Builder did not produce the expected SOCDOF-Setup-*.exe artifact." }
           Write-Host "Verified installer artifact: $($setup.FullName) ($($setup.Length) bytes)"
 
+      - name: Smoke-test fresh install and in-place upgrade
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem release -Filter 'SOCDOF-Setup-*.exe' -File | Select-Object -First 1
+          if (-not $setup) { throw "No SOCDOF NSIS installer is available for smoke testing." }
+          $installPath = Join-Path $env:RUNNER_TEMP 'SOCDOF-SmokeInstall'
+          $firstInstall = Start-Process -FilePath $setup.FullName -ArgumentList @('/S', "/D=$installPath") -Wait -PassThru
+          if ($firstInstall.ExitCode -ne 0) { throw "Fresh install failed with exit code $($firstInstall.ExitCode)." }
+          $appExe = Join-Path $installPath 'SOCDOF.exe'
+          if (-not (Test-Path $appExe)) { throw "Fresh install did not produce SOCDOF.exe at the selected install path." }
+          Get-Process -Name 'SOCDOF' -ErrorAction SilentlyContinue | Stop-Process -Force
+          $upgrade = Start-Process -FilePath $setup.FullName -ArgumentList @('/S', "/D=$installPath") -Wait -PassThru
+          if ($upgrade.ExitCode -ne 0) { throw "In-place upgrade failed with exit code $($upgrade.ExitCode)." }
+          if (-not (Test-Path $appExe)) { throw "In-place upgrade removed or failed to preserve SOCDOF.exe." }
+          Get-Process -Name 'SOCDOF' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Write-Host "Fresh install and in-place upgrade passed at $installPath."
+
       - name: Compile instant-launch bootstrapper
         shell: powershell
         run: |
