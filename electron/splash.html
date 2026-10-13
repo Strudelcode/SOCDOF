@@ -30,8 +30,7 @@ p{font-size:12px;color:#a5a9b8;margin:0 0 25px;letter-spacing:.015em}
 <div class="footer">Strudelcode · Yuri / Strudel</div>
 </main>
 <script>
-(() => {
-  // English is the first-launch default. On later launches, reuse the last saved app language.
+(async () => {
   const messages = {
     en: 'Preparing your workspace...',
     de: 'Arbeitsbereich wird vorbereitet...',
@@ -39,11 +38,23 @@ p{font-size:12px;color:#a5a9b8;margin:0 0 25px;letter-spacing:.015em}
     es: 'Preparando tu espacio de trabajo...'
   };
   let language = 'en';
+  // First launch defaults to English. Prefer the app's persisted Electron preference on later launches.
   try {
-    const saved = localStorage.getItem('socdof_language');
-    if (saved && Object.prototype.hasOwnProperty.call(messages, saved)) language = saved;
+    const prefs = window.electronAPI && typeof window.electronAPI.getPreferences === 'function'
+      ? await window.electronAPI.getPreferences()
+      : null;
+    const saved = prefs && (prefs.language || prefs.locale);
+    if (saved && Object.prototype.hasOwnProperty.call(messages, saved)) {
+      language = saved;
+    } else {
+      const localSaved = localStorage.getItem('socdof_language');
+      if (localSaved && Object.prototype.hasOwnProperty.call(messages, localSaved)) language = localSaved;
+    }
   } catch (_) {
-    // Storage can be unavailable in some Electron file-origin configurations; keep English.
+    try {
+      const saved = localStorage.getItem('socdof_language');
+      if (saved && Object.prototype.hasOwnProperty.call(messages, saved)) language = saved;
+    } catch (_) {}
   }
   document.documentElement.lang = language;
   document.getElementById('startup-message').textContent = messages[language];
