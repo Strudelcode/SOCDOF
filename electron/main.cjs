@@ -21,19 +21,19 @@ let splashWindow = null;
 function createSplashWindow() {
   if (splashWindow && !splashWindow.isDestroyed()) return;
   splashWindow = new BrowserWindow({
-    width: 310,
-    height: 380,
+    width: 320,
+    height: 400,
     frame: false,
-    transparent: false,
+    transparent: true,
+    hasShadow: true,
     resizable: false,
     movable: true,
     center: true,
     show: false,
     skipTaskbar: false,
-    backgroundColor: '#202225',
+    backgroundColor: '#00000000',
     title: 'SOCDOF',
     thickFrame: false,
-    titleBarStyle: 'hidden',
     icon: process.platform === 'win32'
       ? path.join(__dirname, '../public/socdof_icon.ico')
       : path.join(__dirname, '../public/socdof_icon.png'),

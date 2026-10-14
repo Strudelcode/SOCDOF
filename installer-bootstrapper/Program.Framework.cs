@@ -42,36 +42,226 @@ namespace SOCDOF.Bootstrapper
     }
 
     /// <summary>
+    /// Helper to produce anti-aliased rounded rectangle paths.
+    /// </summary>
+    internal static class GraphicsExtensions
+    {
+        public static GraphicsPath GetRoundedPath(Rectangle r, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int d = radius * 2;
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    /// <summary>
+    /// Anti-aliased PictureBox using HighQualityBicubic interpolation
+    /// to render high-resolution icons crisp without pixelation.
+    /// </summary>
+    internal sealed class AntiAliasedPictureBox : PictureBox
+    {
+        public AntiAliasedPictureBox()
+        {
+            DoubleBuffered = true;
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            pe.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            pe.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            pe.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+            base.OnPaint(pe);
+        }
+    }
+
+    /// <summary>
+    /// Smooth rounded Discord-style action button (Blurple #5865F2).
+    /// </summary>
+    internal sealed class DiscordButton : Button
+    {
+        private bool _isHovered;
+        private bool _isPressed;
+
+        public DiscordButton()
+        {
+            DoubleBuffered = true;
+            SetStyle(ControlStyles.Selectable, false);
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            BackColor = Color.FromArgb(88, 101, 242);
+            ForeColor = Color.White;
+            Cursor = Cursors.Hand;
+            Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
+
+            MouseEnter += delegate { _isHovered = true; Invalidate(); };
+            MouseLeave += delegate { _isHovered = false; _isPressed = false; Invalidate(); };
+            MouseDown += delegate { _isPressed = true; Invalidate(); };
+            MouseUp += delegate { _isPressed = false; Invalidate(); };
+        }
+
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            pe.Graphics.Clear(Parent?.BackColor ?? Color.FromArgb(32, 34, 37));
+
+            Color bg;
+            if (_isPressed) bg = Color.FromArgb(58, 67, 160);
+            else if (_isHovered) bg = Color.FromArgb(71, 82, 196);
+            else bg = Color.FromArgb(88, 101, 242);
+
+            Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (GraphicsPath path = GraphicsExtensions.GetRoundedPath(rect, 8))
+            using (SolidBrush brush = new SolidBrush(bg))
+            {
+                pe.Graphics.FillPath(brush, path);
+            }
+
+            TextRenderer.DrawText(
+                pe.Graphics,
+                Text,
+                Font,
+                new Rectangle(0, 0, Width, Height),
+                ForeColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter
+            );
+        }
+    }
+
+    /// <summary>
+    /// Smooth rounded pill badge for 'DESKTOP SUITE'.
+    /// </summary>
+    internal sealed class RoundedBadge : Label
+    {
+        public RoundedBadge()
+        {
+            DoubleBuffered = true;
+            BackColor = Color.FromArgb(43, 45, 49);
+            ForeColor = Color.FromArgb(168, 179, 250);
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            TextAlign = ContentAlignment.MiddleCenter;
+        }
+
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            pe.Graphics.Clear(Parent?.BackColor ?? Color.FromArgb(32, 34, 37));
+            Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (GraphicsPath path = GraphicsExtensions.GetRoundedPath(rect, 6))
+            using (SolidBrush brush = new SolidBrush(BackColor))
+            {
+                pe.Graphics.FillPath(brush, path);
+            }
+            TextRenderer.DrawText(
+                pe.Graphics,
+                Text,
+                Font,
+                new Rectangle(0, 0, Width, Height),
+                ForeColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter
+            );
+        }
+    }
+
+    /// <summary>
+    /// Smooth rounded progress bar track and filler.
+    /// </summary>
+    internal sealed class RoundedProgressTrack : Control
+    {
+        private int _percent;
+        private double _pulseOffset;
+        private bool _isIndeterminate = true;
+
+        public RoundedProgressTrack()
+        {
+            DoubleBuffered = true;
+            BackColor = Color.FromArgb(53, 55, 60);
+            ForeColor = Color.FromArgb(88, 101, 242);
+        }
+
+        public void SetIndeterminate(double pulse)
+        {
+            _isIndeterminate = true;
+            _pulseOffset = pulse;
+            Invalidate();
+        }
+
+        public void SetPercent(int pct)
+        {
+            _isIndeterminate = false;
+            _percent = Math.Max(0, Math.Min(100, pct));
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs pe)
+        {
+            pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            pe.Graphics.Clear(Parent?.BackColor ?? Color.FromArgb(32, 34, 37));
+
+            Rectangle trackRect = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (GraphicsPath trackPath = GraphicsExtensions.GetRoundedPath(trackRect, Height / 2))
+            using (SolidBrush trackBrush = new SolidBrush(BackColor))
+            {
+                pe.Graphics.FillPath(trackBrush, trackPath);
+            }
+
+            Rectangle barRect;
+            if (_isIndeterminate)
+            {
+                int barWidth = 60;
+                double wave = (Math.Sin(_pulseOffset) + 1.0) / 2.0;
+                int x = (int)(wave * (Width - barWidth));
+                barRect = new Rectangle(x, 0, barWidth, Height);
+            }
+            else
+            {
+                int barWidth = Math.Max(6, (int)(Width * (_percent / 100.0)));
+                barRect = new Rectangle(0, 0, barWidth, Height);
+            }
+
+            if (barRect.Width > 2)
+            {
+                using (GraphicsPath barPath = GraphicsExtensions.GetRoundedPath(new Rectangle(barRect.X, 0, barRect.Width - 1, Height - 1), Height / 2))
+                using (SolidBrush barBrush = new SolidBrush(ForeColor))
+                {
+                    pe.Graphics.FillPath(barBrush, barPath);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Frameless, sleek Discord-like installer window.
     /// Pure, minimalist design:
-    /// - Centered high-resolution SOCDOF logo
-    /// - Discord-dark theme (#202225) with smooth rounded corners
-    /// - Clean "Installieren" / "Install" button
+    /// - Centered high-resolution anti-aliased SOCDOF logo
+    /// - Discord-dark theme (#202225) with smooth 18px rounded corners
+    /// - Clean "Installieren" / "Install" Discord button
     /// - Seamless transition to "Wird installiert..." with animated micro-progress bar
     /// - Transition to "Wird gestartet..." on completion and instant app launch
     /// </summary>
     internal sealed class DiscordStyleInstallerWindow : Form
     {
         private static readonly Color DarkBackground = Color.FromArgb(32, 34, 37); // Discord #202225
-        private static readonly Color DarkSurface = Color.FromArgb(43, 45, 49);     // Discord #2b2d31
-        private static readonly Color TrackColor = Color.FromArgb(53, 55, 60);       // Discord #35373c
-        private static readonly Color Blurple = Color.FromArgb(88, 101, 242);       // Discord Blurple #5865F2
-        private static readonly Color BlurpleHover = Color.FromArgb(71, 82, 196);   // #4752C4
         private static readonly Color TextWhite = Color.FromArgb(242, 243, 245);
         private static readonly Color TextMuted = Color.FromArgb(148, 155, 164);
         private static readonly Color TextSubtle = Color.FromArgb(114, 118, 125);
 
         private readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         private readonly System.Windows.Forms.Timer _pulseTimer = new System.Windows.Forms.Timer();
-        private readonly PictureBox _logoBox = new PictureBox();
+        private readonly AntiAliasedPictureBox _logoBox = new AntiAliasedPictureBox();
         private readonly Label _titleLabel = new Label();
-        private readonly Label _badgeLabel = new Label();
+        private readonly RoundedBadge _badgeLabel = new RoundedBadge();
         private readonly Label _statusLabel = new Label();
         private readonly Label _subStatusLabel = new Label();
-        private readonly Button _installButton = new Button();
+        private readonly DiscordButton _installButton = new DiscordButton();
         private readonly Label _closeButton = new Label();
-        private readonly Panel _progressTrack = new Panel();
-        private readonly Panel _progressBar = new Panel();
+        private readonly RoundedProgressTrack _progressBar = new RoundedProgressTrack();
 
         private readonly string _targetDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -81,7 +271,7 @@ namespace SOCDOF.Bootstrapper
 
         private readonly bool _autoStart;
         private string _packagePath;
-        private bool _isGerman;
+        private string _langCode;
         private bool _isInstalling;
         private bool _failed;
         private double _pulseStep;
@@ -110,8 +300,7 @@ namespace SOCDOF.Bootstrapper
             // Rounded corners (18px radius)
             UpdateRegion();
 
-            string cultureName = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant();
-            _isGerman = cultureName == "de";
+            _langCode = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant();
 
             BuildUI();
 
@@ -138,16 +327,6 @@ namespace SOCDOF.Bootstrapper
                 _pulseTimer.Stop();
                 _http.Dispose();
             };
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                cp.ClassStyle |= 0x00020000; // CS_DROPSHADOW
-                return cp;
-            }
         }
 
         private void UpdateRegion()
@@ -202,7 +381,7 @@ namespace SOCDOF.Bootstrapper
         {
             // Close 'X' button in top-right corner
             _closeButton.Text = "✕";
-            _closeButton.Font = new Font("Segoe UI", 10.5f, FontStyle.Regular);
+            _closeButton.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
             _closeButton.ForeColor = TextSubtle;
             _closeButton.Size = new Size(28, 28);
             _closeButton.Location = new Point(ClientSize.Width - 36, 10);
@@ -218,7 +397,6 @@ namespace SOCDOF.Bootstrapper
             _logoBox.Location = new Point((ClientSize.Width - logoSize) / 2, 48);
             _logoBox.Size = new Size(logoSize, logoSize);
             _logoBox.SizeMode = PictureBoxSizeMode.Zoom;
-            _logoBox.BackColor = Color.Transparent;
             Image logoImg = LoadHighResLogo();
             if (logoImg != null) _logoBox.Image = logoImg;
             Controls.Add(_logoBox);
@@ -232,61 +410,43 @@ namespace SOCDOF.Bootstrapper
             _titleLabel.Text = "SOCDOF";
             Controls.Add(_titleLabel);
 
-            // Badge: DESKTOP SUITE
+            // Badge: DESKTOP SUITE (rounded pill)
             _badgeLabel.Location = new Point((ClientSize.Width - 130) / 2, 180);
             _badgeLabel.Size = new Size(130, 22);
-            _badgeLabel.TextAlign = ContentAlignment.MiddleCenter;
-            _badgeLabel.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-            _badgeLabel.ForeColor = Color.FromArgb(168, 179, 250);
-            _badgeLabel.BackColor = DarkSurface;
             _badgeLabel.Text = "DESKTOP SUITE";
             Controls.Add(_badgeLabel);
 
             // Primary Discord-Style "Installieren" Button
             _installButton.Location = new Point(45, 235);
             _installButton.Size = new Size(ClientSize.Width - 90, 44);
-            _installButton.FlatStyle = FlatStyle.Flat;
-            _installButton.FlatAppearance.BorderSize = 0;
-            _installButton.BackColor = Blurple;
-            _installButton.ForeColor = Color.White;
-            _installButton.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
-            _installButton.Text = _isGerman ? "Installieren" : "Install";
-            _installButton.Cursor = Cursors.Hand;
-            _installButton.MouseEnter += delegate { _installButton.BackColor = BlurpleHover; };
-            _installButton.MouseLeave += delegate { _installButton.BackColor = Blurple; };
+            _installButton.Text = GetText("install");
             _installButton.Click += async delegate { await BeginInstallationAsync(); };
             Controls.Add(_installButton);
 
             // Status label (shown during installation: "Wird installiert...")
-            _statusLabel.Location = new Point(10, 232);
-            _statusLabel.Size = new Size(ClientSize.Width - 20, 26);
+            _statusLabel.Location = new Point(10, 230);
+            _statusLabel.Size = new Size(ClientSize.Width - 20, 28);
             _statusLabel.TextAlign = ContentAlignment.MiddleCenter;
-            _statusLabel.Font = new Font("Segoe UI", 12f, FontStyle.Regular);
+            _statusLabel.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
             _statusLabel.ForeColor = TextWhite;
-            _statusLabel.Text = _isGerman ? "Wird installiert..." : "Installing...";
+            _statusLabel.Text = GetText("installing");
             _statusLabel.Visible = false;
             Controls.Add(_statusLabel);
 
-            // Progress track (200px x 4px)
+            // Progress bar (200px x 4px)
             int trackWidth = 200;
-            _progressTrack.Location = new Point((ClientSize.Width - trackWidth) / 2, 266);
-            _progressTrack.Size = new Size(trackWidth, 4);
-            _progressTrack.BackColor = TrackColor;
-            _progressTrack.Visible = false;
-            Controls.Add(_progressTrack);
+            _progressBar.Location = new Point((ClientSize.Width - trackWidth) / 2, 268);
+            _progressBar.Size = new Size(trackWidth, 4);
+            _progressBar.Visible = false;
+            Controls.Add(_progressBar);
 
-            _progressBar.Location = new Point(0, 0);
-            _progressBar.Size = new Size(30, 4);
-            _progressBar.BackColor = Blurple;
-            _progressTrack.Controls.Add(_progressBar);
-
-            // Sub-status / detail label (e.g. "100% Offline • Windows 64-Bit")
-            _subStatusLabel.Location = new Point(10, 290);
+            // Sub-status / detail label
+            _subStatusLabel.Location = new Point(10, 292);
             _subStatusLabel.Size = new Size(ClientSize.Width - 20, 20);
             _subStatusLabel.TextAlign = ContentAlignment.MiddleCenter;
             _subStatusLabel.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
             _subStatusLabel.ForeColor = TextMuted;
-            _subStatusLabel.Text = _isGerman ? "100% Offline • Windows 64-Bit" : "100% Offline • Windows 64-Bit";
+            _subStatusLabel.Text = "100% Offline • Windows 64-Bit";
             Controls.Add(_subStatusLabel);
 
             // Footer
@@ -303,6 +463,63 @@ namespace SOCDOF.Bootstrapper
             Controls.Add(footerLabel);
         }
 
+        private string GetText(string key)
+        {
+            switch (key)
+            {
+                case "install":
+                    if (_langCode == "fr") return "Installer";
+                    if (_langCode == "es") return "Instalar";
+                    if (_langCode == "en") return "Install";
+                    return "Installieren";
+
+                case "installing":
+                    if (_langCode == "fr") return "Installation en cours...";
+                    if (_langCode == "es") return "Instalando...";
+                    if (_langCode == "en") return "Installing...";
+                    return "Wird installiert...";
+
+                case "setting_up":
+                    if (_langCode == "fr") return "Configuration des fichiers...";
+                    if (_langCode == "es") return "Configurando archivos...";
+                    if (_langCode == "en") return "Setting up files...";
+                    return "Dateien werden eingerichtet...";
+
+                case "completing":
+                    if (_langCode == "fr") return "Finalisation de l'installation...";
+                    if (_langCode == "es") return "Completando la instalación...";
+                    if (_langCode == "en") return "Completing setup...";
+                    return "Installation wird abgeschlossen...";
+
+                case "starting":
+                    if (_langCode == "fr") return "Démarrage...";
+                    if (_langCode == "es") return "Iniciando...";
+                    if (_langCode == "en") return "Starting...";
+                    return "Wird gestartet...";
+
+                case "opening":
+                    if (_langCode == "fr") return "Ouverture de SOCDOF Desktop...";
+                    if (_langCode == "es") return "Abriendo SOCDOF Desktop...";
+                    if (_langCode == "en") return "Opening SOCDOF Desktop...";
+                    return "SOCDOF Desktop öffnet sich...";
+
+                case "failed":
+                    if (_langCode == "fr") return "Échec de l'installation";
+                    if (_langCode == "es") return "Error en la instalación";
+                    if (_langCode == "en") return "Installation failed";
+                    return "Installation fehlgeschlagen";
+
+                case "retry":
+                    if (_langCode == "fr") return "Réessayer";
+                    if (_langCode == "es") return "Reintentar";
+                    if (_langCode == "en") return "Retry";
+                    return "Wiederholen";
+
+                default:
+                    return "";
+            }
+        }
+
         private async Task BeginInstallationAsync()
         {
             if (_isInstalling) return;
@@ -311,9 +528,10 @@ namespace SOCDOF.Bootstrapper
             // Transition UI from button to progress
             _installButton.Visible = false;
             _statusLabel.Visible = true;
-            _statusLabel.Text = _isGerman ? "Wird installiert..." : "Installing...";
-            _progressTrack.Visible = true;
-            _subStatusLabel.Text = _isGerman ? "Dateien werden eingerichtet..." : "Setting up files...";
+            _statusLabel.Text = GetText("installing");
+            _progressBar.Visible = true;
+            _progressBar.SetIndeterminate(0);
+            _subStatusLabel.Text = GetText("setting_up");
 
             _pulseTimer.Start();
             await StartWorkflowAsync();
@@ -326,20 +544,14 @@ namespace SOCDOF.Bootstrapper
 
             if (_currentPercent <= 0 && !_failed && _isInstalling)
             {
-                int trackW = _progressTrack.Width;
-                int barW = 55;
-                double wave = (Math.Sin(_pulseStep) + 1.0) / 2.0;
-                int newX = (int)(wave * (trackW - barW));
-                _progressBar.SetBounds(newX, 0, barW, 4);
+                _progressBar.SetIndeterminate(_pulseStep);
             }
         }
 
         private void SetPercent(int pct)
         {
             _currentPercent = Math.Max(0, Math.Min(100, pct));
-            int trackW = _progressTrack.Width;
-            int barW = (int)(trackW * (_currentPercent / 100.0));
-            _progressBar.SetBounds(0, 0, Math.Max(4, barW), 4);
+            _progressBar.SetPercent(_currentPercent);
         }
 
         private async Task StartWorkflowAsync()
@@ -353,13 +565,13 @@ namespace SOCDOF.Bootstrapper
                 if (candidates.Length > 0)
                 {
                     _packagePath = candidates[0];
-                    _subStatusLabel.Text = _isGerman ? "Lokales Setup gefunden..." : "Local setup found...";
+                    _subStatusLabel.Text = _langCode == "de" ? "Lokales Setup gefunden..." : "Local setup found...";
                 }
 
                 // Step 2: Download if not available locally
                 if (string.IsNullOrEmpty(_packagePath) || !File.Exists(_packagePath))
                 {
-                    _subStatusLabel.Text = _isGerman ? "Aktuellstes Release wird geladen..." : "Fetching latest release...";
+                    _subStatusLabel.Text = _langCode == "de" ? "Aktuellstes Release wird geladen..." : "Fetching latest release...";
                     _http.DefaultRequestHeaders.UserAgent.Clear();
                     _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SOCDOF-Installer", "1.0"));
                     _http.DefaultRequestHeaders.Accept.Clear();
@@ -394,7 +606,7 @@ namespace SOCDOF.Bootstrapper
                     }
 
                     _packagePath = Path.Combine(Path.GetTempPath(), "SOCDOF-Setup-" + Guid.NewGuid().ToString("N") + ".exe");
-                    _subStatusLabel.Text = _isGerman ? "Herunterladen..." : "Downloading...";
+                    _subStatusLabel.Text = _langCode == "de" ? "Herunterladen..." : "Downloading...";
 
                     using (HttpResponseMessage response = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                     {
@@ -416,7 +628,7 @@ namespace SOCDOF.Bootstrapper
                                 {
                                     int pct = (int)(received * 100L / totalBytes);
                                     SetPercent(pct);
-                                    _subStatusLabel.Text = string.Format(_isGerman ? "Herunterladen... {0}%" : "Downloading... {0}%", pct);
+                                    _subStatusLabel.Text = string.Format(_langCode == "de" ? "Herunterladen... {0}%" : "Downloading... {0}%", pct);
                                 }
                             }
                             await output.FlushAsync();
@@ -425,7 +637,7 @@ namespace SOCDOF.Bootstrapper
                 }
 
                 SetPercent(100);
-                _subStatusLabel.Text = _isGerman ? "Installation wird abgeschlossen..." : "Completing setup...";
+                _subStatusLabel.Text = GetText("completing");
 
                 // Step 3: Run silent installation
                 Directory.CreateDirectory(_targetDir);
@@ -447,8 +659,8 @@ namespace SOCDOF.Bootstrapper
                 }
 
                 // Step 4: Installation complete -> Now show "Wird gestartet..."
-                _statusLabel.Text = _isGerman ? "Wird gestartet..." : "Starting...";
-                _subStatusLabel.Text = _isGerman ? "SOCDOF Desktop öffnet sich..." : "Opening SOCDOF Desktop...";
+                _statusLabel.Text = GetText("starting");
+                _subStatusLabel.Text = GetText("opening");
                 await Task.Delay(400);
 
                 string appExe = Path.Combine(_targetDir, "SOCDOF.exe");
@@ -465,11 +677,11 @@ namespace SOCDOF.Bootstrapper
                 _failed = true;
                 _isInstalling = false;
                 _pulseTimer.Stop();
-                _statusLabel.Text = _isGerman ? "Installation fehlgeschlagen" : "Installation failed";
-                _subStatusLabel.Text = _isGerman ? "Klicken zum Wiederholen" : "Click to retry";
-                _installButton.Text = _isGerman ? "Wiederholen" : "Retry";
+                _statusLabel.Text = GetText("failed");
+                _subStatusLabel.Text = _langCode == "de" ? "Klicken zum Wiederholen" : "Click to retry";
+                _installButton.Text = GetText("retry");
                 _installButton.Visible = true;
-                _progressTrack.Visible = false;
+                _progressBar.Visible = false;
             }
         }
 
