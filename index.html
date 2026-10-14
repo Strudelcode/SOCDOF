@@ -52,7 +52,10 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    </noscript>
     <style>
       body {
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -85,41 +88,41 @@
   </head>
   <body class="antialiased selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300">
     <div id="root">
-      <div id="startup-splash" style="position:fixed;inset:0;background:#070A14;display:flex;align-items:center;justify-content:center;z-index:999999;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,'Plus Jakarta Sans','Segoe UI',Roboto,sans-serif;">
+      <div id="startup-splash" style="position:fixed;inset:0;background:#202225;display:flex;align-items:center;justify-content:center;z-index:999999;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,'Plus Jakarta Sans','Segoe UI',Roboto,sans-serif;">
         <style>
           @keyframes splashPulse {
-            0% { transform: scale(0.92); opacity: 0.55; }
-            100% { transform: scale(1.12); opacity: 0.95; }
+            0% { transform: scale(0.94); opacity: 0.6; }
+            100% { transform: scale(1.06); opacity: 0.95; }
           }
           @keyframes splashFloat {
             0% { transform: translateY(0); }
-            100% { transform: translateY(-4px); }
+            100% { transform: translateY(-3px); }
           }
           @keyframes splashShimmer {
             0% { left: -60px; width: 40px; }
-            50% { width: 90px; }
+            50% { width: 80px; }
             100% { left: 220px; width: 40px; }
           }
         </style>
-        <div style="width:320px;height:380px;background:linear-gradient(145deg,#0B0F1E 0%,#11162B 50%,#0A0D18 100%);border:1px solid rgba(99,102,241,0.25);border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;position:relative;box-shadow:0 25px 60px -15px rgba(0,0,0,0.8),0 0 35px 0 rgba(79,70,229,0.15);overflow:hidden;">
+        <div style="width:320px;height:380px;background:#2b2d31;border:1px solid rgba(255,255,255,0.06);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;position:relative;box-shadow:0 20px 50px -10px rgba(0,0,0,0.6);overflow:hidden;">
           <!-- Ambient glow circle -->
-          <div style="position:absolute;top:60px;width:140px;height:140px;background:radial-gradient(circle,rgba(99,102,241,0.35) 0%,rgba(139,92,246,0.1) 60%,transparent 80%);border-radius:50%;pointer-events:none;animation:splashPulse 2.8s ease-in-out infinite alternate;"></div>
+          <div style="position:absolute;top:60px;width:140px;height:140px;background:radial-gradient(circle,rgba(88,101,242,0.25) 0%,transparent 70%);border-radius:50%;pointer-events:none;animation:splashPulse 2.8s ease-in-out infinite alternate;"></div>
           
           <!-- Logo container -->
-          <div style="position:relative;width:88px;height:88px;border-radius:24px;background:linear-gradient(135deg,#4F46E5 0%,#7C3AED 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px -4px rgba(79,70,229,0.5);margin-bottom:22px;z-index:2;animation:splashFloat 3s ease-in-out infinite alternate;">
-            <img src="socdof_icon.png" alt="SOCDOF Logo" style="width:84px;height:84px;border-radius:22px;object-fit:cover;" onerror="this.style.display='none'" />
+          <div style="position:relative;width:84px;height:84px;margin-bottom:18px;z-index:2;animation:splashFloat 3s ease-in-out infinite alternate;">
+            <img src="socdof_icon.png" alt="SOCDOF Logo" style="width:84px;height:84px;border-radius:20px;object-fit:cover;" onerror="this.style.display='none'" />
           </div>
 
-          <h1 style="font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:1.5px;margin:0 0 6px 0;z-index:2;">SOCDOF</h1>
-          <div style="display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#A5B4FC;background:rgba(30,27,75,0.7);border:1px solid rgba(67,56,202,0.5);padding:3px 10px;border-radius:6px;margin-bottom:28px;z-index:2;">Desktop Suite</div>
+          <h1 style="font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:1px;margin:0 0 6px 0;z-index:2;">SOCDOF</h1>
+          <div style="display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#8590F7;background:#1e1f22;padding:3px 10px;border-radius:6px;margin-bottom:24px;z-index:2;">Desktop Suite</div>
 
-          <div id="startup-status-text" style="font-size:12.5px;font-weight:600;color:#94A3B8;margin-bottom:14px;z-index:2;">
+          <div id="startup-status-text" style="font-size:13px;font-weight:500;color:#DBDEE1;margin-bottom:14px;z-index:2;">
             Wird gestartet...
           </div>
 
-          <!-- Progress Shimmer Bar -->
-          <div style="width:200px;height:4px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;position:relative;z-index:2;">
-            <div style="height:100%;background:linear-gradient(90deg,#6366F1,#A855F7,#38BDF8);border-radius:999px;position:absolute;animation:splashShimmer 1.6s cubic-bezier(0.4,0,0.2,1) infinite;"></div>
+          <!-- Progress Shimmer Bar (Discord Blurple) -->
+          <div style="width:180px;height:4px;background:#35373c;border-radius:999px;overflow:hidden;position:relative;z-index:2;">
+            <div style="height:100%;background:linear-gradient(90deg,#5865F2,#7289DA,#5865F2);border-radius:999px;position:absolute;animation:splashShimmer 1.5s cubic-bezier(0.4,0,0.2,1) infinite;"></div>
           </div>
 
           <div style="position:absolute;bottom:16px;font-size:9px;font-weight:500;color:#475569;letter-spacing:0.5px;">

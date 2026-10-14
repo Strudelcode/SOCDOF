@@ -66,10 +66,12 @@ jobs:
       - name: Build lightweight instant-launch bootstrapper
         shell: powershell
         run: |
-          $msbuild = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Filter MSBuild.exe -Recurse | Where-Object { $_.FullName -match "Current\\Bin\\MSBuild.exe$" } | Select-Object -First 1
+          $msbuild = Get-ChildItem "C:\Program Files\Microsoft Visual Studio", "C:\Program Files (x86)\Microsoft Visual Studio" -Filter MSBuild.exe -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "Current\\Bin\\MSBuild.exe$" -or $_.FullName -match "Bin\\amd64\\MSBuild.exe$" -or $_.FullName -match "Bin\\MSBuild.exe$" } | Select-Object -First 1
           if (-not $msbuild) { throw "MSBuild.exe was not found on the Windows runner." }
+          Write-Host "Using MSBuild at: $($msbuild.FullName)"
           & $msbuild.FullName installer-bootstrapper\SOCDOF.Bootstrapper.Framework.csproj /p:Configuration=Release /p:Platform=AnyCPU /m
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path release)) { New-Item -ItemType Directory -Path release -Force }
           Copy-Item release\bootstrapper\SOCDOF-Installer.exe release\SOCDOF-Installer.exe -Force
           if (-not (Test-Path release\SOCDOF-Installer.exe)) { throw "SOCDOF-Installer.exe was not produced." }
 

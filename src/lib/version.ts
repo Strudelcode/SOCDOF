@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.10.0';
+export const APP_VERSION = '24.10.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -13,6 +13,18 @@ export const APP_LOCATION = 'South Tyrol, Italy';
 export const APP_COPYRIGHT = '© Strudel';
 
 export const VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.10.1',
+    date: '2026-10-14',
+    title: 'Discord-Style Frameless Installer, Crisp Assets & Instant Splash Launch',
+    highlights: [
+      'Frameless, sleek Discord-style installer window with centered high-res logo and responsive Install button',
+      'Accurate installation status flow: Displays "Wird installiert..." during setup and smoothly transitions to "Wird gestartet..." on launch',
+      'Eliminated blue border stripes, header bands, and low-res graphics across all installer assets',
+      'Regenerated ultra-clean, modern anti-aliased dark BMP and PNG installer graphics matching the true SOCDOF visual identity',
+      'Instantaneous startup splash display with non-blocking fonts and borderless window configuration'
+    ]
+  },
   {
     version: '24.10.0',
     date: '2026-10-13',

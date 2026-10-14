@@ -4,6 +4,17 @@
 
 ---
 
+### Discord-Style Installer, Crisp Assets & Instant Splash Launch (v24.10.1)
+- [x] Redesigned `installer-bootstrapper/Program.Framework.cs` with an interactive Discord-style "Installieren" / "Install" button (`#5865F2`, rounded pill style) below the centered high-resolution SOCDOF logo.
+- [x] Implemented accurate installer lifecycle status progression: Displays "Wird installiert..." during installation with smooth indeterminate/determinate progress, and transitions to "Wird gestartet..." on launch.
+- [x] Fixed Windows Forms caption styling and region clipping to eliminate any blue border stripes or flashing upon startup.
+- [x] Added embedded high-resolution `socdof_icon.png` resource directly into the executable project so the logo is razor-sharp on all screen resolutions.
+- [x] Redesigned and regenerated ultra-clean, modern dark BMP and PNG installer assets (`installerSplash.bmp`, `installerSidebar.bmp`, `installerHeader.bmp`, `uninstallerSidebar.bmp`) using ImageMagick with anti-aliased TrueType typography, removing blue borders and low-res graphics.
+- [x] Converted Google Fonts in `index.html` to asynchronous non-blocking loading (`media="print" onload="this.media='all'"`) with immediate system font fallbacks, preventing 3-10s delays when offline or on slow connections.
+- [x] Inlined vector SVG logo directly into `electron/splash.html` for zero-latency splash rendering, and added `thickFrame: false` and `titleBarStyle: 'hidden'` to Electron BrowserWindow.
+
+---
+
 ### Frameless Discord-Style Windows Installer & Branded Startup Splash (v24.10.0)
 - [x] Redesigned `installer-bootstrapper/Program.Framework.cs` into a 100% frameless, minimalist Discord-style installer window (310×380 px, 18px rounded corners, `#202225` dark background).
 - [x] Removed all window borders, titlebars, close buttons, path inputs, and clutter to match Discord's clean installer screen (Image 2 & 3).

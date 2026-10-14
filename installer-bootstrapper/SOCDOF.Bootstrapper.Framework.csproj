@@ -24,6 +24,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.Framework.cs" />
+    <EmbeddedResource Include="..\public\socdof_icon.png">
+      <Link>socdof_icon.png</Link>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
