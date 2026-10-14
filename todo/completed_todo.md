@@ -4,6 +4,15 @@
 
 ---
 
+### Frameless Discord-Style Windows Installer & Branded Startup Splash (v24.10.0)
+- [x] Redesigned `installer-bootstrapper/Program.Framework.cs` into a 100% frameless, minimalist Discord-style installer window (310×380 px, 18px rounded corners, `#202225` dark background).
+- [x] Removed all window borders, titlebars, close buttons, path inputs, and clutter to match Discord's clean installer screen (Image 2 & 3).
+- [x] Added centered SOCDOF logo with pulse animation, clean status label ("Wird installiert..." / "Installing..."), and a sleek 3px micro-track progress bar.
+- [x] Silent background download and automated silent setup into `%LocalAppData%\Programs\SOCDOF`, with immediate automatic launch of `SOCDOF.exe` upon completion.
+- [x] Aligned `electron/splash.html` and `createSplashWindow()` in `electron/main.cjs` to the exact same 310×380 px Discord aesthetic for app startups.
+
+---
+
 ### Smart Homescreen Download Intelligence & Version-Aware Update Prompts (v24.9.1)
 - [x] Refactored `src/lib/desktopDownloadStatus.ts` and `src/components/DesktopWindowWorkspace.tsx` to conditionally display the Start Menu download banner only when the app has not yet been downloaded, or when an actual newer version is officially available on GitHub.
 - [x] Implemented version comparison via semver checks: hides "Herunterladen" banner when running current or higher version, and converts banner into an update prompt ("Neues Update verfügbar: vX.X.X") when a newer release is published.

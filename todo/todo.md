@@ -21,8 +21,6 @@
 
 ## 2. Active Roadmap & Pending Tasks
 
-- [ ] Verify v24.10.0 instant-launch bootstrapper and startup splash on Windows: test custom install path, Local AppData default, upgrade over an existing install, and startup behavior; the NSIS installer still has a native setup phase before a custom app window can launch.
-
 ### 2.5 System Optimization & Continuous Polishing
 - [ ] Continuous module performance and responsive UX refinements.
 - [ ] Automated regression coverage for critical local data workflows.
