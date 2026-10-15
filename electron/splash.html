@@ -18,20 +18,17 @@
   margin: 0;
   padding: 0;
 }
-html {
+html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: transparent;
+  background: #202225;
 }
 body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   border-radius: 20px;
-  background: #202225;
+  background: linear-gradient(180deg, #262930 0%, #17181c 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   -webkit-app-region: drag;
   display: flex;
   flex-direction: column;
@@ -40,75 +37,91 @@ body {
   position: relative;
 }
 .logo-container {
-  width: 84px;
-  height: 84px;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  position: relative;
+}
+.logo-ambient {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(88, 101, 242, 0.32) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
 }
 .logo {
-  width: 84px;
-  height: 84px;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 20px rgba(88, 101, 242, 0.3));
-  animation: breathe 2.8s ease-in-out infinite;
+  width: 86px;
+  height: 86px;
+  border-radius: 20px;
+  object-fit: cover;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  animation: breathe 3s ease-in-out infinite;
+  position: relative;
+  z-index: 2;
 }
 .app-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
-  color: #f2f3f5;
+  color: #ffffff;
   letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  z-index: 2;
 }
-.app-badge {
-  font-size: 9px;
+.app-subtitle {
+  font-size: 8.5px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #8590f7;
-  background: #2b2d31;
-  padding: 3px 10px;
-  border-radius: 6px;
-  margin-bottom: 22px;
+  color: #8e9aff;
+  margin-bottom: 24px;
+  z-index: 2;
 }
 .status-text {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #dbdee1;
   letter-spacing: 0.015em;
   margin-bottom: 14px;
   text-align: center;
+  z-index: 2;
 }
 .track {
-  height: 4px;
-  width: 180px;
+  height: 6px;
+  width: 200px;
   border-radius: 99px;
-  background: #35373c;
+  background: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   position: relative;
+  z-index: 2;
 }
 .bar {
   height: 100%;
   width: 45%;
   border-radius: 99px;
-  background: #5865f2;
+  background: linear-gradient(90deg, #5865f2, #808cff);
+  box-shadow: 0 0 10px rgba(88, 101, 242, 0.5);
   animation: travel 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 .footer-text {
   position: absolute;
   bottom: 16px;
-  font-size: 9.5px;
+  font-size: 9px;
   color: #72767d;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 @keyframes travel {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(250%); }
 }
 @keyframes breathe {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 6px 16px rgba(88, 101, 242, 0.2)); }
-  50% { transform: scale(1.04); filter: drop-shadow(0 10px 24px rgba(88, 101, 242, 0.42)); }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
 }
 @media (prefers-reduced-motion: reduce) {
   .logo, .bar { animation: none !important; }
@@ -118,29 +131,16 @@ body {
 </head>
 <body>
   <div class="logo-container">
-    <svg class="logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="socdof-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#252932" />
-          <stop offset="100%" stop-color="#14171d" />
-        </linearGradient>
-      </defs>
-      <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="url(#socdof-bg)" />
-      <path d="M 24 168 C 24 88 88 24 168 24" stroke="#22c55e" stroke-width="28" stroke-linecap="round" fill="none" />
-      <path d="M 344 24 C 424 24 488 88 488 168" stroke="#38bdf8" stroke-width="28" stroke-linecap="round" fill="none" />
-      <path d="M 488 344 C 488 424 424 488 344 488" stroke="#ef4444" stroke-width="28" stroke-linecap="round" fill="none" />
-      <path d="M 168 488 C 88 488 24 424 24 344" stroke="#f59e0b" stroke-width="28" stroke-linecap="round" fill="none" />
-      <rect x="40" y="40" width="432" height="432" rx="96" ry="96" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none" />
-      <text x="256" y="342" text-anchor="middle" font-family="'Plus Jakarta Sans', -apple-system, sans-serif" font-weight="900" font-size="268" fill="#ffffff" letter-spacing="-6">S</text>
-    </svg>
+    <div class="logo-ambient"></div>
+    <img class="logo" src="../public/socdof_icon.png" alt="SOCDOF Logo" onerror="this.onerror=null; this.src='../dist/socdof_icon.png';" />
   </div>
   <div class="app-title">SOCDOF</div>
-  <div class="app-badge">DESKTOP SUITE</div>
+  <div class="app-subtitle">OFFLINE COMMERCE & ERP SUITE</div>
   <div class="status-text" id="status-text">Wird gestartet...</div>
   <div class="track">
     <div class="bar"></div>
   </div>
-  <div class="footer-text">100% Offline • Strudelcode</div>
+  <div class="footer-text">Strudelcode · 100% Offline Desktop Suite</div>
 
   <script>
     (async () => {

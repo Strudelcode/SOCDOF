@@ -24,14 +24,14 @@ function createSplashWindow() {
     width: 320,
     height: 400,
     frame: false,
-    transparent: true,
+    transparent: false,
     hasShadow: true,
     resizable: false,
     movable: true,
     center: true,
     show: false,
     skipTaskbar: false,
-    backgroundColor: '#00000000',
+    backgroundColor: '#202225',
     title: 'SOCDOF',
     thickFrame: false,
     icon: process.platform === 'win32'
@@ -496,15 +496,21 @@ function createWindow() {
   // Ensure menu bar remains hidden
   mainWindow.setMenuBarVisibility(false);
 
+  let mainWindowRevealed = false;
+  const revealMainWindow = () => {
+    if (mainWindowRevealed || !mainWindow || mainWindow.isDestroyed()) return;
+    mainWindowRevealed = true;
+    closeSplashWindow();
+    mainWindow.setFullScreen(true);
+    mainWindow.show();
+    mainWindow.focus();
+  };
+
   // Reveal window once first paint is completed and DOM is ready
-  mainWindow.once('ready-to-show', () => {
-    if (mainWindow) {
-      closeSplashWindow();
-      mainWindow.setFullScreen(true);
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  });
+  mainWindow.once('ready-to-show', revealMainWindow);
+
+  // Fallback timeout in case ready-to-show is delayed by background resource compilation
+  setTimeout(revealMainWindow, 2200);
 
   // Load the compiled Vite app
   const indexPath = path.join(__dirname, '../dist/index.html');
