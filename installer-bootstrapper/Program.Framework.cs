@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace SOCDOF.Bootstrapper
 {
@@ -31,7 +32,9 @@ namespace SOCDOF.Bootstrapper
                 {
                     if (string.Equals(arg, "/S", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(arg, "--silent", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(arg, "--auto", StringComparison.OrdinalIgnoreCase))
+                        string.Equals(arg, "--auto", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "--update", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "-update", StringComparison.OrdinalIgnoreCase))
                     {
                         autoStart = true;
                         break;
@@ -431,6 +434,8 @@ namespace SOCDOF.Bootstrapper
         );
 
         private readonly bool _autoStart;
+        private readonly bool _isExistingInstall;
+        private readonly string _existingInstallPath;
         private string _packagePath;
         private string _langCode;
         private bool _isInstalling;
@@ -438,10 +443,155 @@ namespace SOCDOF.Bootstrapper
         private double _pulseStep;
         private int _currentPercent;
 
+        private static string DetectExistingInstallationPath()
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\de.strudelcode.socdof"))
+                {
+                    if (key != null)
+                    {
+                        object loc = key.GetValue("InstallLocation");
+                        if (loc != null && !string.IsNullOrWhiteSpace(loc.ToString()) && Directory.Exists(loc.ToString()))
+                            return loc.ToString();
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\de.strudelcode.socdof"))
+                {
+                    if (key != null)
+                    {
+                        object loc = key.GetValue("InstallLocation");
+                        if (loc != null && !string.IsNullOrWhiteSpace(loc.ToString()) && Directory.Exists(loc.ToString()))
+                            return loc.ToString();
+                    }
+                }
+            }
+            catch { }
+
+            string defaultTarget = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "SOCDOF");
+            if (File.Exists(Path.Combine(defaultTarget, "SOCDOF.exe"))) return defaultTarget;
+
+            string lowercaseTarget = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "socdof");
+            if (File.Exists(Path.Combine(lowercaseTarget, "SOCDOF.exe")) || File.Exists(Path.Combine(lowercaseTarget, "socdof.exe")))
+                return lowercaseTarget;
+
+            string customTarget = @"C:\SOCDOF";
+            if (File.Exists(Path.Combine(customTarget, "SOCDOF.exe"))) return customTarget;
+
+            string progFiles = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SOCDOF");
+            if (File.Exists(Path.Combine(progFiles, "SOCDOF.exe"))) return progFiles;
+
+            return null;
+        }
+
+        private static async Task TerminateRunningAppProcessesAsync()
+        {
+            try
+            {
+                int currentPid = Process.GetCurrentProcess().Id;
+                string[] targetNames = new string[] { "SOCDOF", "socdof" };
+                List<Process> procsToClose = new List<Process>();
+
+                foreach (string name in targetNames)
+                {
+                    Process[] found = Process.GetProcessesByName(name);
+                    foreach (Process p in found)
+                    {
+                        if (p.Id != currentPid)
+                        {
+                            procsToClose.Add(p);
+                        }
+                    }
+                }
+
+                if (procsToClose.Count == 0) return;
+
+                foreach (Process p in procsToClose)
+                {
+                    try
+                    {
+                        if (!p.HasExited) p.CloseMainWindow();
+                    }
+                    catch { }
+                }
+
+                await Task.Delay(1200);
+
+                foreach (Process p in procsToClose)
+                {
+                    try
+                    {
+                        if (!p.HasExited)
+                        {
+                            p.Kill();
+                        }
+                    }
+                    catch { }
+                }
+
+                await Task.Delay(400);
+            }
+            catch { }
+        }
+
+        private string FindInstalledExecutable()
+        {
+            List<string> candidates = new List<string>();
+
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\de.strudelcode.socdof"))
+                {
+                    if (key != null)
+                    {
+                        object loc = key.GetValue("InstallLocation");
+                        if (loc != null) candidates.Add(Path.Combine(loc.ToString(), "SOCDOF.exe"));
+                        object icon = key.GetValue("DisplayIcon");
+                        if (icon != null && icon.ToString().EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                            candidates.Add(icon.ToString());
+                    }
+                }
+            }
+            catch { }
+
+            if (!string.IsNullOrEmpty(_existingInstallPath))
+            {
+                candidates.Add(Path.Combine(_existingInstallPath, "SOCDOF.exe"));
+                candidates.Add(Path.Combine(_existingInstallPath, "socdof.exe"));
+            }
+
+            candidates.Add(Path.Combine(_targetDir, "SOCDOF.exe"));
+            candidates.Add(Path.Combine(_targetDir, "socdof.exe"));
+
+            string localPrograms = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs");
+            candidates.Add(Path.Combine(localPrograms, "SOCDOF", "SOCDOF.exe"));
+            candidates.Add(Path.Combine(localPrograms, "socdof", "SOCDOF.exe"));
+            candidates.Add(Path.Combine(localPrograms, "socdof", "socdof.exe"));
+            candidates.Add(@"C:\SOCDOF\SOCDOF.exe");
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SOCDOF", "SOCDOF.exe"));
+
+            foreach (string path in candidates)
+            {
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            return null;
+        }
+
         public DiscordStyleInstallerWindow(bool autoStart = false)
         {
-            _autoStart = autoStart;
-            Text = "SOCDOF Desktop Installer";
+            _existingInstallPath = DetectExistingInstallationPath();
+            _isExistingInstall = !string.IsNullOrEmpty(_existingInstallPath);
+            _autoStart = autoStart || _isExistingInstall;
+
+            Text = _isExistingInstall ? "SOCDOF Desktop Update" : "SOCDOF Desktop Installer";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.None;
             ClientSize = new Size(360, 460);
@@ -482,6 +632,7 @@ namespace SOCDOF.Bootstrapper
             {
                 if (_autoStart)
                 {
+                    await Task.Delay(200);
                     await BeginInstallationAsync();
                 }
             };
@@ -589,13 +740,13 @@ namespace SOCDOF.Bootstrapper
             _titleLabel.Text = "SOCDOF";
             Controls.Add(_titleLabel);
 
-            // Refined Subtitle: OFFLINE COMMERCE & ERP SUITE (No clunky pills!)
+            // Refined Subtitle: OFFLINE COMMERCE & ERP SUITE or UPDATE DETECTED
             _subtitleLabel.Location = new Point(16, 175);
             _subtitleLabel.Size = new Size(ClientSize.Width - 32, 18);
             _subtitleLabel.TextAlign = ContentAlignment.MiddleCenter;
             _subtitleLabel.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             _subtitleLabel.ForeColor = Color.FromArgb(142, 154, 255);
-            _subtitleLabel.Text = GetText("subtitle");
+            _subtitleLabel.Text = _isExistingInstall ? GetText("update_detected") : GetText("subtitle");
             Controls.Add(_subtitleLabel);
 
             // Feature Highlights Row (Clean inline typography with separators)
@@ -611,7 +762,7 @@ namespace SOCDOF.Bootstrapper
             int btnWidth = 270;
             _installButton.Location = new Point((ClientSize.Width - btnWidth) / 2, 232);
             _installButton.Size = new Size(btnWidth, 46);
-            _installButton.Text = GetText("install");
+            _installButton.Text = _isExistingInstall ? GetText("update_now") : GetText("install");
             _installButton.Click += async delegate { await BeginInstallationAsync(); };
             Controls.Add(_installButton);
 
@@ -682,6 +833,12 @@ namespace SOCDOF.Bootstrapper
                     if (_langCode == "en") return "OFFLINE COMMERCE & ERP SUITE";
                     return "OFFLINE COMMERCE & ERP SUITE";
 
+                case "update_detected":
+                    if (_langCode == "fr") return "INSTALLATION DÉTECTÉE · MISE À JOUR AUTO";
+                    if (_langCode == "es") return "INSTALACIÓN DETECTADA · AUTO-ACTUALIZACIÓN";
+                    if (_langCode == "en") return "EXISTING INSTALLATION DETECTED · AUTO-UPDATE";
+                    return "BESTEHENDE INSTALLATION ERKANNT · AUTO-UPDATE";
+
                 case "tagline":
                     if (_langCode == "fr") return "⚡ 100% Hors-ligne  ·  🔒 Base Locale  ·  🪟 Win 64-Bit";
                     if (_langCode == "es") return "⚡ 100% Sin conexión  ·  🔒 BD Local  ·  🪟 Win 64-Bit";
@@ -694,11 +851,17 @@ namespace SOCDOF.Bootstrapper
                     if (_langCode == "en") return "Install SOCDOF";
                     return "SOCDOF Installieren";
 
+                case "update_now":
+                    if (_langCode == "fr") return "Mettre à jour SOCDOF";
+                    if (_langCode == "es") return "Actualizar SOCDOF";
+                    if (_langCode == "en") return "Update SOCDOF";
+                    return "SOCDOF Aktualisieren";
+
                 case "license_note":
-                    if (_langCode == "fr") return "Gratuit & Open Source · Version 24.10.2";
-                    if (_langCode == "es") return "Gratis y Código Abierto · Versión 24.10.2";
-                    if (_langCode == "en") return "Free & Open Source · Version 24.10.2";
-                    return "Kostenlos & Open Source · Version 24.10.2";
+                    if (_langCode == "fr") return "Gratuit & Open Source · Version 24.10.3";
+                    if (_langCode == "es") return "Gratis y Código Abierto · Versión 24.10.3";
+                    if (_langCode == "en") return "Free & Open Source · Version 24.10.3";
+                    return "Kostenlos & Open Source · Version 24.10.3";
 
                 case "benefit_1":
                     if (_langCode == "fr") return "✓ 100% Hors-ligne – Fonctionne sans Internet ni Cloud";
@@ -714,7 +877,7 @@ namespace SOCDOF.Bootstrapper
 
                 case "benefit_3":
                     if (_langCode == "fr") return "✓ Base de données SQLite locale, privée et sécurisée";
-                    if (_langCode == "es") return "✓ Base de datos SQLite local, privada y segura";
+                    if (_langCode == "es") return "✓ Base de datos SQLite local, privée et sécurisée";
                     if (_langCode == "en") return "✓ Local, private and secure SQLite database";
                     return "✓ Lokale, private und sichere SQLite-Datenbank";
 
@@ -723,6 +886,18 @@ namespace SOCDOF.Bootstrapper
                     if (_langCode == "es") return "Instalando...";
                     if (_langCode == "en") return "Installing...";
                     return "Wird installiert...";
+
+                case "updating":
+                    if (_langCode == "fr") return "Mise à jour en cours...";
+                    if (_langCode == "es") return "Actualizando...";
+                    if (_langCode == "en") return "Installing update...";
+                    return "Update wird installiert...";
+
+                case "closing_instances":
+                    if (_langCode == "fr") return "Fermeture des instances actives...";
+                    if (_langCode == "es") return "Cerrando instancias activas...";
+                    if (_langCode == "en") return "Closing running instances...";
+                    return "Laufende Instanzen werden beendet...";
 
                 case "setting_up":
                     if (_langCode == "fr") return "Préparation des fichiers...";
@@ -779,10 +954,10 @@ namespace SOCDOF.Bootstrapper
                     return "Wiederholen";
 
                 case "footer":
-                    if (_langCode == "fr") return "Strudelcode  ·  Version 24.10.2  ·  Sécurisé & Privé";
-                    if (_langCode == "es") return "Strudelcode  ·  Versión 24.10.2  ·  Seguro y Privado";
-                    if (_langCode == "en") return "Strudelcode  ·  Version 24.10.2  ·  Secure & Private";
-                    return "Strudelcode  ·  Version 24.10.2  ·  Sicher & Privat";
+                    if (_langCode == "fr") return "Strudelcode  ·  Version 24.10.3  ·  Sécurisé & Privé";
+                    if (_langCode == "es") return "Strudelcode  ·  Versión 24.10.3  ·  Seguro y Privado";
+                    if (_langCode == "en") return "Strudelcode  ·  Version 24.10.3  ·  Secure & Private";
+                    return "Strudelcode  ·  Version 24.10.3  ·  Sicher & Privat";
 
                 default:
                     return "";
@@ -800,7 +975,7 @@ namespace SOCDOF.Bootstrapper
             _taglineLabel.Visible = false;
 
             _statusLabel.Visible = true;
-            _statusLabel.Text = GetText("installing");
+            _statusLabel.Text = (_isExistingInstall || _autoStart) ? GetText("updating") : GetText("installing");
             _progressBar.Visible = true;
             _progressBar.SetIndeterminate(0);
             _subStatusLabel.Visible = true;
@@ -843,63 +1018,65 @@ namespace SOCDOF.Bootstrapper
         {
             try
             {
-                // Step 1: Check if setup is adjacent
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string[] localCandidates = Directory.GetFiles(baseDir, "SOCDOF-Setup-*.exe");
-                if (localCandidates.Length > 0)
+                _infoCard.SetLines(
+                    "➔ " + GetText("step_1"),
+                    "  " + GetText("step_2"),
+                    "  " + GetText("step_3")
+                );
+
+                // Step 1: Query latest official release from GitHub API
+                string apiUrl = "https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest";
+                _http.DefaultRequestHeaders.UserAgent.Clear();
+                _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SOCDOF-Installer", "24.10.3"));
+                _http.DefaultRequestHeaders.Accept.Clear();
+                _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                string json = await _http.GetStringAsync(apiUrl);
+                JavaScriptSerializer serializer = new JavaScriptSerializer();
+                Dictionary<string, object> release = serializer.Deserialize<Dictionary<string, object>>(json);
+
+                string downloadUrl = null;
+                string targetAssetName = null;
+                long expectedSize = 0;
+
+                if (release.ContainsKey("assets"))
                 {
-                    _packagePath = localCandidates[0];
+                    ArrayList assets = (ArrayList)release["assets"];
+                    foreach (Dictionary<string, object> asset in assets)
+                    {
+                        string name = asset.ContainsKey("name") ? asset["name"].ToString() : "";
+                        if (name.StartsWith("SOCDOF-Setup-", StringComparison.OrdinalIgnoreCase) &&
+                            name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            downloadUrl = asset["browser_download_url"].ToString();
+                            targetAssetName = name;
+                            if (asset.ContainsKey("size"))
+                            {
+                                long.TryParse(asset["size"].ToString(), out expectedSize);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(downloadUrl) || string.IsNullOrEmpty(targetAssetName))
+                {
+                    throw new InvalidOperationException("No setup package found in latest release.");
+                }
+
+                // Check if the EXACT target version setup already exists locally in baseDir and is valid
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string localExactCandidate = Path.Combine(baseDir, targetAssetName);
+                if (File.Exists(localExactCandidate) && (expectedSize <= 0 || new FileInfo(localExactCandidate).Length >= expectedSize - 1024))
+                {
+                    _packagePath = localExactCandidate;
                     SetPercent(50);
                     _subStatusLabel.Text = GetText("setting_up");
                 }
-
-                // Step 2: Download if not found locally
-                if (string.IsNullOrEmpty(_packagePath) || !File.Exists(_packagePath))
+                else
                 {
-                    _infoCard.SetLines(
-                        "➔ " + GetText("step_1"),
-                        "  " + GetText("step_2"),
-                        "  " + GetText("step_3")
-                    );
-
-                    string apiUrl = "https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest";
-                    _http.DefaultRequestHeaders.UserAgent.Clear();
-                    _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SOCDOF-Installer", "24.10.2"));
-                    _http.DefaultRequestHeaders.Accept.Clear();
-                    _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-                    string json = await _http.GetStringAsync(apiUrl);
-                    JavaScriptSerializer serializer = new JavaScriptSerializer();
-                    Dictionary<string, object> release = serializer.Deserialize<Dictionary<string, object>>(json);
-
-                    string downloadUrl = null;
-                    long expectedSize = 0;
-
-                    if (release.ContainsKey("assets"))
-                    {
-                        ArrayList assets = (ArrayList)release["assets"];
-                        foreach (Dictionary<string, object> asset in assets)
-                        {
-                            string name = asset.ContainsKey("name") ? asset["name"].ToString() : "";
-                            if (name.StartsWith("SOCDOF-Setup-", StringComparison.OrdinalIgnoreCase) &&
-                                name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                            {
-                                downloadUrl = asset["browser_download_url"].ToString();
-                                if (asset.ContainsKey("size"))
-                                {
-                                    long.TryParse(asset["size"].ToString(), out expectedSize);
-                                }
-                                break;
-                            }
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(downloadUrl))
-                    {
-                        throw new InvalidOperationException("No setup package found in latest release.");
-                    }
-
-                    _packagePath = Path.Combine(Path.GetTempPath(), "SOCDOF-Setup-" + Guid.NewGuid().ToString("N") + ".exe");
+                    // Download verified latest version fresh to Temp directory
+                    _packagePath = Path.Combine(Path.GetTempPath(), targetAssetName);
                     _subStatusLabel.Text = _langCode == "de" ? "Herunterladen... 0%" : "Downloading... 0%";
 
                     using (HttpResponseMessage response = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
@@ -938,12 +1115,18 @@ namespace SOCDOF.Bootstrapper
                     "  " + GetText("step_3")
                 );
 
+                // Step 2: Terminate any running SOCDOF instances so Windows file lock is released!
+                _subStatusLabel.Text = GetText("closing_instances");
+                await TerminateRunningAppProcessesAsync();
+
                 // Step 3: Run silent installation
-                Directory.CreateDirectory(_targetDir);
+                string installTarget = !string.IsNullOrEmpty(_existingInstallPath) ? _existingInstallPath : _targetDir;
+                Directory.CreateDirectory(installTarget);
+
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = _packagePath,
-                    Arguments = "/S /D=" + _targetDir,
+                    Arguments = "/S",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WorkingDirectory = Path.GetTempPath()
@@ -957,6 +1140,8 @@ namespace SOCDOF.Bootstrapper
                     }
                 }
 
+                await Task.Delay(600);
+
                 _infoCard.SetLines(
                     "✓ " + GetText("step_1"),
                     "✓ " + GetText("step_2"),
@@ -968,8 +1153,8 @@ namespace SOCDOF.Bootstrapper
                 _subStatusLabel.Text = GetText("opening");
                 await Task.Delay(400);
 
-                string appExe = Path.Combine(_targetDir, "SOCDOF.exe");
-                if (File.Exists(appExe))
+                string appExe = FindInstalledExecutable();
+                if (!string.IsNullOrEmpty(appExe) && File.Exists(appExe))
                 {
                     Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
                 }
@@ -977,13 +1162,13 @@ namespace SOCDOF.Bootstrapper
                 await Task.Delay(300);
                 Application.Exit();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 _failed = true;
                 _isInstalling = false;
                 _pulseTimer.Stop();
                 _statusLabel.Text = GetText("failed");
-                _subStatusLabel.Text = _langCode == "de" ? "Klicken zum Wiederholen" : "Click to retry";
+                _subStatusLabel.Text = _langCode == "de" ? "Fehler: " + ex.Message : "Error: " + ex.Message;
                 _installButton.Text = GetText("retry");
                 _installButton.Visible = true;
                 _progressBar.Visible = false;

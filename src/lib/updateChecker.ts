@@ -153,12 +153,26 @@ export async function checkForAppUpdates(): Promise<UpdateInfo | null> {
     const cleanTag = tagName.replace(/^v/i, '').trim();
     const hasUpdate = compareSemver(cleanTag, APP_VERSION) > 0;
 
-    // The in-app updater must download the actual NSIS setup, not the
-    // instant-launch bootstrapper (which is interactive and does not accept updater flags).
+    // Resolve target update package:
+    // Priority 1: Direct NSIS setup package (e.g. SOCDOF-Setup-24.10.3.exe)
     const assets = Array.isArray(data.assets) ? data.assets : [];
-    const exeAsset = assets.find((asset: any) =>
-      typeof asset.name === 'string' && /^socdof-setup-.*\.exe$/i.test(asset.name)
+    let exeAsset = assets.find((asset: any) =>
+      typeof asset.name === 'string' && /^(socdof[-.]setup[-.].*\.exe)$/i.test(asset.name)
     ) || null;
+
+    // Priority 2: Any standalone setup .exe excluding bootstrapper
+    if (!exeAsset) {
+      exeAsset = assets.find((asset: any) =>
+        typeof asset.name === 'string' && asset.name.toLowerCase().endsWith('.exe') && !asset.name.toLowerCase().includes('installer')
+      ) || null;
+    }
+
+    // Priority 3: Bootstrapper installer (e.g. SOCDOF-Installer.exe)
+    if (!exeAsset) {
+      exeAsset = assets.find((asset: any) =>
+        typeof asset.name === 'string' && asset.name.toLowerCase().endsWith('.exe')
+      ) || null;
+    }
 
     return {
       hasUpdate,

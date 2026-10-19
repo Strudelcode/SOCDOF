@@ -82,7 +82,8 @@ import {
   ImagePlus,
   LayoutDashboard,
   Users,
-  HeartPulse
+  HeartPulse,
+  KeyRound
 } from 'lucide-react';
 import { CompanyProfile, Invoice } from '../types';
 import { FlagIcon } from './FlagIcon';
@@ -114,7 +115,6 @@ import {
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { InvoiceTemplateModal } from './InvoiceTemplateModal';
 import { APP_VERSION, APP_NAME, APP_AUTHOR, APP_LOCATION, APP_COPYRIGHT } from '../lib/version';
-import { downloadWindowsInstallerPackage } from '../lib/windowsExeDownloader';
 import { GITHUB_RELEASES_URL, GITHUB_REPO_URL, isElectron } from '../lib/platform';
 import { checkForAppUpdates, UpdateInfo } from '../lib/updateChecker';
 import { markDesktopAsInstalled } from '../lib/desktopDownloadStatus';
@@ -165,6 +165,7 @@ export type SettingsSection =
   | 'storage'
   | 'audio'
   | 'windows'
+  | 'updates'
   | 'users'
   | 'danger';
 
@@ -180,7 +181,6 @@ interface SettingsModuleProps {
   isMuted?: boolean;
   onToggleSound?: () => void;
   invoices?: Invoice[];
-  onOpenWindowsModal?: () => void;
   initialSection?: SettingsSection;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
@@ -200,7 +200,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   isMuted = false,
   onToggleSound,
   invoices = [],
-  onOpenWindowsModal,
   initialSection,
   onToggleFullscreen,
   isFullscreen = false,
@@ -1313,6 +1312,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: t('settings.section_desc.windows', activeLang, 'Offline app, startup, and desktop options.') },
+        { id: 'updates' as SettingsSection, label: t('settings.updates', activeLang, 'Updates & System'), icon: Download, desc: t('settings.updates_desc', activeLang, 'Check for system updates and download the latest version.') },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: t('settings.section_desc.storage', activeLang, 'Snapshots, JSON export, and backup location.') },
         { id: 'danger' as SettingsSection, label: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.') }
       ]
@@ -2250,10 +2250,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </h4>
 
                   <div className="p-4 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/50 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="space-y-1">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <MessageSquare className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                          <MessageSquare className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                           <span className="text-xs font-bold text-slate-900 dark:text-white">
                             {t('settings.support_default_chatter_label', activeLang, 'Standard-Sichtbarkeit des Aktivitäten-Protokolls')}
                           </span>
@@ -2263,7 +2263,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
                         <button
                           type="button"
                           onClick={() => {
@@ -2273,13 +2273,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                               localStorage.setItem('socdof_support_default_chatter_expanded', 'false');
                             } catch {}
                           }}
-                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
                             !profile.support_default_chatter_expanded
                               ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs font-bold ring-2 ring-cyan-500/20'
                               : 'border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                           }`}
                         >
-                          <span>{t('settings.support_chatter_collapsed', activeLang, 'Eingeklappt (Standard)')}</span>
+                          <span>{t('settings.support_chatter_collapsed', activeLang, 'Eingeklappt (Kompakt)')}</span>
                         </button>
 
                         <button
@@ -2291,7 +2291,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                               localStorage.setItem('socdof_support_default_chatter_expanded', 'true');
                             } catch {}
                           }}
-                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
                             profile.support_default_chatter_expanded
                               ? 'border-cyan-500 bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs font-bold ring-2 ring-cyan-500/20'
                               : 'border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
@@ -4430,57 +4430,58 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   )}
 
                   {/* Windows desktop languages folder integration */}
-                  <div className="text-xs bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 shrink-0">
-                          <Laptop className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>{t('settings.lang_electron_folder_title', activeLang, 'Windows Desktop Sprach-Ordner')}</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 select-all">
-                              %APPDATA%\socdof\languages\
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            {t('settings.lang_electron_folder_desc', activeLang, 'Eigene .json-Sprachdateien können direkt in diesem lokalen Windows-Ordner hinterlegt werden.')}
-                          </p>
-                        </div>
+                  <div className="text-xs bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2.5 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5">
+                        <Laptop className="w-5 h-5" />
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleRefreshDesktopLanguages}
-                          disabled={isSyncingDesktopFiles}
-                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-                          title="Dateien aus Ordner neu einlesen"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDesktopFiles ? 'animate-spin text-sky-500' : ''}`} />
-                          <span>{isSyncingDesktopFiles ? 'Lade...' : 'Neu einlesen'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleCopyLanguagesFolderPath}
-                          className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
-                          title="Pfad in Zwischenablage kopieren"
-                        >
-                          {copiedLangPath ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedLangPath ? 'Kopiert!' : 'Pfad kopieren'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleOpenLanguagesFolder}
-                          className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5" />
-                          <span>{t('settings.lang_open_folder', activeLang, 'Ordner im Explorer öffnen')}</span>
-                        </button>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">
+                            {t('settings.lang_electron_folder_title', activeLang, 'Windows Desktop Sprach-Ordner')}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 select-all">
+                            %APPDATA%\socdof\languages\
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          {t('settings.lang_electron_folder_desc', activeLang, 'Eigene .json-Sprachdateien können direkt in diesem lokalen Windows-Ordner hinterlegt werden.')}
+                        </p>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/50">
+                      <button
+                        type="button"
+                        onClick={handleRefreshDesktopLanguages}
+                        disabled={isSyncingDesktopFiles}
+                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                        title="Dateien aus Ordner neu einlesen"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDesktopFiles ? 'animate-spin text-sky-500' : ''}`} />
+                        <span>{isSyncingDesktopFiles ? 'Lade...' : 'Neu einlesen'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyLanguagesFolderPath}
+                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        title="Pfad in Zwischenablage kopieren"
+                      >
+                        {copiedLangPath ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedLangPath ? 'Kopiert!' : 'Pfad kopieren'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleOpenLanguagesFolder}
+                        className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>{t('settings.lang_open_folder', activeLang, 'Ordner im Explorer öffnen')}</span>
+                      </button>
+                    </div>
+                  </div>
 
                     {/* Live reload feature indicator */}
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
@@ -4588,8 +4589,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* SECTION: CONNECTIONS & GOOGLE CALENDAR */}
           {activeSection === 'connections' && (
@@ -6095,6 +6095,94 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             <UserManagementSettings />
           )}
 
+          {/* SECTION: UPDATES & SYSTEM */}
+          {activeSection === 'updates' && (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    {t('settings.updates_title', activeLang, 'SOCDOF Update-Center')}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t('settings.updates_desc', activeLang, 'Prüfen Sie auf System-Updates, laden Sie die neueste Version herunter und verwalten Sie die Aktualisierung.')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Card */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span>{t('settings.current_version', activeLang, 'Aktuelle Version')}: v{APP_VERSION}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{t('updates.system_up_to_date', activeLang, 'Ihr System ist auf dem neuesten Stand.')}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {t('updates.restart_notice', activeLang, 'Das Herunterladen und Anwenden eines Updates dauert ca. 1 Minute. Danach erfolgt ein kurzer Neustart des Systems.')}
+                </p>
+
+                {updateResult?.hasUpdate && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+                      <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span>{t('updates.ready_to_install', activeLang, `Version v${updateResult.latestVersion} steht bereit.`).replace('{version}', `v${updateResult.latestVersion}`)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPromptModalOpen(true)}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{t('updates.download_now', activeLang, 'Jetzt herunterladen')}</span>
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={isCheckingUpdate}
+                    onClick={async () => {
+                      sounds.playClick();
+                      setIsCheckingUpdate(true);
+                      try {
+                        const info = await checkForAppUpdates();
+                        if (info) {
+                          setUpdateResult(info);
+                          if (info.hasUpdate) {
+                            setIsPromptModalOpen(true);
+                          }
+                        }
+                      } catch {
+                        // ignore
+                      } finally {
+                        setIsCheckingUpdate(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
+                  >
+                    {isCheckingUpdate ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    <span>{isCheckingUpdate ? t('updates.checking', activeLang, 'Suche nach Updates...') : t('updates.check_updates', activeLang, 'Nach Updates suchen & Herunterladen')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* SECTION: WINDOWS DESKTOP APP */}
           {activeSection === 'windows' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
@@ -6119,20 +6207,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Windows Desktop-App &amp; Release-Updates
+                    {t('settings.desktop_environment', activeLang, 'SOCDOF Desktop-Umgebung & Integration')}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Verwalten Sie die lokale Windows Desktop-Umgebung, automatische Updates und Beenden-Bestätigungen.
+                    {t('settings.desktop_environment_desc', activeLang, 'Verwalten Sie die lokale Desktop-Umgebung, Anzeigemodi und Vollbildoptionen.')}
                   </p>
                 </div>
               </div>
 
-              {/* Card 1: App Info & Releases */}
+              {/* Card 1: App Info & Native Desktop Integration */}
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                     <Sparkles className="w-4 h-4 text-indigo-500" />
-                    <span>Windows Installer (.EXE) &amp; Offline-Modus</span>
+                    <span>SOCDOF Desktop Suite &amp; Offline-Modus</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
@@ -6144,30 +6232,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   </div>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  SOCDOF läuft 100% lokal auf Ihrem PC als eigenständige Windows-Desktop App mit voller Unterstützung für Tastaturkürzel (F11, Win+D), lokaler SQLite/IndexedDB-Persistenz und ohne Internetverbindung.
+                  SOCDOF läuft 100% lokal auf Ihrem PC als eigenständige Desktop-App mit voller Unterstützung für Tastaturkürzel (F11, Win+D), lokaler SQLite/IndexedDB-Persistenz und ohne Internetverbindung.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <a
-                    href={GITHUB_RELEASES_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setActiveSection('updates');
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Neueste Releases auf GitHub öffnen (.exe)</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                  </a>
-
-                  {onOpenWindowsModal && (
-                    <button
-                      onClick={onOpenWindowsModal}
-                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition border border-slate-300 dark:border-slate-700 flex items-center gap-1.5"
-                    >
-                      <Terminal className="w-4 h-4 text-indigo-500" />
-                      <span>Windows Starter &amp; Scripts</span>
-                    </button>
-                  )}
+                    <span>{t('settings.updates', activeLang, 'Updates & System')}</span>
+                  </button>
                 </div>
               </div>
 

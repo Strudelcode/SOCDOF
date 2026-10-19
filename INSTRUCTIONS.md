@@ -66,6 +66,10 @@ This document defines the core operational standards, versioning protocols, and 
 
 ## 5. Publisher & Desktop Branding Identity
 
+- **Independent Product Identity (No Copying / "Nicht nachmachen")**: SOCDOF is an independent offline ERP and productivity suite with its own distinct, native identity. Never brand features or UI elements as mere "clones" or "copies" of external operating systems (avoid framing features as "nachgemacht" or "Windows-Klon" in user-facing labels or documentation). All dialogs, update mechanisms, push notifications, and settings are first-class native SOCDOF components.
+- **Strict Secret Isolation & No Public UI Token Configuration**:
+  - Sensitive developer credentials such as Discord Bot Tokens, administrative webhook URLs, and internal distribution parameters must NEVER be exposed or editable inside end-user UI screens (such as Bug Reports, feedback dialogs, or user settings) where end-users, customers, or site managers (Bauleiter) could see or manipulate them.
+  - All secrets and tokens are loaded strictly from git-ignored local environment configuration (`.env` via `VITE_DISCORD_BOT_TOKEN`), preventing unauthorized access or accidental token leakage in public repositories.
 - **Publisher / Author**: The official publisher and author name for Windows binaries, packages, and certificates is strictly **`Yuri / Strudel`** (Organization: `Strudelcode`).
 - **Code Signing**: Binaries in `release/` are signed with the developer Authenticode certificate for `CN=Yuri / Strudel, O=Strudelcode` so that Windows SmartScreen and installer dialogs accurately present the publisher as **Yuri / Strudel**.
 - **No Intrusive Web Popups**: The web preview must remain clean and unobtrusive. Never attach aggressive auto-triggering mouseleave/exit-intent popups.

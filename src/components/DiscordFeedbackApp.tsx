@@ -29,8 +29,8 @@ import {
   Sparkles,
   HelpCircle,
   Hash,
-  KeyRound,
-  SlidersHorizontal
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -57,7 +57,6 @@ import { AppLocationPickerModal } from './AppLocationPickerModal';
 import { DiscordEmbedPreview } from './DiscordEmbedPreview';
 import { DynamicReportsIcon } from './DynamicReportsIcon';
 import { DiscordThreadInspectorModal } from './DiscordThreadInspectorModal';
-import { DiscordBotTokenModal } from './DiscordBotTokenModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface DiscordFeedbackAppProps {
@@ -111,7 +110,6 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
   // Live 30s Polling State
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(null);
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [statusMenuReportId, setStatusMenuReportId] = useState<string | null>(null);
 
   // Submission Status
@@ -401,7 +399,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <button
               type="button"
               onClick={handleManualSync}
@@ -423,6 +421,20 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
               <span>{t('feedback.join_server', lang, 'Discord Server beitreten')}</span>
               <ExternalLink className="w-3 h-3 opacity-60" />
             </a>
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  onClose();
+                }}
+                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer border border-slate-200 dark:border-slate-700 shrink-0 ml-1"
+                title={t('auth.close', lang, 'Schließen')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -438,7 +450,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeView === 'submit'
                 ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent, #4f46e5)' }} />
@@ -457,7 +469,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeView === 'history'
                 ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60'
             }`}
           >
             <ListOrdered className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -587,25 +599,9 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      sounds.playClick();
-                      setIsTokenModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-bold transition cursor-pointer"
-                    title={t('feedback.bot_token_title', lang, 'Discord Bot-Token konfigurieren')}
-                  >
-                    <KeyRound className="w-3 h-3 text-indigo-500" />
-                    <span>{t('feedback.bot_token_title', lang, 'Bot-Token')}</span>
-                    {Boolean(getDiscordBotToken()) && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={handleManualSync}
                     disabled={isSyncing}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-850 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[11px] font-bold transition cursor-pointer shadow-2xs"
                   >
                     <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     <span>{isSyncing ? t('feedback.syncing', lang, 'Synchronisiere...') : t('feedback.sync_now', lang, 'Synchronisieren')}</span>
@@ -647,7 +643,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                     value={historySearch}
                     onChange={e => setHistorySearch(e.target.value)}
                     placeholder={t('feedback.picker_search_placeholder', lang, 'Tickets durchsuchen...')}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
                   />
                 </div>
 
@@ -658,7 +654,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
                       hideResolved
                         ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-750'
                     }`}
                     title={hideResolved ? t('feedback.show_all', lang, 'Alle anzeigen') : t('feedback.hide_resolved', lang, 'Erledigte ausblenden')}
                   >
@@ -689,8 +685,8 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                   onClick={() => setStatusFilter('all')}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
                     statusFilter === 'all'
-                      ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold'
-                      : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {t('feedback.filter_all', lang, 'Alle')} ({submittedReports.length})
@@ -700,8 +696,8 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                   onClick={() => setStatusFilter('open')}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
                     statusFilter === 'open'
-                      ? 'bg-orange-600 text-white font-bold'
-                      : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-orange-600 text-white font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {t('feedback.filter_open', lang, 'Offen')} ({submittedReports.filter(r => r.status !== 'resolved' && r.status !== 'rejected').length})
@@ -711,8 +707,8 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                   onClick={() => setStatusFilter('resolved')}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
                     statusFilter === 'resolved'
-                      ? 'bg-emerald-600 text-white font-bold'
-                      : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {t('feedback.filter_resolved', lang, 'Erledigt')} ({submittedReports.filter(r => r.status === 'resolved' || r.status === 'rejected').length})
@@ -924,9 +920,9 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                           <button
                             type="button"
                             onClick={() => handleCopyThreadLink(rep.threadUrl, rep.threadId)}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 text-xs font-semibold transition cursor-pointer shadow-2xs"
                           >
-                            <Copy className="w-3 h-3" />
+                            <Copy className="w-3.5 h-3.5" />
                             <span>{copiedLinkThreadId === rep.threadId ? t('feedback.copied', lang, 'Kopiert!') : t('feedback.copy_link', lang, 'Link')}</span>
                           </button>
                         </div>
@@ -1024,7 +1020,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                       className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl sm:rounded-2xl text-xs font-bold transition cursor-pointer ${
                         wizardStep === 1
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
                       }`}
                     >
                       <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-black flex items-center justify-center shrink-0">
@@ -1042,7 +1038,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                       className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl sm:rounded-2xl text-xs font-bold transition cursor-pointer ${
                         wizardStep === 2
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
                       }`}
                     >
                       <span className={`w-5 h-5 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 ${
@@ -1067,7 +1063,7 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs'
                           : !isStep2Valid
                           ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-60'
-                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer'
                       }`}
                     >
                       <span className="w-5 h-5 rounded-full bg-slate-400 dark:bg-slate-700 text-white text-[11px] font-black flex items-center justify-center shrink-0">
@@ -1649,14 +1645,6 @@ export const DiscordFeedbackApp: React.FC<DiscordFeedbackAppProps> = ({
         onClose={() => setIsInspectorOpen(false)}
         report={inspectorReport}
         onRefreshReport={() => performSync(false)}
-        onOpenTokenSettings={() => setIsTokenModalOpen(true)}
-      />
-
-      {/* Discord Bot Token Configuration Modal */}
-      <DiscordBotTokenModal
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        onSaved={() => performSync(true)}
       />
 
       {/* Clear History Confirmation Modal */}

@@ -39,7 +39,6 @@ interface DiscordThreadInspectorModalProps {
   onClose: () => void;
   report: SubmittedDiscordReport | null;
   onRefreshReport?: () => void;
-  onOpenTokenSettings?: () => void;
 }
 
 /**
@@ -197,8 +196,7 @@ export const DiscordThreadInspectorModal: React.FC<DiscordThreadInspectorModalPr
   isOpen,
   onClose,
   report,
-  onRefreshReport,
-  onOpenTokenSettings
+  onRefreshReport
 }) => {
   const lang = useLanguage();
   const [messages, setMessages] = useState<DiscordThreadMessage[]>([]);
@@ -525,19 +523,6 @@ export const DiscordThreadInspectorModal: React.FC<DiscordThreadInspectorModalPr
                 </p>
               </div>
               <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
-                {onOpenTokenSettings && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sounds.playClick();
-                      onOpenTokenSettings();
-                    }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>{t('feedback.bot_token_title', lang, 'Bot-Token konfigurieren')}</span>
-                  </button>
-                )}
                 <a
                   href={report.threadUrl}
                   target="_blank"

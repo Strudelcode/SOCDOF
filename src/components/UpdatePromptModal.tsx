@@ -19,6 +19,7 @@ import { UpdateInfo, setVersionSkipped, snoozeUpdateNotification } from '../lib/
 import { GITHUB_RELEASES_URL, isElectron, downloadAndInstallDesktopUpdate, quitDesktopApp } from '../lib/platform';
 import { sounds } from '../lib/sound';
 import { SocdofLogo } from './SocdofLogo';
+import { useLanguage, t } from '../lib/i18n';
 
 interface UpdatePromptModalProps {
   updateInfo: UpdateInfo | null;
@@ -33,6 +34,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
   onClose,
   onShutdownApp
 }) => {
+  const lang = useLanguage();
   const [downloadStep, setDownloadStep] = useState<'prompt' | 'downloading' | 'installing' | 'ready' | 'error'>('prompt');
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadedMb, setDownloadedMb] = useState(0);
@@ -174,14 +176,14 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-base tracking-tight">
-                  Neues SOCDOF Update verfügbar!
+                  {t('updates.modal_title', lang, 'Neues SOCDOF-Update verfügbar')}
                 </h3>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs">
                   v{updateInfo.latestVersion}
                 </span>
               </div>
               <p className="text-xs text-white/80">
-                Aktuell installiert: v{updateInfo.currentVersion}
+                {t('updates.currently_installed', lang, 'Aktuell installiert')}: v{updateInfo.currentVersion}
               </p>
             </div>
           </div>
@@ -207,7 +209,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     {updateInfo.releaseName || `Release v${updateInfo.latestVersion}`}
                   </span>
                   <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                    {updateInfo.publishedAt ? new Date(updateInfo.publishedAt).toLocaleDateString('de-DE') : 'Neu'}
+                    {updateInfo.publishedAt ? new Date(updateInfo.publishedAt).toLocaleDateString(lang === 'de' ? 'de-DE' : lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-US') : 'Neu'}
                   </span>
                 </div>
 
@@ -216,9 +218,17 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     <p className="whitespace-pre-line">{updateInfo.body}</p>
                   ) : (
                     <p>
-                      Eine neue stabile Version von SOCDOF steht auf GitHub zum Download bereit. Enthalten sind Leistungsverbesserungen, neue Features und Fehlerbehebungen.
+                      {t('updates.ready_to_install', lang, `Version v${updateInfo.latestVersion} steht bereit.`).replace('{version}', `v${updateInfo.latestVersion}`)}
                     </p>
                   )}
+                </div>
+              </div>
+
+              {/* 1-Minute Download & System Restart Notice */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/50 flex items-start gap-3">
+                <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed font-medium">
+                  {t('updates.download_time_desc', lang, 'Das Herunterladen dauert ca. 1 Minute. Anschließend wird das System neu gestartet, um das Update zu installieren.')}
                 </div>
               </div>
 
@@ -226,18 +236,18 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                 <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>
-                  Ihre lokalen Rechnungen, Kontakte und Einstellungen bleiben beim Update vollständig erhalten.
+                  {t('updates.safe_data_notice', lang, 'Ihre lokalen Rechnungen, Kontakte und Einstellungen bleiben beim Update zu 100% erhalten.')}
                 </span>
               </div>
 
-              {/* Action Buttons: Jetzt direkt aktualisieren / Später / Überspringen */}
+              {/* Action Buttons: Jetzt herunterladen / Später / Überspringen */}
               <div className="space-y-2 pt-1">
                 <button
                   onClick={handleStartAutoUpdate}
                   className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Jetzt direkt aktualisieren &amp; neu starten</span>
+                  <span>{t('updates.start_download', lang, 'Jetzt herunterladen & neu starten')}</span>
                   <ArrowRight className="w-4 h-4 opacity-80" />
                 </button>
 
@@ -247,7 +257,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer"
                   >
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Später erinnern</span>
+                    <span>{t('updates.snooze', lang, 'Später erinnern')}</span>
                   </button>
 
                   <button
@@ -255,7 +265,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-300 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer"
                   >
                     <Ban className="w-3.5 h-3.5" />
-                    <span>Version überspringen</span>
+                    <span>{t('updates.skip_version', lang, 'Version überspringen')}</span>
                   </button>
                 </div>
               </div>
@@ -270,7 +280,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
               <div>
                 <h4 className="font-bold text-base text-slate-900 dark:text-white">
-                  Update wird im Hintergrund geladen...
+                  {t('updates.downloading_title', lang, 'Update wird im Hintergrund geladen...')}
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   SOCDOF.Setup.{updateInfo.latestVersion}.exe ({downloadedMb} MB / {totalMb} MB)
@@ -286,7 +296,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
-                <span>{isDesktop ? 'Automatischer In-App Download' : 'GitHub Releases CDN'}</span>
+                <span>{isDesktop ? 'Automatischer In-App Download' : 'CDN Download'}</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{downloadProgress}%</span>
               </div>
             </div>
@@ -306,10 +316,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
               <div className="space-y-2">
                 <h4 className="font-extrabold text-lg text-slate-900 dark:text-white">
-                  Updating to Version v{updateInfo.latestVersion}...
+                  {t('updates.installing_title', lang, `Aktualisiere auf Version v${updateInfo.latestVersion}...`).replace('{version}', updateInfo.latestVersion)}
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                  SOCDOF schließt sich kurz, installiert Version <strong>v{updateInfo.latestVersion}</strong> im Hintergrund mit dem neuen Update-Begleiter und startet die Anwendung anschließend automatisch neu.
+                  {t('updates.installing_desc', lang, `SOCDOF startet kurz neu, installiert Version v${updateInfo.latestVersion} im Hintergrund und öffnet die Anwendung anschließend automatisch neu.`).replace('{version}', updateInfo.latestVersion)}
                 </p>
                 <div className="w-52 mx-auto bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700 mt-3">
                   <div 
@@ -321,7 +331,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium pt-1">
-                  🔒 Alle lokalen Rechnungen, Kontakte &amp; Einstellungen bleiben 100% erhalten
+                  🔒 {t('updates.safe_data_notice', lang, 'Ihre lokalen Rechnungen, Kontakte und Einstellungen bleiben beim Update zu 100% erhalten.')}
                 </p>
               </div>
             </div>
@@ -333,22 +343,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed">
                   <span className="font-bold text-sm block mb-1">
-                    Download abgeschlossen!
+                    {t('updates.download_complete_title', lang, 'Download abgeschlossen!')}
                   </span>
-                  Die Installationsdatei <strong>SOCDOF.Setup.{updateInfo.latestVersion}.exe</strong> wurde heruntergeladen.
+                  SOCDOF.Setup.{updateInfo.latestVersion}.exe
                 </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <HardDrive className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Installation abschließen:</span>
-                </div>
-                <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
-                  <li>SOCDOF beenden, um laufende Dateisperren freizugeben.</li>
-                  <li>Die heruntergeladene <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-300">SOCDOF.Setup.{updateInfo.latestVersion}.exe</code> starten.</li>
-                  <li>Das Setup aktualisiert Ihre Version unter Beibehaltung aller Daten.</li>
-                </ol>
               </div>
 
               <div className="space-y-2 pt-2">
@@ -357,14 +355,14 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition cursor-pointer"
                 >
                   <Power className="w-4 h-4" />
-                  <span>SOCDOF jetzt beenden &amp; Setup ausführen</span>
+                  <span>{t('updates.restart_system_now', lang, 'System jetzt neu starten & Update anwenden')}</span>
                 </button>
 
                 <button
                   onClick={onClose}
                   className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer text-center"
                 >
-                  Später manuell ausführen (Weiterarbeiten)
+                  {t('updates.continue_working', lang, 'Weiterarbeiten (Später manuell neu starten)')}
                 </button>
               </div>
             </div>
@@ -376,9 +374,9 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 <AlertCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-rose-950 dark:text-rose-200 leading-relaxed">
                   <span className="font-bold text-sm block mb-1">
-                    Update konnte nicht automatisch geladen werden
+                    {t('updates.error_title', lang, 'Update konnte nicht automatisch geladen werden')}
                   </span>
-                  {errorMessage || 'Bitte überprüfen Sie Ihre Internetverbindung oder laden Sie das Update manuell herunter.'}
+                  {errorMessage || 'Bitte überprüfen Sie Ihre Internetverbindung.'}
                 </div>
               </div>
 
@@ -388,18 +386,8 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>Erneut versuchen</span>
+                  <span>{t('updates.retry', lang, 'Erneut versuchen')}</span>
                 </button>
-
-                <a
-                  href={targetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer text-center"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Manuell im Browser herunterladen</span>
-                </a>
               </div>
             </div>
           )}

@@ -86,8 +86,6 @@ import { getLanguage, setLanguage, useLanguage, t, formatSystemDate, formatSyste
 import { getStoredCalendarEvents, CustomCalendarEvent } from '../lib/ical';
 import { FlagIcon } from './FlagIcon';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
-import { WindowsExeNotificationToast } from './WindowsExeNotificationToast';
-import { downloadWindowsExecutablePackage } from '../lib/windowsExeDownloader';
 import { Dashboard } from './Dashboard';
 import { ContactsModule } from './ContactsModule';
 import { ProductsModule } from './ProductsModule';
@@ -99,7 +97,6 @@ import { SettingsModule, type SettingsSection } from './SettingsModule';
 import { AccountingModule } from './AccountingModule';
 import { AppStoreModule } from './AppStoreModule';
 import { DocumentationApp } from './DocumentationApp';
-import { WindowsDesktopManagerModal } from './WindowsDesktopManagerModal';
 import { CustomDownloadModal } from './CustomDownloadModal';
 import { UpdatingSplashModal } from './UpdatingSplashModal';
 import { DesktopFolderModal } from './DesktopFolderModal';
@@ -1024,7 +1021,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
   const [isPowerMenuOpen, setIsPowerMenuOpen] = useState(false);
   const [isLockedStandby, setIsLockedStandby] = useState(false);
-  const [isWindowsModalOpen, setIsWindowsModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isUpdatingSplashOpen, setIsUpdatingSplashOpen] = useState(false);
   const [splashUpdateVersion, setSplashUpdateVersion] = useState<string>(APP_VERSION);
@@ -1270,7 +1266,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           setDownloadBannerState(evaluateStartMenuDownloadBanner(info.latestVersion));
           if (info.hasUpdate && !isVersionSkipped(info.latestVersion) && !isUpdateSnoozed()) {
             setUpdateInfo(info);
-            setIsUpdatePromptOpen(true);
             sounds.playPop();
           }
         }
@@ -3446,7 +3441,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   isMuted={isMuted}
                   onToggleSound={onToggleSound}
                   invoices={invoices}
-                  onOpenWindowsModal={() => setIsWindowsModalOpen(true)}
                   initialSection={settingsInitialSection}
                   onToggleFullscreen={handleToggleFullscreen}
                   isFullscreen={isFullscreen}
@@ -3656,11 +3650,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           {/* Windows Desktop App Download Banner inside Start Menu - Only shown if not downloaded yet OR if newer version available */}
           {downloadBannerState.show && (
             <div className="py-1">
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   sounds.playPop();
                   setIsStartMenuOpen(false);
                   setIsDownloadModalOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    sounds.playPop();
+                    setIsStartMenuOpen(false);
+                    setIsDownloadModalOpen(true);
+                  }
                 }}
                 className={`w-full flex items-center justify-between p-2 rounded-2xl border transition cursor-pointer group text-left ${
                   downloadBannerState.isUpdate
@@ -3718,7 +3722,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   )}
                   <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
                 </div>
-              </button>
+              </div>
             </div>
           )}
 
@@ -4496,12 +4500,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         className="hidden"
       />
 
-      {/* Windows Desktop Manager Modal */}
-      <WindowsDesktopManagerModal
-        isOpen={isWindowsModalOpen}
-        onClose={() => setIsWindowsModalOpen(false)}
-      />
-
       {/* Custom SOCDOF Download Screen & Setup Companion */}
       <CustomDownloadModal
         isOpen={isDownloadModalOpen}
@@ -4532,13 +4530,6 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         }}
       />
 
-      {/* Windows Desktop .EXE Notification Toast (Disabled if dismissed or in desktop app) */}
-      <WindowsExeNotificationToast
-        disabled={Boolean(company.disable_exe_reminders)}
-        onOpenWindowsManager={() => setIsWindowsModalOpen(true)}
-        onOpenDownloadModal={() => setIsDownloadModalOpen(true)}
-      />
-
       {/* Web Preview Info & Download Modal (Only when in Web Preview) */}
       <WebPreviewModal
         isOpen={isWebPreviewModalOpen}
@@ -4549,6 +4540,54 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         }}
         onConfirmLeave={handleConfirmLeaveWeb}
       />
+
+      {/* Windows-style Bottom-Right Push Notification Toast for Updates */}
+      {updateInfo && updateInfo.hasUpdate && !isUpdatePromptOpen && !isVersionSkipped(updateInfo.latestVersion) && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-2xl flex items-start gap-3 animate-fade-in">
+          <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0 mt-0.5">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                {t('updates.toast_title', currentLang, 'SOCDOF Update verfügbar')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setUpdateInfo(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300">
+              {t('updates.toast_desc', currentLang, `Version v${updateInfo.latestVersion} steht bereit.`).replace('{version}', `v${updateInfo.latestVersion}`)}
+            </p>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setUpdateInfo(null);
+                }}
+                className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              >
+                {t('updates.later', currentLang, 'Später')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsUpdatePromptOpen(true);
+                }}
+                className="px-3 py-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition shadow-xs cursor-pointer"
+              >
+                {t('updates.download_now', currentLang, 'Jetzt herunterladen')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* GitHub Release Update Notification Prompt & Download Progress */}
       <UpdatePromptModal

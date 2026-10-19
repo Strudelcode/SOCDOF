@@ -2,6 +2,23 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Native SOCDOF Update Center, Push Notifications & Strict Secret Isolation (v24.10.4)
+- [x] Implemented dedicated "Updates & System" section in Settings (`SettingsModule.tsx`) allowing users to check for updates, view current version, and trigger downloads.
+- [x] Integrated non-intrusive Windows-style bottom-right push notification toasts in `DesktopWindowWorkspace.tsx` with "Später" and "Jetzt herunterladen" actions.
+- [x] Built clean Update Screen (`UpdatePromptModal.tsx`) detailing the approx. 1-minute download time and automatic system restart with quad-lingual localization (`de`, `en`, `fr`, `es`).
+- [x] Enforced strict secret isolation and removed all token and sensitive configuration controls from client UI (Reports & Settings), storing secrets securely in git-ignored `.env` (`VITE_DISCORD_BOT_TOKEN`).
+- [x] Added Independent Product Identity and Secret Protection principles to `INSTRUCTIONS.md`.
+
+---
+
+### Silent Background Auto-Update, Process Lock Prevention & Verified Release Pipeline (v24.10.3)
+- [x] Auto-detected existing installations in `Program.Framework.cs` to trigger silent background auto-updating without requiring manual button clicks.
+- [x] Resolved Windows file locking / sharing violations by cleanly terminating running `SOCDOF` / `socdof` processes before setup extraction, preventing updates from getting stuck on older versions.
+- [x] Fixed installer package resolution by bypassing stale local candidates in Downloads and strictly downloading verified latest releases from GitHub.
+- [x] Updated Electron main process update handoff to wait on process PID exit before spawning setup execution.
+- [x] Implemented dynamic executable resolution (`FindInstalledExecutable()`) across Registry and local directories to ensure the latest executable launches immediately upon completion.
+- [x] Added 4-language localization support (`de`, `en`, `fr`, `es`) for all new update lifecycle states.
+
 ---
 
 ### Version History Modularization & Codebase Slimming (v24.10.2)

@@ -1326,27 +1326,36 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
       mainWindow.webContents.send('socdof:update-download-progress', { percent: 100, isFinished: true });
     }
 
-    // Launch installer detached with silent in-place update flags (/S --force-run)
-    // This updates the existing installation directory without prompting for paths and relaunches the app automatically
+    // Launch installer detached with silent in-place update flags (/S --auto --update)
+    // We launch via a lightweight PowerShell runner that waits for the current Electron PID to exit,
+    // guaranteeing zero Windows file locks on SOCDOF.exe before the installer touches any files.
     setTimeout(() => {
-      let child = null;
+      const currentPid = process.pid;
+      const safeEscapedPath = installerPath.replace(/"/g, '`"');
+      const launcherCmd = `Wait-Process -Id ${currentPid} -Timeout 5 -ErrorAction SilentlyContinue; Start-Process -FilePath "${safeEscapedPath}" -ArgumentList "/S", "--auto", "--update"`;
+
       try {
-        child = spawn(installerPath, ['/S', '--force-run'], {
+        const child = spawn('powershell.exe', [
+          '-NoProfile',
+          '-WindowStyle', 'Hidden',
+          '-ExecutionPolicy', 'Bypass',
+          '-Command', launcherCmd
+        ], {
           detached: true,
           stdio: 'ignore'
         });
         child.unref();
       } catch (spawnErr) {
-        console.error('Failed to spawn installer, opening with shell:', spawnErr);
+        console.error('Failed to spawn installer via launcher:', spawnErr);
         shell.openPath(installerPath);
       }
 
       // Show native Windows "Updating to Version..." splash window while installer runs
-      spawnWindowsUpdatingSplash(safeVersion, child ? child.pid : 0);
+      spawnWindowsUpdatingSplash(safeVersion, 0);
 
-      // Exit app cleanly to allow the installer to overwrite files
+      // Exit app cleanly so all file locks on SOCDOF.exe are released immediately
       app.exit(0);
-    }, 1200);
+    }, 400);
 
     return { success: true };
   } catch (err) {

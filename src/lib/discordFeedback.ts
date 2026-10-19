@@ -41,40 +41,21 @@ export function getSystemLanguageLabel(): string {
   return 'de-DE';
 }
 
-export const DISCORD_BOT_TOKEN_STORAGE_KEY = 'socdof_discord_bot_token_v1';
-
+/**
+ * Securely retrieves the Discord Bot Token from server/build environment secrets (.env).
+ * Tokens are NEVER stored in public localStorage or exposed in client-facing UI.
+ */
 export function getDiscordBotToken(): string {
-  if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(DISCORD_BOT_TOKEN_STORAGE_KEY);
-    if (local && local.trim()) return local.trim();
-  }
   if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_DISCORD_BOT_TOKEN) {
-    return (import.meta as any).env.VITE_DISCORD_BOT_TOKEN;
+    return String((import.meta as any).env.VITE_DISCORD_BOT_TOKEN).trim();
   }
   if (typeof process !== 'undefined' && (process.env as any)?.VITE_DISCORD_BOT_TOKEN) {
-    return (process.env as any).VITE_DISCORD_BOT_TOKEN;
+    return String((process.env as any).VITE_DISCORD_BOT_TOKEN).trim();
   }
   if (typeof process !== 'undefined' && (process.env as any)?.DISCORD_BOT_TOKEN) {
-    return (process.env as any).DISCORD_BOT_TOKEN;
+    return String((process.env as any).DISCORD_BOT_TOKEN).trim();
   }
   return '';
-}
-
-export function saveDiscordBotToken(token: string): void {
-  try {
-    const clean = (token || '').trim();
-    if (typeof localStorage !== 'undefined') {
-      if (clean) {
-        localStorage.setItem(DISCORD_BOT_TOKEN_STORAGE_KEY, clean);
-      } else {
-        localStorage.removeItem(DISCORD_BOT_TOKEN_STORAGE_KEY);
-      }
-    }
-    const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
-    if (electronApi?.saveDiscordBotToken) {
-      electronApi.saveDiscordBotToken(clean);
-    }
-  } catch {}
 }
 
 export const DISCORD_CONFIG = {

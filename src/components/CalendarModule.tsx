@@ -2054,7 +2054,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                     newEventIsAllDay
                       ? 'shadow-2xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:white hover:bg-slate-200/60'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                   }`}
                   title="Zwischen genauer Uhrzeit und ganztägigem Termin umschalten"
                 >

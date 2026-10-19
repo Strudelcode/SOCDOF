@@ -1,5 +1,21 @@
 # SOCDOF v24 Release Overview
 
+## v24.10.4 — Native SOCDOF Update Center, Push Notifications & Strict Secret Isolation
+
+- **Native SOCDOF Update Center in Settings (`SettingsModule.tsx`)**:
+  - Integrated a dedicated "Updates & System" section in Settings for checking system updates, displaying the active version, and providing a clean update assistant.
+  - Transparent update flow explicitly clarifying that downloading takes approximately 1 minute before triggering a brief system restart.
+- **Non-Intrusive Bottom-Right Push Notifications (`DesktopWindowWorkspace.tsx`)**:
+  - Replaced intrusive modal popups with a smooth Windows-style bottom-right toast for background update notifications with quick "Später" (Snooze) and "Jetzt herunterladen" (Download Now) actions.
+- **Quad-Lingual Update Assistant (`UpdatePromptModal.tsx`, `i18n.ts`)**:
+  - Full translations for all update screens, progress indicators, and restart prompts across German, English, French, and Spanish.
+  - Guarantees 100% preservation of all local invoices, contacts, and configuration data during updates.
+- **Strict Secret Isolation & Credential Security**:
+  - Completely removed all UI bot token inputs and configuration drawers from client-facing screens (Bug Reports and Settings).
+  - All developer secrets and bot tokens are maintained securely in git-ignored local `.env` configuration (`VITE_DISCORD_BOT_TOKEN`), preventing token leakage in public repositories.
+- **Independent Brand Identity Guidelines (`INSTRUCTIONS.md`)**:
+  - Formalized SOCDOF's independent identity principles, avoiding derivative "clone" or "nachgemacht" phrasing.
+
 ## v24.10.0 — Selectable Installer & Immediate Branded Startup Splash
 
 - Added an instant-launch Windows bootstrapper with real download progress, install-directory selection, and a clean dark setup window.

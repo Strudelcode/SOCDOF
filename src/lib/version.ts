@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.10.2';
+export const APP_VERSION = '24.10.4';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,30 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.10.4',
+    date: '2026-10-17',
+    title: 'Native SOCDOF Update Center, Bottom-Right Push Notifications & Strict Secret Isolation',
+    highlights: [
+      'Native Update Center in Settings: Integrated dedicated Updates & System tab with in-place version checking, update banners, and restart instructions',
+      'Windows-Style Bottom-Right Push Notifications: Replaced intrusive modals with non-disruptive toasts offering quick Snooze and Download actions',
+      'Quad-Lingual Update Assistant: Full DE, EN, FR, ES localization explaining the ~1 minute download time and automatic system restart',
+      'Strict Secret Isolation: Removed all UI bot token inputs, securing credentials strictly in git-ignored .env (VITE_DISCORD_BOT_TOKEN)',
+      'Independent Identity: Added brand independence principles to INSTRUCTIONS.md, avoiding derivative third-party copycat branding'
+    ]
+  },
+  {
+    version: '24.10.3',
+    date: '2026-10-16',
+    title: 'Silent Background Auto-Update, Process Lock Prevention & Verified Release Pipeline',
+    highlights: [
+      'Automatic Background Update: Existing installations are auto-detected so desktop updates proceed immediately without requiring manual button clicks',
+      'Windows Process Lock Elimination: Gracefully terminates and releases file locks on running SOCDOF processes before installer execution to prevent partial updates',
+      'Verified Setup Download Pipeline: Bypasses stale local setup files from old versions (e.g. in Downloads folder), strictly querying GitHub for the verified latest release',
+      'Electron Native Clean Handoff: Electron waits on PID termination before spawning the installer, ensuring zero file collisions',
+      'Accurate Executable Discovery: Dynamically locates the newly updated SOCDOF executable across Registry, LocalAppData, and custom install directories'
+    ]
+  },
   {
     version: '24.10.2',
     date: '2026-10-15',

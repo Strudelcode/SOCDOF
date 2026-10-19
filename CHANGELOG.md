@@ -7,6 +7,26 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+### v24.10.4 — Native SOCDOF Update Center, Push Notifications & Strict Secret Isolation
+
+🚀 **Neu / What's New**:
+- **Integriertes SOCDOF Update-Center**: Neuer dedizierter Bereich „Updates & System“ in den Einstellungen (`SettingsModule.tsx`) zum Prüfen auf neue Versionen, Einsehen der installierten Version (`APP_VERSION`) und Starten der Aktualisierung.
+- **Transparenter Download- & Neustart-Hinweis**: Der Update-Assistent erläutert transparent die Dauer (ca. 1 Minute für den Download) und den anschließenden automatischen System-Neustart zur Installation.
+- **Dezente Push-Benachrichtigungen (Unten Rechts)**: Unaufdringliche Benachrichtigungs-Toasts in der unteren rechten Bildschirmecke informieren über bereitstehende Versionen mit Sofort-Aktionen („Später“ / „Jetzt herunterladen“).
+
+🔄 **Geändert / Improved**:
+- **Vollständige 4-Sprachen-Lokalisierung**: Alle Update-Dialoge, Statusanzeigen, Buttons und Hinweistexte sind in Deutsch (`de`), Englisch (`en`), Französisch (`fr`) und Spanisch (`es`) in `src/lib/i18n.ts` hinterlegt.
+- **Eigenständige Markenidentität**: In `INSTRUCTIONS.md` verankert, dass SOCDOF eine eigenständige Suite ist und Funktionen nativ gestaltet werden, ohne als bloße Drittsystem-Kopien deklariert zu werden.
+- **Bereinigte Desktop-Einstellungen**: Öffentliche GitHub-Download-Links wurden aus den App-Einstellungen entfernt; die Aktualisierung erfolgt nativ und sicher über das interne Update-Center.
+
+🛠️ **Behoben / Fixed**:
+- **Entfernung des veralteten Desktop-Setup-Modals**: Das Skript- und Installer-Auswahlfenster (`WindowsDesktopManagerModal` mit .cmd, .bat, .ps1 und .EXE Releases) sowie der zugehörige Button „Windows Starter & Scripts“ in den Einstellungen wurden restlos entfernt. Die Systemaktualisierung läuft ab sofort ausschließlich transparent und nativ über das neue interne SOCDOF Update-Center.
+- **Sicherheits-Fix & Entfernung von UI-Token-Buttons**: Bot-Token-Eingaben und Konfigurations-Buttons wurden vollständig aus der Benutzeroberfläche (Reports-App und Einstellungen) entfernt. Das Discord-Bot-Token wird ab sofort strikt aus der git-ignorierten `.env`-Datei (`VITE_DISCORD_BOT_TOKEN`) bezogen und kann nicht mehr im Browser oder von Endnutzern/Bauleitern eingesehen oder manipuliert werden.
+- **Update-Toast Datenübergabe**: Behoben, dass beim Klick auf „Jetzt herunterladen“ in der Toast-Benachrichtigung die Update-Informationen versehentlich zurückgesetzt wurden.
+- **Dark Mode Hover Kontrast & Hydration**: Bereinigung der Textkontraste (`dark:hover:text-white`), verschachtelter Buttons und HTML-Hydration-Warnungen.
+
+---
+
 ### v24.10.2 — Obsidian Squircle Icon, Gradient Action Button & Structured Installer Layout
 
 🚀 **Neu / What's New**:
