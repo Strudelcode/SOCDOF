@@ -2,6 +2,15 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Enhanced SOCDOF Update Center, Push Simulation & Taskbar Tray Indicator (v24.10.5)
+- [x] Added interactive push notification simulation and testing buttons in the Update Center for immediate on-demand verification of the Windows-style bottom-right toast.
+- [x] Created Taskbar System Tray update indicator with pulsing notification badge when updates are ready to install.
+- [x] Enhanced Settings Update tab with last-checked timestamp, release channel badge, background update toggles, and data preservation guarantee.
+- [x] Completely removed redundant GitHub release checker card from the Windows desktop tab.
+- [x] Preserved 100% 4-language i18n localization across German, English, French, and Spanish.
+
+---
+
 ### Native SOCDOF Update Center, Push Notifications & Strict Secret Isolation (v24.10.4)
 - [x] Implemented dedicated "Updates & System" section in Settings (`SettingsModule.tsx`) allowing users to check for updates, view current version, and trigger downloads.
 - [x] Integrated non-intrusive Windows-style bottom-right push notification toasts in `DesktopWindowWorkspace.tsx` with "Später" and "Jetzt herunterladen" actions.

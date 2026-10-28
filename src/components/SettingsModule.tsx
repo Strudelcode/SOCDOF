@@ -65,6 +65,7 @@ import {
   RefreshCw,
   ChevronDown,
   Zap,
+  Bell,
   Mail,
   Maximize2,
   Minimize2,
@@ -640,6 +641,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateInfo | null>(null);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [lastCheckedTime, setLastCheckedTime] = useState<string | null>(null);
+  const [autoCheckUpdates, setAutoCheckUpdates] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('socdof_auto_check_updates') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [showUpdateToast, setShowUpdateToast] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('socdof_show_update_toast') !== 'false';
+    } catch {
+      return true;
+    }
+  });
 
   // Automated Backup Engine State
   const [storedSnapshots, setStoredSnapshots] = useState<BackupSnapshotMeta[]>([]);
@@ -779,6 +795,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       sounds.playClick();
       const res = await checkForAppUpdates();
       setUpdateResult(res);
+      setLastCheckedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       if (res?.hasUpdate) {
         sounds.playSuccess();
       } else {
@@ -789,6 +806,38 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     } finally {
       setIsCheckingUpdate(false);
     }
+  };
+
+  const handleTestPushNotification = () => {
+    sounds.playPop();
+    const demoInfo: UpdateInfo = {
+      hasUpdate: true,
+      currentVersion: APP_VERSION,
+      latestVersion: '24.11.0',
+      releaseName: 'SOCDOF 24.11 Feature Update',
+      releaseUrl: GITHUB_RELEASES_URL,
+      publishedAt: new Date().toISOString(),
+      body: 'Leistungsverbesserungen, optimiertes Update-Center und Fehlerbehebungen.',
+      downloadUrl: ''
+    };
+    setUpdateResult(demoInfo);
+    window.dispatchEvent(new CustomEvent('socdof:trigger-update-toast', { detail: demoInfo }));
+  };
+
+  const handleTestUpdateModal = () => {
+    sounds.playClick();
+    const demoInfo: UpdateInfo = {
+      hasUpdate: true,
+      currentVersion: APP_VERSION,
+      latestVersion: '24.11.0',
+      releaseName: 'SOCDOF 24.11 Feature Update',
+      releaseUrl: GITHUB_RELEASES_URL,
+      publishedAt: new Date().toISOString(),
+      body: 'Leistungsverbesserungen, optimiertes Update-Center und Fehlerbehebungen.',
+      downloadUrl: ''
+    };
+    setUpdateResult(demoInfo);
+    setIsPromptModalOpen(true);
   };
 
   // Recent Searches / Quick Links list
@@ -1312,12 +1361,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       label: t('settings.category_admin', activeLang, 'Wartung & Datensicherheit'),
       items: [
         { id: 'windows' as SettingsSection, label: t('settings.windows', activeLang, 'Windows Desktop-App'), icon: Monitor, desc: t('settings.section_desc.windows', activeLang, 'Offline app, startup, and desktop options.') },
-        { id: 'updates' as SettingsSection, label: t('settings.updates', activeLang, 'Updates & System'), icon: Download, desc: t('settings.updates_desc', activeLang, 'Check for system updates and download the latest version.') },
+        { id: 'updates' as SettingsSection, label: t('settings.updates', activeLang, 'Updates & System'), icon: Download, desc: t('settings.updates_desc', activeLang, 'Check for system updates and download the latest version.'), badge: updateResult?.hasUpdate ? '1' : undefined },
         { id: 'storage' as SettingsSection, label: t('settings.storage', activeLang, 'Speicher & Backup'), icon: HardDrive, desc: t('settings.section_desc.storage', activeLang, 'Snapshots, JSON export, and backup location.') },
         { id: 'danger' as SettingsSection, label: t('settings.reset_system_title', activeLang, 'System zurücksetzen'), icon: ShieldAlert, danger: true, desc: t('settings.reset_system_desc', activeLang, 'Setzen Sie Ihr gesamtes System zurück und installieren Sie alles neu.') }
       ]
     }
-  ], [activeLang, canManageUsers]);
+  ], [activeLang, canManageUsers, updateResult]);
 
   const navItems = useMemo(() => categoryGroups.flatMap(g => g.items), [categoryGroups]);
 
@@ -6098,86 +6147,270 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           {/* SECTION: UPDATES & SYSTEM */}
           {activeSection === 'updates' && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6">
+              {/* Header */}
               <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl shadow-xs">
                   <Download className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
                     {t('settings.updates_title', activeLang, 'SOCDOF Update-Center')}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {t('settings.updates_desc', activeLang, 'Prüfen Sie auf System-Updates, laden Sie die neueste Version herunter und verwalten Sie die Aktualisierung.')}
+                    {t('settings.updates_desc', activeLang, 'Prüfen Sie auf System-Updates, verwalten Sie Push-Benachrichtigungen und aktualisieren Sie reibungslos.')}
                   </p>
                 </div>
               </div>
 
-              {/* Status Card */}
+              {/* Card 1: Live Status & System Health */}
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
-                    <span>{t('settings.current_version', activeLang, 'Aktuelle Version')}: v{APP_VERSION}</span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>{t('settings.current_version', activeLang, 'Aktuelle Version')}: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">v{APP_VERSION}</span></span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {lastCheckedTime 
+                          ? t('updates.last_checked', activeLang, 'Zuletzt geprüft: {time}').replace('{time}', lastCheckedTime)
+                          : t('updates.never_checked', activeLang, 'In dieser Sitzung noch nicht geprüft')}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{t('updates.system_up_to_date', activeLang, 'Ihr System ist auf dem neuesten Stand.')}</span>
+
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{t('updates.stable_channel', activeLang, 'Stabiler Release-Kanal')}</span>
                     </span>
+
+                    {updateResult?.hasUpdate ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-amber-600" />
+                        <span>{t('updates.badge_new', activeLang, 'Neues Update')}</span>
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>{t('updates.system_up_to_date', activeLang, 'System ist aktuell')}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {t('updates.restart_notice', activeLang, 'Das Herunterladen und Anwenden eines Updates dauert ca. 1 Minute. Danach erfolgt ein kurzer Neustart des Systems.')}
-                </p>
-
-                {updateResult?.hasUpdate && (
-                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
-                      <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span>{t('updates.ready_to_install', activeLang, `Version v${updateResult.latestVersion} steht bereit.`).replace('{version}', `v${updateResult.latestVersion}`)}</span>
+                {/* State: Checking in progress */}
+                {isCheckingUpdate && (
+                  <div className="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center gap-3 animate-pulse">
+                    <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin shrink-0" />
+                    <div className="text-xs text-indigo-950 dark:text-indigo-200 font-medium">
+                      {t('updates.checking', activeLang, 'Verbindung wird hergestellt... Suche nach neuen Versionen.')}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsPromptModalOpen(true)}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{t('updates.download_now', activeLang, 'Jetzt herunterladen')}</span>
-                    </button>
                   </div>
                 )}
 
+                {/* State: Update is Available */}
+                {updateResult?.hasUpdate && !isCheckingUpdate && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-purple-500/10 border border-amber-300/80 dark:border-amber-700/80 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <span>{t('updates.ready_to_install', activeLang, `Version v${updateResult.latestVersion} steht bereit.`).replace('{version}', `v${updateResult.latestVersion}`)}</span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          {t('updates.download_time_desc', activeLang, 'Das Herunterladen dauert ca. 1 Minute. Anschließend wird das System neu gestartet, um das Update zu installieren.')}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            setIsPromptModalOpen(true);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>{t('updates.start_download', activeLang, 'Jetzt herunterladen & neu starten')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleTestPushNotification}
+                          title={t('updates.test_push_toast_btn', activeLang, 'Push-Nachricht testen')}
+                          className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Bell className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>{t('updates.test_push_toast_btn', activeLang, 'Push-Nachricht')}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60">
+                      <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span>{t('updates.safe_data_notice', activeLang, 'Ihre lokalen Rechnungen, Kontakte und Einstellungen bleiben beim Update zu 100% erhalten.')}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* State: Up to Date Card */}
+                {!updateResult?.hasUpdate && !isCheckingUpdate && (
+                  <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {t('updates.system_up_to_date', activeLang, 'Ihr System ist auf dem neuesten Stand.')}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('updates.restart_notice', activeLang, 'Das Herunterladen und Anwenden eines Updates dauert ca. 1 Minute. Danach erfolgt ein kurzer Neustart.')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Action Bar */}
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     type="button"
                     disabled={isCheckingUpdate}
-                    onClick={async () => {
-                      sounds.playClick();
-                      setIsCheckingUpdate(true);
-                      try {
-                        const info = await checkForAppUpdates();
-                        if (info) {
-                          setUpdateResult(info);
-                          if (info.hasUpdate) {
-                            setIsPromptModalOpen(true);
-                          }
-                        }
-                      } catch {
-                        // ignore
-                      } finally {
-                        setIsCheckingUpdate(false);
-                      }
-                    }}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
+                    onClick={handleManualCheckUpdates}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
                   >
                     {isCheckingUpdate ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Download className="w-4 h-4" />
+                      <RotateCcw className="w-4 h-4" />
                     )}
-                    <span>{isCheckingUpdate ? t('updates.checking', activeLang, 'Suche nach Updates...') : t('updates.check_updates', activeLang, 'Nach Updates suchen & Herunterladen')}</span>
+                    <span>{isCheckingUpdate ? t('updates.checking', activeLang, 'Suche nach Updates...') : t('updates.check_updates', activeLang, 'Nach Updates suchen')}</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Card 2: Interactive Testing & Push Simulation (Windows-style) */}
+              <div className="p-5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                    <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>{t('updates.test_push_title', activeLang, 'Push-Benachrichtigung & Simulation')}</span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-950 px-2 py-0.5 rounded-md">
+                    Interaktiv
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {t('updates.test_push_desc', activeLang, 'Testen Sie das dezente Push-Banner unten rechts sowie den 1-Minuten-Update-Assistenten.')}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleTestPushNotification}
+                    className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer active:scale-95"
+                  >
+                    <Bell className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>{t('updates.test_push_toast_btn', activeLang, 'Push-Nachricht testen')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestUpdateModal}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold flex items-center gap-2 transition cursor-pointer active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{t('updates.test_screen_btn', activeLang, 'Update-Bildschirm öffnen')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: Update Preferences & Automated Background Checking */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                <div className="text-xs font-bold text-slate-900 dark:text-white">
+                  {t('settings.category_admin', activeLang, 'Wartung & Automatisierung')}
+                </div>
+
+                {/* Toggle 1: Auto check upon startup */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                  <div className="space-y-0.5 pr-4">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {t('updates.auto_check_label', activeLang, 'Automatisch beim Programmstart nach Updates suchen')}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {t('updates.auto_check_desc', activeLang, 'Benachrichtigt Sie dezent unten rechts, sobald eine neue stabile Version bereitsteht.')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      const next = !autoCheckUpdates;
+                      setAutoCheckUpdates(next);
+                      try {
+                        localStorage.setItem('socdof_auto_check_updates', String(next));
+                      } catch {}
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      autoCheckUpdates ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        autoCheckUpdates ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Toggle 2: Discreet Push Notification */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+                  <div className="space-y-0.5 pr-4">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {t('updates.toast_toggle_label', activeLang, 'Dezente Push-Benachrichtigung unten rechts anzeigen')}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {t('updates.toast_toggle_desc', activeLang, 'Informiert Sie unaufdringlich, ohne Ihre laufende Arbeit zu unterbrechen.')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      const next = !showUpdateToast;
+                      setShowUpdateToast(next);
+                      try {
+                        localStorage.setItem('socdof_show_update_toast', String(next));
+                      } catch {}
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      showUpdateToast ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        showUpdateToast ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 4: 100% Data Preservation & Security Guarantee */}
+              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                    {t('updates.sec_storage_guarantee', activeLang, 'Datensicherheits-Garantie bei Aktualisierungen')}
+                  </div>
+                  <p className="text-[11px] text-emerald-800/90 dark:text-emerald-300/90 leading-relaxed">
+                    {t('updates.sec_storage_desc', activeLang, '100% Ihrer Rechnungen, Kontakte, Buchungen und individuellen Einstellungen bleiben unangetastet lokal auf diesem PC.')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -6336,76 +6569,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              {/* Card 2: Live GitHub Release Update Checker */}
-              <div className="p-5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Github className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
-                      GitHub Release-Aktualisierungsprüfung
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleManualCheckUpdates}
-                    disabled={isCheckingUpdate}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <RotateCcw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                    <span>{isCheckingUpdate ? 'Prüfe...' : 'Nach Updates suchen'}</span>
-                  </button>
-                </div>
 
-                <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Prüft das offizielle GitHub-Repository (<code className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">Strudelcode/SOCDOF</code>) auf neue stabile Release-Builds.
-                </div>
-
-                {updateResult && (
-                  <div className={`p-4 rounded-xl border ${
-                    updateResult.hasUpdate 
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
-                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <div className="font-bold flex items-center gap-2 text-xs">
-                          {updateResult.hasUpdate ? (
-                            <>
-                              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                              <span>Neues Update verfügbar: v{updateResult.latestVersion}</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <span>SOCDOF ist auf dem neuesten Stand (v{updateResult.currentVersion})</span>
-                            </>
-                          )}
-                        </div>
-                        <p className="text-[11px] opacity-80">
-                          {updateResult.hasUpdate
-                            ? `Ihre Version: v${updateResult.currentVersion} → Neue Version: v${updateResult.latestVersion}`
-                            : 'Es sind keine neueren Versionen auf GitHub verfügbar.'}
-                        </p>
-                      </div>
-
-                      {updateResult.hasUpdate && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              sounds.playClick();
-                              setIsPromptModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Update installieren</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Toggle: Exit Confirmation Prompt ("SOCDOF beenden?" Dialog) */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
@@ -6934,6 +7098,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         isOpen={isPromptModalOpen}
         updateInfo={updateResult}
         onClose={() => setIsPromptModalOpen(false)}
+        onShutdownApp={() => {
+          sounds.playShutdown();
+          setTimeout(() => {
+            window.location.reload();
+          }, 800);
+        }}
       />
 
       {/* Dynamic Language Selection & Flag Management Modal */}

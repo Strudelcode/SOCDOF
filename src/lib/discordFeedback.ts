@@ -58,6 +58,33 @@ export function getDiscordBotToken(): string {
   return '';
 }
 
+export const DEFAULT_BOTGHOST_WEBHOOK_URL = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+export const DEFAULT_BOTGHOST_API_KEY = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+
+export function getBotghostWebhookUrl(): string {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BOTGHOST_WEBHOOK_URL) {
+    const val = String((import.meta as any).env.VITE_BOTGHOST_WEBHOOK_URL).trim();
+    if (val) return val;
+  }
+  if (typeof process !== 'undefined' && (process.env as any)?.VITE_BOTGHOST_WEBHOOK_URL) {
+    const val = String((process.env as any).VITE_BOTGHOST_WEBHOOK_URL).trim();
+    if (val) return val;
+  }
+  return DEFAULT_BOTGHOST_WEBHOOK_URL;
+}
+
+export function getBotghostApiKey(): string {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BOTGHOST_API_KEY) {
+    const val = String((import.meta as any).env.VITE_BOTGHOST_API_KEY).trim();
+    if (val) return val;
+  }
+  if (typeof process !== 'undefined' && (process.env as any)?.VITE_BOTGHOST_API_KEY) {
+    const val = String((process.env as any).VITE_BOTGHOST_API_KEY).trim();
+    if (val) return val;
+  }
+  return DEFAULT_BOTGHOST_API_KEY;
+}
+
 export const DISCORD_CONFIG = {
   get BOT_TOKEN(): string {
     return getDiscordBotToken();
@@ -1107,8 +1134,8 @@ export async function sendDiscordReport(
   }
 
   const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
-  const botghostWebhookUrl = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
-  const botghostApiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+  const botghostWebhookUrl = getBotghostWebhookUrl();
+  const botghostApiKey = getBotghostApiKey();
 
   const { payload: bgPayload, variables: botghostVariables } = await buildMultilingualBotghostPayload({
     title: payload.title,
@@ -1361,8 +1388,8 @@ async function sendDiscordReportDirect(
     message: { content: messageContent, embeds: [embed] },
   };
 
-  const botghostWebhookUrl = 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
-  const botghostApiKey = '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+  const botghostWebhookUrl = getBotghostWebhookUrl();
+  const botghostApiKey = getBotghostApiKey();
   const currentBotToken = getDiscordBotToken();
   const electronApi = (typeof window !== 'undefined' ? (window as any).electronAPI : null);
 

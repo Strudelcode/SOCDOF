@@ -290,13 +290,17 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               {/* Progress Bar */}
               <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3.5 overflow-hidden border border-slate-200 dark:border-slate-700 p-0.5">
                 <div 
-                  className="bg-gradient-to-r from-indigo-600 to-emerald-500 h-full rounded-full transition-all duration-300 shadow-sm"
-                  style={{ width: `${downloadProgress}%` }}
+                  className="h-full rounded-full transition-all duration-300 shadow-sm"
+                  style={{
+                    width: `${downloadProgress}%`,
+                    background: 'linear-gradient(90deg, var(--accent, #6366f1), var(--accent-companion, #10b981))'
+                  }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
-                <span>{isDesktop ? 'Automatischer In-App Download' : 'CDN Download'}</span>
+                <span>{isDesktop ? 'In-App Engine' : 'CDN Download'}</span>
+                <span>{t('updates.time_remaining', lang, 'ca. {seconds} Sek. verbleibend').replace('{seconds}', String(Math.max(1, Math.round((100 - downloadProgress) * 0.4))))}</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{downloadProgress}%</span>
               </div>
             </div>

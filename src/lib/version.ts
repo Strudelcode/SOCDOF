@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.10.4';
+export const APP_VERSION = '24.10.7';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,39 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.10.7',
+    date: '2026-10-18',
+    title: 'Button Navigation Box Isolation, Card Shadow Exemptions & Dev Script Sanitization',
+    highlights: [
+      'Card Glow Selector Hardening: Excluded directional borders (border-t/b/l/r/x/y), dividers, buttons, and form controls from ambient card box-shadows in src/index.css',
+      'Navigation Bar Visual Fix: Eliminated spurious glowing border frames enclosing the Zurück and Weiter/Submit action buttons in the Reports & Feedback module',
+      'Unified Button Sizing & Hierarchy: Unified button padding (px-5 py-2.5 rounded-xl) across all 3 wizard steps with explicit shadow-none dividers',
+      'Dev Script Sanitization: Removed redundant CLI flags from package.json dev script preventing duplicate port and host flag crashes during server pre-warming'
+    ]
+  },
+  {
+    version: '24.10.6',
+    date: '2026-10-18',
+    title: 'Reports & Feedback UI Refinement, Button Symmetry & Navigation Auto-Scroll',
+    highlights: [
+      'Reports & Feedback Action Bar Alignment: Balanced Back and Submit buttons with equal heights, matching border styling, and active-click feedback',
+      'Responsive Button Wrapping: Upgraded bottom navigation across all 3 wizard steps with responsive flex layout preventing overlap on narrower screens',
+      'Navigation Auto-Scroll: Ensured wizard view and step transitions smoothly scroll to the top so headers and status alerts are never clipped',
+      'Bot Token Security Guidance: Re-verified strict isolation of VITE_DISCORD_BOT_TOKEN in root .env avoiding any UI credential leaks'
+    ]
+  },
+  {
+    version: '24.10.5',
+    date: '2026-10-17',
+    title: 'Enhanced SOCDOF Update Center, Interactive Push Simulation & Taskbar Tray Indicator',
+    highlights: [
+      'Interactive Push Notification Testing: Direct in-app trigger for bottom-right update banners and 1-minute assistant testing',
+      'Taskbar System Tray Update Indicator: Subtle animated icon and badge in the desktop taskbar when updates are available',
+      'Settings Modernization: Streamlined Updates tab with last-checked timestamp, release channel indicator, background automation toggles, and data preservation guarantee',
+      'Cleaned Redundant UI: Removed duplicate checks from Windows desktop tab and reinforced independent SOCDOF native identity'
+    ]
+  },
   {
     version: '24.10.4',
     date: '2026-10-17',

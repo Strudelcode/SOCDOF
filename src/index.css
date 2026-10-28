@@ -290,24 +290,38 @@ html.dark [role="dialog"] .bg-slate-50:not([class*="dark:bg-"]) {
 /* ========================================================================== */
 
 /* App cards and containers in light mode: subtle accent border and ambient glow */
-html:not(.dark) .socdof-window-content [class*="border-slate-200"],
-html:not(.dark) .socdof-window-content [class*="border-slate-100"],
-html:not(.dark) .socdof-window-content [class*="border-slate-300"],
-html:not(.dark) .socdof-window-content [class*="border-gray-200"],
-html:not(.dark) .socdof-window-content [class*="border-zinc-200"] {
+html:not(.dark) .socdof-window-content [class*="border-slate-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-slate-100"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-slate-300"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-gray-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-zinc-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr) {
   border-color: var(--accent-border-subtle, rgba(79, 70, 229, 0.22)) !important;
   box-shadow: var(--accent-card-shadow, 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03));
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* App cards and containers in dark mode: subtle luminous neon rim and glow */
-html.dark .socdof-window-content [class*="border-slate-800"],
-html.dark .socdof-window-content [class*="border-slate-700"],
-html.dark .socdof-window-content [class*="border-gray-800"],
-html.dark .socdof-window-content [class*="border-zinc-800"] {
+html.dark .socdof-window-content [class*="border-slate-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-slate-700"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-gray-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-zinc-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr) {
   border-color: var(--accent-dark-border-subtle, rgba(129, 140, 248, 0.30)) !important;
   box-shadow: 0 4px 20px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.16)), 0 0 12px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.12));
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Explicitly exempt directional dividers, border separators, and navigation bars from inheriting card glows */
+.socdof-window-content [class*="border-t"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-b"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-l"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-r"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-x"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-y"]:not([class*="shadow-"]),
+.socdof-window-content [class*="divide-"],
+.socdof-window-content hr,
+.socdof-divider,
+.socdof-nav-bar {
+  box-shadow: none !important;
 }
 
 /* Interactive Card & Panel Hover Glow across all apps */

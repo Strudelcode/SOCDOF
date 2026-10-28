@@ -1052,13 +1052,31 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       setIsUpdatingSplashOpen(true);
     };
 
+    const handleTriggerUpdateToast = (e: Event) => {
+      const customEvent = e as CustomEvent<UpdateInfo | undefined>;
+      const customInfo: UpdateInfo = customEvent?.detail || {
+        hasUpdate: true,
+        currentVersion: APP_VERSION,
+        latestVersion: '24.11.0',
+        releaseName: 'SOCDOF 24.11 Feature Update',
+        releaseUrl: GITHUB_RELEASES_URL,
+        publishedAt: new Date().toISOString(),
+        body: 'Leistungsverbesserungen, optimiertes Update-Center und Fehlerbehebungen.',
+        downloadUrl: ''
+      };
+      setUpdateInfo(customInfo);
+      sounds.playPop();
+    };
+
     window.addEventListener('socdof-open-feedback', handleOpenFeedback);
     window.addEventListener('socdof:open-download-modal', handleOpenDownload);
     window.addEventListener('socdof:open-updating-splash', handleOpenSplash);
+    window.addEventListener('socdof:trigger-update-toast', handleTriggerUpdateToast);
     return () => {
       window.removeEventListener('socdof-open-feedback', handleOpenFeedback);
       window.removeEventListener('socdof:open-download-modal', handleOpenDownload);
       window.removeEventListener('socdof:open-updating-splash', handleOpenSplash);
+      window.removeEventListener('socdof:trigger-update-toast', handleTriggerUpdateToast);
     };
   }, []);
 
@@ -1256,15 +1274,33 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     return unsub;
   }, []);
 
-  // Background update check on startup (respecting snooze and skipped versions)
+  // Background update check on startup (respecting snooze, skipped versions, and preferences)
   useEffect(() => {
+    const isAutoCheckEnabled = () => {
+      try {
+        return localStorage.getItem('socdof_auto_check_updates') !== 'false';
+      } catch {
+        return true;
+      }
+    };
+
+    if (!isAutoCheckEnabled()) return;
+
     const timer = setTimeout(async () => {
       try {
         const info = await checkForAppUpdates();
         if (info) {
           latestKnownReleaseRef.current = info.latestVersion;
           setDownloadBannerState(evaluateStartMenuDownloadBanner(info.latestVersion));
-          if (info.hasUpdate && !isVersionSkipped(info.latestVersion) && !isUpdateSnoozed()) {
+          const isToastEnabled = () => {
+            try {
+              return localStorage.getItem('socdof_show_update_toast') !== 'false';
+            } catch {
+              return true;
+            }
+          };
+
+          if (info.hasUpdate && !isVersionSkipped(info.latestVersion) && !isUpdateSnoozed() && isToastEnabled()) {
             setUpdateInfo(info);
             sounds.playPop();
           }
@@ -4131,6 +4167,22 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             </button>
           )}
 
+          {/* Pending Update Notification Tray Icon */}
+          {updateInfo && updateInfo.hasUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setIsUpdatePromptOpen(true);
+              }}
+              title={t('updates.ready_to_install', currentLang, `Version v${updateInfo.latestVersion} steht bereit`).replace('{version}', `v${updateInfo.latestVersion}`)}
+              className="relative p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 transition cursor-pointer flex items-center justify-center animate-pulse"
+            >
+              <Download className="w-4 h-4" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900" />
+            </button>
+          )}
+
           {/* Language Selector in Taskbar Tray */}
           <button
             onClick={() => { sounds.playClick(); setIsLanguageModalOpen(true); }}
@@ -4594,7 +4646,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         isOpen={isUpdatePromptOpen}
         updateInfo={updateInfo}
         onClose={() => setIsUpdatePromptOpen(false)}
-        onShutdownApp={handleShutdown}
+        onShutdownApp={handleRestart}
       />
 
       {/* Windows 11 Task View & Virtual Desktops Management Modal */}

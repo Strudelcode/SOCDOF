@@ -5,6 +5,42 @@ import os from 'os';
 import fs from 'fs';
 import { defineConfig, Plugin } from 'vite';
 
+// Always read fresh values from .env with higher precedence than system environment variables
+function readEnvFile(): Record<string, string> {
+  try {
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      const parsed: Record<string, string> = {};
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+          const idx = trimmed.indexOf('=');
+          const key = trimmed.slice(0, idx).trim();
+          const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+          if (key && val) {
+            parsed[key] = val;
+          }
+        }
+      }
+      return parsed;
+    }
+  } catch {}
+  return {};
+}
+
+// Sync local .env variables into process.env so .env takes precedence over container env
+const initialLocalEnv = readEnvFile();
+if (initialLocalEnv.VITE_DISCORD_BOT_TOKEN) {
+  process.env.VITE_DISCORD_BOT_TOKEN = initialLocalEnv.VITE_DISCORD_BOT_TOKEN;
+}
+if (initialLocalEnv.VITE_BOTGHOST_WEBHOOK_URL) {
+  process.env.VITE_BOTGHOST_WEBHOOK_URL = initialLocalEnv.VITE_BOTGHOST_WEBHOOK_URL;
+}
+if (initialLocalEnv.VITE_BOTGHOST_API_KEY) {
+  process.env.VITE_BOTGHOST_API_KEY = initialLocalEnv.VITE_BOTGHOST_API_KEY;
+}
+
 // In-memory store for mobile sync sessions
 const mobileSyncStore = new Map<string, { payload: any; timestamp: number }>();
 const recentSyncQueue: Array<{ token: string; payload: any; timestamp: number }> = [];
@@ -560,27 +596,13 @@ function discordFeedbackPlugin(): Plugin {
         });
       };
 
-      // Helper to dynamically read Discord bot token from environment or .env file
+      // Helper to dynamically read Discord bot token with .env taking priority
       const getDiscordBotToken = (): string => {
+        const env = readEnvFile();
+        if (env.VITE_DISCORD_BOT_TOKEN) return env.VITE_DISCORD_BOT_TOKEN;
+        if (env.DISCORD_BOT_TOKEN) return env.DISCORD_BOT_TOKEN;
         if (process.env.VITE_DISCORD_BOT_TOKEN) return process.env.VITE_DISCORD_BOT_TOKEN;
         if (process.env.DISCORD_BOT_TOKEN) return process.env.DISCORD_BOT_TOKEN;
-        try {
-          const envPath = path.resolve(process.cwd(), '.env');
-          if (fs.existsSync(envPath)) {
-            const content = fs.readFileSync(envPath, 'utf-8');
-            for (const line of content.split('\n')) {
-              const trimmed = line.trim();
-              if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-                const idx = trimmed.indexOf('=');
-                const key = trimmed.slice(0, idx).trim();
-                const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
-                if (key === 'VITE_DISCORD_BOT_TOKEN' || key === 'DISCORD_BOT_TOKEN') {
-                  if (val) return val;
-                }
-              }
-            }
-          }
-        } catch {}
         return '';
       };
 
@@ -690,8 +712,8 @@ function discordFeedbackPlugin(): Plugin {
 
           try {
             const body = await parseRequestBody(req);
-            const targetUrl = body.webhookUrl || 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
-            const botghostApiKey = body.apiKey || '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
+            const targetUrl = body.webhookUrl || process.env.VITE_BOTGHOST_WEBHOOK_URL || 'https://api.botghost.com/webhook/1498764033518735441/t5dcd2k8x1n8i53932gf';
+            const botghostApiKey = body.apiKey || process.env.VITE_BOTGHOST_API_KEY || '17450aaada2fde267b22f9f917094d13e38c8ba7b51a4df047719f0fd1877089';
             const payload = body.payload || body;
 
             const response = await fetch(targetUrl, {
@@ -1053,8 +1075,18 @@ function discordFeedbackPlugin(): Plugin {
 }
 
 export default defineConfig(() => {
+  const currentEnv = readEnvFile();
+  const botToken = currentEnv.VITE_DISCORD_BOT_TOKEN || process.env.VITE_DISCORD_BOT_TOKEN || '';
+  const botghostUrl = currentEnv.VITE_BOTGHOST_WEBHOOK_URL || process.env.VITE_BOTGHOST_WEBHOOK_URL || '';
+  const botghostApiKey = currentEnv.VITE_BOTGHOST_API_KEY || process.env.VITE_BOTGHOST_API_KEY || '';
+
   return {
     base: './',
+    define: {
+      'import.meta.env.VITE_DISCORD_BOT_TOKEN': JSON.stringify(botToken),
+      'import.meta.env.VITE_BOTGHOST_WEBHOOK_URL': JSON.stringify(botghostUrl),
+      'import.meta.env.VITE_BOTGHOST_API_KEY': JSON.stringify(botghostApiKey),
+    },
     plugins: [react(), tailwindcss(), mobileSyncPlugin(), languageSyncPlugin(), discordFeedbackPlugin()],
     resolve: {
       alias: {
