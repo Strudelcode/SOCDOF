@@ -2,6 +2,15 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Textwerk Text Editor with Word-style Ribbon & Spell Check (v24.11.0)
+- [x] Added the Textwerk module: a Word-style editor with File/Home/Insert/Review ribbon tabs, open, save and download (TXT/HTML).
+- [x] Added German spell checking (offline Hunspell dictionary) with underlined misspellings, suggestions, an issue panel and a word-frequency list.
+- [x] Added typographic quotation marks, system font loading, portrait/landscape pages with page breaks, Word-style standard colors, a wrapping ribbon, and "Text Editor" naming in the taskbar, desktop and launcher.
+- [x] Added the German dictionary licence notice (GPL 2/3) to the documentation and `THIRD_PARTY_NOTICES.md`.
+- [x] Registered the module in the launcher, app store, location picker, command palette and docs, with translations in DE, EN, FR and ES.
+
+---
+
 ### Enhanced SOCDOF Update Center, Push Simulation & Taskbar Tray Indicator (v24.10.5)
 - [x] Added interactive push notification simulation and testing buttons in the Update Center for immediate on-demand verification of the Windows-style bottom-right toast.
 - [x] Created Taskbar System Tray update indicator with pulsing notification badge when updates are ready to install.
@@ -1084,3 +1093,6 @@
 - [x] Added seamless explicit logout handling with 1-click desktop bypass button on login screen.
 - [x] Standardized Discord channel naming from small-caps `#💡ɪᴅᴇᴀ-ꜱᴜɢɢᴇꜱᴛɪᴏɴꜱ` to standard clean text `#💡idea-suggestions`.
 
+
+### Tables Spreadsheet Program (v24.11.0)
+- [x] Added a simple spreadsheet program named "Tabellen" with SUM, AVERAGE, MAX, MIN, COUNT and cell arithmetic formulas, registered in the launcher, command palette, app store and desktop windows, with CSV save and open and docs in all four languages.

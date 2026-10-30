@@ -10,6 +10,7 @@
     "electron/**/*",
     "public/**/*",
     "languages/**/*",
+    "THIRD_PARTY_NOTICES.md",
     "package.json"
   ],
   "extraResources": [

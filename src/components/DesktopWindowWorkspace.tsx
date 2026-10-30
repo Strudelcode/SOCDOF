@@ -36,6 +36,8 @@ import {
   RotateCcw,
   BookOpen,
   Calculator,
+  PenLine,
+  Table,
   Pin,
   PinOff,
   HelpCircle,
@@ -128,6 +130,8 @@ import { DesktopWidgetsModal } from './DesktopWidgetsModal';
 import { WidgetsModule } from './WidgetsModule';
 import { WidgetsIcon } from './WidgetsIcon';
 import { CalculatorModule } from './CalculatorModule';
+import { TextwerkModule } from './TextwerkModule';
+import TableModule from './TableModule';
 import { TherapyPracticeModule } from './TherapyPracticeModule';
 import { DiscordFeedbackModal } from './DiscordFeedbackModal';
 import { DiscordFeedbackApp } from './DiscordFeedbackApp';
@@ -348,8 +352,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   });
 
   const saveWindowState = (module: ActiveModule, state: { x: number; y: number; width: number; height: number; isMaximized: boolean }) => {
-    const minW = module === 'calculator' ? 320 : 520;
-    const minH = module === 'calculator' ? 480 : 380;
+    const minW = module === 'calculator' ? 320 : module === 'textwerk' ? 560 : module === 'table' ? 520 : 520;
+    const minH = module === 'calculator' ? 480 : module === 'textwerk' ? 420 : module === 'table' ? 360 : 380;
     const clampedState = {
       ...state,
       width: Math.max(minW, state.width),
@@ -1890,6 +1894,8 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     purchases: { title: t('module.purchases', currentLang, 'Einkauf'), subtitle: t('desc.purchases', currentLang, 'Lieferantenbestellungen'), icon: ShoppingCart, color: 'bg-gradient-to-br from-orange-500 to-amber-600' },
     calendar: { title: t('module.calendar', currentLang, 'Kalender'), subtitle: t('desc.calendar', currentLang, 'Google Live Sync & Termine'), icon: Calendar, color: 'bg-gradient-to-br from-blue-500 to-sky-600' },
     calculator: { title: t('module.calculator', currentLang, 'Taschenrechner'), subtitle: t('desc.calculator', currentLang, 'Einfach & Wissenschaftlich'), icon: Calculator, color: 'bg-gradient-to-br from-emerald-500 to-teal-700' },
+    textwerk: { title: t('module.textwerk', currentLang, 'Text Editor'), subtitle: t('desc.textwerk', currentLang, 'Textverarbeitung & Rechtschreibung'), icon: PenLine, color: 'bg-gradient-to-br from-blue-600 to-sky-700' },
+    table: { title: t('module.table', currentLang, 'Tabellen'), subtitle: t('desc.table', currentLang, 'Einfache Tabelle mit Formeln und CSV-Export'), icon: Table, color: 'bg-gradient-to-br from-emerald-600 to-teal-700' },
     therapy_practice: { title: t('module.therapy_practice', currentLang, 'Praxis'), subtitle: t('desc.therapy_practice', currentLang, 'Therapie & Beratung'), icon: Hospital, color: 'bg-gradient-to-br from-blue-600 to-indigo-700' },
     feedback: { title: t('module.feedback', currentLang, 'Reports'), subtitle: t('desc.feedback', currentLang, 'Report einreichen & Tickets'), icon: Bug, color: 'bg-gradient-to-br from-orange-500 via-amber-500 to-rose-500' },
     widgets: { title: t('module.widgets', currentLang, 'Widgets'), subtitle: t('desc.widgets', currentLang, 'Desktop-Widgets & Notizen'), icon: WidgetsIcon, color: 'bg-gradient-to-br from-violet-500 to-purple-600' },
@@ -2074,6 +2080,11 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         startX = Math.max(10, Math.min(screenW - startW - 10, saved.x ?? 40));
         startY = Math.max(10, Math.min(screenH - startH - 50, saved.y ?? 20));
         isMaximized = Boolean(saved.isMaximized);
+      } else if (module === 'textwerk') {
+        startW = Math.min(screenW - 40, 980);
+        startH = Math.min(screenH - 80, 680);
+        startX = Math.max(20, Math.min(screenW - startW - 20, Math.floor((screenW - startW) / 2) + offset));
+        startY = Math.max(20, Math.min(screenH - startH - 50, Math.floor((screenH - startH) / 2) + offset));
       } else if (module === 'calculator') {
         startW = Math.min(screenW - 40, 380);
         startH = Math.min(screenH - 80, 560);
@@ -3247,7 +3258,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
 
             {/* Window Content Body with sleek inner scroll */}
             <div className={`socdof-window-content flex-1 min-h-0 ${
-              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator', 'settings'].includes(win.module)
+              ['support_services', 'pos', 'restaurant', 'ios_billing', 'docs', 'appstore', 'calculator', 'textwerk', 'table', 'settings'].includes(win.module)
                 ? 'overflow-hidden flex flex-col p-0'
                 : 'overflow-y-auto p-4 sm:p-6'
             } bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}>
@@ -3460,6 +3471,14 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     saveWindowState('calculator', { x: win.x, y: win.y, width: nextW, height: nextH, isMaximized: win.isMaximized });
                   }}
                 />
+              )}
+
+              {win.module === 'textwerk' && (
+                <TextwerkModule />
+              )}
+
+              {win.module === 'table' && (
+                <TableModule />
               )}
 
               {win.module === 'feedback' && (

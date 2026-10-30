@@ -17,6 +17,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Calculator,
+  PenLine,
+  Table,
   BookOpen,
   Utensils,
   Hospital,
@@ -193,6 +195,24 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       color: 'bg-gradient-to-br from-emerald-600 to-teal-700',
       badge: t('badge.school', currentLang, 'Schule'),
       badgeColor: 'bg-emerald-100 text-emerald-900 font-bold'
+    },
+    {
+      id: 'textwerk',
+      name: t('module.textwerk', currentLang, 'Text Editor'),
+      category: t('cat.school', currentLang, 'Schule & Bildung'),
+      description: t('desc.textwerk', currentLang, 'Textverarbeitung mit deutscher Rechtschreibprüfung, Wortliste und Word-ähnlicher Menüleiste'),
+      icon: <PenLine className="w-8 h-8 text-white" />,
+      color: 'bg-gradient-to-br from-blue-600 to-sky-700',
+      badge: undefined
+    },
+    {
+      id: 'table',
+      name: t('module.table', currentLang, 'Tabellen'),
+      category: t('cat.school', currentLang, 'Schule & Bildung'),
+      description: t('desc.table', currentLang, 'Einfache Tabelle mit Formeln und CSV-Export'),
+      icon: <Table className="w-8 h-8 text-white" />,
+      color: 'bg-gradient-to-br from-emerald-600 to-teal-700',
+      badge: undefined
     },
     {
       id: 'docs',

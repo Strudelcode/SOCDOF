@@ -5,6 +5,8 @@ import {
   Receipt,
   Users,
   Calculator,
+  PenLine,
+  Table,
   Package,
   Layers,
   CreditCard,
@@ -186,6 +188,26 @@ export const PICKER_APP_ITEMS: AppPickerItem[] = [
     defaultDesc: 'Standard- & Wissenschaftsrechner',
     icon: Calculator,
     color: 'bg-gradient-to-br from-emerald-500 to-teal-700',
+    category: 'tools'
+  },
+  {
+    id: 'textwerk',
+    nameKey: 'module.textwerk',
+    defaultName: 'Text Editor',
+    descKey: 'desc.textwerk',
+    defaultDesc: 'Textverarbeitung mit Rechtschreibprüfung',
+    icon: PenLine,
+    color: 'bg-gradient-to-br from-blue-600 to-sky-700',
+    category: 'tools'
+  },
+  {
+    id: 'table',
+    nameKey: 'module.table',
+    defaultName: 'Tabellen',
+    descKey: 'desc.table',
+    defaultDesc: 'Einfache Tabelle mit Formeln und CSV-Export',
+    icon: Table,
+    color: 'bg-gradient-to-br from-emerald-600 to-teal-700',
     category: 'tools'
   },
   {

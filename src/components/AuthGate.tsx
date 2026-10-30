@@ -674,6 +674,9 @@ function FirstAccount({
   const [setupTheme, setSetupTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [setupWallpaper, setSetupWallpaper] = useState(() => initialCompany?.desktop_wallpaper_url || '');
   const [setupApps, setSetupApps] = useState<ActiveModule[]>(() => [...SETUP_MODULE_TEMPLATES.personal]);
+  // 0 welcome, 1 account, 2 appearance, 3 apps, 4 finish
+  const [wizardStep, setWizardStep] = useState(0);
+  const wizardLastStep = 4;
   const previewBaselineRef = useRef({
     isDark: typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
     colorScheme: typeof document !== 'undefined' ? document.documentElement.style.colorScheme : '',
@@ -825,6 +828,45 @@ function FirstAccount({
     reader.readAsDataURL(file);
   };
 
+  const validateAccountStep = (): string | null => {
+    if (!form.username.trim() || !form.displayName.trim() || !form.password) return text.required;
+    if (form.password.length < 8) return text.short;
+    if (form.password !== form.confirm) return text.mismatch;
+    if (form.accountType === 'business' && !businessDetails.companyName.trim()) return t('auth.company_name_required', lang);
+    if (form.questionMode !== 'none') {
+      if (form.questionMode === 'custom' && !form.customQuestion.trim()) return t('auth.recoveryRequired', lang);
+      if (!form.recoveryAnswer.trim()) return t('auth.recoveryRequired', lang);
+    }
+    return null;
+  };
+
+  const goNextStep = () => {
+    if (wizardStep === 1) {
+      const problem = validateAccountStep();
+      if (problem) return setError(problem);
+    }
+    let next = wizardStep + 1;
+    if (next === 3 && !showInitialSetup) next = 4;
+    setError('');
+    setWizardStep(Math.min(next, wizardLastStep));
+  };
+
+  const goPreviousStep = () => {
+    let previous = wizardStep - 1;
+    if (previous === 3 && !showInitialSetup) previous = 2;
+    setError('');
+    setWizardStep(Math.max(previous, 0));
+  };
+
+  const handleFormSubmit = (event: React.FormEvent) => {
+    if (wizardStep < wizardLastStep) {
+      event.preventDefault();
+      goNextStep();
+      return;
+    }
+    void submit(event);
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.username.trim() || !form.displayName.trim() || !form.password) {
@@ -970,7 +1012,7 @@ function FirstAccount({
        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-white/5">
          <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
-              {t('auth.stepAccount', lang)}
+              {t(`auth.wizardStep.${wizardStep}`, lang)}
             </span>
           </div>
          <div className="flex items-center gap-2">
@@ -1000,7 +1042,12 @@ function FirstAccount({
           </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-3.5">
+        <form onSubmit={handleFormSubmit} className="space-y-3.5">
+          {wizardStep === 0 && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{t('auth.wizardWelcome', lang)}</p>
+          )}
+
+          {wizardStep === 1 && (<div className="space-y-3.5">
           {/* Display Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1230,8 +1277,10 @@ function FirstAccount({
               </div>
             )}
           </div>
+          </div>)}
 
           {/* Optional first-run appearance and app setup */}
+          {(wizardStep === 2 || wizardStep === 3) && (
           <section className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-3.5 sm:p-4 space-y-3.5">
            <div className="flex items-start justify-between gap-3">
              <div className="flex items-start gap-2.5 min-w-0">
@@ -1256,6 +1305,7 @@ function FirstAccount({
 
             {showInitialSetup ? (
              <div className="space-y-3.5">
+                {wizardStep === 2 && (<>
                 <div>
                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <Palette size={14} /> {t('auth.setupAccent', lang)}
@@ -1346,6 +1396,8 @@ function FirstAccount({
                   </div>
                 </div>
 
+                </>)}
+                {wizardStep === 3 && (<>
                 <div>
                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <BriefcaseBusiness size={14} /> {t('auth.setupTemplate', lang)}
@@ -1416,12 +1468,15 @@ function FirstAccount({
                     })}
                   </div>
                 </div>
+                </>)}
               </div>
             ) : (
               <p className="pl-10 text-[11px] text-slate-500 dark:text-slate-400">{t('auth.setupSkippedNotice', lang)}</p>
             )}
           </section>
+          )}
 
+          {wizardStep === 1 && (<div className="space-y-3.5">
           {/* Profile Picture (Optional, gray silhouette default, upload/remove) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1606,18 +1661,46 @@ function FirstAccount({
             )}
           </div>
 
+          </div>)}
+
+          {wizardStep === 4 && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{t('auth.wizardFinish', lang)}</p>
+          )}
+
           {error && (
            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-xs sm:text-sm text-rose-600 dark:text-rose-400">
               {error}
             </div>
           )}
 
-          <button
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 font-semibold shadow-lg shadow-indigo-600/25 transition-colors cursor-pointer"
-          >
-            {isSubmitting ? text.create + '...' : text.create}
-          </button>
+          <div className="flex items-center gap-2">
+            {wizardStep > 0 && (
+              <button
+                type="button"
+                onClick={goPreviousStep}
+                className="flex-1 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 py-3 font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                {t('auth.wizardBack', lang)}
+              </button>
+            )}
+            {wizardStep < wizardLastStep ? (
+              <button
+                type="button"
+                onClick={goNextStep}
+                className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 font-semibold shadow-lg shadow-indigo-600/25 transition-colors cursor-pointer"
+              >
+                {t('auth.continue', lang)}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 font-semibold shadow-lg shadow-indigo-600/25 transition-colors cursor-pointer"
+              >
+                {isSubmitting ? text.create + '...' : text.create}
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>

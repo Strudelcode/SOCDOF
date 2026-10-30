@@ -1,5 +1,14 @@
 # SOCDOF v24 Release Overview
 
+## v24.11.0 — Textwerk Word Processor, German Spell Check & Word List
+
+- **Textwerk Word Processor (`TextwerkModule.tsx`)**:
+  - Word-style editor with File, Home, Insert and Review ribbon tabs, save/open/download and undo/redo.
+- **Offline German Spell Check (`spellcheck.ts`)**:
+  - Misspelled words are underlined and listed in a proofing panel with suggestions; words can be ignored or added to a personal dictionary.
+- **Word List & Statistics**: Word frequencies, word count, character count and the active language in the status bar.
+- **Quad-Lingual Support**: Launcher, App Store, command palette, documentation chapter and all Textwerk texts in German, English, French and Spanish.
+
 ## v24.10.4 — Native SOCDOF Update Center, Push Notifications & Strict Secret Isolation
 
 - **Native SOCDOF Update Center in Settings (`SettingsModule.tsx`)**:

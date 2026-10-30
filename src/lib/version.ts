@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.10.7';
+export const APP_VERSION = '24.11.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,17 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.11.0',
+    date: '2026-10-28',
+    title: 'Text Editor Word Processor, German Spell Check & Word List',
+    highlights: [
+      'New Text Editor Module: Word-style text editor with File, Home, Insert and Review ribbon tabs, save and open for text and HTML files, and undo/redo',
+      'Offline German Spell Check: Misspelled words are underlined and listed in a proofing panel with suggestions, ignore and add-to-dictionary actions',
+      'Word List & Statistics: Shows word frequencies and a status bar with word count, character count and the active language',
+      'Full Quad-Lingual Support: Text Editor UI, documentation and launcher entries are available in German, English, French and Spanish'
+    ]
+  },
   {
     version: '24.10.7',
     date: '2026-10-18',

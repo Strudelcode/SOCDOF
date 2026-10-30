@@ -10,6 +10,8 @@ import {
   ShoppingCart, 
   Settings, 
   Calculator, 
+  PenLine,
+  Table,
   ShieldCheck, 
   Sparkles, 
   Keyboard, 
@@ -1332,6 +1334,180 @@ export const DocumentationApp: React.FC = () => {
                 })}
               </p>
             </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'textwerk',
+      title: getLoc({
+        de: 'Text Editor – Texteditor & Rechtschreibprüfung',
+        en: 'Text Editor – Word Processor & Spell Check',
+        fr: 'Text Editor – Traitement de texte & correction',
+        es: 'Text Editor – Procesador de textos y corrección ortográfica'
+      }),
+      category: getLoc({
+        de: 'Werkzeuge',
+        en: 'Tools',
+        fr: 'Outils',
+        es: 'Herramientas'
+      }),
+      icon: PenLine,
+      summary: getLoc({
+        de: 'Word-ähnlicher Texteditor mit Menüleiste, deutscher Rechtschreibprüfung, Wortliste und Wortstatistik.',
+        en: 'Word-style text editor with a ribbon, German spell check, word list and word statistics.',
+        fr: 'Éditeur de texte à ruban façon Word avec correction allemande, liste de mots et statistiques.',
+        es: 'Editor de texto estilo Word con cinta, corrección ortográfica en alemán, lista de palabras y estadísticas.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60">
+            <h5 className="font-bold text-sm text-blue-900 dark:text-blue-100">
+              {getLoc({
+                de: 'Schreiben direkt im Büro-Workspace',
+                en: 'Writing directly inside the office workspace',
+                fr: 'Écrire directement dans l’espace de travail',
+                es: 'Escribir directamente en el espacio de trabajo'
+              })}
+            </h5>
+            <p className="mt-2 text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Text Editor ist der integrierte Texteditor für Briefe, Angebote und Notizen. Die Menüleiste ist an Word angelehnt und bleibt vollständig offline nutzbar.',
+                en: 'Text Editor is the built-in editor for letters, quotes and notes. Its ribbon follows the Word layout and works fully offline.',
+                fr: 'Text Editor est l’éditeur intégré pour lettres, devis et notes. Son ruban suit la mise en page de Word et fonctionne hors ligne.',
+                es: 'Text Editor es el editor integrado para cartas, presupuestos y notas. Su cinta sigue el diseño de Word y funciona sin conexión.'
+              })}
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <h6 className="font-bold text-slate-900 dark:text-white">
+              {getLoc({
+                de: 'Lizenz des deutschen Wörterbuchs',
+                en: 'License of the German dictionary',
+                fr: 'Licence du dictionnaire allemand',
+                es: 'Licencia del diccionario alemán'
+              })}
+            </h6>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              {getLoc({
+                de: 'Die deutsche Rechtschreibprüfung nutzt das Wörterbuch igerman98 (Autor: Björn Jacke), lizenziert unter GPL 2 oder GPL 3. Die Hinweise stehen in der Datei THIRD_PARTY_NOTICES.md im Programmordner.',
+                en: 'The German spell checker uses the igerman98 dictionary (author: Björn Jacke), licensed under GPL 2 or GPL 3. The notice is in the file THIRD_PARTY_NOTICES.md in the program folder.',
+                fr: 'Le correcteur allemand utilise le dictionnaire igerman98 (auteur : Björn Jacke), sous licence GPL 2 ou GPL 3. Les mentions figurent dans le fichier THIRD_PARTY_NOTICES.md du dossier du programme.',
+                es: 'El corrector alemán usa el diccionario igerman98 (autor: Björn Jacke), con licencia GPL 2 o GPL 3. El aviso está en el archivo THIRD_PARTY_NOTICES.md de la carpeta del programa.'
+              })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({ de: 'Seiten, Ausrichtung & Ränder', en: 'Pages, orientation & margins', fr: 'Pages, orientation & marges', es: 'Páginas, orientación y márgenes' })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Hoch- und Querformat, Ränder (Normal, Schmal, Breit) und Seitenumbrüche. Eine volle Seite springt automatisch auf die nächste. Das Inhaltsverzeichnis entsteht aus den Überschriften 1 und 2 (Einfügen).',
+                  en: 'Portrait and landscape, margins (Normal, Narrow, Wide) and page breaks. A full page moves on to the next page automatically. The table of contents is built from Heading 1 and Heading 2 (Insert tab).',
+                  fr: 'Format portrait et paysage, marges (normales, étroites, larges) et sauts de page. Une page pleine passe automatiquement à la suivante. La table des matières se crée à partir des titres 1 et 2 (Insertion).',
+                  es: 'Vertical y horizontal, márgenes (normales, estrechos, amplios) y saltos de página. Una página llena pasa automáticamente a la siguiente. El índice se crea a partir de los títulos 1 y 2 (Insertar).'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({ de: 'Schriften & Farben', en: 'Fonts & colors', fr: 'Polices & couleurs', es: 'Fuentes y colores' })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Schriftarten werden vom PC gelesen. Die Farbpalette zeigt Standardfarben wie in Word. Typografische Anführungszeichen passen zur Sprache.',
+                  en: 'Fonts are read from this PC. The color palette shows Word-style standard colors. Quotation marks follow the document language.',
+                  fr: 'Les polices sont lues sur ce PC. La palette affiche les couleurs standard façon Word. Les guillemets suivent la langue du document.',
+                  es: 'Las fuentes se leen de este PC. La paleta muestra colores estándar al estilo Word. Las comillas siguen el idioma del documento.'
+                })}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Rechtschreibprüfung',
+                  en: 'Spell check',
+                  fr: 'Correction orthographique',
+                  es: 'Corrección ortográfica'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Unbekannte Wörter werden unterstrichen. Im Rechtschreib-Panel sehen Sie alle Fehler mit Korrekturvorschlägen und können Wörter ignorieren oder in Ihr Wörterbuch aufnehmen.',
+                  en: 'Unknown words are underlined. The proofing panel lists every issue with suggestions, and you can ignore words or add them to your dictionary.',
+                  fr: 'Les mots inconnus sont soulignés. Le panneau liste les erreurs avec suggestions et permet d’ignorer ou d’ajouter des mots.',
+                  es: 'Las palabras desconocidas se subrayan. El panel muestra los errores con sugerencias y permite ignorar palabras o añadirlas al diccionario.'
+                })}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <h6 className="font-bold text-slate-900 dark:text-white">
+                {getLoc({
+                  de: 'Wortliste & Statistik',
+                  en: 'Word list & statistics',
+                  fr: 'Liste de mots & statistiques',
+                  es: 'Lista de palabras y estadísticas'
+                })}
+              </h6>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">
+                {getLoc({
+                  de: 'Die Wortliste zeigt, wie oft jedes Wort im Text vorkommt. Die Statusleiste zeigt Wörter, Zeichen und die erkannte Sprache.',
+                  en: 'The word list shows how often each word appears. The status bar shows words, characters and the detected language.',
+                  fr: 'La liste de mots indique la fréquence de chaque mot. La barre d’état affiche mots, caractères et langue détectée.',
+                  es: 'La lista de palabras muestra la frecuencia de cada palabra. La barra de estado indica palabras, caracteres e idioma detectado.'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'table',
+      title: getLoc({
+        de: 'Tabellen – Einfache Tabelle mit Formeln',
+        en: 'Tables – Simple table with formulas',
+        fr: 'Tableaux – Tableau simple avec formules',
+        es: 'Tablas – Tabla sencilla con fórmulas'
+      }),
+      category: getLoc({
+        de: 'Werkzeuge',
+        en: 'Tools',
+        fr: 'Outils',
+        es: 'Herramientas'
+      }),
+      icon: Table,
+      summary: getLoc({
+        de: 'Einfaches Tabellenblatt mit Summen und Mittelwerten, speicherbar als CSV-Datei.',
+        en: 'Simple spreadsheet with sums and averages, saved as a CSV file.',
+        fr: 'Tableur simple avec sommes et moyennes, enregistrable en CSV.',
+        es: 'Hoja de cálculo sencilla con sumas y promedios, guardable como CSV.'
+      }),
+      content: (
+        <div className="space-y-4 text-xs leading-relaxed">
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+            <p className="text-slate-700 dark:text-slate-300">
+              {getLoc({
+                de: 'Tragen Sie Zahlen oder Text in die Felder ein. Eine Formel beginnt mit einem Gleichheitszeichen, zum Beispiel =SUMME(A1:A5), =MITTELWERT(B1:B5), =MAX(C1:C5), =MIN(C1:C5), =ANZAHL(A1:A5) oder =A1*B1. Die Ergebnisse werden sofort berechnet.',
+                en: 'Type numbers or text into the cells. A formula starts with an equals sign, for example =SUMME(A1:A5), =MITTELWERT(B1:B5), =MAX(C1:C5), =MIN(C1:C5), =ANZAHL(A1:A5) or =A1*B1. Results update immediately.',
+                fr: 'Saisissez des nombres ou du texte dans les cellules. Une formule commence par un signe égal, par exemple =SUMME(A1:A5), =MITTELWERT(B1:B5), =MAX(C1:C5), =MIN(C1:C5), =ANZAHL(A1:A5) ou =A1*B1. Les résultats se mettent à jour immédiatement.',
+                es: 'Escriba números o texto en las celdas. Una fórmula empieza con un signo igual, por ejemplo =SUMME(A1:A5), =MITTELWERT(B1:B5), =MAX(C1:C5), =MIN(C1:C5), =ANZAHL(A1:A5) o =A1*B1. Los resultados se calculan al instante.'
+              })}
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <p className="text-slate-600 dark:text-slate-400">
+              {getLoc({
+                de: 'Speichern erstellt eine CSV-Datei mit Semikolon als Trennzeichen, die sich in Excel und LibreOffice öffnen lässt. Die Formeln bleiben als Text erhalten.',
+                en: 'Saving creates a CSV file with semicolons as separators that opens in Excel and LibreOffice. Formulas are kept as text.',
+                fr: 'L’enregistrement crée un fichier CSV avec des points-virgules comme séparateurs, lisible dans Excel et LibreOffice. Les formules sont conservées en texte.',
+                es: 'Al guardar se crea un archivo CSV con punto y coma como separador, que se abre en Excel y LibreOffice. Las fórmulas se guardan como texto.'
+              })}
+            </p>
           </div>
         </div>
       )
