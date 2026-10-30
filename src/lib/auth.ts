@@ -729,11 +729,18 @@ export function updateUser(
   const actor = getCurrentUser();
   if (!actor || actor.id !== id) requireAdmin();
 
+  // Only active admins may change role, activation or forced-password flags.
+  // A user editing their own profile must not be able to escalate or unlock themselves.
+  const isAdminActor = Boolean(actor && actor.role === 'admin' && actor.active);
+  const safePatch = isAdminActor
+    ? patch
+    : (({ role: _role, active: _active, mustChangePassword: _must, ...rest }) => rest)(patch);
+
   const users = [...usersCache];
   const index = users.findIndex((user) => user.id === id);
   if (index < 0) throw new Error('user_not_found');
 
-  const next = { ...users[index], ...patch };
+  const next = { ...users[index], ...safePatch };
 
   if (
     users[index].role === 'admin' &&

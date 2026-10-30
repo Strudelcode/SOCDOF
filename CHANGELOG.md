@@ -7,6 +7,14 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## v24.12.0
+- 🚀 **Neu / What's New**: Tabellen mit Word-Oberfläche – Registerkarten Datei, Start, Einfügen und Ansicht, Formelleiste, Statusleiste sowie Zellformatierung (Fett, Kursiv, Unterstrichen, Ausrichtung, Schrift- und Füllfarbe).
+- 🚀 **Neu / What's New**: Funktionen per Klick im Reiter Einfügen (SUMME, MITTELWERT, MAX, MIN, ANZAHL).
+- 🔄 **Geändert / Improved**: Die große Symbolleiste wurde durch ein kompaktes Band ersetzt; Farben werden über eine Farbzeile gewählt, nicht als Kacheln.
+- 🔄 **Geändert / Improved**: Navigation mit Enter, Pfeiltasten und Tab sowie Anzeige der aktiven Zelle.
+- 🛠️ **Behoben / Fixed**: Nutzer können ihre eigene Rolle, ihren Aktivstatus oder die Passwort-Pflicht nicht mehr selbst ändern; diese Felder können nur Administratoren setzen.
+- Invoice templates: default templates no longer carry fixed example company data (e.g. "Mustermann Technologie & Commerce GmbH"); company fields now come from the company profile entered for the business account.
+
 ## v24.11.4
 - 🛠️ **Behoben / Fixed**: Keine überlappenden Desktop-Icons mehr – Der vertikale Rasterabstand auf dem Desktop wurde von 96px auf 116px vergrößert, sodass mehrzeilige App-Namen (wie „Praxis & Therapie“) nicht mehr in darunterliegende Icons hineinragen.
 - 🔄 **Geändert / Improved**: Bündige Icon-Ausrichtung & saubere Abstände – App-Symbole richten sich einheitlich oben aus (`justify-start`), haben eine feste Maximalhöhe und einen optimierten Textabstand für alle 4 Sprachen.

@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.11.4';
+export const APP_VERSION = '24.12.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,18 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.12.0',
+    date: '2026-10-30',
+    title: 'Word-Style Tables Redesign & Modern Spreadsheet Features',
+    highlights: [
+      'Word-Style Ribbon: Compact tab bar (File, Home, Insert, View) with an underline on the active tab and grouped buttons with small labels',
+      'Color Rows: Font and fill colors are picked from a Word-style color row instead of separate tiles',
+      'Cell Formatting: Bold, italic, underline, alignment, font and fill colors per cell',
+      'Formula Bar & Functions: Active cell reference with formula bar and one-click SUMME, MITTELWERT, MAX, MIN and ANZAHL over the cells above',
+      'Keyboard Navigation: Enter, arrow keys and Tab move between cells; status bar shows the active cell and filled cell count'
+    ]
+  },
   {
     version: '24.11.4',
     date: '2026-10-30',
