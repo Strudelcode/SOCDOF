@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.11.0';
+export const APP_VERSION = '24.11.4';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,52 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '24.11.4',
+    date: '2026-10-30',
+    title: 'Desktop App Icon Grid Spacing & Multi-Line Label Anti-Collision Fix',
+    highlights: [
+      'Anti-Collision Grid Geometry: Increased desktop icon vertical step from 96px to 116px, ensuring comfortable clearance between adjacent app rows',
+      'Multi-Line Title Protection: Bounded desktop icon container height to 104px max with top-aligned content, preventing two-line titles (e.g. Praxis & Therapie) from overlapping lower icons',
+      'Automatic Coordinate Migration: Migrated legacy saved icon positions seamlessly to the new spacing without slot collisions or misplaced apps',
+      'Responsive Mobile & Folder Spacing: Synchronized folder items and mobile workspace grid to 114px vertical clearance'
+    ]
+  },
+  {
+    version: '24.11.3',
+    date: '2026-10-30',
+    title: 'Installer Bootstrapper Visual Redesign & Natural Manual Text Polish',
+    highlights: [
+      'Modernized Bootstrapper UI: Redesigned the update screen with fluent typography, status-colored steps, and a glowing gradient progress bar',
+      'Cleaner Update Typography: Replaced harsh all-caps titles with natural badges (Automatische Systemaktualisierung / Automatic System Update)',
+      'Natural Phrasing Polish: Removed awkward "geräuschlos" wording across manuals and dialogs, replacing with natural background update descriptions',
+      'De-hyped Documentation: Eliminated AI-sounding performance buzzwords from the Version History chapter in favor of clean, neutral release filters'
+    ]
+  },
+  {
+    version: '24.11.2',
+    date: '2026-10-30',
+    title: 'OS Language Auto-Detection, Setup Localization & Multi-Language Network Dialogs',
+    highlights: [
+      'Automatic First-Run Language Detection: Adopts the computer/OS language (German, English, French, Spanish) on first setup with English as reliable fallback',
+      'Settings System Sync Toggle: New toggle card in Settings under Language & Region to keep the application language continuously synchronized with the PC',
+      'Manual Choice Preservation: Selecting any language manually preserves the user preference and disables OS override automatically',
+      'Multi-Language Network Conflict Dialogs: Native network lock warning and takeover dialogs are fully localized in German, English, French, and Spanish',
+      'Setup.exe Language Selector: Windows installer allows selecting the desired language on launch, pre-selecting the operating system locale'
+    ]
+  },
+  {
+    version: '24.11.1',
+    date: '2026-10-30',
+    title: 'QNAP & Shared Drive Portable Mode Support & Single-Instance Net Protection',
+    highlights: [
+      'Custom NSIS Installer Directory: Setup.exe allows selecting any custom folder or mapped network drive (oneClick: false, allowToChangeInstallationDirectory: true)',
+      'Multi-Workstation Network Lock: Real-time network session tracking (network_session.lock) detects who is currently active and on which PC',
+      'Interactive Conflict Resolution: When a shared database is already open, offers clean Exit, Remote-Save & Close request, or Force Continue',
+      'Remote Auto-Save & Graceful Exit: Workstations poll for close requests, automatically save state and close cleanly so other colleagues can take over safely',
+      'Shared Database Redirection: In portable/shared mode, all data, backups and configurations are anchored to the shared drive rather than local AppData'
+    ]
+  },
   {
     version: '24.11.0',
     date: '2026-10-28',

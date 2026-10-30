@@ -71,5 +71,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   triggerBotghostWebhook: (payload) => ipcRenderer.invoke('socdof:trigger-botghost-webhook', payload),
   discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload),
   textwerkSaveDialog: (payload) => ipcRenderer.invoke('socdof:textwerk-save-dialog', payload),
-  textwerkOpenDialog: () => ipcRenderer.invoke('socdof:textwerk-open-dialog')
+  textwerkOpenDialog: () => ipcRenderer.invoke('socdof:textwerk-open-dialog'),
+  onRemoteQuitRequested: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:remote-quit-requested', listener);
+    return () => ipcRenderer.removeListener('socdof:remote-quit-requested', listener);
+  },
+  getNetworkLockStatus: () => ipcRenderer.invoke('socdof:get-network-lock-status')
 });

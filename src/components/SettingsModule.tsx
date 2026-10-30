@@ -111,7 +111,10 @@ import {
   subscribeDesktopLanguageFiles,
   syncDesktopLanguageFiles,
   uploadCustomFlag,
-  getCustomFlagImage
+  getCustomFlagImage,
+  detectSystemLanguage,
+  isSyncWithSystemLanguage,
+  setSyncWithSystemLanguage
 } from '../lib/i18n';
 import { LanguageSelectionModal } from './LanguageSelectionModal';
 import { InvoiceTemplateModal } from './InvoiceTemplateModal';
@@ -390,6 +393,41 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   const currentLang = useLanguage();
   const activeLang = profile.language || currentLang;
+
+  // OS System Language Auto-Sync State
+  const [syncWithSystemLang, setSyncWithSystemLang] = useState<boolean>(() => isSyncWithSystemLanguage());
+
+  const handleToggleSyncSystemLang = () => {
+    sounds.playClick();
+    const next = !syncWithSystemLang;
+    setSyncWithSystemLang(next);
+    setSyncWithSystemLanguage(next);
+    if (next) {
+      const sys = detectSystemLanguage();
+      setLanguage(sys, false);
+      setProfile(p => ({ ...p, language: sys }));
+      handleSaveProfile({ language: sys });
+      showToast(
+        activeLang === 'de'
+          ? 'Sprache wird mit dem Betriebssystem synchronisiert'
+          : activeLang === 'fr'
+          ? 'Langue synchronisée avec le système'
+          : activeLang === 'es'
+          ? 'Idioma sincronizado con el sistema'
+          : 'Language synchronized with operating system'
+      );
+    } else {
+      showToast(
+        activeLang === 'de'
+          ? 'Manuelle Sprachauswahl aktiv'
+          : activeLang === 'fr'
+          ? 'Sélection manuelle active'
+          : activeLang === 'es'
+          ? 'Selección manual activa'
+          : 'Manual language selection active'
+      );
+    }
+  };
 
   // Master Sound Volume state
   const [volume, setVolumeState] = useState<number>(() => sounds.getVolume());
@@ -4015,6 +4053,51 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </div>
 
               <div className="space-y-4">
+                {/* 0. OS System Language Auto-Sync Card */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-4 transition-all">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 mt-0.5">
+                      <Monitor className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                          {t('settings.sync_system_lang_title', activeLang, 'Mit Betriebssystem synchronisieren')}
+                        </h4>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                          syncWithSystemLang 
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {syncWithSystemLang
+                            ? t('settings.sync_system_lang_active', activeLang, 'Aktiv')
+                            : t('settings.sync_system_lang_manual', activeLang, 'Manuell')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                        {t('settings.sync_system_lang_desc', activeLang, 'Passt die Sprache beim App-Start automatisch an die Windows-/Systemsprache des PCs an (mit englischem Fallback).')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleSyncSystemLang}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      syncWithSystemLang ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                    role="switch"
+                    aria-checked={syncWithSystemLang}
+                    title={t('settings.sync_system_lang_title', activeLang, 'Mit Betriebssystem synchronisieren')}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        syncWithSystemLang ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 {/* 1. Language Selector & Flag Management Module */}
                 {(() => {
                   const visibleDesktopFiles = desktopFiles.filter(df => 
@@ -4059,6 +4142,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           value={activeCustomPackId ? `pack_${activeCustomPackId}` : (profile.language || currentLang)}
                           onChange={(e) => {
                             const val = e.target.value;
+                            setSyncWithSystemLang(false);
+                            setSyncWithSystemLanguage(false);
                             if (val.startsWith('pack_')) {
                               const pId = val.replace('pack_', '');
                               setActiveCustomPack(pId);
@@ -7113,6 +7198,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           onClose={() => setShowLanguageModal(false)}
           currentLanguage={activeLang as any}
           onSelectLanguage={(lang) => {
+            setSyncWithSystemLang(false);
+            setSyncWithSystemLanguage(false);
             setLanguage(lang);
             handleSaveProfile({ language: lang });
           }}

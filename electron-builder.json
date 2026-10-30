@@ -30,13 +30,22 @@
         "arch": [
           "x64"
         ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
       }
     ]
   },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.${ext}"
+  },
   "nsis": {
-    "oneClick": true,
+    "oneClick": false,
     "perMachine": false,
-    "allowToChangeInstallationDirectory": false,
+    "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "SOCDOF Desktop",
@@ -49,6 +58,6 @@
     "uninstallerSidebar": "public/uninstallerSidebar.bmp",
     "installerSidebar": "public/installerSidebar.bmp",
     "installerHeader": "public/installerHeader.bmp",
-    "displayLanguageSelector": false
+    "displayLanguageSelector": true
   }
 }

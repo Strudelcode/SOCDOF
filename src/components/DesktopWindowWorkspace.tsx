@@ -183,12 +183,31 @@ export const SYSTEM_CORE_MODULES: ActiveModule[] = [
   'settings', 'dashboard', 'appstore', 'docs'
 ];
 
-// Windows Desktop Grid Configuration (104px horizontal, 96px vertical)
+// Windows Desktop Grid Configuration (104px horizontal, 116px vertical)
+// 116px vertical step provides comfortable clearance for 2-line app titles without overlapping adjacent rows.
 const DESKTOP_GRID_ORIGIN_X = 24;
 const DESKTOP_GRID_ORIGIN_Y = 24;
 const DESKTOP_GRID_STEP_X = 104;
-const DESKTOP_GRID_STEP_Y = 96;
+const DESKTOP_GRID_STEP_Y = 116;
 const DESKTOP_GRID_MAX_ROWS = 6;
+const DESKTOP_GRID_LAYOUT_VERSION = 'v24_11_4_spacing';
+
+// Helper to migrate saved coordinates from legacy 96px vertical grid without colliding
+function migrateLegacyDesktopPositions(positions: Record<string, { x: number; y: number }>): Record<string, { x: number; y: number }> {
+  const migrated: Record<string, { x: number; y: number }> = {};
+  Object.entries(positions).forEach(([id, p]) => {
+    if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+      const legacyCol = Math.max(0, Math.round((p.x - DESKTOP_GRID_ORIGIN_X) / DESKTOP_GRID_STEP_X));
+      // Previous vertical step was 96:
+      const legacyRow = Math.max(0, Math.round((p.y - DESKTOP_GRID_ORIGIN_Y) / 96));
+      migrated[id] = {
+        x: DESKTOP_GRID_ORIGIN_X + legacyCol * DESKTOP_GRID_STEP_X,
+        y: DESKTOP_GRID_ORIGIN_Y + legacyRow * DESKTOP_GRID_STEP_Y
+      };
+    }
+  });
+  return migrated;
+}
 
 // Helper to find the next free grid slot without collisions
 function findNextFreeDesktopSlot(occupiedKeys: Set<string>): { x: number; y: number } {
@@ -486,9 +505,12 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     };
 
     const count = pinnedDesktop.length + desktopFolders.length;
-    const col = count % 12;
-    const row = Math.floor(count / 12);
-    const newPos = { x: 24 + col * 96, y: 24 + row * 96 };
+    const col = Math.floor(count / DESKTOP_GRID_MAX_ROWS);
+    const row = count % DESKTOP_GRID_MAX_ROWS;
+    const newPos = { 
+      x: DESKTOP_GRID_ORIGIN_X + col * DESKTOP_GRID_STEP_X, 
+      y: DESKTOP_GRID_ORIGIN_Y + row * DESKTOP_GRID_STEP_Y 
+    };
 
     setDesktopPositions(prev => {
       const next = { ...prev, [newFolderId]: newPos };
@@ -546,17 +568,28 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   const [desktopPositions, setDesktopPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     try {
       const user = getCurrentUser() || (getSession()?.userId ? getUserById(getSession()!.userId) : null);
+      let rawSaved: string | null = null;
       if (user) {
-        const userSaved = localStorage.getItem('socdof.user.' + user.id + '.odoo_desktop_icon_positions');
-        if (userSaved) {
-          const parsed = JSON.parse(userSaved);
-          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-            return parsed;
+        rawSaved = localStorage.getItem('socdof.user.' + user.id + '.odoo_desktop_icon_positions');
+      }
+      if (!rawSaved) {
+        rawSaved = localStorage.getItem('odoo_desktop_icon_positions');
+      }
+      if (rawSaved) {
+        const parsed: Record<string, { x: number; y: number }> = JSON.parse(rawSaved);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          const gridVersion = localStorage.getItem('socdof_desktop_grid_version');
+          if (gridVersion !== DESKTOP_GRID_LAYOUT_VERSION) {
+            const migrated = migrateLegacyDesktopPositions(parsed);
+            try {
+              localStorage.setItem('socdof_desktop_grid_version', DESKTOP_GRID_LAYOUT_VERSION);
+              saveUserScopedValue('odoo_desktop_icon_positions', migrated);
+            } catch {}
+            return migrated;
           }
+          return parsed;
         }
       }
-      const saved = localStorage.getItem('odoo_desktop_icon_positions');
-      if (saved) return JSON.parse(saved);
     } catch {}
     return {};
   });
@@ -821,6 +854,21 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     };
   }, []);
 
+  // Remote Quit Notification Listener for QNAP / Shared Network Lock Sessions
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.onRemoteQuitRequested) {
+      const unsubscribe = (window as any).electronAPI.onRemoteQuitRequested((requestedBy: string) => {
+        sounds.playWarning?.();
+        showFullscreenToast(
+          'Geteilte Datenbank angefordert',
+          `Ein anderer Arbeitsplatz (${requestedBy || 'Netzwerk'}) hat die Datenbank angefordert. Alle Daten wurden automatisch gesichert. SOCDOF beendet sich nun.`,
+          'warning'
+        );
+      });
+      return () => unsubscribe();
+    }
+  }, [showFullscreenToast]);
+
   const getDesktopPosition = (id: string, index: number) => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     if (isMobile) {
@@ -831,7 +879,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       const colWidth = Math.floor((screenW - 24) / cols);
       const itemWidth = 80;
       const offsetX = 12 + col * colWidth + Math.max(0, Math.floor((colWidth - itemWidth) / 2));
-      const offsetY = 16 + row * 96;
+      const offsetY = 16 + row * 114;
       return { x: offsetX, y: offsetY };
     }
 
@@ -2589,7 +2637,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
               zIndex: 35,
               willChange: 'transform'
             }}
-            className="w-24 p-2 rounded-2xl pointer-events-none transition-none flex flex-col items-center justify-center text-center select-none"
+            className="w-24 p-2 rounded-2xl pointer-events-none transition-none flex flex-col items-center justify-start text-center select-none"
           >
             <div className="relative w-12 h-12 rounded-2xl border-2 border-dashed border-indigo-500/90 dark:border-indigo-400 bg-indigo-500/25 dark:bg-indigo-400/30 backdrop-blur-xs flex items-center justify-center shadow-lg ring-4 ring-indigo-500/20">
               {draggedDesktopItem.type === 'folder' ? (
@@ -2798,7 +2846,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     modId
                   });
                 }}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
+                className={`group relative flex flex-col items-center justify-start w-24 min-h-[96px] max-h-[104px] p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
                   isDraggingWidget ? 'pointer-events-none' : ''
                 } ${
                   isDark 
@@ -2842,7 +2890,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                     />
                   )}
                 </div>
-                <span className={`mt-3.5 text-xs font-semibold drop-shadow-sm leading-tight text-center line-clamp-2 max-w-[92px] px-0.5 break-words ${
+                <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center line-clamp-2 max-w-[90px] px-0.5 break-words select-none pointer-events-none ${
                   isDark ? 'text-white' : 'text-slate-800'
                 }`}>
                   {meta.title}
@@ -2960,7 +3008,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   handleIconMouseEnter(e, folder.name, subtext);
                 }}
                 onMouseLeave={handleIconMouseLeave}
-                className={`group relative flex flex-col items-center justify-center w-24 p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
+                className={`group relative flex flex-col items-center justify-start w-24 min-h-[96px] max-h-[104px] p-2 rounded-xl text-center border cursor-pointer transition-all duration-150 ${
                   isDraggingWidget ? 'pointer-events-none' : ''
                 } ${
                   isDark 
@@ -3045,7 +3093,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   )}
                 </div>
 
-                <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center truncate max-w-[85px] ${
+                <span className={`mt-2 text-xs font-semibold drop-shadow-sm leading-tight text-center line-clamp-2 max-w-[90px] px-0.5 break-words select-none pointer-events-none ${
                   isDark ? 'text-white' : 'text-slate-800'
                 }`}>
                   {folder.name}

@@ -2,6 +2,40 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Desktop App Icon Grid Spacing & Multi-Line Label Anti-Collision Fix (v24.11.4)
+- [x] Resolved vertical icon and label collision bug where multi-line names (e.g. "Praxis & Therapie") overlapped adjacent desktop items or hover frames.
+- [x] Increased desktop vertical grid step (`DESKTOP_GRID_STEP_Y`) from 96px to 116px and mobile step to 114px.
+- [x] Applied top-aligned layout (`justify-start`), bounded button height (`min-h-[96px] max-h-[104px]`), and tightened text top-margin (`mt-2`) across app and folder icons.
+- [x] Implemented seamless automatic migration (`migrateLegacyDesktopPositions`) for existing saved desktop icon positions.
+
+---
+
+### Installer Bootstrapper Visual Redesign & Natural Manual Text Polish (v24.11.3)
+- [x] Redesigned bootstrapper update screen (`installer-bootstrapper/Program.Framework.cs`) with clean status cards, step highlighting (green checks, bold active phase), smoother gradient progress bar, and modern typography instead of all-caps.
+- [x] Cleaned up terminology in documentation (`src/components/DocumentationApp.tsx`), eliminating awkward "geräuschlos" phrasing in favor of natural German and multilingual terminology.
+- [x] De-hyped the Version History section in the documentation, replacing artificial "⚡ Blitzschneller Performance-Modus aktiv" buzzwords with a natural scope indicator.
+- [x] Synchronized bootstrapper version constants to current version `24.11.3`.
+
+---
+
+### OS Language Auto-Detection, Setup Localization & Multi-Language Network Dialogs (v24.11.2)
+- [x] Implemented automatic first-run system language detection (`detectSystemLanguage()` in `src/lib/i18n.ts`) mapping `navigator.language` to German, English, French, and Spanish with an English fallback.
+- [x] Added persistent manual choice tracking: once a user selects a language manually, the app permanently retains their choice without unwanted system overwrites.
+- [x] Added "Mit Betriebssystem synchronisieren" toggle card in Settings under *Language, Region & Time Format* (`src/components/SettingsModule.tsx`) allowing users to toggle continuous OS language sync on or off.
+- [x] Fully localized native Electron network session conflict dialogs (`electron/main.cjs`) into German, English, French, and Spanish (`NETWORK_LOCK_I18N`) reacting dynamically to user or OS language.
+- [x] Configured NSIS installer (`electron-builder.json`) with `displayLanguageSelector: true` to pre-select the OS language with English as primary default.
+
+---
+
+### QNAP & Shared Drive Portable Mode Support & Single-Instance Net Protection (v24.11.1)
+- [x] Added custom installation directory selection to `Setup.exe` (`oneClick: false`, `allowToChangeInstallationDirectory: true` in `electron-builder.json`) allowing installation on mapped network drives (e.g. QNAP NAS `Z:\SOCDOF`).
+- [x] Created `network_session.lock` manager in Electron main process tracking active username, hostname, start timestamp, and heartbeats on shared folders.
+- [x] Added conflict resolution dialog with Exit, Remote-Save & Close, and Force Continue options.
+- [x] Implemented remote quit listener in desktop workspace allowing graceful data flushes and clean exit when another workstation requests to take over.
+- [x] Automatically redirected database, configurations, and backups to the shared storage root directory in portable/shared mode.
+
+---
+
 ### Textwerk Text Editor with Word-style Ribbon & Spell Check (v24.11.0)
 - [x] Added the Textwerk module: a Word-style editor with File/Home/Insert/Review ribbon tabs, open, save and download (TXT/HTML).
 - [x] Added German spell checking (offline Hunspell dictionary) with underlined misspellings, suggestions, an issue panel and a word-frequency list.

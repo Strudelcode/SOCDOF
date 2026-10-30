@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Github,
   History,
+  Clock,
   Calendar,
   UtensilsCrossed,
   Headphones,
@@ -745,7 +746,7 @@ export const DocumentationApp: React.FC = () => {
                   type="button"
                   onClick={() => {
                     sounds.playPop();
-                    window.dispatchEvent(new CustomEvent('socdof:open-updating-splash', { detail: { version: '24.8.8' } }));
+                    window.dispatchEvent(new CustomEvent('socdof:open-updating-splash', { detail: { version: APP_VERSION } }));
                   }}
                   className="px-2.5 py-1 rounded-lg bg-slate-900 dark:bg-slate-800 hover:bg-black text-white font-bold text-[10px] transition cursor-pointer"
                 >
@@ -760,10 +761,10 @@ export const DocumentationApp: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               {getLoc({
-                de: 'SOCDOF verfügt über einen interaktiven Download-Hub mit Schritt-für-Schritt-Installationsbegleiter und SmartScreen-Erklärung. Während eines Hintergrund-Updates schließt sich SOCDOF kurz und blendet ein dezentes Fenster ("Updating to Version...") ein, bis der geräuschlose Installer fertiggestellt ist und SOCDOF automatisch neu gestartet wird.',
-                en: 'SOCDOF features an interactive download hub with a step-by-step installation companion and SmartScreen guide. During background updates, SOCDOF closes briefly and displays a dedicated "Updating to Version..." splash window until the silent installer completes and SOCDOF relaunches automatically.',
-                fr: 'SOCDOF intègre un hub de téléchargement interactif avec guide d’installation pas à pas et explication SmartScreen. Pendant les mises à jour en arrière-plan, SOCDOF se ferme brièvement et affiche une fenêtre dédiée (« Updating to Version... ») jusqu’à ce que l’installateur silencieux se termine et redémarre SOCDOF automatiquement.',
-                es: 'SOCDOF incluye un centro de descarga interactivo con guía de instalación paso a paso y nota de SmartScreen. Durante las actualizaciones en segundo plano, SOCDOF se cierra brevemente y muestra una ventana dedicada («Updating to Version...») hasta que el instalador silencioso finaliza y reinicia SOCDOF automáticamente.'
+                de: 'SOCDOF verfügt über einen interaktiven Download-Hub mit Schritt-für-Schritt-Installationsbegleiter und SmartScreen-Erklärung. Während eines Hintergrund-Updates schließt sich SOCDOF kurz und blendet ein dezentes Fenster ("Updating to Version...") ein, bis die automatische Hintergrund-Installation abgeschlossen ist und SOCDOF nahtlos neu gestartet wird.',
+                en: 'SOCDOF features an interactive download hub with a step-by-step installation companion and SmartScreen guide. During background updates, SOCDOF closes briefly and displays a dedicated "Updating to Version..." splash window until the automated background installation completes and SOCDOF relaunches seamlessly.',
+                fr: 'SOCDOF intègre un hub de téléchargement interactif avec guide d’installation pas à pas et explication SmartScreen. Pendant les mises à jour en arrière-plan, SOCDOF se ferme brièvement et affiche une fenêtre dédiée (« Updating to Version... ») jusqu’à ce que l’installation automatique en arrière-plan soit terminée et redémarre SOCDOF naturellement.',
+                es: 'SOCDOF incluye un centro de descarga interactivo con guía de instalación paso a paso y nota de SmartScreen. Durante las actualizaciones en segundo plano, SOCDOF se cierra brevemente y muestra una ventana dedicada («Updating to Version...») hasta que finalice la instalación automática en segundo plano y reinicie SOCDOF sin problemas.'
               })}
             </p>
           </div>
@@ -2542,16 +2543,15 @@ export const DocumentationApp: React.FC = () => {
                   )}
                 </div>
 
-                {/* Performance Notice for Fast Mode */}
+                {/* Clean Version Scope Notice */}
                 {selectedMajorVersion === 'recent' && !releaseSearch.trim() && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/50 text-[11px] text-emerald-900 dark:text-emerald-200">
-                    <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-300">
                     <span className="flex-1">
                       {getLoc({
-                        de: `⚡ Blitzschneller Performance-Modus aktiv: Standardmäßig werden die neuesten Hauptversionen (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) geladen, um flüssiges Scrollen und minimale Ladezeiten zu sichern.`,
-                        en: `⚡ Fast high-performance mode: Loading latest major versions (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) to guarantee 60fps scrolling and zero DOM lag.`,
-                        fr: `⚡ Mode performance rapide : Chargement des versions majeures récentes (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) pour un affichage fluide.`,
-                        es: `⚡ Modo de alto rendimiento: Cargando las versiones principales recientes (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}) para una navegación fluida.`
+                        de: `Angezeigt werden die aktuellen Hauptversionen (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}).`,
+                        en: `Displaying current major releases (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}).`,
+                        fr: `Affichage des versions majeures actuelles (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}).`,
+                        es: `Mostrando las versiones principales actuales (${latestTwoMajors.map(v => v.toUpperCase()).join(' & ')}).`
                       })}
                     </span>
                     <button
@@ -2560,13 +2560,13 @@ export const DocumentationApp: React.FC = () => {
                         setSelectedMajorVersion('all');
                         setVisibleReleaseCount(INITIAL_RELEASE_LIMIT);
                       }}
-                      className="underline hover:no-underline font-semibold cursor-pointer shrink-0"
+                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer shrink-0"
                     >
                       {getLoc({
-                        de: 'Ältere anzeigen',
-                        en: 'Show older',
-                        fr: 'Voir anciennes',
-                        es: 'Ver anteriores'
+                        de: 'Alle Versionen anzeigen',
+                        en: 'Show all versions',
+                        fr: 'Toutes les versions',
+                        es: 'Ver todas las versiones'
                       })}
                     </button>
                   </div>
@@ -2597,8 +2597,8 @@ export const DocumentationApp: React.FC = () => {
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <Zap className="w-3.5 h-3.5 text-amber-300" />
-                    <span>{getLoc({ de: 'Neueste (V24 & V23)', en: 'Latest (V24 & V23)', fr: 'Dernières (V24 & V23)', es: 'Últimas (V24 y V23)' })}</span>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{getLoc({ de: 'Aktuelle (V24 & V23)', en: 'Current (V24 & V23)', fr: 'Actuelles (V24 & V23)', es: 'Actuales (V24 y V23)' })}</span>
                     <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                       selectedMajorVersion === 'recent' ? 'bg-indigo-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
                     }`}>

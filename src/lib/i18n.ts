@@ -3011,7 +3011,11 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'feedback.discord_locked': 'Locked',
     'feedback.live_tag_badge': 'Live Discord Status',
     'feedback.no_tags': 'No tags',
-    'feedback.synced_success': 'Updated from Discord ({count} changes)'
+    'feedback.synced_success': 'Updated from Discord ({count} changes)',
+    'settings.sync_system_lang_title': 'Sync language with operating system',
+    'settings.sync_system_lang_desc': 'Automatically aligns SOCDOF with your computer\'s language ({lang}). If you manually pick a language, sync is paused.',
+    'settings.sync_system_lang_active': 'Auto-synced with PC',
+    'settings.sync_system_lang_manual': 'Manually selected'
   },
 
   de: {
@@ -6006,7 +6010,11 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'feedback.discord_locked': 'Gesperrt',
     'feedback.live_tag_badge': 'Live Discord-Status',
     'feedback.no_tags': 'Keine Tags',
-    'feedback.synced_success': 'Von Discord aktualisiert ({count} Änderungen)'
+    'feedback.synced_success': 'Von Discord aktualisiert ({count} Änderungen)',
+    'settings.sync_system_lang_title': 'Sprache mit Betriebssystem synchronisieren',
+    'settings.sync_system_lang_desc': 'Passt die Sprache von SOCDOF automatisch an die Sprache Ihres Computers an ({lang}). Bei manueller Sprachwahl bleibt Ihre Auswahl fixiert.',
+    'settings.sync_system_lang_active': 'Mit Computer synchronisiert',
+    'settings.sync_system_lang_manual': 'Manuell festgelegt'
   },
 
   fr: {
@@ -9000,7 +9008,11 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'feedback.discord_locked': 'Verrouillé',
     'feedback.live_tag_badge': 'Statut Discord en direct',
     'feedback.no_tags': 'Aucun tag',
-    'feedback.synced_success': 'Mis à jour depuis Discord ({count} modifications)'
+    'feedback.synced_success': 'Mis à jour depuis Discord ({count} modifications)',
+    'settings.sync_system_lang_title': 'Synchroniser la langue avec le système d’exploitation',
+    'settings.sync_system_lang_desc': 'Aligne automatiquement la langue de SOCDOF sur celle de votre ordinateur ({lang}). En cas de sélection manuelle, votre choix est conservé.',
+    'settings.sync_system_lang_active': 'Synchronisé avec le PC',
+    'settings.sync_system_lang_manual': 'Défini manuellement'
   },
 
   es: {
@@ -11994,20 +12006,70 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     'feedback.discord_locked': 'Bloqueado',
     'feedback.live_tag_badge': 'Estado de Discord en vivo',
     'feedback.no_tags': 'Sin etiquetas',
-    'feedback.synced_success': 'Actualizado desde Discord ({count} cambios)'
+    'feedback.synced_success': 'Actualizado desde Discord ({count} cambios)',
+    'settings.sync_system_lang_title': 'Sincronizar idioma con el sistema operativo',
+    'settings.sync_system_lang_desc': 'Alinea automáticamente el idioma de SOCDOF con el de su ordenador ({lang}). Si elige un idioma manualmente, se conserva su elección.',
+    'settings.sync_system_lang_active': 'Sincronizado con el PC',
+    'settings.sync_system_lang_manual': 'Definido manualmente'
   },
 };
+
+/**
+ * Detects the host computer / operating system language from the browser/Electron environment.
+ * Falls back to English ('en') if the OS language is not German, French, or Spanish.
+ */
+export function detectSystemLanguage(): LanguageCode {
+  if (typeof navigator !== 'undefined') {
+    const raw = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase();
+    if (raw.startsWith('de')) return 'de';
+    if (raw.startsWith('fr')) return 'fr';
+    if (raw.startsWith('es')) return 'es';
+    if (raw.startsWith('en')) return 'en';
+  }
+  return 'en';
+}
+
+export function isSyncWithSystemLanguage(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem('socdof_sync_os_language') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setSyncWithSystemLanguage(enabled: boolean) {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('socdof_sync_os_language', enabled ? 'true' : 'false');
+    } catch {}
+  }
+  if (enabled) {
+    const sysLang = detectSystemLanguage();
+    setLanguage(sysLang, false);
+  }
+}
 
 let currentLang: LanguageCode = (() => {
   if (typeof localStorage !== 'undefined') {
     try {
+      const syncWithOs = localStorage.getItem('socdof_sync_os_language');
+      if (syncWithOs === 'true') {
+        return detectSystemLanguage();
+      }
+
       const saved = localStorage.getItem('socdof_language');
       if (saved === 'en' || saved === 'de' || saved === 'fr' || saved === 'es') {
         return saved as LanguageCode;
       }
+
+      // First run on this PC: automatically adopt computer's OS language with English fallback
+      const initialDetected = detectSystemLanguage();
+      localStorage.setItem('socdof_language', initialDetected);
+      return initialDetected;
     } catch {}
   }
-  return 'de';
+  return 'en';
 })();
 
 export interface CustomLanguagePack {
@@ -12446,7 +12508,7 @@ export function subscribeLanguageChange(listener: (lang: LanguageCode) => void) 
   };
 }
 
-export function setLanguage(lang: LanguageCode) {
+export function setLanguage(lang: LanguageCode, isManualUserChoice: boolean = true) {
   if (lang !== 'en' && lang !== 'de' && lang !== 'fr' && lang !== 'es') return;
   const isChanged = currentLang !== lang;
   currentLang = lang;
@@ -12457,6 +12519,9 @@ export function setLanguage(lang: LanguageCode) {
     try {
       localStorage.setItem('socdof_language', lang);
       localStorage.setItem('socdof_language_initialized', 'true');
+      if (isManualUserChoice) {
+        localStorage.setItem('socdof_sync_os_language', 'false');
+      }
     } catch {}
   }
   if (typeof window !== 'undefined') {

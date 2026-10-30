@@ -6,6 +6,32 @@ const http = require('http');
 const os = require('os');
 const { spawn } = require('child_process');
 
+// Portable Mode Detection (e.g. running from QNAP NAS, USB drive or Portable Executable)
+// 1. Electron-builder portable environment sets process.env.PORTABLE_EXECUTABLE_DIR
+// 2. OR an adjacent 'data' folder or 'portable.flag' exists right next to the executable
+try {
+  let portableDataDir = null;
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    portableDataDir = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+  } else if (app.isPackaged) {
+    const exeDir = path.dirname(process.execPath);
+    const adjacentDataDir = path.join(exeDir, 'data');
+    const adjacentPortableFlag = path.join(exeDir, 'portable.flag');
+    if (fs.existsSync(adjacentDataDir) || fs.existsSync(adjacentPortableFlag)) {
+      portableDataDir = adjacentDataDir;
+    }
+  }
+  if (portableDataDir) {
+    if (!fs.existsSync(portableDataDir)) {
+      fs.mkdirSync(portableDataDir, { recursive: true });
+    }
+    app.setPath('userData', portableDataDir);
+    console.log('[SOCDOF Electron] Running in Portable Mode. UserData:', portableDataDir);
+  }
+} catch (err) {
+  console.warn('[SOCDOF Electron] Portable mode initialization error:', err);
+}
+
 // Single-instance lock: Enforce single process to prevent profile lock deadlocks and frozen windows
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -1645,8 +1671,274 @@ ipcMain.handle('socdof:discord-request', async (_event, { endpoint, method = 'GE
   return executeDiscordHttpsRequest(endpoint, method, body, botToken);
 });
 
+// Network Session Lock File Manager for shared drives, QNAP NAS and Multi-workstation environments
+const NETWORK_LOCK_FILE_NAME = 'network_session.lock';
+
+function getNetworkLockFilePath() {
+  return path.join(app.getPath('userData'), NETWORK_LOCK_FILE_NAME);
+}
+
+let networkLockHeartbeatTimer = null;
+
+function releaseNetworkSessionLock() {
+  if (networkLockHeartbeatTimer) {
+    clearInterval(networkLockHeartbeatTimer);
+    networkLockHeartbeatTimer = null;
+  }
+  try {
+    const lockPath = getNetworkLockFilePath();
+    if (fs.existsSync(lockPath)) {
+      const content = fs.readFileSync(lockPath, 'utf8');
+      const lockData = JSON.parse(content);
+      if (lockData.hostname === os.hostname() && lockData.pid === process.pid) {
+        fs.unlinkSync(lockPath);
+      }
+    }
+  } catch {}
+}
+
+function writeNetworkSessionLock(requestQuit = false) {
+  try {
+    const lockPath = getNetworkLockFilePath();
+    const lockData = {
+      hostname: os.hostname(),
+      username: os.userInfo().username || process.env.USERNAME || 'Benutzer',
+      pid: process.pid,
+      startTime: new Date().toISOString(),
+      heartbeat: Date.now(),
+      requestQuit: !!requestQuit
+    };
+    fs.writeFileSync(lockPath, JSON.stringify(lockData, null, 2), 'utf8');
+    return lockData;
+  } catch (e) {
+    console.warn('[SOCDOF Electron] Failed writing network lock:', e);
+    return null;
+  }
+}
+
+function startNetworkLockHeartbeat() {
+  if (networkLockHeartbeatTimer) clearInterval(networkLockHeartbeatTimer);
+  networkLockHeartbeatTimer = setInterval(() => {
+    try {
+      const lockPath = getNetworkLockFilePath();
+      if (!fs.existsSync(lockPath)) {
+        writeNetworkSessionLock();
+        return;
+      }
+      const raw = fs.readFileSync(lockPath, 'utf8');
+      const data = JSON.parse(raw);
+
+      // Check if another workstation has requested us to save and close gracefully!
+      if (data.requestQuit && (data.hostname !== os.hostname() || data.pid !== process.pid)) {
+        console.log('[SOCDOF Electron] Remote quit requested by:', data.requestedBy);
+        clearInterval(networkLockHeartbeatTimer);
+        networkLockHeartbeatTimer = null;
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('socdof:remote-quit-requested', data.requestedBy || 'Anderer Arbeitsplatz');
+        }
+
+        setTimeout(() => {
+          releaseNetworkSessionLock();
+          app.quit();
+        }, 1500);
+        return;
+      }
+
+      if (data.hostname === os.hostname() && data.pid === process.pid) {
+        data.heartbeat = Date.now();
+        fs.writeFileSync(lockPath, JSON.stringify(data, null, 2), 'utf8');
+      }
+    } catch (err) {
+      console.warn('[SOCDOF Electron] Heartbeat error:', err);
+    }
+  }, 5000);
+}
+
+function getAppOrSystemLanguage() {
+  try {
+    const prefsPath = path.join(app.getPath('userData'), 'preferences.json');
+    if (fs.existsSync(prefsPath)) {
+      const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
+      if (['de', 'en', 'fr', 'es'].includes(prefs.language)) return prefs.language;
+    }
+  } catch {}
+  try {
+    const locale = (app.getLocale() || '').toLowerCase();
+    if (locale.startsWith('de')) return 'de';
+    if (locale.startsWith('fr')) return 'fr';
+    if (locale.startsWith('es')) return 'es';
+    if (locale.startsWith('en')) return 'en';
+  } catch {}
+  return 'en'; // Standard fallback is English
+}
+
+const NETWORK_LOCK_I18N = {
+  de: {
+    title: 'SOCDOF – Geteilte Datenbank bereits geöffnet',
+    msg: (u, h, t) => `Die gemeinsame Datenbank wird aktuell verwendet von:\n\n• Benutzer: ${u}\n• Arbeitsplatz: ${h}${t ? `\n• Geöffnet seit: ${t} Uhr` : ''}\n\nUm Datenverluste und Überschreiben zu verhindern, sollte immer nur ein Arbeitsplatz gleichzeitig aktiv sein.`,
+    detail: 'Was möchten Sie tun?',
+    btnQuit: 'Beenden (Empfohlen)',
+    btnRemoteSave: 'Anderen Benutzer schließen (Remote-Save)',
+    btnForce: 'Trotzdem fortfahren (Risiko von Datenverlust)',
+    retryTitle: 'SOCDOF – Arbeitsplatz antwortet nicht',
+    retryMsg: (u, h) => `Der Arbeitsplatz von ${u} (${h}) hat sich noch nicht automatisch beendet.\n\nMöchten Sie die Sperre jetzt übernehmen oder abbrechen?`,
+    retryCancel: 'Abbrechen',
+    retryTakeover: 'Sperre jetzt übernehmen'
+  },
+  en: {
+    title: 'SOCDOF – Shared Database Already In Use',
+    msg: (u, h, t) => `The shared database is currently in use by:\n\n• User: ${u}\n• Workstation: ${h}${t ? `\n• Open since: ${t}` : ''}\n\nTo prevent data loss and overwrite conflicts, only one workstation should be active at a time.`,
+    detail: 'What would you like to do?',
+    btnQuit: 'Quit (Recommended)',
+    btnRemoteSave: 'Close other user (Remote-Save)',
+    btnForce: 'Continue anyway (Risk of data loss)',
+    retryTitle: 'SOCDOF – Workstation not responding',
+    retryMsg: (u, h) => `The workstation of ${u} (${h}) has not closed automatically yet.\n\nWould you like to take over the lock now or cancel?`,
+    retryCancel: 'Cancel',
+    retryTakeover: 'Take over lock now'
+  },
+  fr: {
+    title: 'SOCDOF – Base de données partagée déjà ouverte',
+    msg: (u, h, t) => `La base de données partagée est actuellement utilisée par :\n\n• Utilisateur : ${u}\n• Poste : ${h}${t ? `\n• Ouverte depuis : ${t}` : ''}\n\nPour éviter toute perte de données ou écrasement, un seul poste doit être actif à la fois.`,
+    detail: 'Que souhaitez-vous faire ?',
+    btnQuit: 'Quitter (Recommandé)',
+    btnRemoteSave: 'Fermer l\'autre utilisateur (Sauvegarde à distance)',
+    btnForce: 'Continuer quand même (Risque de perte de données)',
+    retryTitle: 'SOCDOF – Le poste ne répond pas',
+    retryMsg: (u, h) => `Le poste de travail de ${u} (${h}) ne s'est pas fermé automatiquement.\n\nSouhaitez-vous forcer la session ou annuler ?`,
+    retryCancel: 'Annuler',
+    retryTakeover: 'Prendre le contrôle'
+  },
+  es: {
+    title: 'SOCDOF – Base de datos compartida ya en uso',
+    msg: (u, h, t) => `La base de datos compartida está actualmente en uso por:\n\n• Usuario: ${u}\n• Estación de trabajo: ${h}${t ? `\n• Abierta desde: ${t}` : ''}\n\nPara evitar pérdida de datos y sobrescritura, solo una estación debe estar activa al mismo tiempo.`,
+    detail: '¿Qué desea hacer?',
+    btnQuit: 'Salir (Recomendado)',
+    btnRemoteSave: 'Cerrar al otro usuario (Guardado remoto)',
+    btnForce: 'Continuar de todos modos (Riesgo de pérdida de datos)',
+    retryTitle: 'SOCDOF – La estación no responde',
+    retryMsg: (u, h) => `La estación de trabajo de ${u} (${h}) aún no se ha cerrado automáticamente.\n\n¿Desea forzar el bloqueo ahora o cancelar?`,
+    retryCancel: 'Cancelar',
+    retryTakeover: 'Tomar el control ahora'
+  }
+};
+
+async function verifyNetworkSessionLock() {
+  const lockPath = getNetworkLockFilePath();
+  if (!fs.existsSync(lockPath)) {
+    writeNetworkSessionLock();
+    startNetworkLockHeartbeat();
+    return true;
+  }
+
+  try {
+    const raw = fs.readFileSync(lockPath, 'utf8');
+    const existing = JSON.parse(raw);
+    const now = Date.now();
+    const heartbeatAge = now - (existing.heartbeat || 0);
+
+    // If heartbeat is older than 45 seconds, the previous session is stale
+    if (heartbeatAge > 45000) {
+      console.log('[SOCDOF Electron] Stale network session lock detected (>45s). Overwriting.');
+      writeNetworkSessionLock();
+      startNetworkLockHeartbeat();
+      return true;
+    }
+
+    // Active session detected on another workstation or process
+    const activeUser = existing.username || 'Unbekannter Benutzer';
+    const activeHost = existing.hostname || 'Anderer PC';
+    const startTimeFormatted = existing.startTime ? new Date(existing.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+    const lang = getAppOrSystemLanguage();
+    const txt = NETWORK_LOCK_I18N[lang] || NETWORK_LOCK_I18N.en;
+
+    const choice = dialog.showMessageBoxSync({
+      type: 'warning',
+      title: txt.title,
+      message: txt.msg(activeUser, activeHost, startTimeFormatted),
+      detail: txt.detail,
+      buttons: [
+        txt.btnQuit,
+        txt.btnRemoteSave,
+        txt.btnForce
+      ],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    });
+
+    if (choice === 0) {
+      app.quit();
+      process.exit(0);
+      return false;
+    } else if (choice === 1) {
+      existing.requestQuit = true;
+      existing.requestedBy = `${os.userInfo().username || 'Mitarbeiter'} (${os.hostname()})`;
+      fs.writeFileSync(lockPath, JSON.stringify(existing, null, 2), 'utf8');
+
+      let closed = false;
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (!fs.existsSync(lockPath)) {
+          closed = true;
+          break;
+        }
+      }
+
+      if (closed) {
+        writeNetworkSessionLock();
+        startNetworkLockHeartbeat();
+        return true;
+      } else {
+        const retryChoice = dialog.showMessageBoxSync({
+          type: 'question',
+          title: txt.retryTitle,
+          message: txt.retryMsg(activeUser, activeHost),
+          buttons: [txt.retryCancel, txt.retryTakeover],
+          defaultId: 0,
+          cancelId: 0
+        });
+        if (retryChoice === 1) {
+          writeNetworkSessionLock();
+          startNetworkLockHeartbeat();
+          return true;
+        } else {
+          app.quit();
+          process.exit(0);
+          return false;
+        }
+      }
+    } else {
+      writeNetworkSessionLock();
+      startNetworkLockHeartbeat();
+      return true;
+    }
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Error verifying network lock:', err);
+    writeNetworkSessionLock();
+    startNetworkLockHeartbeat();
+    return true;
+  }
+}
+
+ipcMain.handle('socdof:get-network-lock-status', () => {
+  try {
+    const lockPath = getNetworkLockFilePath();
+    if (fs.existsSync(lockPath)) {
+      const data = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+      return {
+        hasLock: true,
+        isCurrentInstance: data.hostname === os.hostname() && data.pid === process.pid,
+        lockData: data
+      };
+    }
+  } catch {}
+  return { hasLock: false };
+});
+
 app.on('second-instance', () => {
-  // If user tries to run a second instance (e.g. from installer or shortcut), focus existing window
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     if (!mainWindow.isVisible()) mainWindow.show();
@@ -1654,7 +1946,10 @@ app.on('second-instance', () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const canProceed = await verifyNetworkSessionLock();
+  if (!canProceed) return;
+
   createSplashWindow();
   createWindow();
 
@@ -1682,6 +1977,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('will-quit', () => {
+  releaseNetworkSessionLock();
 });
 
 app.on('window-all-closed', () => {

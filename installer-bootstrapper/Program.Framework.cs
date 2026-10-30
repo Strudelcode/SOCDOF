@@ -368,25 +368,41 @@ namespace SOCDOF.Bootstrapper
             pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
             Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
-            using (GraphicsPath path = GraphicsExtensions.GetRoundedPath(rect, 10))
+            using (GraphicsPath path = GraphicsExtensions.GetRoundedPath(rect, 12))
             {
-                using (SolidBrush bg = new SolidBrush(Color.FromArgb(28, 30, 35)))
+                using (SolidBrush bg = new SolidBrush(Color.FromArgb(30, 33, 38)))
                 {
                     pe.Graphics.FillPath(bg, path);
                 }
-                using (Pen borderPen = new Pen(Color.FromArgb(32, 255, 255, 255), 1f))
+                using (Pen borderPen = new Pen(Color.FromArgb(40, 255, 255, 255), 1f))
                 {
                     pe.Graphics.DrawPath(borderPen, path);
                 }
             }
 
-            int y = 10;
-            using (Font f = new Font("Segoe UI", 8.5f, FontStyle.Regular))
-            using (SolidBrush textBrush = new SolidBrush(Color.FromArgb(168, 174, 186)))
+            int y = 11;
+            using (Font fReg = new Font("Segoe UI", 8.5f, FontStyle.Regular))
+            using (Font fBold = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            using (SolidBrush doneBrush = new SolidBrush(Color.FromArgb(52, 211, 153)))
+            using (SolidBrush activeBrush = new SolidBrush(Color.FromArgb(245, 246, 248)))
+            using (SolidBrush pendingBrush = new SolidBrush(Color.FromArgb(120, 126, 137)))
             {
                 foreach (string line in _lines)
                 {
-                    pe.Graphics.DrawString(line, f, textBrush, new RectangleF(12, y, Width - 24, 18));
+                    if (string.IsNullOrEmpty(line)) continue;
+                    SolidBrush b = pendingBrush;
+                    Font f = fReg;
+                    if (line.StartsWith("✓"))
+                    {
+                        b = doneBrush;
+                        f = fReg;
+                    }
+                    else if (line.StartsWith("➔") || line.StartsWith("->"))
+                    {
+                        b = activeBrush;
+                        f = fBold;
+                    }
+                    pe.Graphics.DrawString(line, f, b, new RectangleF(14, y, Width - 28, 18));
                     y += 20;
                 }
             }
@@ -799,8 +815,8 @@ namespace SOCDOF.Bootstrapper
             _statusLabel.Visible = false;
             Controls.Add(_statusLabel);
 
-            _progressBar.Location = new Point((ClientSize.Width - btnWidth) / 2, 262);
-            _progressBar.Size = new Size(btnWidth, 8);
+            _progressBar.Location = new Point((ClientSize.Width - btnWidth) / 2, 260);
+            _progressBar.Size = new Size(btnWidth, 10);
             _progressBar.Visible = false;
             Controls.Add(_progressBar);
 
@@ -834,10 +850,10 @@ namespace SOCDOF.Bootstrapper
                     return "OFFLINE COMMERCE & ERP SUITE";
 
                 case "update_detected":
-                    if (_langCode == "fr") return "INSTALLATION DÉTECTÉE · MISE À JOUR AUTO";
-                    if (_langCode == "es") return "INSTALACIÓN DETECTADA · AUTO-ACTUALIZACIÓN";
-                    if (_langCode == "en") return "EXISTING INSTALLATION DETECTED · AUTO-UPDATE";
-                    return "BESTEHENDE INSTALLATION ERKANNT · AUTO-UPDATE";
+                    if (_langCode == "fr") return "Mise à jour automatique du système";
+                    if (_langCode == "es") return "Actualización automática del sistema";
+                    if (_langCode == "en") return "Automatic System Update";
+                    return "Automatische Systemaktualisierung";
 
                 case "tagline":
                     if (_langCode == "fr") return "⚡ 100% Hors-ligne  ·  🔒 Base Locale  ·  🪟 Win 64-Bit";
@@ -858,10 +874,10 @@ namespace SOCDOF.Bootstrapper
                     return "SOCDOF Aktualisieren";
 
                 case "license_note":
-                    if (_langCode == "fr") return "Gratuit & Open Source · Version 24.10.3";
-                    if (_langCode == "es") return "Gratis y Código Abierto · Versión 24.10.3";
-                    if (_langCode == "en") return "Free & Open Source · Version 24.10.3";
-                    return "Kostenlos & Open Source · Version 24.10.3";
+                    if (_langCode == "fr") return "Gratuit & Open Source · Version 24.11.2";
+                    if (_langCode == "es") return "Gratis y Código Abierto · Versión 24.11.2";
+                    if (_langCode == "en") return "Free & Open Source · Version 24.11.2";
+                    return "Kostenlos & Open Source · Version 24.11.2";
 
                 case "benefit_1":
                     if (_langCode == "fr") return "✓ 100% Hors-ligne – Fonctionne sans Internet ni Cloud";
@@ -888,10 +904,10 @@ namespace SOCDOF.Bootstrapper
                     return "Wird installiert...";
 
                 case "updating":
-                    if (_langCode == "fr") return "Mise à jour en cours...";
-                    if (_langCode == "es") return "Actualizando...";
-                    if (_langCode == "en") return "Installing update...";
-                    return "Update wird installiert...";
+                    if (_langCode == "fr") return "Mise à jour de SOCDOF...";
+                    if (_langCode == "es") return "Actualizando SOCDOF...";
+                    if (_langCode == "en") return "Updating SOCDOF...";
+                    return "SOCDOF wird aktualisiert...";
 
                 case "closing_instances":
                     if (_langCode == "fr") return "Fermeture des instances actives...";
@@ -906,22 +922,22 @@ namespace SOCDOF.Bootstrapper
                     return "Dateien werden eingerichtet...";
 
                 case "step_1":
-                    if (_langCode == "fr") return "1. Téléchargement du package d'installation";
-                    if (_langCode == "es") return "1. Descargando el paquete de instalación";
-                    if (_langCode == "en") return "1. Downloading setup package";
-                    return "1. Download des Installationspakets";
+                    if (_langCode == "fr") return "1. Téléchargement des nouveaux fichiers";
+                    if (_langCode == "es") return "1. Descarga del paquete actualizado";
+                    if (_langCode == "en") return "1. Downloading updated package";
+                    return "1. Download der neuen Programmdateien";
 
                 case "step_2":
-                    if (_langCode == "fr") return "2. Configuration locale et raccourcis bureau";
-                    if (_langCode == "es") return "2. Configuración local y accesos directos";
-                    if (_langCode == "en") return "2. Local setup & desktop shortcut";
-                    return "2. Lokale Einrichtung & Desktop-Verknüpfung";
+                    if (_langCode == "fr") return "2. Mise à jour de l'installation locale";
+                    if (_langCode == "es") return "2. Actualización de la instalación local";
+                    if (_langCode == "en") return "2. Updating local files & configuration";
+                    return "2. Aktualisierung der lokalen Installation";
 
                 case "step_3":
-                    if (_langCode == "fr") return "3. Lancement instantané de SOCDOF Desktop";
-                    if (_langCode == "es") return "3. Inicio instantáneo de SOCDOF Desktop";
-                    if (_langCode == "en") return "3. Instant launch of SOCDOF Desktop";
-                    return "3. Schneller Sofortstart von SOCDOF Desktop";
+                    if (_langCode == "fr") return "3. Redémarrage de SOCDOF Desktop";
+                    if (_langCode == "es") return "3. Reinicio de SOCDOF Desktop";
+                    if (_langCode == "en") return "3. Launching SOCDOF Desktop";
+                    return "3. Neustart von SOCDOF Desktop";
 
                 case "completing":
                     if (_langCode == "fr") return "Finalisation de l'installation...";
@@ -954,10 +970,10 @@ namespace SOCDOF.Bootstrapper
                     return "Wiederholen";
 
                 case "footer":
-                    if (_langCode == "fr") return "Strudelcode  ·  Version 24.10.3  ·  Sécurisé & Privé";
-                    if (_langCode == "es") return "Strudelcode  ·  Versión 24.10.3  ·  Seguro y Privado";
-                    if (_langCode == "en") return "Strudelcode  ·  Version 24.10.3  ·  Secure & Private";
-                    return "Strudelcode  ·  Version 24.10.3  ·  Sicher & Privat";
+                    if (_langCode == "fr") return "Strudelcode  ·  Version 24.11.2  ·  Lokal & Sécurisé";
+                    if (_langCode == "es") return "Strudelcode  ·  Versión 24.11.2  ·  Local y Seguro";
+                    if (_langCode == "en") return "Strudelcode  ·  Version 24.11.2  ·  Local & Secure";
+                    return "Strudelcode  ·  Version 24.11.2  ·  Lokal & Sicher";
 
                 default:
                     return "";
@@ -1027,7 +1043,7 @@ namespace SOCDOF.Bootstrapper
                 // Step 1: Query latest official release from GitHub API
                 string apiUrl = "https://api.github.com/repos/Strudelcode/SOCDOF/releases/latest";
                 _http.DefaultRequestHeaders.UserAgent.Clear();
-                _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SOCDOF-Installer", "24.10.3"));
+                _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SOCDOF-Installer", "24.11.2"));
                 _http.DefaultRequestHeaders.Accept.Clear();
                 _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -1077,7 +1093,7 @@ namespace SOCDOF.Bootstrapper
                 {
                     // Download verified latest version fresh to Temp directory
                     _packagePath = Path.Combine(Path.GetTempPath(), targetAssetName);
-                    _subStatusLabel.Text = _langCode == "de" ? "Herunterladen... 0%" : "Downloading... 0%";
+                    _subStatusLabel.Text = _langCode == "de" ? "Paket wird heruntergeladen... 0%" : "Downloading package... 0%";
 
                     using (HttpResponseMessage response = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                     {
@@ -1099,7 +1115,7 @@ namespace SOCDOF.Bootstrapper
                                 {
                                     int pct = (int)(received * 100L / totalBytes);
                                     SetPercent(pct);
-                                    _subStatusLabel.Text = string.Format(_langCode == "de" ? "Herunterladen... {0}%" : "Downloading... {0}%", pct);
+                                    _subStatusLabel.Text = string.Format(_langCode == "de" ? "Paket wird heruntergeladen... {0}%" : "Downloading package... {0}%", pct);
                                 }
                             }
                             await output.FlushAsync();
