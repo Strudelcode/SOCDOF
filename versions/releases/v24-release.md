@@ -1,5 +1,11 @@
 # SOCDOF v24 Release Overview
 
+## v24.12.0 — Word-Style Tables Redesign & Modern Spreadsheet Features
+
+- **Tables (`TableModule.tsx`)**:
+  - Redesigned in the Word-style ribbon with compact File, Home, Insert and View tabs, grouped buttons, a color row, cell formatting, a formula bar, one-click functions and keyboard navigation.
+  - Saving and opening CSV files is unchanged.
+
 ## v24.11.0 — Textwerk Word Processor, German Spell Check & Word List
 
 - **Textwerk Word Processor (`TextwerkModule.tsx`)**:

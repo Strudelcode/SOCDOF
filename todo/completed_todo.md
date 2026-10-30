@@ -2,6 +2,16 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Word-Style Tables Redesign & Modern Spreadsheet Features (v24.12.0)
+- [x] Replaced the large Tabellen toolbar with a compact Word-style ribbon (File, Home, Insert, View) with an underline on the active tab.
+- [x] Grouped buttons with small labels; font and fill colors chosen from a Word-style color row.
+- [x] Cell formatting (bold, italic, underline, alignment, font and fill color) and a formula bar.
+- [x] One-click functions (SUMME, MITTELWERT, MAX, MIN, ANZAHL) on the Insert tab, plus a status bar.
+- [x] Keyboard navigation (Enter, arrows, Tab) and toggles for gridlines and the formula bar.
+- [x] All new labels in German, English, French and Spanish; manual chapter, changelog and version notes updated.
+
+---
+
 ### Desktop App Icon Grid Spacing & Multi-Line Label Anti-Collision Fix (v24.11.4)
 - [x] Resolved vertical icon and label collision bug where multi-line names (e.g. "Praxis & Therapie") overlapped adjacent desktop items or hover frames.
 - [x] Increased desktop vertical grid step (`DESKTOP_GRID_STEP_Y`) from 96px to 116px and mobile step to 114px.
