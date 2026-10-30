@@ -364,6 +364,8 @@ export type ActiveModule =
   | 'support_services'
   | 'widgets'
   | 'calculator'
+  | 'textwerk'
+  | 'table'
   | 'therapy_practice'
   | 'feedback';
 

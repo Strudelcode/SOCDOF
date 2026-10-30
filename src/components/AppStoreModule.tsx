@@ -14,6 +14,8 @@ import {
   ShoppingCart, 
   Settings, 
   Calculator, 
+  PenLine,
+  Table,
   BookOpen, 
   Pin, 
   CheckCircle2, 
@@ -262,6 +264,34 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       tags: ['Taschenrechner', 'Rechner', 'Schule', 'Mathematik', 'Wissenschaftlich', 'Calculator']
     },
     {
+      id: 'textwerk',
+      title: t('module.textwerk', currentLang, 'Text Editor'),
+      category: 'productivity',
+      description: t('desc.textwerk', currentLang, 'Textverarbeitung mit deutscher Rechtschreibprüfung, Wortliste und Word-ähnlicher Menüleiste.'),
+      iconName: 'PenLine',
+      badge: 'Schule & Büro',
+      author: 'Yuri / Strudel',
+      version: '24.11.0',
+      isInstalled: installedModules.includes('textwerk'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Text Editor', 'Textwerk', 'Texteditor', 'Word', 'Rechtschreibung', 'Schreiben', 'Editor']
+    },
+    {
+      id: 'table',
+      title: t('module.table', currentLang, 'Tabellen'),
+      category: 'productivity',
+      description: t('desc.table', currentLang, 'Einfache Tabelle mit Formeln und CSV-Export'),
+      iconName: 'Table',
+      badge: 'Schule & Büro',
+      author: 'Yuri / Strudel',
+      version: '24.11.0',
+      isInstalled: installedModules.includes('table'),
+      isFinancial: false,
+      isSystem: false,
+      tags: ['Tabelle', 'Tabellen', 'Rechnen', 'Formeln', 'Summe', 'CSV', 'Liste']
+    },
+    {
       id: 'widgets',
       title: t('module.widgets', currentLang, 'Widgets & Notizen'),
       category: 'productivity',
@@ -431,6 +461,8 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'restaurant': return Utensils;
       case 'accounting': 
       case 'calculator': return Calculator;
+      case 'textwerk': return PenLine;
+      case 'table': return Table;
       case 'therapy_practice': return Hospital;
       case 'contacts': return Users;
       case 'support_services': return Headphones;
@@ -456,6 +488,8 @@ export const AppStoreModule: React.FC<AppStoreModuleProps> = ({
       case 'accounting': return 'bg-gradient-to-br from-emerald-500 to-teal-600';
       case 'therapy_practice': return 'bg-gradient-to-br from-blue-600 to-indigo-700';
       case 'calculator': return 'bg-gradient-to-br from-emerald-500 to-teal-700';
+      case 'textwerk': return 'bg-gradient-to-br from-blue-600 to-sky-700';
+      case 'table': return 'bg-gradient-to-br from-emerald-600 to-teal-700';
       case 'contacts': return 'bg-gradient-to-br from-teal-500 to-cyan-600';
       case 'support_services': return 'bg-gradient-to-br from-cyan-500 to-blue-600';
       case 'pos': return 'bg-gradient-to-br from-violet-500 to-indigo-600';

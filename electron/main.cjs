@@ -1580,6 +1580,42 @@ ipcMain.handle('socdof:save-backup-file-to-disk', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('socdof:textwerk-save-dialog', async (_event, { defaultName, content }) => {
+  try {
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Text Editor',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'Word-HTML / Text', extensions: ['html', 'htm', 'txt'] }
+      ]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    fs.writeFileSync(result.filePath, content, 'utf8');
+    return { canceled: false, filePath: result.filePath };
+  } catch (err) {
+    console.warn('[SOCDOF Electron] textwerk save error:', err);
+    return { canceled: false, error: err.message };
+  }
+});
+
+ipcMain.handle('socdof:textwerk-open-dialog', async () => {
+  try {
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Text Editor',
+      properties: ['openFile'],
+      filters: [{ name: 'Text / HTML', extensions: ['txt', 'html', 'htm'] }]
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return { canceled: true };
+    const filePath = result.filePaths[0];
+    return { canceled: false, fileName: path.basename(filePath), content: fs.readFileSync(filePath, 'utf8') };
+  } catch (err) {
+    console.warn('[SOCDOF Electron] textwerk open error:', err);
+    return { canceled: false, error: err.message };
+  }
+});
+
 ipcMain.handle('socdof:get-discord-token', async () => {
   return getElectronDiscordBotToken();
 });

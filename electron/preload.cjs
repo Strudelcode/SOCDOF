@@ -69,5 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveDiscordBotToken: (token) => ipcRenderer.invoke('socdof:save-discord-token', token),
   sendDiscordThread: (payload) => ipcRenderer.invoke('socdof:send-discord-thread', payload),
   triggerBotghostWebhook: (payload) => ipcRenderer.invoke('socdof:trigger-botghost-webhook', payload),
-  discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload)
+  discordRequest: (payload) => ipcRenderer.invoke('socdof:discord-request', payload),
+  textwerkSaveDialog: (payload) => ipcRenderer.invoke('socdof:textwerk-save-dialog', payload),
+  textwerkOpenDialog: () => ipcRenderer.invoke('socdof:textwerk-open-dialog')
 });
