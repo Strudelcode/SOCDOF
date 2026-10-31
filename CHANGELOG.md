@@ -7,6 +7,15 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## Version 25.2.0 (2026-10-31)
+
+- 🚀 **Neu / What's New**:
+  - Custom roles: Administrators can create roles, rename and delete them, and tick which apps each role may open. Users are assigned one role each.
+  - Passwordless accounts for non-admin users with a one-click "<Name> continue" login.
+  - Per-person security question on first sign-in (or once for all users).
+- 🔄 **Geändert / Improved**:
+  - Administrator's own account no longer shows the "Current password" and "Temporary reset" fields.
+
 ## Version 25.1.0 (2026-10-31)
 
 - 🚀 **Neu / What's New**:

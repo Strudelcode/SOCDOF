@@ -3,6 +3,14 @@ import { db } from './db';
 export type UserRole = 'admin' | 'user';
 export type AccountType = 'personal' | 'business';
 
+/** A custom role defined by an administrator. Admins always have access to every app. */
+export interface CustomRole {
+  id: string;
+  name: string;
+  /** App module IDs this role may open. */
+  allowedModules: string[];
+}
+
 export interface UserPreferences {
   language?: 'en' | 'de' | 'fr' | 'es';
   theme?: 'light' | 'dark' | 'system';
@@ -26,6 +34,7 @@ export interface SecuritySettings {
   workstationMode?: 'single_pc' | 'multi_employee';
   allowQuickUserSwitch?: boolean;
   defaultLoginUserId?: string;
+  customRoles?: CustomRole[];
 }
 
 export interface UserAccount {
@@ -43,6 +52,10 @@ export interface UserAccount {
   lockedUntil?: number;
   lockoutLevel: number;
   mustChangePassword: boolean;
+  passwordless?: boolean;
+  /** Optional custom role. Undefined means unrestricted access (default). */
+  roleId?: string;
+  recoveryPending?: boolean;
   recovery?: RecoverySettings;
   createdAt: string;
   updatedAt: string;
@@ -123,6 +136,10 @@ function parseSecurity(raw: unknown): SecuritySettings {
     workstationMode: parsed.workstationMode === 'multi_employee' ? 'multi_employee' : 'single_pc',
     allowQuickUserSwitch: parsed.allowQuickUserSwitch !== false,
     defaultLoginUserId: typeof parsed.defaultLoginUserId === 'string' ? parsed.defaultLoginUserId : undefined,
+    customRoles: Array.isArray(parsed.customRoles)
+      ? parsed.customRoles.filter((role): role is CustomRole => Boolean(role && typeof role.id === 'string' && typeof role.name === 'string'))
+          .map((role) => ({ id: role.id, name: role.name, allowedModules: Array.isArray(role.allowedModules) ? role.allowedModules.filter((m) => typeof m === 'string') : [] }))
+      : [],
   };
 }
 
@@ -270,9 +287,7 @@ export function getSession(): AuthSession | null {
 export function getCurrentUser() {
   const session = getSession();
   return session ? getUserById(session.userId) : null;
-}
-
-const requireAdmin = () => {
+}  const requireAdmin = () => {
   const actor = getCurrentUser();
   if (!actor || actor.role !== 'admin' || !actor.active) throw new Error('admin_required');
   return actor;
@@ -319,10 +334,81 @@ export function updateSecuritySettings(patch: Partial<SecuritySettings>): Securi
   return next;
 }
 
+export function getCustomRoles(): CustomRole[] {
+  return securityCache.customRoles ?? [];
+}
+
+function saveCustomRoles(roles: CustomRole[]) {
+  void persistSecurity({ ...securityCache, customRoles: roles });
+}
+
+/** Creates a custom role. Only administrators may manage roles. */
+export function createCustomRole(name: string, allowedModules: string[]): CustomRole {
+  requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('role_name_required');
+  const role: CustomRole = {
+    id: toBase64(randomBytes(12)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16),
+    name: trimmed,
+    allowedModules: [...new Set(allowedModules)],
+  };
+  saveCustomRoles([...getCustomRoles(), role]);
+  return role;
+}
+
+/** Updates name and/or app access of a custom role. */
+export function updateCustomRole(id: string, patch: Partial<Pick<CustomRole, 'name' | 'allowedModules'>>): CustomRole {
+  requireAdmin();
+  const roles = getCustomRoles();
+  const index = roles.findIndex((role) => role.id === id);
+  if (index < 0) throw new Error('role_not_found');
+  const next: CustomRole = {
+    ...roles[index],
+    name: patch.name !== undefined ? patch.name.trim() || roles[index].name : roles[index].name,
+    allowedModules: patch.allowedModules ? [...new Set(patch.allowedModules)] : roles[index].allowedModules,
+  };
+  const updated = [...roles];
+  updated[index] = next;
+  saveCustomRoles(updated);
+  return next;
+}
+
+/** Deletes a custom role and removes it from all users (they fall back to unrestricted access). */
+export function deleteCustomRole(id: string) {
+  requireAdmin();
+  saveCustomRoles(getCustomRoles().filter((role) => role.id !== id));
+  const users = usersCache.map((user) => (user.roleId === id ? { ...user, roleId: undefined } : user));
+  void persistUsers(users);
+}
+
+/** Assigns a custom role to a user, or clears it with `null`. */
+export function assignCustomRole(userId: string, roleId: string | null) {
+  requireAdmin();
+  if (roleId !== null && !getCustomRoles().some((role) => role.id === roleId)) throw new Error('role_not_found');
+  const users = [...usersCache];
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) throw new Error('user_not_found');
+  users[index] = { ...users[index], roleId: roleId ?? undefined, updatedAt: new Date().toISOString() };
+  void persistUsers(users);
+}
+
+/**
+ * Returns whether the user may open an app module.
+ * Admins and users without a custom role have full access.
+ */
+export function canUserAccessModule(user: UserAccount | null | undefined, moduleId: string): boolean {
+  if (!user) return false;
+  if (user.role === 'admin' || !user.roleId) return true;
+  const role = getCustomRoles().find((entry) => entry.id === user.roleId);
+  if (!role) return true;
+  return role.allowedModules.includes(moduleId);
+}
+
 export async function quickSwitchUser(userId: string): Promise<AuthSession | null> {
   await initializeAuthStore();
   const user = getUserById(userId);
   if (!user || !user.active) return null;
+  if (!user.passwordless) return null;
   if (getLockoutRemaining(user) > 0) return null;
 
   const now = Date.now();
@@ -478,6 +564,7 @@ export async function createUser(input: {
   preferences?: UserPreferences;
   recoveryQuestion?: string;
   recoveryAnswer?: string;
+  recoveryPerPerson?: boolean;
   autoLogin?: boolean;
 }) {
   await initializeAuthStore();
@@ -498,7 +585,8 @@ export async function createUser(input: {
   const displayName = input.displayName.trim();
 
   if (!username || !displayName) throw new Error('missing_fields');
-  if (validatePassword(input.password)) throw new Error('password_too_short');
+  const passwordless = Boolean(input.password === '' && (input.role ?? 'user') === 'user' && users.length > 0);
+  if (!passwordless && validatePassword(input.password)) throw new Error('password_too_short');
   if (getUserByUsername(username)) throw new Error('username_exists');
 
   if (input.recoveryQuestion && !input.recoveryAnswer?.trim()) {
@@ -514,7 +602,7 @@ export async function createUser(input: {
   }
 
   const now = new Date().toISOString();
-  const password = await hashPassword(input.password);
+  const password = await hashPassword(passwordless ? crypto.randomUUID() : input.password);
   const recoveryHash =
     input.recoveryQuestion && input.recoveryAnswer
       ? await hashRecoveryAnswer(input.recoveryAnswer)
@@ -533,7 +621,9 @@ export async function createUser(input: {
     passwordIterations: password.iterations,
     failedLoginAttempts: 0,
     lockoutLevel: 0,
-    mustChangePassword: false,
+    mustChangePassword: !passwordless,
+    passwordless,
+    recoveryPending: Boolean(input.recoveryPerPerson) && !passwordless,
     recovery:
       recoveryHash && input.recoveryQuestion
         ? {
@@ -637,6 +727,36 @@ export async function resetPasswordWithRecovery(
     updatedAt: new Date().toISOString(),
   };
 
+  await persistUsers(users);
+}
+
+/**
+ * First login after an admin created the account: the user sets their own
+ * security question. Only runs when recoveryPending is set.
+ */
+export async function completeFirstLoginRecovery(
+  userId: string,
+  question: string,
+  answer: string,
+) {
+  const actor = getCurrentUser();
+  if (!actor || actor.id !== userId) throw new Error('auth_required');
+  if (!answer.trim()) throw new Error('recovery_answer_required');
+  const users = [...usersCache];
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) throw new Error('user_not_found');
+  const hashed = await hashRecoveryAnswer(answer);
+  users[index] = {
+    ...users[index],
+    recovery: {
+      question,
+      answerHash: hashed.hash,
+      answerSalt: hashed.salt,
+      answerIterations: hashed.iterations,
+    },
+    recoveryPending: false,
+    updatedAt: new Date().toISOString(),
+  };
   await persistUsers(users);
 }
 
@@ -777,7 +897,7 @@ export function updateUser(
   patch: Partial<
     Pick<
       UserAccount,
-      'displayName' | 'role' | 'accountType' | 'avatar' | 'active' | 'preferences' | 'mustChangePassword'
+      'displayName' | 'role' | 'accountType' | 'avatar' | 'active' | 'preferences' | 'mustChangePassword' | 'passwordless'
     >
   >,
 ) {
@@ -796,6 +916,8 @@ export function updateUser(
   if (index < 0) throw new Error('user_not_found');
 
   const next = { ...users[index], ...safePatch };
+  // Admins always keep a password.
+  if (next.role === 'admin') next.passwordless = false;
 
   if (
     users[index].role === 'admin' &&

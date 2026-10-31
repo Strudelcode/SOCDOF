@@ -2,6 +2,14 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Passwordless Accounts & Custom Roles with App Permissions (v25.2.0)
+- [x] Passwordless non-admin accounts with one-click "<Name> continue" login; administrators always require a password.
+- [x] Per-person security question on first sign-in (or once for all users).
+- [x] Hidden "Current password" and "Temporary reset" fields for an administrator's own account.
+- [x] Custom roles with allowed app modules: create, rename, delete, tick apps, assign to users (Roles & Apps tab).
+- [x] Central enforcement via `canUserAccessModule()` in `openWindow` and the command palette.
+- [x] Translations in de/en/fr/es; lint and build green.
+
 ### Shared Workstation Mode, 1-Click Profile Switching & Portable USB/OneDrive Hardening (v25.1.0)
 - [x] Implemented dedicated Single-PC & Workshop Operating Mode (`workstationMode: 'single_pc'`) tailored for shared computers without excessive bureaucracy.
 - [x] Added swift 1-click profile switching via `quickSwitchUser()` without password prompts or session destruction.

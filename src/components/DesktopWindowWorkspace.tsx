@@ -112,7 +112,7 @@ import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../l
 import { SocdofLogo } from './SocdofLogo';
 import { APP_VERSION } from '../lib/version';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
-import { getCurrentUser, getSession, getUserById, getUsers, getSecuritySettings, quickSwitchUser } from '../lib/auth';
+import { canUserAccessModule, getCurrentUser, getSession, getUserById, getUsers, getSecuritySettings, quickSwitchUser, updateUserPreferences } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
@@ -2084,6 +2084,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   };
 
   const openWindow = (module: ActiveModule, customTitle?: string, params?: Record<string, any>) => {
+    if (!canUserAccessModule(getCurrentUser(), module)) return;
     closeAllContextMenus();
     sounds.playWindowOpen();
     setIsStartMenuOpen(false);
@@ -4681,7 +4682,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
         currentLanguage={currentLang}
         onSelectLanguage={(lang) => {
           setLanguage(lang);
-          onUpdateCompany({ ...company, language: lang });
+          const activeUser = getCurrentUser(); if (activeUser) updateUserPreferences(activeUser.id, { ...activeUser.preferences, language: lang });
         }}
       />
 

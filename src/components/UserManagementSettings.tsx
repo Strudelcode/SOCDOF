@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
   KeyRound,
@@ -31,9 +32,15 @@ import {
 import { db } from '../lib/db';
 import {
   adminResetPassword,
+  assignCustomRole,
   changePassword,
+  createCustomRole,
   createUser,
+  deleteCustomRole,
   deleteUser,
+  getCustomRoles,
+  updateCustomRole,
+  type CustomRole,
   getActiveAdminCount,
   getCurrentUser,
   getSecuritySettings,
@@ -53,20 +60,10 @@ import {
 import { getRecoveryQuestionLabel, t, useLanguage } from '../lib/i18n';
 import { sounds } from '../lib/sound';
 
-const avatars = ['●', '◆', '▲', '■', '✦', '✚', '◉', '⬢'];
-
 function getUserInitials(name?: string, fallback = 'U'): string {
-  if (!name || !name.trim()) return fallback.toUpperCase();
-  const clean = name.trim();
-  const parts = clean.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  const alphanum = clean.replace(/[^a-zA-Z0-9]/g, '');
-  if (alphanum.length >= 2) {
-    return alphanum.slice(0, 2).toUpperCase();
-  }
-  return (clean[0] || fallback).toUpperCase();
+  const clean = (name ?? '').trim();
+  if (!clean) return fallback.toUpperCase();
+  return Array.from(clean).slice(0, 2).join('').toUpperCase();
 }
 
 function renderUserAvatar(
@@ -166,6 +163,30 @@ function resizeWallpaper(file: File, maxWidth = 1920, maxHeight = 1080, quality 
   });
 }
 
+// App modules a custom role can allow (IDs match ActiveModule in src/types.ts)
+const ROLE_APP_OPTIONS: Array<{ id: string; title: string }> = [
+  { id: 'dashboard', title: 'Dashboard' },
+  { id: 'invoices', title: 'Rechnungen' },
+  { id: 'accounting', title: 'Abrechnung' },
+  { id: 'contacts', title: 'Kontakte' },
+  { id: 'products', title: 'Produkte' },
+  { id: 'stock', title: 'Lager' },
+  { id: 'purchases', title: 'Einkauf' },
+  { id: 'pos', title: 'POS Kasse' },
+  { id: 'calendar', title: 'Kalender' },
+  { id: 'therapy_practice', title: 'Praxis & Therapie' },
+  { id: 'calculator', title: 'Taschenrechner' },
+  { id: 'textwerk', title: 'Text Editor' },
+  { id: 'table', title: 'Tabellen' },
+  { id: 'widgets', title: 'Widgets' },
+  { id: 'restaurant', title: 'Restaurant' },
+  { id: 'ios_billing', title: 'Schnellkasse' },
+  { id: 'support_services', title: 'Support & Service' },
+  { id: 'docs', title: 'Handbuch & Showcase' },
+  { id: 'settings', title: 'Einstellungen' },
+  { id: 'appstore', title: 'App Store' }
+];
+
 export interface UserManagementSettingsProps {
   onNavigateToSection?: (section: string) => void;
 }
@@ -176,7 +197,13 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
   const isAdmin = currentUser?.role === 'admin' && currentUser.active;
 
   // Active sub-tab: 'profile' (own profile), 'accounts' (all users), 'security' (policies)
-  const [activeTab, setActiveTab] = useState<'profile' | 'accounts' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'accounts' | 'roles' | 'security'>('profile');
+
+  // Custom roles state (Admin): roles limit which apps a user may open
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>(() => getCustomRoles());
+  const [newRoleName, setNewRoleName] = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [roleMessage, setRoleMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Profile editing state
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -198,6 +225,16 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [selectedId, setSelectedId] = useState<string>(() => currentUser?.id ?? getUsers()[0]?.id ?? '');
   const [showCreate, setShowCreate] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
+
+  useEffect(() => {
+    if (!showCreate) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [showCreate]);
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [adminMessage, setAdminMessage] = useState('');
   const [security, setSecurity] = useState<SecuritySettings>(() => getSecuritySettings());
@@ -207,9 +244,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     password: '',
     role: 'user' as UserRole,
     accountType: 'business' as AccountType,
-    avatar: avatars[0],
+    avatar: '',
     recoveryQuestion: RECOVERY_QUESTIONS[0],
-    recoveryAnswer: ''
+    recoveryAnswer: '',
+    recoveryPerPerson: false,
+    passwordless: false,
   });
 
   const refreshUsers = () => {
@@ -290,6 +329,19 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     subtitle: t('users.subtitle', lang, 'Lokale Konten, Rollen, eigenes Profil, Passwörter und Desktop-Personalisierung verwalten.'),
     tabProfile: t('users.tab_profile', lang, 'Mein Profil & Personalisierung'),
     tabAccounts: t('users.tab_accounts', lang, 'Benutzerverwaltung'),
+    tabRoles: t('users.tab_roles', lang, 'Rollen & Apps'),
+    rolesTitle: t('users.roles_title', lang, 'Benutzerdefinierte Rollen'),
+    tempPasswordHint: t('users.temp_password_hint', lang, 'Dieses Passwort ist temporär. Der Benutzer legt beim ersten Login sein eigenes Passwort fest.'),
+    rolesHint: t('users.roles_hint', lang, 'Administratoren haben immer Zugriff auf alle Apps. Benutzer ohne eigene Rolle haben ebenfalls vollen Zugriff.'),
+    roleNew: t('users.role_new', lang, 'Neue Rolle'),
+    roleName: t('users.role_name', lang, 'Rollenname'),
+    roleCreate: t('users.role_create', lang, 'Rolle erstellen'),
+    roleDelete: t('users.role_delete', lang, 'Rolle löschen'),
+    roleNone: t('users.role_none', lang, 'Keine Rolle (voller Zugriff)'),
+    roleAssign: t('users.role_assign', lang, 'Rolle'),
+    roleEmpty: t('users.role_empty', lang, 'Noch keine benutzerdefinierten Rollen.'),
+    roleApps: t('users.role_apps', lang, 'Erlaubte Apps'),
+    roleSaved: t('users.role_saved', lang, 'Rolle gespeichert.'),
     tabSecurity: t('users.tab_security', lang, 'Sicherheitsrichtlinien'),
     administratorOnly: t('users.admin_only', lang, 'Nur Administrator'),
     accountList: t('users.account_list', lang, 'Lokale Konten'),
@@ -312,6 +364,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     delete: t('users.delete', lang, 'Löschen'),
     save: t('users.save', lang, 'Speichern'),
     resetPassword: t('users.reset_password', lang, 'Passwort zurücksetzen'),
+    recoveryPerPerson: t('users.recovery_per_person', lang, 'Sicherheitsabfrage pro Person'),
+    passwordless: t('users.passwordless', lang, 'Kein Passwort (Anmeldung mit einem Klick)'),
     newPassword: t('users.new_password', lang, 'Neues temporäres Passwort'),
     recoveryQuestion: t('users.recovery_question', lang, 'Sicherheitsfrage'),
     recoveryAnswer: t('users.recovery_answer', lang, 'Sicherheitsantwort'),
@@ -467,27 +521,37 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
       sounds.playError();
       return;
     }
-    if (!newUser.username.trim() || !newUser.displayName.trim() || !newUser.password) {
+    const passwordless = newUser.passwordless && newUser.role === 'user';
+    if (!newUser.username.trim() || !newUser.displayName.trim() || (!passwordless && !newUser.password)) {
       setAdminMessage(labels.required);
       return;
     }
-    if (newUser.password.length < 8) {
+    if (!passwordless && newUser.password.length < 8) {
       setAdminMessage(labels.passwordTooShort);
       return;
     }
     try {
-      await createUser(newUser);
+      await createUser({
+        ...newUser,
+        password: passwordless ? '' : newUser.password,
+        recoveryQuestion: passwordless ? undefined : newUser.recoveryQuestion,
+        recoveryAnswer: passwordless ? undefined : newUser.recoveryAnswer,
+        recoveryPerPerson: !passwordless && newUser.recoveryPerPerson,
+      });
       setNewUser({
         username: '',
         displayName: '',
         password: '',
         role: 'user',
         accountType: 'business',
-        avatar: avatars[0],
+        avatar: '',
         recoveryQuestion: RECOVERY_QUESTIONS[0],
-        recoveryAnswer: ''
+        recoveryAnswer: '',
+        recoveryPerPerson: false,
+        passwordless: false,
       });
       setShowCreate(false);
+      setCreateStep(1);
       setAdminMessage(labels.created);
       refreshUsers();
       sounds.playSuccess();
@@ -587,7 +651,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     <div className="space-y-6 animate-fade-in">
       {/* Header Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-4 sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
           <div className="flex items-start gap-3.5">
             <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
               <UserRound className="w-6 h-6" />
@@ -613,7 +677,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
 
           {/* Tab Selection Navigation (if Admin) */}
           {isAdmin && (
-            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 w-full flex-wrap">
               <button
                 type="button"
                 onClick={() => { setActiveTab('profile'); sounds.playClick(); }}
@@ -627,6 +691,13 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
               >
                 {labels.tabAccounts}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('roles'); sounds.playClick(); }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'roles' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+              >
+                {labels.tabRoles}
               </button>
               <button
                 type="button"
@@ -980,11 +1051,37 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
 
             {/* Selected User Management Panel */}
             <div className="space-y-4">
-              {showCreate && (
-                <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4 space-y-3">
-                  <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
-                    <UserRoundPlus className="w-4 h-4 text-indigo-500" />
-                    {labels.create}
+              {showCreate && createPortal(
+                <div
+                  className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md"
+                  onClick={() => { setShowCreate(false); setCreateStep(1); sounds.playClick(); }}
+                >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border border-indigo-500/30 bg-white dark:bg-slate-900 shadow-2xl shadow-indigo-900/40 p-6 space-y-5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold text-base text-slate-900 dark:text-white">
+                      <UserRoundPlus className="w-5 h-5 text-indigo-500" />
+                      {labels.create}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCreate(false); setCreateStep(1); sounds.playClick(); }}
+                      className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      title={t('action.close', lang, 'Close')}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3].map((step) => (
+                      <div
+                        key={step}
+                        className={`h-1.5 flex-1 rounded-full transition-colors ${step <= createStep ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                      />
+                    ))}
                   </div>
 
                   {security.autoLoginSingleUser && users.length >= 1 && (
@@ -1004,87 +1101,129 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     </div>
                   )}
 
-                  <div className="grid md:grid-cols-2 gap-2">
-                    <input
-                      className={fieldClass}
-                      placeholder={labels.displayName}
-                      value={newUser.displayName}
-                      onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
-                    />
-                    <input
-                      className={fieldClass}
-                      placeholder={labels.username}
-                      value={newUser.username}
-                      onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                    />
-                    <input
-                      className={fieldClass}
-                      type="password"
-                      placeholder={labels.password}
-                      value={newUser.password}
-                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    />
-                    <select
-                      className={fieldClass}
-                      value={newUser.role}
-                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
+                  {createStep === 1 && (
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <input
+                        className={fieldClass}
+                        placeholder={labels.displayName}
+                        value={newUser.displayName}
+                        onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
+                      />
+                      <input
+                        className={fieldClass}
+                        placeholder={labels.username}
+                        value={newUser.username}
+                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                      />
+                      <select
+                        className={fieldClass}
+                        value={newUser.role}
+                        onChange={(e) => setNewUser({ ...newUser, role: e.target.value as UserRole })}
+                      >
+                        <option value="user">{labels.user}</option>
+                        <option value="admin">{labels.admin}</option>
+                      </select>
+                      <select
+                        className={fieldClass}
+                        value={newUser.accountType}
+                        onChange={(e) => setNewUser({ ...newUser, accountType: e.target.value as AccountType })}
+                      >
+                        <option value="personal">{labels.personal}</option>
+                        <option value="business">{labels.business}</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {createStep === 2 && (
+                    <div className="space-y-3">
+                      {newUser.role === 'user' && (
+                        <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={newUser.passwordless}
+                            onChange={(e) => setNewUser({ ...newUser, passwordless: e.target.checked })}
+                          />
+                          {labels.passwordless}
+                        </label>
+                      )}
+                      {!newUser.passwordless && (
+                        <input
+                          className={fieldClass}
+                          type="password"
+                          placeholder={labels.password}
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                        />
+                      )}
+                      {!newUser.passwordless && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{labels.tempPasswordHint}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {createStep === 3 && (
+                    <div className="space-y-3">
+                      <select
+                        className={fieldClass}
+                        value={newUser.recoveryQuestion}
+                        onChange={(e) => setNewUser({ ...newUser, recoveryQuestion: e.target.value })}
+                      >
+                        {RECOVERY_QUESTIONS.map((question) => (
+                          <option key={question} value={question}>
+                            {getRecoveryQuestionLabel(question, lang)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className={fieldClass}
+                        placeholder={labels.recoveryAnswer}
+                        value={newUser.recoveryAnswer}
+                        onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={newUser.recoveryPerPerson}
+                          onChange={(e) => setNewUser({ ...newUser, recoveryPerPerson: e.target.checked })}
+                        />
+                        {labels.recoveryPerPerson}
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={createStep === 1}
+                      onClick={() => setCreateStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
                     >
-                      <option value="user">{labels.user}</option>
-                      <option value="admin">{labels.admin}</option>
-                    </select>
-                    <select
-                      className={fieldClass}
-                      value={newUser.accountType}
-                      onChange={(e) => setNewUser({ ...newUser, accountType: e.target.value as AccountType })}
-                    >
-                      <option value="personal">{labels.personal}</option>
-                      <option value="business">{labels.business}</option>
-                    </select>
-                    <select
-                      className={fieldClass}
-                      value={newUser.recoveryQuestion}
-                      onChange={(e) => setNewUser({ ...newUser, recoveryQuestion: e.target.value })}
-                    >
-                      {RECOVERY_QUESTIONS.map((question) => (
-                        <option key={question} value={question}>
-                          {getRecoveryQuestionLabel(question, lang)}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      className={fieldClass}
-                      placeholder={labels.recoveryAnswer}
-                      value={newUser.recoveryAnswer}
-                      onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {avatars.map((av) => (
+                      {t('action.back', lang, 'Back')}
+                    </button>
+                    {createStep < 3 ? (
                       <button
                         type="button"
-                        key={av}
-                        onClick={() => setNewUser({ ...newUser, avatar: av })}
-                        className={`w-9 h-9 rounded-xl border text-sm ${
-                          newUser.avatar === av
-                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
-                            : 'border-slate-200 dark:border-slate-700'
-                        }`}
+                        onClick={() => setCreateStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s))}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
                       >
-                        {av}
+                        {t('action.next', lang, 'Next')}
                       </button>
-                    ))}
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={Boolean(security.autoLoginSingleUser && users.length >= 1)}
+                        onClick={handleCreate}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                        title={security.autoLoginSingleUser && users.length >= 1 ? labels.autoLoginBlockCreateDesc : labels.create}
+                      >
+                        <Check className="w-4 h-4" />
+                        {labels.create}
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    disabled={Boolean(security.autoLoginSingleUser && users.length >= 1)}
-                    onClick={handleCreate}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
-                    title={security.autoLoginSingleUser && users.length >= 1 ? labels.autoLoginBlockCreateDesc : labels.create}
-                  >
-                    <Check className="w-4 h-4" />
-                    {labels.create}
-                  </button>
                 </div>
+                </div>,
+                document.body,
               )}
 
               {selected && (
@@ -1270,20 +1409,14 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         <span>Kontobereich (Privat vs. Geschäftlich)</span>
                       </h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Trennen Sie private Benutzer und geschäftliche Unternehmenskonten.
+                        Der Kontotyp wird bei der Ersteinrichtung festgelegt und kann danach nicht mehr geändert werden.
                       </p>
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3">
                       {/* Option Privat */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateUser(selected.id, { accountType: 'personal' });
-                          refreshUsers();
-                          sounds.playClick();
-                        }}
-                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                      <div
+                        className={`p-4 rounded-2xl border text-left flex flex-col justify-between gap-2 ${
                           selected.accountType === 'personal'
                             ? 'border-2 border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1305,17 +1438,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                           Privater Arbeitsbereich mit persönlichen Notizen, Dokumenten und individueller Windows-Personalisierung.
                         </p>
-                      </button>
+                      </div>
 
                       {/* Option Geschäftlich */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateUser(selected.id, { accountType: 'business' });
-                          refreshUsers();
-                          sounds.playClick();
-                        }}
-                        className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
+                      <div
+                        className={`p-4 rounded-2xl border text-left flex flex-col justify-between gap-2 ${
                           selected.accountType === 'business'
                             ? 'border-2 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1337,7 +1464,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                           Unternehmenskonto: Voller Zugriff auf Rechnungen, POS Kasse, Buchhaltung, Einkauf und Kundenkartei.
                         </p>
-                      </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1486,6 +1613,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   </div>
 
                   {/* 5. RESET PASSWORD BY ADMIN */}
+                  {selected.id !== currentUser?.id && (
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                       <KeyRound className="w-4 h-4 text-indigo-500" />
@@ -1511,6 +1639,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                       </button>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1520,6 +1649,172 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
         {/* ========================================================================= */}
         {/* TAB 3: SICHERHEITSRICHTLINIEN (Nur Administrator)                         */}
         {/* ========================================================================= */}
+        {/* ========================================================================= */}
+        {/* TAB: ROLLEN & APPS (Nur Administrator)                                     */}
+        {/* ========================================================================= */}
+        {activeTab === 'roles' && isAdmin && (
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{labels.rolesTitle}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{labels.rolesHint}</p>
+            </div>
+
+            {roleMessage && (
+              <div className={`p-3 rounded-xl text-xs font-semibold ${roleMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>
+                {roleMessage.text}
+              </div>
+            )}
+
+            {/* Create new role */}
+            <div className="flex flex-col md:flex-row gap-2">
+              <input
+                type="text"
+                value={newRoleName}
+                onChange={(event) => setNewRoleName(event.target.value)}
+                placeholder={labels.roleName}
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const role = createCustomRole(newRoleName, []);
+                    setCustomRoles(getCustomRoles());
+                    setNewRoleName('');
+                    setSelectedRoleId(role.id);
+                    setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                  } catch (error) {
+                    setRoleMessage({ text: error instanceof Error ? error.message : String(error), type: 'error' });
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-100 transition shrink-0 cursor-pointer"
+              >
+                {labels.roleCreate}
+              </button>
+            </div>
+
+            {customRoles.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">{labels.roleEmpty}</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+                {/* Role list */}
+                <div className="space-y-1">
+                  {customRoles.map((role) => (
+                    <button
+                      key={role.id}
+                      type="button"
+                      onClick={() => { setSelectedRoleId(role.id); setRoleMessage(null); }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${selectedRoleId === role.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                    >
+                      {role.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Selected role: rename, apps, delete */}
+                {(() => {
+                  const role = customRoles.find((entry) => entry.id === selectedRoleId);
+                  if (!role) return <div className="text-xs text-slate-500 dark:text-slate-400">{labels.roleEmpty}</div>;
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex flex-col md:flex-row gap-2">
+                        <input
+                          key={role.id}
+                          type="text"
+                          defaultValue={role.name}
+                          onBlur={(event) => {
+                            const name = event.target.value.trim();
+                            if (!name || name === role.name) return;
+                            try {
+                              updateCustomRole(role.id, { name });
+                              setCustomRoles(getCustomRoles());
+                              setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                            } catch (error) {
+                              setRoleMessage({ text: error instanceof Error ? error.message : String(error), type: 'error' });
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteCustomRole(role.id);
+                            setCustomRoles(getCustomRoles());
+                            setUsers(getUsers());
+                            setSelectedRoleId(null);
+                            setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                          }}
+                          className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-900/30 transition shrink-0 cursor-pointer"
+                        >
+                          {labels.roleDelete}
+                        </button>
+                      </div>
+
+                      {/* App checkboxes */}
+                      <div>
+                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">{labels.roleApps}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {ROLE_APP_OPTIONS.map((app) => (
+                            <label key={app.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={role.allowedModules.includes(app.id)}
+                                onChange={(event) => {
+                                  const next = event.target.checked
+                                    ? [...role.allowedModules, app.id]
+                                    : role.allowedModules.filter((id) => id !== app.id);
+                                  updateCustomRole(role.id, { allowedModules: next });
+                                  setCustomRoles(getCustomRoles());
+                                  setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                                }}
+                              />
+                              {app.title}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Assign roles to users */}
+            {customRoles.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{labels.roleAssign}</div>
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{user.displayName || user.username}</span>
+                    {user.role === 'admin' ? (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{labels.roleNone}</span>
+                    ) : (
+                      <select
+                        value={user.roleId ?? ''}
+                        onChange={(event) => {
+                          try {
+                            assignCustomRole(user.id, event.target.value || null);
+                            setUsers(getUsers());
+                            setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                          } catch (error) {
+                            setRoleMessage({ text: error instanceof Error ? error.message : String(error), type: 'error' });
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                      >
+                        <option value="">{labels.roleNone}</option>
+                        {customRoles.map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'security' && isAdmin && (
           <div className="p-6 space-y-5">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">

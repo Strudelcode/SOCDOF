@@ -39,6 +39,7 @@ import { ActiveModule, Contact, Product, Invoice } from '../types';
 import { useLanguage, t, LanguageCode } from '../lib/i18n';
 import { sounds } from '../lib/sound';
 import { WidgetsIcon } from './WidgetsIcon';
+import { canUserAccessModule, getCurrentUser } from '../lib/auth';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -130,7 +131,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       { id: 'appstore', title: t('module.appstore', lang, 'App Store'), subtitle: t('desc.appstore', lang, 'Module installieren'), icon: Package, color: 'bg-fuchsia-600' }
     ];
 
-    appModules.forEach(mod => {
+    appModules.filter(mod => canUserAccessModule(getCurrentUser(), mod.id)).forEach(mod => {
       items.push({
         id: `app_${mod.id}`,
         category: 'apps',
