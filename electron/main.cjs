@@ -9,15 +9,17 @@ const { spawn } = require('child_process');
 // Portable Mode Detection (e.g. running from QNAP NAS, USB drive or Portable Executable)
 // 1. Electron-builder portable environment sets process.env.PORTABLE_EXECUTABLE_DIR
 // 2. OR an adjacent 'data' folder or 'portable.flag' exists right next to the executable
+// 3. OR command line argument '--portable' is passed
+let portableDataDir = null;
 try {
-  let portableDataDir = null;
   if (process.env.PORTABLE_EXECUTABLE_DIR) {
     portableDataDir = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
-  } else if (app.isPackaged) {
-    const exeDir = path.dirname(process.execPath);
+  } else {
+    const exeDir = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
     const adjacentDataDir = path.join(exeDir, 'data');
     const adjacentPortableFlag = path.join(exeDir, 'portable.flag');
-    if (fs.existsSync(adjacentDataDir) || fs.existsSync(adjacentPortableFlag)) {
+    const hasPortableArg = process.argv.includes('--portable');
+    if (fs.existsSync(adjacentDataDir) || fs.existsSync(adjacentPortableFlag) || hasPortableArg) {
       portableDataDir = adjacentDataDir;
     }
   }
@@ -602,11 +604,43 @@ function downloadFileWithProgress(fileUrl, destPath, onProgress) {
 
 // Register IPC handlers
 ipcMain.handle('socdof:get-platform', () => {
+  const userData = app.getPath('userData');
+  const isCloud = /onedrive|dropbox|google drive|nextcloud|synology|qnap|owncloud/i.test(userData);
   return {
     isElectron: true,
     platform: process.platform,
-    version: app.getVersion()
+    version: app.getVersion(),
+    isPortable: Boolean(portableDataDir),
+    portableDataDir: portableDataDir || null,
+    userDataPath: userData,
+    isCloudStorage: isCloud
   };
+});
+
+ipcMain.handle('socdof:open-portable-folder', async () => {
+  try {
+    const targetDir = portableDataDir || app.getPath('userData');
+    if (fs.existsSync(targetDir)) {
+      await shell.openPath(targetDir);
+      return { success: true, path: targetDir };
+    }
+    return { success: false, error: 'Ordner existiert nicht' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('socdof:enable-portable-mode', async () => {
+  try {
+    const exeDir = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
+    const adjacentFlag = path.join(exeDir, 'portable.flag');
+    const adjacentData = path.join(exeDir, 'data');
+    if (!fs.existsSync(adjacentData)) fs.mkdirSync(adjacentData, { recursive: true });
+    if (!fs.existsSync(adjacentFlag)) fs.writeFileSync(adjacentFlag, 'portable=true\n', 'utf8');
+    return { success: true, dataDir: adjacentData };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('socdof:get-network-ips', () => {
@@ -1521,8 +1555,21 @@ ipcMain.handle('socdof:test-updating-splash', (_event, targetVersion) => {
   return { success: true };
 });
 
-// Backup directory manager - ensures Documents/SOCDOF/backups is pre-created and ready
+// Backup directory manager - ensures Documents/SOCDOF/backups (or portable data/backups) is pre-created and ready
 function getBackupDirectory() {
+  if (portableDataDir) {
+    const backupDir = path.join(portableDataDir, 'backups');
+    try {
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    } catch (e) {
+      console.warn('[SOCDOF Electron] Error preparing portable backup directory:', e);
+    }
+    return {
+      socdofDir: portableDataDir,
+      backupDir
+    };
+  }
+
   let documentsDir;
   try {
     documentsDir = app.getPath('documents');

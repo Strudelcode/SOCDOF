@@ -63,6 +63,7 @@ import {
   resetPasswordWithRecovery,
   saveSession,
   tryAutoLoginSingleUser,
+  quickSwitchUser,
   updateSecuritySettings,
   updateUser,
   type SecuritySettings,
@@ -1719,16 +1720,23 @@ function AuthAvatar({ user, size = 'md' }: { user: UserAccount; size?: 'sm' | 'm
     )
   );
 
+  const clean = (user.displayName || user.username || '').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : clean.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || clean[0]?.toUpperCase() || 'U';
+
   return (
-   <div className={`${sizeClass} rounded-full overflow-hidden bg-slate-200/80 dark:bg-white/10 border border-white/50 dark:border-white/10 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none transition-all`}>
+    <div
+      className={`${sizeClass} rounded-full overflow-hidden border border-white/50 dark:border-white/20 flex items-center justify-center shrink-0 shadow-lg mx-auto select-none transition-all`}
+      style={!isImageAvatar ? { backgroundColor: 'var(--accent, #4f46e5)' } : undefined}
+    >
       {isImageAvatar ? (
         <img src={user.avatar} alt="" className="w-full h-full object-cover object-center block shrink-0" />
-      ) : user.avatar && user.avatar.length <= 2 ? (
-        <span className="font-bold text-slate-700 dark:text-white" style={{ fontSize: `${iconSize * 0.85}px` }}>
-          {user.avatar}
-        </span>
       ) : (
-        <UserRound size={iconSize} strokeWidth={1.6} className="text-slate-400 dark:text-slate-500 shrink-0" />
+        <span className="font-black text-white tracking-wider uppercase select-none drop-shadow-sm" style={{ fontSize: `${iconSize * 0.9}px` }}>
+          {initials}
+        </span>
       )}
     </div>
   );
@@ -2017,6 +2025,26 @@ function LoginScreen({
                 {t('auth.autologin_quick_enter', lang, 'Direkt zum Desktop')} →
               </button>
             </div>
+          )}
+
+          {getSecuritySettings().workstationMode === 'single_pc' && selectedUser && (
+            <button
+              type="button"
+              onClick={async () => {
+                sounds.playClick();
+                setIsSigningIn(true);
+                const session = await quickSwitchUser(selectedUser.id);
+                if (session) {
+                  window.location.reload();
+                } else {
+                  setIsSigningIn(false);
+                }
+              }}
+              className="w-full py-2.5 px-3 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md mb-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Als {selectedUser.displayName} fortfahren (1 Klick)</span>
+            </button>
           )}
 
          <div className="relative w-full">

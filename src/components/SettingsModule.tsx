@@ -1421,7 +1421,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     >
       
       {/* 1. Sleek, Space-Efficient Top Toolbar */}
-      <div className="shrink-0 p-2.5 sm:p-4 pb-0 max-w-6xl w-full mx-auto space-y-2">
+      <div className="shrink-0 p-2.5 sm:p-4 pb-0 w-full max-w-[1780px] mx-auto space-y-2">
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-3 py-2.5 sm:px-3.5 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2.5 sm:flex-nowrap sm:gap-4">
           
@@ -1602,11 +1602,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       </div>
 
       {/* 2. Main Responsive Two-Column Layout (Windows Settings Style Sidebar + Content) */}
-      <div className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-4 md:p-6 pb-2 max-w-6xl w-full mx-auto">
+      <div className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-4 md:p-6 pb-2 w-full max-w-[1780px] mx-auto">
         <div className="h-full min-h-0 flex flex-col md:flex-row gap-3 sm:gap-5 md:gap-6 overflow-hidden">
         
         {/* Left Sidebar Navigation (Desktop / Tablet view: side by side, independently scrollable) */}
-        <div className="hidden md:flex flex-col w-64 lg:w-72 xl:w-80 shrink-0 h-full min-h-0 overflow-y-auto space-y-3 pr-1.5 pb-24 scrollbar-thin">
+        <div className="hidden md:flex flex-col w-64 lg:w-72 xl:w-80 shrink-0 h-full min-h-0 overflow-y-auto space-y-3 px-1 pr-2.5 pb-24 scrollbar-thin">
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-3">
             {categoryGroups.map((group) => (
               <div key={group.id} className="space-y-1">
@@ -1747,7 +1747,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         </div>
 
         {/* Right Content Area (Independently scrollable) */}
-        <div className="flex-1 min-w-0 h-full min-h-0 overflow-y-auto pr-1.5 pb-28 scrollbar-thin space-y-5 sm:space-y-6 settings-pane">
+        <div className="flex-1 min-w-0 h-full min-h-0 overflow-y-auto pt-1 sm:pt-2 px-1 pr-1.5 pb-28 scrollbar-thin space-y-5 sm:space-y-6 settings-pane">
 
           {/* SECTION: HOME / OVERVIEW (Recent Searches & Quick Tiles) */}
           {activeSection === 'home' && (
@@ -6564,6 +6564,63 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   >
                     <Download className="w-4 h-4" />
                     <span>{t('settings.updates', activeLang, 'Updates & System')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 1c: Portable Edition & USB / OneDrive Drive Integration */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                    <HardDrive className="w-4 h-4 text-emerald-500" />
+                    <span>{t('portable.card_title', activeLang, 'Portable Edition & USB- / Cloud-Laufwerk')}</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    {t('portable.status_active', activeLang, 'Portabler Modus aktiv')}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {t('portable.card_desc', activeLang, 'SOCDOF vollständig autark von USB-Stick, externer SSD oder Synchronisationsordner (z. B. OneDrive, Nextcloud) ausführen. Alle Daten, Einstellungen und Backups bleiben im portablen Ordner, ohne Windows-Registry oder Host-AppData zu berühren.')}
+                </p>
+
+                <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold block">OneDrive / Cloud-Speicher &amp; Multi-PC</span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400 block leading-relaxed">
+                      {t('portable.onedrive_hint', activeLang, 'OneDrive / Cloud-Speicher erkannt: Multi-PC-Synchronisation aktiv. Stellen Sie sicher, dass der Cloud-Sync abgeschlossen ist, bevor Sie auf einem anderen PC starten.')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      if (typeof (window as any).electronAPI?.openPortableFolder === 'function') {
+                        (window as any).electronAPI.openPortableFolder();
+                      } else {
+                        setActiveSection('storage');
+                      }
+                    }}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    <span>{t('portable.open_folder_btn', activeLang, 'Portablen Datenordner öffnen')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setActiveSection('storage');
+                    }}
+                    className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Database className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Speicher &amp; Backups verwalten</span>
                   </button>
                 </div>
               </div>

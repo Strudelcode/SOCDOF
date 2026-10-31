@@ -4,8 +4,8 @@
 
 ---
 
-> ## 1. Operating Rules & Guidelines
-> 
+## 1. Operating Rules & Guidelines
+
 > ### 1.1 Language & Documentation
 > - All development notes, release history files (`versions/V*.md`), code comments, and technical guides MUST strictly be written in **English**.
 > - Multilingual user-facing UI texts are maintained via `src/lib/i18n.ts` (DE, EN, FR, ES).
@@ -25,4 +25,3 @@
 - [ ] Continuous module performance and responsive UX refinements.
 - [ ] Automated regression coverage for critical local data workflows.
 - [ ] Accessibility audit and keyboard-navigation refinement across major desktop surfaces.
-

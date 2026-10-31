@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '24.12.0';
+export const APP_VERSION = '25.1.0';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -15,10 +15,44 @@ export const APP_COPYRIGHT = '© Strudel';
 import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
 
 /**
- * Active major version releases (V24).
+ * Active major version releases (V25).
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.1.0',
+    date: '2026-10-31',
+    title: 'Shared Workstation Mode, 1-Click Profile Switching & Portable USB/OneDrive Hardening',
+    highlights: [
+      'Single-PC & Workshop Operating Mode: Added dedicated shared workstation configuration optimized for single computers used by multiple colleagues or family members, removing corporate bureaucracy and enabling swift 1-click user switches without password friction',
+      '1-Click Start Menu User Switcher: Integrated lightning-fast profile switching directly into the Start menu power flyout and lock screen',
+      'Fluid Widescreen Settings Layout: Expanded settings container width to max-w-[1780px] to eliminate wide dead voids on 1080p+ widescreen monitors while maintaining responsive mobile layout',
+      'Sticky Settings & Scroll Clipping Polish: Made account and user management tab headers sticky with backdrop-blur, and added scroll buffer padding so top card curvature is preserved without clipping',
+      'Uppercase Initials Avatar System: Replaced lone unicode bullet points with bold, elegant uppercase initials badges matching dynamic accent colors',
+      'Portable Edition & USB/OneDrive Card: Added dedicated Portable Mode card in Settings with 1-click data folder explorer access and cloud drive synchronization status'
+    ]
+  },
+  {
+    version: '25.0.1',
+    date: '2026-10-31',
+    title: 'Settings Sidebar Scrollbar & Border Clipping Polish',
+    highlights: [
+      'Settings Sidebar Scrollbar Inset: Added clean right padding inset to the settings sidebar container ensuring vertical scrollbars never intersect or clip rounded card corners',
+      'Refined UI Layout & Padding: Bounded container scrolling and crisp rounded-3xl borders across all settings sections'
+    ]
+  },
+  {
+    version: '25.0.0',
+    date: '2026-10-31',
+    title: 'Multi-User Collaboration, Per-User Language Profiles & Advanced Portable Architecture',
+    highlights: [
+      'Per-User Language Profiles: Language settings are strictly bound to each user account profile, ensuring multi-user environments do not overwrite each other',
+      'Abgesicherter Modus & Collaboration: Multi-user workstation support with admin designation, passwordless quick-login, and real-time presence detection',
+      'Network Conflict Warnings: Active session tracking detects concurrent network share / OneDrive usage with clean remote auto-save coordination',
+      'Portable & OneDrive Architecture: Complete setup guides for Setup, Portable, and Installer variants with seamless OneDrive and network share sync',
+      'App Launcher Layout Protection: Increased grid spacing and bounded container height ensuring multi-line titles never overlap adjacent rows'
+    ]
+  },
   {
     version: '24.12.0',
     date: '2026-10-30',

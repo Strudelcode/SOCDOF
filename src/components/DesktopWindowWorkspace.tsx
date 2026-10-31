@@ -112,7 +112,7 @@ import { buildUnifiedCalendarEvents, formatLocalDate, isEventOnDate } from '../l
 import { SocdofLogo } from './SocdofLogo';
 import { APP_VERSION } from '../lib/version';
 import { isElectron, GITHUB_RELEASES_URL, quitDesktopApp } from '../lib/platform';
-import { getCurrentUser, getSession, getUserById } from '../lib/auth';
+import { getCurrentUser, getSession, getUserById, getUsers, getSecuritySettings, quickSwitchUser } from '../lib/auth';
 import { WebPreviewModal } from './WebPreviewModal';
 import { UpdatePromptModal } from './UpdatePromptModal';
 import { checkForAppUpdates, isVersionSkipped, isUpdateSnoozed, UpdateInfo } from '../lib/updateChecker';
@@ -3895,6 +3895,42 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
                   <Users className="w-4 h-4 text-sky-500" />
                   <span>{t('desktop.start_switch_user', currentLang, 'Benutzer wechseln')}</span>
                 </button>
+                {/* 1-Click Fast User Switching (Workstation / Single-PC Mode) */}
+                {(() => {
+                  const sec = getSecuritySettings();
+                  if (!sec.allowQuickUserSwitch && sec.workstationMode !== 'single_pc') return null;
+                  const allOtherUsers = getUsers().filter(u => u.active && u.id !== currentAuthUser?.id);
+                  if (allOtherUsers.length === 0) return null;
+                  return (
+                    <div className="py-1 border-y border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+                      <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        {t('users.mode_single_pc', currentLang, 'Schnellwechsel (1-Klick)')}
+                      </div>
+                      {allOtherUsers.map(other => (
+                        <button
+                          key={other.id}
+                          type="button"
+                          onClick={async () => {
+                            sounds.playClick();
+                            setIsStartMenuOpen(false);
+                            setIsPowerMenuOpen(false);
+                            const nextSession = await quickSwitchUser(other.id);
+                            if (nextSession) {
+                              window.location.reload();
+                            }
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer"
+                        >
+                          <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-black text-[9px] flex items-center justify-center shrink-0 uppercase">
+                            {other.displayName ? other.displayName.slice(0, 2) : 'U'}
+                          </div>
+                          <span className="truncate flex-1 font-semibold">{other.displayName}</span>
+                          <span className="text-[9px] text-slate-400 font-medium">@{other.username}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <button type="button" onClick={() => dispatchAuthAction('logout')} className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                   <LogOut className="w-4 h-4 text-amber-500" />
                   <span>{t('desktop.start_sign_out', currentLang, 'Abmelden')}</span>

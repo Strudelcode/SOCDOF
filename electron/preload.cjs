@@ -77,5 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('socdof:remote-quit-requested', listener);
     return () => ipcRenderer.removeListener('socdof:remote-quit-requested', listener);
   },
-  getNetworkLockStatus: () => ipcRenderer.invoke('socdof:get-network-lock-status')
+  getNetworkLockStatus: () => ipcRenderer.invoke('socdof:get-network-lock-status'),
+  openPortableFolder: () => ipcRenderer.invoke('socdof:open-portable-folder'),
+  enablePortableMode: () => ipcRenderer.invoke('socdof:enable-portable-mode')
 });

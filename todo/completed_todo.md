@@ -2,6 +2,19 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Shared Workstation Mode, 1-Click Profile Switching & Portable USB/OneDrive Hardening (v25.1.0)
+- [x] Implemented dedicated Single-PC & Workshop Operating Mode (`workstationMode: 'single_pc'`) tailored for shared computers without excessive bureaucracy.
+- [x] Added swift 1-click profile switching via `quickSwitchUser()` without password prompts or session destruction.
+- [x] Integrated 1-click user switcher directly into the Start menu Power menu and lock screen.
+- [x] Expanded Settings window layout from narrow `max-w-6xl` to `w-full max-w-[1780px] mx-auto`, eliminating void margins on widescreen monitors.
+- [x] Made User Management tab headers sticky (`sticky top-0 z-20 backdrop-blur-md`) and added scroll padding to preserve rounded card arcs without clipping.
+- [x] Replaced lone unicode bullet points (`●`) with bold, modern uppercase initials badges matching dynamic accent colors.
+- [x] Enhanced portable detection and automated backups routing directly to `<portableDataDir>/backups` on USB / OneDrive drives.
+- [x] Added dedicated Portable Edition Card in Settings with 1-click Explorer folder opener and cloud drive status.
+- [x] Fully translated all new workstation options, toggles, and notices in German, English, French, and Spanish.
+
+---
+
 ### Word-Style Tables Redesign & Modern Spreadsheet Features (v24.12.0)
 - [x] Replaced the large Tabellen toolbar with a compact Word-style ribbon (File, Home, Insert, View) with an underline on the active tab.
 - [x] Grouped buttons with small labels; font and fill colors chosen from a Word-style color row.

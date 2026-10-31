@@ -23,6 +23,9 @@ export interface SecuritySettings {
   lockoutMinutes: 5 | 10 | 15;
   exponentialBackoff: boolean;
   autoLoginSingleUser?: boolean;
+  workstationMode?: 'single_pc' | 'multi_employee';
+  allowQuickUserSwitch?: boolean;
+  defaultLoginUserId?: string;
 }
 
 export interface UserAccount {
@@ -73,6 +76,8 @@ const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   lockoutMinutes: 5,
   exponentialBackoff: true,
   autoLoginSingleUser: false,
+  workstationMode: 'single_pc',
+  allowQuickUserSwitch: true,
 };
 const AUTH_CHANGE_EVENT = 'socdof-auth-changed';
 
@@ -115,6 +120,9 @@ function parseSecurity(raw: unknown): SecuritySettings {
       parsed.lockoutMinutes === 10 || parsed.lockoutMinutes === 15 ? parsed.lockoutMinutes : 5,
     exponentialBackoff: parsed.exponentialBackoff !== false,
     autoLoginSingleUser: Boolean(parsed.autoLoginSingleUser),
+    workstationMode: parsed.workstationMode === 'multi_employee' ? 'multi_employee' : 'single_pc',
+    allowQuickUserSwitch: parsed.allowQuickUserSwitch !== false,
+    defaultLoginUserId: typeof parsed.defaultLoginUserId === 'string' ? parsed.defaultLoginUserId : undefined,
   };
 }
 
@@ -274,6 +282,10 @@ export function getSecuritySettings(): SecuritySettings {
   return securityCache;
 }
 
+export function isSinglePcWorkstationMode(): boolean {
+  return (securityCache.workstationMode ?? 'single_pc') === 'single_pc';
+}
+
 export function updateSecuritySettings(patch: Partial<SecuritySettings>): SecuritySettings {
   requireAdmin();
   const current = getSecuritySettings();
@@ -298,10 +310,48 @@ export function updateSecuritySettings(patch: Partial<SecuritySettings>): Securi
       patch.autoLoginSingleUser !== undefined
         ? Boolean(patch.autoLoginSingleUser)
         : Boolean(current.autoLoginSingleUser),
+    workstationMode: patch.workstationMode ?? current.workstationMode ?? 'single_pc',
+    allowQuickUserSwitch: patch.allowQuickUserSwitch !== undefined ? Boolean(patch.allowQuickUserSwitch) : current.allowQuickUserSwitch !== false,
+    defaultLoginUserId: patch.defaultLoginUserId !== undefined ? patch.defaultLoginUserId : current.defaultLoginUserId,
   };
 
   void persistSecurity(next);
   return next;
+}
+
+export async function quickSwitchUser(userId: string): Promise<AuthSession | null> {
+  await initializeAuthStore();
+  const user = getUserById(userId);
+  if (!user || !user.active) return null;
+  if (getLockoutRemaining(user) > 0) return null;
+
+  const now = Date.now();
+  const session: AuthSession = {
+    userId: user.id,
+    sessionId: toBase64(randomBytes(24)),
+    createdAt: now,
+    lastActivityAt: now,
+    locked: false,
+  };
+
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.removeItem('socdof_explicit_logout');
+  }
+
+  const users = [...usersCache];
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx >= 0) {
+    users[idx] = {
+      ...users[idx],
+      lastLoginAt: new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    };
+    await persistUsers(users);
+  }
+
+  notifyAuthChanged();
+  return session;
 }
 
 export function tryAutoLoginSingleUser(): AuthSession | null {
@@ -436,7 +486,12 @@ export async function createUser(input: {
   if (users.length > 0) requireAdmin();
 
   if (securityCache.autoLoginSingleUser && users.length >= 1) {
-    throw new Error('cannot_create_second_user_while_autologin_active');
+    securityCache = {
+      ...securityCache,
+      autoLoginSingleUser: false,
+      defaultLoginUserId: users[0].id
+    };
+    void persistSecurity(securityCache);
   }
 
   const username = input.username.trim();
