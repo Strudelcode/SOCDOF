@@ -48,6 +48,8 @@ import {
   adminResetPassword,
   authenticate,
   changePassword,
+  completeFirstLoginRecovery,
+  RECOVERY_QUESTIONS,
   clearSession,
   createUser,
   deleteUser,
@@ -68,8 +70,7 @@ import {
   updateUser,
   type SecuritySettings,
   type UserAccount,
-  type UserRole,
-  RECOVERY_QUESTIONS
+  type UserRole
 } from '../lib/auth';
 import { ACCENT_LIST, applyAccentColor } from '../lib/accent';
 import type { ActiveModule } from '../types';
@@ -2027,7 +2028,7 @@ function LoginScreen({
             </div>
           )}
 
-          {getSecuritySettings().workstationMode === 'single_pc' && selectedUser && (
+          {selectedUser?.passwordless && (
             <button
               type="button"
               onClick={async () => {
@@ -2043,11 +2044,11 @@ function LoginScreen({
               className="w-full py-2.5 px-3 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md mb-2"
             >
               <LogIn className="w-4 h-4" />
-              <span>Als {selectedUser.displayName} fortfahren (1 Klick)</span>
+              <span>{selectedUser.displayName} fortfahren</span>
             </button>
           )}
 
-         <div className="relative w-full">
+         {!selectedUser?.passwordless && <div className="relative w-full">
             <input
               autoFocus={!otherUser}
               className="w-full rounded-2xl border border-white/20 bg-black/30 hover:bg-black/40 focus:bg-black/45 text-white placeholder:text-white/50 backdrop-blur-xl pl-4 pr-12 py-3 sm:py-3.5 outline-none focus:ring-2 focus:ring-white/40 text-base sm:text-sm transition shadow-lg min-h-[48px]"
@@ -2066,7 +2067,7 @@ function LoginScreen({
             >
               <ArrowRight size={18} />
             </button>
-          </div>
+          </div>}
 
           {remaining > 0 && <p className="text-xs sm:text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
           {error && <p className="text-xs sm:text-sm text-red-300 drop-shadow">{error}</p>}
@@ -2171,9 +2172,22 @@ function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount |
 }
 
 function ForcedPasswordScreen({ text, user, onDone, onLogout }: { text: AuthText; user: UserAccount; onDone: () => void; onLogout: () => void }) {
+  const lang = useLanguage();
   const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState('');
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); if (password !== confirm) return setError(text.mismatch); try { await changePassword(user.id, password); onDone(); } catch { setError(text.short); } };
-  return <AuthShell title={text.newPasswordTitle} subtitle={text.forcePassword}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onLogout} className="w-full rounded-xl border py-3">{text.logout}</button></form></AuthShell>;
+  const [question, setQuestion] = useState(RECOVERY_QUESTIONS[0]); const [answer, setAnswer] = useState('');
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (password !== confirm) return setError(text.mismatch);
+    try {
+      await changePassword(user.id, password);
+      if (user.recoveryPending) {
+        if (!answer.trim()) return setError(text.recoveryRequired);
+        await completeFirstLoginRecovery(user.id, question, answer);
+      }
+      onDone();
+    } catch { setError(text.short); }
+  };
+  return <AuthShell title={text.newPasswordTitle} subtitle={text.forcePassword}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />{user.recoveryPending && <><select className={fieldClass} value={question} onChange={(e) => setQuestion(e.target.value)}>{RECOVERY_QUESTIONS.map((q) => <option key={q} value={q}>{getRecoveryQuestionLabel(q, lang)}</option>)}</select><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /></>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onLogout} className="w-full rounded-xl border py-3">{text.logout}</button></form></AuthShell>;
 }
 
 function RecoveryScreen({ text, users, onBack }: { text: AuthText; users: UserAccount[]; onBack: () => void }) {
