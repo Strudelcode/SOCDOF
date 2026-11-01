@@ -45,25 +45,36 @@ if (!gotSingleInstanceLock) {
 let mainWindow;
 let splashWindow = null;
 
-// First-run setup marker: created in the user data folder (the portable 'data' folder when portable)
-// once the initial data preparation has finished. Later launches skip the splash and setup progress.
-const FIRST_RUN_MARKER_NAME = 'first-run-setup-complete.flag';
+// Setup marker: 'setup-state.json' in the user data folder (the portable 'data' folder when portable).
+// It is written only after the first-run data preparation has completed successfully. Later launches
+// skip the heavy preparation (and the splash) when the stored setupVersion matches SETUP_VERSION.
+// Bump SETUP_VERSION whenever the first-run preparation steps change so existing installs run them again.
+const SETUP_VERSION = 1;
+const SETUP_STATE_FILE_NAME = 'setup-state.json';
 let firstRunSetupPending = false;
 let revealMainWindowFn = null;
 
+function getSetupStatePath() {
+  return path.join(app.getPath('userData'), SETUP_STATE_FILE_NAME);
+}
+
+// Returns true when the stored marker is missing, unreadable, or was written for another setup version.
 function isFirstRunSetupNeeded() {
   try {
-    return !fs.existsSync(path.join(app.getPath('userData'), FIRST_RUN_MARKER_NAME));
+    const raw = fs.readFileSync(getSetupStatePath(), 'utf8');
+    const state = JSON.parse(raw);
+    return state.setupVersion !== SETUP_VERSION;
   } catch {
-    return false;
+    return true;
   }
 }
 
 function markFirstRunSetupComplete() {
   try {
-    fs.writeFileSync(path.join(app.getPath('userData'), FIRST_RUN_MARKER_NAME), new Date().toISOString(), 'utf8');
+    const state = { setupVersion: SETUP_VERSION, completedAt: new Date().toISOString() };
+    fs.writeFileSync(getSetupStatePath(), JSON.stringify(state, null, 2), 'utf8');
   } catch (err) {
-    console.warn('[SOCDOF Electron] Could not write first-run marker:', err);
+    console.warn('[SOCDOF Electron] Could not write setup marker:', err);
   }
 }
 
@@ -83,10 +94,10 @@ function sendSplashProgress(percent, stepKey) {
 }
 
 // Finish the first-run setup: store the marker and let the splash hand over to the main window.
-function finishFirstRunSetup() {
+function finishFirstRunSetup(succeeded) {
   if (!firstRunSetupPending) return;
   firstRunSetupPending = false;
-  markFirstRunSetupComplete();
+  if (succeeded) markFirstRunSetupComplete();
   sendSplashProgress(100, 'ready');
   setTimeout(() => {
     if (revealMainWindowFn) revealMainWindowFn();
@@ -1062,6 +1073,12 @@ function setupLanguagesFolderWatcher() {
         notifyChange('languages', eventType, filename);
       }, 300);
     });
+    // Watch errors (e.g. on network shares) are emitted asynchronously; without a listener they crash the main process
+    languageFolderWatcher.on('error', (err) => {
+      console.warn('Languages directory watcher error:', err);
+      try { languageFolderWatcher.close(); } catch {}
+      languageFolderWatcher = null;
+    });
   } catch (err) {
     console.warn('Could not initialize languages directory watcher:', err);
   }
@@ -1073,6 +1090,11 @@ function setupLanguagesFolderWatcher() {
       flagDebounceTimer = setTimeout(() => {
         notifyChange('flags', eventType, filename);
       }, 300);
+    });
+    flagsFolderWatcher.on('error', (err) => {
+      console.warn('Flags directory watcher error:', err);
+      try { flagsFolderWatcher.close(); } catch {}
+      flagsFolderWatcher = null;
     });
   } catch (err) {
     console.warn('Could not initialize flags directory watcher:', err);
@@ -1249,6 +1271,11 @@ function setupTemplatesWatcher() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('socdof:templates-folder-changed', { eventType, filename });
       }
+    });
+    templatesWatcher.on('error', (err) => {
+      console.warn('Templates watcher error:', err);
+      try { templatesWatcher.close(); } catch {}
+      templatesWatcher = null;
     });
   } catch (err) {
     console.warn('Could not setup templates watcher:', err);
@@ -1460,6 +1487,8 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
           detached: true,
           stdio: 'ignore'
         });
+        // A missing or blocked powershell.exe emits an async 'error' event; without a listener it crashes the main process
+        child.on('error', (err) => console.error('Installer launcher failed:', err));
         child.unref();
       } catch (spawnErr) {
         console.error('Failed to spawn installer via launcher:', spawnErr);
@@ -1600,6 +1629,8 @@ try {
       detached: true,
       stdio: 'ignore'
     });
+    // Same guard as the installer launcher: an async spawn failure must not crash the main process
+    splashProc.on('error', (err) => console.warn('Updating splash failed to start:', err));
     splashProc.unref();
   } catch (err) {
     console.warn('Failed to launch updating splash screen:', err);
@@ -2058,21 +2089,27 @@ app.whenReady().then(async () => {
   if (firstRunSetupPending) createSplashWindow();
   createWindow();
 
-  // Defer background language seed & backup folder readiness so the UI thread renders immediately
+  // Defer background init so the UI thread renders immediately.
+  // Later launches only run the cheap folder checks; the first run also seeds the language files.
   setImmediate(() => {
     try {
       if (firstRunSetupPending) sendSplashProgress(20, 'folders');
       getBackupDirectory();
-      if (firstRunSetupPending) sendSplashProgress(45, 'languages');
-      ensureDefaultLanguageFiles();
+      if (firstRunSetupPending) {
+        sendSplashProgress(45, 'languages');
+        ensureDefaultLanguageFiles();
+      }
       if (firstRunSetupPending) sendSplashProgress(70, 'watchers');
       setupLanguagesFolderWatcher();
       setupTemplatesWatcher();
-      if (firstRunSetupPending) sendSplashProgress(90, 'finishing');
-      finishFirstRunSetup();
+      if (firstRunSetupPending) {
+        sendSplashProgress(90, 'finishing');
+        finishFirstRunSetup(true);
+      }
     } catch (e) {
       console.warn('Background init error:', e);
-      finishFirstRunSetup();
+      // A failed first run must not be marked complete, so it runs again on the next launch
+      finishFirstRunSetup(false);
     }
   });
 

@@ -1135,6 +1135,24 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
   // Settings Dirty State & Save-on-Close Confirmation
   const [isSettingsDirty, setIsSettingsDirty] = useState(false);
   const [isSettingsCloseConfirmOpen, setIsSettingsCloseConfirmOpen] = useState(false);
+  // Desktop X button quit confirmation
+  const [isQuitConfirmOpen, setIsQuitConfirmOpen] = useState(false);
+  // Shown when the X is clicked during the cooldown
+  const [isCooldownPromptOpen, setIsCooldownPromptOpen] = useState(false);
+  // Briefly disables the window controls after a window was closed, to prevent accidental clicks
+  const [isWindowControlsCooling, setIsWindowControlsCooling] = useState(false);
+  const controlsCooldownRef = useRef<number | null>(null);
+  const startControlsCooldown = useCallback(() => {
+    setIsWindowControlsCooling(true);
+    if (controlsCooldownRef.current) window.clearTimeout(controlsCooldownRef.current);
+    controlsCooldownRef.current = window.setTimeout(() => {
+      setIsWindowControlsCooling(false);
+      controlsCooldownRef.current = null;
+    }, 2000);
+  }, []);
+  useEffect(() => () => {
+    if (controlsCooldownRef.current) window.clearTimeout(controlsCooldownRef.current);
+  }, []);
   const settingsSaveRef = useRef<(() => Promise<void>) | null>(null);
   const settingsDiscardRef = useRef<(() => void) | null>(null);
 
@@ -2278,6 +2296,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
       return;
     }
     sounds.playWindowClose();
+    startControlsCooldown();
     if (closing) {
       saveWindowState(closing.module, {
         x: closing.x,
@@ -2458,7 +2477,17 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
     closeAllContextMenus();
   };
 
+  // Desktop X button: asks for confirmation before the app quits
   const handleShutdown = () => {
+    if (isWindowControlsCooling) {
+      setIsCooldownPromptOpen(true);
+      return;
+    }
+    setIsQuitConfirmOpen(true);
+  };
+
+  const confirmShutdown = () => {
+    setIsQuitConfirmOpen(false);
     sounds.playShutdown();
     setIsPowerMenuOpen(false);
     setIsStartMenuOpen(false);
@@ -2593,6 +2622,7 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           <button
             type="button"
             onClick={handleMinimizeApp}
+            disabled={isWindowControlsCooling}
             title={t('desktop.minimize_app', currentLang, 'Fenster minimieren')}
             aria-label={t('desktop.minimize_app', currentLang, 'Fenster minimieren')}
             className="w-10 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition cursor-pointer"
@@ -3880,9 +3910,9 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
           </div>
 
           {/* Bottom Footer Actions: Current User + Power */}
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="relative pt-3 border-t border-slate-200 dark:border-slate-800">
             {isPowerMenuOpen && (
-              <div className="mb-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-950/95 shadow-xl overflow-hidden animate-fade-in">
+              <div className="absolute bottom-full left-0 right-0 mb-2 z-10 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-xl overflow-hidden animate-fade-in">
                 <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     {t('desktop.start_power', currentLang, 'Ein/Aus')}
@@ -5321,6 +5351,74 @@ export const DesktopWindowWorkspace: React.FC<DesktopWindowWorkspaceProps> = ({
             {fullscreenToast.subtext && (
               <span className="text-[11px] text-slate-600 dark:text-slate-300 font-normal">{fullscreenToast.subtext}</span>
             )}
+          </div>
+        </div>
+      )}
+      {/* Cooldown prompt: the close button was clicked right after a window closed */}
+      {isCooldownPromptOpen && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsCooldownPromptOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+          >
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              {t('desktop.close_cooldown_prompt', currentLang)}
+            </h3>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCooldownPromptOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_no', currentLang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsCooldownPromptOpen(false); setIsQuitConfirmOpen(true); }}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_yes', currentLang)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Quit Confirmation Modal (desktop X button) */}
+      {isQuitConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsQuitConfirmOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+          >
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              {t('desktop.quit_confirm_title', currentLang)}
+            </h3>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsQuitConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_no', currentLang)}
+              </button>
+              <button
+                type="button"
+                onClick={confirmShutdown}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_yes', currentLang)}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -256,6 +256,15 @@ export const DocumentationApp: React.FC = () => {
               })}
             </li>
             <li>
+              <strong>{getLoc({ de: 'Ein/Aus-Menü: ', en: 'Power menu: ', fr: 'Menu Marche/Arrêt : ', es: 'Menú de encendido: ' })}</strong>
+              {getLoc({
+                de: 'Der Ein/Aus-Button unten im Startmenü öffnet ein Menü mit Sperren, Benutzer wechseln, Abmelden, Arbeitsbereich neu starten und SOCDOF schließen. Das Menü liegt als eigene Ebene über dem Startmenü und verschiebt dessen Inhalt nicht.',
+                en: 'The power button at the bottom of the Start menu opens a menu with Lock, Switch user, Sign out, Restart workspace and Close SOCDOF. The menu sits as its own layer above the Start menu and does not move its content.',
+                fr: 'Le bouton Marche/Arrêt en bas du menu Démarrer ouvre un menu avec Verrouiller, Changer d’utilisateur, Se déconnecter, Redémarrer l’espace de travail et Fermer SOCDOF. Le menu s’affiche au-dessus du menu Démarrer sans déplacer son contenu.',
+                es: 'El botón de encendido en la parte inferior del menú Inicio abre un menú con Bloquear, Cambiar de usuario, Cerrar sesión, Reiniciar el espacio de trabajo y Cerrar SOCDOF. El menú se muestra como una capa propia sobre el menú Inicio y no desplaza su contenido.'
+              })}
+            </li>
+            <li>
               <strong>{getLoc({ de: 'Einstellungen finden: ', en: 'Find a setting: ', fr: 'Trouver un réglage : ', es: 'Buscar un ajuste: ' })}</strong>
               {getLoc({
                 de: 'In Einstellungen führen die Schnellzugriffe zu häufig genutzten Bereichen. Am Desktop wählen Sie Kategorien in der Seitenleiste; in schmalen Fenstern öffnen Sie das gruppierte Bereiche-Menü. Über die Suche finden Sie Einstellungen direkt. Firmendaten ergänzen Sie unter Allgemein & Stammdaten.',

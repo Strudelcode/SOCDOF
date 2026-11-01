@@ -58,6 +58,7 @@ import {
   AUTH_CHANGE_EVENT_NAME
 } from '../lib/auth';
 import { getRecoveryQuestionLabel, t, useLanguage } from '../lib/i18n';
+import { computePasswordStrength } from './AuthGate';
 import { sounds } from '../lib/sound';
 
 function getUserInitials(name?: string, fallback = 'U'): string {
@@ -106,6 +107,11 @@ function renderUserAvatar(
     </div>
   );
 }
+
+const requiredFieldClass = (invalid: boolean) =>
+  invalid
+    ? fieldClass.replace('border-slate-200/80 dark:border-white/10', 'border-red-500 dark:border-red-500 ring-2 ring-red-500/40')
+    : fieldClass;
 
 const fieldClass =
   'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white scheme-light dark:scheme-dark px-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500';
@@ -225,7 +231,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [selectedId, setSelectedId] = useState<string>(() => currentUser?.id ?? getUsers()[0]?.id ?? '');
   const [showCreate, setShowCreate] = useState(false);
-  const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
+  const [createAttempted, setCreateAttempted] = useState(false);
 
   useEffect(() => {
     if (!showCreate) return;
@@ -245,11 +252,9 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     role: 'user' as UserRole,
     accountType: 'business' as AccountType,
     avatar: '',
-    recoveryQuestion: RECOVERY_QUESTIONS[0],
-    recoveryAnswer: '',
-    recoveryPerPerson: false,
     passwordless: false,
   });
+  const tempPasswordStrength = computePasswordStrength(newUser.password);
 
   const refreshUsers = () => {
     const freshUsers = getUsers();
@@ -332,6 +337,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     tabRoles: t('users.tab_roles', lang, 'Rollen & Apps'),
     rolesTitle: t('users.roles_title', lang, 'Benutzerdefinierte Rollen'),
     tempPasswordHint: t('users.temp_password_hint', lang, 'Dieses Passwort ist temporär. Der Benutzer legt beim ersten Login sein eigenes Passwort fest.'),
+    tempPassword: t('users.temp_password', lang, 'Temporäres Passwort'),
     rolesHint: t('users.roles_hint', lang, 'Administratoren haben immer Zugriff auf alle Apps. Benutzer ohne eigene Rolle haben ebenfalls vollen Zugriff.'),
     roleNew: t('users.role_new', lang, 'Neue Rolle'),
     roleName: t('users.role_name', lang, 'Rollenname'),
@@ -341,10 +347,18 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     roleAssign: t('users.role_assign', lang, 'Rolle'),
     roleEmpty: t('users.role_empty', lang, 'Noch keine benutzerdefinierten Rollen.'),
     roleApps: t('users.role_apps', lang, 'Erlaubte Apps'),
+    roleList: t('users.role_list', lang, 'Rollen'),
+    roleEditor: t('users.role_editor', lang, 'Rolleneinstellungen'),
+    roleAppsHint: t('users.role_apps_hint', lang, 'Benutzer mit dieser Rolle sehen nur die markierten Apps.'),
+    roleAssignHint: t('users.role_assign_hint', lang, 'Weisen Sie jedem Benutzer eine eigene Rolle zu. Administratoren behalten immer vollen Zugriff.'),
+    roleSelectHint: t('users.role_select_hint', lang, 'Wählen Sie links eine Rolle aus, um sie zu bearbeiten.'),
+    roleCount: t('users.role_count', lang, 'Apps aktiviert'),
     roleSaved: t('users.role_saved', lang, 'Rolle gespeichert.'),
     tabSecurity: t('users.tab_security', lang, 'Sicherheitsrichtlinien'),
     administratorOnly: t('users.admin_only', lang, 'Nur Administrator'),
     accountList: t('users.account_list', lang, 'Lokale Konten'),
+    currentAccounts: t('users.current_accounts', lang, 'Aktuelle Konten'),
+    addNewUser: t('users.add_new_user', lang, 'Neue Benutzer hinzufügen'),
     add: t('users.add', lang, 'Konto hinzufügen'),
     create: t('users.create', lang, 'Konto erstellen'),
     displayName: t('users.display_name', lang, 'Anzeigename'),
@@ -364,11 +378,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
     delete: t('users.delete', lang, 'Löschen'),
     save: t('users.save', lang, 'Speichern'),
     resetPassword: t('users.reset_password', lang, 'Passwort zurücksetzen'),
-    recoveryPerPerson: t('users.recovery_per_person', lang, 'Sicherheitsabfrage pro Person'),
     passwordless: t('users.passwordless', lang, 'Kein Passwort (Anmeldung mit einem Klick)'),
     newPassword: t('users.new_password', lang, 'Neues temporäres Passwort'),
-    recoveryQuestion: t('users.recovery_question', lang, 'Sicherheitsfrage'),
-    recoveryAnswer: t('users.recovery_answer', lang, 'Sicherheitsantwort'),
     autoLock: t('users.auto_lock', lang, 'Automatische Sperre'),
     security: t('users.security', lang, 'Anmeldesicherheit'),
     failedAttempts: t('users.failed_attempts', lang, 'Fehlversuche'),
@@ -522,22 +533,25 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
       return;
     }
     const passwordless = newUser.passwordless && newUser.role === 'user';
-    if (!newUser.username.trim() || !newUser.displayName.trim() || (!passwordless && !newUser.password)) {
-      setAdminMessage(labels.required);
+    setCreateAttempted(true);
+    // Jump to the step that holds the missing field so the user sees what is wrong.
+    if (!newUser.username.trim() || !newUser.displayName.trim()) {
+      setCreateStep(1);
+      sounds.playError();
       return;
     }
     if (!passwordless && newUser.password.length < 8) {
+      setCreateStep(2);
       setAdminMessage(labels.passwordTooShort);
+      sounds.playError();
       return;
     }
     try {
       await createUser({
         ...newUser,
         password: passwordless ? '' : newUser.password,
-        recoveryQuestion: passwordless ? undefined : newUser.recoveryQuestion,
-        recoveryAnswer: passwordless ? undefined : newUser.recoveryAnswer,
-        recoveryPerPerson: !passwordless && newUser.recoveryPerPerson,
       });
+      setCreateAttempted(false);
       setNewUser({
         username: '',
         displayName: '',
@@ -545,9 +559,6 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
         role: 'user',
         accountType: 'business',
         avatar: '',
-        recoveryQuestion: RECOVERY_QUESTIONS[0],
-        recoveryAnswer: '',
-        recoveryPerPerson: false,
         passwordless: false,
       });
       setShowCreate(false);
@@ -677,32 +688,32 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
 
           {/* Tab Selection Navigation (if Admin) */}
           {isAdmin && (
-            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 w-full flex-wrap">
+            <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 w-full">
               <button
                 type="button"
                 onClick={() => { setActiveTab('profile'); sounds.playClick(); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'profile' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold text-center transition ${activeTab === 'profile' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
               >
                 {labels.tabProfile}
               </button>
               <button
                 type="button"
                 onClick={() => { setActiveTab('accounts'); sounds.playClick(); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'accounts' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold text-center transition ${activeTab === 'accounts' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
               >
                 {labels.tabAccounts}
               </button>
               <button
                 type="button"
                 onClick={() => { setActiveTab('roles'); sounds.playClick(); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'roles' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold text-center transition ${activeTab === 'roles' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
               >
                 {labels.tabRoles}
               </button>
               <button
                 type="button"
                 onClick={() => { setActiveTab('security'); sounds.playClick(); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'security' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold text-center transition ${activeTab === 'security' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
               >
                 {labels.tabSecurity}
               </button>
@@ -963,15 +974,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
               )}
 
               <div className="flex items-center justify-between px-1 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels.accountList}</span>
-                <button
-                  type="button"
-                  onClick={() => { setShowCreate((v) => !v); sounds.playClick(); }}
-                  className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition cursor-pointer"
-                  title={labels.add}
-                >
-                  {showCreate ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                </button>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels.currentAccounts} · {users.length}</span>
               </div>
 
               {users.length === 0 ? (
@@ -1047,6 +1050,15 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   </div>
                 ))
               )}
+
+              <button
+                type="button"
+                onClick={() => { setShowCreate(true); sounds.playClick(); }}
+                className="w-full mt-2 flex items-center justify-center gap-2 p-3 rounded-2xl border border-dashed border-indigo-300 dark:border-indigo-700 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {labels.addNewUser}
+              </button>
             </div>
 
             {/* Selected User Management Panel */}
@@ -1058,11 +1070,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                 >
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border border-indigo-500/30 bg-white dark:bg-slate-900 shadow-2xl shadow-indigo-900/40 p-6 space-y-5"
+                  className="w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-3xl border border-[var(--accent-ring)] bg-white dark:bg-slate-900 shadow-2xl p-6 space-y-5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 font-bold text-base text-slate-900 dark:text-white">
-                      <UserRoundPlus className="w-5 h-5 text-indigo-500" />
+                      <UserRoundPlus className="w-5 h-5 text-[var(--accent)]" />
                       {labels.create}
                     </div>
                     <button
@@ -1076,10 +1088,10 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {[1, 2, 3].map((step) => (
+                    {[1, 2].map((step) => (
                       <div
                         key={step}
-                        className={`h-1.5 flex-1 rounded-full transition-colors ${step <= createStep ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                        className={`h-1.5 flex-1 rounded-full transition-colors ${step <= createStep ? 'bg-[var(--accent)]' : 'bg-slate-200 dark:bg-slate-700'}`}
                       />
                     ))}
                   </div>
@@ -1095,7 +1107,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                           onClick={() => setActiveTab('security')}
                           className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer pt-0.5"
                         >
-                          <span>{labels.tabSecurity} öffnen</span> →
+                          <span>{labels.tabSecurity} {t('users.open_tab', lang, 'Öffnen')}</span> →
                         </button>
                       </div>
                     </div>
@@ -1104,14 +1116,14 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                   {createStep === 1 && (
                     <div className="grid md:grid-cols-2 gap-3">
                       <input
-                        className={fieldClass}
-                        placeholder={labels.displayName}
+                        className={requiredFieldClass(createAttempted && !newUser.displayName.trim())}
+                        placeholder={labels.displayName + ' *'}
                         value={newUser.displayName}
                         onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
                       />
                       <input
-                        className={fieldClass}
-                        placeholder={labels.username}
+                        className={requiredFieldClass(createAttempted && !newUser.username.trim())}
+                        placeholder={labels.username + ' *'}
                         value={newUser.username}
                         onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                       />
@@ -1148,12 +1160,26 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                       )}
                       {!newUser.passwordless && (
                         <input
-                          className={fieldClass}
+                          className={requiredFieldClass(createAttempted && !newUser.passwordless && newUser.password.length < 8)}
                           type="password"
-                          placeholder={labels.password}
+                          placeholder={labels.tempPassword + ' *'}
                           value={newUser.password}
                           onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                         />
+                      )}
+                      {!newUser.passwordless && newUser.password && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">{t('auth.passwordStrength', lang)}</span>
+                            <span className="font-semibold text-indigo-600 dark:text-indigo-400">{t(tempPasswordStrength.labelKey, lang)}</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                            <div className={`h-full transition-all duration-300 rounded-full ${tempPasswordStrength.colorClass}`} style={{ width: `${tempPasswordStrength.percent}%` }} />
+                          </div>
+                        </div>
+                      )}
+                      {!newUser.passwordless && createAttempted && newUser.password.length < 8 && (
+                        <p className="text-[11px] text-rose-600 dark:text-rose-400">{labels.passwordTooShort}</p>
                       )}
                       {!newUser.passwordless && (
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">{labels.tempPasswordHint}</p>
@@ -1161,50 +1187,20 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     </div>
                   )}
 
-                  {createStep === 3 && (
-                    <div className="space-y-3">
-                      <select
-                        className={fieldClass}
-                        value={newUser.recoveryQuestion}
-                        onChange={(e) => setNewUser({ ...newUser, recoveryQuestion: e.target.value })}
-                      >
-                        {RECOVERY_QUESTIONS.map((question) => (
-                          <option key={question} value={question}>
-                            {getRecoveryQuestionLabel(question, lang)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className={fieldClass}
-                        placeholder={labels.recoveryAnswer}
-                        value={newUser.recoveryAnswer}
-                        onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })}
-                      />
-                      <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={newUser.recoveryPerPerson}
-                          onChange={(e) => setNewUser({ ...newUser, recoveryPerPerson: e.target.checked })}
-                        />
-                        {labels.recoveryPerPerson}
-                      </label>
-                    </div>
-                  )}
-
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
                       disabled={createStep === 1}
-                      onClick={() => setCreateStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
-                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
+                      onClick={() => setCreateStep((s) => (s > 1 ? ((s - 1) as 1 | 2) : s))}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
                     >
                       {t('action.back', lang, 'Back')}
                     </button>
-                    {createStep < 3 ? (
+                    {createStep < 2 ? (
                       <button
                         type="button"
-                        onClick={() => setCreateStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s))}
-                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
+                        onClick={() => setCreateStep((s) => (s < 2 ? ((s + 1) as 1 | 2) : s))}
+                        className="px-4 py-2 rounded-xl bg-[var(--accent)] hover:opacity-90 text-white text-xs font-bold cursor-pointer"
                       >
                         {t('action.next', lang, 'Next')}
                       </button>
@@ -1213,7 +1209,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         type="button"
                         disabled={Boolean(security.autoLoginSingleUser && users.length >= 1)}
                         onClick={handleCreate}
-                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                        className="px-4 py-2 rounded-xl bg-[var(--accent)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
                         title={security.autoLoginSingleUser && users.length >= 1 ? labels.autoLoginBlockCreateDesc : labels.create}
                       >
                         <Check className="w-4 h-4" />
@@ -1260,7 +1256,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                               : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                           }`}>
                             {selected.accountType === 'personal' ? <UserRound className="w-3 h-3" /> : <BriefcaseBusiness className="w-3 h-3" />}
-                            <span>{selected.accountType === 'personal' ? `${labels.personal}es Konto` : `${labels.business}skonto`}</span>
+                            <span>{selected.accountType === 'personal' ? t('users.account_personal_badge', lang, 'Privatkonto') : t('users.account_business_badge', lang, 'Geschäftskonto')}</span>
                           </span>
 
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold ${
@@ -1341,7 +1337,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         }}
                         className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
                           selected.role === 'admin'
-                            ? 'border-2 border-purple-500 bg-purple-50/60 dark:bg-purple-950/30 shadow-xs'
+                            ? 'border-purple-500 ring-2 ring-purple-500/60 bg-purple-50/60 dark:bg-purple-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -1377,7 +1373,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                         }}
                         className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-2 cursor-pointer ${
                           selected.role === 'user'
-                            ? 'border-2 border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30 shadow-xs'
+                            ? 'border-indigo-500 ring-2 ring-indigo-500/60 bg-indigo-50/60 dark:bg-indigo-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -1418,7 +1414,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                       <div
                         className={`p-4 rounded-2xl border text-left flex flex-col justify-between gap-2 ${
                           selected.accountType === 'personal'
-                            ? 'border-2 border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 shadow-xs'
+                            ? 'border-blue-500 ring-2 ring-blue-500/60 bg-blue-50/60 dark:bg-blue-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -1444,7 +1440,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                       <div
                         className={`p-4 rounded-2xl border text-left flex flex-col justify-between gap-2 ${
                           selected.accountType === 'business'
-                            ? 'border-2 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
+                            ? 'border-emerald-500 ring-2 ring-emerald-500/60 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -1505,7 +1501,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
                     </div>
 
                     {/* Metric Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-2 2xl:grid-cols-4 gap-2.5">
                       <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
                         <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Dateien</span>
                         <div className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1">
@@ -1696,81 +1692,107 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
             {customRoles.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400">{labels.roleEmpty}</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
                 {/* Role list */}
-                <div className="space-y-1">
-                  {customRoles.map((role) => (
-                    <button
-                      key={role.id}
-                      type="button"
-                      onClick={() => { setSelectedRoleId(role.id); setRoleMessage(null); }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-sm transition ${selectedRoleId === role.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    >
-                      {role.name}
-                    </button>
-                  ))}
+                <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50 p-2 space-y-1 h-fit">
+                  <div className="px-2 pt-1 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{labels.roleList}</div>
+                  {customRoles.map((role) => {
+                    const active = selectedRoleId === role.id;
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => { setSelectedRoleId(role.id); setRoleMessage(null); }}
+                        style={active ? { backgroundColor: 'var(--accent-light)', color: 'var(--accent)' } : undefined}
+                        className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded-xl text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${active ? 'font-semibold shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'}`}
+                      >
+                        <span className="truncate">{role.name}</span>
+                        <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {role.allowedModules.length}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Selected role: rename, apps, delete */}
                 {(() => {
                   const role = customRoles.find((entry) => entry.id === selectedRoleId);
-                  if (!role) return <div className="text-xs text-slate-500 dark:text-slate-400">{labels.roleEmpty}</div>;
+                  if (!role) return <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center text-xs text-slate-500 dark:text-slate-400">{labels.roleSelectHint}</div>;
                   return (
-                    <div className="space-y-4">
-                      <div className="flex flex-col md:flex-row gap-2">
-                        <input
-                          key={role.id}
-                          type="text"
-                          defaultValue={role.name}
-                          onBlur={(event) => {
-                            const name = event.target.value.trim();
-                            if (!name || name === role.name) return;
-                            try {
-                              updateCustomRole(role.id, { name });
+                    <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900 p-4 space-y-5 min-w-0">
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{labels.roleEditor}</div>
+                        <div className="flex flex-col md:flex-row gap-2">
+                          <input
+                            key={role.id}
+                            type="text"
+                            defaultValue={role.name}
+                            onBlur={(event) => {
+                              const name = event.target.value.trim();
+                              if (!name || name === role.name) return;
+                              try {
+                                updateCustomRole(role.id, { name });
+                                setCustomRoles(getCustomRoles());
+                                setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                              } catch (error) {
+                                setRoleMessage({ text: error instanceof Error ? error.message : String(error), type: 'error' });
+                              }
+                            }}
+                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-ring)]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deleteCustomRole(role.id);
                               setCustomRoles(getCustomRoles());
+                              setUsers(getUsers());
+                              setSelectedRoleId(null);
                               setRoleMessage({ text: labels.roleSaved, type: 'success' });
-                            } catch (error) {
-                              setRoleMessage({ text: error instanceof Error ? error.message : String(error), type: 'error' });
-                            }
-                          }}
-                          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            deleteCustomRole(role.id);
-                            setCustomRoles(getCustomRoles());
-                            setUsers(getUsers());
-                            setSelectedRoleId(null);
-                            setRoleMessage({ text: labels.roleSaved, type: 'success' });
-                          }}
-                          className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-900/30 transition shrink-0 cursor-pointer"
-                        >
-                          {labels.roleDelete}
-                        </button>
+                            }}
+                            className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-900/30 transition shrink-0 cursor-pointer"
+                          >
+                            {labels.roleDelete}
+                          </button>
+                        </div>
                       </div>
 
                       {/* App checkboxes */}
-                      <div>
-                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">{labels.roleApps}</div>
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{labels.roleApps}</div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">{labels.roleAppsHint}</p>
+                          </div>
+                          <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold text-[var(--accent)] bg-[var(--accent-light)]">
+                            {role.allowedModules.length} {labels.roleCount}
+                          </span>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {ROLE_APP_OPTIONS.map((app) => (
-                            <label key={app.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={role.allowedModules.includes(app.id)}
-                                onChange={(event) => {
-                                  const next = event.target.checked
-                                    ? [...role.allowedModules, app.id]
-                                    : role.allowedModules.filter((id) => id !== app.id);
-                                  updateCustomRole(role.id, { allowedModules: next });
-                                  setCustomRoles(getCustomRoles());
-                                  setRoleMessage({ text: labels.roleSaved, type: 'success' });
-                                }}
-                              />
-                              {app.title}
-                            </label>
-                          ))}
+                          {ROLE_APP_OPTIONS.map((app) => {
+                            const checked = role.allowedModules.includes(app.id);
+                            return (
+                              <label
+                                key={app.id}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition ${checked ? 'border-[var(--accent-ring)] bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold' : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300'}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="accent-[var(--accent)] w-4 h-4 shrink-0"
+                                  checked={checked}
+                                  onChange={(event) => {
+                                    const next = event.target.checked
+                                      ? [...role.allowedModules, app.id]
+                                      : role.allowedModules.filter((id) => id !== app.id);
+                                    updateCustomRole(role.id, { allowedModules: next });
+                                    setCustomRoles(getCustomRoles());
+                                    setRoleMessage({ text: labels.roleSaved, type: 'success' });
+                                  }}
+                                />
+                                <span className="truncate">{app.title}</span>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -1781,8 +1803,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({ 
 
             {/* Assign roles to users */}
             {customRoles.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">{labels.roleAssign}</div>
+              <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
+                <div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{labels.roleAssign}</div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{labels.roleAssignHint}</p>
+                </div>
                 {users.map((user) => (
                   <div key={user.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{user.displayName || user.username}</span>

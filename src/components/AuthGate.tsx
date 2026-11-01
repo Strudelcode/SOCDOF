@@ -92,6 +92,7 @@ import {
   type DesktopLanguageFileInfo
 } from '../lib/i18n';
 import { sounds } from '../lib/sound';
+import { quitDesktopApp } from '../lib/platform';
 import { db } from '../lib/db';
 import type { CompanyProfile } from '../types';
 
@@ -244,7 +245,7 @@ function resizeOnboardingWallpaper(file: File): Promise<string> {
   });
 }
 
-function computePasswordStrength(password: string): {
+export function computePasswordStrength(password: string): {
   score: number;
   labelKey: string;
   colorClass: string;
@@ -435,6 +436,19 @@ function LanguageSelectionScreen({
   const [desktopFiles, setDesktopFiles] = useState<DesktopLanguageFileInfo[]>(() => getDesktopLanguageFiles());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(() => getActiveCustomPackId() || lang || 'de');
+
+  useEffect(() => {
+    // Follow the system color scheme on the first-run language screen as well
+    if (!isFirstRunOnboarding) return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = () => {
+      document.documentElement.classList.toggle('dark', media.matches);
+      document.documentElement.style.colorScheme = media.matches ? 'dark' : 'light';
+    };
+    applySystemTheme();
+    media.addEventListener?.('change', applySystemTheme);
+    return () => media.removeEventListener?.('change', applySystemTheme);
+  }, [isFirstRunOnboarding]);
 
   useEffect(() => {
     // Initial sync check
@@ -1039,7 +1053,7 @@ function FirstAccount({
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{text.welcome}</h1>
          <div className="flex items-center justify-between mt-1 text-xs text-slate-500 dark:text-slate-400">
-            <span>{text.setup}</span>
+            <span>{t('auth.accountSetup', lang)} · {t('auth.stepAccount', lang)}</span>
             <span className="text-rose-500 font-medium">{t('auth.requiredNotice', lang)}</span>
           </div>
         </div>
@@ -1814,6 +1828,8 @@ function LoginScreen({
   const [lockedUntil, setLockedUntil] = useState<number | undefined>();
   const [recover, setRecover] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  // Close button on the login screen asks for confirmation first
+  const [isQuitConfirmOpen, setIsQuitConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (initialSuccessMessage) {
@@ -1845,8 +1861,6 @@ function LoginScreen({
     }, 500);
     return () => window.clearInterval(timer);
   }, [selected, otherUser]);
-
-  if (recover) return <RecoveryScreen text={text} users={users} onBack={() => setRecover(false)} />;
 
   const selectedUser = otherUser ? null : getUserByUsername(selected);
   const remaining = lockedUntil ? getLockoutRemaining(selectedUser) : 0;
@@ -1924,10 +1938,45 @@ function LoginScreen({
     };
   }, [toggleFullscreen]);
 
+  // Early returns must come after every hook, otherwise React crashes with "Rendered fewer hooks"
+  if (recover) return <RecoveryScreen text={text} users={users} onBack={() => setRecover(false)} />;
   if (isSigningIn) return <AuthLoadingScreen text={text} user={selectedUser} />;
 
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser?.preferences.wallpaper}>
+      {isQuitConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setIsQuitConfirmOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+          >
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              {t('desktop.quit_confirm_title', lang)}
+            </h3>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsQuitConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_no', lang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsQuitConfirmOpen(false); quitDesktopApp(); }}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer"
+              >
+                {t('desktop.quit_confirm_yes', lang)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
      <div className="w-full flex items-center justify-end gap-1.5 z-20 shrink-0">
         <button
@@ -1948,6 +1997,16 @@ function LoginScreen({
           aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
         >
           {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsQuitConfirmOpen(true)}
+          className="p-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-md text-white hover:bg-rose-600 active:scale-95 transition cursor-pointer shadow-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+          title={t('desktop.close_app', lang, 'Fenster schließen')}
+          aria-label={t('desktop.close_app', lang, 'Fenster schließen')}
+        >
+          <X size={15} />
         </button>
 
         <select
@@ -2069,8 +2128,12 @@ function LoginScreen({
             </button>
           </div>}
 
-          {remaining > 0 && <p className="text-xs sm:text-sm text-amber-300 drop-shadow">{text.retry} {Math.ceil(remaining / 1000)}s</p>}
-          {error && <p className="text-xs sm:text-sm text-red-300 drop-shadow">{error}</p>}
+          {/* Fixed-height slot: the message appears here without moving the buttons below. */}
+          <div className="h-5 sm:h-6 w-full flex items-center justify-center overflow-visible">
+            {remaining > 0
+              ? <p className="text-xs sm:text-sm text-amber-300 drop-shadow whitespace-nowrap">{text.retry} {Math.ceil(remaining / 1000)}s</p>
+              : error && <p className="text-xs sm:text-sm text-red-300 drop-shadow whitespace-nowrap">{error}</p>}
+          </div>
           <button type="button" onClick={() => setRecover(true)} className="text-xs sm:text-sm text-white/75 hover:text-white hover:underline drop-shadow cursor-pointer py-1 block mx-auto">
             {text.forgot}
           </button>
@@ -2171,30 +2234,77 @@ function AuthLoadingScreen({ text, user }: { text: AuthText; user: UserAccount |
   );
 }
 
+type FirstLoginEntry = { mode: string; custom: string; answer: string };
+
 function ForcedPasswordScreen({ text, user, onDone, onLogout }: { text: AuthText; user: UserAccount; onDone: () => void; onLogout: () => void }) {
   const lang = useLanguage();
-  const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState('');
-  const [question, setQuestion] = useState(RECOVERY_QUESTIONS[0]); const [answer, setAnswer] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [attempted, setAttempted] = useState(false);
+  const [entries, setEntries] = useState<FirstLoginEntry[]>([{ mode: RECOVERY_QUESTIONS[0], custom: '', answer: '' }]);
+  const updateEntry = (index: number, patch: Partial<FirstLoginEntry>) => {
+    setEntries((prev) => prev.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
+    setError('');
+  };
+  const addEntry = () => setEntries((prev) => [...prev, { mode: RECOVERY_QUESTIONS[0], custom: '', answer: '' }]);
+  const removeEntry = (index: number) => setEntries((prev) => prev.filter((_, i) => i !== index));
+  const redBorder = (invalid: boolean) => (invalid ? ' border-red-500 dark:border-red-500 ring-2 ring-red-500/40' : '');
+  const answered = entries.filter((entry) => entry.answer.trim() && (entry.mode !== 'custom' || entry.custom.trim()));
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setAttempted(true);
+    if (!password || !confirm || answered.length === 0) return;
     if (password !== confirm) return setError(text.mismatch);
     try {
       await changePassword(user.id, password);
-      if (user.recoveryPending) {
-        if (!answer.trim()) return setError(text.recoveryRequired);
-        await completeFirstLoginRecovery(user.id, question, answer);
-      }
+      await completeFirstLoginRecovery(
+        user.id,
+        answered.map((entry) => ({ question: entry.mode === 'custom' ? entry.custom : entry.mode, answer: entry.answer })),
+      );
       onDone();
     } catch { setError(text.short); }
   };
-  return <AuthShell title={text.newPasswordTitle} subtitle={text.forcePassword}><form onSubmit={submit} className="space-y-4"><input autoFocus className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />{user.recoveryPending && <><select className={fieldClass} value={question} onChange={(e) => setQuestion(e.target.value)}>{RECOVERY_QUESTIONS.map((q) => <option key={q} value={q}>{getRecoveryQuestionLabel(q, lang)}</option>)}</select><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /></>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onLogout} className="w-full rounded-xl border py-3">{text.logout}</button></form></AuthShell>;
+  return (
+    <AuthShell title={text.newPasswordTitle} subtitle={text.forcePassword}>
+      <form onSubmit={submit} className="space-y-4">
+        <input autoFocus className={fieldClass + redBorder(attempted && !password)} type="password" placeholder={text.newPassword + ' *'} value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} />
+        <input className={fieldClass + redBorder(attempted && !confirm)} type="password" placeholder={text.confirm + ' *'} value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} />
+        <div className="space-y-3">
+          {entries.map((entry, index) => (
+            <div key={index} className="space-y-2 rounded-xl border border-slate-200/80 dark:border-white/10 p-3">
+              <select className={fieldClass} value={entry.mode} onChange={(e) => updateEntry(index, { mode: e.target.value })}>
+                {RECOVERY_QUESTIONS.map((q) => <option key={q} value={q}>{getRecoveryQuestionLabel(q, lang)}</option>)}
+                <option value="custom">{t('auth.customQuestionOption', lang)}</option>
+              </select>
+              {entry.mode === 'custom' && (
+                <input className={fieldClass} placeholder={t('auth.customQuestionPlaceholder', lang)} value={entry.custom} onChange={(e) => updateEntry(index, { custom: e.target.value })} />
+              )}
+              <div className="flex gap-2">
+                <input className={fieldClass + redBorder(attempted && answered.length === 0 && index === 0)} placeholder={text.recoveryAnswer + ' *'} value={entry.answer} onChange={(e) => updateEntry(index, { answer: e.target.value })} />
+                {entries.length > 1 && (
+                  <button type="button" onClick={() => removeEntry(index)} className="shrink-0 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-sm">×</button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={addEntry} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{t('auth.addSecurityQuestion', lang)}</button>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button>
+        <button type="button" onClick={onLogout} className="w-full rounded-xl border py-3">{text.logout}</button>
+      </form>
+    </AuthShell>
+  );
 }
 
 function RecoveryScreen({ text, users, onBack }: { text: AuthText; users: UserAccount[]; onBack: () => void }) {
   const lang = useLanguage();
   const [username, setUsername] = useState(users.find((user) => user.active)?.username ?? ''); const [answer, setAnswer] = useState(''); const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState(''); const user = getUserByUsername(username);
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!user) return setError(text.invalid); if (!user.recovery) return setError(text.recoveryUnavailable); if (password !== confirm) return setError(text.mismatch); try { await resetPasswordWithRecovery(user.id, answer, password); onBack(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'recovery_invalid' ? text.recoveryInvalid : reason === 'password_too_short' ? text.short : text.required); } };
-  return <AuthShell title={text.recover} subtitle={text.newPasswordTitle}><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={username} onChange={(e) => { setUsername(e.target.value); setAnswer(''); setError(''); }}>{users.filter((u) => u.active).map((u) => <option key={u.id} value={u.username}>{u.displayName} · {u.username}</option>)}</select>{user?.recovery && <><p className="text-sm text-slate-500">{getRecoveryQuestionLabel(user.recovery.question, lang)}</p><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onBack} className="w-full rounded-xl border py-3">{text.backLogin}</button></form></AuthShell>;
+  // A user may have recovery questions only in the 'recoveries' list, so accept either source
+  const hasRecovery = Boolean(user?.recoveries?.length || user?.recovery);
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); if (!user) return setError(text.invalid); if (!hasRecovery) return setError(text.recoveryUnavailable); if (password !== confirm) return setError(text.mismatch); try { await resetPasswordWithRecovery(user.id, answer, password); onBack(); } catch (err) { const reason = String((err as Error).message); setError(reason === 'recovery_invalid' ? text.recoveryInvalid : reason === 'password_too_short' ? text.short : text.required); } };
+  return <AuthShell title={text.recover} subtitle={text.newPasswordTitle}><form onSubmit={submit} className="space-y-4"><select className={fieldClass} value={username} onChange={(e) => { setUsername(e.target.value); setAnswer(''); setError(''); }}>{users.filter((u) => u.active).map((u) => <option key={u.id} value={u.username}>{u.displayName} · {u.username}</option>)}</select>{hasRecovery && <><p className="text-sm text-slate-500">{(user.recoveries?.length ? user.recoveries : [user.recovery]).map((entry) => getRecoveryQuestionLabel(entry.question, lang)).join(' · ')}</p><input className={fieldClass} placeholder={text.recoveryAnswer} value={answer} onChange={(e) => setAnswer(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.newPassword} value={password} onChange={(e) => setPassword(e.target.value)} /><input className={fieldClass} type="password" placeholder={text.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></>}{user && !hasRecovery && <p className="text-sm text-amber-600 dark:text-amber-400">{text.recoveryUnavailable}</p>}{error && <p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold">{text.save}</button><button type="button" onClick={onBack} className="w-full rounded-xl border py-3">{text.backLogin}</button></form></AuthShell>;
 }
 
 function LockScreen({
@@ -2289,7 +2399,6 @@ function LockScreen({
   }, [toggleFullscreen]);
 
   const currentLang = useLanguage();
-
   return (
     <LoginBackdrop company={company} wallpaper={selectedUser.preferences.wallpaper}>
       {/* Top Header: Minimize, Fullscreen Mode & Language Switcher */}
@@ -2434,5 +2543,5 @@ export function UserManager({ text, currentUser, users, onClose, onRefresh, onLo
   const saveSecurity = () => { setSecurity(updateSecuritySettings(security)); setMessage(text.securitySaved); };
   return<div className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-6"><div className="w-full max-w-5xl max-h-[92vh] overflow-auto rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-white/10 p-6"><div className="flex items-center justify-between mb-5"><div><h2 className="text-xl font-bold">{text.users}</h2><p className="text-sm text-slate-500">{text.current}: {currentUser.displayName}</p></div><button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10"><X size={18} /></button></div><div className="grid lg:grid-cols-[280px_1fr] gap-5"><div className="space-y-2">{users.map((user) => <button key={user.id} onClick={() => setSelectedId(user.id)} className={`w-full text-left p-3 rounded-2xl border ${selected.id === user.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}><div>{user.avatar ?? '●'} <span className="font-medium">{user.displayName}</span></div><div className="text-xs text-slate-500">@{user.username} · {user.role === 'admin' ? text.admin : text.user} · {user.active ? text.active : text.disabled}</div></button>)}</div><div className="space-y-4"><div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-4">{canManage && <><div className="flex gap-2">{avatars.map((avatar) => <button key={avatar} onClick={() => updateUser(selected.id, { avatar })} className={`w-9 h-9 rounded-xl border ${selected.avatar === avatar ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10'}`}>{avatar}</button>)}</div><div className="grid md:grid-cols-2 gap-2"><input className={fieldClass} value={selected.displayName} onChange={(e) => updateUser(selected.id, { displayName: e.target.value })} /><select className={fieldClass} value={selected.role} onChange={(e) => { try { updateUser(selected.id, { role: e.target.value as UserRole }); onRefresh(); } catch { setMessage(text.lastAdmin); } }}><option value="user">{text.user}</option><option value="admin">{text.admin}</option></select><select className={fieldClass} value={selected.accountType} onChange={(e) => { updateUser(selected.id, { accountType: e.target.value as AccountType }); onRefresh(); }}><option value="personal">{text.personal}</option><option value="business">{text.business}</option></select><select className={fieldClass} value={selected.preferences.autoLockMinutes ?? 15} onChange={(e) => setAutoLock(Number(e.target.value))}><option value={0}>{text.autoLock}: {text.off}</option><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option><option value={30}>30 {text.minutes}</option><option value={60}>60 {text.minutes}</option></select></div><div className="flex gap-2"><button onClick={saveProfile} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button><button onClick={toggle} className="rounded-xl border px-4 py-2">{selected.active ? text.deactivate : text.activate}</button><button onClick={remove} className="rounded-xl border border-red-200 text-red-600 px-4 py-2">{text.remove}</button></div></>}<div className="pt-3 border-t dark:border-white/10"><label className="text-xs text-slate-500">{text.passwordChange}</label><div className="flex gap-2 mt-2"><input className={fieldClass} type="password" placeholder={text.newPassword} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /><button onClick={savePassword} className="rounded-xl bg-indigo-600 text-white px-4">{text.save}</button></div><p className="text-xs text-slate-500 mt-2">{text.forcePassword}</p></div></div>
 {canManage &&<div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-3"><h3 className="font-semibold">{text.security}</h3><div className="grid md:grid-cols-3 gap-2"><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.threshold}</span><select className={fieldClass} value={security.failedAttemptThreshold} onChange={(e) => setSecurity({ ...security, failedAttemptThreshold: Number(e.target.value) as SecuritySettings['failedAttemptThreshold'] })}><option value={3}>3</option><option value={5}>5</option><option value={10}>10</option></select></label><label className="text-sm"><span className="block text-xs text-slate-500 mb-1">{text.lockoutDuration}</span><select className={fieldClass} value={security.lockoutMinutes} onChange={(e) => setSecurity({ ...security, lockoutMinutes: Number(e.target.value) as SecuritySettings['lockoutMinutes'] })}><option value={5}>5 {text.minutes}</option><option value={10}>10 {text.minutes}</option><option value={15}>15 {text.minutes}</option></select></label><label className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-3 py-3 mt-5"><input type="checkbox" checked={security.exponentialBackoff} onChange={(e) => setSecurity({ ...security, exponentialBackoff: e.target.checked })} /><span>{text.backoff}: {security.exponentialBackoff ? text.enabled : text.off}</span></label></div><button onClick={saveSecurity} className="rounded-xl bg-indigo-600 text-white px-4 py-2">{text.save}</button></div>}
-{message && <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}</div></div><div className="mt-5 flex justify-between"><button onClick={onLogout} className="rounded-xl border px-4 py-2">{text.logout}</button>{canManage &&<div className="grid grid-cols-5 gap-2 w-full max-w-3xl ml-4"><input className={fieldClass} placeholder={text.displayName} value={newUser.displayName} onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /><input className={fieldClass} placeholder={text.recoveryAnswer} value={newUser.recoveryAnswer} onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })} /><button onClick={create} className="rounded-xl bg-indigo-600 text-white flex items-center justify-center" title={text.add}><Plus size={17} /></button></div>}</div></div></div>;
+{message && <p className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}</div></div><div className="mt-5 flex justify-between"><button onClick={onLogout} className="rounded-xl border px-4 py-2">{text.logout}</button>{canManage &&<div className="grid grid-cols-2 sm:grid-cols-5 gap-2 w-full max-w-3xl sm:ml-4"><input className={fieldClass} placeholder={text.displayName} value={newUser.displayName} onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })} /><input className={fieldClass} placeholder={text.username} value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /><input className={fieldClass} type="password" placeholder={text.password} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /><input className={fieldClass} placeholder={text.recoveryAnswer} value={newUser.recoveryAnswer} onChange={(e) => setNewUser({ ...newUser, recoveryAnswer: e.target.value })} /><button onClick={create} className="rounded-xl bg-indigo-600 text-white flex items-center justify-center" title={text.add}><Plus size={17} /></button></div>}</div></div></div>;
 }

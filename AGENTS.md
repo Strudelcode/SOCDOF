@@ -23,3 +23,10 @@ This repository follows the guidelines defined in [INSTRUCTIONS.md](./INSTRUCTIO
    - Side-by-side comparison metrics, dual-series charts, and adjacent payment/status elements must never collide or duplicate colors (e.g. green accents shift secondary series to indigo/purple).
    - Card border glows (`--accent-card-shadow`, `--accent-border-subtle`) must remain subtle and never introduce blurry radial gradient blobs or header hazes.
 7. **Verification**: Always run `npm run lint` and `npm run build` after completing tasks to ensure code reliability.
+
+## Mandatory Workflow for Every Change
+- Read `INSTRUCTIONS.md` before starting any task and follow it completely.
+- Every code change that is ready must bump the version (patch for fixes, minor for features) in `package.json` and `src/lib/version.ts`.
+- Add the release notes to `versions/V25.md` (English) and the pending entry to `CHANGELOG.md` (German headings: Neu / Geändert / Behoben).
+- Move completed tasks to `todo/completed_todo.md`; keep `todo/todo.md` for open items only.
+- Run `npm run lint` and `npm run build` before reporting the work as done.

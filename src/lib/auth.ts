@@ -56,7 +56,11 @@ export interface UserAccount {
   /** Optional custom role. Undefined means unrestricted access (default). */
   roleId?: string;
   recoveryPending?: boolean;
+  // Set once the legacy first-admin flag has been cleared (25.2.6 migration)
+  legacyFirstAdminFixed?: boolean;
   recovery?: RecoverySettings;
+  /** All security questions set by the user at first login. */
+  recoveries?: RecoverySettings[];
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
@@ -76,6 +80,10 @@ export const RECOVERY_QUESTIONS = [
   'What was the name of your childhood school?',
   'What is your favorite book?',
   'What nickname did you use as a child?',
+  'In which city were you born?',
+  'What was your first car?',
+  'What is the name of your favourite teacher?',
+  'What was your childhood best friend\'s first name?',
 ] as const;
 
 const USERS_KEY = 'socdof.auth.users.v1';
@@ -115,11 +123,17 @@ export const AUTH_CHANGE_EVENT_NAME = AUTH_CHANGE_EVENT;
 
 function parseUsers(raw: unknown): UserAccount[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map((user: UserAccount) => ({
+  return raw.map((user: UserAccount, index) => ({
     ...user,
     lockoutLevel: typeof user.lockoutLevel === 'number' ? user.lockoutLevel : 0,
     failedLoginAttempts: typeof user.failedLoginAttempts === 'number' ? user.failedLoginAttempts : 0,
-    mustChangePassword: Boolean(user.mustChangePassword),
+    // Accounts created before 25.2.6 flagged the first administrator as
+    // "must change password". Clear that once; later admin resets stay intact.
+    mustChangePassword:
+      index === 0 && user.role === 'admin' && !user.legacyFirstAdminFixed
+        ? false
+        : Boolean(user.mustChangePassword),
+    legacyFirstAdminFixed: index === 0 && user.role === 'admin' ? true : user.legacyFirstAdminFixed,
     preferences: user.preferences ?? {},
   }));
 }
@@ -621,9 +635,10 @@ export async function createUser(input: {
     passwordIterations: password.iterations,
     failedLoginAttempts: 0,
     lockoutLevel: 0,
-    mustChangePassword: !passwordless,
+    // The first administrator chooses their own password during setup
+    mustChangePassword: !passwordless && users.length > 0,
     passwordless,
-    recoveryPending: Boolean(input.recoveryPerPerson) && !passwordless,
+    recoveryPending: !passwordless,
     recovery:
       recoveryHash && input.recoveryQuestion
         ? {
@@ -709,10 +724,16 @@ export async function resetPasswordWithRecovery(
   if (index < 0) throw new Error('user_not_found');
 
   const user = users[index];
-  if (!user.recovery) throw new Error('recovery_not_configured');
-  if (!(await verifyRecoveryAnswer(answer, user.recovery))) {
-    throw new Error('recovery_invalid');
+  const recoveries = user.recoveries?.length ? user.recoveries : user.recovery ? [user.recovery] : [];
+  if (recoveries.length === 0) throw new Error('recovery_not_configured');
+  let matched = false;
+  for (const entry of recoveries) {
+    if (await verifyRecoveryAnswer(answer, entry)) {
+      matched = true;
+      break;
+    }
   }
+  if (!matched) throw new Error('recovery_invalid');
 
   const hashed = await hashPassword(newPassword);
   users[index] = {
@@ -736,24 +757,29 @@ export async function resetPasswordWithRecovery(
  */
 export async function completeFirstLoginRecovery(
   userId: string,
-  question: string,
-  answer: string,
+  entries: Array<{ question: string; answer: string }>,
 ) {
   const actor = getCurrentUser();
   if (!actor || actor.id !== userId) throw new Error('auth_required');
-  if (!answer.trim()) throw new Error('recovery_answer_required');
+  const usable = entries.filter((entry) => entry.question.trim() && entry.answer.trim());
+  if (usable.length === 0) throw new Error('recovery_answer_required');
   const users = [...usersCache];
   const index = users.findIndex((user) => user.id === userId);
   if (index < 0) throw new Error('user_not_found');
-  const hashed = await hashRecoveryAnswer(answer);
-  users[index] = {
-    ...users[index],
-    recovery: {
-      question,
+  const recoveries: RecoverySettings[] = [];
+  for (const entry of usable) {
+    const hashed = await hashRecoveryAnswer(entry.answer);
+    recoveries.push({
+      question: entry.question.trim(),
       answerHash: hashed.hash,
       answerSalt: hashed.salt,
       answerIterations: hashed.iterations,
-    },
+    });
+  }
+  users[index] = {
+    ...users[index],
+    recovery: recoveries[0],
+    recoveries,
     recoveryPending: false,
     updatedAt: new Date().toISOString(),
   };

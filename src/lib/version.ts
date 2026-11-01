@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '25.2.1';
+export const APP_VERSION = '25.2.19';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,57 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.2.19',
+    date: '2026-11-01',
+    title: 'Startup and Password Recovery Fixes',
+    highlights: [
+      'Portable start no longer crashes when PowerShell cannot be launched for the update step.',
+      'Forgot-password recovery now works for accounts whose recovery questions are stored in the newer list format.',
+    ],
+  },
+  {
+    version: '25.2.18',
+    date: '2026-11-01',
+    title: 'Temporary Password Feedback for New Users',
+    highlights: [
+      'The temporary password step in User Management shows a password strength bar and a red hint when the password is too short',
+      'Clicking Create jumps to the step with the missing or invalid field, and its input is framed in red',
+    ],
+  },
+  {
+    version: '25.2.16',
+    date: '2026-11-01',
+    title: 'Recovery Screen Follows Dark Mode',
+    highlights: [
+      'The "Konto wiederherstellen" card and the other auth screens follow the saved Light or Dark mode, also before login',
+    ],
+  },
+  {
+    version: '25.2.14',
+    date: '2026-11-01',
+    title: 'Password Recovery Blank Screen Fixed',
+    highlights: [
+      'Clicking "Passwort vergessen" no longer leaves a blank screen',
+    ],
+  },
+  {
+    version: '25.2.13',
+    date: '2026-11-01',
+    title: 'Password Recovery and Layout Fixes',
+    highlights: [
+      'Password recovery: the recovery screen lists all security questions of the account instead of only the first one',
+      'User management: the add-user form wraps into two columns on small screens instead of being squeezed',
+    ],
+  },
+  {
+    version: '25.2.12',
+    date: '2026-11-01',
+    title: 'Power Menu Overlay',
+    highlights: [
+      'Power Menu Overlay: The Ein/Aus menu in the start menu opens as a layer above the start menu and no longer pushes its content down'
+    ]
+  },
   {
     version: '25.1.0',
     date: '2026-10-31',
