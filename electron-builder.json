@@ -45,7 +45,7 @@
   "nsis": {
     "oneClick": false,
     "perMachine": false,
-    "allowToChangeInstallationDirectory": true,
+    "allowToChangeInstallationDirectory": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "SOCDOF Desktop",
@@ -58,6 +58,7 @@
     "uninstallerSidebar": "public/uninstallerSidebar.bmp",
     "installerSidebar": "public/installerSidebar.bmp",
     "installerHeader": "public/installerHeader.bmp",
-    "displayLanguageSelector": true
+    "displayLanguageSelector": true,
+    "installerLanguages": ["de_DE", "en_US", "fr_FR", "es_ES"]
   }
 }

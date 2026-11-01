@@ -2,6 +2,11 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Installer Language and Install Folder (v25.2.20)
+- [x] Installer language list limited to de, en, fr and es in `electron-builder.json`
+- [x] Install folder fixed; the directory page is disabled
+- [x] Sidebar status block centred in the asset generator script
+
 ### Roles Tab & Dialog Restyle (v25.2.18)
 - [x] Roles tab restyled: role list, role settings, app permissions and assignment are separate sections with accent colors
 - [x] Create dialog uses accent variables; Next/Create primary, Back secondary

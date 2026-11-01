@@ -45,7 +45,7 @@ const sidebarCmd = `convert -size 164x314 xc:'#1e2025' \\
   /tmp/sq64.png -gravity North -geometry +0+32 -composite \\
   -font Liberation-Sans-Bold -pointsize 16 -fill '#f5f6f8' -gravity North -annotate +0+106 'SOCDOF' \\
   -pointsize 7.5 -fill '#8e9aff' -annotate +0+130 'OFFLINE SUITE' \\
-  \\( -size 140x92 xc:'#26282e' -fill '#22c55e' -font Liberation-Sans-Bold -pointsize 9.5 -annotate +12+22 '✓ 100%% Offline' -fill '#dbdee1' -font Liberation-Sans -pointsize 9 -annotate +12+46 'Lokale SQLite DB' -fill '#949ba4' -pointsize 8.5 -annotate +12+68 'Windows 64-Bit' \\) -gravity North -geometry +0+154 -composite \\
+  \\( -size 140x92 xc:'#26282e' -gravity North -font Liberation-Sans-Bold -pointsize 9.5 -fill '#22c55e' -annotate +0+18 '✓ 100%% Offline' -font Liberation-Sans -pointsize 9 -fill '#dbdee1' -annotate +0+40 'Lokale SQLite DB' -pointsize 8.5 -fill '#949ba4' -annotate +0+60 'Windows 64-Bit' \\) -gravity North -geometry +0+154 -composite \\
   -font Liberation-Sans -pointsize 8.5 -fill '#72767d' -gravity South -annotate +0+18 'Strudelcode' \\
   public/installerSidebar.png`;
 

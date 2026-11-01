@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '25.2.19';
+export const APP_VERSION = '25.2.20';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,15 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.2.20',
+    date: '2026-11-01',
+    title: 'Installer Language and Install Folder',
+    highlights: [
+      'The installer offers only German, English, French and Spanish.',
+      'The install folder is fixed by the installer and can no longer be changed to another parent folder.',
+    ],
+  },
   {
     version: '25.2.19',
     date: '2026-11-01',

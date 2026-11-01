@@ -7,6 +7,11 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 25.2.20
+
+- 🛠️ **Geändert / Changed**: The installer language list is limited to German, English, French and Spanish.
+- 🛠️ **Geändert / Changed**: The installer no longer offers a free install-folder choice; the folder is fixed by the installer.
+
 ## 25.2.19
 
 - 🛠️ **Behoben / Fixed**: Portable start no longer crashes with `spawn powershell.exe ENOENT` when PowerShell cannot be launched.
