@@ -6,3 +6,6 @@ Format guidelines:
 - Keep it concise: what is new, what changed/improved, what was fixed.
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
+
+## 25.2.1
+- **Improved:** The first start of the portable version shows a progress loading screen in your system language while the data folder is prepared. Later starts open directly without the splash.

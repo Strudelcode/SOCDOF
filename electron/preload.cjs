@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quitApp: () => ipcRenderer.invoke('socdof:quit-app'),
   downloadAndInstallUpdate: (payload) => ipcRenderer.invoke('socdof:download-and-install-update', payload),
   testUpdatingSplash: (version) => ipcRenderer.invoke('socdof:test-updating-splash', version),
+  onSplashProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:splash-progress', listener);
+    return () => ipcRenderer.removeListener('socdof:splash-progress', listener);
+  },
   onPrepareForUpdate: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('socdof:prepare-for-update', listener);
