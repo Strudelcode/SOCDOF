@@ -2,6 +2,10 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Update Download Hardening (v25.2.22)
+- [x] Redirect loop limit, connection-drop handling, 60 s stall timeout
+- [x] Incomplete downloads rejected and partial file removed
+
 ### Update Download Time Estimate (v25.2.21)
 - [x] Remaining time uses the smoothed measured download speed instead of a fixed guess
 - [x] "Restzeit wird berechnet..." shown during warm-up in de, en, fr and es

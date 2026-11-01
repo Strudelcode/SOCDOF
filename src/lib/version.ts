@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '25.2.21';
+export const APP_VERSION = '25.2.22';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,14 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.2.22',
+    date: '2026-11-01',
+    title: 'Update Download Hardening',
+    highlights: [
+      'The update download stops with an error on dropped connections, stalls, redirect loops or incomplete files, and never starts a partial installer.',
+    ],
+  },
   {
     version: '25.2.21',
     date: '2026-11-01',

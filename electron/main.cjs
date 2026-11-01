@@ -625,25 +625,36 @@ function createWindow() {
 }
 
 // Download file following redirects (e.g. GitHub Releases CDN)
-function downloadFileWithProgress(fileUrl, destPath, onProgress) {
+function downloadFileWithProgress(fileUrl, destPath, onProgress, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     const client = fileUrl.startsWith('https') ? https : http;
-    
-    client.get(fileUrl, { headers: { 'User-Agent': 'SOCDOF-AutoUpdater' } }, (res) => {
-      // Handle redirects
+    const failAndCleanup = (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    };
+
+    const request = client.get(fileUrl, { headers: { 'User-Agent': 'SOCDOF-AutoUpdater' } }, (res) => {
+      // Handle redirects (bounded, so a redirect loop cannot recurse forever)
       if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+        res.resume();
         if (res.headers.location) {
-          return downloadFileWithProgress(res.headers.location, destPath, onProgress).then(resolve).catch(reject);
+          if (redirectsLeft <= 0) return failAndCleanup(new Error('Too many redirects while downloading the update.'));
+          return downloadFileWithProgress(res.headers.location, destPath, onProgress, redirectsLeft - 1).then(resolve).catch(reject);
         }
       }
 
       if (res.statusCode !== 200) {
-        return reject(new Error(`Failed to download file. HTTP status: ${res.statusCode}`));
+        res.resume();
+        return failAndCleanup(new Error(`Failed to download file. HTTP status: ${res.statusCode}`));
       }
 
       const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
       let downloadedBytes = 0;
       const fileStream = fs.createWriteStream(destPath);
+
+      // A connection that drops mid-download must reject instead of hanging the update dialog
+      res.on('aborted', () => failAndCleanup(new Error('Update download was interrupted.')));
+      res.on('error', failAndCleanup);
 
       res.on('data', (chunk) => {
         downloadedBytes += chunk.length;
@@ -656,14 +667,20 @@ function downloadFileWithProgress(fileUrl, destPath, onProgress) {
       res.pipe(fileStream);
 
       fileStream.on('finish', () => {
+        // Reject a truncated file: the installer must never be started from a partial download
+        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+          return failAndCleanup(new Error('Update download is incomplete.'));
+        }
         fileStream.close(() => resolve(destPath));
       });
 
-      fileStream.on('error', (err) => {
-        fs.unlink(destPath, () => {});
-        reject(err);
-      });
-    }).on('error', (err) => {
+      fileStream.on('error', failAndCleanup);
+    });
+
+    // Stall protection: abort if no data arrives for 60 seconds
+    request.setTimeout(60000, () => request.destroy(new Error('Update download timed out.')));
+    request.on('error', (err) => {
+      fs.unlink(destPath, () => {});
       reject(err);
     });
   });
