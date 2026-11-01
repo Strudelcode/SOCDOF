@@ -45,7 +45,56 @@ if (!gotSingleInstanceLock) {
 let mainWindow;
 let splashWindow = null;
 
-// Show a lightweight branded window while the main workspace initializes.
+// First-run setup marker: created in the user data folder (the portable 'data' folder when portable)
+// once the initial data preparation has finished. Later launches skip the splash and setup progress.
+const FIRST_RUN_MARKER_NAME = 'first-run-setup-complete.flag';
+let firstRunSetupPending = false;
+let revealMainWindowFn = null;
+
+function isFirstRunSetupNeeded() {
+  try {
+    return !fs.existsSync(path.join(app.getPath('userData'), FIRST_RUN_MARKER_NAME));
+  } catch {
+    return false;
+  }
+}
+
+function markFirstRunSetupComplete() {
+  try {
+    fs.writeFileSync(path.join(app.getPath('userData'), FIRST_RUN_MARKER_NAME), new Date().toISOString(), 'utf8');
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Could not write first-run marker:', err);
+  }
+}
+
+// Push a progress update (0-100 and a step key) to the splash window. Step labels are localized in splash.html.
+function sendSplashProgress(percent, stepKey) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  const send = () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.webContents.send('socdof:splash-progress', { percent, stepKey });
+    }
+  };
+  if (splashWindow.webContents.isLoading()) {
+    splashWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
+// Finish the first-run setup: store the marker and let the splash hand over to the main window.
+function finishFirstRunSetup() {
+  if (!firstRunSetupPending) return;
+  firstRunSetupPending = false;
+  markFirstRunSetupComplete();
+  sendSplashProgress(100, 'ready');
+  setTimeout(() => {
+    if (revealMainWindowFn) revealMainWindowFn();
+    setTimeout(closeSplashWindow, 400);
+  }, 300);
+}
+
+// Show a lightweight branded window while the first-run data preparation runs (progress-aware).
 function createSplashWindow() {
   if (splashWindow && !splashWindow.isDestroyed()) return;
   splashWindow = new BrowserWindow({
@@ -69,6 +118,9 @@ function createSplashWindow() {
   });
   splashWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+  });
+  splashWindow.webContents.once('did-finish-load', () => {
+    sendSplashProgress(5, 'start');
   });
   splashWindow.on('closed', () => { splashWindow = null; });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
@@ -527,12 +579,16 @@ function createWindow() {
   let mainWindowRevealed = false;
   const revealMainWindow = () => {
     if (mainWindowRevealed || !mainWindow || mainWindow.isDestroyed()) return;
+    // On first run the main window stays hidden until the data preparation has finished
+    if (firstRunSetupPending) return;
     mainWindowRevealed = true;
     closeSplashWindow();
     mainWindow.setFullScreen(true);
     mainWindow.show();
     mainWindow.focus();
   };
+
+  revealMainWindowFn = revealMainWindow;
 
   // Reveal window once first paint is completed and DOM is ready
   mainWindow.once('ready-to-show', revealMainWindow);
@@ -1997,18 +2053,26 @@ app.whenReady().then(async () => {
   const canProceed = await verifyNetworkSessionLock();
   if (!canProceed) return;
 
-  createSplashWindow();
+  // Only the first launch of a data folder shows the progress splash; later launches open directly
+  firstRunSetupPending = isFirstRunSetupNeeded();
+  if (firstRunSetupPending) createSplashWindow();
   createWindow();
 
   // Defer background language seed & backup folder readiness so the UI thread renders immediately
   setImmediate(() => {
     try {
+      if (firstRunSetupPending) sendSplashProgress(20, 'folders');
       getBackupDirectory();
+      if (firstRunSetupPending) sendSplashProgress(45, 'languages');
       ensureDefaultLanguageFiles();
+      if (firstRunSetupPending) sendSplashProgress(70, 'watchers');
       setupLanguagesFolderWatcher();
       setupTemplatesWatcher();
+      if (firstRunSetupPending) sendSplashProgress(90, 'finishing');
+      finishFirstRunSetup();
     } catch (e) {
       console.warn('Background init error:', e);
+      finishFirstRunSetup();
     }
   });
 
