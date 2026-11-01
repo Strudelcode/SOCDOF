@@ -34,6 +34,27 @@ try {
   console.warn('[SOCDOF Electron] Portable mode initialization error:', err);
 }
 
+// Readable session log in <data>/logs (last 20 sessions kept). Started after portable setup so it lands in the right folder.
+const sessionLog = require('./sessionLog.cjs');
+sessionLog.startSessionLog(app.getPath('userData'), {
+  version: app.getVersion(),
+  platform: `${process.platform} ${process.arch}`,
+  electron: process.versions.electron,
+  node: process.versions.node,
+});
+process.on('uncaughtException', (err) => {
+  sessionLog.logError('Uncaught exception (main process)', err);
+});
+process.on('unhandledRejection', (reason) => {
+  sessionLog.logError('Unhandled promise rejection (main process)', reason);
+});
+app.on('render-process-gone', (_event, webContents, details) => {
+  sessionLog.logError('Renderer process gone', details);
+});
+app.on('child-process-gone', (_event, details) => {
+  sessionLog.logError('Child process gone', details);
+});
+
 // Single-instance lock: Enforce single process to prevent profile lock deadlocks and frozen windows
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -1467,6 +1488,9 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     const installerFilename = `SOCDOF-Setup-${safeVersion}-${Date.now()}.exe`;
     const installerPath = path.join(tempDir, installerFilename);
 
+    // Tell other workstations on the shared data folder that this one is about to update and close.
+    signalUpdateToOtherWorkstations(app.getVersion(), version || 'update');
+
     // Create a fresh renderer-side data snapshot before downloading/installing.
     // This includes the current IndexedDB database and relevant localStorage state.
     const backupResult = await requestPreUpdateBackup();
@@ -1474,8 +1498,13 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
       throw new Error(`Update abgebrochen: Datensicherung vor dem Update fehlgeschlagen. ${backupResult?.error || ''}`.trim());
     }
 
+    // Portable builds must download the portable EXE (same release), not the NSIS setup
+    const effectiveDownloadUrl = portableDataDir
+      ? downloadUrl.replace(/SOCDOF-Setup-/i, 'SOCDOF-Portable-')
+      : downloadUrl;
+
     // Download update file
-    await downloadFileWithProgress(downloadUrl, installerPath, (progress) => {
+    await downloadFileWithProgress(effectiveDownloadUrl, installerPath, (progress) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('socdof:update-download-progress', progress);
       }
@@ -1492,7 +1521,27 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     setTimeout(() => {
       const currentPid = process.pid;
       const safeEscapedPath = installerPath.replace(/"/g, '`"');
-      const launcherCmd = `Wait-Process -Id ${currentPid} -Timeout 5 -ErrorAction SilentlyContinue; Start-Process -FilePath "${safeEscapedPath}" -ArgumentList "/S", "--auto", "--update"`;
+      // Portable builds cannot be updated by the NSIS setup: replace the running EXE and restart it.
+      const portableExePath = process.env.PORTABLE_EXECUTABLE_FILE || (portableDataDir ? process.execPath : null);
+      if (portableDataDir && portableExePath) {
+        const safeTarget = portableExePath.replace(/'/g, "''");
+        const safeNew = installerPath.replace(/'/g, "''");
+        const relaunchCmd = `$ErrorActionPreference='SilentlyContinue'; Wait-Process -Id ${currentPid} -Timeout 30; Start-Sleep -Milliseconds 500; Copy-Item -LiteralPath '${safeNew}' -Destination '${safeTarget}' -Force; Start-Process -FilePath '${safeTarget}' -ArgumentList '--portable'`;
+        try {
+          const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-Command', relaunchCmd], { detached: true, stdio: 'ignore' });
+          child.on('error', (err) => console.error('Portable relaunch failed:', err));
+          child.unref();
+        } catch (spawnErr) {
+          console.error('Failed to spawn portable relaunch:', spawnErr);
+        }
+        app.exit(0);
+        return;
+      }
+
+      // Launch installer detached with silent in-place update flags (/S --auto --update)
+      // We launch via a lightweight PowerShell runner that waits for the current Electron PID to exit,
+      // guaranteeing zero Windows file locks on SOCDOF.exe before the installer touches any files.
+      const launcherCmd = `Wait-Process -Id ${currentPid} -Timeout 30 -ErrorAction SilentlyContinue; Start-Process -FilePath "${safeEscapedPath}" -ArgumentList "/S", "--auto", "--update"`;
 
       try {
         const child = spawn('powershell.exe', [
@@ -1529,6 +1578,21 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     return { success: false, error: err.message };
   }
 });
+
+function signalUpdateToOtherWorkstations(currentVersion, targetVersion) {
+  try {
+    const lockPath = getNetworkLockFilePath();
+    if (!fs.existsSync(lockPath)) return;
+    const existing = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    if (existing.hostname !== os.hostname() || existing.pid !== process.pid) return;
+    existing.requestQuit = true;
+    existing.reason = 'update';
+    existing.requestedBy = `${os.userInfo().username || 'Mitarbeiter'} (${os.hostname()}) – Update ${currentVersion} → ${targetVersion}`;
+    fs.writeFileSync(lockPath, JSON.stringify(existing, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Could not signal update to other workstations:', err);
+  }
+}
 
 // Native Windows Background Updater Splash Window ("Updating to Version...")
 function spawnWindowsUpdatingSplash(targetVersion, installerPid) {
@@ -1890,7 +1954,10 @@ function startNetworkLockHeartbeat() {
         networkLockHeartbeatTimer = null;
 
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('socdof:remote-quit-requested', data.requestedBy || 'Anderer Arbeitsplatz');
+          mainWindow.webContents.send('socdof:remote-quit-requested', {
+            requestedBy: data.requestedBy || 'Anderer Arbeitsplatz',
+            reason: data.reason || 'quit'
+          });
         }
 
         setTimeout(() => {
@@ -2105,10 +2172,14 @@ app.whenReady().then(async () => {
   const canProceed = await verifyNetworkSessionLock();
   if (!canProceed) return;
 
-  // Only the first launch of a data folder shows the progress splash; later launches open directly
+  // The splash shows on every launch so the user sees that SOCDOF is starting.
+  // The first run also reports data-preparation steps; later launches only wait for the main window.
   firstRunSetupPending = isFirstRunSetupNeeded();
-  if (firstRunSetupPending) createSplashWindow();
+  createSplashWindow();
   createWindow();
+  if (!firstRunSetupPending) {
+    sendSplashProgress(60, 'ready');
+  }
 
   // Defer background init so the UI thread renders immediately.
   // Later launches only run the cheap folder checks; the first run also seeds the language files.

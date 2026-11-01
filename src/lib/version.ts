@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '25.2.22';
+export const APP_VERSION = '25.2.27';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,41 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.2.27',
+    date: '2026-11-01',
+    title: 'First-Run Setup: System Theme, Step Layout, Documentation Filters',
+    highlights: [
+      'The first-run language selection follows the system dark or light mode right away.',
+      'The business details header wraps on narrow windows instead of squeezing the text.',
+      'The documentation version filters show the current major versions (V25 & V24) instead of a fixed V24 & V23 label.',
+      'Source files are grouped into feature folders under src/components; imports were updated, no behavior change.',
+    ],
+  },
+  {
+    version: '25.2.25',
+    date: '2026-11-01',
+    title: 'Splash on Every Start',
+    highlights: [
+      'The splash window opens on every launch, including the portable edition.',
+    ],
+  },
+  {
+    version: '25.2.24',
+    date: '2026-11-01',
+    title: 'Readable Session Logs',
+    highlights: [
+      'One readable log file per app start is written to the data folder; the newest 20 are kept and crashes are recorded.',
+    ],
+  },
+  {
+    version: '25.2.23',
+    date: '2026-11-01',
+    title: 'Portable Self-Update & Shared Workstation Update Notice',
+    highlights: [
+      'The portable edition replaces its own EXE with the new portable build and restarts. Other workstations on the shared data folder show a notice and close when an update starts.',
+    ],
+  },
   {
     version: '25.2.22',
     date: '2026-11-01',

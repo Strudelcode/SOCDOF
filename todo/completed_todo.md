@@ -1239,3 +1239,12 @@
 
 ### Tables Spreadsheet Program (v24.11.0)
 - [x] Added a simple spreadsheet program named "Tabellen" with SUM, AVERAGE, MAX, MIN, COUNT and cell arithmetic formulas, registered in the launcher, command palette, app store and desktop windows, with CSV save and open and docs in all four languages.
+
+- [x] Portable-Update: Selbstersetzung und Neustart; Hinweis für andere Arbeitsplätze (25.2.23)
+
+- [x] Lesbare Sitzungs-Logs im Datenordner (letzte 20 Sitzungen, Absturz-Protokollierung) (25.2.24)
+- [x] Startfenster bei jedem Start anzeigen, auch bei der Portable-Version (25.2.25)
+- [x] Ersteinrichtung: Sprachauswahl folgt dem System-Dunkelmodus (25.2.26)
+- [x] Ordnerstruktur für src/components nach Bereichen (shell, auth, sales, contacts, support, documents, apps, ui, therapy) (25.2.27)
+- [x] Firmendaten-Kopf auf schmalen Bildschirmen umbrechbar (25.2.27)
+- [x] Dokumentation: Versionsfilter zeigen die aktuellen Hauptversionen statt festem V24 & V23 (25.2.27)

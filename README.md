@@ -1,156 +1,163 @@
 # SOCDOF
 
 > **Strudel's Organization, Commerce & Documentation Offline Flow**  
-> *The modern, offline-first Windows ERP desktop suite and productivity workspace for businesses, practices, freelancers, and commerce.*
+> *Eine offline-first Windows-ERP-Desktopsuite und Produktivitäts-Arbeitsplatz für Betriebe, Praxen, Freelancer und Handel.*
 
 [![GitHub Release](https://img.shields.io/github/v/release/Strudelcode/SOCDOF?color=blue&logo=github)](https://github.com/Strudelcode/SOCDOF/releases)
 [![Discord](https://img.shields.io/badge/Community-Discord-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
-[![Offline First](https://img.shields.io/badge/Data%20Storage-100%25%20Offline%20First-emerald)](#-privacy--offline-first-architecture)
+[![Offline First](https://img.shields.io/badge/Data%20Storage-100%25%20Offline%20First-emerald)](#-privacy--offline-first-architektur)
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Free-green)](#)
-[![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE%20%7C%20FR%20%7C%20ES-indigo)](#-quad-lingual-by-design)
+[![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE%20%7C%20FR%20%7C%20ES-indigo)](#-vier-sprachen-von-anfang-an)
 
 ---
 
-## 🌟 Overview
+## 🌟 Überblick
 
-**SOCDOF** brings the comfort and power of a full-fledged enterprise resource planning (ERP) system into a familiar **Windows 11-inspired desktop environment**. 
+**SOCDOF** bringt die Leistungsfähigkeit eines ERP-Systems in eine vertraute, **Windows-11-inspirierte Desktop-Oberfläche**.
 
-Whether you're managing clients, issuing professional invoices, tracking warehouse inventory, running a restaurant POS with interactive table layouts, logging therapy practice sessions, or tracking business mileage — SOCDOF does it all seamlessly, **100% offline**, without requiring any mandatory cloud accounts or recurring subscription fees.
+Ob Kundenverwaltung, Rechnungen, Lagerbestand, ein Restaurant-Kassensystem mit Tischplan, Therapie-Dokumentation oder das Fahrtenbuch: SOCDOF deckt diese Aufgaben ab, **zu 100 % offline**, ohne Pflicht-Cloud-Konto und ohne Abo.
 
-All data is stored directly on your computer in high-performance local databases (IndexedDB via Dexie.js) with instant search, rich dossiers, and one-click JSON backup/export.
-
----
-
-## 🚀 Key Features & Modules
-
-### 🪟 Windows Desktop Experience
-- **Multi-Window Productivity**: Open, drag, resize, snap, minimize, and maximize multiple app windows simultaneously.
-- **Fluent Start Menu & Taskbar**: Quick-launch pinned apps, search tools, system tray status, and user profile switcher.
-- **Multi-Monitor Display Manager**: Extend workspaces across multiple screens, rearrange visual monitor layouts, and detach windows with one-click popouts.
-- **Night Light (Nachtmodus)**: Built-in warm color temperature adjustment (1500K – 5500K) to reduce eye strain.
-- **Personalization Studio**: Custom wallpapers, Mica glass blur effects, theme accent colors, and custom avatar profiles.
-
-### 👥 Contacts & CRM (Customer Book)
-- **Unified Address Book**: Manage customers, vendors, partners, and leads in one place.
-- **Instant Customer Picker**: Quick-select contacts across all modules with live search and 1-click creation.
-- **360° Dossiers**: View linked invoices, open quotes, therapy logs, and payment histories per contact.
-
-### 🧾 Invoicing & Billing Suite
-- **Professional Document Layouts**: DIN 5008-aligned invoices, estimates, delivery notes, and credit notes.
-- **EPC QR-Code Invoicing**: Built-in banking payment QR codes (EPC / GiroCode) for instant bank transfers.
-- **Multi-Currency & Tax Handling**: Support for standard VAT, reduced rates, Kleinunternehmerregelung (§ 19 UStG), and therapeutic exemptions (§ 4 Nr. 14 UStG).
-- **Payment Tracking**: Track open, paid, and overdue balances with automated payment reminders.
-
-### 🏥 Therapy & Practice Manager (TheraPsy Suite)
-- **Instant CRM Integration**: Click *"+ New Client"* to directly search and select from your customer book without repetitive data entry.
-- **Clinical Session Documentation**: Structured progress notes, intervention methods, duration presets (30m, 50m, 60m, 90m), and layout-locked textareas (`resize-none`).
-- **Standardized Invoicing View**: Itemized billing list with invoice numbers, PDF/print preview with practice letterhead, and 1-click sync to the main accounting database.
-- **Fahrtenbuch (Mileage Log)**: Log starting and ending odometer readings with automatic distance calculation and live EStG reimbursement totals (0.30 €, 0.38 €, 0.42 €/km).
-- **Interactive Performance Dashboard**: Real-time multi-month revenue and session progression charts with tooltips and KPI cards.
-
-### 📦 Inventory, Products & Warehouse Moves
-- **Stock Management**: Track physical stock levels, SKU codes, barcodes, cost vs. sales prices, and minimum reorder thresholds.
-- **Stock Movements Log**: Record transfers between physical warehouses, customer drops, vendor shipments, and inventory losses.
-- **Low Stock Alerts**: Automated reorder recommendations when stock dips below safe thresholds.
-
-### 🍽️ Point of Sale (POS) & Restaurant Mode
-- **Interactive Table Plan Designer**: Design floor layouts with drag-and-drop tables, seats, and room sections.
-- **Real-Time Table Orders**: Take dine-in or takeout orders with dish variants, notes, and modifiers.
-- **Kitchen & Bar Display**: Live order tickets for kitchen staff with status timers.
-- **Split Bills & Payment**: Split bills by person or item with cash, card, and digital receipt generation.
-
-### 📊 Financial Accounting & Reporting
-- **Business Performance Analytics**: Live revenue graphs, expense breakdowns, and profit margins.
-- **Standard Tax Reports**: BWA (Betriebswirtschaftliche Auswertung), EÜR (Einnahmen-Überschuss-Rechnung), UStVA (Umsatzsteuervoranmeldung), and daily cash Z-Reports.
-
-### 🌐 Quad-Lingual by Design
-SOCDOF comes out of the box with **100% native translations** across every module, button, dialog, and report:
-- 🇬🇧 **English** (Default)
-- 🇩🇪 **German (Deutsch)**
-- 🇫🇷 **French (Français)**
-- 🇪🇸 **Spanish (Español)**
+Alle Daten liegen lokal auf deinem Rechner in einer IndexedDB-Datenbank (Dexie.js). Dazu kommen schnelle Suche, Kundenakten und Ein-Klick-Backups als JSON.
 
 ---
 
-## 🔒 Privacy & Offline-First Architecture
+## 🚀 Funktionen & Module
 
-Your business data belongs to you. Period.
+### 🪟 Windows-Desktop-Erlebnis
+- **Mehrfenster-Arbeitsfläche**: Fenster öffnen, verschieben, skalieren, andocken, minimieren und maximieren.
+- **Startmenü & Taskleiste**: Angeheftete Apps, Suche, Systemstatus und Benutzerwechsel.
+- **Mehrere Monitore**: Arbeitsbereiche auf mehrere Bildschirme erweitern und Fenster abtrennen.
+- **Nachtmodus**: Warme Farbtemperatur (1500 K – 5500 K) gegen Augenbelastung.
+- **Personalisierung**: Hintergrundbilder, Mica-Effekt, Akzentfarben und eigene Profilbilder.
+- **Systemmodus beim Start**: Hell, dunkel oder dem System folgend. Die Ersteinrichtung folgt direkt dem System.
 
-- **Zero Cloud Requirement**: Runs completely locally on your desktop or browser. No accounts or mandatory telemetry.
-- **IndexedDB & Dexie.js**: Robust, transactional client-side storage capable of holding tens of thousands of records instantly.
-- **Local JSON Backups**: Export your entire database (contacts, invoices, stock, sessions, settings) as a standalone JSON file and restore it on any machine in seconds.
-- **Secure System Reset**: Multi-step verification wizard to safely purge local workspace state when transferring machines.
+### 👥 Kontakte & CRM (Kundenbuch)
+- **Zentrales Adressbuch** für Kunden, Lieferanten, Partner und Interessenten.
+- **Kundenauswahl überall**: Live-Suche und Neuanlage direkt aus jedem Modul.
+- **360°-Kundenakte**: Rechnungen, Angebote, Therapieprotokolle und Zahlungen pro Kontakt.
+
+### 🧾 Rechnungen & Abrechnung
+- **DIN-5008-Layouts** für Rechnungen, Angebote, Lieferscheine und Gutschriften.
+- **EPC-QR-Code** (GiroCode) für Überweisungen per Smartphone.
+- **Steuern**: Regelsteuersatz, ermäßigter Satz, Kleinunternehmerregelung (§ 19 UStG) und Steuerbefreiung für Therapie (§ 4 Nr. 14 UStG).
+- **Zahlungsverfolgung**: Offene, bezahlte und überfällige Posten mit Zahlungserinnerungen.
+
+### 🏥 Therapie- & Praxisverwaltung (TheraPsy Suite)
+- **Klienten direkt aus dem Kundenbuch** auswählen, ohne doppelte Eingabe.
+- **Sitzungsdokumentation** mit Verlaufsnotizen, Methoden und Dauer-Vorlagen (30, 50, 60, 90 Minuten).
+- **Abrechnung** mit Praxis-Briefkopf und Synchronisation in die Hauptbuchhaltung.
+- **Fahrtenbuch**: Start- und Endkilometer, automatische Strecke und EStG-Erstattung (0,30 €, 0,38 €, 0,42 €/km).
+- **Auswertung**: Umsatz- und Sitzungsdiagramme mit KPI-Karten.
+
+### 📦 Lager, Produkte & Warenbewegungen
+- **Bestandsführung** mit Artikelnummern, Barcodes, Einkaufs- und Verkaufspreisen sowie Mindestbeständen.
+- **Bewegungsprotokoll** für Umlagerungen, Lieferungen, Verluste und Wareneingänge.
+- **Warnungen** bei Unterschreitung des Mindestbestands.
+
+### 🍽️ Kasse (POS) & Gastronomie
+- **Tischplan-Editor** mit Drag-and-Drop für Tische, Plätze und Räume.
+- **Bestellungen** am Tisch oder zum Mitnehmen mit Varianten und Notizen.
+- **Küchen- und Barbildschirm** mit Bestellstatus.
+- **Rechnung teilen** nach Person oder Artikel, Bar- oder Kartenzahlung.
+
+### 📊 Buchhaltung & Auswertung
+- **Auswertungen**: Umsatz, Ausgaben und Margen.
+- **Steuerberichte**: BWA, EÜR, UStVA und tägliche Kassenberichte (Z-Bon).
+
+### 🌐 Vier Sprachen von Anfang an
+Alle Oberflächentexte gibt es in **Deutsch, Englisch, Französisch und Spanisch**. Die Sprache wird bei der ersten Einrichtung gewählt.
+
+---
+
+## 🛡️ Stabilität & Betrieb
+
+- **Sitzungsprotokolle**: Die Desktop-Version schreibt Sitzungslogs, auch bei Abstürzen. Die letzten 20 Sitzungen bleiben erhalten.
+- **Startbildschirm**: Ein Splash-Screen erscheint bei jedem Start.
+- **Selbst-Update der portablen Version**: Die portable EXE kann sich selbst aktualisieren. Auf anderen Arbeitsplätzen erscheint ein Hinweis zum Update.
+
+---
+
+## 🔒 Datenschutz & Offline-First
+
+Deine Geschäftsdaten gehören dir.
+
+- **Keine Cloud-Pflicht**: Läuft vollständig lokal auf dem Desktop oder im Browser. Keine Konten und keine Telemetrie.
+- **IndexedDB & Dexie.js**: Transaktionale Speicherung im Browser, geeignet für zehntausende Datensätze.
+- **Lokale JSON-Backups**: Gesamte Datenbank als Datei exportieren und auf jedem Rechner wiederherstellen.
+- **Sicheres Zurücksetzen**: Mehrstufiger Assistent, um den lokalen Stand beim Gerätewechsel zu löschen.
 
 ---
 
 ## 📥 Installation & Downloads
 
-Pre-built Windows binaries are available on the official [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases) page:
+Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
 
-1. **Setup Installer (`SOCDOF Setup ... .exe`)**: Complete Windows installation with desktop shortcuts, Start Menu integration, and auto-updater support.
-2. **Portable Edition (`SOCDOF ... .exe`)**: Single standalone executable that runs directly without installation.
-3. **Web App**: Run instantly in any modern web browser or deploy as a static Progressive Web App (PWA).
+1. **Setup-Installer (`SOCDOF Setup ... .exe`)**: Installation mit Desktop-Verknüpfung, Startmenü und Auto-Updater.
+2. **Portable Version (`SOCDOF ... .exe`)**: Eine einzelne EXE ohne Installation, mit Selbst-Update.
+3. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
 
 ---
 
-## 🛠️ Local Development
+## 🛠️ Lokale Entwicklung
 
-### Prerequisites
-- **Node.js** (v18 or higher)
-- **npm** (v9 or higher)
+### Voraussetzungen
+- **Node.js** (v18 oder neuer)
+- **npm** (v9 oder neuer)
 
-### Quick Start
+### Schnellstart
 ```bash
-# 1. Clone the repository
+# 1. Repository klonen
 git clone https://github.com/Strudelcode/SOCDOF.git
 cd SOCDOF
 
-# 2. Install dependencies
+# 2. Abhängigkeiten installieren
 npm install
 
-# 3. Start the local development server (port 3000)
+# 3. Entwicklungsserver starten (Port 3000)
 npm run dev
 
-# 4. Run TypeScript and syntax linting
+# 4. TypeScript- und Syntaxprüfung
 npm run lint
 
-# 5. Build for production (web bundle)
+# 5. Produktionsbuild (Web-Bundle)
 npm run build
 ```
 
-### Packaging Windows Electron App
+### Windows-Electron-App bauen
 ```bash
-# Package the Windows NSIS setup installer & portable executable
+# NSIS-Installer und portable EXE erstellen
 npm run build:exe
 ```
 
 ---
 
-## 📂 Project Structure
+## 📂 Projektstruktur
 
 ```text
 SOCDOF/
-├── electron/              # Electron main process, IPC handlers & window management
+├── electron/              # Electron-Hauptprozess, IPC-Handler, Fensterverwaltung, Splash & Sitzungslogs
 ├── src/
-│   ├── components/        # UI modules (Invoices, POS, Inventory, Therapy, Settings, etc.)
-│   │   └── therapy/       # Therapy & Practice submodules (Dashboard, Billing, Mileage, Clients)
-│   ├── lib/               # Database (Dexie.js), i18n, sound, display manager, versioning
-│   ├── types/             # TypeScript definitions across all business entities
-│   ├── App.tsx            # Main desktop workspace orchestrator & window manager
-│   └── main.tsx           # React entry point
-├── todo/                  # Active tasks (todo.md) & completed archive (completed_todo.md)
-├── versions/              # Detailed release documentation per version series
-└── package.json           # App metadata, dependencies & build scripts
+│   ├── components/        # UI-Module (Rechnungen, Kasse, Lager, Therapie, Einstellungen usw.)
+│   │   └── therapy/       # Therapie-Untermodule (Dashboard, Abrechnung, Fahrtenbuch, Klienten)
+│   ├── lib/               # Datenbank (Dexie.js), Übersetzungen (i18n), Sound, Displays, Versionierung
+│   ├── types/             # TypeScript-Typen für alle Geschäftsobjekte
+│   ├── App.tsx            # Hauptsteuerung der Arbeitsfläche
+│   └── main.tsx           # React-Einstiegspunkt
+├── todo/                  # Offene Aufgaben (todo.md) und Archiv (completed_todo.md)
+├── versions/              # Detaillierte Versionshinweise je Versionsreihe
+└── package.json           # App-Metadaten, Abhängigkeiten und Build-Skripte
 ```
 
 ---
 
 ## 🤝 Community & Support
 
-- **Discord Community**: Join our [Discord Server](https://discord.gg/QW85EaXTgB) for discussions, feature requests, and help.
-- **Issue Tracker**: Report bugs or propose ideas on [GitHub Issues](https://github.com/Strudelcode/SOCDOF/issues).
-- **Changelog**: See [CHANGELOG.md](./CHANGELOG.md) and [`versions/`](./versions/) for the full release history.
+- **Discord**: Diskussionen, Funktionswünsche und Hilfe auf dem [Discord-Server](https://discord.gg/QW85EaXTgB).
+- **Fehlerberichte**: Über die [GitHub Issues](https://github.com/Strudelcode/SOCDOF/issues).
+- **Changelog**: [CHANGELOG.md](./CHANGELOG.md) und [`versions/`](./versions/) enthalten die vollständige Versionshistorie.
 
 ---
 
-*Crafted with ❤️ by Strudel / Yuri in South Tyrol, Italy.*
+*Entwickelt von Strudel / Yuri in Südtirol, Italien.*
+
+*Dieses Projekt wird mithilfe von KI programmiert.*

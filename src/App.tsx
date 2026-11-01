@@ -17,15 +17,15 @@ import {
   exportDatabaseToJson
 } from './lib/db';
 import { sounds } from './lib/sound';
-import { StudioDrawer } from './components/StudioDrawer';
-import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
-import { AccountScopedWorkspace } from './components/AccountScopedWorkspace';
-import { BackupSetupModal } from './components/BackupSetupModal';
-import { AuthGate } from './components/AuthGate';
+import { StudioDrawer } from './components/shell/StudioDrawer';
+import { DesktopWindowWorkspace } from './components/shell/DesktopWindowWorkspace';
+import { AccountScopedWorkspace } from './components/auth/AccountScopedWorkspace';
+import { BackupSetupModal } from './components/auth/BackupSetupModal';
+import { AuthGate } from './components/auth/AuthGate';
 import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
-import { getSession, getUserById, updateUserPreferences } from './lib/auth';
+import { getSession, getUserById, hasUsers, updateUserPreferences } from './lib/auth';
 import { applyNightLight } from './lib/displayManager';
 import { processDiscordOfflineQueue } from './lib/discordFeedback';
 
@@ -105,7 +105,16 @@ export default function App() {
       const legacyTheme = localStorage.getItem('odoo_theme_dark');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const mode: CompanyProfile['theme_mode'] = savedMode || (legacyTheme !== null ? (legacyTheme === 'true' ? 'dark' : 'light') : 'system');
-      applyThemeMode(mode);
+      // First run (no user account yet): follow the system scheme instead of the 'light' company default, without persisting it
+      const isFirstRun = !hasUsers();
+      if (isFirstRun) {
+        const enableDark = prefersDark;
+        setIsDark(enableDark);
+        document.documentElement.classList.toggle('dark', enableDark);
+        document.documentElement.style.colorScheme = enableDark ? 'dark' : 'light';
+      } else {
+        applyThemeMode(mode);
+      }
     } catch {
       // ignore
     }
