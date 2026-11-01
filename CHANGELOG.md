@@ -7,6 +7,11 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## 25.2.21
+
+- 🛠️ **Geändert / Changed**: The update download shows a remaining-time estimate based on the smoothed measured download speed, instead of a fixed guess. Until enough data is measured it shows "Calculating remaining time...".
+- 🛠️ **Behoben / Fixed**: If `powershell.exe` cannot start during an update, the installer is opened directly instead of the update silently failing.
+
 ## 25.2.20
 
 - 🛠️ **Geändert / Changed**: The installer language list is limited to German, English, French and Spanish.

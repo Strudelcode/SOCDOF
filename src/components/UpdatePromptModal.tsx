@@ -39,8 +39,11 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadedMb, setDownloadedMb] = useState(0);
   const [totalMb, setTotalMb] = useState(85.0);
+  const [speedMbps, setSpeedMbps] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  // Last progress sample used to derive a smoothed download speed
+  const speedSampleRef = useRef<{ time: number; percent: number; startTime: number } | null>(null);
 
   const isDesktop = isElectron();
 
@@ -49,6 +52,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
       setDownloadStep('prompt');
       setDownloadProgress(0);
       setDownloadedMb(0);
+      setSpeedMbps(null);
       setErrorMessage('');
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -56,6 +60,31 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
       }
     }
   }, [isOpen]);
+
+  // Derive a smoothed download speed from progress samples (exponential moving average).
+  // The first seconds are ignored so the estimate does not start with a wild guess.
+  useEffect(() => {
+    if (downloadStep !== 'downloading') {
+      speedSampleRef.current = null;
+      setSpeedMbps(null);
+      return;
+    }
+    const now = Date.now();
+    const prev = speedSampleRef.current;
+    if (!prev) {
+      speedSampleRef.current = { time: now, percent: downloadProgress, startTime: now };
+      return;
+    }
+    const elapsedSec = (now - prev.time) / 1000;
+    const deltaPercent = downloadProgress - prev.percent;
+    if (deltaPercent <= 0 || elapsedSec < 0.2) return;
+
+    const instantMbps = ((deltaPercent / 100) * totalMb) / elapsedSec;
+    speedSampleRef.current = { time: now, percent: downloadProgress, startTime: prev.startTime };
+    // Wait for a short warm-up before showing any estimate
+    if (now - prev.startTime < 2000) return;
+    setSpeedMbps((current) => (current === null ? instantMbps : 0.2 * instantMbps + 0.8 * current));
+  }, [downloadProgress, downloadStep, totalMb]);
 
   if (!isOpen || !updateInfo) return null;
 
@@ -300,7 +329,11 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
                 <span>{isDesktop ? 'In-App Engine' : 'CDN Download'}</span>
-                <span>{t('updates.time_remaining', lang, 'ca. {seconds} Sek. verbleibend').replace('{seconds}', String(Math.max(1, Math.round((100 - downloadProgress) * 0.4))))}</span>
+                <span>
+                  {speedMbps && speedMbps > 0
+                    ? t('updates.time_remaining', lang, 'ca. {seconds} Sek. verbleibend').replace('{seconds}', String(Math.max(1, Math.ceil(((100 - downloadProgress) / 100 * totalMb) / speedMbps))))
+                    : t('updates.time_calculating', lang, 'Restzeit wird berechnet...')}
+                </span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{downloadProgress}%</span>
               </div>
             </div>

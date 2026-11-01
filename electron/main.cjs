@@ -1488,7 +1488,11 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
           stdio: 'ignore'
         });
         // A missing or blocked powershell.exe emits an async 'error' event; without a listener it crashes the main process
-        child.on('error', (err) => console.error('Installer launcher failed:', err));
+        child.on('error', (err) => {
+          console.error('Installer launcher failed:', err);
+          // Without PowerShell the installer would never start; open it directly instead
+          shell.openPath(installerPath);
+        });
         child.unref();
       } catch (spawnErr) {
         console.error('Failed to spawn installer via launcher:', spawnErr);
