@@ -28,16 +28,31 @@ fn run(command: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
             println!("database:       {path}");
             println!("schema version: {}", store.schema_version()?);
             println!("contacts:       {}", store.contact_count()?);
+            println!("products:       {}", store.product_count()?);
             println!("invoices:       {}", store.invoice_count()?);
+            println!("users:          {}", store.user_count()?);
         }
         "contacts" => {
             for contact in store.list_contacts()? {
                 println!("{}\t{}", contact.id, contact.display_name());
             }
         }
+        "products" => {
+            for product in store.list_products()? {
+                println!(
+                    "{}\t{}\t{}\t{}",
+                    product.sku,
+                    product.name,
+                    product.stock,
+                    product
+                        .price
+                        .format_localized(&store.company_profile()?.currency)
+                );
+            }
+        }
         other => {
             eprintln!("unknown command: {other}");
-            eprintln!("usage: socdof-cli <info|contacts> [database]");
+            eprintln!("usage: socdof-cli <info|contacts|products> [database]");
             return Err("invalid arguments".into());
         }
     }

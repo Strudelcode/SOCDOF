@@ -6,6 +6,7 @@
 pub mod domain;
 pub mod error;
 pub mod money;
+pub mod security;
 pub mod store;
 
 pub use error::{CoreError, CoreResult};

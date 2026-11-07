@@ -8,7 +8,7 @@
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
 | **Current phase** | Phase 1 — domain model & data layer (Phase 0 complete) |
-| **Overall progress** | ~7 % (workspace, money, contacts, products, invoices, SQLite store) |
+| **Overall progress** | ~12 % (core data layer: money, entities, users, stock, settings, SQLite store) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -76,19 +76,20 @@ are green locally and in CI; baseline numbers documented.
 ## 4. Phase 1 — Domain model & data layer
 
 Done so far: `Money` (integer cents, parsing/formatting, tax), `Contact`, `Product`, `Invoice` with
-positions and totals, plus a SQLite store with `user_version` migrations and repositories for
-contacts and invoices.
+positions and totals, `User` with roles, `StockMove`, `CompanyProfile`, Argon2id password hashing,
+and a SQLite store with `user_version` migrations and repositories for contacts, products, stock,
+invoices, users and settings. See `docs/architecture.md` for the layout and conventions.
 
 - [ ] Define entity types: `User`, `Role`, `Contact`, `Product`, `StockMove`, `Invoice`,
       `PurchaseOrder`, `POSOrder`, `BillingItem`, `Session`, `Appointment`, `Widget`, `Report`,
       `SupportTicket`, `TimeEntry`, `Settings`, `CompanyProfile`
-- [ ] SQLite schema + migrations (`refinery` or hand-rolled `user_version` migrations)
+- [x] SQLite schema + migrations (`refinery` or hand-rolled `user_version` migrations)
 - [ ] Repository traits + SQLite implementations, one module per aggregate
 - [ ] Transaction boundaries for multi-entity writes (invoice + stock move + contact)
 - [ ] Full-text search (`fts5`) for contacts, products, invoices
 - [ ] Legacy import: reader for the IndexedDB JSON export (users, settings, all tables)
 - [ ] Round-trip test: import legacy export → export → identical data
-- [ ] Money handling: integer cents everywhere, no floats
+- [x] Money handling: integer cents everywhere, no floats
 - [ ] Backup: `.socdof` zip container, integrity check, restore path
 - [ ] Auth: `argon2id` hashes, session tokens, lockout policy, roles/permissions matrix
 - [ ] Unit tests for repositories, money math, permission checks
@@ -269,3 +270,4 @@ Per module definition of done:
 | 2026-11-07 | 0 | Branch and this plan created. Legacy baselines measured: 112,790 lines TS/TSX, 11 MB `dist`, 3.9 MB main bundle (973 KB gz). |
 | 2026-11-07 | 0 | Workspace, pinned toolchain, CI and README created; legacy app moved to `SOCDOF - TS`; baselines written to `docs/baseline.md`. |
 | 2026-11-07 | 1 | `Money` (integer cents, parsing, formatting, tax), contacts, products, invoices with totals, SQLite store with `user_version` migrations and repositories. 17 tests, clippy clean. |
+| 2026-11-07 | 1 | Users with Argon2id hashing, stock movements, company profile settings, schema v2, `docs/architecture.md`. |

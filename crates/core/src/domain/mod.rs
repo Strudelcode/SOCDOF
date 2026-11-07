@@ -6,3 +6,6 @@
 pub mod contact;
 pub mod invoice;
 pub mod product;
+pub mod settings;
+pub mod stock;
+pub mod user;

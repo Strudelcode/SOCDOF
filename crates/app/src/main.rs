@@ -29,7 +29,9 @@ fn run(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("  database:       {path}");
     println!("  schema version: {}", store.schema_version()?);
     println!("  contacts:       {}", store.contact_count()?);
+    println!("  products:       {}", store.product_count()?);
     println!("  invoices:       {}", store.invoice_count()?);
+    println!("  users:          {}", store.user_count()?);
     println!();
     println!("The desktop shell (windows, tray, start menu) is built in Phase 3.");
 

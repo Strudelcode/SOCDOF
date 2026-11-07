@@ -7,13 +7,20 @@ use rusqlite::Connection;
 
 use crate::domain::contact::Contact;
 use crate::domain::invoice::Invoice;
+use crate::domain::product::Product;
+use crate::domain::settings::CompanyProfile;
+use crate::domain::stock::StockMove;
+use crate::domain::user::User;
 use crate::error::CoreResult;
 
 pub mod contacts;
 pub mod invoices;
+pub mod products;
+pub mod settings;
+pub mod users;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -82,6 +89,32 @@ CREATE TABLE IF NOT EXISTS app_meta (
 );
 "#;
 
+const SCHEMA_V2: &str = r#"
+CREATE TABLE IF NOT EXISTS users (
+    id                    TEXT PRIMARY KEY,
+    username              TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    display_name          TEXT NOT NULL,
+    role                  TEXT NOT NULL,
+    role_id               TEXT,
+    active                INTEGER NOT NULL DEFAULT 1,
+    password_hash         TEXT NOT NULL,
+    must_change_password  INTEGER NOT NULL DEFAULT 1,
+    created_at            INTEGER NOT NULL,
+    updated_at            INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stock_moves (
+    id          TEXT PRIMARY KEY,
+    product_id  TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,
+    quantity    INTEGER NOT NULL,
+    reason      TEXT,
+    created_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_moves_product ON stock_moves(product_id, created_at);
+"#;
+
 /// A connection to the SOCDOF database.
 pub struct Store {
     conn: Connection,
@@ -116,6 +149,11 @@ impl Store {
         if version < 1 {
             self.conn.execute_batch(SCHEMA_V1)?;
             version = 1;
+        }
+
+        if version < 2 {
+            self.conn.execute_batch(SCHEMA_V2)?;
+            version = 2;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -167,6 +205,80 @@ impl Store {
     pub fn list_invoices(&self) -> CoreResult<Vec<Invoice>> {
         invoices::list(&self.conn)
     }
+
+    /// Inserts a product.
+    pub fn insert_product(&self, product: &Product) -> CoreResult<()> {
+        products::insert(&self.conn, product)
+    }
+
+    /// Lists all products ordered by name.
+    pub fn list_products(&self) -> CoreResult<Vec<Product>> {
+        products::list(&self.conn)
+    }
+
+    /// Records a stock movement and returns the resulting stock level.
+    pub fn adjust_stock(&self, movement: &StockMove) -> CoreResult<i64> {
+        products::adjust_stock(&self.conn, movement)
+    }
+
+    /// Number of products.
+    pub fn product_count(&self) -> CoreResult<i64> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?)
+    }
+
+    /// Number of user accounts.
+    pub fn user_count(&self) -> CoreResult<i64> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))?)
+    }
+
+    /// Inserts a user. Hash the password with [`crate::security::hash_password`] first.
+    pub fn insert_user(&self, user: &User) -> CoreResult<()> {
+        users::insert(&self.conn, user)
+    }
+
+    /// Finds a user by login name, ignoring case.
+    pub fn find_user_by_username(&self, username: &str) -> CoreResult<Option<User>> {
+        users::find_by_username(&self.conn, username)
+    }
+
+    /// Lists all users ordered by display name.
+    pub fn list_users(&self) -> CoreResult<Vec<User>> {
+        users::list(&self.conn)
+    }
+
+    /// Verifies credentials and returns the account on success.
+    pub fn authenticate(&self, username: &str, password: &str) -> CoreResult<Option<User>> {
+        users::authenticate(&self.conn, username, password)
+    }
+
+    /// Stores a new password hash and clears the "must change password" flag.
+    pub fn set_password(&self, user_id: uuid::Uuid, password_hash: &str) -> CoreResult<()> {
+        users::set_password(&self.conn, user_id, password_hash)
+    }
+
+    /// Reads a JSON setting.
+    pub fn get_setting(&self, key: &str) -> CoreResult<Option<serde_json::Value>> {
+        settings::get(&self.conn, key)
+    }
+
+    /// Writes a JSON setting.
+    pub fn put_setting(&self, key: &str, value: &serde_json::Value) -> CoreResult<()> {
+        settings::put(&self.conn, key, value)
+    }
+
+    /// Loads the company profile, returning defaults when nothing was stored yet.
+    pub fn company_profile(&self) -> CoreResult<CompanyProfile> {
+        settings::load_company_profile(&self.conn)
+    }
+
+    /// Stores the company profile.
+    pub fn save_company_profile(&self, profile: &CompanyProfile) -> CoreResult<()> {
+        settings::save_company_profile(&self.conn, profile)
+    }
 }
 
 #[cfg(test)]
@@ -174,6 +286,9 @@ mod tests {
     use super::*;
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
+    use crate::domain::settings::ThemeMode;
+    use crate::domain::stock::StockMoveKind;
+    use crate::domain::user::UserRole;
     use crate::money::Money;
     use crate::now_millis;
     use uuid::Uuid;
@@ -275,5 +390,113 @@ mod tests {
 
         assert!(store.insert_invoice(&invoice).is_err());
         assert_eq!(store.invoice_count().expect("count"), 0);
+    }
+
+    fn user(store: &Store, password: &str) -> User {
+        let now = now_millis();
+        let account = User {
+            id: Uuid::new_v4(),
+            username: "admin".to_string(),
+            display_name: "Administrator".to_string(),
+            role: UserRole::Admin,
+            role_id: None,
+            active: true,
+            password_hash: crate::security::hash_password(password).expect("hash"),
+            must_change_password: true,
+            created_at: now,
+            updated_at: now,
+        };
+        store.insert_user(&account).expect("user inserted");
+        account
+    }
+
+    #[test]
+    fn roundtrips_users_and_authenticates() {
+        let store = Store::open_in_memory().expect("store");
+        let account = user(&store, "admin-passwort");
+
+        let found = store
+            .find_user_by_username("ADMIN")
+            .expect("query")
+            .expect("user present");
+        assert_eq!(found, account);
+
+        assert_eq!(
+            store.authenticate("admin", "admin-passwort").expect("auth"),
+            Some(account.clone())
+        );
+        assert_eq!(store.authenticate("admin", "falsch").expect("auth"), None);
+        assert_eq!(store.authenticate("unbekannt", "egal").expect("auth"), None);
+        assert_eq!(store.list_users().expect("list"), vec![account]);
+    }
+
+    #[test]
+    fn changes_passwords_and_clears_the_change_flag() {
+        let store = Store::open_in_memory().expect("store");
+        let account = user(&store, "admin-passwort");
+        assert!(account.must_change_password);
+
+        let hash = crate::security::hash_password("neues-passwort").expect("hash");
+        store.set_password(account.id, &hash).expect("password set");
+
+        let updated = store
+            .find_user_by_username("admin")
+            .expect("query")
+            .expect("user present");
+        assert!(!updated.must_change_password);
+        assert!(store
+            .authenticate("admin", "neues-passwort")
+            .expect("auth")
+            .is_some());
+        assert!(store
+            .authenticate("admin", "admin-passwort")
+            .expect("auth")
+            .is_none());
+    }
+
+    #[test]
+    fn roundtrips_products_and_stock_movements() {
+        let store = Store::open_in_memory().expect("store");
+        let mut product = Product::new("Kaffee", now_millis());
+        product.price = Money::from_cents(499);
+        product.stock = 10;
+        store.insert_product(&product).expect("product inserted");
+
+        let movement = StockMove {
+            id: Uuid::new_v4(),
+            product_id: product.id,
+            kind: StockMoveKind::Out,
+            quantity: 4,
+            reason: Some("Rechnung 2026-0001".to_string()),
+            created_at: now_millis(),
+        };
+
+        assert_eq!(store.adjust_stock(&movement).expect("adjusted"), 6);
+        assert_eq!(store.list_products().expect("list")[0].stock, 6);
+
+        let too_much = StockMove {
+            quantity: 99,
+            ..movement
+        };
+        assert!(store.adjust_stock(&too_much).is_err());
+        assert_eq!(store.list_products().expect("list")[0].stock, 6);
+    }
+
+    #[test]
+    fn stores_the_company_profile() {
+        let store = Store::open_in_memory().expect("store");
+        assert_eq!(
+            store.company_profile().expect("profile"),
+            CompanyProfile::default()
+        );
+
+        let profile = CompanyProfile {
+            name: "Strudelcode".to_string(),
+            theme_mode: ThemeMode::Dark,
+            ..CompanyProfile::default()
+        };
+        store.save_company_profile(&profile).expect("saved");
+
+        assert_eq!(store.company_profile().expect("profile"), profile);
     }
 }
