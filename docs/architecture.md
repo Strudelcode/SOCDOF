@@ -124,10 +124,18 @@ version, row counts and lock owner, and writes a backup with its path and size.
 
 The Tauri crate is deliberately excluded from the root workspace: it needs `libwebkit2gtk-4.1-dev`,
 `libgtk-3-dev`, `libayatana-appindicator3-dev` and `librsvg2-dev`, which the core jobs must not
-require. The desktop CI job installs those packages on Ubuntu, builds the frontend and produces a
-`.deb`; on Windows it produces an NSIS `.exe`. Both are uploaded as artifacts. The local build image
-used for this branch still has no GTK/WebKit packages, so the Tauri build itself is verified in CI;
-`cargo test -p socdof-app` covers the command layer locally.
+require. The desktop CI job installs those packages on Ubuntu, builds the frontend and produces an
+AppImage and a `.deb`; on Windows it produces a portable ZIP, an NSIS setup and an MSI. Each file is
+uploaded as an artifact. The local build image used for this branch still has no GTK/WebKit packages,
+so the Tauri build itself is verified in CI; `cargo test -p socdof-app` covers the command layer
+locally.
+
+The `GUI smoke` CI job uses Xvfb, DBus and `WEBKIT_DISABLE_COMPOSITING_MODE=1` to start the real
+window. The frontend invokes the normal commands when `SOCDOF_SMOKE_REPORT` is set; `finish_smoke`
+validates the returned schema version, database path and non-empty backup against `DesktopState`,
+writes `smoke-report.json` and exits with 0. A missing WebView, failed command or invalid value
+fails the job. This is a runtime test of the Tauri IPC path, not a second implementation of the
+shell logic.
 
 ## PDF layout
 

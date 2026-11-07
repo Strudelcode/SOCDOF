@@ -69,15 +69,34 @@ npm run tauri dev
 
 Artifacts are written to:
 
-- Linux: `crates/app/src-tauri/target/release/bundle/deb/*.deb`
-- Windows: `crates/app/src-tauri/target/release/bundle/nsis/*.exe`
+- Linux: `crates/app/src-tauri/target/release/bundle/deb/*.deb` and
+  `crates/app/src-tauri/target/release/bundle/appimage/*.AppImage`
+- Windows: `crates/app/src-tauri/target/release/bundle/nsis/*-setup.exe` and
+  `crates/app/src-tauri/target/release/bundle/msi/*.msi`
 
-The `.deb` and NSIS targets are selected in `tauri.linux.conf.json` and `tauri.windows.conf.json`.
-The desktop crate has its own `Cargo.lock`; the root workspace lockfile is unaffected.
+The `.deb` + AppImage and NSIS + MSI targets are selected in `tauri.linux.conf.json` and
+`tauri.windows.conf.json`. The desktop crate has its own `Cargo.lock`; the root workspace lockfile is
+unaffected.
+
+### Portable packages
+
+The Linux AppImage in the CI artifacts is the portable Linux build. It does not need an installer;
+run it directly. On distributions without FUSE 2, use the AppImage extraction mode
+(`./SOCDOF-0.1.0-linux-x86_64.AppImage --appimage-extract-and-run`). The AppImage still expects the
+usual desktop libraries (GTK 3, WebKitGTK 4.1 and the graphics stack) to be present.
+
+The Windows portable ZIP contains `SOCDOF.exe`, its optional `WebView2Loader.dll` when emitted by
+the build, and [`crates/app/portable/README-PORTABLE.txt`](crates/app/portable/README-PORTABLE.txt).
+It does not require an installer and writes its database under
+`%APPDATA%\com.strudelcode.socdof\`. It uses the machine-wide **WebView2 Evergreen Runtime**, which
+is present on Windows 11 and most Windows 10 systems; if it is missing, install the runtime from
+Microsoft. The portable package deliberately does not carry a private WebView2 copy, so Edge
+security updates keep applying. A fixed WebView2 runtime is not part of this pass.
 
 > The Linux development image used to prepare this branch has no GTK/WebKit development packages,
-> so the Tauri build cannot run there. The desktop CI job installs the packages above and builds the
-> bundle on Ubuntu and Windows; that job is the build proof for this layer.
+> so the Tauri build cannot run there. The `Desktop` CI jobs install the packages above and build the
+> full bundle matrix on Ubuntu and Windows; the `GUI smoke` job additionally starts the real Linux
+> WebView under Xvfb. Those jobs are the build and runtime proof for this layer.
 
 ## CI
 
@@ -89,8 +108,15 @@ The desktop crate has its own `Cargo.lock`; the root workspace lockfile is unaff
   `cargo test --workspace`, including the command-layer test for schema status and backup.
 - **Shell smoke** on Ubuntu: starts `socdof-app` headlessly on a fresh database and writes a backup.
 - **Desktop** on Ubuntu and Windows: installs the Linux WebKit/GTK dependencies, runs `npm ci`,
-  builds the frontend, builds the Tauri bundle and uploads `socdof-desktop-<runner>` as an artifact
-  (`.deb` on Linux, NSIS `.exe` on Windows).
+  builds the frontend, builds the full Tauri bundle matrix and uploads each file as a separate
+  artifact: `SOCDOF-<version>-linux-x86_64.AppImage`, `SOCDOF-<version>-linux-amd64.deb`,
+  `SOCDOF-<version>-windows-x64-portable.zip`, `SOCDOF-<version>-windows-x64-setup.exe` and
+  `SOCDOF-<version>-windows-x64.msi` (plus checksum files).
+- **GUI smoke** on Ubuntu: installs Xvfb, DBus and WebKit, builds the real Tauri binary, starts it
+  under `xvfb-run`, waits for the loaded frontend to invoke `database_status` and `create_backup`,
+  verifies the returned schema version, database path and backup size against the live state, and
+  uploads `artifacts/smoke.log`, `artifacts/smoke-report.json` and the generated backup. The job
+  fails if the window/WebView does not start or a value is invalid.
 
 All actions use the Node 24 runtime (`checkout@v5`, `setup-node@v5`, `upload-artifact@v6`,
 `rust-cache@v2.9.3`), so the run does not emit Node 20 deprecation warnings.

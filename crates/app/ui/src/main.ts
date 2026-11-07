@@ -22,6 +22,13 @@ interface BackupReport {
   created_at: number;
 }
 
+interface SmokeReport {
+  schema_version: number;
+  database: string;
+  backup_path: string;
+  backup_bytes: number;
+}
+
 const language = detectLanguage();
 applyTranslations(language);
 
@@ -56,6 +63,13 @@ function renderStatus(status: ShellStatus): void {
   statusMessage.textContent = "";
 }
 
+function renderBackup(report: BackupReport): void {
+  backupResult.textContent = format(translate(language, "backupDone"), {
+    path: report.path,
+    bytes: numberFormat.format(report.bytes),
+  });
+}
+
 async function refreshStatus(): Promise<void> {
   try {
     renderStatus(await invoke<ShellStatus>("database_status"));
@@ -66,6 +80,46 @@ async function refreshStatus(): Promise<void> {
   }
 }
 
+async function runSmokeIfEnabled(): Promise<void> {
+  let enabled = false;
+  try {
+    enabled = await invoke<boolean>("smoke_enabled");
+  } catch {
+    return;
+  }
+  if (!enabled) {
+    return;
+  }
+
+  try {
+    const status = await invoke<ShellStatus>("database_status");
+    renderStatus(status);
+
+    const backup = await invoke<BackupReport>("create_backup");
+    renderBackup(backup);
+
+    const report: SmokeReport = {
+      schema_version: status.schema_version,
+      database: status.database,
+      backup_path: backup.path,
+      backup_bytes: backup.bytes,
+    };
+    try {
+      await invoke("finish_smoke", { report });
+    } catch {
+      // The command writes the report and exits; an IPC rejection after that is expected.
+    }
+  } catch (error) {
+    const message = describe(error);
+    statusMessage.textContent = message;
+    try {
+      await invoke("abort_smoke", { message });
+    } catch {
+      // The CI timeout is the final fallback if even the abort command cannot be delivered.
+    }
+  }
+}
+
 backupButton.addEventListener("click", async () => {
   backupButton.disabled = true;
   backupButton.textContent = translate(language, "backupWorking");
@@ -73,10 +127,7 @@ backupButton.addEventListener("click", async () => {
 
   try {
     const report = await invoke<BackupReport>("create_backup");
-    backupResult.textContent = format(translate(language, "backupDone"), {
-      path: report.path,
-      bytes: numberFormat.format(report.bytes),
-    });
+    renderBackup(report);
     await refreshStatus();
   } catch (error) {
     backupResult.textContent = format(translate(language, "errorBackup"), {
@@ -88,4 +139,9 @@ backupButton.addEventListener("click", async () => {
   }
 });
 
-void refreshStatus();
+async function start(): Promise<void> {
+  await refreshStatus();
+  await runSmokeIfEnabled();
+}
+
+void start();

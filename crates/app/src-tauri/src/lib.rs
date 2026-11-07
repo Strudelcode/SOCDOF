@@ -24,7 +24,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::database_status,
-            commands::create_backup
+            commands::create_backup,
+            commands::smoke_enabled,
+            commands::finish_smoke,
+            commands::abort_smoke
         ])
         .run(tauri::generate_context!())
         .expect("SOCDOF window failed to start");

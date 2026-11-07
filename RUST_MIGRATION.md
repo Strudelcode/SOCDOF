@@ -7,8 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; bundles built in CI) |
-| **Overall progress** | ~32 % (core services, headless shell and the first wired Tauri screen) |
+| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; runtime smoke and full bundle matrix in CI) |
+| **Overall progress** | ~35 % (core services, headless shell, wired Tauri screen, packaging and runtime proof) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -135,15 +135,25 @@ commands are one-line adapters over `socdof_app::desktop::DesktopState`; the fir
 schema version, row counts and lock owner through `database_status` and writes a real backup through
 `create_backup`. The frontend in `crates/app/ui` is a small Vite/TypeScript app with German, English,
 French and Spanish texts. Command-layer tests exercise the exact methods the Tauri commands call and
-run without GTK/WebKit. The desktop CI job installs the Linux WebKit/GTK packages, builds the
-frontend, produces a `.deb` on Ubuntu and an NSIS `.exe` on Windows, and uploads both as artifacts.
-The local build image still has no GTK/WebKit development packages, so the Tauri build itself runs
-only in CI; the command layer and the frontend build are verified locally.
+run without GTK/WebKit.
+
+The desktop CI jobs install the Linux WebKit/GTK packages, build the frontend and produce the full
+package matrix: AppImage and `.deb` on Ubuntu; a portable ZIP of the built binary (with the WebView2
+runtime notice), NSIS setup and MSI on Windows. Every file is uploaded as its own artifact. The
+`GUI smoke` job builds the real Tauri binary, starts it under Xvfb with a private XDG data directory
+and lets the loaded frontend invoke `database_status` and `create_backup`. The `finish_smoke`
+command validates the returned schema version, database path and backup bytes against the live
+state, writes `smoke-report.json`, logs the values and exits 0; the workflow also checks the backup
+container and fails on a missing WebView, command error or invalid value. Logs, report and backup
+are uploaded. The local build image still has no GTK/WebKit development packages, so the Tauri
+build and the GUI startup itself run only in CI; the command layer and frontend build are verified
+locally.
 
 - [x] Shell lifecycle: single instance lock, database bootstrap, ready status
 - [x] Command dispatch: status, backup, restore, invoice PDF export through `socdof-core`
 - [x] Headless runner and integration test for the startup path
-- [x] Tauri 2 project (`crates/app/src-tauri`), Linux `.deb` and Windows NSIS bundle in CI
+- [x] Tauri 2 project (`crates/app/src-tauri`), Linux AppImage + `.deb` and Windows portable ZIP + NSIS + MSI in CI
+- [x] Real WebView/command runtime smoke under Xvfb, with log and backup artifact
 - [x] First screen: schema version, row counts, lock owner and a real backup via commands
 - [x] Command-layer tests for status and backup without a window
 - [ ] Window state persistence (size, position, maximized, fullscreen)
@@ -303,3 +313,4 @@ Per module definition of done:
 | 2026-11-07 | 3 | Headless application shell in `socdof-app`: lock-first startup, status, backup, restore and invoice PDF commands, headless binary and integration test. Tauri window layer blocked by missing WebKitGTK/GTK development packages; exact `pkg-config` failure documented. |
 | 2026-11-07 | 3 | CI moved to a Linux + Windows matrix: format gate on Ubuntu, clippy and the full test suite on both runners, headless shell smoke on Ubuntu. |
 | 2026-11-07 | 3 | Tauri 2 window layer added in `crates/app/src-tauri` with a Vite/TypeScript screen in `crates/app/ui`. `DesktopState` exposes schema status and backup to the commands; command-layer tests run locally without GTK/WebKit. Desktop CI job builds `.deb` and NSIS bundles on Ubuntu and Windows and uploads them as artifacts; actions moved to Node 24 runtimes. |
+| 2026-11-07 | 3 | Added runtime GUI smoke: the real Tauri binary starts under Xvfb, the loaded frontend invokes `database_status` and `create_backup`, and `finish_smoke` validates schema, database and backup bytes before writing a JSON report and log artifact. Expanded packaging to AppImage + `.deb`, Windows portable ZIP + NSIS + MSI. |

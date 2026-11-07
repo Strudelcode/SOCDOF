@@ -16,6 +16,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 socdof-app = { path = ".." }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Desktop crate is its own workspace because Tauri needs GTK/WebKit development packages.
 # The root workspace and its fmt/clippy/test jobs stay independent of those system libraries.
