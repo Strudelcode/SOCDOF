@@ -386,6 +386,14 @@ jobs:
           set -e
           echo "Tauri smoke process exited with $smoke_status"
           cat artifacts/smoke.log
+          if [ -f artifacts/smoke.log ]; then
+            {
+              echo '### GUI smoke runtime log'
+              echo '```text'
+              tail -n 80 artifacts/smoke.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
           test "$smoke_status" -eq 0
           test -s artifacts/smoke-report.json
 
