@@ -18,5 +18,16 @@
   "backupWorking": "Écriture de la sauvegarde…",
   "backupDone": "Sauvegarde enregistrée : {path} ({bytes} octets).",
   "errorStatus": "Impossible de charger l'état de la base de données : {message}",
-  "errorBackup": "Échec de la sauvegarde : {message}"
+  "errorBackup": "Échec de la sauvegarde : {message}",
+  "updateTitle": "Mises à jour",
+  "updateHint": "Vérifie le canal de publication signé et installe les nouvelles versions sans téléchargement manuel.",
+  "updateAction": "Rechercher des mises à jour",
+  "updateChecking": "Recherche de mises à jour…",
+  "updateNone": "Vous utilisez déjà la dernière version.",
+  "updateAvailable": "La version {version} est disponible.",
+  "updateInstall": "Installer la mise à jour",
+  "updateInstalling": "Téléchargement de la mise à jour…",
+  "updateProgress": "Téléchargement de la mise à jour… {percent} %",
+  "updateRestarting": "Mise à jour installée. SOCDOF redémarre…",
+  "updateError": "Échec de la recherche de mise à jour : {message}"
 }

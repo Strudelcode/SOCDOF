@@ -1,0 +1,283 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and publish (for example v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  prepare:
+    name: Validate changelog and release configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.notes.outputs.tag }}
+      version: ${{ steps.notes.outputs.version }}
+      title: ${{ steps.notes.outputs.title }}
+      prerelease: ${{ steps.notes.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Require updater and Discord configuration
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY || secrets.TAURI_UPDATER_PUBKEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::Missing repository secret TAURI_SIGNING_PRIVATE_KEY. See docs/RELEASING.md."
+            missing=1
+          fi
+          if [ -z "${TAURI_UPDATER_PUBKEY:-}" ]; then
+            echo "::error::Missing repository variable TAURI_UPDATER_PUBKEY. See docs/RELEASING.md."
+            missing=1
+          fi
+          if [ -z "${DISCORD_BOT_TOKEN:-}" ]; then
+            echo "::error::Missing repository secret DISCORD_BOT_TOKEN. See docs/RELEASING.md."
+            missing=1
+          fi
+          if [ -z "${DISCORD_THREAD_ID:-}" ]; then
+            echo "::error::Missing repository secret DISCORD_THREAD_ID. See docs/RELEASING.md."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: node scripts/release-notes.mjs "$RELEASE_TAG"
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            target: ""
+            bundle_dir: crates/app/src-tauri/target/release/bundle
+          - os: windows-latest
+            platform: windows
+            target: ""
+            bundle_dir: crates/app/src-tauri/target/release/bundle
+          - os: macos-latest
+            platform: macos
+            target: universal-apple-darwin
+            bundle_dir: crates/app/src-tauri/target/universal-apple-darwin/release/bundle
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache release cargo
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: |
+            crates/app/src-tauri -> target
+          key: release-${{ matrix.platform }}
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/app/package-lock.json
+
+      - name: Install Linux desktop dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
+      - name: Install macOS Rust targets
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Install frontend dependencies
+        working-directory: crates/app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: crates/app
+        env:
+          VITE_UPDATER_CONFIGURED: "true"
+        run: npm run build
+
+      - name: Write updater build configuration
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY || secrets.TAURI_UPDATER_PUBKEY }}
+        run: node scripts/write-tauri-release-config.mjs
+
+      - name: Build signed Tauri bundles
+        working-directory: crates/app
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY || secrets.TAURI_UPDATER_PUBKEY }}
+          VITE_UPDATER_CONFIGURED: "true"
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            npm run tauri -- build --target "${{ matrix.target }}" --config src-tauri/tauri.release.conf.json
+          else
+            npm run tauri -- build --config src-tauri/tauri.release.conf.json
+          fi
+
+      - name: Stage release assets
+        run: >-
+          node scripts/stage-release-artifacts.mjs
+          --platform ${{ matrix.platform }}
+          --version ${{ needs.prepare.outputs.version }}
+          --bundle-dir ${{ matrix.bundle_dir }}
+          --output-dir artifacts
+
+      - name: Upload platform assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Download platform assets
+        uses: actions/download-artifact@v6
+        with:
+          pattern: bundle-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Download release notes
+        uses: actions/download-artifact@v6
+        with:
+          name: release-notes
+          path: notes
+
+      - name: Create draft, upload assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TITLE: ${{ needs.prepare.outputs.title }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="notes/release-notes.md"
+          test -s "$notes"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --draft --title "$TITLE" --notes-file "$notes"
+          else
+            gh release create "$TAG" --draft --title "$TITLE" --notes-file "$notes" --target "$GITHUB_SHA"
+          fi
+
+          for file in artifacts/*; do
+            test -f "$file"
+            gh release upload "$TAG" "$file" --clobber
+          done
+
+          node scripts/generate-updater-manifest.mjs \
+            --version "$VERSION" \
+            --tag "$TAG" \
+            --notes-file "$notes" \
+            --assets-dir artifacts \
+            --output artifacts/latest.json
+          gh release upload "$TAG" artifacts/latest.json --clobber
+
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$TAG" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --draft=false --latest
+          fi
+
+          gh release view "$TAG" --json url --jq .url
+
+  notify:
+    name: Announce on Discord
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Download release notes
+        uses: actions/download-artifact@v6
+        with:
+          name: release-notes
+          path: notes
+
+      - name: Send release announcement
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_NAME: ${{ needs.prepare.outputs.title }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
+          RELEASE_BODY_FILE: notes/release-notes.md
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/discord-release.py

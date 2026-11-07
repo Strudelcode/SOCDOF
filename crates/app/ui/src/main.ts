@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import "./style.css";
-import { applyTranslations, detectLanguage, format, translate } from "./i18n";
+import { applyTranslations, detectLanguage, format, translate, type TranslationKey } from "./i18n";
 
 interface ShellStatus {
   database: string;
@@ -35,7 +37,18 @@ applyTranslations(language);
 const statusMessage = byId<HTMLParagraphElement>("status-message");
 const backupButton = byId<HTMLButtonElement>("backup-button");
 const backupResult = byId<HTMLParagraphElement>("backup-result");
+const updateCard = byId<HTMLElement>("update-card");
+const updateButton = byId<HTMLButtonElement>("update-button");
+const updateResult = byId<HTMLParagraphElement>("update-result");
 const numberFormat = new Intl.NumberFormat(language);
+const updaterConfigured = import.meta.env.VITE_UPDATER_CONFIGURED === "true";
+
+if (!updaterConfigured) {
+  updateCard.hidden = true;
+}
+
+let pendingUpdate: Update | null = null;
+let updateBusy = false;
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -47,6 +60,11 @@ function byId<T extends HTMLElement>(id: string): T {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function setUpdateButton(label: TranslationKey, disabled: boolean): void {
+  updateButton.textContent = translate(language, label);
+  updateButton.disabled = disabled;
 }
 
 function renderStatus(status: ShellStatus): void {
@@ -80,15 +98,94 @@ async function refreshStatus(): Promise<void> {
   }
 }
 
-async function runSmokeIfEnabled(): Promise<void> {
+async function checkForUpdates(): Promise<void> {
+  if (updateBusy) {
+    return;
+  }
+
+  updateBusy = true;
+  pendingUpdate = null;
+  setUpdateButton("updateChecking", true);
+  updateResult.textContent = "";
+
+  try {
+    const candidate = await check({ timeout: 20_000 });
+    if (!candidate) {
+      updateResult.textContent = translate(language, "updateNone");
+      setUpdateButton("updateAction", false);
+      return;
+    }
+
+    pendingUpdate = candidate;
+    updateResult.textContent = format(translate(language, "updateAvailable"), {
+      version: candidate.version,
+    });
+    setUpdateButton("updateInstall", false);
+  } catch (error) {
+    updateResult.textContent = format(translate(language, "updateError"), {
+      message: describe(error),
+    });
+    setUpdateButton("updateAction", false);
+  } finally {
+    updateBusy = false;
+  }
+}
+
+async function installUpdate(): Promise<void> {
+  const update = pendingUpdate;
+  if (!update) {
+    await checkForUpdates();
+    return;
+  }
+  if (updateBusy) {
+    return;
+  }
+
+  updateBusy = true;
+  setUpdateButton("updateInstalling", true);
+  updateResult.textContent = translate(language, "updateInstalling");
+
+  let downloaded = 0;
+  let total: number | undefined;
+
+  try {
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started") {
+        total = event.data.contentLength;
+        updateResult.textContent = translate(language, "updateInstalling");
+      } else if (event.event === "Progress") {
+        downloaded += event.data.chunkLength;
+        const percent =
+          total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+        updateResult.textContent = format(translate(language, "updateProgress"), {
+          percent: String(percent),
+        });
+      } else {
+        updateResult.textContent = translate(language, "updateRestarting");
+      }
+    });
+
+    updateResult.textContent = translate(language, "updateRestarting");
+    await relaunch();
+  } catch (error) {
+    updateResult.textContent = format(translate(language, "updateError"), {
+      message: describe(error),
+    });
+    setUpdateButton("updateInstall", false);
+  } finally {
+    updateBusy = false;
+  }
+}
+
+async function runSmokeIfEnabled(): Promise<boolean> {
   let enabled = false;
   try {
     enabled = await invoke<boolean>("smoke_enabled");
   } catch {
-    return;
+    return false;
   }
   if (!enabled) {
-    return;
+    return false;
   }
 
   try {
@@ -118,6 +215,8 @@ async function runSmokeIfEnabled(): Promise<void> {
       // The CI timeout is the final fallback if even the abort command cannot be delivered.
     }
   }
+
+  return true;
 }
 
 backupButton.addEventListener("click", async () => {
@@ -139,9 +238,16 @@ backupButton.addEventListener("click", async () => {
   }
 });
 
+updateButton.addEventListener("click", () => {
+  void (pendingUpdate ? installUpdate() : checkForUpdates());
+});
+
 async function start(): Promise<void> {
   await refreshStatus();
-  await runSmokeIfEnabled();
+  const smokeMode = await runSmokeIfEnabled();
+  if (!smokeMode && updaterConfigured) {
+    void checkForUpdates();
+  }
 }
 
 void start();

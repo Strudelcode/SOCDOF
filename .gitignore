@@ -11,3 +11,5 @@
 # Local scratch files
 *.log
 /crates/app/src-tauri/gen
+/crates/app/src-tauri/tauri.release.conf.json
+/release-notes.md

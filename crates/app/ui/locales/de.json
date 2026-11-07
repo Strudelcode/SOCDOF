@@ -18,5 +18,16 @@
   "backupWorking": "Backup wird geschrieben…",
   "backupDone": "Backup gespeichert: {path} ({bytes} Bytes).",
   "errorStatus": "Status konnte nicht geladen werden: {message}",
-  "errorBackup": "Backup fehlgeschlagen: {message}"
+  "errorBackup": "Backup fehlgeschlagen: {message}",
+  "updateTitle": "Updates",
+  "updateHint": "Prüft die signierte Release-Quelle und installiert neue Versionen ohne manuellen Download.",
+  "updateAction": "Nach Updates suchen",
+  "updateChecking": "Suche nach Updates…",
+  "updateNone": "Du verwendest bereits die neueste Version.",
+  "updateAvailable": "Version {version} ist verfügbar.",
+  "updateInstall": "Update installieren",
+  "updateInstalling": "Update wird heruntergeladen…",
+  "updateProgress": "Update wird heruntergeladen… {percent} %",
+  "updateRestarting": "Update installiert. SOCDOF wird neu gestartet…",
+  "updateError": "Updateprüfung fehlgeschlagen: {message}"
 }

@@ -86,11 +86,11 @@ jobs:
   desktop:
     name: Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -98,6 +98,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+
+      - name: Install macOS Rust targets
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Resolve version
         id: version
@@ -147,7 +151,13 @@ jobs:
 
       - name: Build Tauri bundles
         working-directory: crates/app
-        run: npm run tauri -- build
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            npm run tauri -- build --target universal-apple-darwin
+          else
+            npm run tauri -- build
+          fi
 
       - name: Stage Linux release artifacts
         if: matrix.os == 'ubuntu-latest'
@@ -206,6 +216,20 @@ jobs:
             "{0}  {1}" -f $hash, $_.Name
           } | Set-Content artifacts/SHA256SUMS-windows.txt
           Get-ChildItem artifacts | Select-Object Name, Length
+
+      - name: Stage macOS release artifacts
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.value }}'
+          mkdir -p artifacts
+          dmg=$(find crates/app/src-tauri/target/universal-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          cp "$dmg" "artifacts/SOCDOF-${version}-macos-universal.dmg"
+          test "$(wc -c < "artifacts/SOCDOF-${version}-macos-universal.dmg")" -gt 1000000
+          shasum -a 256 artifacts/SOCDOF-* > artifacts/SHA256SUMS-macos.txt
+          ls -lh artifacts
 
       - name: Upload Linux AppImage
         if: matrix.os == 'ubuntu-latest'
@@ -267,6 +291,24 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-windows-SHA256SUMS
           path: artifacts/SHA256SUMS-windows.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS DMG
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS checksums
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-macos-SHA256SUMS
+          path: artifacts/SHA256SUMS-macos.txt
           if-no-files-found: error
           retention-days: 14
 

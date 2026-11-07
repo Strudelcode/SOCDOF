@@ -157,6 +157,26 @@ dd {
   line-height: 1.55;
 }
 
+.update-card[hidden] {
+  display: none;
+}
+
+.update-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.update-card .hint {
+  margin: 0;
+}
+
+.update-card .message {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
 button {
   appearance: none;
   border: 0;
@@ -210,6 +230,10 @@ button:disabled {
   }
 
   .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .update-card {
     grid-template-columns: minmax(0, 1fr);
   }
 }

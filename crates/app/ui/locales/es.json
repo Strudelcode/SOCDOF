@@ -18,5 +18,16 @@
   "backupWorking": "Escribiendo la copia de seguridad…",
   "backupDone": "Copia guardada: {path} ({bytes} bytes).",
   "errorStatus": "No se pudo cargar el estado de la base de datos: {message}",
-  "errorBackup": "Error al crear la copia de seguridad: {message}"
+  "errorBackup": "Error al crear la copia de seguridad: {message}",
+  "updateTitle": "Actualizaciones",
+  "updateHint": "Comprueba el canal de publicación firmado e instala nuevas versiones sin descargas manuales.",
+  "updateAction": "Buscar actualizaciones",
+  "updateChecking": "Buscando actualizaciones…",
+  "updateNone": "Ya tienes la última versión.",
+  "updateAvailable": "La versión {version} está disponible.",
+  "updateInstall": "Instalar actualización",
+  "updateInstalling": "Descargando actualización…",
+  "updateProgress": "Descargando actualización… {percent} %",
+  "updateRestarting": "Actualización instalada. SOCDOF se reiniciará…",
+  "updateError": "Error al buscar actualizaciones: {message}"
 }

@@ -18,5 +18,16 @@
   "backupWorking": "Writing backup…",
   "backupDone": "Backup saved: {path} ({bytes} bytes).",
   "errorStatus": "Could not load the database status: {message}",
-  "errorBackup": "Backup failed: {message}"
+  "errorBackup": "Backup failed: {message}",
+  "updateTitle": "Updates",
+  "updateHint": "Checks the signed release channel and installs new versions without a manual download.",
+  "updateAction": "Check for updates",
+  "updateChecking": "Checking for updates…",
+  "updateNone": "You are already on the latest version.",
+  "updateAvailable": "Version {version} is available.",
+  "updateInstall": "Install update",
+  "updateInstalling": "Downloading update…",
+  "updateProgress": "Downloading update… {percent}%",
+  "updateRestarting": "Update installed. SOCDOF is restarting…",
+  "updateError": "Update check failed: {message}"
 }

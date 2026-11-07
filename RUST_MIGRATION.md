@@ -7,8 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; runtime smoke and full bundle matrix in CI) |
-| **Overall progress** | ~35 % (core services, headless shell, wired Tauri screen, packaging and runtime proof) |
+| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; Linux, Windows and macOS builds, runtime smoke, signed updater release pipeline) |
+| **Overall progress** | ~35 % (core services, headless shell, wired Tauri screen, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -139,7 +139,8 @@ run without GTK/WebKit.
 
 The desktop CI jobs install the Linux WebKit/GTK packages, build the frontend and produce the full
 package matrix: AppImage and `.deb` on Ubuntu; a portable ZIP of the built binary (with the WebView2
-runtime notice), NSIS setup and MSI on Windows. Every file is uploaded as its own artifact. The
+runtime notice), NSIS setup and MSI on Windows; a universal DMG on macOS. Every file is uploaded as
+its own artifact. The
 `GUI smoke` job builds the real Tauri binary, starts it under Xvfb with a private XDG data directory
 and lets the loaded frontend invoke `database_status` and `create_backup`. The `finish_smoke`
 command validates the returned schema version, database path and backup bytes against the live
@@ -162,7 +163,8 @@ locally.
 - [ ] System tray with quick actions
 - [ ] Native dialogs: folder picker, file open/save, message boxes
 - [ ] Global shortcuts (F11, window snapping, command palette)
-- [ ] Signing + auto-update manifest (only after Phase 10)
+- [x] Signed Tauri updater plumbing and release manifest generation (release secrets required)
+- [ ] Apple notarization and Windows Authenticode signing
 - [ ] Startup measurement harness (cold start → login < 800 ms)
 
 **Exit criteria:** empty shell starts in < 800 ms, installer built and installs cleanly.
@@ -314,3 +316,4 @@ Per module definition of done:
 | 2026-11-07 | 3 | CI moved to a Linux + Windows matrix: format gate on Ubuntu, clippy and the full test suite on both runners, headless shell smoke on Ubuntu. |
 | 2026-11-07 | 3 | Tauri 2 window layer added in `crates/app/src-tauri` with a Vite/TypeScript screen in `crates/app/ui`. `DesktopState` exposes schema status and backup to the commands; command-layer tests run locally without GTK/WebKit. Desktop CI job builds `.deb` and NSIS bundles on Ubuntu and Windows and uploads them as artifacts; actions moved to Node 24 runtimes. |
 | 2026-11-07 | 3 | Added runtime GUI smoke: the real Tauri binary starts under Xvfb, the loaded frontend invokes `database_status` and `create_backup`, and `finish_smoke` validates schema, database and backup bytes before writing a JSON report and log artifact. Expanded packaging to AppImage + `.deb`, Windows portable ZIP + NSIS + MSI. |
+| 2026-11-07 | 3 | Added universal macOS DMG builds in CI, the Tauri updater/process plugins with a release-only signed config, changelog-driven GitHub Releases, `latest.json`, checksums and a Discord announcement workflow. Signing keys, Apple notarization and Discord secrets remain deployment configuration, not repository data. |

@@ -51,13 +51,22 @@ sudo apt-get install -y \
 ```
 
 Windows needs the MSVC Rust target, the Visual Studio C++ build tools and WebView2 (included in
-current Windows versions). No GTK packages are needed.
+current Windows versions). No GTK packages are needed. macOS needs the Xcode command line tools;
+the CI build produces a universal (Apple Silicon + Intel) DMG.
 
 ```bash
 cd crates/app
 npm ci
 npm run build          # TypeScript check + Vite build into crates/app/dist
 npm run tauri build    # native binary + bundle
+```
+
+For a universal macOS build:
+
+```bash
+cd crates/app
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+npm run tauri -- build --target universal-apple-darwin
 ```
 
 For development with hot reload:
@@ -73,6 +82,7 @@ Artifacts are written to:
   `crates/app/src-tauri/target/release/bundle/appimage/*.AppImage`
 - Windows: `crates/app/src-tauri/target/release/bundle/nsis/*-setup.exe` and
   `crates/app/src-tauri/target/release/bundle/msi/*.msi`
+- macOS (universal): `crates/app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg`
 
 The `.deb` + AppImage and NSIS + MSI targets are selected in `tauri.linux.conf.json` and
 `tauri.windows.conf.json`. The desktop crate has its own `Cargo.lock`; the root workspace lockfile is
@@ -107,11 +117,12 @@ security updates keep applying. A fixed WebView2 runtime is not part of this pas
 - **Test** on Ubuntu and Windows: `cargo clippy --workspace --all-targets -- -D warnings` and
   `cargo test --workspace`, including the command-layer test for schema status and backup.
 - **Shell smoke** on Ubuntu: starts `socdof-app` headlessly on a fresh database and writes a backup.
-- **Desktop** on Ubuntu and Windows: installs the Linux WebKit/GTK dependencies, runs `npm ci`,
-  builds the frontend, builds the full Tauri bundle matrix and uploads each file as a separate
-  artifact: `SOCDOF-<version>-linux-x86_64.AppImage`, `SOCDOF-<version>-linux-amd64.deb`,
-  `SOCDOF-<version>-windows-x64-portable.zip`, `SOCDOF-<version>-windows-x64-setup.exe` and
-  `SOCDOF-<version>-windows-x64.msi` (plus checksum files).
+- **Desktop** on Ubuntu, Windows and macOS: installs the Linux WebKit/GTK dependencies, runs
+  `npm ci`, builds the frontend, builds the full Tauri bundle matrix and uploads each file as a
+  separate artifact: `SOCDOF-<version>-linux-x86_64.AppImage`,
+  `SOCDOF-<version>-linux-amd64.deb`, `SOCDOF-<version>-windows-x64-portable.zip`,
+  `SOCDOF-<version>-windows-x64-setup.exe`, `SOCDOF-<version>-windows-x64.msi` and
+  `SOCDOF-<version>-macos-universal.dmg` (plus checksum files).
 - **GUI smoke** on Ubuntu: installs Xvfb, DBus and WebKit, builds the real Tauri binary, starts it
   under `xvfb-run`, waits for the loaded frontend to invoke `database_status` and `create_backup`,
   verifies the returned schema version, database path and backup size against the live state, and
@@ -121,3 +132,17 @@ security updates keep applying. A fixed WebView2 runtime is not part of this pas
 
 All actions use the Node 24 runtime (`checkout@v5`, `setup-node@v5`, `upload-artifact@v6`,
 `rust-cache@v2.9.3`), so the run does not emit Node 20 deprecation warnings.
+
+## Releases and updates
+
+Tags matching `v*` run [`.github/workflows/release.yml`](.github/workflows/release.yml). The
+release body is extracted from the matching [`CHANGELOG.md`](CHANGELOG.md) section, signed updater
+artifacts and a `latest.json` are generated, and a Discord announcement is sent after publication.
+The required GitHub secrets and signing-key setup are documented in
+[`docs/RELEASING.md`](docs/RELEASING.md).
+
+The in-app update card uses the Tauri updater plugin. It is shown only in release builds built with
+`TAURI_UPDATER_PUBKEY` and `TAURI_SIGNING_PRIVATE_KEY`; development and ordinary CI builds hide it
+instead of pretending an unsigned update channel is available. Linux AppImage, Windows NSIS and
+macOS app bundles are supported by the updater; `.deb` and MSI installs are manual downloads. macOS
+Gatekeeper additionally requires Apple signing and notarization for normal distribution.
