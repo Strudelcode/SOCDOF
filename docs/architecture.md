@@ -57,8 +57,8 @@ Rules:
 Service layering:
 
 - `backup` snapshots through `Store::snapshot_to` (SQLite `VACUUM INTO`), never by copying an open
-  file, and restores into a temporary file that replaces the database atomically. It writes files,
-  it never executes SQL.
+  file, and restores into a temporary file that replaces the database atomically and deletes stale
+  `-wal`/`-shm` sidecars left behind by a crashed writer. It writes files, it never executes SQL.
 - `lock` only touches the file system: no database, no settings.
 - `pdf` consumes domain entities and the company profile. It never queries the database, so the same
   renderer is used by tests, the CLI and later the UI.

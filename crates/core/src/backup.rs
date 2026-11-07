@@ -261,6 +261,39 @@ mod tests {
     }
 
     #[test]
+    fn removes_stale_wal_and_shm_sidecars() {
+        let dir = temp_dir("wal");
+        let database = dir.join("socdof.db");
+        let archive = dir.join("backup.socdofbak");
+
+        {
+            let store = Store::open(&database).expect("store");
+            let mut contact = Contact::new(ContactKind::Company, now_millis());
+            contact.company_name = Some("Wal Reste".to_string());
+            store.insert_contact(&contact).expect("contact inserted");
+            create_backup(&store, &archive, "0.1.0", now_millis()).expect("backup created");
+        }
+
+        // Leftovers of a writer that was killed while the database was in WAL mode.
+        std::fs::write(dir.join("socdof.db-wal"), b"stale wal").expect("wal leftover");
+        std::fs::write(dir.join("socdof.db-shm"), b"stale shm").expect("shm leftover");
+
+        restore_backup(&archive, &database).expect("restored");
+
+        assert!(!dir.join("socdof.db-wal").exists());
+        assert!(!dir.join("socdof.db-shm").exists());
+
+        let store = Store::open(&database).expect("store reopened");
+        assert_eq!(store.contact_count().expect("contacts"), 1);
+        assert_eq!(
+            store.schema_version().expect("version"),
+            crate::store::SCHEMA_VERSION
+        );
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn rejects_damaged_archives() {
         let dir = temp_dir("damaged");
         let database = dir.join("socdof.db");
