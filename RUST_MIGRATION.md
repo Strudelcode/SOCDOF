@@ -7,8 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; Linux, Windows and macOS builds, runtime smoke, signed updater release pipeline) |
-| **Overall progress** | ~35 % (core services, headless shell, wired Tauri screen, packaging, runtime proof and release infrastructure) |
+| **Current phase** | Phase 3/6 — desktop shell plus contacts/products master data (Tauri 2 CRUD/search UI, legacy JSON round-trip; Linux, Windows and macOS builds, runtime smoke, signed updater release pipeline) |
+| **Overall progress** | ~42 % (core services, headless shell, wired Tauri shell, contacts/products CRUD and search, legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -87,12 +87,12 @@ invoices, users and settings. See `docs/architecture.md` for the layout and conv
 - [ ] Repository traits + SQLite implementations, one module per aggregate
 - [ ] Transaction boundaries for multi-entity writes (invoice + stock move + contact)
 - [ ] Full-text search (`fts5`) for contacts, products, invoices
-- [ ] Legacy import: reader for the IndexedDB JSON export (users, settings, all tables)
-- [ ] Round-trip test: import legacy export → export → identical data
+- [x] Legacy import: reader for the legacy `.socdof.json` export (contacts, products, invoices and unknown tables preserved)
+- [x] Round-trip test: import a real legacy export → export → identical data, and the legacy importer reads the result
 - [x] Money handling: integer cents everywhere, no floats
 - [ ] Backup: `.socdof` zip container, integrity check, restore path
 - [ ] Auth: `argon2id` hashes, session tokens, lockout policy, roles/permissions matrix
-- [ ] Unit tests for repositories, money math, permission checks
+- [x] Unit tests for repositories, money math, permission checks (contact/product CRUD and search included)
 
 **Exit criteria:** all domain data lives in SQLite; legacy import verified against a real export.
 
@@ -131,24 +131,27 @@ Done so far: `socdof-app` is a library, a headless binary and the desktop comman
 restore and PDF export.
 
 The Tauri 2 window layer lives in `crates/app/src-tauri` as a standalone Cargo workspace. Its
-commands are one-line adapters over `socdof_app::desktop::DesktopState`; the first screen loads the
-schema version, row counts and lock owner through `database_status` and writes a real backup through
-`create_backup`. The frontend in `crates/app/ui` is a small Vite/TypeScript app with German, English,
-French and Spanish texts. Command-layer tests exercise the exact methods the Tauri commands call and
-run without GTK/WebKit.
+commands are one-line adapters over `socdof_app::desktop::DesktopState`; the shell loads the schema
+version, row counts and lock owner through `database_status`, writes a real backup through
+`create_backup`, and exposes contact/product list, create, update and delete commands. The frontend
+in `crates/app/ui` is a small Vite/TypeScript app with German, English, French and Spanish texts;
+its master-data tabs render real rows, filter through the search commands and edit records in native
+`<dialog>` forms. Command-layer tests exercise the exact methods the Tauri commands call and run
+without GTK/WebKit.
 
 The desktop CI jobs install the Linux WebKit/GTK packages, build the frontend and produce the full
 package matrix: AppImage and `.deb` on Ubuntu; a portable ZIP of the built binary (with the WebView2
 runtime notice), NSIS setup and MSI on Windows; a universal DMG on macOS. Every file is uploaded as
 its own artifact. The
 `GUI smoke` job builds the real Tauri binary, starts it under Xvfb with a private XDG data directory
-and lets the loaded frontend invoke `database_status` and `create_backup`. The `finish_smoke`
-command validates the returned schema version, database path and backup bytes against the live
-state, writes `smoke-report.json`, logs the values and exits 0; the workflow also checks the backup
-container and fails on a missing WebView, command error or invalid value. Logs, report and backup
-are uploaded. The local build image still has no GTK/WebKit development packages, so the Tauri
-build and the GUI startup itself run only in CI; the command layer and frontend build are verified
-locally.
+and lets the loaded frontend invoke `database_status`, `create_backup`, contact/product create and
+update, and the search-backed list commands. It renders the contacts and products tabs and aborts if
+the created rows are missing from the DOM. The `finish_smoke` command validates the returned schema
+version, database path, backup bytes, contact/product names, counts and search results against the
+live state, writes `smoke-report.json`, logs the values and exits 0; the workflow also checks the
+backup container and every runtime marker. The local build image still has no GTK/WebKit development
+packages, so the Tauri build and the GUI startup itself run only in CI; the command layer, frontend
+build and all non-GTK tests are verified locally.
 
 - [x] Shell lifecycle: single instance lock, database bootstrap, ready status
 - [x] Command dispatch: status, backup, restore, invoice PDF export through `socdof-core`
@@ -156,7 +159,9 @@ locally.
 - [x] Tauri 2 project (`crates/app/src-tauri`), Linux AppImage + `.deb` and Windows portable ZIP + NSIS + MSI in CI
 - [x] Real WebView/command runtime smoke under Xvfb, with log and backup artifact
 - [x] First screen: schema version, row counts, lock owner and a real backup via commands
-- [x] Command-layer tests for status and backup without a window
+- [x] Contacts/products screen: navigation, list, search, create/edit/delete dialogs, all four languages
+- [x] Command-layer tests for status, backup, contact/product CRUD and legacy import/export without a window
+- [x] Legacy `.socdof.json` import/export with preservation of unknown tables and row fields
 - [ ] Window state persistence (size, position, maximized, fullscreen)
 - [ ] Splash window with real progress + "ready" handshake
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
@@ -208,8 +213,8 @@ locally.
 Order chosen by usage frequency in the legacy app.
 
 - [ ] Dashboard
-- [ ] Contacts (companies, sub-contacts, country autocomplete, detail modal)
-- [ ] Products & stock (stock moves, labels, smart reorder)
+- [~] Contacts — CRUD, search, all legacy master fields and four languages done; sub-contacts, country autocomplete and detail modal remain
+- [~] Products & stock — CRUD, search, stock levels and reorder exclusion done; stock moves, labels and smart reorder remain
 - [ ] Invoices (DIN 5008, templates, dunning, email draft, payment modal)
 - [ ] Accounting (journal, BWA, cash book, export)
 - [ ] Purchases (suppliers, orders, goods receipt)
@@ -317,3 +322,4 @@ Per module definition of done:
 | 2026-11-07 | 3 | Tauri 2 window layer added in `crates/app/src-tauri` with a Vite/TypeScript screen in `crates/app/ui`. `DesktopState` exposes schema status and backup to the commands; command-layer tests run locally without GTK/WebKit. Desktop CI job builds `.deb` and NSIS bundles on Ubuntu and Windows and uploads them as artifacts; actions moved to Node 24 runtimes. |
 | 2026-11-07 | 3 | Added runtime GUI smoke: the real Tauri binary starts under Xvfb, the loaded frontend invokes `database_status` and `create_backup`, and `finish_smoke` validates schema, database and backup bytes before writing a JSON report and log artifact. Expanded packaging to AppImage + `.deb`, Windows portable ZIP + NSIS + MSI. |
 | 2026-11-07 | 3 | Added universal macOS DMG builds in CI, the Tauri updater/process plugins with a release-only signed config, changelog-driven GitHub Releases, `latest.json`, checksums and a Discord announcement workflow. Signing keys, Apple notarization and Discord secrets remain deployment configuration, not repository data. |
+| 2026-11-07 | 3/6 | Contacts and products are now complete master-data flows in the desktop app: schema v3, CRUD/search commands, validated forms, navigation and four-language UI. Added legacy `.socdof.json` import/export with unknown-table and unknown-field preservation; a real fixture from the legacy exporter round-trips unchanged, and the legacy importer successfully reads the Rust export. Command-layer tests cover CRUD, search, deletion and the real-backup round trip; the Xvfb GUI smoke creates/updates/searches both records and verifies the rendered screens. |

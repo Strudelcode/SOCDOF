@@ -3208,6 +3208,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "socdof-core",
+ "uuid",
 ]
 
 [[package]]
@@ -3233,6 +3234,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "uuid",
 ]
 
 [[package]]

@@ -10,6 +10,18 @@ pub fn format_date(ms: i64) -> String {
     format!("{day:02}.{month:02}.{year:04}")
 }
 
+/// Formats a Unix timestamp in milliseconds as an ISO-8601 UTC timestamp.
+pub fn format_iso8601(ms: i64) -> String {
+    let days = ms.div_euclid(86_400_000);
+    let (year, month, day) = civil_from_days(days);
+    let millis_of_day = ms.rem_euclid(86_400_000);
+    let hours = millis_of_day / 3_600_000;
+    let minutes = (millis_of_day % 3_600_000) / 60_000;
+    let seconds = (millis_of_day % 60_000) / 1_000;
+    let millis = millis_of_day % 1_000;
+    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
+}
+
 /// Converts days since 1970-01-01 into a civil date (Howard Hinnant's algorithm).
 fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
     let z = days_since_epoch + 719_468;
@@ -51,5 +63,14 @@ mod tests {
     #[test]
     fn formats_dates_before_the_epoch() {
         assert_eq!(format_date(-86_400_000), "31.12.1969");
+    }
+
+    #[test]
+    fn formats_iso_timestamps() {
+        assert_eq!(format_iso8601(0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(
+            format_iso8601(1_794_052_800_123),
+            "2026-11-07T12:00:00.123Z"
+        );
     }
 }

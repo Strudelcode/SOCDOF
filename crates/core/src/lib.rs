@@ -7,6 +7,7 @@ pub mod backup;
 pub mod date;
 pub mod domain;
 pub mod error;
+pub mod legacy;
 pub mod lock;
 pub mod money;
 pub mod pdf;

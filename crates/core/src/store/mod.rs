@@ -20,7 +20,7 @@ pub mod settings;
 pub mod users;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -87,6 +87,29 @@ CREATE TABLE IF NOT EXISTS app_meta (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
 );
+"#;
+
+const SCHEMA_V3: &str = r#"
+ALTER TABLE contacts ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'customer';
+ALTER TABLE contacts ADD COLUMN name TEXT;
+ALTER TABLE contacts ADD COLUMN notes TEXT;
+ALTER TABLE contacts ADD COLUMN legacy_id INTEGER;
+ALTER TABLE contacts ADD COLUMN legacy_json TEXT;
+
+ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN cost_price_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN target_stock INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN barcode TEXT;
+ALTER TABLE products ADD COLUMN description TEXT;
+ALTER TABLE products ADD COLUMN image_emoji TEXT;
+ALTER TABLE products ADD COLUMN exclude_from_reorder INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN legacy_id INTEGER;
+ALTER TABLE products ADD COLUMN legacy_json TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_legacy_id ON contacts(legacy_id)
+    WHERE legacy_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_legacy_id ON products(legacy_id)
+    WHERE legacy_id IS NOT NULL;
 "#;
 
 const SCHEMA_V2: &str = r#"
@@ -156,6 +179,11 @@ impl Store {
             version = 2;
         }
 
+        if version < 3 {
+            self.conn.execute_batch(SCHEMA_V3)?;
+            version = 3;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
         Ok(())
     }
@@ -196,6 +224,21 @@ impl Store {
         contacts::find(&self.conn, id)
     }
 
+    /// Replaces an existing contact.
+    pub fn update_contact(&self, contact: &Contact) -> CoreResult<()> {
+        contacts::update(&self.conn, contact)
+    }
+
+    /// Deletes a contact.
+    pub fn delete_contact(&self, id: uuid::Uuid) -> CoreResult<()> {
+        contacts::delete(&self.conn, id)
+    }
+
+    /// Searches contacts by name, company, email, phone, city or tax id.
+    pub fn search_contacts(&self, query: &str) -> CoreResult<Vec<Contact>> {
+        contacts::search(&self.conn, query)
+    }
+
     /// Inserts an invoice together with its positions inside one transaction.
     pub fn insert_invoice(&self, invoice: &Invoice) -> CoreResult<()> {
         invoices::insert(&self.conn, invoice)
@@ -214,6 +257,26 @@ impl Store {
     /// Lists all products ordered by name.
     pub fn list_products(&self) -> CoreResult<Vec<Product>> {
         products::list(&self.conn)
+    }
+
+    /// Looks up a single product.
+    pub fn find_product(&self, id: uuid::Uuid) -> CoreResult<Option<Product>> {
+        products::find(&self.conn, id)
+    }
+
+    /// Replaces an existing product.
+    pub fn update_product(&self, product: &Product) -> CoreResult<()> {
+        products::update(&self.conn, product)
+    }
+
+    /// Deletes a product.
+    pub fn delete_product(&self, id: uuid::Uuid) -> CoreResult<()> {
+        products::delete(&self.conn, id)
+    }
+
+    /// Searches products by name, SKU, barcode, category or description.
+    pub fn search_products(&self, query: &str) -> CoreResult<Vec<Product>> {
+        products::search(&self.conn, query)
     }
 
     /// Records a stock movement and returns the resulting stock level.
@@ -291,6 +354,11 @@ impl Store {
     /// Stores the company profile.
     pub fn save_company_profile(&self, profile: &CompanyProfile) -> CoreResult<()> {
         settings::save_company_profile(&self.conn, profile)
+    }
+
+    /// The underlying connection, used by the legacy backup reader/writer.
+    pub(crate) fn connection(&self) -> &rusqlite::Connection {
+        &self.conn
     }
 }
 

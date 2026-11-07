@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use socdof_core::backup;
+use socdof_core::legacy;
 use socdof_core::now_millis;
 use socdof_core::store::Store;
 
@@ -30,6 +31,28 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
         .unwrap_or_else(|| "socdof.db".to_string());
 
     match command {
+        "legacy-import" => {
+            let backup = args
+                .get(1)
+                .ok_or("usage: socdof-cli legacy-import <database> <backup.json>")?;
+            let store = Store::open(&path)?;
+            let report = legacy::import(&store, Path::new(backup))?;
+            println!("legacy backup imported: {backup}");
+            println!("  contacts: {}", report.contacts);
+            println!("  products: {}", report.products);
+            println!("  invoices preserved: {}", report.invoices);
+        }
+        "legacy-export" => {
+            let backup = args
+                .get(1)
+                .ok_or("usage: socdof-cli legacy-export <database> <backup.json>")?;
+            let store = Store::open(&path)?;
+            let report = legacy::export(&store, Path::new(backup))?;
+            println!("legacy backup written: {backup}");
+            println!("  bytes: {}", report.bytes);
+            println!("  contacts: {}", report.contacts);
+            println!("  products: {}", report.products);
+        }
         "backup" => {
             let archive = args
                 .get(1)
@@ -89,7 +112,7 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
                 other => {
                     eprintln!("unknown command: {other}");
                     eprintln!(
-                        "usage: socdof-cli <info|contacts|products|backup|restore> [database] [path]"
+                        "usage: socdof-cli <info|contacts|products|backup|restore|legacy-import|legacy-export> [database] [path]"
                     );
                     return Err("invalid arguments".into());
                 }

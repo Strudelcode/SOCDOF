@@ -14,18 +14,37 @@ pub struct Product {
     pub sku: String,
     /// Display name.
     pub name: String,
+    /// Category from the legacy catalog.
+    pub category: String,
     /// Unit of measure (`Stk`, `kg`, `h`, ...).
     pub unit: String,
     /// Net sales price.
     pub price: Money,
+    /// Purchase / cost price.
+    pub cost_price: Money,
     /// Tax rate in basis points (`1900` = 19 %).
     pub tax_rate_bp: i64,
     /// Current stock in whole units.
     pub stock: i64,
     /// Reorder level; zero disables the warning.
     pub reorder_level: i64,
-    /// Whether the article can be sold.
+    /// Target stock for replenishment.
+    pub target_stock: i64,
+    /// Barcode / EAN.
+    pub barcode: Option<String>,
+    /// Free-form description.
+    pub description: Option<String>,
+    /// Emoji used as the legacy catalog preview.
+    pub image_emoji: Option<String>,
+    /// Whether the product is active in the catalog.
     pub active: bool,
+    /// Whether the product is excluded from reorder suggestions.
+    pub exclude_from_reorder: bool,
+    /// Numeric legacy identifier used by legacy backups and invoices.
+    pub legacy_id: Option<i64>,
+    /// Original legacy JSON object, kept so unknown fields survive a round trip.
+    #[serde(skip)]
+    pub legacy_json: Option<String>,
     /// Creation time in milliseconds since the Unix epoch.
     pub created_at: i64,
     /// Last change in milliseconds since the Unix epoch.
@@ -39,12 +58,21 @@ impl Product {
             id: Uuid::new_v4(),
             sku: String::new(),
             name: name.into(),
+            category: String::new(),
             unit: "Stk".to_string(),
             price: Money::ZERO,
+            cost_price: Money::ZERO,
             tax_rate_bp: 1900,
             stock: 0,
             reorder_level: 0,
+            target_stock: 0,
+            barcode: None,
+            description: None,
+            image_emoji: None,
             active: true,
+            exclude_from_reorder: false,
+            legacy_id: None,
+            legacy_json: None,
             created_at: now,
             updated_at: now,
         }
@@ -63,8 +91,17 @@ impl Product {
         if self.price.cents() < 0 {
             return Err("price_negative".to_string());
         }
+        if self.cost_price.cents() < 0 {
+            return Err("cost_price_negative".to_string());
+        }
         if !(0..=10_000).contains(&self.tax_rate_bp) {
             return Err("tax_rate_out_of_range".to_string());
+        }
+        if self.stock < 0 {
+            return Err("stock_negative".to_string());
+        }
+        if self.reorder_level < 0 || self.target_stock < 0 {
+            return Err("stock_level_negative".to_string());
         }
         Ok(())
     }

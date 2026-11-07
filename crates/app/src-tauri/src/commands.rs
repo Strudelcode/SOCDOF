@@ -11,8 +11,12 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use socdof_app::desktop::{BackupReport, DesktopState};
+use socdof_app::desktop::{BackupReport, ContactInput, DesktopState, ProductInput};
 use socdof_app::shell::ShellStatus;
+use socdof_core::domain::contact::Contact;
+use socdof_core::domain::product::Product;
+use socdof_core::legacy::{LegacyExportReport, LegacyImportReport};
+use uuid::Uuid;
 
 const SMOKE_REPORT_ENV: &str = "SOCDOF_SMOKE_REPORT";
 
@@ -51,7 +55,152 @@ pub fn create_backup(state: tauri::State<'_, DesktopState>) -> Result<BackupRepo
     Ok(report)
 }
 
-/// The values the loaded frontend received from `database_status` and `create_backup`.
+/// Lists contacts with an optional search query.
+#[tauri::command]
+pub fn list_contacts(
+    state: tauri::State<'_, DesktopState>,
+    query: Option<String>,
+) -> Result<Vec<Contact>, String> {
+    state
+        .contacts(query.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+/// Creates a contact.
+#[tauri::command]
+pub fn create_contact(
+    state: tauri::State<'_, DesktopState>,
+    input: ContactInput,
+) -> Result<Contact, String> {
+    let contact = state
+        .create_contact(&input)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!(
+            "SOCDOF_SMOKE create_contact id={} name={}",
+            contact.id,
+            contact.display_name()
+        ));
+    }
+    Ok(contact)
+}
+
+/// Updates a contact.
+#[tauri::command]
+pub fn update_contact(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+    input: ContactInput,
+) -> Result<Contact, String> {
+    let contact = state
+        .update_contact(id, &input)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!(
+            "SOCDOF_SMOKE update_contact id={} name={}",
+            contact.id,
+            contact.display_name()
+        ));
+    }
+    Ok(contact)
+}
+
+/// Deletes a contact.
+#[tauri::command]
+pub fn delete_contact(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state
+        .delete_contact(id)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!("SOCDOF_SMOKE delete_contact id={id}"));
+    }
+    Ok(())
+}
+
+/// Lists products with an optional search query.
+#[tauri::command]
+pub fn list_products(
+    state: tauri::State<'_, DesktopState>,
+    query: Option<String>,
+) -> Result<Vec<Product>, String> {
+    state
+        .products(query.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+/// Creates a product.
+#[tauri::command]
+pub fn create_product(
+    state: tauri::State<'_, DesktopState>,
+    input: ProductInput,
+) -> Result<Product, String> {
+    let product = state
+        .create_product(&input)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!(
+            "SOCDOF_SMOKE create_product id={} name={} sku={}",
+            product.id, product.name, product.sku
+        ));
+    }
+    Ok(product)
+}
+
+/// Updates a product.
+#[tauri::command]
+pub fn update_product(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+    input: ProductInput,
+) -> Result<Product, String> {
+    let product = state
+        .update_product(id, &input)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!(
+            "SOCDOF_SMOKE update_product id={} name={} sku={}",
+            product.id, product.name, product.sku
+        ));
+    }
+    Ok(product)
+}
+
+/// Deletes a product.
+#[tauri::command]
+pub fn delete_product(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state
+        .delete_product(id)
+        .map_err(|error| error.to_string())?;
+    if smoke_report_path().is_some() {
+        smoke_log(&format!("SOCDOF_SMOKE delete_product id={id}"));
+    }
+    Ok(())
+}
+
+/// Imports a legacy `.socdof.json` backup.
+#[tauri::command]
+pub fn import_legacy_backup(
+    state: tauri::State<'_, DesktopState>,
+    path: String,
+) -> Result<LegacyImportReport, String> {
+    state
+        .import_legacy_backup(Path::new(&path))
+        .map_err(|error| error.to_string())
+}
+
+/// Exports a legacy `.socdof.json` backup.
+#[tauri::command]
+pub fn export_legacy_backup(
+    state: tauri::State<'_, DesktopState>,
+    path: String,
+) -> Result<LegacyExportReport, String> {
+    state
+        .export_legacy_backup(Path::new(&path))
+        .map_err(|error| error.to_string())
+}
+
+/// The values the loaded frontend received from `database_status`, the master-data commands and
+/// `create_backup`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SmokeReport {
     /// Schema version returned by `database_status`.
@@ -62,6 +211,18 @@ pub struct SmokeReport {
     pub backup_path: String,
     /// Number of bytes written by `create_backup`.
     pub backup_bytes: u64,
+    /// Display name of the contact kept by the smoke run.
+    #[serde(default)]
+    pub contact_name: String,
+    /// SKU of the product kept by the smoke run.
+    #[serde(default)]
+    pub product_sku: String,
+    /// Number of contacts after the smoke CRUD operations.
+    #[serde(default)]
+    pub contact_count: i64,
+    /// Number of products after the smoke CRUD operations.
+    #[serde(default)]
+    pub product_count: i64,
 }
 
 /// Verifies the frontend report against the live desktop state and writes it for CI.
@@ -95,8 +256,16 @@ pub fn finish_smoke(
     }
 
     smoke_log(&format!(
-        "SOCDOF_SMOKE_OK schema_version={} database={} backup_path={} backup_bytes={}",
-        report.schema_version, report.database, report.backup_path, report.backup_bytes
+        "SOCDOF_SMOKE_OK schema_version={} database={} backup_path={} backup_bytes={} \
+         contacts={} products={} contact_name={} product_sku={}",
+        report.schema_version,
+        report.database,
+        report.backup_path,
+        report.backup_bytes,
+        report.contact_count,
+        report.product_count,
+        report.contact_name,
+        report.product_sku
     ));
     app.exit(0);
     Ok(())
@@ -139,6 +308,28 @@ fn validate_smoke_report(state: &DesktopState, report: &SmokeReport) -> Result<(
             status.database.display(),
             report.database
         ));
+    }
+
+    let contacts = state
+        .contacts(Some(&report.contact_name))
+        .map_err(|error| error.to_string())?;
+    if contacts.is_empty() {
+        return Err(format!("smoke contact is missing: {}", report.contact_name));
+    }
+    let products = state
+        .products(Some(&report.product_sku))
+        .map_err(|error| error.to_string())?;
+    if products.is_empty() {
+        return Err(format!("smoke product is missing: {}", report.product_sku));
+    }
+    if report.contact_count < 1 || report.product_count < 1 {
+        return Err(format!(
+            "smoke counts are empty: contacts={} products={}",
+            report.contact_count, report.product_count
+        ));
+    }
+    if contacts.len() < 1 || products.len() < 1 {
+        return Err("smoke search did not return data".to_string());
     }
 
     let backup = Path::new(&report.backup_path);

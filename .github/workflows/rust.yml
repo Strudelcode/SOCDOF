@@ -412,15 +412,29 @@ jobs:
           assert backup.is_file(), f"backup does not exist: {backup}"
           assert report["backup_bytes"] > 0, report
           assert backup.stat().st_size == report["backup_bytes"], report
+          assert report.get("contact_name") == "GUI Smoke Kontakt", report
+          assert report.get("product_sku") == "SMOKE-GUI-001", report
+          assert isinstance(report.get("contact_count"), int), report
+          assert isinstance(report.get("product_count"), int), report
+          assert report["contact_count"] >= 1, report
+          assert report["product_count"] >= 1, report
           for marker in (
               "SOCDOF_SMOKE database_status",
               "SOCDOF_SMOKE create_backup",
+              "SOCDOF_SMOKE create_contact",
+              "SOCDOF_SMOKE update_contact",
+              "SOCDOF_SMOKE create_product",
+              "SOCDOF_SMOKE update_product",
               "SOCDOF_SMOKE_OK",
           ):
               assert marker in log, f"missing runtime marker: {marker}"
+          assert "GUI Smoke Kontakt" in log, "contact was not rendered in the smoke run"
+          assert "SMOKE-GUI-001" in log, "product was not rendered in the smoke run"
           print(
               "GUI smoke OK:",
               f"schema={report['schema_version']}",
+              f"contacts={report['contact_count']}",
+              f"products={report['product_count']}",
               f"database={database}",
               f"backup={backup}",
               f"bytes={report['backup_bytes']}",

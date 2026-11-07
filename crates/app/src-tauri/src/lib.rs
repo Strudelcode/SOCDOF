@@ -27,6 +27,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::database_status,
             commands::create_backup,
+            commands::list_contacts,
+            commands::create_contact,
+            commands::update_contact,
+            commands::delete_contact,
+            commands::list_products,
+            commands::create_product,
+            commands::update_product,
+            commands::delete_product,
+            commands::import_legacy_backup,
+            commands::export_legacy_backup,
             commands::smoke_enabled,
             commands::finish_smoke,
             commands::abort_smoke

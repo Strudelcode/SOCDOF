@@ -32,6 +32,54 @@ impl ContactKind {
     }
 }
 
+/// The legacy CRM category of a contact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ContactType {
+    /// A customer.
+    Customer,
+    /// A supplier.
+    Vendor,
+    /// A customer and supplier.
+    Both,
+    /// An address-book / guest entry.
+    Guest,
+}
+
+impl ContactType {
+    /// Stable storage and legacy-JSON representation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ContactType::Customer => "customer",
+            ContactType::Vendor => "vendor",
+            ContactType::Both => "both",
+            ContactType::Guest => "guest",
+        }
+    }
+
+    /// Parses the legacy representation, defaulting to a customer.
+    pub fn from_legacy(value: Option<&str>) -> Self {
+        match value.unwrap_or("customer") {
+            "customer" => ContactType::Customer,
+            "vendor" => ContactType::Vendor,
+            "both" => ContactType::Both,
+            "guest" => ContactType::Guest,
+            _ => ContactType::Customer,
+        }
+    }
+
+    /// Parses the storage representation.
+    pub fn from_storage(value: &str) -> Option<Self> {
+        match value {
+            "customer" => Some(ContactType::Customer),
+            "vendor" => Some(ContactType::Vendor),
+            "both" => Some(ContactType::Both),
+            "guest" => Some(ContactType::Guest),
+            _ => None,
+        }
+    }
+}
+
 /// A customer or supplier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Contact {
@@ -39,6 +87,10 @@ pub struct Contact {
     pub id: Uuid,
     /// Person or company.
     pub kind: ContactKind,
+    /// CRM category (customer, supplier, both, guest).
+    pub contact_type: ContactType,
+    /// Display name as entered in the legacy address book.
+    pub name: Option<String>,
     /// Company name, only set for companies.
     pub company_name: Option<String>,
     /// First name, only set for persons.
@@ -59,6 +111,13 @@ pub struct Contact {
     pub phone: Option<String>,
     /// Tax number / VAT id.
     pub tax_id: Option<String>,
+    /// Free-form notes.
+    pub notes: Option<String>,
+    /// Numeric legacy identifier used by legacy backups and invoices.
+    pub legacy_id: Option<i64>,
+    /// Original legacy JSON object, kept so unknown fields survive a round trip.
+    #[serde(skip)]
+    pub legacy_json: Option<String>,
     /// Creation time in milliseconds since the Unix epoch.
     pub created_at: i64,
     /// Last change in milliseconds since the Unix epoch.
@@ -71,6 +130,8 @@ impl Contact {
         Contact {
             id: Uuid::new_v4(),
             kind,
+            contact_type: ContactType::Customer,
+            name: None,
             company_name: None,
             first_name: None,
             last_name: None,
@@ -81,13 +142,22 @@ impl Contact {
             email: None,
             phone: None,
             tax_id: None,
+            notes: None,
+            legacy_id: None,
+            legacy_json: None,
             created_at: now,
             updated_at: now,
         }
     }
 
-    /// Name shown in lists: the company name, or the full person name, or the email as fallback.
+    /// Name shown in lists: the legacy display name, the company name, or the full person name.
     pub fn display_name(&self) -> String {
+        if let Some(name) = self.name.as_deref().map(str::trim) {
+            if !name.is_empty() {
+                return name.to_string();
+            }
+        }
+
         if let Some(company) = self.company_name.as_deref().map(str::trim) {
             if !company.is_empty() {
                 return company.to_string();
@@ -110,17 +180,17 @@ impl Contact {
 
     /// Validates the fields required by the UI.
     pub fn validate(&self) -> Result<(), String> {
-        match self.kind {
-            ContactKind::Company => {
-                if self.display_name().trim().is_empty() {
-                    return Err("company_name_required".to_string());
-                }
-            }
-            ContactKind::Person => {
-                if self.last_name.as_deref().unwrap_or("").trim().is_empty() {
-                    return Err("last_name_required".to_string());
-                }
-            }
+        let has_identity = [
+            self.name.as_deref(),
+            self.company_name.as_deref(),
+            self.first_name.as_deref(),
+            self.last_name.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| !value.trim().is_empty());
+        if !has_identity {
+            return Err("name_required".to_string());
         }
 
         if let Some(email) = self
@@ -156,11 +226,19 @@ mod tests {
     }
 
     #[test]
+    fn prefers_the_legacy_display_name() {
+        let mut contact = Contact::new(ContactKind::Company, 0);
+        contact.name = Some("Dr. Florian Weber".to_string());
+        contact.company_name = Some("AlpenTech Solutions AG".to_string());
+        assert_eq!(contact.display_name(), "Dr. Florian Weber");
+    }
+
+    #[test]
     fn validates_required_fields() {
         let now = 0;
         let mut person = Contact::new(ContactKind::Person, now);
         person.email = Some("invalid".to_string());
-        assert_eq!(person.validate(), Err("last_name_required".to_string()));
+        assert_eq!(person.validate(), Err("name_required".to_string()));
 
         person.last_name = Some("Strudel".to_string());
         assert_eq!(person.validate(), Err("email_invalid".to_string()));

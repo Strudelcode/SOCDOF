@@ -16,59 +16,259 @@
         <span class="badge" data-i18n="sessionBadge"></span>
       </header>
 
-      <main class="grid">
-        <section class="card" aria-labelledby="status-title">
-          <h2 id="status-title" data-i18n="statusTitle"></h2>
-          <p class="message" id="status-message" data-i18n="loading" role="status"></p>
-          <dl class="facts">
-            <div class="fact">
-              <dt data-i18n="database"></dt>
-              <dd id="database">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="schemaVersion"></dt>
-              <dd id="schema-version">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="contacts"></dt>
-              <dd id="contacts">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="products"></dt>
-              <dd id="products">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="invoices"></dt>
-              <dd id="invoices">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="users"></dt>
-              <dd id="users">…</dd>
-            </div>
-            <div class="fact">
-              <dt data-i18n="lockOwner"></dt>
-              <dd id="lock-owner">…</dd>
-            </div>
-          </dl>
-        </section>
+      <nav class="tabs" aria-label="SOCDOF">
+        <button class="tab is-active" type="button" data-view="dashboard" data-i18n="navDashboard"></button>
+        <button class="tab" type="button" data-view="contacts" data-i18n="navContacts"></button>
+        <button class="tab" type="button" data-view="products" data-i18n="navProducts"></button>
+      </nav>
 
-        <section class="card" aria-labelledby="backup-title">
-          <h2 id="backup-title" data-i18n="backupTitle"></h2>
-          <p class="hint" data-i18n="backupHint"></p>
-          <button id="backup-button" type="button" data-i18n="backupAction"></button>
-          <p class="message" id="backup-result" role="status"></p>
-        </section>
+      <main>
+        <section id="view-dashboard" class="view">
+          <div class="grid">
+            <section class="card" aria-labelledby="status-title">
+              <h2 id="status-title" data-i18n="statusTitle"></h2>
+              <p class="message" id="status-message" data-i18n="loading" role="status"></p>
+              <dl class="facts">
+                <div class="fact">
+                  <dt data-i18n="database"></dt>
+                  <dd id="database">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="schemaVersion"></dt>
+                  <dd id="schema-version">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="contacts"></dt>
+                  <dd id="contacts">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="products"></dt>
+                  <dd id="products">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="invoices"></dt>
+                  <dd id="invoices">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="users"></dt>
+                  <dd id="users">…</dd>
+                </div>
+                <div class="fact">
+                  <dt data-i18n="lockOwner"></dt>
+                  <dd id="lock-owner">…</dd>
+                </div>
+              </dl>
+            </section>
 
-        <section id="update-card" class="card update-card" aria-labelledby="update-title">
-          <div>
-            <h2 id="update-title" data-i18n="updateTitle"></h2>
-            <p class="hint" data-i18n="updateHint"></p>
+            <section class="card" aria-labelledby="backup-title">
+              <h2 id="backup-title" data-i18n="backupTitle"></h2>
+              <p class="hint" data-i18n="backupHint"></p>
+              <button id="backup-button" type="button" data-i18n="backupAction"></button>
+              <p class="message" id="backup-result" role="status"></p>
+            </section>
+
+            <section id="update-card" class="card update-card" aria-labelledby="update-title">
+              <div>
+                <h2 id="update-title" data-i18n="updateTitle"></h2>
+                <p class="hint" data-i18n="updateHint"></p>
+              </div>
+              <button id="update-button" type="button" data-i18n="updateAction"></button>
+              <p class="message" id="update-result" role="status"></p>
+            </section>
           </div>
-          <button id="update-button" type="button" data-i18n="updateAction"></button>
-          <p class="message" id="update-result" role="status"></p>
+        </section>
+
+        <section id="view-contacts" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow" data-i18n="masterDataLabel"></p>
+              <h2 data-i18n="contactsTitle"></h2>
+              <p class="subtitle" id="contacts-count"></p>
+            </div>
+            <div class="toolbar">
+              <label class="search-field">
+                <span class="visually-hidden" data-i18n="contactsSearchLabel"></span>
+                <input id="contact-search" type="search" autocomplete="off" />
+              </label>
+              <button id="contact-new" type="button" data-i18n="contactsNew"></button>
+            </div>
+          </div>
+          <p id="contacts-message" class="message" role="status"></p>
+          <div id="contacts-list" class="entity-list"></div>
+        </section>
+
+        <section id="view-products" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow" data-i18n="masterDataLabel"></p>
+              <h2 data-i18n="productsTitle"></h2>
+              <p class="subtitle" id="products-count"></p>
+            </div>
+            <div class="toolbar">
+              <label class="search-field">
+                <span class="visually-hidden" data-i18n="productsSearchLabel"></span>
+                <input id="product-search" type="search" autocomplete="off" />
+              </label>
+              <button id="product-new" type="button" data-i18n="productsNew"></button>
+            </div>
+          </div>
+          <p id="products-message" class="message" role="status"></p>
+          <div id="products-list" class="entity-list"></div>
         </section>
       </main>
     </div>
+
+    <dialog id="contact-dialog" class="editor">
+      <form id="contact-form" novalidate>
+        <div class="editor-head">
+          <h2 id="contact-dialog-title"></h2>
+          <button class="icon-button" type="button" data-close="contact-dialog" aria-label="Close">×</button>
+        </div>
+        <div class="form-grid">
+          <input id="contact-id" type="hidden" />
+          <label class="field field-wide">
+            <span data-i18n="fieldName"></span>
+            <input id="contact-name" type="text" autocomplete="name" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompany"></span>
+            <input id="contact-company" type="text" autocomplete="organization" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldContactType"></span>
+            <select id="contact-type">
+              <option value="customer" data-i18n="typeCustomer"></option>
+              <option value="vendor" data-i18n="typeVendor"></option>
+              <option value="both" data-i18n="typeBoth"></option>
+              <option value="guest" data-i18n="typeGuest"></option>
+            </select>
+          </label>
+          <label class="field checkbox-field field-wide">
+            <input id="contact-is-company" type="checkbox" />
+            <span data-i18n="fieldIsCompany"></span>
+          </label>
+          <label class="field">
+            <span data-i18n="fieldFirstName"></span>
+            <input id="contact-first-name" type="text" autocomplete="given-name" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldLastName"></span>
+            <input id="contact-last-name" type="text" autocomplete="family-name" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldEmail"></span>
+            <input id="contact-email" type="email" autocomplete="email" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldPhone"></span>
+            <input id="contact-phone" type="tel" autocomplete="tel" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldStreet"></span>
+            <input id="contact-street" type="text" autocomplete="street-address" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldZip"></span>
+            <input id="contact-zip" type="text" autocomplete="postal-code" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCity"></span>
+            <input id="contact-city" type="text" autocomplete="address-level2" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCountry"></span>
+            <input id="contact-country" type="text" autocomplete="country-name" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldTaxId"></span>
+            <input id="contact-tax-id" type="text" />
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldNotes"></span>
+            <textarea id="contact-notes" rows="3"></textarea>
+          </label>
+        </div>
+        <p id="contact-error" class="message" role="alert"></p>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="contact-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="product-dialog" class="editor">
+      <form id="product-form" novalidate>
+        <div class="editor-head">
+          <h2 id="product-dialog-title"></h2>
+          <button class="icon-button" type="button" data-close="product-dialog" aria-label="Close">×</button>
+        </div>
+        <div class="form-grid">
+          <input id="product-id" type="hidden" />
+          <label class="field field-wide">
+            <span data-i18n="fieldProductName"></span>
+            <input id="product-name" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldSku"></span>
+            <input id="product-sku" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCategory"></span>
+            <input id="product-category" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldUnit"></span>
+            <input id="product-unit" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldImageEmoji"></span>
+            <input id="product-emoji" type="text" maxlength="8" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldPrice"></span>
+            <input id="product-price" type="number" min="0" step="0.01" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCostPrice"></span>
+            <input id="product-cost-price" type="number" min="0" step="0.01" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldTaxRate"></span>
+            <input id="product-tax-rate" type="number" min="0" max="100" step="0.01" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldStock"></span>
+            <input id="product-stock" type="number" min="0" step="1" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldReorderLevel"></span>
+            <input id="product-reorder-level" type="number" min="0" step="1" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldTargetStock"></span>
+            <input id="product-target-stock" type="number" min="0" step="1" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldBarcode"></span>
+            <input id="product-barcode" type="text" />
+          </label>
+          <label class="field checkbox-field field-wide">
+            <input id="product-exclude-reorder" type="checkbox" />
+            <span data-i18n="fieldExcludeReorder"></span>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldDescription"></span>
+            <textarea id="product-description" rows="3"></textarea>
+          </label>
+        </div>
+        <p id="product-error" class="message" role="alert"></p>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="product-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
