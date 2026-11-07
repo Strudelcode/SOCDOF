@@ -377,6 +377,16 @@ jobs:
           )
           PY
 
+          smoke_result=$(grep 'SOCDOF_SMOKE_OK' artifacts/smoke.log | tail -n 1)
+          test -n "$smoke_result"
+          echo "::notice title=GUI smoke runtime::$smoke_result"
+          {
+            echo '### GUI smoke runtime'
+            echo '```text'
+            grep 'SOCDOF_SMOKE' artifacts/smoke.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v6

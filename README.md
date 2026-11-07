@@ -115,8 +115,9 @@ security updates keep applying. A fixed WebView2 runtime is not part of this pas
 - **GUI smoke** on Ubuntu: installs Xvfb, DBus and WebKit, builds the real Tauri binary, starts it
   under `xvfb-run`, waits for the loaded frontend to invoke `database_status` and `create_backup`,
   verifies the returned schema version, database path and backup size against the live state, and
-  uploads `artifacts/smoke.log`, `artifacts/smoke-report.json` and the generated backup. The job
-  fails if the window/WebView does not start or a value is invalid.
+  uploads `artifacts/smoke.log`, `artifacts/smoke-report.json` and the generated backup, and publishes
+  the app's `SOCDOF_SMOKE_OK` line as a run annotation. The job fails if the window/WebView does not
+  start or a value is invalid.
 
 All actions use the Node 24 runtime (`checkout@v5`, `setup-node@v5`, `upload-artifact@v6`,
 `rust-cache@v2.9.3`), so the run does not emit Node 20 deprecation warnings.
