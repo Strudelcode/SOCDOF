@@ -21,6 +21,13 @@ src/
 ├── error.rs            CoreError, CoreResult
 ├── money.rs            Money (integer cents)
 ├── security.rs         Argon2id hash + verify
+├── backup.rs           backup container: verify, write, atomic restore
+├── date.rs             civil date formatting (DD.MM.YYYY)
+├── lock.rs             instance lock with heartbeat and stale takeover
+├── pdf/                PDF writer + DIN 5008 invoice layout
+│   ├── mod.rs
+│   ├── writer.rs       PDF 1.4 writer (Helvetica, WinAnsi, xref)
+│   └── din5008.rs      invoice layout: address field, positions, totals
 ├── domain/             entities, no persistence code
 │   ├── contact.rs
 │   ├── invoice.rs
@@ -46,6 +53,40 @@ Rules:
 - Timestamps are `i64` milliseconds since the Unix epoch.
 - Errors are `CoreError`; validation failures use `CoreError::Validation("snake_case_code")` so the UI
   can translate them.
+
+Service layering:
+
+- `backup` snapshots through `Store::snapshot_to` (SQLite `VACUUM INTO`), never by copying an open
+  file, and restores into a temporary file that replaces the database atomically. It writes files,
+  it never executes SQL.
+- `lock` only touches the file system: no database, no settings.
+- `pdf` consumes domain entities and the company profile. It never queries the database, so the same
+  renderer is used by tests, the CLI and later the UI.
+- `date` is pure and shared by `pdf` and the UI.
+
+## Backup format
+
+```text
+"SOCDOFBK" | format u32 | meta_len u32 | metadata JSON | payload_len u64 | crc32 u32 | SQLite bytes
+```
+
+`BackupMetadata` carries `format_version`, `created_at`, `schema_version` and `app_version`. The
+checksum covers the database payload; a damaged or foreign file is rejected before anything touches
+the live database (`backup_corrupt`, `backup_invalid_format`, `backup_truncated`,
+`backup_unsupported_version`).
+
+## Instance lock
+
+`lock.rs` creates a JSON lock file with `create_new` (atomic), stores pid, user, machine, start time
+and heartbeat, and refreshes the heartbeat while running. A second start reads the file and is
+rejected with `lock_busy`. If the heartbeat is older than `DEFAULT_STALE_AFTER_MS` (30 s), the lock
+is treated as abandoned and taken over, so a crash never blocks the application permanently.
+
+## PDF layout
+
+`pdf/din5008.rs` implements DIN 5008 Form B: 25 mm left margin, 20 mm right margin, address field at
+45 mm (85 × 40 mm), subject at 98.5 mm, body at 111.5 mm, footer at 285 mm. All values are
+millimetres converted to points; the writer never depends on a system font.
 
 ## Schema and migrations
 

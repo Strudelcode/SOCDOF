@@ -11,6 +11,10 @@ pub enum CoreError {
     #[error("serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    /// A file could not be read or written.
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
     /// Input failed a validation rule.
     #[error("validation failed: {0}")]
     Validation(String),

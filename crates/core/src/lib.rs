@@ -3,9 +3,13 @@
 //! The crate is UI agnostic. The desktop application (Phase 3 of `RUST_MIGRATION.md`) and the
 //! headless CLI both talk to the store through this API.
 
+pub mod backup;
+pub mod date;
 pub mod domain;
 pub mod error;
+pub mod lock;
 pub mod money;
+pub mod pdf;
 pub mod security;
 pub mod store;
 

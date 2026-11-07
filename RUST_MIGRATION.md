@@ -8,7 +8,7 @@
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
 | **Current phase** | Phase 1 — domain model & data layer (Phase 0 complete) |
-| **Overall progress** | ~12 % (core data layer: money, entities, users, stock, settings, SQLite store) |
+| **Overall progress** | ~20 % (core data layer plus backup, instance lock and DIN 5008 PDF) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -100,16 +100,23 @@ invoices, users and settings. See `docs/architecture.md` for the layout and conv
 
 ## 5. Phase 2 — Core services
 
+Done so far: backup container with metadata and checksum, crash-safe instance lock with stale
+takeover, DIN 5008 invoice PDF with its own writer, and civil date formatting. Backup and restore are
+reachable from `socdof-cli`; all three services are covered by tests.
+
 - [ ] Settings service (company profile, accent, theme, language per user)
 - [ ] Translation loader (compile-time embedded de/en/fr/es + external language packs)
 - [ ] Autosave / snapshot service (crash-safe, atomic writes)
-- [ ] Network share lock (`.lock` file, stale detection, takeover request)
+- [x] Network share lock (`.lock` file with heartbeat and stale takeover)
+- [ ] Interactive lock takeover dialog (Phase 5)
+- [x] Backup container (metadata, checksum, atomic restore)
 - [ ] Backup scheduler (interval, retention, target folder, verification)
 - [ ] File import/export: CSV, JSON, zip, docx read, PDF read
-- [ ] Print pipeline: DIN 5008 layout, letterhead, totals, multi-page tables → PDF
+- [x] Print pipeline: DIN 5008 layout, address field, positions, totals → PDF
+- [ ] Letterhead background and multi-page tables
 - [ ] Update checker (GitHub releases, signature verification)
 - [ ] Logging + crash report file (no telemetry)
-- [ ] Service-level tests with temp databases and fixture files
+- [x] Service-level tests with temp databases and fixture files
 
 **Exit criteria:** every non-UI service reachable from `crates/cli` and covered by tests.
 
@@ -271,3 +278,4 @@ Per module definition of done:
 | 2026-11-07 | 0 | Workspace, pinned toolchain, CI and README created; legacy app moved to `SOCDOF - TS`; baselines written to `docs/baseline.md`. |
 | 2026-11-07 | 1 | `Money` (integer cents, parsing, formatting, tax), contacts, products, invoices with totals, SQLite store with `user_version` migrations and repositories. 17 tests, clippy clean. |
 | 2026-11-07 | 1 | Users with Argon2id hashing, stock movements, company profile settings, schema v2, `docs/architecture.md`. |
+| 2026-11-07 | 2 | Backup container (CRC-32, atomic restore), instance lock with stale takeover, DIN 5008 invoice PDF with an own PDF writer, CLI backup/restore, architecture docs extended. |

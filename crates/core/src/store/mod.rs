@@ -3,7 +3,7 @@
 //! The store owns a single connection. Schema changes are applied through `PRAGMA user_version`, so
 //! existing databases are upgraded in order instead of being recreated.
 
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 
 use crate::domain::contact::Contact;
 use crate::domain::invoice::Invoice;
@@ -226,6 +226,19 @@ impl Store {
         Ok(self
             .conn
             .query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?)
+    }
+
+    /// Writes a consistent copy of the database to `target` using SQLite's `VACUUM INTO`.
+    pub fn snapshot_to(&self, target: &std::path::Path) -> CoreResult<()> {
+        if target.exists() {
+            std::fs::remove_file(target)?;
+        }
+
+        self.conn.execute(
+            "VACUUM INTO ?1",
+            params![target.to_string_lossy().to_string()],
+        )?;
+        Ok(())
     }
 
     /// Number of user accounts.
