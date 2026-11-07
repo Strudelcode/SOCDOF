@@ -63,7 +63,9 @@ The pipeline reuses the names from the legacy release workflow:
 
 The bot must be able to post in that thread. The release workflow sends the
 announcement only after the GitHub Release is published. A separate
-`.github/workflows/discord-release.yml` handles releases published by hand.
+`.github/workflows/discord-release.yml` handles releases published by hand. It
+skips releases created by `github-actions[bot]` to avoid duplicate posts; if the
+inline announcement failed, start that fallback manually with the tag.
 
 ## Supported updater targets
 

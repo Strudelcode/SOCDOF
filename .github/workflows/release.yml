@@ -34,6 +34,8 @@ jobs:
       prerelease: ${{ steps.notes.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Node
         uses: actions/setup-node@v5
@@ -104,6 +106,8 @@ jobs:
             bundle_dir: crates/app/src-tauri/target/universal-apple-darwin/release/bundle
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -192,6 +196,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Node
         uses: actions/setup-node@v5
@@ -227,7 +233,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --draft --title "$TITLE" --notes-file "$notes"
           else
-            gh release create "$TAG" --draft --title "$TITLE" --notes-file "$notes" --target "$GITHUB_SHA"
+            gh release create "$TAG" --draft --verify-tag --title "$TITLE" --notes-file "$notes"
           fi
 
           for file in artifacts/*; do
@@ -258,6 +264,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Python
         uses: actions/setup-python@v6

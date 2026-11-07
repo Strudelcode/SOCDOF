@@ -20,6 +20,9 @@ concurrency:
 jobs:
   announce:
     name: Send release notes to Discord
+    # release.yml announces its own releases after publishing. Skip the
+    # fallback for those release events so a release is only posted once.
+    if: github.event_name == 'workflow_dispatch' || github.event.release.author.login != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
