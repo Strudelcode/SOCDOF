@@ -1,0 +1,264 @@
+# SOCDOF — Rust Rewrite Migration Plan
+
+> Living document. Tick items as they are completed, update the status block, and append notes at the
+> bottom of the phase you are working on. Keep this file the single source of truth for the rewrite.
+
+| | |
+|---|---|
+| **Branch** | `rust-rewrite` |
+| **Started** | 2026-11-07 |
+| **Current phase** | Phase 0 — repository & toolchain |
+| **Overall progress** | ~1 % (plan only) |
+| **Legacy app** | Untouched, keeps living on `main` (TypeScript + React + Electron) |
+| **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
+
+---
+
+## 1. Why this branch exists
+
+The shipped application is ~112,800 lines of TypeScript/TSX in 126 files, bundled into a 3.9 MB
+JavaScript file (973 KB gzip) and wrapped in Electron. Size and RAM are dominated by the runtime and
+the third-party libraries (pdfjs, firebase, lucide), not by the language itself.
+
+This branch rebuilds SOCDOF as a native Rust application:
+
+- **Shell:** Tauri 2 (system WebView, no bundled Chromium) — or a native Rust UI if Phase 4 decides so.
+- **Core:** Rust with SQLite (`rusqlite`), `argon2`, `printpdf`, `zip`, `serde`.
+- **UI:** Leptos (CSR in the system WebView) — closest match to the existing React component model.
+  Alternative evaluated in Phase 4: Dioxus, egui, Slint.
+- **Data:** existing Dexie/IndexedDB data must be importable (JSON export) — no user loses data.
+
+### Target metrics (measured against the legacy app)
+
+| Metric | Legacy (measured 2026-11-07) | Rust target |
+|---|---|---|
+| Installer size | ~100–150 MB (Electron) | ≤ 15 MB |
+| Installed size | ~300 MB | ≤ 40 MB |
+| Idle RAM | ~250–400 MB | ≤ 120 MB |
+| Idle CPU | 1–3 % | < 0.5 % |
+| Cold start to login | 2–4 s | < 800 ms |
+| UI bundle | 3.9 MB (973 KB gz) | ≤ 1.5 MB (≤ 400 KB gz) |
+
+### Non-goals
+
+- No feature removal, no redesign of the visual language (accent system, glass surfaces, DIN 5008 stay).
+- No new modules while parity is incomplete.
+- The legacy app is not modified from this branch.
+
+---
+
+## 2. Ground rules
+
+- [ ] Every phase ends with `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green.
+- [ ] UI texts only via the translation files — all four languages (de, en, fr, es) from day one.
+- [ ] Documentation and code comments in English; user-facing texts in all four languages.
+- [ ] No mock data, no placeholder screens: a module is either complete or not merged.
+- [ ] Every merged phase updates this file: tick boxes, update "Current phase" and "Overall progress".
+- [ ] Size and RAM budget checked at the end of Phase 9 and reported in this file.
+
+---
+
+## 3. Phase 0 — Repository & toolchain (current)
+
+- [x] Create branch `rust-rewrite` and this document
+- [ ] Add `rust/` Cargo workspace: `crates/core`, `crates/app`, `crates/ui`, `crates/cli`
+- [ ] Add `rust-toolchain.toml` (stable, pinned) and `rust/.cargo/config.toml`
+- [ ] Add `.github/workflows/rust.yml`: fmt, clippy, test, Windows build artifact
+- [ ] Record legacy baselines in `rust/docs/baseline.md` (installer size, RAM, cold start, bundle size)
+- [ ] Add `rust/README.md` with build/run instructions for Windows + Linux
+- [ ] Decide crate names, MSRV, licence headers
+
+**Exit criteria:** `cargo check --workspace` runs locally and in CI; baseline numbers documented.
+
+---
+
+## 4. Phase 1 — Domain model & data layer
+
+- [ ] Define entity types: `User`, `Role`, `Contact`, `Product`, `StockMove`, `Invoice`,
+      `PurchaseOrder`, `POSOrder`, `BillingItem`, `Session`, `Appointment`, `Widget`, `Report`,
+      `SupportTicket`, `TimeEntry`, `Settings`, `CompanyProfile`
+- [ ] SQLite schema + migrations (`refinery` or hand-rolled `user_version` migrations)
+- [ ] Repository traits + SQLite implementations, one module per aggregate
+- [ ] Transaction boundaries for multi-entity writes (invoice + stock move + contact)
+- [ ] Full-text search (`fts5`) for contacts, products, invoices
+- [ ] Legacy import: reader for the IndexedDB JSON export (users, settings, all tables)
+- [ ] Round-trip test: import legacy export → export → identical data
+- [ ] Money handling: integer cents everywhere, no floats
+- [ ] Backup: `.socdof` zip container, integrity check, restore path
+- [ ] Auth: `argon2id` hashes, session tokens, lockout policy, roles/permissions matrix
+- [ ] Unit tests for repositories, money math, permission checks
+
+**Exit criteria:** all domain data lives in SQLite; legacy import verified against a real export.
+
+---
+
+## 5. Phase 2 — Core services
+
+- [ ] Settings service (company profile, accent, theme, language per user)
+- [ ] Translation loader (compile-time embedded de/en/fr/es + external language packs)
+- [ ] Autosave / snapshot service (crash-safe, atomic writes)
+- [ ] Network share lock (`.lock` file, stale detection, takeover request)
+- [ ] Backup scheduler (interval, retention, target folder, verification)
+- [ ] File import/export: CSV, JSON, zip, docx read, PDF read
+- [ ] Print pipeline: DIN 5008 layout, letterhead, totals, multi-page tables → PDF
+- [ ] Update checker (GitHub releases, signature verification)
+- [ ] Logging + crash report file (no telemetry)
+- [ ] Service-level tests with temp databases and fixture files
+
+**Exit criteria:** every non-UI service reachable from `crates/cli` and covered by tests.
+
+---
+
+## 6. Phase 3 — Application shell
+
+- [ ] Tauri 2 project (`crates/app`), Windows targets: NSIS + portable
+- [ ] Window state persistence (size, position, maximized, fullscreen)
+- [ ] Splash window with real progress + "ready" handshake
+- [ ] Single instance guard + deep-link/second-launch focus
+- [ ] System tray with quick actions
+- [ ] Native dialogs: folder picker, file open/save, message boxes
+- [ ] Global shortcuts (F11, window snapping, command palette)
+- [ ] Signing + auto-update manifest (only after Phase 10)
+- [ ] Startup measurement harness (cold start → login < 800 ms)
+
+**Exit criteria:** empty shell starts in < 800 ms, installer built and installs cleanly.
+
+---
+
+## 7. Phase 4 — UI foundation (decision gate)
+
+- [ ] **Decision:** confirm Leptos (CSR) vs. Dioxus vs. egui vs. Slint — document reasons here
+- [ ] Port design tokens from `src/index.css`: accent, accent-companion, glass, radii, shadows
+- [ ] Theme engine: light / dark / system, live switching, no flash on start
+- [ ] Component kit: Button, IconButton, Card, Input, Select, Checkbox, Switch, Badge, Tooltip,
+      Modal, Drawer, ContextMenu, Toast, Table (sortable, virtualized), Tabs, DatePicker, FileDrop
+- [ ] Icon set (replace `lucide-react` with generated SVG components)
+- [ ] Form framework: validation, dirty tracking, unsaved-changes guard
+- [ ] Keyboard navigation + focus ring parity with the legacy app
+- [ ] Visual regression snapshots for every component state
+
+**Exit criteria:** component gallery app renders all states in all four languages, both themes.
+
+---
+
+## 8. Phase 5 — Desktop shell & window manager
+
+- [ ] Desktop canvas with wallpapers, icon grid, drag & drop, saved positions
+- [ ] Window manager: move, resize, snap, maximize, minimize, close, z-order, focus trap
+- [ ] Taskbar: pinned apps, running indicators, clock, tray flyout
+- [ ] Start menu: search, app list, power flyout, user switcher
+- [ ] Window chrome: minimize / maximize / close with confirmation dialog
+- [ ] Close cooldown (3 s) after an app window closes, with "are you sure" prompt
+- [ ] Widgets layer (clock, calculator, notes)
+- [ ] Command palette
+- [ ] Login, lock screen and onboarding wizard (language → administrator account → appearance → apps → backup)
+
+**Exit criteria:** desktop behaves like the legacy app on a 1080p screen; window state survives restart.
+
+---
+
+## 9. Phase 6 — Module parity (one checkbox per module, all four languages)
+
+Order chosen by usage frequency in the legacy app.
+
+- [ ] Dashboard
+- [ ] Contacts (companies, sub-contacts, country autocomplete, detail modal)
+- [ ] Products & stock (stock moves, labels, smart reorder)
+- [ ] Invoices (DIN 5008, templates, dunning, email draft, payment modal)
+- [ ] Accounting (journal, BWA, cash book, export)
+- [ ] Purchases (suppliers, orders, goods receipt)
+- [ ] POS / cash register
+- [ ] Calendar (month/week/day, appointments, mobile agenda)
+- [ ] Settings (all tabs: general, appearance, security, backup, users, roles, updates, portable)
+- [ ] User management (users, roles, permissions, password reset, security questions)
+- [ ] App Store / module activation
+- [ ] Documentation & changelog
+- [ ] Text editor (Word-style ribbon, spell check)
+- [ ] Therapy practice (clients, sessions, billing, appointments, mileage, sync to invoices)
+- [ ] Support & tickets (time tracking, attachments, Discord report)
+- [ ] Reports & feedback
+- [ ] Studio drawer (company letterhead, clean mode)
+
+Per module definition of done:
+
+- [ ] CRUD complete, empty states, validation, keyboard shortcuts
+- [ ] All four languages translated
+- [ ] Legacy data readable
+- [ ] Print/export where the legacy module supports it
+- [ ] Unit + UI tests green
+
+---
+
+## 10. Phase 7 — Internationalisation
+
+- [ ] Generator: read `src/lib/i18n.ts` → emit `rust/crates/ui/locales/{de,en,fr,es}.json`
+- [ ] Stable key compatibility check (no key silently dropped)
+- [ ] Plural/gender handling where the legacy strings rely on concatenation
+- [ ] External language packs (custom JSON in `languages/`) still loadable
+- [ ] Missing-key detection in CI (fails the build)
+
+**Exit criteria:** key coverage for de/en/fr/es is 100 % of used keys; no hardcoded UI string in Rust code.
+
+---
+
+## 11. Phase 8 — Files, print & interoperability
+
+- [ ] DIN 5008 PDF output verified against a legacy PDF (golden files, pixel diff)
+- [ ] Multi-page tables with repeated headers and row splitting
+- [ ] Letterhead background + token placement
+- [ ] DOCX read/write, HTML export
+- [ ] QR/barcode generation (native, no JS library)
+- [ ] Backup container compatible with legacy `.socdof` archives
+- [ ] Mobile companion sync endpoints (HTTP, same payloads as legacy)
+
+---
+
+## 12. Phase 9 — Performance & size budget
+
+- [ ] Installer ≤ 15 MB, installed ≤ 40 MB
+- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 %
+- [ ] Cold start < 800 ms on a 2018-era laptop
+- [ ] Large dataset test: 50k contacts, 100k invoices — list scroll at 60 fps
+- [ ] Memory profiling report attached to this file
+- [ ] UI bundle ≤ 1.5 MB (≤ 400 KB gz)
+
+---
+
+## 13. Phase 10 — Packaging & release
+
+- [ ] NSIS installer + portable build, both code-signed
+- [ ] Auto-update channel with rollback
+- [ ] Migration wizard on first start (import legacy data, keep a backup)
+- [ ] Dual-run period: legacy and Rust versions share the same data folder safely (lock file)
+- [ ] Release notes in all four languages
+- [ ] Manual: installation, portable mode, network shares, troubleshooting
+
+---
+
+## 14. Risk register
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| UI framework choice is wrong | months lost | Phase 4 decision gate with a clickable prototype of 3 screens |
+| Print layout cannot reach legacy fidelity | invoices unusable | golden-file PDF diff from Phase 8 onward, earlier smoke test in Phase 2 |
+| Legacy data migration loses records | user data loss | import → export → diff test, automatic pre-migration backup |
+| WebView differences on older Windows 10 | broken UI | test matrix on Win10 1809+, Win11, with WebView2 evergreen check |
+| Scope creep during parity | never ships | fixed module order, nothing new before Phase 6 completes |
+| Single maintainer bandwidth | stalls | phases are independently shippable; each ends with a working build |
+
+---
+
+## 15. Open questions
+
+- [ ] Does the Rust build ship as a separate download next to the Electron build, or replace it?
+- [ ] Are custom user language packs (external JSON in `languages/`) a hard requirement?
+- [ ] Which Windows versions must be supported (Win10 1809 vs. Win11 only)?
+- [ ] Is the mobile companion sync required at launch?
+
+---
+
+## 16. Progress log
+
+| Date | Phase | Note |
+|---|---|---|
+| 2026-11-07 | 0 | Branch and this plan created. Legacy baselines measured: 112,790 lines TS/TSX, 11 MB `dist`, 3.9 MB main bundle (973 KB gz). |
