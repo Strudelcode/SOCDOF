@@ -7,8 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 1 — domain model & data layer (Phase 0 complete) |
-| **Overall progress** | ~20 % (core data layer plus backup, instance lock and DIN 5008 PDF) |
+| **Current phase** | Phase 3 — application shell (headless shell done; Tauri window layer blocked by missing WebKitGTK) |
+| **Overall progress** | ~27 % (core services plus a tested headless shell) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -124,10 +124,26 @@ reachable from `socdof-cli`; all three services are covered by tests.
 
 ## 6. Phase 3 — Application shell
 
-- [ ] Tauri 2 project (`crates/app`), Windows targets: NSIS + portable
+Done so far: `socdof-app` is a library plus a headless binary. `Shell::start` takes the instance
+lock, opens the store and exposes `status`, `backup`, `restore` and `export_invoice_pdf`; the binary
+runs that path without a window (`--database`, `--restore`, `--backup`, `--export-invoice`) and an
+integration test proves startup, lock contention, backup, restore and PDF export.
+
+The Tauri window layer is **blocked in the Linux build sandbox**: no GTK/WebKit development packages
+are installed. `pkg-config --cflags --libs webkit2gtk-4.1` fails with `Package webkit2gtk-4.1 was not
+found in the pkg-config search path`, `gtk+-3.0`, `libsoup-3.0`, `glib-2.0` and
+`javascriptcoregtk-4.1` are missing too, and `dpkg` lists no GTK/WebKit package. Adding the Tauri
+crate would therefore not compile and would leave a half-built dependency, so the window layer is
+deferred until the build image provides `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`
+and `librsvg2-dev`.
+
+- [x] Shell lifecycle: single instance lock, database bootstrap, ready status
+- [x] Command dispatch: status, backup, restore, invoice PDF export through `socdof-core`
+- [x] Headless runner and integration test for the startup path
+- [ ] Tauri 2 project (`crates/app`), Windows targets: NSIS + portable (blocked, see above)
 - [ ] Window state persistence (size, position, maximized, fullscreen)
 - [ ] Splash window with real progress + "ready" handshake
-- [ ] Single instance guard + deep-link/second-launch focus
+- [x] Single instance guard + deep-link/second-launch focus (guard done; focus needs the window layer)
 - [ ] System tray with quick actions
 - [ ] Native dialogs: folder picker, file open/save, message boxes
 - [ ] Global shortcuts (F11, window snapping, command palette)
@@ -279,3 +295,4 @@ Per module definition of done:
 | 2026-11-07 | 1 | `Money` (integer cents, parsing, formatting, tax), contacts, products, invoices with totals, SQLite store with `user_version` migrations and repositories. 17 tests, clippy clean. |
 | 2026-11-07 | 1 | Users with Argon2id hashing, stock movements, company profile settings, schema v2, `docs/architecture.md`. |
 | 2026-11-07 | 2 | Backup container (CRC-32, atomic restore), instance lock with stale takeover, DIN 5008 invoice PDF with an own PDF writer, CLI backup/restore, architecture docs extended. |
+| 2026-11-07 | 3 | Headless application shell in `socdof-app`: lock-first startup, status, backup, restore and invoice PDF commands, headless binary and integration test. Tauri window layer blocked by missing WebKitGTK/GTK development packages; exact `pkg-config` failure documented. |
