@@ -34,15 +34,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
 
-      - name: Format
+      - name: Format workspace
         run: cargo fmt --all -- --check
+
+      - name: Format desktop crate
+        run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
 
   test:
     name: Test (${{ matrix.os }})
@@ -53,7 +56,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,7 +64,7 @@ jobs:
           components: clippy
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.9.3
         with:
           key: ${{ matrix.os }}
 
@@ -79,3 +82,71 @@ jobs:
             --database "$RUNNER_TEMP/socdof.db" \
             --backup "$RUNNER_TEMP/socdof.socdofbak"
           test -s "$RUNNER_TEMP/socdof.socdofbak"
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache desktop cargo
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: |
+            crates/app/src-tauri -> target
+          key: desktop-${{ matrix.os }}
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/app/package-lock.json
+
+      - name: Install Linux desktop dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        working-directory: crates/app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: crates/app
+        run: npm run build
+
+      - name: Format desktop crate
+        run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
+
+      - name: Build Tauri bundle
+        working-directory: crates/app
+        run: npm run tauri build
+
+      - name: Upload desktop bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: socdof-desktop-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            crates/app/src-tauri/target/release/bundle/deb/*.deb
+            crates/app/src-tauri/target/release/bundle/nsis/*.exe

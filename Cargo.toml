@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/core", "crates/app", "crates/ui", "crates/cli"]
+# The Tauri crate is its own workspace: it needs GTK/WebKit development packages that the core
+# workspace must not require. CI builds it in the dedicated desktop job.
+exclude = ["crates/app/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

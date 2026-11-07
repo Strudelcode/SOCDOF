@@ -7,6 +7,7 @@
 
 use std::path::PathBuf;
 
+use serde::Serialize;
 use socdof_core::error::CoreResult;
 use socdof_core::lock::{InstanceLock, LockInfo};
 use socdof_core::now_millis;
@@ -31,7 +32,7 @@ impl Paths {
 }
 
 /// Everything the first screen needs after startup.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShellStatus {
     /// Database that was opened.
     pub database: PathBuf,

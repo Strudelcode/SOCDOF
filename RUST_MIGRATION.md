@@ -7,8 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 3 — application shell (headless shell done; Tauri window layer blocked by missing WebKitGTK) |
-| **Overall progress** | ~27 % (core services plus a tested headless shell) |
+| **Current phase** | Phase 3 — desktop window layer (Tauri 2 shell with database/backup screen; bundles built in CI) |
+| **Overall progress** | ~32 % (core services, headless shell and the first wired Tauri screen) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
@@ -63,7 +63,7 @@ This branch rebuilds SOCDOF as a native Rust application:
 - [x] Create branch `rust-rewrite` and this document
 - [x] Cargo workspace at the repository root: `crates/core`, `crates/app`, `crates/ui`, `crates/cli`
 - [x] Pin the toolchain in `rust-toolchain.toml` (stable + rustfmt + clippy)
-- [x] `.github/workflows/rust.yml`: fmt, clippy and tests on Windows
+- [x] `.github/workflows/rust.yml`: fmt, clippy and tests on Linux and Windows
 - [x] Root `README.md` with layout and build commands
 - [x] Move the legacy TypeScript app to `SOCDOF - TS` so both versions stay side by side
 - [x] Record legacy baselines in `docs/baseline.md` (installer size, RAM, cold start, bundle size)
@@ -124,26 +124,31 @@ reachable from `socdof-cli`; all three services are covered by tests.
 
 ## 6. Phase 3 — Application shell
 
-Done so far: `socdof-app` is a library plus a headless binary. `Shell::start` takes the instance
-lock, opens the store and exposes `status`, `backup`, `restore` and `export_invoice_pdf`; the binary
-runs that path without a window (`--database`, `--restore`, `--backup`, `--export-invoice`) and an
-integration test proves startup, lock contention, backup, restore and PDF export.
+Done so far: `socdof-app` is a library, a headless binary and the desktop command state.
+`Shell::start` takes the instance lock, opens the store and exposes `status`, `backup`, `restore` and
+`export_invoice_pdf`; the binary runs that path without a window (`--database`, `--restore`,
+`--backup`, `--export-invoice`) and an integration test proves startup, lock contention, backup,
+restore and PDF export.
 
-The Tauri window layer is **blocked in the Linux build sandbox**: no GTK/WebKit development packages
-are installed. `pkg-config --cflags --libs webkit2gtk-4.1` fails with `Package webkit2gtk-4.1 was not
-found in the pkg-config search path`, `gtk+-3.0`, `libsoup-3.0`, `glib-2.0` and
-`javascriptcoregtk-4.1` are missing too, and `dpkg` lists no GTK/WebKit package. Adding the Tauri
-crate would therefore not compile and would leave a half-built dependency, so the window layer is
-deferred until the build image provides `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`
-and `librsvg2-dev`.
+The Tauri 2 window layer lives in `crates/app/src-tauri` as a standalone Cargo workspace. Its
+commands are one-line adapters over `socdof_app::desktop::DesktopState`; the first screen loads the
+schema version, row counts and lock owner through `database_status` and writes a real backup through
+`create_backup`. The frontend in `crates/app/ui` is a small Vite/TypeScript app with German, English,
+French and Spanish texts. Command-layer tests exercise the exact methods the Tauri commands call and
+run without GTK/WebKit. The desktop CI job installs the Linux WebKit/GTK packages, builds the
+frontend, produces a `.deb` on Ubuntu and an NSIS `.exe` on Windows, and uploads both as artifacts.
+The local build image still has no GTK/WebKit development packages, so the Tauri build itself runs
+only in CI; the command layer and the frontend build are verified locally.
 
 - [x] Shell lifecycle: single instance lock, database bootstrap, ready status
 - [x] Command dispatch: status, backup, restore, invoice PDF export through `socdof-core`
 - [x] Headless runner and integration test for the startup path
-- [ ] Tauri 2 project (`crates/app`), Windows targets: NSIS + portable (blocked, see above)
+- [x] Tauri 2 project (`crates/app/src-tauri`), Linux `.deb` and Windows NSIS bundle in CI
+- [x] First screen: schema version, row counts, lock owner and a real backup via commands
+- [x] Command-layer tests for status and backup without a window
 - [ ] Window state persistence (size, position, maximized, fullscreen)
 - [ ] Splash window with real progress + "ready" handshake
-- [x] Single instance guard + deep-link/second-launch focus (guard done; focus needs the window layer)
+- [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
 - [ ] System tray with quick actions
 - [ ] Native dialogs: folder picker, file open/save, message boxes
 - [ ] Global shortcuts (F11, window snapping, command palette)
@@ -297,3 +302,4 @@ Per module definition of done:
 | 2026-11-07 | 2 | Backup container (CRC-32, atomic restore), instance lock with stale takeover, DIN 5008 invoice PDF with an own PDF writer, CLI backup/restore, architecture docs extended. |
 | 2026-11-07 | 3 | Headless application shell in `socdof-app`: lock-first startup, status, backup, restore and invoice PDF commands, headless binary and integration test. Tauri window layer blocked by missing WebKitGTK/GTK development packages; exact `pkg-config` failure documented. |
 | 2026-11-07 | 3 | CI moved to a Linux + Windows matrix: format gate on Ubuntu, clippy and the full test suite on both runners, headless shell smoke on Ubuntu. |
+| 2026-11-07 | 3 | Tauri 2 window layer added in `crates/app/src-tauri` with a Vite/TypeScript screen in `crates/app/ui`. `DesktopState` exposes schema status and backup to the commands; command-layer tests run locally without GTK/WebKit. Desktop CI job builds `.deb` and NSIS bundles on Ubuntu and Windows and uploads them as artifacts; actions moved to Node 24 runtimes. |

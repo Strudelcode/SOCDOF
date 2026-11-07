@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOCDOF</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div>
+          <p class="brand">SOCDOF</p>
+          <h1 data-i18n="screenTitle"></h1>
+          <p class="subtitle" data-i18n="screenSubtitle"></p>
+        </div>
+        <span class="badge" data-i18n="sessionBadge"></span>
+      </header>
+
+      <main class="grid">
+        <section class="card" aria-labelledby="status-title">
+          <h2 id="status-title" data-i18n="statusTitle"></h2>
+          <p class="message" id="status-message" data-i18n="loading" role="status"></p>
+          <dl class="facts">
+            <div class="fact">
+              <dt data-i18n="database"></dt>
+              <dd id="database">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="schemaVersion"></dt>
+              <dd id="schema-version">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="contacts"></dt>
+              <dd id="contacts">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="products"></dt>
+              <dd id="products">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="invoices"></dt>
+              <dd id="invoices">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="users"></dt>
+              <dd id="users">…</dd>
+            </div>
+            <div class="fact">
+              <dt data-i18n="lockOwner"></dt>
+              <dd id="lock-owner">…</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="card" aria-labelledby="backup-title">
+          <h2 id="backup-title" data-i18n="backupTitle"></h2>
+          <p class="hint" data-i18n="backupHint"></p>
+          <button id="backup-button" type="button" data-i18n="backupAction"></button>
+          <p class="message" id="backup-result" role="status"></p>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

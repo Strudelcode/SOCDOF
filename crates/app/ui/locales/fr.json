@@ -1,0 +1,22 @@
+{
+  "screenTitle": "Base de données et sauvegarde",
+  "screenSubtitle": "Session locale de l'application SOCDOF.",
+  "sessionBadge": "Session locale",
+  "statusTitle": "État de la base de données",
+  "database": "Base de données",
+  "schemaVersion": "Version du schéma",
+  "contacts": "Contacts",
+  "products": "Produits",
+  "invoices": "Factures",
+  "users": "Utilisateurs",
+  "lockOwner": "Propriétaire du verrou (PID)",
+  "loading": "Chargement…",
+  "noOwner": "–",
+  "backupTitle": "Sauvegarde",
+  "backupHint": "Écrit un instantané cohérent de la base de données ouverte dans le dossier de sauvegarde.",
+  "backupAction": "Créer une sauvegarde",
+  "backupWorking": "Écriture de la sauvegarde…",
+  "backupDone": "Sauvegarde enregistrée : {path} ({bytes} octets).",
+  "errorStatus": "Impossible de charger l'état de la base de données : {message}",
+  "errorBackup": "Échec de la sauvegarde : {message}"
+}

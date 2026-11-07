@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 socdof-core = { path = "../core" }
+serde = { workspace = true }
 
 [dev-dependencies]
 uuid = { workspace = true }

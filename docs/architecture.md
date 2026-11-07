@@ -7,11 +7,13 @@ How the Rust rewrite is organised, where the code lives and how a new module is 
 | Crate | Responsibility | Must not |
 |---|---|---|
 | `socdof-core` | Domain entities, money, SQLite store, password hashing | Depend on any UI or windowing crate |
-| `socdof-app` | Desktop application: startup, instance lock, commands; Tauri window layer once WebKitGTK is available | Contain business rules |
+| `socdof-app` | Desktop application: startup, instance lock, command state, headless runner | Contain business rules |
+| `socdof-desktop` | Tauri 2 window layer (`crates/app/src-tauri`): state wiring and commands over `socdof-app` | Contain business rules, open SQLite directly |
 | `socdof-ui` | Components, theme, screens (Phase 4) | Talk to SQLite directly |
 | `socdof-cli` | Headless commands for tooling and data checks | Duplicate core logic |
 
-Dependency direction is one-way: `app`/`ui`/`cli` → `core`. `core` never depends on the others.
+Dependency direction is one-way: `desktop` → `app`/`ui`/`cli` → `core`. `core` never depends on the others.
+The frontend only calls Tauri commands; it never receives a database handle or SQL.
 
 ## Inside `socdof-core`
 
@@ -84,13 +86,22 @@ is treated as abandoned and taken over, so a crash never blocks the application 
 
 ## Desktop shell (Phase 3)
 
-`socdof-app` is a library plus a headless binary. `Shell::start` is the single start path:
+`socdof-app` is a library, a headless binary and the desktop command state. `Shell::start` is the
+single start path:
 
 1. `InstanceLock::acquire` — a second start fails with `lock_busy` before SQLite runs.
 2. `Store::open` — migrations happen here; a failure releases the lock again.
 3. Ready — `status()` reports database, schema version, row counts and the lock owner.
 
-Commands live in `crates/app/src/commands.rs` and are thin adapters over `socdof-core`:
+`DesktopState` (`crates/app/src/desktop.rs`) owns one `Shell` behind a mutex. It exposes the exact
+methods the window commands call, which keeps the command path testable without GTK/WebKit:
+
+| Tauri command | `DesktopState` | Core call |
+|---|---|---|
+| `database_status` | `status()` | schema version, row counts, lock owner |
+| `create_backup` | `backup(None)` | `backup::create_backup` on the open store |
+
+The remaining shell commands are still library adapters used by the headless runner:
 
 | Command | Core call |
 |---|---|
@@ -105,20 +116,18 @@ cargo run -p socdof-app -- --database socdof.db --backup backup.socdofbak \
   --export-invoice 2026-0001 rechnung.pdf
 ```
 
-**Window layer:** Tauri 2 is the planned shell, but the Linux build environment has no GTK/WebKit
-development packages. `pkg-config --cflags --libs webkit2gtk-4.1` fails with:
+**Window layer:** `crates/app/src-tauri` is a Tauri 2 application in its own Cargo workspace. During
+setup it creates the application data directory, opens `socdof.db` through `DesktopState` and manages
+the state; the commands in `src/commands.rs` are one-line adapters. The webview UI lives in
+`crates/app/ui` (Vite + TypeScript, build output `crates/app/dist`). The first screen shows schema
+version, row counts and lock owner, and writes a backup with its path and size.
 
-```text
-Package webkit2gtk-4.1 was not found in the pkg-config search path.
-Perhaps you should add the directory containing `webkit2gtk-4.1.pc'
-to the PKG_CONFIG_PATH environment variable
-Package 'webkit2gtk-4.1', required by 'virtual:world', not found
-```
-
-`gtk+-3.0`, `libsoup-3.0`, `glib-2.0` and `javascriptcoregtk-4.1` are missing as well, and `dpkg`
-reports no installed GTK/WebKit package. The Tauri crate is therefore not part of the workspace: it
-cannot compile here and would leave a half-built dependency. The window layer is added once the
-build image provides `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev` and `librsvg2-dev`.
+The Tauri crate is deliberately excluded from the root workspace: it needs `libwebkit2gtk-4.1-dev`,
+`libgtk-3-dev`, `libayatana-appindicator3-dev` and `librsvg2-dev`, which the core jobs must not
+require. The desktop CI job installs those packages on Ubuntu, builds the frontend and produces a
+`.deb`; on Windows it produces an NSIS `.exe`. Both are uploaded as artifacts. The local build image
+used for this branch still has no GTK/WebKit packages, so the Tauri build itself is verified in CI;
+`cargo test -p socdof-app` covers the command layer locally.
 
 ## PDF layout
 
@@ -149,9 +158,10 @@ Never edit an already shipped schema block; existing databases only run the newe
 
 ## Internationalisation
 
-The four languages stay in one place: `crates/ui/locales/{de,en,fr,es}.json`, generated once from
-`SOCDOF - TS/src/lib/i18n.ts` (Phase 7). Rust code only references keys; no literal UI text. Missing
-keys fail the build in CI.
+The shell screen keeps its four languages in `crates/app/ui/locales/{de,en,fr,es}.json`, loaded by
+`crates/app/ui/src/i18n.ts`; the HTML only carries keys and no user-facing string is embedded in Rust.
+Phase 7 consolidates the full catalogue in `crates/ui/locales/{de,en,fr,es}.json`, generated from
+`SOCDOF - TS/src/lib/i18n.ts`, and adds missing-key checks to CI.
 
 ## Testing
 
@@ -171,4 +181,4 @@ cargo test --workspace
 | `src/lib/auth.ts` | `domain/user.rs`, `store/users.rs`, `security.rs` |
 | `src/components/*Module.tsx` | `crates/ui` screens (Phase 4–6) |
 | `src/lib/i18n.ts` | `crates/ui/locales/*.json` (Phase 7) |
-| `electron/main.cjs` | `crates/app` (Tauri, Phase 3) |
+| `electron/main.cjs` | `crates/app/src-tauri` (Tauri, Phase 3) |

@@ -1,0 +1,22 @@
+{
+  "screenTitle": "Database & backup",
+  "screenSubtitle": "Local session of the SOCDOF desktop application.",
+  "sessionBadge": "Local session",
+  "statusTitle": "Database status",
+  "database": "Database",
+  "schemaVersion": "Schema version",
+  "contacts": "Contacts",
+  "products": "Products",
+  "invoices": "Invoices",
+  "users": "Users",
+  "lockOwner": "Lock owner (PID)",
+  "loading": "Loading…",
+  "noOwner": "–",
+  "backupTitle": "Backup",
+  "backupHint": "Writes a consistent snapshot of the open database into the backup folder.",
+  "backupAction": "Create backup",
+  "backupWorking": "Writing backup…",
+  "backupDone": "Backup saved: {path} ({bytes} bytes).",
+  "errorStatus": "Could not load the database status: {message}",
+  "errorBackup": "Backup failed: {message}"
+}

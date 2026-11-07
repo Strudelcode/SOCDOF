@@ -1,0 +1,22 @@
+{
+  "screenTitle": "Datenbank & Backup",
+  "screenSubtitle": "Lokale Sitzung der SOCDOF-Desktop-Anwendung.",
+  "sessionBadge": "Lokale Sitzung",
+  "statusTitle": "Datenbankstatus",
+  "database": "Datenbank",
+  "schemaVersion": "Schema-Version",
+  "contacts": "Kontakte",
+  "products": "Produkte",
+  "invoices": "Rechnungen",
+  "users": "Benutzer",
+  "lockOwner": "Lock-Inhaber (PID)",
+  "loading": "Wird geladen…",
+  "noOwner": "–",
+  "backupTitle": "Backup",
+  "backupHint": "Schreibt eine konsistente Sicherung der geöffneten Datenbank in den Backup-Ordner.",
+  "backupAction": "Backup erstellen",
+  "backupWorking": "Backup wird geschrieben…",
+  "backupDone": "Backup gespeichert: {path} ({bytes} Bytes).",
+  "errorStatus": "Status konnte nicht geladen werden: {message}",
+  "errorBackup": "Backup fehlgeschlagen: {message}"
+}

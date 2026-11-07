@@ -1,0 +1,22 @@
+{
+  "screenTitle": "Base de datos y copia de seguridad",
+  "screenSubtitle": "Sesión local de la aplicación SOCDOF.",
+  "sessionBadge": "Sesión local",
+  "statusTitle": "Estado de la base de datos",
+  "database": "Base de datos",
+  "schemaVersion": "Versión del esquema",
+  "contacts": "Contactos",
+  "products": "Productos",
+  "invoices": "Facturas",
+  "users": "Usuarios",
+  "lockOwner": "Propietario del bloqueo (PID)",
+  "loading": "Cargando…",
+  "noOwner": "–",
+  "backupTitle": "Copia de seguridad",
+  "backupHint": "Escribe una instantánea coherente de la base de datos abierta en la carpeta de copias.",
+  "backupAction": "Crear copia de seguridad",
+  "backupWorking": "Escribiendo la copia de seguridad…",
+  "backupDone": "Copia guardada: {path} ({bytes} bytes).",
+  "errorStatus": "No se pudo cargar el estado de la base de datos: {message}",
+  "errorBackup": "Error al crear la copia de seguridad: {message}"
+}
