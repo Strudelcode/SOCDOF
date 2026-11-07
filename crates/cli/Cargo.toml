@@ -1,0 +1,11 @@
+[package]
+name = "socdof-cli"
+description = "Headless access to the SOCDOF core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+socdof-core = { path = "../core" }
+uuid = { workspace = true }

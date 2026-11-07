@@ -1,0 +1,9 @@
+/target
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+*.pdb
+
+# Local scratch files
+*.log

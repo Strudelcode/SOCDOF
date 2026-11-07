@@ -7,9 +7,9 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 0 — repository & toolchain |
-| **Overall progress** | ~1 % (plan only) |
-| **Legacy app** | Untouched, keeps living on `main` (TypeScript + React + Electron) |
+| **Current phase** | Phase 1 — domain model & data layer (Phase 0 complete) |
+| **Overall progress** | ~7 % (workspace, money, contacts, products, invoices, SQLite store) |
+| **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
 
 ---
@@ -58,21 +58,26 @@ This branch rebuilds SOCDOF as a native Rust application:
 
 ---
 
-## 3. Phase 0 — Repository & toolchain (current)
+## 3. Phase 0 — Repository & toolchain (done)
 
 - [x] Create branch `rust-rewrite` and this document
-- [ ] Add `rust/` Cargo workspace: `crates/core`, `crates/app`, `crates/ui`, `crates/cli`
-- [ ] Add `rust-toolchain.toml` (stable, pinned) and `rust/.cargo/config.toml`
-- [ ] Add `.github/workflows/rust.yml`: fmt, clippy, test, Windows build artifact
-- [ ] Record legacy baselines in `rust/docs/baseline.md` (installer size, RAM, cold start, bundle size)
-- [ ] Add `rust/README.md` with build/run instructions for Windows + Linux
-- [ ] Decide crate names, MSRV, licence headers
+- [x] Cargo workspace at the repository root: `crates/core`, `crates/app`, `crates/ui`, `crates/cli`
+- [x] Pin the toolchain in `rust-toolchain.toml` (stable + rustfmt + clippy)
+- [x] `.github/workflows/rust.yml`: fmt, clippy and tests on Windows
+- [x] Root `README.md` with layout and build commands
+- [x] Move the legacy TypeScript app to `SOCDOF - TS` so both versions stay side by side
+- [x] Record legacy baselines in `docs/baseline.md` (installer size, RAM, cold start, bundle size)
 
-**Exit criteria:** `cargo check --workspace` runs locally and in CI; baseline numbers documented.
+**Exit criteria:** `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace`
+are green locally and in CI; baseline numbers documented.
 
 ---
 
 ## 4. Phase 1 — Domain model & data layer
+
+Done so far: `Money` (integer cents, parsing/formatting, tax), `Contact`, `Product`, `Invoice` with
+positions and totals, plus a SQLite store with `user_version` migrations and repositories for
+contacts and invoices.
 
 - [ ] Define entity types: `User`, `Role`, `Contact`, `Product`, `StockMove`, `Invoice`,
       `PurchaseOrder`, `POSOrder`, `BillingItem`, `Session`, `Appointment`, `Widget`, `Report`,
@@ -262,3 +267,5 @@ Per module definition of done:
 | Date | Phase | Note |
 |---|---|---|
 | 2026-11-07 | 0 | Branch and this plan created. Legacy baselines measured: 112,790 lines TS/TSX, 11 MB `dist`, 3.9 MB main bundle (973 KB gz). |
+| 2026-11-07 | 0 | Workspace, pinned toolchain, CI and README created; legacy app moved to `SOCDOF - TS`; baselines written to `docs/baseline.md`. |
+| 2026-11-07 | 1 | `Money` (integer cents, parsing, formatting, tax), contacts, products, invoices with totals, SQLite store with `user_version` migrations and repositories. 17 tests, clippy clean. |
