@@ -621,7 +621,9 @@ export async function createUser(input: {
     passwordIterations: password.iterations,
     failedLoginAttempts: 0,
     lockoutLevel: 0,
-    mustChangePassword: !passwordless,
+    // The first account (onboarding administrator) picks its own password, so it must not
+    // be forced into a password change right after the first sign-in.
+    mustChangePassword: users.length === 0 ? false : !passwordless,
     passwordless,
     recoveryPending: Boolean(input.recoveryPerPerson) && !passwordless,
     recovery:

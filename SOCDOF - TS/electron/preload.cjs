@@ -3,6 +3,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   getPlatformInfo: () => ipcRenderer.invoke('socdof:get-platform'),
+  notifyAppReady: () => ipcRenderer.send('socdof:app-ready'),
+  onSplashProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('socdof:splash-progress', listener);
+    return () => ipcRenderer.removeListener('socdof:splash-progress', listener);
+  },
   quitApp: () => ipcRenderer.invoke('socdof:quit-app'),
   downloadAndInstallUpdate: (payload) => ipcRenderer.invoke('socdof:download-and-install-update', payload),
   testUpdatingSplash: (version) => ipcRenderer.invoke('socdof:test-updating-splash', version),

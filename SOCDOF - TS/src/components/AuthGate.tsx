@@ -1014,7 +1014,9 @@ function FirstAccount({
        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-white/5">
          <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
-              {t(`auth.wizardStep.${wizardStep}`, lang)}
+              {wizardStep === 1
+                ? t('auth.adminSetupBadge', lang, 'Einrichtung · Schritt 1: Administratorkonto')
+                : t(`auth.wizardStep.${wizardStep}`, lang)}
             </span>
           </div>
          <div className="flex items-center gap-2">
@@ -1050,6 +1052,13 @@ function FirstAccount({
           )}
 
           {wizardStep === 1 && (<div className="space-y-3.5">
+          <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200/60 dark:border-indigo-500/20 bg-indigo-50/70 dark:bg-indigo-500/10 p-2.5">
+            <UserRoundCog size={16} className="text-indigo-600 dark:text-indigo-300 shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-snug text-indigo-900/90 dark:text-indigo-200">
+              {t('auth.adminSetupHint', lang, 'Dieses erste Konto ist der Administrator. Damit kannst du später alle weiteren Benutzer, Rollen und Einstellungen verwalten.')}
+            </p>
+          </div>
+
           {/* Display Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

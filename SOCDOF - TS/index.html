@@ -18,7 +18,14 @@
         var fs = localStorage.getItem('socdof_font_scale');
         if (fs) document.documentElement.style.fontSize = fs + '%';
         var isDark = localStorage.getItem('odoo_theme_dark');
-        if (isDark === 'true') document.documentElement.classList.add('dark');
+        if (isDark === 'true') {
+          document.documentElement.classList.add('dark');
+        } else if (isDark === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          // No explicit theme choice yet: follow the operating system from the first paint
+          // so the language screen already matches the system color scheme.
+          document.documentElement.classList.add('dark');
+        }
+        document.documentElement.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         var acc = localStorage.getItem('socdof_accent_color');
         if (acc) {
           var hex = '#4f46e5';

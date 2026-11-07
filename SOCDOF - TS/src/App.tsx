@@ -459,7 +459,15 @@ export default function App() {
 
           <BackupSetupModal
             isOpen={isBackupModalOpen}
-            onClose={() => setIsBackupModalOpen(false)}
+            onClose={() => {
+              // Dismissing the first-run backup step counts as answered, so it is not shown again.
+              try {
+                localStorage.setItem('socdof_backup_setup_initialized', 'true');
+              } catch {
+                // ignore
+              }
+              setIsBackupModalOpen(false);
+            }}
             company={company}
             onUpdateCompany={handleUpdateCompany}
           />

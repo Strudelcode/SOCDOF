@@ -56,7 +56,7 @@ export const defaultCompanyProfile: CompanyProfile = {
   invoice_template: 'din5008',
   language: 'de',
   accent_color: 'indigo',
-  theme_mode: 'light',
+  theme_mode: 'system',
   glass_overlay: true,
   desktop_wallpaper_blur: 0,
   start_menu_blur: 0,

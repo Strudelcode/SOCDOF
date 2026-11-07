@@ -24,6 +24,7 @@ export function BackupSetupModal({
   const [selectedPath, setSelectedPath] = useState<string>(company.backup_folder_path || '');
   const [isPicking, setIsPicking] = useState<boolean>(false);
   const [justPicked, setJustPicked] = useState<boolean>(false);
+  const [pickerUnavailable, setPickerUnavailable] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,10 +66,14 @@ export function BackupSetupModal({
   const handlePickFolder = async () => {
     sounds.playClick();
     setIsPicking(true);
+    setPickerUnavailable(false);
     let chosenPath = '';
 
+    const hasNativePicker = typeof window !== 'undefined' && Boolean(window.electronAPI?.selectBackupFolder);
+    const hasBrowserPicker = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+
     try {
-      if (typeof window !== 'undefined' && window.electronAPI?.selectBackupFolder) {
+      if (hasNativePicker && window.electronAPI?.selectBackupFolder) {
         const result = await window.electronAPI.selectBackupFolder();
         if (!result.canceled && result.folderPath) {
           chosenPath = result.folderPath;
@@ -92,8 +97,17 @@ export function BackupSetupModal({
       setJustPicked(true);
       sounds.playSuccess();
       setTimeout(() => setJustPicked(false), 3000);
-    } else if (!chosenPath && !window.electronAPI?.selectBackupFolder) {
-      folderInputRef.current?.click();
+      return;
+    }
+
+    // No picker in this environment: fall back to the hidden directory input and tell the
+    // user when even that is not available, instead of leaving the button without feedback.
+    if (!hasNativePicker && !hasBrowserPicker) {
+      if (folderInputRef.current) {
+        folderInputRef.current.click();
+      } else {
+        setPickerUnavailable(true);
+      }
     }
   };
 
@@ -255,6 +269,12 @@ export function BackupSetupModal({
             <span>{t('backup.btn_skip_later')}</span>
           </button>
         </div>
+
+        {pickerUnavailable && (
+          <p className="text-[11px] text-center leading-snug text-amber-600 dark:text-amber-400">
+            {t('backup.picker_unavailable', undefined, 'Die Ordnerauswahl ist in dieser Ansicht nicht verfügbar. Bitte wähle den Ordner in der Desktop-App.')}
+          </p>
+        )}
 
         <p className="text-[10px] text-center text-slate-400 dark:text-slate-500">
           {t('backup.note_change_later')}

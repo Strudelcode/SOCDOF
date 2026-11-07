@@ -7,12 +7,26 @@ Format guidelines:
 - Avoid exhaustive UI/visual layout breakdowns.
 -->
 
+## Version 25.2.1 (2026-11-07)
+
+- 🛠️ **Behoben / Fixed**:
+  - The language selection screen now follows the system color scheme (dark/light) from the first paint instead of appearing plain white until the next step.
+  - The administrator account created during onboarding no longer asks for a new password immediately after the first sign-in.
+  - The first-run backup step no longer reacts without feedback when the folder picker is unavailable, and it is not shown again after it was dismissed.
+- 🔄 **Geändert / Improved**:
+  - The first account step is now clearly labelled as the administrator account (step 1) in German, English, French and Spanish, including a short note that it manages users, roles and settings.
+
 ## Version 25.2.0 (2026-10-31)
+
+- 🛠 **Verbessert / Improved**:
+  - Startup splash stays visible until the app is ready, with step-by-step progress (data folder, backups, language files) in the system language. The window no longer closes after a fixed 2.2 seconds during the slow first-run setup.
 
 - 🚀 **Neu / What's New**:
   - Custom roles: Administrators can create roles, rename and delete them, and tick which apps each role may open. Users are assigned one role each.
   - Passwordless accounts for non-admin users with a one-click "<Name> continue" login.
   - Per-person security question on first sign-in (or once for all users).
+- 🛠️ **Behoben / Fixed**:
+  - Folder watchers on network drives no longer crash the app with "A JavaScript error occurred in the main process"; a failing watcher is dropped and logged.
 - 🔄 **Geändert / Improved**:
   - Administrator's own account no longer shows the "Current password" and "Temporary reset" fields.
 

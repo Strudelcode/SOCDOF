@@ -44,9 +44,45 @@ if (!gotSingleInstanceLock) {
 
 let mainWindow;
 let splashWindow = null;
+let mainWindowReadyResolver = null;
+
+// Bump this when first-run setup changes so existing installs re-run it once.
+const SETUP_VERSION = 1;
+
+// Completion marker written after a successful first-run setup. Lives in the data folder (portable or userData).
+function getSetupMarkerPath() {
+  const dataRoot = portableDataDir || app.getPath('userData');
+  return path.join(dataRoot, 'setup-complete.json');
+}
+
+// True only when the marker exists and was written by the same setup version.
+function isSetupComplete() {
+  try {
+    const marker = JSON.parse(fs.readFileSync(getSetupMarkerPath(), 'utf8'));
+    return marker && marker.setupVersion === SETUP_VERSION;
+  } catch {
+    return false;
+  }
+}
+
+function writeSetupMarker() {
+  try {
+    fs.mkdirSync(path.dirname(getSetupMarkerPath()), { recursive: true });
+    fs.writeFileSync(getSetupMarkerPath(), JSON.stringify({ setupVersion: SETUP_VERSION, completedAt: new Date().toISOString() }, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[SOCDOF Electron] Could not write setup marker:', e);
+  }
+}
+
+// Send a progress step to the splash window (fraction 0..1 plus a stable step key).
+function sendSplashProgress(fraction, stepKey) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.send('socdof:splash-progress', { fraction, stepKey });
+  }
+}
 
 // Show a lightweight branded window while the main workspace initializes.
-function createSplashWindow() {
+function createSplashWindow(showImmediately = true) {
   if (splashWindow && !splashWindow.isDestroyed()) return;
   splashWindow = new BrowserWindow({
     width: 320,
@@ -68,7 +104,14 @@ function createSplashWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   splashWindow.once('ready-to-show', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+    if (showImmediately) {
+      if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+      return;
+    }
+    // Later launches usually finish within a moment: only show the splash if the main window is still not ready.
+    setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+    }, 400);
   });
   splashWindow.on('closed', () => { splashWindow = null; });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
@@ -534,11 +577,11 @@ function createWindow() {
     mainWindow.focus();
   };
 
-  // Reveal window once first paint is completed and DOM is ready
-  mainWindow.once('ready-to-show', revealMainWindow);
-
-  // Fallback timeout in case ready-to-show is delayed by background resource compilation
-  setTimeout(revealMainWindow, 2200);
+  // Reveal only after the renderer reports ready (see socdof:app-ready), so the splash stays up during setup.
+  // The renderer reports ready once the first screen has mounted, so the splash stays until the app is usable.
+  // The long fallback only protects against a renderer that never reports back.
+  mainWindowReadyResolver = revealMainWindow;
+  setTimeout(revealMainWindow, 30000);
 
   // Load the compiled Vite app
   const indexPath = path.join(__dirname, '../dist/index.html');
@@ -1006,6 +1049,12 @@ function setupLanguagesFolderWatcher() {
         notifyChange('languages', eventType, filename);
       }, 300);
     });
+    // Network shares (NAS) can fail watch events at runtime; log and drop the watcher instead of crashing.
+    languageFolderWatcher.on('error', (err) => {
+      console.warn('Languages folder watcher failed:', err);
+      try { languageFolderWatcher.close(); } catch {}
+      languageFolderWatcher = null;
+    });
   } catch (err) {
     console.warn('Could not initialize languages directory watcher:', err);
   }
@@ -1017,6 +1066,11 @@ function setupLanguagesFolderWatcher() {
       flagDebounceTimer = setTimeout(() => {
         notifyChange('flags', eventType, filename);
       }, 300);
+    });
+    flagsFolderWatcher.on('error', (err) => {
+      console.warn('Flags folder watcher failed:', err);
+      try { flagsFolderWatcher.close(); } catch {}
+      flagsFolderWatcher = null;
     });
   } catch (err) {
     console.warn('Could not initialize flags directory watcher:', err);
@@ -1193,6 +1247,11 @@ function setupTemplatesWatcher() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('socdof:templates-folder-changed', { eventType, filename });
       }
+    });
+    templatesWatcher.on('error', (err) => {
+      console.warn('Templates folder watcher failed:', err);
+      try { templatesWatcher.close(); } catch {}
+      templatesWatcher = null;
     });
   } catch (err) {
     console.warn('Could not setup templates watcher:', err);
@@ -1994,19 +2053,39 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  const firstRunSetup = !isSetupComplete();
+  createSplashWindow(firstRunSetup);
+  sendSplashProgress(0.05, 'checkingStart');
   const canProceed = await verifyNetworkSessionLock();
   if (!canProceed) return;
+  sendSplashProgress(0.15, 'preparingData');
 
-  createSplashWindow();
+  // Register the ready listener before the window loads, so an early renderer signal is not missed.
+  ipcMain.once('socdof:app-ready', () => {
+    if (mainWindowReadyResolver) mainWindowReadyResolver();
+  });
+
   createWindow();
 
-  // Defer background language seed & backup folder readiness so the UI thread renders immediately
+  // Heavy first-run setup runs once; later launches with a matching marker skip it.
   setImmediate(() => {
     try {
-      getBackupDirectory();
-      ensureDefaultLanguageFiles();
-      setupLanguagesFolderWatcher();
-      setupTemplatesWatcher();
+      if (firstRunSetup) {
+        sendSplashProgress(0.3, 'preparingBackups');
+        getBackupDirectory();
+        sendSplashProgress(0.5, 'preparingLanguages');
+        ensureDefaultLanguageFiles();
+        sendSplashProgress(0.75, 'startingWatchers');
+        setupLanguagesFolderWatcher();
+        setupTemplatesWatcher();
+        sendSplashProgress(0.9, 'loadingWorkspace');
+        writeSetupMarker();
+      } else {
+        // Cheap check only: make sure the backups folder still exists.
+        getBackupDirectory();
+        setupLanguagesFolderWatcher();
+        setupTemplatesWatcher();
+      }
     } catch (e) {
       console.warn('Background init error:', e);
     }

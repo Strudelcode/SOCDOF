@@ -113,6 +113,11 @@ body {
   color: #72767d;
   letter-spacing: 0.03em;
 }
+.bar.determinate {
+  animation: none;
+  width: 0%;
+  transition: width 0.3s ease-out;
+}
 @keyframes travel {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(250%); }
@@ -136,17 +141,17 @@ body {
   <div class="app-subtitle">OFFLINE COMMERCE & ERP SUITE</div>
   <div class="status-text" id="status-text">Wird gestartet...</div>
   <div class="track">
-    <div class="bar"></div>
+    <div class="bar" id="bar"></div>
   </div>
   <div class="footer-text">Strudelcode · 100% Offline Desktop Suite</div>
 
   <script>
     (async () => {
       const messages = {
-        de: 'Wird gestartet...',
-        en: 'Starting...',
-        fr: 'Démarrage...',
-        es: 'Iniciando...'
+        de: { starting: 'Wird gestartet...', checkingStart: 'Startprüfung...', preparingData: 'Datenordner wird vorbereitet...', preparingBackups: 'Sicherungen werden vorbereitet...', preparingLanguages: 'Sprachdateien werden geladen...', startingWatchers: 'Überwachung wird gestartet...', loadingWorkspace: 'Arbeitsbereich wird geladen...' },
+        en: { starting: 'Starting...', checkingStart: 'Startup check...', preparingData: 'Preparing data folder...', preparingBackups: 'Preparing backups...', preparingLanguages: 'Loading language files...', startingWatchers: 'Starting file watchers...', loadingWorkspace: 'Loading workspace...' },
+        fr: { starting: 'Démarrage...', checkingStart: 'Vérification du démarrage...', preparingData: 'Préparation du dossier de données...', preparingBackups: 'Préparation des sauvegardes...', preparingLanguages: 'Chargement des fichiers de langue...', startingWatchers: 'Démarrage de la surveillance...', loadingWorkspace: 'Chargement de l’espace de travail...' },
+        es: { starting: 'Iniciando...', checkingStart: 'Comprobando el inicio...', preparingData: 'Preparando la carpeta de datos...', preparingBackups: 'Preparando copias de seguridad...', preparingLanguages: 'Cargando archivos de idioma...', startingWatchers: 'Iniciando la supervisión...', loadingWorkspace: 'Cargando el espacio de trabajo...' }
       };
       let lang = 'de';
       try {
@@ -158,9 +163,18 @@ body {
           if (messages[navLang]) lang = navLang;
         }
       } catch (_) {}
+      const t = messages[lang];
       const label = document.getElementById('status-text');
-      if (label && messages[lang]) {
-        label.textContent = messages[lang];
+      const bar = document.getElementById('bar');
+      if (label) label.textContent = t.starting;
+      if (window.electronAPI?.onSplashProgress) {
+        window.electronAPI.onSplashProgress(({ fraction, stepKey }) => {
+          if (label && t[stepKey]) label.textContent = t[stepKey];
+          if (bar) {
+            bar.classList.add('determinate');
+            bar.style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%';
+          }
+        });
       }
     })();
   </script>

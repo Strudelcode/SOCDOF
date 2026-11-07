@@ -5,7 +5,7 @@ export interface VersionRelease {
   highlights: string[];
 }
 
-export const APP_VERSION = '25.2.0';
+export const APP_VERSION = '25.2.1';
 export const APP_NAME = 'SOCDOF';
 export const APP_FULL_NAME = "Strudel's Organization, Commerce & Documentation Offline Flow";
 export const APP_AUTHOR = 'Yuri / Strudel';
@@ -19,6 +19,16 @@ import { ARCHIVED_VERSION_HISTORY } from './versionArchive';
  * Kept concise and fast for everyday builds and rapid agent development.
  */
 export const CURRENT_VERSION_HISTORY: VersionRelease[] = [
+  {
+    version: '25.2.1',
+    date: '2026-11-07',
+    title: 'Onboarding Theme, Administrator Setup Label & First Login Polish',
+    highlights: [
+      'First-Run Theme Detection: The language selection screen now follows the operating system color scheme immediately instead of appearing in plain white until the next step',
+      'Administrator Setup Label: The first account step is clearly labelled as the administrator account (step 1) in all four languages, explaining that it manages users and settings',
+      'No Forced Password Change for the Administrator: The account created during onboarding no longer asks for a new password right after the first sign-in'
+    ]
+  },
   {
     version: '25.1.0',
     date: '2026-10-31',

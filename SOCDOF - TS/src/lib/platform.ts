@@ -8,6 +8,8 @@ export const GITHUB_REPO_URL = 'https://github.com/Strudelcode/SOCDOF';
 export interface ElectronAPI {
   isElectron: boolean;
   getPlatformInfo: () => Promise<{ isElectron: boolean; platform: string; version: string }>;
+  notifyAppReady?: () => void;
+  onSplashProgress?: (callback: (data: { fraction: number; stepKey: string }) => void) => () => void;
   quitApp: () => Promise<void>;
   downloadAndInstallUpdate: (payload: { downloadUrl: string; version: string }) => Promise<{ success: boolean; error?: string }>;
   testUpdatingSplash?: (version?: string) => Promise<{ success: boolean }>;
