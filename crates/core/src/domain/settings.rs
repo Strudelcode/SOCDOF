@@ -83,6 +83,10 @@ pub struct CompanyProfile {
     pub backup_folder_path: String,
     /// Whether automatic backups are enabled.
     pub auto_backup_enabled: bool,
+    /// Minutes between two automatic backups.
+    pub backup_interval_minutes: i64,
+    /// Number of automatic backups that are kept.
+    pub backup_max_keep_count: i64,
 }
 
 impl Default for CompanyProfile {
@@ -101,6 +105,8 @@ impl Default for CompanyProfile {
             theme_mode: ThemeMode::default(),
             backup_folder_path: String::new(),
             auto_backup_enabled: false,
+            backup_interval_minutes: 120,
+            backup_max_keep_count: 10,
         }
     }
 }
@@ -113,6 +119,15 @@ impl CompanyProfile {
         }
         if self.currency.trim().is_empty() {
             return Err("currency_required".to_string());
+        }
+        if self.auto_backup_enabled && self.backup_folder_path.trim().is_empty() {
+            return Err("backup_folder_required".to_string());
+        }
+        if self.backup_interval_minutes < 1 {
+            return Err("backup_interval_invalid".to_string());
+        }
+        if self.backup_max_keep_count < 1 {
+            return Err("backup_keep_invalid".to_string());
         }
         Ok(())
     }
@@ -133,6 +148,8 @@ mod tests {
         assert_eq!(profile.theme_mode, ThemeMode::System);
         assert_eq!(profile.language, Language::De);
         assert_eq!(profile.currency, "€");
+        assert_eq!(profile.backup_interval_minutes, 120);
+        assert_eq!(profile.backup_max_keep_count, 10);
         assert!(!profile.is_configured());
     }
 

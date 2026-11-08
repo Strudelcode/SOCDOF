@@ -6,10 +6,10 @@ How the Rust rewrite is organised, where the code lives and how a new module is 
 
 | Crate | Responsibility | Must not |
 |---|---|---|
-| `socdof-core` | Domain entities, money, SQLite store, password hashing | Depend on any UI or windowing crate |
+| `socdof-core` | Domain entities, money, SQLite store, FTS5 search, roles/sessions, password hashing | Depend on any UI or windowing crate |
 | `socdof-app` | Desktop application: startup, instance lock, command state, headless runner | Contain business rules |
 | `socdof-desktop` | Tauri 2 window layer (`crates/app/src-tauri`): state wiring and commands over `socdof-app` | Contain business rules, open SQLite directly |
-| `socdof-ui` | Components, theme, screens (Phase 4) | Talk to SQLite directly |
+| `socdof-ui` | Components, theme, desktop shell and screens (Phase 4–6) | Talk to SQLite directly |
 | `socdof-cli` | Headless commands for tooling and data checks | Duplicate core logic |
 
 Dependency direction is one-way: `desktop` → `app`/`ui`/`cli` → `core`. `core` never depends on the others.
@@ -24,6 +24,12 @@ src/
 ├── money.rs            Money (integer cents)
 ├── security.rs         Argon2id hash + verify
 ├── backup.rs           backup container: verify, write, atomic restore
+├── backup_scheduler.rs due check, folder, interval, retention
+├── autosave.rs         atomic snapshots with count-based retention
+├── csv.rs              CSV import/export (contacts, products)
+├── i18n.rs             embedded de/en/fr/es catalogues + external packs
+├── logging.rs          rotating local log and crash reports
+├── settings_service.rs validated profile and per-user preferences
 ├── date.rs             civil date formatting (DD.MM.YYYY)
 ├── lock.rs             instance lock with heartbeat and stale takeover
 ├── pdf/                PDF writer + DIN 5008 invoice layout
@@ -31,19 +37,37 @@ src/
 │   ├── writer.rs       PDF 1.4 writer (Helvetica, WinAnsi, xref)
 │   └── din5008.rs      invoice layout: address field, positions, totals
 ├── domain/             entities, no persistence code
+│   ├── appointment.rs  calendar entries
+│   ├── billing.rs      billable items (service, material, therapy, mileage)
 │   ├── contact.rs
 │   ├── invoice.rs
+│   ├── permission.rs   AppModule, PermissionLevel, Role, built-in roles
+│   ├── pos.rs          POS receipts and payment methods
 │   ├── product.rs
+│   ├── purchase.rs     purchase orders and goods receipt
+│   ├── session.rs      sessions, lockout policy, LoginOutcome
 │   ├── settings.rs
 │   ├── stock.rs
-│   └── user.rs
+│   ├── support.rs      support tickets and time entries
+│   ├── user.rs
+│   └── workspace.rs    desktop widgets and generated reports
 └── store/              SQLite persistence, one file per aggregate
     ├── mod.rs          Store, schema, migrations
+    ├── appointments.rs
+    ├── billing_items.rs
     ├── contacts.rs
+    ├── dashboard.rs    counts, invoice overview rows, period totals
     ├── invoices.rs
+    ├── permissions.rs  roles + permission resolution
+    ├── pos_orders.rs   receipts + stock in one transaction
     ├── products.rs     products + stock movements
+    ├── purchase_orders.rs  orders + atomic goods receipt
+    ├── search.rs       FTS5 queries with substring fallback
+    ├── sessions.rs     sessions + sign-in with lockout
     ├── settings.rs     JSON key/value + company profile
-    └── users.rs        accounts + credential checks
+    ├── support.rs      tickets + time tracking
+    ├── users.rs        accounts + credential checks
+    └── workspace.rs    widgets + reports
 ```
 
 Rules:
@@ -56,11 +80,134 @@ Rules:
 - Errors are `CoreError`; validation failures use `CoreError::Validation("snake_case_code")` so the UI
   can translate them.
 
+### Transaction boundaries
+
+Documents that touch several tables are written through one transaction. The stock helpers are the
+building block:
+
+| Write | Rows touched | Entry point |
+|---|---|---|
+| Invoice + stock | `invoices`, `invoice_lines`, `stock_moves`, `products.stock` | `invoices::insert_with_stock` |
+| POS receipt + stock | `pos_orders`, `pos_order_lines`, `stock_moves`, `products.stock` | `pos_orders::insert` |
+| Goods receipt | `stock_moves`, `products.stock`, `purchase_orders.status` | `purchase_orders::receive` |
+| Collect billable items | many `billing_items.invoice_id` | `billing_items::assign_to_invoice` |
+
+`products::apply_stock` writes a movement and the new stock level without opening a transaction of
+its own; the document functions call it inside theirs, so an insufficient stock level rolls the
+whole document back. `products::adjust_stock` is the standalone wrapper for single movements.
+
+### Full-text search
+
+Schema v4 adds `contacts_fts`, `products_fts` and `invoices_fts`. They are plain FTS5 tables with an
+`UNINDEXED` id column and a `body`, maintained by `AFTER INSERT/UPDATE/DELETE` triggers, so every
+writer stays consistent without application code. The invoice body also follows the positions
+through triggers on `invoice_lines`. Existing rows are backfilled when the migration runs.
+
+`store/search.rs` turns user input into quoted prefix terms (`"alpen"* "tech"*`), which makes FTS
+operator injection impossible, and falls back to the aggregate's `LIKE` search when the index finds
+nothing. That keeps legacy behaviour such as matching `tech` inside `AlpenTech`.
+
+### Authentication and permissions
+
+- Passwords are Argon2id PHC strings (`security::hash_password`).
+- A session token is two random UUIDs (64 hex characters). Only its SHA-256 hash is stored, the
+  plain token is returned once to the caller.
+- Sessions expire after twelve hours, can be revoked individually (`Store::sign_out`) or for a user
+  (`Store::sign_out_all`), and are purged with `Store::purge_expired_sessions`.
+- Failed sign-ins are counted per account name; the fifth failure locks the account for five
+  minutes. While locked, even the correct password is rejected (`LoginOutcome::Locked`).
+- `Role` carries one `PermissionLevel` (`none`, `view`, `edit`, `manage`) per `AppModule`. The
+  built-in administrator and user roles are seeded by the migration; custom roles live in `roles`.
+  `Store::user_allows` resolves `user.role_id` first, falls back to the built-in role and lets an
+  administrator pass unconditionally.
+
 Service layering:
 
 - `backup` snapshots through `Store::snapshot_to` (SQLite `VACUUM INTO`), never by copying an open
   file, and restores into a temporary file that replaces the database atomically and deletes stale
   `-wal`/`-shm` sidecars left behind by a crashed writer. It writes files, it never executes SQL.
+- `autosave` writes a backup container to a temporary name and renames it into place, so a crash
+  never leaves something that looks like a snapshot. `backup_scheduler` is stateless: the newest
+  archive in the folder, the interval and the retention decide whether and what to write.
+- `settings_service` owns the rules for the company profile and the per-user preferences, so the UI,
+  the CLI and later the mobile companion validate identically.
+- `i18n` only maps stable snake_case keys to texts. It never formats domain values; the UI passes
+  placeholders. Unknown keys fall back to German and finally to the key itself.
+- `logging` writes JSON lines and does not phone home. A crash report is a local file.
+- `csv` parses RFC 4180 with delimiter detection, recognises headers in four languages and reports
+  skipped rows instead of inventing values.
+
+### Rust UI layer (`crates/ui`)
+
+The interface is drawn by egui, a pure Rust immediate-mode library: no webview, no WASM, no
+JavaScript. The decision and the removal plan for the temporary Vite frontend are in
+[`ui-decision.md`](ui-decision.md).
+
+- `tokens` holds the design values ported from `SOCDOF - TS/src/index.css` and the accent presets
+  from `src/lib/accent.ts`, including the hue rules for the companion color.
+- `theme` resolves light/dark/system, owns the surface and status palette and applies spacing,
+  rounding and text styles to the egui context before the first frame.
+- `components` draws the kit (buttons, icon buttons, cards, badges, tabs, search field, sortable
+  table header, dialog, toasts, empty state) from the tokens, not from egui defaults. Labels and
+  values come from the caller; no business logic lives here.
+- `controls` adds the input controls: select, checkbox, switch, labelled text field with error,
+  month calendar, menu, side drawer and file drop area.
+- `desktop` keeps the window manager (z-order, focus, move, resize, snap, maximize, minimize,
+  close cooldown, focus trap) as plain data, plus the icon grid and the taskbar; windows are egui
+  areas painted from the tokens. One `desktop` frame draws the wallpaper, the widgets, the icon
+  grid, the windows, the shell overlays and the taskbar.
+- `dashboard` is the first Phase 6 module screen: period tabs, KPI cards, quick actions, recent
+  invoices and the reorder list, all fed by `store::dashboard`; the screen formats, it never
+  aggregates. Its sample data exists only for the gallery and the golden snapshots.
+- `appointments` is the calendar screen: independent month/week/day views load their ranges through
+  `Store::appointments_between` or `Store::search_appointments_between` and share one agenda. The
+  detail view moves the lifecycle, the form writes creates, edits and deletes through the store,
+  and open-slot overlaps are rejected from `Store::appointment_conflicts`; the domain owns the
+  interval rule. The dashboard's calendar action opens it.
+- `contacts` is the first full CRUD module screen: list with the core FTS search, detail view,
+  create/edit form, delete confirmation and status badges. It writes through the `Store` contact
+  methods; validation stays in the domain and returned codes are mapped to catalogue keys. The
+  dashboard's new-contact action opens it.
+- `shell` holds the start menu, the fuzzy command palette, the tray flyout and the onboarding as
+  testable state machines, and renders them as focus-trapping overlays. All labels come from the
+  catalogue; the models expose open/close, filtering, selection and the persisted seen flag.
+- `wallpaper` decodes the two bundled PNG wallpapers with `include_bytes!`/`png` and paints them
+  losslessly, either scaled to cover the desktop or tiled at their native size, behind a texture
+  cache.
+- `widgets` is the desktop widgets layer: a clock/date card and a battery/connection status card,
+  drawn from the tokens and independent of the window z-order.
+- `icons` paints the 28 glyphs that replace `lucide-react`, defined in a normalized box so they
+  scale without assets.
+- `calendar` holds the civil-date math for the date picker (leap years, weekday of the first day,
+  six-week grid); it mirrors the core algorithm instead of adding a date library.
+- `form` validates fields (required, length, email), tracks dirty state against a saved baseline and
+  answers whether closing a screen needs a confirmation.
+- `focus` owns keyboard focus: controls register in draw order, Tab/Shift+Tab wrap around, a click
+  focuses, overlays trap the focus and Escape hands it back to the trigger. Focus rings are painted
+  from the accent tokens, not from egui defaults.
+- `snapshot` reduces a frame's paint commands to stable text (positions rounded, text and colors
+  verbatim) so the primitives can be pinned by golden files without a display.
+- `i18n` loads the UI catalogue for de/en/fr/es with the shared core loader; the tests fail if a
+  key is missing.
+- `gallery` is the acceptance surface: every control in every state, both appearances, nine accents
+  and four languages, asserted headlessly with `egui::Context::run`. With the `window` feature the
+  `socdof-ui-gallery` binary renders the same screen in an eframe window; the default build stays
+  window free so tests and clippy need no desktop libraries.
+- `settings` is the Phase 6 settings screen: eight tabs in one screen, reading and writing the
+  company profile, per-user preferences, passwords/sessions, users, roles, backups and the persisted
+  update/portable policies exclusively through the core services. Backup restore writes to a chosen
+  target file instead of replacing the live database. Validation errors come back from the core as
+  catalogue codes, and the screen adds no business rules of its own.
+
+`crates/app/ui` remains the frontend of the Tauri shell until the Rust screens replace it. It is
+not a dependency of `socdof-ui` and is deleted in the step described in `ui-decision.md`.
+
+The UI crate is covered by three test layers: unit tests for tokens, theme, forms and calendar math;
+`tests/keyboard.rs` drives the real widgets with synthetic egui input (Tab order, activation, arrows,
+Escape, typing, click focus); and `tests/visual.rs` compares the paint commands of every primitive
+with 144 golden files (2 appearances × 4 languages × idle/focused/drawer/desktop/start menu/palette/
+tray/onboarding/tiled wallpaper/dashboard/contacts/products/invoices/accounting/purchases/pos/
+calendar/settings).
 - `lock` only touches the file system: no database, no settings.
 - `pdf` consumes domain entities and the company profile. It never queries the database, so the same
   renderer is used by tests, the CLI and later the UI.
@@ -146,11 +293,11 @@ millimetres converted to points; the writer never depends on a system font.
 ## Schema and migrations
 
 `store/mod.rs` keeps the schema as numbered constants (`SCHEMA_V1`, `SCHEMA_V2`, ...) and applies
-them in order based on `PRAGMA user_version`. To change the schema:
+them in order based on `PRAGMA user_version`. The current version is 4. To change the schema:
 
-1. Add `SCHEMA_V3` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
-2. Raise `SCHEMA_VERSION` to 3.
-3. Add `if version < 3 { ... }` to `Store::migrate`.
+1. Add `SCHEMA_V5` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
+2. Raise `SCHEMA_VERSION` to 5.
+3. Add `if version < 5 { ... }` to `Store::migrate`.
 4. Add a test that opens a fresh database and asserts the new version and behaviour.
 
 Never edit an already shipped schema block; existing databases only run the newer steps.
@@ -184,6 +331,9 @@ cargo test --workspace
 ## Comparison with the legacy app
 
 | Legacy (`SOCDOF - TS`) | Rust |
+| React + Vite + TypeScript UI | egui components drawn from the ported design tokens |
+| CSS variables / Tailwind classes | `tokens` + `Palette` applied to the egui context |
+| `lucide-react` icons | Rust-drawn glyphs (Phase 4, open) |
 |---|---|
 | `src/lib/db.ts` (Dexie/IndexedDB) | `crates/core/src/store` (SQLite) |
 | `src/lib/auth.ts` | `domain/user.rs`, `store/users.rs`, `security.rs` |

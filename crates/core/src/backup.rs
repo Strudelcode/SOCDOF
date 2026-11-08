@@ -57,6 +57,54 @@ pub struct Backup {
     pub payload: Vec<u8>,
 }
 
+/// A valid backup archive in a folder, as shown by the settings screen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackupFile {
+    /// Full path of the archive.
+    pub path: std::path::PathBuf,
+    /// Metadata stored inside the archive.
+    pub metadata: BackupMetadata,
+    /// Size of the archive file in bytes.
+    pub archive_bytes: u64,
+}
+
+/// Lists the valid `.socdofbak` archives in `folder`, newest first.
+///
+/// A missing folder is an empty list, not an error: the settings screen shows the empty state
+/// before the first backup. Files that are not valid backup archives are skipped.
+pub fn list_backups(folder: &Path) -> CoreResult<Vec<BackupFile>> {
+    if !folder.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut backups = Vec::new();
+    for entry in std::fs::read_dir(folder)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("socdofbak") {
+            continue;
+        }
+        let Ok(backup) = read_backup(&path) else {
+            continue;
+        };
+        let archive_bytes = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+        backups.push(BackupFile {
+            path,
+            metadata: backup.metadata,
+            archive_bytes,
+        });
+    }
+
+    backups.sort_by(|left, right| {
+        right
+            .metadata
+            .created_at
+            .cmp(&left.metadata.created_at)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    Ok(backups)
+}
+
 /// Writes a consistent copy of the open store into a backup archive.
 ///
 /// The database is snapshotted with `VACUUM INTO`, so the archive never contains a half-written
@@ -67,6 +115,10 @@ pub fn create_backup(
     app_version: &str,
     now: i64,
 ) -> CoreResult<BackupInfo> {
+    if let Some(parent) = archive_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
     let snapshot = std::env::temp_dir().join(format!("socdof-snapshot-{}.db", Uuid::new_v4()));
     store.snapshot_to(&snapshot)?;
 
@@ -111,6 +163,10 @@ pub fn read_backup(archive_path: &Path) -> CoreResult<Backup> {
 /// atomically and stale `-wal`/`-shm` sidecars are removed.
 pub fn restore_backup(archive_path: &Path, database_path: &Path) -> CoreResult<BackupMetadata> {
     let backup = read_backup(archive_path)?;
+
+    if let Some(parent) = database_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
 
     let temporary = database_path.with_extension(format!("restore-{}", Uuid::new_v4()));
     std::fs::write(&temporary, &backup.payload)?;
@@ -244,6 +300,10 @@ mod tests {
         assert_eq!(info.metadata.schema_version, crate::store::SCHEMA_VERSION);
         assert_eq!(info.metadata.app_version, "0.1.0");
         assert!(info.archive_bytes > info.database_bytes);
+        let listed = list_backups(&dir).expect("listed");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].path, archive);
+        assert_eq!(listed[0].metadata, info.metadata);
 
         // Destroy the live database to prove the restore really brings the data back.
         std::fs::write(&database, b"this is not a database").expect("database destroyed");

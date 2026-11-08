@@ -148,11 +148,20 @@ pub fn search(conn: &Connection, query: &str) -> CoreResult<Vec<Product>> {
 /// Returns the new stock level. Removing more than available is rejected and leaves the stock and
 /// the movement history untouched.
 pub fn adjust_stock(conn: &Connection, movement: &StockMove) -> CoreResult<i64> {
+    let transaction = conn.unchecked_transaction()?;
+    let level = apply_stock(&transaction, movement)?;
+    transaction.commit()?;
+    Ok(level)
+}
+
+/// Applies a stock movement without opening a transaction of its own.
+///
+/// Multi-record writes (invoice, POS receipt, goods receipt) call this inside their own
+/// transaction, so a failed position rolls the whole document back.
+pub fn apply_stock(conn: &Connection, movement: &StockMove) -> CoreResult<i64> {
     movement.validate().map_err(CoreError::Validation)?;
 
-    let transaction = conn.unchecked_transaction()?;
-
-    let current: Option<i64> = transaction
+    let current: Option<i64> = conn
         .query_row(
             "SELECT stock FROM products WHERE id = ?1",
             params![movement.product_id.to_string()],
@@ -169,12 +178,12 @@ pub fn adjust_stock(conn: &Connection, movement: &StockMove) -> CoreResult<i64> 
         return Err(CoreError::Validation("stock_insufficient".to_string()));
     }
 
-    transaction.execute(
+    conn.execute(
         "UPDATE products SET stock = ?2, updated_at = ?3 WHERE id = ?1",
         params![movement.product_id.to_string(), next, movement.created_at],
     )?;
 
-    transaction.execute(
+    conn.execute(
         "INSERT INTO stock_moves (id, product_id, kind, quantity, reason, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
@@ -187,7 +196,6 @@ pub fn adjust_stock(conn: &Connection, movement: &StockMove) -> CoreResult<i64> 
         ],
     )?;
 
-    transaction.commit()?;
     Ok(next)
 }
 

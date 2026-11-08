@@ -1,7 +1,28 @@
 [package]
 name = "socdof-ui"
-description = "UI layer for the SOCDOF Rust rewrite"
+description = "Rust UI layer for the SOCDOF rewrite (egui, no JavaScript)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+
+[features]
+default = []
+# Window host for the gallery. Off by default so tests and clippy need no desktop libraries.
+window = ["dep:eframe"]
+
+[dependencies]
+eframe = { workspace = true, optional = true }
+egui.workspace = true
+png.workspace = true
+socdof-core = { path = "../core" }
+uuid = "1"
+
+[[bin]]
+name = "socdof-ui-gallery"
+path = "src/bin/gallery.rs"
+required-features = ["window"]
+
+[[bin]]
+name = "socdof-ui-preview"
+path = "src/bin/preview.rs"

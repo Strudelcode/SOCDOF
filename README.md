@@ -13,17 +13,23 @@ The full migration plan, budgets and the parity checklist are in
 ├── Cargo.toml               # workspace (core, app, ui, cli)
 ├── RUST_MIGRATION.md        # plan + checklist + progress log
 ├── crates
-│   ├── core                 # domain model, money, SQLite persistence, backup, lock, PDF
+│   ├── core                 # domain model, money, SQLite persistence, FTS5, sessions/roles,
+│   │                        # settings, i18n, autosave, scheduler, logging, CSV, backup, lock, PDF
 │   ├── app                  # shell lifecycle, desktop command state, headless runner
 │   │   ├── src-tauri        # Tauri 2 window layer (standalone Cargo workspace)
-│   │   └── ui               # Vite/TypeScript frontend + de/en/fr/es texts
-│   ├── ui                   # shared UI components (framework decision in Phase 4)
+│   │   └── ui               # temporary Vite/TypeScript frontend, removed once the Rust UI lands
+│   ├── ui                   # Rust UI: egui tokens, theme engine, component kit, gallery (no JS)
 │   └── cli                  # headless access to the core, used for tests and tooling
 └── SOCDOF - TS              # legacy TypeScript application (untouched)
 ```
 
 The Tauri crate is its own Cargo workspace. This keeps the root `cargo fmt`, `clippy` and `test`
 commands independent of GTK/WebKit development packages; only the desktop job installs them.
+
+The interface is being rebuilt in **egui**, so the UI path stays pure Rust: no webview, no WASM and
+no npm. The decision, the rejected alternatives and the ordered removal of the Vite/TypeScript
+frontend are in [`docs/ui-decision.md`](docs/ui-decision.md). `SOCDOF - TS` is only the historical
+reference and is never bundled or executed by the Rust code.
 
 ## Build
 
@@ -34,6 +40,39 @@ cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
+```
+
+The Rust interface can be started as a real window (eframe); the `window` feature is off by
+default so tests and clippy need no desktop libraries:
+
+```bash
+cargo run -p socdof-ui --features window --bin socdof-ui-gallery
+```
+
+The gallery has a **Desktop** card that opens the Phase 5 shell: icon grid with drag and drop,
+floating windows with move, resize, snap and maximize, window chrome with a close confirmation, a
+taskbar with running indicators, a clock, the start menu and the tray flyout. Ctrl+K opens the
+command palette, two bundled PNG wallpapers render cover or tiled behind a widgets layer with clock,
+date and status, and the first-run onboarding can be replayed from the gallery. A **Dashboard** card
+opens the Phase 6 overview with period tabs, key figures, quick actions, recent invoices and the
+reorder list, a **Contacts** card opens the address book with search, detail, create, edit and
+delete, and a **Products** card opens the catalogue with stock levels, stock bookings and
+reordering, and an **Invoices** card opens the billing documents with positions, totals, status
+changes and delete, an **Accounting** card opens the journal with cash book, BWA and CSV
+export, a **Purchases** card opens the supplier orders with positions, status changes and the
+goods receipt, a **POS** card opens the register with receipts, payment totals, cash change and
+cancellation, and a **Calendar** card opens the month view with week/day views, the agenda,
+appointment details and the create/edit form, and a **Settings** card opens all eight tabs
+(company profile, appearance, security, backup, users, roles, updates and portable mode) over the
+core services. Escape or the close button returns to the gallery.
+
+`cargo test` also runs the keyboard suite (Tab order, Enter/Space activation, arrows, Escape, typing,
+click focus), the window-manager tests and the golden snapshots that pin every primitive and the
+desktop shell in both appearances and all four languages. After an intended visual change, refresh
+the goldens:
+
+```bash
+UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual
 ```
 
 ### Desktop application

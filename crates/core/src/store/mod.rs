@@ -5,22 +5,44 @@
 
 use rusqlite::{params, Connection};
 
+use crate::domain::accounting::JournalEntry;
+use crate::domain::appointment::Appointment;
+use crate::domain::billing::BillingItem;
 use crate::domain::contact::Contact;
+use crate::domain::document::Document;
 use crate::domain::invoice::Invoice;
+use crate::domain::permission::{AppModule, PermissionLevel, Role};
+use crate::domain::pos::PosOrder;
 use crate::domain::product::Product;
+use crate::domain::purchase::PurchaseOrder;
+use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
 use crate::domain::stock::StockMove;
+use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
 use crate::domain::user::User;
+use crate::domain::workspace::{Report, Widget};
 use crate::error::CoreResult;
 
+pub mod appointments;
+pub mod billing_items;
 pub mod contacts;
+pub mod dashboard;
+pub mod documents;
 pub mod invoices;
+pub mod journal;
+pub mod permissions;
+pub mod pos_orders;
 pub mod products;
+pub mod purchase_orders;
+pub mod search;
+pub mod sessions;
 pub mod settings;
+pub mod support;
 pub mod users;
+pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 7;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -138,6 +160,340 @@ CREATE TABLE IF NOT EXISTS stock_moves (
 CREATE INDEX IF NOT EXISTS idx_stock_moves_product ON stock_moves(product_id, created_at);
 "#;
 
+const SCHEMA_V4: &str = r#"
+-- Remaining aggregates, roles and sessions.
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id               TEXT PRIMARY KEY,
+    number           TEXT NOT NULL UNIQUE,
+    vendor_id        TEXT NOT NULL REFERENCES contacts(id) ON DELETE RESTRICT,
+    status           TEXT NOT NULL,
+    order_date       INTEGER NOT NULL,
+    expected_at      INTEGER,
+    currency_symbol  TEXT NOT NULL DEFAULT '€',
+    note             TEXT,
+    legacy_id        INTEGER,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_legacy_id ON purchase_orders(legacy_id)
+    WHERE legacy_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_vendor ON purchase_orders(vendor_id);
+
+CREATE TABLE IF NOT EXISTS purchase_order_lines (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_order_id TEXT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    position          INTEGER NOT NULL,
+    product_id        TEXT REFERENCES products(id) ON DELETE SET NULL,
+    description       TEXT NOT NULL,
+    quantity_milli    INTEGER NOT NULL,
+    unit_cost_cents   INTEGER NOT NULL,
+    tax_rate_bp       INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_lines_order
+    ON purchase_order_lines(purchase_order_id, position);
+
+CREATE TABLE IF NOT EXISTS pos_orders (
+    id               TEXT PRIMARY KEY,
+    receipt_number   TEXT NOT NULL UNIQUE,
+    contact_id       TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+    payment_method   TEXT NOT NULL,
+    paid_at          INTEGER NOT NULL,
+    currency_symbol  TEXT NOT NULL DEFAULT '€',
+    note             TEXT,
+    legacy_id        INTEGER,
+    created_at       INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_orders_legacy_id ON pos_orders(legacy_id)
+    WHERE legacy_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pos_orders_paid_at ON pos_orders(paid_at);
+
+CREATE TABLE IF NOT EXISTS pos_order_lines (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    pos_order_id      TEXT NOT NULL REFERENCES pos_orders(id) ON DELETE CASCADE,
+    position          INTEGER NOT NULL,
+    product_id        TEXT REFERENCES products(id) ON DELETE SET NULL,
+    description       TEXT NOT NULL,
+    quantity_milli    INTEGER NOT NULL,
+    unit_price_cents  INTEGER NOT NULL,
+    tax_rate_bp       INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pos_order_lines_order ON pos_order_lines(pos_order_id, position);
+
+CREATE TABLE IF NOT EXISTS billing_items (
+    id               TEXT PRIMARY KEY,
+    contact_id       TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    invoice_id       TEXT REFERENCES invoices(id) ON DELETE SET NULL,
+    kind             TEXT NOT NULL,
+    code             TEXT NOT NULL DEFAULT '',
+    description      TEXT NOT NULL,
+    service_date     INTEGER NOT NULL,
+    quantity_milli   INTEGER NOT NULL,
+    unit_price_cents INTEGER NOT NULL,
+    tax_rate_bp      INTEGER NOT NULL,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_items_contact ON billing_items(contact_id, service_date);
+CREATE INDEX IF NOT EXISTS idx_billing_items_invoice ON billing_items(invoice_id);
+
+CREATE TABLE IF NOT EXISTS appointments (
+    id          TEXT PRIMARY KEY,
+    contact_id  TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+    title       TEXT NOT NULL,
+    location    TEXT,
+    notes       TEXT,
+    status      TEXT NOT NULL,
+    starts_at   INTEGER NOT NULL,
+    ends_at     INTEGER NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_range ON appointments(starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS idx_appointments_contact ON appointments(contact_id);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id          TEXT PRIMARY KEY,
+    contact_id  TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+    subject     TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL,
+    priority    TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    closed_at   INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status, priority);
+
+CREATE TABLE IF NOT EXISTS time_entries (
+    id          TEXT PRIMARY KEY,
+    ticket_id   TEXT REFERENCES support_tickets(id) ON DELETE CASCADE,
+    user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
+    description TEXT NOT NULL DEFAULT '',
+    minutes     INTEGER NOT NULL,
+    started_at  INTEGER NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_time_entries_ticket ON time_entries(ticket_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_time_entries_range ON time_entries(started_at);
+
+CREATE TABLE IF NOT EXISTS widgets (
+    id         TEXT PRIMARY KEY,
+    kind       TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    config     TEXT NOT NULL DEFAULT '{}',
+    position   INTEGER NOT NULL DEFAULT 0,
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+    id           TEXT PRIMARY KEY,
+    kind         TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    parameters   TEXT NOT NULL DEFAULT '{}',
+    generated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_generated ON reports(generated_at DESC);
+
+CREATE TABLE IF NOT EXISTS roles (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    is_builtin  INTEGER NOT NULL DEFAULT 0,
+    permissions TEXT NOT NULL DEFAULT '[]',
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash   TEXT NOT NULL UNIQUE,
+    created_at   INTEGER NOT NULL,
+    expires_at   INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL,
+    revoked_at   INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS auth_attempts (
+    username     TEXT PRIMARY KEY COLLATE NOCASE,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    locked_until INTEGER,
+    updated_at   INTEGER NOT NULL
+);
+
+-- Full-text search indices, kept in sync by triggers.
+CREATE VIRTUAL TABLE IF NOT EXISTS contacts_fts
+    USING fts5(contact_id UNINDEXED, body, tokenize = 'unicode61 remove_diacritics 2');
+
+CREATE VIRTUAL TABLE IF NOT EXISTS products_fts
+    USING fts5(product_id UNINDEXED, body, tokenize = 'unicode61 remove_diacritics 2');
+
+CREATE VIRTUAL TABLE IF NOT EXISTS invoices_fts
+    USING fts5(invoice_id UNINDEXED, body, tokenize = 'unicode61 remove_diacritics 2');
+
+CREATE TRIGGER IF NOT EXISTS contacts_fts_ai AFTER INSERT ON contacts BEGIN
+    INSERT INTO contacts_fts(contact_id, body) VALUES (new.id,
+        coalesce(new.name, '') || ' ' || coalesce(new.company_name, '') || ' ' ||
+        coalesce(new.first_name, '') || ' ' || coalesce(new.last_name, '') || ' ' ||
+        coalesce(new.email, '') || ' ' || coalesce(new.phone, '') || ' ' ||
+        coalesce(new.city, '') || ' ' || coalesce(new.zip, '') || ' ' ||
+        coalesce(new.country, '') || ' ' || coalesce(new.tax_id, '') || ' ' ||
+        coalesce(new.notes, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS contacts_fts_au AFTER UPDATE ON contacts BEGIN
+    DELETE FROM contacts_fts WHERE contact_id = old.id;
+    INSERT INTO contacts_fts(contact_id, body) VALUES (new.id,
+        coalesce(new.name, '') || ' ' || coalesce(new.company_name, '') || ' ' ||
+        coalesce(new.first_name, '') || ' ' || coalesce(new.last_name, '') || ' ' ||
+        coalesce(new.email, '') || ' ' || coalesce(new.phone, '') || ' ' ||
+        coalesce(new.city, '') || ' ' || coalesce(new.zip, '') || ' ' ||
+        coalesce(new.country, '') || ' ' || coalesce(new.tax_id, '') || ' ' ||
+        coalesce(new.notes, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS contacts_fts_ad AFTER DELETE ON contacts BEGIN
+    DELETE FROM contacts_fts WHERE contact_id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS products_fts_ai AFTER INSERT ON products BEGIN
+    INSERT INTO products_fts(product_id, body) VALUES (new.id,
+        coalesce(new.name, '') || ' ' || coalesce(new.sku, '') || ' ' ||
+        coalesce(new.barcode, '') || ' ' || coalesce(new.category, '') || ' ' ||
+        coalesce(new.description, '') || ' ' || coalesce(new.unit, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS products_fts_au AFTER UPDATE ON products BEGIN
+    DELETE FROM products_fts WHERE product_id = old.id;
+    INSERT INTO products_fts(product_id, body) VALUES (new.id,
+        coalesce(new.name, '') || ' ' || coalesce(new.sku, '') || ' ' ||
+        coalesce(new.barcode, '') || ' ' || coalesce(new.category, '') || ' ' ||
+        coalesce(new.description, '') || ' ' || coalesce(new.unit, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS products_fts_ad AFTER DELETE ON products BEGIN
+    DELETE FROM products_fts WHERE product_id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_ai AFTER INSERT ON invoices BEGIN
+    INSERT INTO invoices_fts(invoice_id, body)
+    VALUES (new.id, coalesce(new.number, '') || ' ' || coalesce(new.note, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_au AFTER UPDATE ON invoices BEGIN
+    DELETE FROM invoices_fts WHERE invoice_id = old.id;
+    INSERT INTO invoices_fts(invoice_id, body)
+    VALUES (new.id, coalesce(new.number, '') || ' ' || coalesce(new.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = new.id), ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_ad AFTER DELETE ON invoices BEGIN
+    DELETE FROM invoices_fts WHERE invoice_id = old.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_lines_ai AFTER INSERT ON invoice_lines BEGIN
+    DELETE FROM invoices_fts WHERE invoice_id = new.invoice_id;
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = new.invoice_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_lines_au AFTER UPDATE ON invoice_lines BEGIN
+    DELETE FROM invoices_fts WHERE invoice_id = old.invoice_id;
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = old.invoice_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS invoices_fts_lines_ad AFTER DELETE ON invoice_lines BEGIN
+    DELETE FROM invoices_fts WHERE invoice_id = old.invoice_id;
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = old.invoice_id;
+END;
+
+-- Backfill the indices for databases that already contain rows.
+INSERT INTO contacts_fts(contact_id, body)
+    SELECT id, coalesce(name, '') || ' ' || coalesce(company_name, '') || ' ' ||
+        coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' ||
+        coalesce(email, '') || ' ' || coalesce(phone, '') || ' ' || coalesce(city, '') || ' ' ||
+        coalesce(zip, '') || ' ' || coalesce(country, '') || ' ' || coalesce(tax_id, '') || ' ' ||
+        coalesce(notes, '')
+    FROM contacts;
+
+INSERT INTO products_fts(product_id, body)
+    SELECT id, coalesce(name, '') || ' ' || coalesce(sku, '') || ' ' ||
+        coalesce(barcode, '') || ' ' || coalesce(category, '') || ' ' ||
+        coalesce(description, '') || ' ' || coalesce(unit, '')
+    FROM products;
+
+INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i;
+"#;
+
+const SCHEMA_V5: &str = r#"
+-- Accounting journal, including the cash channel used by the cash book.
+CREATE TABLE IF NOT EXISTS journal_entries (
+    id              TEXT PRIMARY KEY,
+    booked_at       INTEGER NOT NULL,
+    description     TEXT NOT NULL,
+    account         TEXT NOT NULL,
+    counter_account TEXT NOT NULL,
+    amount_cents    INTEGER NOT NULL,
+    tax_rate_bp     INTEGER NOT NULL,
+    kind            TEXT NOT NULL,
+    channel         TEXT NOT NULL,
+    reference       TEXT,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_journal_booked ON journal_entries(booked_at);
+CREATE INDEX IF NOT EXISTS idx_journal_channel ON journal_entries(channel, booked_at);
+"#;
+
+const SCHEMA_V6: &str = r#"
+-- Cash handed over at the counter, so a receipt can show the change.
+ALTER TABLE pos_orders ADD COLUMN cash_given_cents INTEGER;
+"#;
+
+const SCHEMA_V7: &str = r#"
+CREATE TABLE IF NOT EXISTS documents (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
+"#;
+
 /// A connection to the SOCDOF database.
 pub struct Store {
     conn: Connection,
@@ -184,7 +540,31 @@ impl Store {
             version = 3;
         }
 
+        if version < 4 {
+            self.conn.execute_batch(SCHEMA_V4)?;
+            version = 4;
+        }
+
+        if version < 5 {
+            self.conn.execute_batch(SCHEMA_V5)?;
+            version = 5;
+        }
+
+        if version < 6 {
+            self.conn.execute_batch(SCHEMA_V6)?;
+            version = 6;
+        }
+
+        if version < 7 {
+            self.conn.execute_batch(SCHEMA_V7)?;
+            version = 7;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
+
+        // The built-in roles exist in every database, including fresh ones, so permission checks
+        // never have to fall back to "no role".
+        permissions::seed_builtin(&self.conn, crate::now_millis())?;
         Ok(())
     }
 
@@ -200,6 +580,36 @@ impl Store {
         Ok(self
             .conn
             .query_row("SELECT COUNT(*) FROM contacts", [], |row| row.get(0))?)
+    }
+
+    /// Counts, stock value and upcoming appointments for the dashboard.
+    pub fn dashboard_counts(&self, now: i64) -> CoreResult<dashboard::DashboardCounts> {
+        dashboard::counts(&self.conn, now)
+    }
+
+    /// Key figures of the dashboard for a half-open issue-date range.
+    pub fn dashboard_summary(
+        &self,
+        from: i64,
+        to: i64,
+        now: i64,
+    ) -> CoreResult<dashboard::DashboardSummary> {
+        dashboard::summary(&self.conn, from, to, now)
+    }
+
+    /// Invoices as the overview lists them, newest first.
+    pub fn invoice_overview(&self) -> CoreResult<Vec<dashboard::InvoiceOverview>> {
+        dashboard::overview(&self.conn)
+    }
+
+    /// The newest invoices for the overview, at most `limit`.
+    pub fn recent_invoices(&self, limit: usize) -> CoreResult<Vec<dashboard::InvoiceOverview>> {
+        dashboard::recent(&self.conn, limit)
+    }
+
+    /// Products at or below their reorder level, largest shortfall first.
+    pub fn low_stock_products(&self, limit: usize) -> CoreResult<Vec<dashboard::LowStockRow>> {
+        dashboard::low_stock(&self.conn, limit)
     }
 
     /// Number of rows in `invoices`.
@@ -234,9 +644,54 @@ impl Store {
         contacts::delete(&self.conn, id)
     }
 
-    /// Searches contacts by name, company, email, phone, city or tax id.
+    /// Searches contacts through the FTS5 index, falling back to substring matching.
     pub fn search_contacts(&self, query: &str) -> CoreResult<Vec<Contact>> {
-        contacts::search(&self.conn, query)
+        search::contacts(&self.conn, query)
+    }
+
+    // --- Text editor documents -------------------------------------------------------------
+
+    /// Inserts a document.
+    pub fn insert_document(&self, document: &Document) -> CoreResult<()> {
+        documents::insert(&self.conn, document)
+    }
+
+    /// Replaces an existing document.
+    pub fn update_document(&self, document: &Document) -> CoreResult<()> {
+        documents::update(&self.conn, document)
+    }
+
+    /// Loads one document; `None` when it was deleted.
+    pub fn find_document(&self, id: uuid::Uuid) -> CoreResult<Option<Document>> {
+        documents::find(&self.conn, id)
+    }
+
+    /// Loads one document and rejects a missing row.
+    pub fn get_document(&self, id: uuid::Uuid) -> CoreResult<Document> {
+        self.find_document(id)?
+            .ok_or_else(|| crate::error::CoreError::NotFound(id.to_string()))
+    }
+
+    /// Lists all documents, most recently changed first.
+    pub fn list_documents(&self) -> CoreResult<Vec<Document>> {
+        documents::list(&self.conn)
+    }
+
+    /// Searches document names and contents.
+    pub fn search_documents(&self, query: &str) -> CoreResult<Vec<Document>> {
+        documents::search(&self.conn, query)
+    }
+
+    /// Deletes a document.
+    pub fn delete_document(&self, id: uuid::Uuid) -> CoreResult<()> {
+        documents::delete(&self.conn, id)
+    }
+
+    /// Number of stored documents.
+    pub fn document_count(&self) -> CoreResult<i64> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM documents", [], |row| row.get(0))?)
     }
 
     /// Inserts an invoice together with its positions inside one transaction.
@@ -274,9 +729,87 @@ impl Store {
         products::delete(&self.conn, id)
     }
 
-    /// Searches products by name, SKU, barcode, category or description.
+    /// Searches products through the FTS5 index, falling back to substring matching.
     pub fn search_products(&self, query: &str) -> CoreResult<Vec<Product>> {
-        products::search(&self.conn, query)
+        search::products(&self.conn, query)
+    }
+
+    /// Searches invoices by number, note and position descriptions.
+    pub fn search_invoices(&self, query: &str) -> CoreResult<Vec<Invoice>> {
+        search::invoices(&self.conn, query)
+    }
+
+    /// Inserts an invoice together with the stock movements it causes, atomically.
+    pub fn insert_invoice_with_stock(
+        &self,
+        invoice: &Invoice,
+        movements: &[StockMove],
+    ) -> CoreResult<()> {
+        invoices::insert_with_stock(&self.conn, invoice, movements)
+    }
+
+    /// Loads one invoice with its positions.
+    pub fn find_invoice(&self, id: uuid::Uuid) -> CoreResult<Option<Invoice>> {
+        invoices::find(&self.conn, id)
+    }
+
+    /// Replaces an existing invoice and all of its positions atomically.
+    pub fn update_invoice(&self, invoice: &Invoice) -> CoreResult<()> {
+        invoices::update(&self.conn, invoice)
+    }
+
+    /// Removes an invoice and its positions.
+    pub fn delete_invoice(&self, id: uuid::Uuid) -> CoreResult<()> {
+        invoices::delete(&self.conn, id)
+    }
+
+    /// Writes only the lifecycle state of an invoice.
+    pub fn set_invoice_status(
+        &self,
+        id: uuid::Uuid,
+        status: crate::domain::invoice::InvoiceStatus,
+    ) -> CoreResult<()> {
+        invoices::set_status(&self.conn, id, status)
+    }
+
+    /// Inserts one accounting journal entry.
+    pub fn insert_journal_entry(&self, entry: &JournalEntry) -> CoreResult<()> {
+        journal::insert(&self.conn, entry)
+    }
+
+    /// Loads one journal entry.
+    pub fn find_journal_entry(&self, id: uuid::Uuid) -> CoreResult<Option<JournalEntry>> {
+        journal::find(&self.conn, id)
+    }
+
+    /// Lists every journal entry, newest first.
+    pub fn list_journal_entries(&self) -> CoreResult<Vec<JournalEntry>> {
+        journal::list(&self.conn)
+    }
+
+    /// Lists journal entries inside a half-open booking range, newest first.
+    pub fn journal_entries_between(&self, from: i64, to: i64) -> CoreResult<Vec<JournalEntry>> {
+        journal::between(&self.conn, from, to)
+    }
+
+    /// Searches journal entries by description, accounts and reference.
+    pub fn search_journal_entries(&self, term: &str) -> CoreResult<Vec<JournalEntry>> {
+        journal::search(&self.conn, term)
+    }
+
+    /// Replaces an existing journal entry.
+    pub fn update_journal_entry(&self, entry: &JournalEntry) -> CoreResult<()> {
+        journal::update(&self.conn, entry)
+    }
+
+    /// Removes a journal entry.
+    pub fn delete_journal_entry(&self, id: uuid::Uuid) -> CoreResult<()> {
+        journal::delete(&self.conn, id)
+    }
+
+    /// Number of journal entries.
+    pub fn journal_entry_count(&self) -> CoreResult<i64> {
+        journal::count(&self.conn)
     }
 
     /// Records a stock movement and returns the resulting stock level.
@@ -326,6 +859,16 @@ impl Store {
         users::list(&self.conn)
     }
 
+    /// Replaces the editable fields of a user; protects the last administrator.
+    pub fn update_user(&self, user: &User) -> CoreResult<()> {
+        users::update(&self.conn, user)
+    }
+
+    /// Deletes a user account; protects the last administrator.
+    pub fn delete_user(&self, user_id: uuid::Uuid) -> CoreResult<()> {
+        users::delete(&self.conn, user_id)
+    }
+
     /// Verifies credentials and returns the account on success.
     pub fn authenticate(&self, username: &str, password: &str) -> CoreResult<Option<User>> {
         users::authenticate(&self.conn, username, password)
@@ -346,6 +889,11 @@ impl Store {
         settings::put(&self.conn, key, value)
     }
 
+    /// Removes a setting.
+    pub fn remove_setting(&self, key: &str) -> CoreResult<()> {
+        settings::remove(&self.conn, key)
+    }
+
     /// Loads the company profile, returning defaults when nothing was stored yet.
     pub fn company_profile(&self) -> CoreResult<CompanyProfile> {
         settings::load_company_profile(&self.conn)
@@ -354,6 +902,401 @@ impl Store {
     /// Stores the company profile.
     pub fn save_company_profile(&self, profile: &CompanyProfile) -> CoreResult<()> {
         settings::save_company_profile(&self.conn, profile)
+    }
+
+    // --- Purchase orders -------------------------------------------------------------------
+
+    /// Inserts a purchase order with its positions.
+    pub fn insert_purchase_order(&self, order: &PurchaseOrder) -> CoreResult<()> {
+        purchase_orders::insert(&self.conn, order)
+    }
+
+    /// Loads one purchase order with its positions.
+    pub fn find_purchase_order(&self, id: uuid::Uuid) -> CoreResult<Option<PurchaseOrder>> {
+        purchase_orders::find(&self.conn, id)
+    }
+
+    /// Lists purchase orders, newest first.
+    pub fn list_purchase_orders(&self) -> CoreResult<Vec<PurchaseOrder>> {
+        purchase_orders::list(&self.conn)
+    }
+
+    /// Changes the status of a purchase order.
+    pub fn set_purchase_order_status(
+        &self,
+        id: uuid::Uuid,
+        status: crate::domain::purchase::PurchaseOrderStatus,
+        now: i64,
+    ) -> CoreResult<()> {
+        purchase_orders::set_status(&self.conn, id, status, now)
+    }
+
+    /// Books received goods and marks the order as received in one transaction.
+    pub fn receive_purchase_order(
+        &self,
+        id: uuid::Uuid,
+        movements: &[StockMove],
+        now: i64,
+    ) -> CoreResult<()> {
+        purchase_orders::receive(&self.conn, id, movements, now)
+    }
+
+    /// Deletes a purchase order and its positions.
+    pub fn delete_purchase_order(&self, id: uuid::Uuid) -> CoreResult<()> {
+        purchase_orders::delete(&self.conn, id)
+    }
+
+    /// Replaces an existing purchase order and all of its positions atomically.
+    pub fn update_purchase_order(&self, order: &PurchaseOrder) -> CoreResult<()> {
+        purchase_orders::update(&self.conn, order)
+    }
+
+    /// Searches purchase orders by number, note and position descriptions.
+    pub fn search_purchase_orders(&self, term: &str) -> CoreResult<Vec<PurchaseOrder>> {
+        purchase_orders::search(&self.conn, term)
+    }
+
+    /// Number of purchase orders.
+    pub fn purchase_order_count(&self) -> CoreResult<i64> {
+        purchase_orders::count(&self.conn)
+    }
+
+    // --- POS receipts ----------------------------------------------------------------------
+
+    /// Inserts a receipt with its positions and stock movements atomically.
+    pub fn insert_pos_order(&self, order: &PosOrder, movements: &[StockMove]) -> CoreResult<()> {
+        pos_orders::insert(&self.conn, order, movements)
+    }
+
+    /// Loads one receipt with its positions.
+    pub fn find_pos_order(&self, id: uuid::Uuid) -> CoreResult<Option<PosOrder>> {
+        pos_orders::find(&self.conn, id)
+    }
+
+    /// Lists receipts, newest first.
+    pub fn list_pos_orders(&self) -> CoreResult<Vec<PosOrder>> {
+        pos_orders::list(&self.conn)
+    }
+
+    /// Deletes a receipt and its positions without touching stock.
+    pub fn delete_pos_order(&self, id: uuid::Uuid) -> CoreResult<()> {
+        pos_orders::delete(&self.conn, id)
+    }
+
+    /// Searches receipts by number, note and position descriptions.
+    pub fn search_pos_orders(&self, term: &str) -> CoreResult<Vec<PosOrder>> {
+        pos_orders::search(&self.conn, term)
+    }
+
+    /// Loads the receipts paid in `[from, to)`.
+    pub fn pos_orders_between(&self, from: i64, to: i64) -> CoreResult<Vec<PosOrder>> {
+        pos_orders::between(&self.conn, from, to)
+    }
+
+    /// Number of receipts.
+    pub fn pos_order_count(&self) -> CoreResult<i64> {
+        pos_orders::count(&self.conn)
+    }
+
+    /// Cancels a receipt, returning its product positions to stock and deleting it atomically.
+    pub fn cancel_pos_order(&self, id: uuid::Uuid, now: i64) -> CoreResult<()> {
+        pos_orders::cancel(&self.conn, id, now)
+    }
+
+    // --- Billing items ---------------------------------------------------------------------
+
+    /// Inserts a billable item.
+    pub fn insert_billing_item(&self, item: &BillingItem) -> CoreResult<()> {
+        billing_items::insert(&self.conn, item)
+    }
+
+    /// Replaces an existing billable item.
+    pub fn update_billing_item(&self, item: &BillingItem) -> CoreResult<()> {
+        billing_items::update(&self.conn, item)
+    }
+
+    /// Loads one billable item.
+    pub fn find_billing_item(&self, id: uuid::Uuid) -> CoreResult<Option<BillingItem>> {
+        billing_items::find(&self.conn, id)
+    }
+
+    /// Lists all billable items.
+    pub fn list_billing_items(&self) -> CoreResult<Vec<BillingItem>> {
+        billing_items::list(&self.conn)
+    }
+
+    /// Lists the billable items of one contact.
+    pub fn billing_items_for_contact(
+        &self,
+        contact_id: uuid::Uuid,
+    ) -> CoreResult<Vec<BillingItem>> {
+        billing_items::list_for_contact(&self.conn, contact_id)
+    }
+
+    /// Lists the billable items of one contact that still wait for an invoice.
+    pub fn open_billing_items_for_contact(
+        &self,
+        contact_id: uuid::Uuid,
+    ) -> CoreResult<Vec<BillingItem>> {
+        billing_items::list_open_for_contact(&self.conn, contact_id)
+    }
+
+    /// Lists the billable items collected on one invoice.
+    pub fn billing_items_for_invoice(
+        &self,
+        invoice_id: uuid::Uuid,
+    ) -> CoreResult<Vec<BillingItem>> {
+        billing_items::list_for_invoice(&self.conn, invoice_id)
+    }
+
+    /// Collects several billable items on an invoice in one transaction.
+    pub fn assign_billing_items_to_invoice(
+        &self,
+        ids: &[uuid::Uuid],
+        invoice_id: uuid::Uuid,
+        now: i64,
+    ) -> CoreResult<usize> {
+        billing_items::assign_to_invoice(&self.conn, ids, invoice_id, now)
+    }
+
+    /// Deletes a billable item.
+    pub fn delete_billing_item(&self, id: uuid::Uuid) -> CoreResult<()> {
+        billing_items::delete(&self.conn, id)
+    }
+
+    // --- Appointments ----------------------------------------------------------------------
+
+    /// Inserts an appointment.
+    pub fn insert_appointment(&self, appointment: &Appointment) -> CoreResult<()> {
+        appointments::insert(&self.conn, appointment)
+    }
+
+    /// Replaces an existing appointment.
+    pub fn update_appointment(&self, appointment: &Appointment) -> CoreResult<()> {
+        appointments::update(&self.conn, appointment)
+    }
+
+    /// Loads one appointment.
+    pub fn find_appointment(&self, id: uuid::Uuid) -> CoreResult<Option<Appointment>> {
+        appointments::find(&self.conn, id)
+    }
+
+    /// Lists all appointments.
+    pub fn list_appointments(&self) -> CoreResult<Vec<Appointment>> {
+        appointments::list(&self.conn)
+    }
+
+    /// Lists every appointment overlapping `[from, to)`.
+    pub fn appointments_between(&self, from: i64, to: i64) -> CoreResult<Vec<Appointment>> {
+        appointments::list_between(&self.conn, from, to)
+    }
+
+    /// Deletes an appointment.
+    pub fn delete_appointment(&self, id: uuid::Uuid) -> CoreResult<()> {
+        appointments::delete(&self.conn, id)
+    }
+
+    /// Searches appointments by title, location and notes inside `[from, to)`.
+    pub fn search_appointments_between(
+        &self,
+        term: &str,
+        from: i64,
+        to: i64,
+    ) -> CoreResult<Vec<Appointment>> {
+        appointments::search_between(&self.conn, term, from, to)
+    }
+
+    /// Open appointments that collide with the given appointment.
+    pub fn appointment_conflicts(&self, appointment: &Appointment) -> CoreResult<Vec<Appointment>> {
+        appointments::conflicts(&self.conn, appointment)
+    }
+
+    // --- Support and time tracking ---------------------------------------------------------
+
+    /// Inserts a support ticket.
+    pub fn insert_support_ticket(&self, ticket: &SupportTicket) -> CoreResult<()> {
+        support::insert_ticket(&self.conn, ticket)
+    }
+
+    /// Replaces an existing support ticket.
+    pub fn update_support_ticket(&self, ticket: &SupportTicket) -> CoreResult<()> {
+        support::update_ticket(&self.conn, ticket)
+    }
+
+    /// Changes the status of a ticket and maintains its closing time.
+    pub fn set_support_ticket_status(
+        &self,
+        id: uuid::Uuid,
+        status: TicketStatus,
+        now: i64,
+    ) -> CoreResult<()> {
+        support::set_ticket_status(&self.conn, id, status, now)
+    }
+
+    /// Loads one support ticket.
+    pub fn find_support_ticket(&self, id: uuid::Uuid) -> CoreResult<Option<SupportTicket>> {
+        support::find_ticket(&self.conn, id)
+    }
+
+    /// Lists all support tickets, newest first.
+    pub fn list_support_tickets(&self) -> CoreResult<Vec<SupportTicket>> {
+        support::list_tickets(&self.conn)
+    }
+
+    /// Lists the tickets that still need attention, urgent first.
+    pub fn open_support_tickets(&self) -> CoreResult<Vec<SupportTicket>> {
+        support::list_open_tickets(&self.conn)
+    }
+
+    /// Deletes a support ticket and its time entries.
+    pub fn delete_support_ticket(&self, id: uuid::Uuid) -> CoreResult<()> {
+        support::delete_ticket(&self.conn, id)
+    }
+
+    /// Tracks a block of working time.
+    pub fn insert_time_entry(&self, entry: &TimeEntry) -> CoreResult<()> {
+        support::insert_time_entry(&self.conn, entry)
+    }
+
+    /// Lists the time entries of a ticket.
+    pub fn time_entries_for_ticket(&self, ticket_id: uuid::Uuid) -> CoreResult<Vec<TimeEntry>> {
+        support::list_time_entries(&self.conn, ticket_id)
+    }
+
+    /// Lists all time entries that started in `[from, to)`.
+    pub fn time_entries_between(&self, from: i64, to: i64) -> CoreResult<Vec<TimeEntry>> {
+        support::list_time_entries_between(&self.conn, from, to)
+    }
+
+    /// Sum of all tracked minutes of a ticket.
+    pub fn tracked_minutes(&self, ticket_id: uuid::Uuid) -> CoreResult<i64> {
+        support::total_minutes(&self.conn, ticket_id)
+    }
+
+    /// Deletes a time entry.
+    pub fn delete_time_entry(&self, id: uuid::Uuid) -> CoreResult<()> {
+        support::delete_time_entry(&self.conn, id)
+    }
+
+    // --- Workspace: widgets and reports ----------------------------------------------------
+
+    /// Inserts a desktop widget.
+    pub fn insert_widget(&self, widget: &Widget) -> CoreResult<()> {
+        workspace::insert_widget(&self.conn, widget)
+    }
+
+    /// Replaces an existing widget.
+    pub fn update_widget(&self, widget: &Widget) -> CoreResult<()> {
+        workspace::update_widget(&self.conn, widget)
+    }
+
+    /// Loads one widget.
+    pub fn find_widget(&self, id: uuid::Uuid) -> CoreResult<Option<Widget>> {
+        workspace::find_widget(&self.conn, id)
+    }
+
+    /// Lists all widgets in desktop order.
+    pub fn list_widgets(&self) -> CoreResult<Vec<Widget>> {
+        workspace::list_widgets(&self.conn)
+    }
+
+    /// Deletes a widget.
+    pub fn delete_widget(&self, id: uuid::Uuid) -> CoreResult<()> {
+        workspace::delete_widget(&self.conn, id)
+    }
+
+    /// Stores a generated report.
+    pub fn insert_report(&self, report: &Report) -> CoreResult<()> {
+        workspace::insert_report(&self.conn, report)
+    }
+
+    /// Loads one report.
+    pub fn find_report(&self, id: uuid::Uuid) -> CoreResult<Option<Report>> {
+        workspace::find_report(&self.conn, id)
+    }
+
+    /// Lists all reports, newest first.
+    pub fn list_reports(&self) -> CoreResult<Vec<Report>> {
+        workspace::list_reports(&self.conn)
+    }
+
+    // --- Roles and permissions -------------------------------------------------------------
+
+    /// Inserts a custom role.
+    pub fn insert_role(&self, role: &Role) -> CoreResult<()> {
+        permissions::insert(&self.conn, role)
+    }
+
+    /// Replaces an existing role.
+    pub fn update_role(&self, role: &Role) -> CoreResult<()> {
+        permissions::update(&self.conn, role)
+    }
+
+    /// Loads one role.
+    pub fn find_role(&self, id: uuid::Uuid) -> CoreResult<Option<Role>> {
+        permissions::find(&self.conn, id)
+    }
+
+    /// Lists all roles.
+    pub fn list_roles(&self) -> CoreResult<Vec<Role>> {
+        permissions::list(&self.conn)
+    }
+
+    /// Deletes a custom role. Built-in roles are protected.
+    pub fn delete_role(&self, id: uuid::Uuid) -> CoreResult<()> {
+        permissions::delete(&self.conn, id)
+    }
+
+    /// The role that applies to a user.
+    pub fn role_for_user(&self, user: &User) -> CoreResult<Role> {
+        permissions::role_for_user(&self.conn, user)
+    }
+
+    /// Whether a user may perform `required` on `module`.
+    pub fn user_allows(
+        &self,
+        user: &User,
+        module: AppModule,
+        required: PermissionLevel,
+    ) -> CoreResult<bool> {
+        permissions::user_allows(&self.conn, user, module, required)
+    }
+
+    // --- Sessions --------------------------------------------------------------------------
+
+    /// Signs a user in, counting failed attempts and honouring the lockout.
+    pub fn login(&self, username: &str, password: &str, now: i64) -> CoreResult<LoginOutcome> {
+        sessions::login(&self.conn, username, password, now)
+    }
+
+    /// Looks up the active session for a plain token.
+    pub fn session_for_token(&self, token: &str, now: i64) -> CoreResult<Option<Session>> {
+        sessions::find_active(&self.conn, token, now)
+    }
+
+    /// Number of active sessions of a user.
+    pub fn active_session_count(&self, user_id: uuid::Uuid, now: i64) -> CoreResult<i64> {
+        sessions::active_count(&self.conn, user_id, now)
+    }
+
+    /// Records that a session was used.
+    pub fn touch_session(&self, id: uuid::Uuid, now: i64) -> CoreResult<()> {
+        sessions::touch(&self.conn, id, now)
+    }
+
+    /// Revokes one session (sign out).
+    pub fn sign_out(&self, session_id: uuid::Uuid, now: i64) -> CoreResult<()> {
+        sessions::revoke(&self.conn, session_id, now)
+    }
+
+    /// Revokes every session of a user and returns how many were active.
+    pub fn sign_out_all(&self, user_id: uuid::Uuid, now: i64) -> CoreResult<usize> {
+        sessions::revoke_all_for_user(&self.conn, user_id, now)
+    }
+
+    /// Removes expired and revoked sessions.
+    pub fn purge_expired_sessions(&self, now: i64) -> CoreResult<usize> {
+        sessions::purge_expired(&self.conn, now)
     }
 
     /// The underlying connection, used by the legacy backup reader/writer.
@@ -365,8 +1308,12 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
+    use crate::domain::appointment::{Appointment, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
+    use crate::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
+    use crate::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
     use crate::domain::settings::ThemeMode;
     use crate::domain::stock::StockMoveKind;
     use crate::domain::user::UserRole;
@@ -473,6 +1420,283 @@ mod tests {
         assert_eq!(store.invoice_count().expect("count"), 0);
     }
 
+    #[test]
+    fn roundtrips_purchase_orders_and_receipts() {
+        let store = Store::open_in_memory().expect("store");
+        let vendor = contact(&store);
+        let mut product = Product::new("Kaffee", 0);
+        product.price = Money::from_cents(900);
+        store.insert_product(&product).expect("product");
+
+        let mut order = PurchaseOrder {
+            id: Uuid::new_v4(),
+            number: "BE-2026-0001".to_string(),
+            vendor_id: vendor.id,
+            status: PurchaseOrderStatus::Draft,
+            order_date: 0,
+            expected_at: None,
+            currency_symbol: "€".to_string(),
+            note: None,
+            lines: vec![PurchaseOrderLine {
+                product_id: Some(product.id),
+                description: "Kaffee".to_string(),
+                quantity_milli: 2_000,
+                unit_cost: Money::from_cents(500),
+                tax_rate_bp: 700,
+            }],
+            legacy_id: None,
+            created_at: 0,
+            updated_at: 0,
+        };
+        store.insert_purchase_order(&order).expect("insert");
+        assert_eq!(store.purchase_order_count().expect("count"), 1);
+        assert_eq!(
+            store
+                .search_purchase_orders("kaffee")
+                .expect("search")
+                .len(),
+            1
+        );
+
+        order.number = "BE-2026-0002".to_string();
+        order.note = Some("Eilt".to_string());
+        store.update_purchase_order(&order).expect("update");
+        assert_eq!(
+            store
+                .find_purchase_order(order.id)
+                .expect("find")
+                .unwrap()
+                .note
+                .as_deref(),
+            Some("Eilt")
+        );
+
+        store
+            .set_purchase_order_status(order.id, PurchaseOrderStatus::Ordered, 1)
+            .expect("status");
+        let movements = order.stock_moves(2);
+        store
+            .receive_purchase_order(order.id, &movements, 2)
+            .expect("receive");
+        assert_eq!(
+            store
+                .find_purchase_order(order.id)
+                .expect("find")
+                .unwrap()
+                .status,
+            PurchaseOrderStatus::Received
+        );
+        assert_eq!(store.find_product(product.id).unwrap().unwrap().stock, 2);
+
+        store.delete_purchase_order(order.id).expect("delete");
+        assert_eq!(store.purchase_order_count().expect("count"), 0);
+    }
+
+    #[test]
+    fn roundtrips_pos_receipts_and_restores_stock_on_cancel() {
+        let store = Store::open_in_memory().expect("store");
+        let mut product = Product::new("Espresso", 0);
+        product.price = Money::from_cents(250);
+        store.insert_product(&product).expect("product");
+        store
+            .adjust_stock(&StockMove {
+                id: Uuid::new_v4(),
+                product_id: product.id,
+                kind: StockMoveKind::In,
+                quantity: 5,
+                reason: None,
+                created_at: 0,
+            })
+            .expect("stock");
+
+        let order = PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: "BON-2026-0001".to_string(),
+            contact_id: None,
+            payment_method: PaymentMethod::Cash,
+            paid_at: 10,
+            currency_symbol: "€".to_string(),
+            note: None,
+            cash_given: Some(Money::from_cents(1_000)),
+            lines: vec![PosOrderLine {
+                product_id: Some(product.id),
+                description: "Espresso".to_string(),
+                quantity_milli: 2_000,
+                unit_price: Money::from_cents(250),
+                tax_rate_bp: 700,
+            }],
+            legacy_id: None,
+        };
+        store
+            .insert_pos_order(&order, &order.stock_moves(10))
+            .expect("insert");
+        assert_eq!(store.pos_order_count().expect("count"), 1);
+        assert_eq!(store.find_product(product.id).unwrap().unwrap().stock, 3);
+        assert_eq!(
+            store.search_pos_orders("espresso").expect("search")[0]
+                .change()
+                .expect("change"),
+            Money::from_cents(465)
+        );
+        assert_eq!(store.pos_orders_between(0, 11).expect("range").len(), 1);
+        assert!(store.pos_orders_between(11, 20).expect("range").is_empty());
+
+        store.cancel_pos_order(order.id, 20).expect("cancel");
+        assert_eq!(store.pos_order_count().expect("count"), 0);
+        assert_eq!(store.find_product(product.id).unwrap().unwrap().stock, 5);
+    }
+
+    #[test]
+    fn roundtrips_appointments_and_detects_conflicts() {
+        let store = Store::open_in_memory().expect("store");
+        let mut first = Appointment {
+            id: Uuid::new_v4(),
+            contact_id: None,
+            title: "Kickoff".to_string(),
+            location: Some("Raum 1".to_string()),
+            notes: None,
+            status: AppointmentStatus::Confirmed,
+            starts_at: 1_000,
+            ends_at: 2_000,
+            created_at: 0,
+            updated_at: 0,
+        };
+        store.insert_appointment(&first).expect("insert");
+        assert_eq!(store.list_appointments().expect("list").len(), 1);
+        assert_eq!(
+            store
+                .search_appointments_between("kick", 0, 3_000)
+                .expect("search")
+                .len(),
+            1
+        );
+
+        let mut second = Appointment {
+            id: Uuid::new_v4(),
+            title: "Workshop".to_string(),
+            starts_at: 1_500,
+            ends_at: 2_500,
+            ..first.clone()
+        };
+        assert!(first.has_conflict(&[second.clone()]));
+        store.insert_appointment(&second).expect("insert");
+        assert_eq!(
+            store
+                .appointment_conflicts(&first)
+                .expect("conflicts")
+                .len(),
+            1
+        );
+
+        second.status = AppointmentStatus::Cancelled;
+        store.update_appointment(&second).expect("update");
+        assert!(store
+            .appointment_conflicts(&first)
+            .expect("conflicts")
+            .is_empty());
+
+        first.title = "Kickoff intern".to_string();
+        first.ends_at = 1_800;
+        store.update_appointment(&first).expect("update");
+        store.delete_appointment(second.id).expect("delete");
+        assert_eq!(
+            store.list_appointments().expect("list")[0].title,
+            "Kickoff intern"
+        );
+    }
+
+    #[test]
+    fn roundtrips_journal_entries() {
+        let store = Store::open_in_memory().expect("store");
+        let mut entry = JournalEntry::new(1_000);
+        entry.description = "Rechnung".to_string();
+        entry.account = "Erlöse".to_string();
+        entry.counter_account = "Bank".to_string();
+        entry.amount = Money::from_cents(10_000);
+        store.insert_journal_entry(&entry).expect("insert");
+
+        assert_eq!(store.journal_entry_count().expect("count"), 1);
+        assert_eq!(
+            store.find_journal_entry(entry.id).expect("find"),
+            Some(entry.clone())
+        );
+        assert_eq!(
+            store
+                .journal_entries_between(0, 2_000)
+                .expect("between")
+                .len(),
+            1
+        );
+        assert_eq!(
+            store
+                .search_journal_entries("erlöse")
+                .expect("search")
+                .len(),
+            1
+        );
+
+        entry.description = "Rechnung 2026".to_string();
+        entry.amount = Money::from_cents(12_000);
+        entry.kind = JournalKind::Expense;
+        entry.channel = BookingChannel::Cash;
+        store.update_journal_entry(&entry).expect("update");
+        let loaded = store
+            .find_journal_entry(entry.id)
+            .expect("find")
+            .expect("present");
+        assert_eq!(loaded, entry);
+
+        store.delete_journal_entry(entry.id).expect("delete");
+        assert_eq!(store.journal_entry_count().expect("count"), 0);
+    }
+
+    #[test]
+    fn updates_status_and_deletes_invoices() {
+        let store = Store::open_in_memory().expect("store");
+        let buyer = contact(&store);
+        let mut invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-0003".to_string(),
+            contact_id: buyer.id,
+            status: InvoiceStatus::Draft,
+            issued_at: 0,
+            due_at: 0,
+            currency_symbol: "€".to_string(),
+            note: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("insert");
+
+        invoice.number = "2026-0004".to_string();
+        invoice.lines[0].quantity_milli = 2_000;
+        store.update_invoice(&invoice).expect("update");
+        let loaded = store
+            .find_invoice(invoice.id)
+            .expect("find")
+            .expect("present");
+        assert_eq!(loaded, invoice);
+
+        store
+            .set_invoice_status(invoice.id, InvoiceStatus::Paid)
+            .expect("status");
+        assert_eq!(
+            store
+                .find_invoice(invoice.id)
+                .expect("find")
+                .unwrap()
+                .status,
+            InvoiceStatus::Paid
+        );
+
+        store.delete_invoice(invoice.id).expect("delete");
+        assert_eq!(store.invoice_count().expect("count"), 0);
+    }
+
     fn user(store: &Store, password: &str) -> User {
         let now = now_millis();
         let account = User {
@@ -509,6 +1733,49 @@ mod tests {
         assert_eq!(store.authenticate("admin", "falsch").expect("auth"), None);
         assert_eq!(store.authenticate("unbekannt", "egal").expect("auth"), None);
         assert_eq!(store.list_users().expect("list"), vec![account]);
+    }
+
+    #[test]
+    fn updates_and_deletes_users_but_protects_the_last_admin() {
+        let store = Store::open_in_memory().expect("store");
+        let admin = user(&store, "admin-passwort");
+
+        let mut renamed = admin.clone();
+        renamed.display_name = "Chefin".to_string();
+        store.update_user(&renamed).expect("update");
+        assert_eq!(
+            store.find_user_by_username("admin").expect("find"),
+            Some(renamed.clone())
+        );
+
+        let mut demoted = renamed.clone();
+        demoted.role = UserRole::User;
+        assert!(store.update_user(&demoted).is_err());
+
+        let mut colleague = admin.clone();
+        colleague.id = Uuid::new_v4();
+        colleague.username = "kollegin".to_string();
+        colleague.display_name = "Kollegin".to_string();
+        store.insert_user(&colleague).expect("second admin");
+
+        demoted.active = true;
+        store
+            .update_user(&demoted)
+            .expect("demote with a second admin");
+        store.delete_user(demoted.id).expect("delete non-admin");
+        assert!(
+            store.delete_user(colleague.id).is_err(),
+            "last admin protected"
+        );
+
+        let mut assistant = admin.clone();
+        assistant.id = Uuid::new_v4();
+        assistant.username = "assistenz".to_string();
+        assistant.display_name = "Assistenz".to_string();
+        assistant.role = UserRole::User;
+        store.insert_user(&assistant).expect("user");
+        store.delete_user(assistant.id).expect("delete user");
+        assert_eq!(store.list_users().expect("list").len(), 1);
     }
 
     #[test]

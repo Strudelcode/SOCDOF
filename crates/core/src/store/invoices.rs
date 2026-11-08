@@ -1,11 +1,13 @@
 //! Invoice persistence, including positions written in the same transaction.
 
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+use crate::domain::stock::StockMove;
 use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
+use crate::store::products;
 
 const COLUMNS: &str = "id, number, contact_id, status, issued_at, due_at, currency_symbol, note";
 
@@ -14,8 +16,33 @@ pub fn insert(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
     invoice.validate().map_err(CoreError::Validation)?;
 
     let transaction = conn.unchecked_transaction()?;
+    insert_rows(&transaction, invoice)?;
+    transaction.commit()?;
+    Ok(())
+}
 
-    transaction.execute(
+/// Inserts an invoice, its positions and the stock movements it causes in one transaction.
+///
+/// Selling more than is in stock rejects the whole invoice, so the document and the stock history
+/// can never disagree.
+pub fn insert_with_stock(
+    conn: &Connection,
+    invoice: &Invoice,
+    movements: &[StockMove],
+) -> CoreResult<()> {
+    invoice.validate().map_err(CoreError::Validation)?;
+
+    let transaction = conn.unchecked_transaction()?;
+    insert_rows(&transaction, invoice)?;
+    for movement in movements {
+        products::apply_stock(&transaction, movement)?;
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
+fn insert_rows(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
+    conn.execute(
         "INSERT INTO invoices (id, number, contact_id, status, issued_at, due_at, currency_symbol, note)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
@@ -30,8 +57,13 @@ pub fn insert(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
         ],
     )?;
 
+    insert_lines(conn, invoice)?;
+    Ok(())
+}
+
+fn insert_lines(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
     for (position, line) in invoice.lines.iter().enumerate() {
-        transaction.execute(
+        conn.execute(
             "INSERT INTO invoice_lines (invoice_id, position, description, quantity_milli,
                 unit_price_cents, tax_rate_bp)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -46,8 +78,89 @@ pub fn insert(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
         )?;
     }
 
+    Ok(())
+}
+
+/// Replaces an invoice header and all of its positions in one transaction.
+pub fn update(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
+    invoice.validate().map_err(CoreError::Validation)?;
+
+    let transaction = conn.unchecked_transaction()?;
+    let changed = transaction.execute(
+        "UPDATE invoices SET number = ?2, contact_id = ?3, status = ?4, issued_at = ?5,
+            due_at = ?6, currency_symbol = ?7, note = ?8 WHERE id = ?1",
+        params![
+            invoice.id.to_string(),
+            invoice.number,
+            invoice.contact_id.to_string(),
+            invoice.status.as_str(),
+            invoice.issued_at,
+            invoice.due_at,
+            invoice.currency_symbol,
+            invoice.note,
+        ],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(invoice.id.to_string()));
+    }
+
+    transaction.execute(
+        "DELETE FROM invoice_lines WHERE invoice_id = ?1",
+        params![invoice.id.to_string()],
+    )?;
+    insert_lines(&transaction, invoice)?;
     transaction.commit()?;
     Ok(())
+}
+
+/// Writes only the lifecycle state of an invoice.
+pub fn set_status(conn: &Connection, id: Uuid, status: InvoiceStatus) -> CoreResult<()> {
+    let changed = conn.execute(
+        "UPDATE invoices SET status = ?2 WHERE id = ?1",
+        params![id.to_string(), status.as_str()],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(id.to_string()));
+    }
+    Ok(())
+}
+
+/// Loads one invoice with its positions.
+pub fn find(conn: &Connection, id: Uuid) -> CoreResult<Option<Invoice>> {
+    let sql = format!("SELECT {COLUMNS} FROM invoices WHERE id = ?1");
+    let Some(mut invoice) = conn
+        .query_row(&sql, params![id.to_string()], map_row)
+        .optional()?
+    else {
+        return Ok(None);
+    };
+    invoice.lines = lines_for(conn, invoice.id)?;
+    Ok(Some(invoice))
+}
+
+/// Substring search over invoice numbers, notes and position descriptions.
+///
+/// This is the fallback of the FTS5 search: a term inside a longer token (for example `0001` in
+/// `2026-0001`) is only found here.
+pub fn search(conn: &Connection, query: &str) -> CoreResult<Vec<Invoice>> {
+    let term = format!("%{}%", query.trim().to_lowercase());
+    let sql = format!(
+        "SELECT {COLUMNS} FROM invoices
+         WHERE lower(coalesce(number, '') || ' ' || coalesce(note, '')) LIKE ?1
+            OR EXISTS (SELECT 1 FROM invoice_lines l WHERE l.invoice_id = invoices.id
+                       AND lower(l.description) LIKE ?1)
+         ORDER BY issued_at DESC, number DESC"
+    );
+    let mut statement = conn.prepare(&sql)?;
+    let rows = statement.query_map(params![term], map_row)?;
+
+    let mut invoices = Vec::new();
+    for row in rows {
+        let mut invoice = row?;
+        invoice.lines = lines_for(conn, invoice.id)?;
+        invoices.push(invoice);
+    }
+    Ok(invoices)
 }
 
 /// Loads all invoices with their positions.

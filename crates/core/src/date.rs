@@ -3,6 +3,31 @@
 //! Dates are stored as milliseconds since the Unix epoch. Printing needs `DD.MM.YYYY`, which is
 //! implemented here so the core stays free of a date library.
 
+/// Civil date of a Unix timestamp in milliseconds.
+pub fn civil_from_millis(ms: i64) -> (i64, u32, u32) {
+    civil_from_days(ms.div_euclid(86_400_000))
+}
+
+/// Days since 1970-01-01 of a civil date; the inverse of [`civil_from_millis`].
+pub fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let month_prime = if month > 2 {
+        month as i64 - 3
+    } else {
+        month as i64 + 9
+    };
+    let day_of_year = (153 * month_prime + 2) / 5 + day as i64 - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+/// Milliseconds of the first day of a month at 00:00 UTC.
+pub fn start_of_month_ms(year: i64, month: u32) -> i64 {
+    days_from_civil(year, month, 1) * 86_400_000
+}
+
 /// Formats a Unix timestamp in milliseconds as `DD.MM.YYYY`.
 pub fn format_date(ms: i64) -> String {
     let days = ms.div_euclid(86_400_000);
@@ -63,6 +88,17 @@ mod tests {
     #[test]
     fn formats_dates_before_the_epoch() {
         assert_eq!(format_date(-86_400_000), "31.12.1969");
+    }
+
+    #[test]
+    fn roundtrips_civil_dates_and_month_starts() {
+        let ms = 1_794_052_800_000; // 2026-11-07 12:00 UTC
+        assert_eq!(civil_from_millis(ms), (2026, 11, 7));
+        assert_eq!(days_from_civil(1970, 1, 1), 0);
+        assert_eq!(days_from_civil(2026, 11, 7), ms.div_euclid(86_400_000));
+        assert_eq!(start_of_month_ms(2026, 11), 1_793_491_200_000);
+        assert_eq!(format_date(start_of_month_ms(2026, 11)), "01.11.2026");
+        assert_eq!(civil_from_millis(start_of_month_ms(2024, 2)), (2024, 2, 1));
     }
 
     #[test]

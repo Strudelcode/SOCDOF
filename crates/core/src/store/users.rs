@@ -79,6 +79,83 @@ pub fn authenticate(conn: &Connection, username: &str, password: &str) -> CoreRe
     Ok(Some(user))
 }
 
+/// Replaces the editable fields of an existing user.
+///
+/// The password hash is not changed here; use [`set_password`] for that. The last administrator
+/// cannot be demoted or deactivated, so a broken role assignment cannot lock everybody out.
+pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
+    user.validate().map_err(CoreError::Validation)?;
+
+    let existing: Option<(String, bool)> = conn
+        .query_row(
+            "SELECT role, active FROM users WHERE id = ?1",
+            params![user.id.to_string()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    let Some((role, active)) = existing else {
+        return Err(CoreError::NotFound(user.id.to_string()));
+    };
+
+    let was_admin = role == "admin" && active;
+    let remains_admin = user.role == UserRole::Admin && user.active;
+    if was_admin && !remains_admin && admin_count(conn)? <= 1 {
+        return Err(CoreError::Validation("last_admin".to_string()));
+    }
+
+    let changed = conn.execute(
+        "UPDATE users SET username = ?2, display_name = ?3, role = ?4, role_id = ?5,
+            active = ?6, must_change_password = ?7, updated_at = ?8
+         WHERE id = ?1",
+        params![
+            user.id.to_string(),
+            user.username.trim(),
+            user.display_name.trim(),
+            user.role.as_str(),
+            user.role_id,
+            user.active,
+            user.must_change_password,
+            user.updated_at,
+        ],
+    )?;
+
+    if changed == 0 {
+        return Err(CoreError::NotFound(user.id.to_string()));
+    }
+
+    Ok(())
+}
+
+/// Deletes an account. The last administrator is protected.
+pub fn delete(conn: &Connection, id: Uuid) -> CoreResult<()> {
+    let role: Option<String> = conn
+        .query_row(
+            "SELECT role FROM users WHERE id = ?1",
+            params![id.to_string()],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let Some(role) = role else {
+        return Err(CoreError::NotFound(id.to_string()));
+    };
+
+    if role == "admin" && admin_count(conn)? <= 1 {
+        return Err(CoreError::Validation("last_admin".to_string()));
+    }
+
+    conn.execute("DELETE FROM users WHERE id = ?1", params![id.to_string()])?;
+    Ok(())
+}
+
+fn admin_count(conn: &Connection) -> CoreResult<i64> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM users WHERE role = 'admin'",
+        [],
+        |row| row.get(0),
+    )?)
+}
+
 /// Stores a new password hash and clears the "must change password" flag.
 pub fn set_password(conn: &Connection, id: Uuid, password_hash: &str) -> CoreResult<()> {
     let changed = conn.execute(
