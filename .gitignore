@@ -16,3 +16,6 @@
 
 # Trunk build output of the browser host
 /crates/web/dist
+
+# Local screenshots and scratch evidence from browser checks
+/artifacts/

@@ -562,7 +562,126 @@ amalgamation to wasm with it.
 
 ---
 
-## 15. Risk register
+## 15. GUI parity with the TypeScript app
+
+The TypeScript application in `SOCDOF - TS` is the visual contract of this rewrite: same accent
+system, same surfaces, same geometry. Parity is therefore measured against that app, not from
+memory. Host it, walk the first-run flow, read the values out of its stylesheet, and only then change
+a Rust token.
+
+### 15.1 The reference walkthrough
+
+```bash
+cd "SOCDOF - TS"
+bun install --frozen-lockfile          # node_modules is not committed, ~330 packages
+./node_modules/.bin/vite --port 3000 --strictPort --host 0.0.0.0
+```
+
+`vite.config.ts` already binds `0.0.0.0` and sets `allowedHosts`, so the preview hostname of the chat
+works without touching the file. Only one server can own port 3000 per chat: stop the Rust host
+(`python3 -m http.server … --directory crates/web/dist`) before starting Vite, and vice versa.
+
+Walk this path and screenshot every step; it is the path the Rust app has to reproduce:
+
+| Step | Legacy screen | Source |
+|---|---|---|
+| 1 | language chooser (`DE / US / FR / ES`, `Continue`) | `src/components/AuthGate.tsx` |
+| 2 | setup step 1 — account: display name, username, account type, avatar, password with strength meter, recovery question | `AuthGate.tsx` |
+| 3 | setup step 2 — appearance: nine accent swatches, light/dark/system, wallpaper upload | `AuthGate.tsx` |
+| 4 | setup step 3 — app template and per-app selection | `AuthGate.tsx` |
+| 5 | lock screen: dark wallpaper, clock, avatar, one password field, "forgot password", quick switch | `AuthGate.tsx` |
+| 6 | desktop: wallpaper, icon grid, window controls top right, taskbar | `src/components/DesktopWindowWorkspace.tsx` |
+
+Reference screenshots taken this way are committed in `docs/artifacts/gui-parity/`:
+`ts-01-language.png`, `ts-02-setup-account.png`, `ts-03-setup-appearance.png`,
+`ts-04-lock-screen.png`, `ts-05-desktop.png`, plus `rust-01-desktop.png` for the current Rust state.
+They are the only accepted evidence that the two applications match; re-take them whenever a parity
+change lands.
+
+### 15.2 Where the values come from
+
+- Colours, radii and shadows: the `:root` block of `SOCDOF - TS/src/index.css` (accent variables,
+  `--accent-card-shadow`, `--accent-companion`) and `src/lib/accent.ts` (preset list, hue rules).
+- Geometry and type: the Tailwind classes on the component (`w-24`, `h-12`, `rounded-2xl`, `text-xs`,
+  `min-h-[44px]`), converted at 16 px per rem.
+- Screenshots are evidence, never a colour source: gradients, blurs and the display profile shift
+  every sampled pixel.
+
+Rust counterparts: `crates/ui/src/tokens.rs` (spacing, radii, font sizes, accent presets),
+`crates/ui/src/theme.rs` (`Palette::of`, egui style), `crates/ui/src/desktop.rs` (taskbar, icon grid,
+window geometry), `crates/ui/src/chrome.rs` (window chrome, app tiles) and
+`crates/ui/src/wallpaper.rs`.
+
+### 15.3 Measured reference values
+
+| Aspect | Legacy (measured 2026-11-08) | Rust today | Target |
+|---|---|---|---|
+| Accent indigo | `#4f46e5`, hover `#4338ca`, tint 12 %, ring 35 %, border `#6366f1`, dark text `#818cf8` | identical in `tokens.rs` | keep |
+| Companion accent | `#0d9488`, hover `#0f766e`, tint 18 % | not used | use for secondary actions |
+| Light surfaces | background `#f6f8fb`, card `#ffffff`, muted `#f1f5f9`, border `#e2e8f0`, text `#0f172a`, muted text `#64748b` | identical in `Palette::of` | keep |
+| Dark surfaces | background `#020617`, card `#0f172a`, muted `#1e293b`, border `#334155`, text `#f8fafc` | identical | keep |
+| Card shadow | `0 4px 20px -2px rgba(accent,.07), 0 1px 3px rgba(0,0,0,.03)`; hover `0 8px 30px -4px rgba(accent,.20)` | none, cards are flat with a hairline border | two-layer soft shadow for cards, dialogs and windows |
+| Control radius | 12 px (`rounded-xl`) | `RADIUS_CONTROL` 10 | 12 |
+| Card and dialog radius | card 16 px, dialog and window 24 px (`rounded-3xl`) | `RADIUS_CARD` 16 everywhere | 16 for cards, 24 for dialogs and floating windows |
+| Control height | 40 px desktop, 44 px minimum on touch (`min-h-[44px]`) | `CONTROL_HEIGHT` 36 | 40 |
+| Type | body 14 px, secondary 12 px, form label 12 px semibold | `FONT_BODY` 14, `FONT_SMALL` 12 | keep, labels semibold |
+| Font stack | `system-ui, "Segoe UI", Roboto, …` | egui default (Ubuntu on Linux, Segoe on Windows) | platform UI font first, bundled fallback |
+| Taskbar | 48 px, top border, glass `rgba(255,255,255,.9)` with 24 px blur; start 36×36 radius 12; running apps 36×36 radius 12; search pill; task view; clock 12 px with seconds | `TASKBAR_HEIGHT` 48; flat surface; start 44×36; apps 56×36 radius 10; clock `HH:MM` | 36×36 buttons, glass surface, search, task view, clock with seconds |
+| Desktop icon | cell 96 px wide, 96–104 px high, tile 48×48 radius 16, glyph 24 px, label 12 px semibold, two lines, 90 px wide; open marker 20×4 | cell 108×92, tile 56 px radius 16, glyph 26 px, single-line label, no open marker | 96 px cell, 48 px tile, two-line label, open marker |
+| Icon grid | responsive, three columns at 432 px width, free drag and drop | fixed `ICON_COLUMNS` 6, drag between cells | derive the column count from the available width |
+| Wallpaper | no image by default: lavender to white gradient, user image optional | two embedded PNGs (aurora, dusk), cover or tiled | gradient as the default plain wallpaper |
+| Window chrome | 40 px title bar, 24 px radius, accent rim, 40×32 window buttons, soft outer shadow | 40 px title bar, 16 px radius, accent rim | 24 px radius, soft outer shadow |
+| Scrollbars | 6 px with a translucent thumb | egui default | 6 px thin scrollbars |
+
+### 15.4 Screen differences that are structural
+
+These are not token tweaks; each one is its own piece of work.
+
+1. **Lock screen.** The legacy app shows the Windows lock screen: dark blurred wallpaper, clock with
+   date, avatar of the last active account, one password field with an arrow submit button, "forgot
+   password" and quick-switch tiles for the other accounts. The Rust app renders a centred card with
+   username and password. Target: split `AuthView::Login` (pick an account) from `AuthView::Locked`
+   (password only) and draw clock and avatar in the locked view.
+2. **First-run setup.** The legacy wizard has four steps (language, account, appearance, apps) with a
+   pill-shaped step label, a password strength meter, nine accent swatches, the theme switch, a
+   wallpaper upload and an app template selection. The Rust app has a single form. Target: keep the
+   core calls (`Store::insert_user`, the settings services) and build the steps around them.
+3. **Taskbar.** The legacy bar carries start, a search pill, task view, running app buttons, a status
+   pill, an overflow menu, the tray and a clock with seconds. The Rust bar has start, pinned apps, the
+   Studio button, the tray and the clock. Target: search (the command palette already exists),
+   task view and clock seconds.
+4. **Desktop.** The legacy desktop has gradient app tiles with a drop shadow, a hover tint, an open
+   marker and free placement; the Rust desktop uses flat tinted tiles on a fixed grid. Target:
+   gradient tiles in the legacy tints, hover tint, open marker, responsive columns.
+5. **Toasts.** The legacy app confirms actions in a bottom-left glass card (icon tile, uppercase
+   11 px title, 13 px body, close button); the Rust app writes a badge line. Target: one toast
+   component used by every module.
+
+### 15.5 Definition of done for a parity change
+
+- [ ] the legacy screen was hosted and screenshotted in this chat before the change
+- [ ] changed values trace back to `index.css`/`accent.ts` or a Tailwind class, never to a sampled pixel
+- [ ] the change touches tokens, geometry or a shared component, not the module list, the texts or behaviour
+- [ ] new or renamed texts exist in de, en, fr and es
+- [ ] `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` green
+- [ ] `UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual` accepted on purpose, goldens committed
+- [ ] `trunk build --release` in `crates/web` and the browser build checked against the screenshots
+- [ ] `docs/artifacts/gui-parity/` re-taken and linked here
+
+### 15.6 Open parity work
+
+- [ ] shadow helper in `tokens.rs`, used by cards, dialogs, windows and the taskbar
+- [ ] control height 40, control radius 12, dialog radius 24
+- [ ] taskbar: 36×36 buttons, glass surface, clock with seconds, search pill, task view
+- [ ] desktop: 48 px gradient tiles, two-line labels, open marker, responsive column count
+- [ ] plain gradient wallpaper as the default
+- [ ] lock screen and setup wizard as described in 15.4
+- [ ] toast component
+- [ ] font stack with the platform UI font first
+
+---
+
+## 16. Risk register
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -575,7 +694,7 @@ amalgamation to wasm with it.
 
 ---
 
-## 16. Open questions
+## 17. Open questions
 
 - [ ] Does the Rust build ship as a separate download next to the Electron build, or replace it?
 - [ ] Are custom user language packs (external JSON in `languages/`) a hard requirement?
@@ -584,7 +703,7 @@ amalgamation to wasm with it.
 
 ---
 
-## 17. Progress log
+## 18. Progress log
 
 | Date | Phase | Note |
 |---|---|---|
@@ -637,3 +756,4 @@ amalgamation to wasm with it.
 | 2026-11-08 | 8 | Multi-page invoice PDFs (`pdf::writer`, `pdf::din5008`): `Document` keeps a page list (`new_page`, `page_count`), writes a `/Pages` tree with `/Count n` and one content stream per page, and repeats the letterhead image on every page. The DIN 5008 renderer paginates the position table (19 rows on page one, 33 per continuation page), repeats the column header and `Pos./Bezeichnung/Menge/Einzelpreis/Betrag` on every page, prints totals and the closing line only on the last page, numbers the pages (`Seite X von Y`) and paints the background under and the enabled `document_layout` tokens over the content of every page; a row moves whole to the next page. One-page invoices keep the previous output. The Studio layout tab names the continuation behaviour; the catalogue grows to 1,428 keys. Version 0.29.0. |
 | 2026-11-08 | 14 | Browser host (`crates/web`): eframe/egui compiled to `wasm32-unknown-unknown` and bundled with Trunk; the workspace moved to `rusqlite` 0.40, which links `sqlite-wasm-rs` on wasm, so schema migrations, FTS5, sessions and Argon2id run in the browser unchanged. `now_millis()` reads `Date.now()`, `.cargo/config.toml` selects the `getrandom` wasm backend and `uuid` uses its `js` feature. Verified in a real browser: empty database → first-run setup → administrator created → desktop. |
 | 2026-11-08 | 14 | Browser session flow: the host renders the auth screen until a session is signed in and then the desktop with icon grid, wallpapers, taskbar, start menu, command palette, window chrome, dashboard quick actions and every module screen, plus an account chip with sign-out; `Store::dashboard_snapshot` feeds the dashboard from the live store. Bundle: 5.4 MB wasm (2.5 MB gzip). Version 0.30.0. |
+| 2026-11-08 | 15 | GUI parity reference: served the TypeScript app on the reserved preview port and walked it end to end (language chooser, three setup steps, lock screen, desktop). The measured tokens, component geometry and the five structural differences are recorded in section 15; reference screenshots live in `docs/artifacts/gui-parity/` (five legacy screens plus the current Rust desktop). |
