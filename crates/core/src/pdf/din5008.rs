@@ -21,7 +21,9 @@ use crate::domain::invoice::Invoice;
 use crate::domain::settings::CompanyProfile;
 use crate::error::CoreResult;
 
-use super::writer::{mm, Document, PAGE_HEIGHT_MM, PAGE_WIDTH_MM};
+use crate::document_layout::{DocumentLayout, TokenAlign};
+
+use super::writer::{mm, text_width, Document, Page, PAGE_HEIGHT_MM, PAGE_WIDTH_MM};
 
 const LEFT_MARGIN_MM: f64 = 25.0;
 const RIGHT_MARGIN_MM: f64 = 20.0;
@@ -30,6 +32,9 @@ const ADDRESS_TOP_MM: f64 = 45.0;
 const SUBJECT_TOP_MM: f64 = 98.5;
 const BODY_TOP_MM: f64 = 111.5;
 const TABLE_TOP_MM: f64 = 132.0;
+const CONTINUATION_TABLE_TOP_MM: f64 = 50.0;
+const TABLE_BOTTOM_MM: f64 = 250.0;
+const ROW_HEIGHT_MM: f64 = 6.0;
 
 /// Vertical position in points for a distance measured from the top edge.
 fn from_top(millimetres: f64) -> f64 {
@@ -42,9 +47,73 @@ pub fn render_invoice_pdf(
     recipient: &Contact,
     company: &CompanyProfile,
 ) -> Vec<u8> {
-    let mut document = Document::new(&format!("Rechnung {}", invoice.number));
-    let page = document.page_mut();
+    render(invoice, recipient, company, None)
+}
 
+/// Renders one invoice with the stored letterhead background and placed tokens.
+pub fn render_invoice_pdf_with_layout(
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: &DocumentLayout,
+) -> Vec<u8> {
+    let mut document = Document::new(&format!("Rechnung {}", invoice.number));
+    if let Some(image) = layout.background() {
+        document.set_background(image);
+    }
+    render_document(document, invoice, recipient, company, Some(layout))
+}
+
+fn render(
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: Option<&DocumentLayout>,
+) -> Vec<u8> {
+    render_document(
+        Document::new(&format!("Rechnung {}", invoice.number)),
+        invoice,
+        recipient,
+        company,
+        layout,
+    )
+}
+
+/// Number of position rows that fit on a page below its table header.
+fn rows_per_page(first_page: bool) -> usize {
+    let header_top = if first_page {
+        TABLE_TOP_MM
+    } else {
+        CONTINUATION_TABLE_TOP_MM
+    };
+    let available = TABLE_BOTTOM_MM - (header_top + 8.0);
+    (available / ROW_HEIGHT_MM).floor() as usize + 1
+}
+
+/// Splits the positions into page ranges; a row moves whole to the next page, never cut in half.
+fn paginate(row_count: usize) -> Vec<(usize, usize)> {
+    if row_count == 0 {
+        return vec![(0, 0)];
+    }
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    let mut first_page = true;
+    while start < row_count {
+        let end = (start + rows_per_page(first_page)).min(row_count);
+        ranges.push((start, end));
+        start = end;
+        first_page = false;
+    }
+    ranges
+}
+
+fn render_document(
+    mut document: Document,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: Option<&DocumentLayout>,
+) -> Vec<u8> {
     let left = mm(LEFT_MARGIN_MM);
     let right = mm(PAGE_WIDTH_MM - RIGHT_MARGIN_MM);
     let currency = if company.currency.trim().is_empty() {
@@ -52,7 +121,61 @@ pub fn render_invoice_pdf(
     } else {
         company.currency.as_str()
     };
+    let ranges = paginate(invoice.lines.len());
+    let page_count = ranges.len();
 
+    for (page_index, (start, end)) in ranges.iter().enumerate() {
+        if page_index > 0 {
+            document.new_page();
+        }
+        let page = document.page_mut();
+        if page_index == 0 {
+            draw_first_page_header(page, invoice, recipient, company, left, right);
+        }
+
+        let header_top = if page_index == 0 {
+            TABLE_TOP_MM
+        } else {
+            CONTINUATION_TABLE_TOP_MM
+        };
+        draw_table_header(page, left, right, header_top);
+
+        let mut row_y = header_top + 8.0;
+        for index in *start..*end {
+            draw_row(
+                page,
+                &invoice.lines[index],
+                index + 1,
+                left,
+                right,
+                row_y,
+                currency,
+            );
+            row_y += ROW_HEIGHT_MM;
+        }
+
+        if page_index + 1 == page_count {
+            page.line(left, from_top(row_y + 1.0), right, 0.6);
+            draw_totals(page, invoice, currency, left, right, row_y);
+        }
+
+        draw_footer(page, company, left, right, page_index + 1, page_count);
+        if let Some(layout) = layout {
+            draw_tokens(page, layout, company, invoice);
+        }
+    }
+
+    document.to_bytes()
+}
+
+fn draw_first_page_header(
+    page: &mut Page,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    left: f64,
+    right: f64,
+) {
     // Sender line above the address field.
     let sender_parts: Vec<String> = [
         company.name.as_str(),
@@ -129,49 +252,61 @@ pub fn render_invoice_pdf(
             "Sehr geehrte Damen und Herren, vielen Dank für Ihren Auftrag.".to_string()
         });
     page.text(left, from_top(BODY_TOP_MM), 10.0, &intro);
+}
 
-    // Positions.
-    page.text_bold(left, from_top(TABLE_TOP_MM), 8.0, "Pos.");
-    page.text_bold(left + mm(10.0), from_top(TABLE_TOP_MM), 8.0, "Bezeichnung");
-    page.text_right_bold(right - mm(38.0), from_top(TABLE_TOP_MM), 8.0, "Menge");
-    page.text_right_bold(right - mm(22.0), from_top(TABLE_TOP_MM), 8.0, "Einzelpreis");
-    page.text_right_bold(right, from_top(TABLE_TOP_MM), 8.0, "Betrag");
-    page.line(left, from_top(TABLE_TOP_MM + 2.0), right, 0.6);
+fn draw_table_header(page: &mut Page, left: f64, right: f64, top: f64) {
+    page.text_bold(left, from_top(top), 8.0, "Pos.");
+    page.text_bold(left + mm(10.0), from_top(top), 8.0, "Bezeichnung");
+    page.text_right_bold(right - mm(38.0), from_top(top), 8.0, "Menge");
+    page.text_right_bold(right - mm(22.0), from_top(top), 8.0, "Einzelpreis");
+    page.text_right_bold(right, from_top(top), 8.0, "Betrag");
+    page.line(left, from_top(top + 2.0), right, 0.6);
+}
 
-    let mut row_y = TABLE_TOP_MM + 8.0;
-    for (index, line) in invoice.lines.iter().enumerate() {
-        let position = (index + 1).to_string();
-        page.text(left, from_top(row_y), 9.0, &position);
-        page.text(
-            left + mm(10.0),
-            from_top(row_y),
-            9.0,
-            &truncate(&line.description, 48),
-        );
-        page.text_right(
-            right - mm(38.0),
-            from_top(row_y),
-            9.0,
-            &format_quantity(line.quantity_milli),
-        );
-        page.text_right(
-            right - mm(22.0),
-            from_top(row_y),
-            9.0,
-            &line.unit_price.format_localized(currency),
-        );
-        page.text_right(
-            right,
-            from_top(row_y),
-            9.0,
-            &line.net().format_localized(currency),
-        );
-        row_y += 6.0;
-    }
+fn draw_row(
+    page: &mut Page,
+    line: &crate::domain::invoice::InvoiceLine,
+    position: usize,
+    left: f64,
+    right: f64,
+    row_y: f64,
+    currency: &str,
+) {
+    page.text(left, from_top(row_y), 9.0, &position.to_string());
+    page.text(
+        left + mm(10.0),
+        from_top(row_y),
+        9.0,
+        &truncate(&line.description, 48),
+    );
+    page.text_right(
+        right - mm(38.0),
+        from_top(row_y),
+        9.0,
+        &format_quantity(line.quantity_milli),
+    );
+    page.text_right(
+        right - mm(22.0),
+        from_top(row_y),
+        9.0,
+        &line.unit_price.format_localized(currency),
+    );
+    page.text_right(
+        right,
+        from_top(row_y),
+        9.0,
+        &line.net().format_localized(currency),
+    );
+}
 
-    page.line(left, from_top(row_y + 1.0), right, 0.6);
-
-    // Totals.
+fn draw_totals(
+    page: &mut Page,
+    invoice: &Invoice,
+    currency: &str,
+    left: f64,
+    right: f64,
+    row_y: f64,
+) {
     let mut totals_y = row_y + 9.0;
     page.text_right(right - mm(24.0), from_top(totals_y), 9.0, "Netto");
     page.text_right(
@@ -206,8 +341,16 @@ pub fn render_invoice_pdf(
             format_date(invoice.due_at)
         ),
     );
+}
 
-    // Footer.
+fn draw_footer(
+    page: &mut Page,
+    company: &CompanyProfile,
+    left: f64,
+    right: f64,
+    page_number: usize,
+    page_count: usize,
+) {
     let footer_top = PAGE_HEIGHT_MM - BOTTOM_MARGIN_MM;
     let footer = [
         company.name.clone(),
@@ -239,9 +382,55 @@ pub fn render_invoice_pdf(
             &format!("Steuernummer: {}", company.tax_id),
         );
     }
-    page.text_right(right, from_top(footer_top + 7.0), 7.5, "Seite 1 von 1");
+    page.text_right(
+        right,
+        from_top(footer_top + 7.0),
+        7.5,
+        &format!("Seite {page_number} von {page_count}"),
+    );
+}
 
-    document.to_bytes()
+fn draw_tokens(
+    page: &mut Page,
+    layout: &DocumentLayout,
+    company: &CompanyProfile,
+    invoice: &Invoice,
+) {
+    for token in &layout.tokens {
+        if !token.enabled {
+            continue;
+        }
+        let Some(text) = layout.token_text(token.key, company, Some(invoice)) else {
+            continue;
+        };
+        let text = truncate(&text, 80);
+        let size = token.size_pt;
+        let anchor = mm(PAGE_WIDTH_MM * token.x_pct / 100.0);
+        let x = match token.align {
+            TokenAlign::Left => anchor,
+            TokenAlign::Center => anchor - text_width(&text, size) / 2.0,
+            TokenAlign::Right => anchor - text_width(&text, size),
+        };
+        let y = from_top(PAGE_HEIGHT_MM * token.y_pct / 100.0);
+        if token.bold {
+            page.text_bold(x, y, size, &text);
+        } else {
+            page.text(x, y, size, &text);
+        }
+    }
+}
+
+/// Renders an invoice with its layout and writes it to `path`.
+pub fn write_invoice_pdf_with_layout(
+    path: &Path,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: &DocumentLayout,
+) -> CoreResult<()> {
+    let bytes = render_invoice_pdf_with_layout(invoice, recipient, company, layout);
+    std::fs::write(path, bytes)?;
+    Ok(())
 }
 
 /// Renders an invoice and writes it to `path`.
@@ -346,7 +535,90 @@ mod tests {
         assert!(text.contains("132,50"));
         assert!(text.contains("25,18"));
         assert!(text.contains("M\\374ller & S\\366hne GmbH"));
+        assert!(text.contains("/Count 1"));
+        assert!(text.contains("Seite 1 von 1"));
         assert!(text.ends_with("%%EOF\n"));
+    }
+
+    fn sample_png(directory: &std::path::Path) -> std::path::PathBuf {
+        std::fs::create_dir_all(directory).expect("temp dir");
+        let background = directory.join("briefpapier.png");
+        let file = std::fs::File::create(&background).expect("png file");
+        let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), 8, 6);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().expect("png header");
+        writer
+            .write_image_data(&[220u8; 8 * 6 * 3])
+            .expect("png data");
+        background
+    }
+
+    fn invoice_with_positions(count: usize) -> Invoice {
+        let mut invoice = sample_invoice();
+        invoice.lines = (1..=count)
+            .map(|index| InvoiceLine {
+                description: format!("Posten {index}"),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(1_000),
+                tax_rate_bp: 1900,
+            })
+            .collect();
+        invoice
+    }
+
+    #[test]
+    fn continues_the_position_table_on_further_pages_with_repeated_headers() {
+        let directory = std::env::temp_dir().join(format!("socdof-multipage-{}", Uuid::new_v4()));
+        let background = sample_png(&directory);
+        let mut layout = DocumentLayout {
+            letterhead_image: background.to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        for token in &mut layout.tokens {
+            token.enabled = matches!(
+                token.key,
+                crate::document_layout::TokenKey::CompanyName
+                    | crate::document_layout::TokenKey::InvoiceNumber
+            );
+        }
+
+        let invoice = invoice_with_positions(60);
+        let bytes = render_invoice_pdf_with_layout(
+            &invoice,
+            &sample_recipient(),
+            &sample_company(),
+            &layout,
+        );
+        let text = String::from_utf8_lossy(&bytes);
+
+        assert!(text.contains("/Count 3"), "60 positions span three pages");
+        assert_eq!(text.matches("/Type /Page /Parent").count(), 3);
+        assert_eq!(text.matches("Bezeichnung").count(), 3, "header repeats");
+        assert_eq!(
+            text.matches("/Bg Do").count(),
+            3,
+            "letterhead on every page"
+        );
+        assert_eq!(text.matches("Seite 1 von 3").count(), 1);
+        assert_eq!(text.matches("Seite 2 von 3").count(), 1);
+        assert_eq!(text.matches("Seite 3 von 3").count(), 1);
+        assert_eq!(text.matches("Umsatzsteuer").count(), 1, "totals only once");
+        assert_eq!(
+            text.matches("Rechnungsnummer:").count(),
+            1,
+            "address and info block only on page one"
+        );
+        assert!(text.contains("Posten 19"));
+        assert!(text.contains("Posten 20"));
+        assert!(text.contains("Posten 60"));
+        assert_eq!(
+            text.matches("Rechnung Nr. 2026-0001").count(),
+            4,
+            "subject once plus the token on three pages"
+        );
+
+        let _ = std::fs::remove_dir_all(directory);
     }
 
     #[test]
@@ -386,6 +658,38 @@ mod tests {
         let bytes = std::fs::read(&path).expect("read");
         assert_eq!(&bytes[..8], b"%PDF-1.4");
         assert!(bytes.windows(5).any(|window| window == b"%%EOF"));
+
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn prints_the_letterhead_background_and_placed_tokens() {
+        let directory = std::env::temp_dir().join(format!("socdof-layout-{}", Uuid::new_v4()));
+        let background = sample_png(&directory);
+
+        let mut layout = DocumentLayout {
+            letterhead_image: background.to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        for token in &mut layout.tokens {
+            token.enabled = matches!(
+                token.key,
+                crate::document_layout::TokenKey::CompanyName
+                    | crate::document_layout::TokenKey::InvoiceNumber
+            );
+        }
+        let bytes = render_invoice_pdf_with_layout(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &layout,
+        );
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("/Subtype /Image"));
+        assert!(text.contains("/Bg Do"));
+        assert!(text.contains("M\\374ller & S\\366hne GmbH"));
+        assert!(text.contains("Rechnung Nr. 2026-0001"));
+        assert!(text.ends_with("%%EOF\n"));
 
         let _ = std::fs::remove_dir_all(directory);
     }

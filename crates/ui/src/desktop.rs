@@ -11,9 +11,10 @@
 //! reachable through the same [`FocusState`] as every other control.
 
 use egui::{
-    Align2, Context, FontId, Id, Key, Pos2, Rect, Rounding, Sense, Stroke, Vec2, WidgetInfo,
-    WidgetType,
+    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, Rounding, Sense, Stroke, Vec2,
+    WidgetInfo, WidgetType,
 };
+use socdof_core::store::Store as SocdofStore;
 
 use crate::components::{button, icon_button, modal, ButtonVariant};
 use crate::focus::{focus_ring, FocusState};
@@ -21,7 +22,7 @@ use crate::i18n::UiTexts;
 use crate::icons::Icon;
 use crate::shell::{command_palette, onboarding, start_menu, tray_flyout, ShellAction, ShellState};
 use crate::theme::Theme;
-use crate::tokens::{FONT_BODY, FONT_SMALL, RADIUS_CONTROL};
+use crate::tokens::{FONT_BODY, FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL};
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
@@ -38,7 +39,7 @@ pub const RESIZE_GRIP: f32 = 16.0;
 /// How long reopening an app after closing it needs a confirmation.
 pub const CLOSE_COOLDOWN_MS: i64 = 3_000;
 /// Size of one icon cell, including the gap to the next cell.
-pub const ICON_CELL: Vec2 = Vec2::new(96.0, 88.0);
+pub const ICON_CELL: Vec2 = Vec2::new(108.0, 92.0);
 /// Number of columns of the icon grid.
 pub const ICON_COLUMNS: u32 = 6;
 /// Distance between the desktop edge and the first icon cell.
@@ -442,9 +443,9 @@ impl IconGrid {
         let mut grid = Self { icons, selected: 0 };
         let mut taken = std::collections::BTreeSet::new();
         for icon in &mut grid.icons {
-            let mut cell = icon.cell;
+            let mut cell = (icon.cell.0.min(ICON_COLUMNS - 1), icon.cell.1);
             while taken.contains(&cell) {
-                cell = (cell.0 + 1, cell.1);
+                cell = Self::next_cell(cell);
             }
             taken.insert(cell);
             icon.cell = cell;
@@ -498,6 +499,15 @@ impl IconGrid {
         self.selected = next as usize;
     }
 
+    /// Cell that follows the given one in reading order, wrapping after the last column.
+    pub fn next_cell(cell: (u32, u32)) -> (u32, u32) {
+        if cell.0 + 1 >= ICON_COLUMNS {
+            (0, cell.1 + 1)
+        } else {
+            (cell.0 + 1, cell.1)
+        }
+    }
+
     /// Rectangle of a grid cell inside a desktop rectangle.
     pub fn cell_rect(desktop: Rect, cell: (u32, u32)) -> Rect {
         let min = Pos2::new(
@@ -531,10 +541,7 @@ impl IconGrid {
             .enumerate()
             .any(|(other, icon)| other != index && icon.cell == target)
         {
-            target.0 += 1;
-            if target.0 >= ICON_COLUMNS {
-                target = (0, target.1 + 1);
-            }
+            target = Self::next_cell(target);
             guard += 1;
             if guard > 128 {
                 break;
@@ -577,6 +584,8 @@ pub struct DesktopFrame<'a> {
     pub texts: &'a UiTexts,
     /// Shell overlays, wallpaper and widgets.
     pub shell: &'a mut ShellState,
+    /// Store the Studio drawer reads and writes.
+    pub store: &'a SocdofStore,
 }
 
 /// What the desktop asks the host to do after a frame.
@@ -586,6 +595,12 @@ pub struct DesktopOutcome {
     pub back: bool,
     /// Switch the application appearance.
     pub toggle_theme: bool,
+    /// Application the user launched from an icon, the start menu or the taskbar.
+    pub open_app: Option<AppId>,
+    /// Open the Studio drawer.
+    pub open_studio: bool,
+    /// Tab the Studio drawer opens on; `None` keeps the current tab.
+    pub studio_tab: Option<crate::studio::StudioTab>,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -637,17 +652,20 @@ pub fn desktop(
         theme,
         texts,
         shell,
+        store,
     } = frame;
     let screen = ctx.screen_rect();
     let area = work_area(screen);
     let mut outcome = DesktopOutcome::default();
+
+    crate::studio::studio_drawer(ctx, theme, texts, focus, &mut shell.studio, store);
 
     egui::CentralPanel::default()
         .frame(egui::Frame::none().fill(theme.palette.background))
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
             paint_wallpaper(ctx, ui, area, &shell.wallpaper);
-            let blocked = windows.dialog_open() || shell.overlay_open();
+            let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
             if !blocked {
                 let (left, right, up, down) = ui.input(|input| {
@@ -695,37 +713,32 @@ pub fn desktop(
                     Vec2::splat(56.0),
                 );
                 let painter = ui.painter().clone();
+                let app = crate::chrome::app_chrome(icon.app().as_str());
+                let tint = crate::chrome::tint(app);
                 painter.rect(
                     tile,
-                    Rounding::same(RADIUS_CONTROL),
-                    if selected {
-                        theme.accent.light
-                    } else {
-                        theme.palette.surface
-                    },
+                    Rounding::same(RADIUS_CARD),
+                    tint,
                     Stroke::new(
                         1.0_f32,
                         if selected || focused {
                             theme.accent.base
                         } else {
-                            theme.palette.border
+                            crate::tokens::adjust(tint, 22)
                         },
                     ),
                 );
                 icon.icon().draw(
                     &painter,
                     Rect::from_center_size(tile.center(), Vec2::splat(26.0)),
-                    if selected {
-                        theme.accent_text()
-                    } else {
-                        theme.palette.text
-                    },
-                    1.5,
+                    Color32::WHITE,
+                    1.6,
                 );
-                let galley = painter.layout_no_wrap(
+                let galley = painter.layout(
                     icon.label().to_owned(),
                     FontId::proportional(FONT_SMALL),
                     theme.palette.text,
+                    rect.width(),
                 );
                 painter.galley(
                     Pos2::new(rect.center().x - galley.size().x / 2.0, tile.bottom() + 6.0),
@@ -741,6 +754,7 @@ pub fn desktop(
                     } else {
                         activate_app(icons, windows, icon.app(), area, now);
                     }
+                    outcome.open_app = Some(icon.app());
                 }
             }
 
@@ -940,6 +954,7 @@ pub fn desktop(
     } else if shell.start.is_open() {
         if let Some(app) = start_menu(ctx, theme, texts, focus, &mut shell.start, icons) {
             activate_app(icons, windows, app, area, now);
+            outcome.open_app = Some(app);
         }
     } else if shell.tray.is_open() {
         if let Some(action) = tray_flyout(ctx, theme, texts, focus, &mut shell.tray) {
@@ -960,6 +975,7 @@ pub fn desktop(
         .iter()
         .map(|icon| (icon.app(), icon.label().to_owned(), icon.icon()))
         .collect();
+    let mut launched: Option<AppId> = None;
     egui::Area::new(Id::new("socdof-taskbar"))
         .order(egui::Order::Foreground)
         .anchor(Align2::LEFT_BOTTOM, Vec2::ZERO)
@@ -1061,7 +1077,27 @@ pub fn desktop(
                     } else {
                         activate_app(icons, windows, *app, area, now);
                     }
+                    launched = Some(*app);
                 }
+            }
+
+            let studio_rect = Rect::from_min_size(
+                Pos2::new(bar.right() - 148.0, bar.top() + 6.0),
+                Vec2::new(44.0, TASKBAR_HEIGHT - 12.0),
+            );
+            if taskbar_button(
+                ui,
+                theme,
+                focus,
+                TaskbarButton {
+                    id: Id::new("socdof-taskbar-studio"),
+                    rect: studio_rect,
+                    icon: Icon::Settings,
+                    label: texts.get("studio_title"),
+                    active: shell.studio.is_open(),
+                },
+            ) {
+                shell.studio.toggle(store);
             }
 
             let tray_rect = Rect::from_min_size(
@@ -1083,6 +1119,9 @@ pub fn desktop(
                 shell.toggle_tray();
             }
         });
+    if let Some(app) = launched {
+        outcome.open_app = Some(app);
+    }
 
     let mut dialog = false;
     if let Some(app) = windows.pending_close() {
@@ -1204,6 +1243,14 @@ pub fn desktop(
         focus.set_focus(None);
     }
 
+    if outcome.open_studio {
+        outcome.open_studio = false;
+        shell.studio.open(store);
+    }
+    if let Some(tab) = outcome.studio_tab.take() {
+        shell.studio.set_tab(tab);
+    }
+
     egui::Area::new(Id::new("socdof-desktop-back"))
         .order(egui::Order::Foreground)
         .anchor(Align2::RIGHT_TOP, Vec2::new(-12.0, 12.0))
@@ -1233,6 +1280,7 @@ fn apply_action(
         ShellAction::OpenApp(app) => {
             shell.close_overlays();
             activate_app(icons, windows, app, area, now);
+            outcome.open_app = Some(app);
         }
         ShellAction::ToggleTheme => {
             shell.close_overlays();
@@ -1249,6 +1297,15 @@ fn apply_action(
         ShellAction::CloseDesktop => {
             shell.close_overlays();
             outcome.back = true;
+        }
+        ShellAction::OpenStudio => {
+            shell.close_overlays();
+            outcome.open_studio = true;
+        }
+        ShellAction::OpenLayout => {
+            shell.close_overlays();
+            outcome.open_studio = true;
+            outcome.studio_tab = Some(crate::studio::StudioTab::Layout);
         }
     }
 }
@@ -1662,6 +1719,7 @@ mod tests {
         windows.open(window("invoices", 1), 1_000);
         let mut shell = ShellState::new();
         shell.onboarding = Onboarding::restore(true);
+        let store = SocdofStore::open_in_memory().expect("store");
         let input = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0))),
             time: Some(1.0),
@@ -1676,6 +1734,7 @@ mod tests {
                     theme: &theme,
                     texts: &texts,
                     shell: &mut shell,
+                    store: &store,
                 },
                 &mut focus,
                 &mut icons,

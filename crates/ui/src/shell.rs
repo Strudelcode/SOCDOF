@@ -16,6 +16,7 @@ use crate::desktop::{AppId, IconGrid, TASKBAR_HEIGHT};
 use crate::focus::{focus_ring, FocusState};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
+use crate::studio::StudioState;
 use crate::theme::Theme;
 use crate::tokens::{FONT_BODY, FONT_HEADING, FONT_SMALL, RADIUS_CARD};
 use crate::wallpaper::{Wallpaper, WallpaperState};
@@ -45,6 +46,10 @@ pub enum ShellAction {
     ShowOnboarding,
     /// Leaves the desktop and returns to the gallery.
     CloseDesktop,
+    /// Opens the Studio drawer.
+    OpenStudio,
+    /// Opens the Studio drawer on the document layout tab.
+    OpenLayout,
 }
 
 /// One entry of the command palette.
@@ -57,7 +62,7 @@ pub struct Command {
 }
 
 /// Commands offered by the palette, in display order.
-pub const COMMANDS: [Command; 7] = [
+pub const COMMANDS: [Command; 10] = [
     Command {
         action: ShellAction::OpenApp(AppId::new("contacts")),
         label_key: "app_contacts",
@@ -69,6 +74,18 @@ pub const COMMANDS: [Command; 7] = [
     Command {
         action: ShellAction::OpenApp(AppId::new("invoices")),
         label_key: "app_invoices",
+    },
+    Command {
+        action: ShellAction::OpenApp(AppId::new("therapy")),
+        label_key: "app_therapy",
+    },
+    Command {
+        action: ShellAction::OpenStudio,
+        label_key: "command_studio",
+    },
+    Command {
+        action: ShellAction::OpenLayout,
+        label_key: "command_layout",
     },
     Command {
         action: ShellAction::ToggleTheme,
@@ -419,6 +436,8 @@ pub struct ShellState {
     pub wallpaper: WallpaperState,
     /// Widgets layer.
     pub widgets: WidgetLayer,
+    /// Studio drawer with the letterhead and the clean mode.
+    pub studio: StudioState,
 }
 
 impl ShellState {
@@ -431,6 +450,7 @@ impl ShellState {
             onboarding: Onboarding::new(),
             wallpaper: WallpaperState::default(),
             widgets: WidgetLayer::new(),
+            studio: StudioState::new(),
         }
     }
 
@@ -788,6 +808,7 @@ pub fn command_palette(
 /// Icon of a command.
 fn command_icon(action: ShellAction) -> Icon {
     match action {
+        ShellAction::OpenStudio | ShellAction::OpenLayout => Icon::Settings,
         ShellAction::OpenApp(_) => Icon::Folder,
         ShellAction::ToggleTheme => Icon::Sun,
         ShellAction::NextWallpaper => Icon::Refresh,

@@ -64,7 +64,20 @@ goods receipt, a **POS** card opens the register with receipts, payment totals, 
 cancellation, and a **Calendar** card opens the month view with week/day views, the agenda,
 appointment details and the create/edit form, and a **Settings** card opens all eight tabs
 (company profile, appearance, security, backup, users, roles, updates and portable mode) over the
-core services. Escape or the close button returns to the gallery.
+core services. An **App Store** card opens the module catalogue with licence and activation, an
+**Editor** card opens the document editor with its formatting ribbon, formatted preview and offline
+spell check, a **Users** card opens account management, a **Support**
+card opens the ticket board with tracked time, a **Reports** card opens the period report and a
+**Therapy** card opens the therapy practice with clients and sessions. On the desktop, the taskbar
+opens the **Studio** drawer: it edits the company letterhead, shows the stored record counts and runs
+the clean mode that clears business data while accounts, roles and settings stay. Its **Layout** tab
+sets the PNG letterhead and places the nine print tokens (company data, invoice number, dates,
+subject, footer) on the page with size, bold and alignment, previews the result and feeds the DIN
+5008 PDF export, which continues long position tables on further pages with the column header, the
+letterhead and the tokens repeated there; the palette entry **Document layout** opens that tab
+directly. Escape or the close
+button returns to the gallery. The catalogue holds 1,428 keys per language and 264 golden snapshots
+pin 33 scenes in both appearances.
 
 `cargo test` also runs the keyboard suite (Tab order, Enter/Space activation, arrows, Escape, typing,
 click focus), the window-manager tests and the golden snapshots that pin every primitive and the

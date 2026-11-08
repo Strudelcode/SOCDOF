@@ -13,20 +13,25 @@
 use egui::{Context, RichText};
 use socdof_core::domain::document::Document;
 use socdof_core::error::{CoreError, CoreResult};
+use socdof_core::spell::{self, SpellIssue};
 use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
 };
 use crate::controls::text_field;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
+use crate::richtext;
 use crate::theme::Theme;
-use crate::tokens::{FONT_SMALL, FONT_TITLE};
+use crate::tokens::FONT_SMALL;
 
 /// Fixed timestamp of the seeded documents for gallery and golden snapshots.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
+
+/// Settings key of the personal dictionary the spell check honours.
+pub const PERSONAL_DICTIONARY_KEY: &str = "editor_spell_ignored";
 
 /// Editable values of the open document.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -97,6 +102,14 @@ pub struct EditorState {
     pub confirm_delete: bool,
     /// Set when the screen should close.
     pub back: bool,
+    /// Whether the body shows the formatted preview.
+    pub preview: bool,
+    /// Whether the spell check underlines unknown words and lists them.
+    pub spell: bool,
+    /// Words of the personal dictionary.
+    pub spell_ignored: Vec<String>,
+    /// Character selection of the body editor, kept while the ribbon has the focus.
+    pub selection: (usize, usize),
     saved: Option<SavedDocument>,
     pending: Option<PendingAction>,
     loaded_query: String,
@@ -108,6 +121,7 @@ impl EditorState {
     pub fn new() -> Self {
         Self {
             reload: true,
+            spell: true,
             ..Self::default()
         }
     }
@@ -137,6 +151,7 @@ impl EditorState {
         self.loaded_query.clear();
         self.reload = true;
         self.refresh(store)?;
+        self.load_personal_dictionary(store)?;
         if self.selected.is_none() && !self.is_dirty() {
             if let Some(id) = self.documents.first().map(|document| document.id) {
                 self.load(store, id)?;
@@ -166,12 +181,77 @@ impl EditorState {
 
     /// Word count of the draft.
     pub fn word_count(&self) -> usize {
-        self.draft.body.split_whitespace().count()
+        richtext::word_count(&self.draft.body)
     }
 
     /// Character count of the draft.
     pub fn character_count(&self) -> usize {
         self.draft.body.chars().count()
+    }
+
+    /// Unknown words of the draft, most frequent first.
+    pub fn spell_issues(&self) -> Vec<SpellIssue> {
+        spell::issues(&self.draft.body, &self.spell_ignored)
+    }
+
+    /// Loads the personal dictionary of the spell check from the settings.
+    pub fn load_personal_dictionary(&mut self, store: &Store) -> CoreResult<()> {
+        self.spell_ignored = match store.get_setting(PERSONAL_DICTIONARY_KEY)? {
+            Some(value) => serde_json::from_value(value).unwrap_or_default(),
+            None => Vec::new(),
+        };
+        Ok(())
+    }
+
+    /// Adds a word to the personal dictionary and stores it.
+    pub fn ignore_word(&mut self, store: &Store, word: &str) -> CoreResult<()> {
+        if !self
+            .spell_ignored
+            .iter()
+            .any(|entry| entry.eq_ignore_ascii_case(word))
+        {
+            self.spell_ignored.push(word.to_string());
+        }
+        store.put_setting(
+            PERSONAL_DICTIONARY_KEY,
+            &serde_json::json!(self.spell_ignored),
+        )
+    }
+
+    /// Empties the personal dictionary of the spell check.
+    pub fn clear_personal_dictionary(&mut self, store: &Store) -> CoreResult<()> {
+        self.spell_ignored.clear();
+        store.remove_setting(PERSONAL_DICTIONARY_KEY)
+    }
+
+    /// Formats the current selection as bold.
+    pub fn format_bold(&mut self) {
+        let selection = self.selection;
+        self.selection = richtext::wrap_selection(&mut self.draft.body, selection, "**");
+    }
+
+    /// Formats the current selection as italic.
+    pub fn format_italic(&mut self) {
+        let selection = self.selection;
+        self.selection = richtext::wrap_selection(&mut self.draft.body, selection, "_");
+    }
+
+    /// Turns the selected lines into headings, or back.
+    pub fn format_heading(&mut self) {
+        let selection = self.selection;
+        self.selection = richtext::toggle_line_prefix(&mut self.draft.body, selection, "# ");
+    }
+
+    /// Turns the selected lines into bullets, or back.
+    pub fn format_list(&mut self) {
+        let selection = self.selection;
+        self.selection = richtext::toggle_line_prefix(&mut self.draft.body, selection, "- ");
+    }
+
+    /// Turns the selected lines into quotes, or back.
+    pub fn format_quote(&mut self) {
+        let selection = self.selection;
+        self.selection = richtext::toggle_line_prefix(&mut self.draft.body, selection, "> ");
     }
 
     /// Asks to open a document, guarding unsaved changes.
@@ -346,6 +426,28 @@ struct Actions {
     delete: bool,
     select: Option<Uuid>,
     back: bool,
+    ignore: Option<String>,
+    reset_dictionary: bool,
+}
+
+/// Ribbon action applied to the current selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Formatting {
+    Bold,
+    Italic,
+    Heading,
+    List,
+    Quote,
+}
+
+fn apply_formatting(state: &mut EditorState, formatting: Formatting) {
+    match formatting {
+        Formatting::Bold => state.format_bold(),
+        Formatting::Italic => state.format_italic(),
+        Formatting::Heading => state.format_heading(),
+        Formatting::List => state.format_list(),
+        Formatting::Quote => state.format_quote(),
+    }
 }
 
 fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &EditorState) {
@@ -373,36 +475,22 @@ fn header(
     state: &mut EditorState,
     actions: &mut Actions,
 ) {
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.label(
-                RichText::new(texts.get("editor_title"))
-                    .size(FONT_TITLE)
-                    .strong(),
-            );
-            ui.label(
-                RichText::new(texts.get("editor_subtitle"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("editor_back"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
-                actions.back = true;
-            }
-            if state.is_dirty() {
-                badge(ui, theme, texts.get("editor_unsaved"), Tone::Warning);
-            }
-        });
-    });
+    let status = state
+        .is_dirty()
+        .then(|| (texts.get("editor_unsaved"), Tone::Warning));
+    crate::chrome::module_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        crate::chrome::ModuleHeader {
+            app: crate::chrome::app_chrome("editor"),
+            title: texts.get("editor_title"),
+            subtitle: texts.get("editor_subtitle"),
+            status,
+        },
+        &mut actions.back,
+    );
 }
 
 fn document_list(
@@ -419,12 +507,13 @@ fn document_list(
             badge(ui, theme, &state.documents.len().to_string(), Tone::Neutral);
         });
         ui.add_space(6.0);
-        search_field(
+        search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("editor_search"),
+            150.0,
         );
         ui.add_space(4.0);
         if button(
@@ -463,6 +552,7 @@ fn document_list(
 
     card(ui, theme, |ui| {
         egui::ScrollArea::vertical()
+            .id_source("editor-document-list")
             .max_height(760.0)
             .show(ui, |ui| {
                 for document in &state.documents {
@@ -485,7 +575,7 @@ fn document_list(
                     ui.label(
                         RichText::new(format!(
                             "{} {}",
-                            document.word_count(),
+                            richtext::word_count(&document.body),
                             texts.get("editor_words")
                         ))
                         .size(FONT_SMALL)
@@ -542,20 +632,14 @@ fn document_editor(
         );
     });
     ui.add_space(8.0);
-    card(ui, theme, |ui| {
-        let response = ui.add_sized(
-            egui::vec2(ui.available_width(), 560.0),
-            egui::TextEdit::multiline(&mut state.draft.body)
-                .hint_text(texts.get("editor_body_hint"))
-                .desired_width(f32::INFINITY)
-                .text_color(theme.palette.text),
-        );
-        focus.register(response.id);
-        if response.clicked() {
-            focus.set_focus(Some(response.id));
-        }
-    });
+    let formatting = ribbon(ui, theme, texts, focus, state);
     ui.add_space(8.0);
+    body_editor(ui, theme, texts, focus, state, formatting);
+    ui.add_space(8.0);
+    if state.spell && !state.preview {
+        spell_panel(ui, theme, texts, focus, state, actions);
+        ui.add_space(8.0);
+    }
     ui.horizontal(|ui| {
         if button(
             ui,
@@ -608,10 +692,233 @@ fn document_editor(
     });
     ui.add_space(4.0);
     ui.label(
+        RichText::new(texts.get("editor_format_hint"))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+    );
+    ui.label(
         RichText::new(texts.get("editor_shortcut_hint"))
             .size(FONT_SMALL)
             .color(theme.palette.text_muted),
     );
+}
+
+/// Draws the formatting ribbon and returns the action the user picked.
+fn ribbon(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut EditorState,
+) -> Option<Formatting> {
+    let mut action = None;
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            for (key, formatting) in [
+                ("editor_bold", Formatting::Bold),
+                ("editor_italic", Formatting::Italic),
+                ("editor_heading", Formatting::Heading),
+                ("editor_list", Formatting::List),
+                ("editor_quote", Formatting::Quote),
+            ] {
+                if button(ui, theme, focus, texts.get(key), ButtonVariant::Ghost).activated {
+                    action = Some(formatting);
+                }
+            }
+            ui.separator();
+            let preview = if state.preview {
+                ButtonVariant::Primary
+            } else {
+                ButtonVariant::Ghost
+            };
+            if button(ui, theme, focus, texts.get("editor_preview"), preview).activated {
+                state.preview = !state.preview;
+            }
+            let spell = if state.spell {
+                ButtonVariant::Primary
+            } else {
+                ButtonVariant::Ghost
+            };
+            if button(ui, theme, focus, texts.get("editor_spell"), spell).activated {
+                state.spell = !state.spell;
+            }
+        });
+    });
+    action
+}
+
+/// Draws either the markup editor with spell underlines or the formatted preview.
+fn body_editor(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut EditorState,
+    formatting: Option<Formatting>,
+) {
+    let unknown = if state.spell && !state.preview {
+        spell::unknown_ranges(&state.draft.body, &state.spell_ignored)
+    } else {
+        Vec::new()
+    };
+    card(ui, theme, |ui| {
+        if state.preview {
+            ui.label(
+                RichText::new(texts.get("editor_preview_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.add_space(6.0);
+            egui::ScrollArea::vertical()
+                .id_source("editor-preview")
+                .max_height(500.0)
+                .show(ui, |ui| {
+                    richtext::render(ui, theme, &state.draft.body);
+                });
+            return;
+        }
+        let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
+            let mut job = egui::text::LayoutJob::default();
+            job.wrap.max_width = wrap_width;
+            let plain = egui::TextFormat {
+                font_id: egui::FontId::proportional(crate::tokens::FONT_BODY),
+                color: theme.palette.text,
+                ..Default::default()
+            };
+            let mut marked = plain.clone();
+            marked.underline = richtext::spell_underline(theme.palette.danger);
+            let mut last = 0usize;
+            for (start, end) in unknown.iter().copied() {
+                if start < last || end > text.len() {
+                    continue;
+                }
+                if start > last {
+                    job.append(&text[last..start], 0.0, plain.clone());
+                }
+                job.append(&text[start..end], 0.0, marked.clone());
+                last = end;
+            }
+            job.append(&text[last..], 0.0, plain);
+            ui.fonts(|fonts| fonts.layout_job(job))
+        };
+        let output = egui::TextEdit::multiline(&mut state.draft.body)
+            .hint_text(texts.get("editor_body_hint"))
+            .desired_width(f32::INFINITY)
+            .desired_rows(16)
+            .text_color(theme.palette.text)
+            .layouter(&mut layouter)
+            .show(ui);
+        focus.register(output.response.id);
+        if output.response.clicked() {
+            focus.set_focus(Some(output.response.id));
+        }
+        if let Some(range) = output.cursor_range {
+            let range = range.as_sorted_char_range();
+            state.selection = (range.start, range.end);
+        }
+        let shortcut = |key: egui::Key| {
+            output.response.has_focus()
+                && ui
+                    .ctx()
+                    .input(|input| input.modifiers.ctrl && input.key_pressed(key))
+        };
+        let shortcut_action = if shortcut(egui::Key::B) {
+            Some(Formatting::Bold)
+        } else if shortcut(egui::Key::I) {
+            Some(Formatting::Italic)
+        } else {
+            None
+        };
+        if let Some(action) = shortcut_action.or(formatting) {
+            apply_formatting(state, action);
+            output.response.request_focus();
+        }
+    });
+}
+
+/// Lists the unknown words of the draft with an action to accept each one.
+fn spell_panel(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut EditorState,
+    actions: &mut Actions,
+) {
+    let issues = state.spell_issues();
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(texts.get("editor_spell_title")).strong());
+            badge(
+                ui,
+                theme,
+                &issues.len().to_string(),
+                if issues.is_empty() {
+                    Tone::Success
+                } else {
+                    Tone::Warning
+                },
+            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    RichText::new(texts.get("editor_spell_language"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            });
+        });
+        ui.add_space(5.0);
+        if issues.is_empty() {
+            ui.label(
+                RichText::new(texts.get("editor_spell_ok"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.success),
+            );
+        } else {
+            egui::ScrollArea::vertical()
+                .id_source("editor-spell-issues")
+                .max_height(110.0)
+                .show(ui, |ui| {
+                    for issue in &issues {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(&issue.word)
+                                    .size(FONT_SMALL)
+                                    .color(theme.palette.danger),
+                            );
+                            ui.label(
+                                RichText::new(format!("\u{00d7} {}", issue.count))
+                                    .size(FONT_SMALL)
+                                    .color(theme.palette.text_muted),
+                            );
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("editor_spell_ignore"),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
+                                actions.ignore = Some(issue.word.clone());
+                            }
+                        });
+                    }
+                });
+        }
+        if !state.spell_ignored.is_empty()
+            && button(
+                ui,
+                theme,
+                focus,
+                texts.get("editor_spell_reset"),
+                ButtonVariant::Ghost,
+            )
+            .activated
+        {
+            actions.reset_dictionary = true;
+        }
+    });
 }
 
 /// Renders the text editor into the context.
@@ -642,23 +949,25 @@ pub fn editor(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                header(ui, theme, texts, focus, state, &mut actions);
-                ui.add_space(8.0);
-                messages(ui, theme, texts, state);
-                ui.add_space(6.0);
-                ui.horizontal_top(|ui| {
-                    ui.vertical(|ui| {
-                        ui.set_width(310.0);
-                        document_list(ui, theme, texts, focus, state, &mut actions);
-                    });
-                    ui.add_space(14.0);
-                    ui.vertical(|ui| {
-                        ui.set_min_width(ui.available_width());
-                        document_editor(ui, theme, texts, focus, state, &mut actions);
+            egui::ScrollArea::vertical()
+                .id_source("editor-screen")
+                .show(ui, |ui| {
+                    header(ui, theme, texts, focus, state, &mut actions);
+                    ui.add_space(8.0);
+                    messages(ui, theme, texts, state);
+                    ui.add_space(6.0);
+                    ui.horizontal_top(|ui| {
+                        ui.vertical(|ui| {
+                            ui.set_width(310.0);
+                            document_list(ui, theme, texts, focus, state, &mut actions);
+                        });
+                        ui.add_space(14.0);
+                        ui.vertical(|ui| {
+                            ui.set_min_width(ui.available_width());
+                            document_editor(ui, theme, texts, focus, state, &mut actions);
+                        });
                     });
                 });
-            });
         });
 
     if actions.save || ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {
@@ -672,6 +981,17 @@ pub fn editor(
     if let Some(id) = actions.select {
         if let Err(error) = state.open_document(store, id) {
             state.error = Some(error_key(&error));
+        }
+    }
+    if let Some(word) = actions.ignore.take() {
+        if let Err(error) = state.ignore_word(store, &word) {
+            state.error = Some(error_key(&error));
+        }
+    }
+    if actions.reset_dictionary {
+        match state.clear_personal_dictionary(store) {
+            Ok(()) => state.status = Some("editor_spell_reset_done"),
+            Err(error) => state.error = Some(error_key(&error)),
         }
     }
     if actions.delete {
@@ -798,6 +1118,10 @@ mod tests {
         let mut state = EditorState::new();
         state.reset_for_open(store).expect("open");
         state
+    }
+
+    fn state_for(store: &Store) -> EditorState {
+        state(store)
     }
 
     #[test]
@@ -941,6 +1265,97 @@ mod tests {
                 }));
             }
             assert!(output.expect("frame").shapes.len() > 20);
+        }
+    }
+
+    #[test]
+    fn ribbon_applies_markup_to_the_selection() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = state(&store);
+        state.draft.body = "Ein Wort".to_string();
+        state.selection = (4, 8);
+        state.format_bold();
+        assert_eq!(state.draft.body, "Ein **Wort**");
+        assert_eq!(state.selection, (6, 10));
+        state.format_italic();
+        assert_eq!(state.draft.body, "Ein **_Wort_**");
+
+        state.draft.body = "Zeile".to_string();
+        state.selection = (0, 0);
+        state.format_heading();
+        assert_eq!(state.draft.body, "# Zeile");
+        state.format_heading();
+        assert_eq!(state.draft.body, "Zeile");
+
+        state.selection = (0, 5);
+        state.format_list();
+        assert_eq!(state.draft.body, "- Zeile");
+        state.format_list();
+        assert_eq!(state.draft.body, "Zeile");
+        state.selection = (0, 5);
+        state.format_quote();
+        assert_eq!(state.draft.body, "> Zeile");
+        state.format_quote();
+        assert_eq!(state.draft.body, "Zeile");
+    }
+
+    #[test]
+    fn checks_spelling_and_keeps_the_personal_dictionary() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = state(&store);
+        state.draft.body = "Ein scohnes Beispiel mit Wort.".to_string();
+        let issues = state.spell_issues();
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].word, "scohnes");
+        state.ignore_word(&store, "scohnes").expect("ignore");
+        assert!(state.spell_issues().is_empty());
+        assert!(spell::unknown_ranges(&state.draft.body, &state.spell_ignored).is_empty());
+
+        let mut reloaded = state_for(&store);
+        assert_eq!(reloaded.spell_ignored, vec!["scohnes".to_string()]);
+        reloaded.clear_personal_dictionary(&store).expect("clear");
+        reloaded.draft.body = "Ein scohnes Beispiel.".to_string();
+        assert_eq!(reloaded.spell_issues().len(), 1);
+    }
+
+    #[test]
+    fn renders_the_preview_and_the_spell_panel() {
+        let store = Store::open_in_memory().expect("store");
+        seed_documents(&store, &texts()).expect("seed");
+        let mut state = state(&store);
+        let theme = Theme::new(crate::theme::Appearance::Dark, "indigo");
+        let texts = texts();
+        for preview in [false, true] {
+            state.preview = preview;
+            state.spell = true;
+            let ctx = Context::default();
+            let mut focus = FocusState::default();
+            let mut shapes = 0;
+            for _ in 0..2 {
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::Vec2::new(1180.0, 1600.0),
+                    )),
+                    time: Some(1.0),
+                    ..Default::default()
+                };
+                shapes = ctx
+                    .run(input, |ctx| {
+                        editor(
+                            ctx,
+                            &theme,
+                            &texts,
+                            &mut focus,
+                            &mut state,
+                            &store,
+                            SAMPLE_NOW_MS,
+                        );
+                    })
+                    .shapes
+                    .len();
+            }
+            assert!(shapes > 20);
         }
     }
 }

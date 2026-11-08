@@ -27,6 +27,7 @@ pub mod app_store;
 pub mod appointments;
 pub mod auth;
 pub mod calendar;
+pub mod chrome;
 pub mod components;
 pub mod contacts;
 pub mod controls;
@@ -42,10 +43,15 @@ pub mod invoices;
 pub mod pos;
 pub mod products;
 pub mod purchases;
+pub mod reports;
+pub mod richtext;
 pub mod settings;
 pub mod shell;
 pub mod snapshot;
+pub mod studio;
+pub mod support;
 pub mod theme;
+pub mod therapie;
 pub mod tokens;
 pub mod users;
 pub mod wallpaper;
@@ -61,6 +67,9 @@ pub use appointments::{
 };
 pub use auth::{auth, AuthState, AuthView, DEFAULT_IDLE_TIMEOUT_MS};
 pub use calendar::CalendarState;
+pub use chrome::{
+    app_chrome, app_frame, app_title_bar, app_window, module_header, AppChrome, WindowAction, APPS,
+};
 pub use components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
     Activated, ButtonVariant, SortState, Toast, Toasts, Tone,
@@ -93,6 +102,7 @@ pub use products::{products, seed_products, ProductDraft, ProductsState, Product
 pub use purchases::{
     purchases, seed_purchases, PurchaseDraft, PurchaseLineDraft, PurchasesState, PurchasesView,
 };
+pub use reports::{reports, ReportsState};
 pub use settings::{
     seed_settings, settings, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
 };
@@ -101,7 +111,12 @@ pub use shell::{
     ShellAction, ShellState, StartMenu, Tray, TrayAction, COMMANDS,
 };
 pub use snapshot::{capture, PrimitiveState, SnapshotVariant};
+pub use studio::{studio_drawer, StudioCounts, StudioDraft, StudioState, StudioTab};
+pub use support::{seed_sample as seed_support, support, SupportState, SupportView, TicketDraft};
 pub use theme::{Appearance, Palette, Theme};
+pub use therapie::{
+    seed_sample as seed_therapie, therapie, ClientDraft, TherapieState, TherapieView,
+};
 pub use tokens::{AccentPreset, CompanionColor};
 pub use users::{seed_users, users, UserDraft, UsersState, UsersView};
 pub use wallpaper::{Wallpaper, WallpaperFit, WallpaperState};

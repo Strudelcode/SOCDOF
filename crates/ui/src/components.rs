@@ -255,7 +255,7 @@ pub fn tabs(
     changed
 }
 
-/// Draws a single line search field.
+/// Draws a single line search field that fills the available width.
 pub fn search_field(
     ui: &mut Ui,
     theme: &Theme,
@@ -263,10 +263,26 @@ pub fn search_field(
     value: &mut String,
     hint: &str,
 ) -> Activated {
+    search_field_reserved(ui, theme, focus, value, hint, 0.0)
+}
+
+/// Draws a single line search field that leaves `reserve` points for the controls next to it.
+///
+/// Module toolbars place a primary action to the right of the search field; without the reservation
+/// the infinite width of the field pushes that action out of the window.
+pub fn search_field_reserved(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    value: &mut String,
+    hint: &str,
+    reserve: f32,
+) -> Activated {
+    let width = (ui.available_width() - reserve).max(160.0);
     let response = ui.add(
         TextEdit::singleline(value)
             .hint_text(hint)
-            .desired_width(f32::INFINITY)
+            .desired_width(width)
             .text_color(theme.palette.text),
     );
     focus_text_edit(ui, theme, focus, &response, hint);

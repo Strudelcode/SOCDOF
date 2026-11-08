@@ -9,6 +9,7 @@ pub mod backup;
 pub mod backup_scheduler;
 pub mod csv;
 pub mod date;
+pub mod document_layout;
 pub mod domain;
 pub mod error;
 pub mod i18n;
@@ -20,6 +21,7 @@ pub mod pdf;
 pub mod security;
 pub mod security_questions;
 pub mod settings_service;
+pub mod spell;
 pub mod store;
 
 pub use error::{CoreError, CoreResult};

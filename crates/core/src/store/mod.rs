@@ -19,6 +19,7 @@ use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
 use crate::domain::stock::StockMove;
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
+use crate::domain::therapy::{TherapyClient, TherapySession};
 use crate::domain::user::User;
 use crate::domain::workspace::{Report, Widget};
 use crate::error::CoreResult;
@@ -30,19 +31,22 @@ pub mod dashboard;
 pub mod documents;
 pub mod invoices;
 pub mod journal;
+pub mod maintenance;
 pub mod permissions;
 pub mod pos_orders;
 pub mod products;
 pub mod purchase_orders;
+pub mod reports;
 pub mod search;
 pub mod sessions;
 pub mod settings;
 pub mod support;
+pub mod therapy;
 pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -560,6 +564,11 @@ impl Store {
             version = 7;
         }
 
+        if version < 8 {
+            self.conn.execute_batch(SCHEMA_V8)?;
+            version = 8;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -904,6 +913,14 @@ impl Store {
         settings::save_company_profile(&self.conn, profile)
     }
 
+    /// Deletes every business record in one transaction and returns the removed row count.
+    ///
+    /// Configuration stays: accounts, roles, sessions and settings survive, so this is the clean
+    /// mode of the Studio drawer rather than a factory reset of the database file.
+    pub fn reset_business_data(&self) -> CoreResult<u64> {
+        maintenance::reset_business_data(&self.conn)
+    }
+
     // --- Purchase orders -------------------------------------------------------------------
 
     /// Inserts a purchase order with its positions.
@@ -1178,6 +1195,83 @@ impl Store {
         support::delete_time_entry(&self.conn, id)
     }
 
+    // --- Therapy practice -----------------------------------------------------------------
+
+    /// Inserts a therapy client.
+    pub fn insert_therapy_client(&self, client: &TherapyClient) -> CoreResult<()> {
+        therapy::insert_client(&self.conn, client)
+    }
+
+    /// Replaces an existing therapy client.
+    pub fn update_therapy_client(&self, client: &TherapyClient) -> CoreResult<()> {
+        therapy::update_client(&self.conn, client)
+    }
+
+    /// Deletes a therapy client together with its sessions.
+    pub fn delete_therapy_client(&self, id: uuid::Uuid) -> CoreResult<()> {
+        therapy::delete_client(&self.conn, id)
+    }
+
+    /// Loads one therapy client.
+    pub fn find_therapy_client(&self, id: uuid::Uuid) -> CoreResult<Option<TherapyClient>> {
+        therapy::find_client(&self.conn, id)
+    }
+
+    /// Lists all therapy clients, active first.
+    pub fn list_therapy_clients(&self) -> CoreResult<Vec<TherapyClient>> {
+        therapy::list_clients(&self.conn)
+    }
+
+    /// Inserts a therapy session.
+    pub fn insert_therapy_session(&self, session: &TherapySession) -> CoreResult<()> {
+        therapy::insert_session(&self.conn, session)
+    }
+
+    /// Replaces an existing therapy session.
+    pub fn update_therapy_session(&self, session: &TherapySession) -> CoreResult<()> {
+        therapy::update_session(&self.conn, session)
+    }
+
+    /// Deletes a therapy session.
+    pub fn delete_therapy_session(&self, id: uuid::Uuid) -> CoreResult<()> {
+        therapy::delete_session(&self.conn, id)
+    }
+
+    /// Lists the sessions of a client, newest first.
+    pub fn therapy_sessions_for_client(
+        &self,
+        client_id: uuid::Uuid,
+    ) -> CoreResult<Vec<TherapySession>> {
+        therapy::sessions_for_client(&self.conn, client_id)
+    }
+
+    /// Lists all therapy sessions that started in `[from, to)`.
+    pub fn therapy_sessions_between(&self, from: i64, to: i64) -> CoreResult<Vec<TherapySession>> {
+        therapy::sessions_between(&self.conn, from, to)
+    }
+
+    /// Number of sessions of a client.
+    pub fn therapy_session_count(&self, client_id: uuid::Uuid) -> CoreResult<i64> {
+        therapy::session_count(&self.conn, client_id)
+    }
+
+    /// Puts every still open session of a client on one invoice.
+    pub fn link_therapy_sessions(
+        &self,
+        client_id: uuid::Uuid,
+        invoice_id: uuid::Uuid,
+        now: i64,
+    ) -> CoreResult<usize> {
+        therapy::link_invoice(&self.conn, client_id, invoice_id, now)
+    }
+
+    // --- Reporting ---------------------------------------------------------------------
+
+    /// Builds the report of the half-open period `[from, to)`.
+    pub fn report(&self, from: i64, to: i64) -> CoreResult<reports::Report> {
+        reports::load(&self.conn, from, to)
+    }
+
     // --- Workspace: widgets and reports ----------------------------------------------------
 
     /// Inserts a desktop widget.
@@ -1304,6 +1398,38 @@ impl Store {
         &self.conn
     }
 }
+
+/// Schema v8: therapy clients and sessions with their invoice link.
+const SCHEMA_V8: &str = r#"
+CREATE TABLE IF NOT EXISTS therapy_clients (
+    id                  TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    email               TEXT NOT NULL DEFAULT '',
+    phone               TEXT NOT NULL DEFAULT '',
+    hourly_rate_cents   INTEGER NOT NULL DEFAULT 0,
+    kilometer_rate_cents INTEGER NOT NULL DEFAULT 0,
+    notes               TEXT NOT NULL DEFAULT '',
+    active              INTEGER NOT NULL DEFAULT 1,
+    created_at          INTEGER NOT NULL,
+    updated_at          INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS therapy_sessions (
+    id                TEXT PRIMARY KEY,
+    client_id         TEXT NOT NULL,
+    started_at        INTEGER NOT NULL,
+    minutes           INTEGER NOT NULL,
+    kilometers_milli  INTEGER NOT NULL DEFAULT 0,
+    notes             TEXT NOT NULL DEFAULT '',
+    invoice_id        TEXT,
+    created_at        INTEGER NOT NULL,
+    updated_at        INTEGER NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES therapy_clients (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS therapy_sessions_client
+    ON therapy_sessions (client_id, started_at);
+"#;
 
 #[cfg(test)]
 mod tests {

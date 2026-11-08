@@ -4,6 +4,169 @@ All notable changes to SOCDOF are documented here. The release workflow reads
 the section matching the pushed tag; a release fails if this file has no
 matching, non-empty section.
 
+## [0.29.0] - 2026-11-08
+
+### Added
+
+- Multi-page invoices (`pdf::writer`): the document holds any number of pages, writes a `/Pages`
+  tree with the right `/Count`, one content stream per page and repeats the letterhead image on
+  every page, so a background set before pagination also covers the pages added afterwards.
+- Paginated position table (`pdf::din5008`): 19 positions fit on page one and 33 on every
+  continuation page. Each page repeats the column header (`Pos.`, `Bezeichnung`, `Menge`,
+  `Einzelpreis`, `Betrag`), totals and the payment line appear only on the last page, and the footer
+  numbers the pages (`Seite X von Y`). A position row is never cut in half: a row that does not fit
+  moves whole to the next page.
+- Letterhead and tokens on every page: the background is painted under the content and the enabled
+  `document_layout` tokens are painted over it on page one and on all continuation pages.
+- The Studio layout tab names the pagination behaviour (new key `studio_layout_pagination`, 1,428 keys
+  per language).
+
+### Notes
+
+- One-page invoices render exactly as before; only the page counter and the letterhead/token repeat
+  are new on continuation pages.
+- There is still one document layout, not one per invoice template.
+
+## [0.28.0] - 2026-11-08
+
+### Added
+
+- Document layout (`socdof_core::document_layout`): one stored layout with an optional PNG letterhead
+  and nine placement tokens (company name, company address, contact, tax number, invoice number,
+  invoice date, due date, subject, footer). Every token carries a position in page percentages, a
+  font size, bold and left/center/right alignment; the default layout leaves all tokens disabled, so
+  freshly installed invoices print exactly as before. Validation reports `layout_position_invalid`,
+  `layout_size_invalid`, `layout_tokens_required` and `layout_image_invalid`, and the layout is
+  persisted as the `document_layout` setting.
+- PDF letterhead (`pdf::writer`, `pdf::din5008`): a PNG background is decoded (RGB, RGBA, grayscale,
+  grayscale+alpha) and embedded as a Flate-compressed DeviceRGB image XObject that the page paints
+  before the DIN 5008 content. Placed tokens are drawn after the content, so they stay visible on top
+  of the letterhead, and `export_invoice_pdf` applies the stored layout.
+- Studio layout tab: a page preview with the decoded letterhead and the enabled tokens, the
+  background path, a per-token editor (enable, x/y, size, bold, alignment), save with the core's
+  error codes and a reset to the defaults. The palette gained a `command_layout` entry that opens the
+  Studio on this tab.
+- One new golden scene (`studio-layout`) in both appearances and all four languages: 264 goldens in
+  33 scenes; 31 new keys bring the catalogue to 1,427 per language.
+
+### Notes
+
+- There is one document layout, not one per invoice template; per-template layouts remain open.
+- The letterhead has to be a PNG file. Indexed and 16-bit PNGs are rejected by the writer with
+  `layout_image_invalid`, and a missing file simply prints without a background.
+
+## [0.27.0] - 2026-11-08
+
+### Added
+
+- Editor rich-text ribbon (`socdof_ui::richtext`): bold, italic, heading, list and quote applied to
+  the character selection from a ribbon and from Ctrl+B/Ctrl+I. The document body keeps a light
+  markup (`**bold**`, `_italic_`, `# heading`, `- list`, `> quote`), so storage, search, backups and
+  the legacy CSV path keep working on plain text.
+- Formatted preview: a toggle renders the document with heading size, bullets, a quote bar,
+  double-painted bold runs and epaint's italic skew; word counts ignore markup characters.
+- Offline spell check (`socdof_core::spell`): the bundled German Hunspell dictionary (igerman98,
+  GPL) with its affix rules, licence included under `crates/core/assets/dictionary`. Unknown words
+  are underlined in the editor and listed in a proofing panel with occurrence counts; ignored words
+  go to a personal dictionary stored under the `editor_spell_ignored` setting and can be reset.
+- Two new golden scenes pin the preview and the proofing state in both appearances and all four
+  languages: 256 goldens in 32 scenes; 15 new catalogue keys bring the catalogue to 1,396 per
+  language.
+
+### Notes
+
+- The spell checker ships with the German dictionary only, like the shipped application; the panel
+  names the dictionary in every language. Cross-product affixes are not expanded, so a rare
+  inflection can be flagged and is then accepted through the personal dictionary.
+- The per-template document layout editor remains with Phase 8.
+
+## [0.26.0] - 2026-11-08
+
+### Added
+
+- Studio drawer (`socdof_ui::studio`): a real right-side drawer that opens from the desktop taskbar
+  and from a new command-palette entry. The letterhead tab edits the company profile through the
+  validated settings service, shows the empty state when nothing is stored yet and maps the core's
+  validation code to its own message. The data tab lists the stored contacts, products, invoices,
+  purchase orders and receipts.
+- Clean mode: `Store::reset_business_data` deletes every business record in one transaction
+  (`store::maintenance`) and keeps the schema, accounts, roles, sessions and settings. The drawer
+  asks for confirmation in its own dialog before it runs.
+- Two new golden scenes pin the letterhead and the data tab in both appearances and all four languages: 240 goldens in 30
+  scenes; 28 new catalogue keys bring the catalogue to 1,381 per language.
+
+### Notes
+
+- The per-template document layout editor, the letterhead background file and the rich-text ribbon
+  of the editor remain open. Phase 6's module list is complete.
+
+## [0.25.0] - 2026-11-08
+
+### Added
+
+- Therapy practice (`socdof_ui::therapie`): schema v8 adds `therapy_clients` and `therapy_sessions`;
+  `store::therapy` offers the CRUD, the session queries by client and by range, the session count and
+  `link_invoice`. `domain::therapy` owns the arithmetic through the pure `session_amount` (minutes at
+  the hourly rate plus kilometres at the kilometre rate, integer rounding) and `summarize` (sessions,
+  minutes, kilometres, billable, billed, open).
+- The screen lists and searches clients with their session count and rates, shows four key figures,
+  the session history with per-session amounts and the billed badge, books sessions, links the open
+  sessions to an invoice by number and keeps empty, validation and storage states in all four
+  languages. It opens from launcher, desktop, gallery, start menu, palette and preview.
+- 88 new catalogue keys per language (1,353 in total); one new scene adds 8 goldens.
+
+### Notes
+
+- Appointment sync, series appointments and the treatment report remain open.
+
+## [0.24.0] - 2026-11-08
+
+### Added
+
+- Reports app (`socdof_ui::reports`): `store::reports` loads the invoices of a half-open period with
+  their contact names and totals, adds the tracked minutes of the same range and returns a report
+  with a pure `summarize` and `status_totals`. The screen offers four periods, seven key figures, a
+  per-state breakdown with share bars, the invoice table with locale-independent dates and empty and
+  error states.
+- 33 new catalogue keys per language (1,265 in total); one new scene adds 8 goldens.
+
+### Notes
+
+- The feedback form of the legacy reporting module is not implemented.
+
+## [0.23.0] - 2026-11-08
+
+### Added
+
+- Support app (`socdof_ui::support`): ticket list with status and priority chips, local search, an
+  open-only filter, the create/edit form with core validation, the four status transitions, delete
+  confirmation and a working-time panel that books, lists and removes time entries per ticket.
+- The module carries the application window chrome, opens from the launcher and the desktop and is
+  pinned by its own golden scene. 67 new catalogue keys per language (1,232 in total).
+
+### Notes
+
+- Attachments and the Discord report remain open.
+
+## [0.22.0] - 2026-11-08
+
+### Added
+
+- Application window chrome (`socdof_ui::chrome`): every module screen is drawn inside the SOCDOF
+  app window with an accent frame, a 40 pixel title bar (app icon, translated name, `[MODULE]` badge,
+  minimize/maximize/close) and the module header card with its accent icon tile and status chip. The
+  desktop and the preview share the same functions.
+- The desktop now shows the full app catalogue instead of three icons: the legacy tile colors,
+  reading-order wrapping and labels that wrap instead of clipping. Icons, start menu, command palette
+  and taskbar all open the real screens and reload their state from the store; closing a screen
+  returns to the desktop and releases the running indicator.
+- 10 new catalogue keys per language (1,165 in total).
+
+### Notes
+
+- The dashboard key figures moved to equal-width columns and module search toolbars reserve room for
+  their primary action.
+
 ## [0.21.0] - 2026-11-08
 
 ### Added

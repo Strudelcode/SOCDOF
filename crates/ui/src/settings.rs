@@ -36,7 +36,7 @@ use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
-use crate::tokens::{preset_ids, FONT_SMALL, FONT_TITLE};
+use crate::tokens::{preset_ids, FONT_SMALL};
 
 /// Fixed timestamp used by the deterministic gallery data.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
@@ -1133,33 +1133,24 @@ fn header(
     focus: &mut FocusState,
     state: &mut SettingsState,
 ) {
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.label(
-                RichText::new(texts.get("settings_title"))
-                    .size(FONT_TITLE)
-                    .strong(),
-            );
-            ui.label(
-                RichText::new(texts.get("settings_subtitle"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("settings_back"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
-                state.back = true;
-            }
-        });
-    });
+    let subtitle = format!(
+        "{} · {}",
+        texts.get(SettingsTab::ALL[state.tab.index()].label_key()),
+        texts.get("settings_subtitle")
+    );
+    crate::chrome::module_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        crate::chrome::ModuleHeader {
+            app: crate::chrome::app_chrome("settings"),
+            title: texts.get("settings_title"),
+            subtitle: &subtitle,
+            status: None,
+        },
+        &mut state.back,
+    );
 }
 
 fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SettingsState) {

@@ -16,7 +16,7 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
@@ -507,29 +507,19 @@ fn screen_header(
     title: &str,
     subtitle: &str,
 ) {
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.label(RichText::new(title).size(FONT_TITLE).strong());
-            ui.label(
-                RichText::new(subtitle)
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("users_back"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
-                state.back = true;
-            }
-        });
-    });
+    crate::chrome::module_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        crate::chrome::ModuleHeader {
+            app: crate::chrome::app_chrome("users"),
+            title,
+            subtitle,
+            status: None,
+        },
+        &mut state.back,
+    );
 }
 
 /// Renders the user management screen into the context.
@@ -652,12 +642,13 @@ fn list_view(
         {
             create = true;
         }
-        search_field(
+        search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("users_search"),
+            150.0,
         );
     });
     if create {

@@ -6,6 +6,7 @@
 use std::path::Path;
 
 use socdof_core::backup::{self, BackupInfo, BackupMetadata};
+use socdof_core::document_layout;
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::now_millis;
 use socdof_core::pdf::din5008;
@@ -62,7 +63,8 @@ impl Shell {
             .find_contact(invoice.contact_id)?
             .ok_or_else(|| CoreError::NotFound(invoice.contact_id.to_string()))?;
         let company = self.store().company_profile()?;
+        let layout = document_layout::load(self.store())?;
 
-        din5008::write_invoice_pdf(path, &invoice, &recipient, &company)
+        din5008::write_invoice_pdf_with_layout(path, &invoice, &recipient, &company, &layout)
     }
 }

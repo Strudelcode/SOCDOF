@@ -18,7 +18,7 @@ use crate::components::{badge, button, card, empty_state, search_field, ButtonVa
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
-use crate::tokens::{FONT_SMALL, FONT_TITLE};
+use crate::tokens::FONT_SMALL;
 
 /// State of the App Store screen.
 #[derive(Debug, Clone, Default)]
@@ -176,33 +176,19 @@ fn header(
     focus: &mut FocusState,
     state: &mut AppStoreState,
 ) {
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.label(
-                RichText::new(texts.get("app_store_title"))
-                    .size(FONT_TITLE)
-                    .strong(),
-            );
-            ui.label(
-                RichText::new(texts.get("app_store_subtitle"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("app_store_back"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
-                state.back = true;
-            }
-        });
-    });
+    crate::chrome::module_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        crate::chrome::ModuleHeader {
+            app: crate::chrome::app_chrome("app-store"),
+            title: texts.get("app_store_title"),
+            subtitle: texts.get("app_store_subtitle"),
+            status: None,
+        },
+        &mut state.back,
+    );
 }
 
 /// Renders the App Store into the context.
@@ -383,7 +369,7 @@ mod tests {
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
         assert_eq!(state.modules.len(), 15);
-        assert_eq!(state.active_count(), 14);
+        assert_eq!(state.active_count(), 15);
         let mut texts = texts();
         state.query = "therapie".to_string();
         let filtered = state.filtered(&texts);
@@ -436,8 +422,10 @@ mod tests {
         state.refresh(&store).expect("catalogue");
         assert!(!state.toggle(&store, AppModule::Dashboard));
         assert_eq!(state.error, Some("app_store_error_required"));
-        assert!(!state.toggle(&store, AppModule::Therapy));
-        assert_eq!(state.error, Some("app_store_error_locked"));
+        assert!(state.toggle(&store, AppModule::Therapy));
+        assert!(!app_store::is_active(&store, AppModule::Therapy).expect("state"));
+        assert!(state.toggle(&store, AppModule::Therapy));
+        assert!(app_store::is_active(&store, AppModule::Therapy).expect("state"));
     }
 
     #[test]

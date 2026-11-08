@@ -34,7 +34,7 @@ src/
 ├── lock.rs             instance lock with heartbeat and stale takeover
 ├── pdf/                PDF writer + DIN 5008 invoice layout
 │   ├── mod.rs
-│   ├── writer.rs       PDF 1.4 writer (Helvetica, WinAnsi, xref)
+│   ├── writer.rs       PDF 1.4 writer (Helvetica, WinAnsi, xref, multiple pages)
 │   └── din5008.rs      invoice layout: address field, positions, totals
 ├── domain/             entities, no persistence code
 │   ├── appointment.rs  calendar entries
@@ -49,6 +49,7 @@ src/
 │   ├── settings.rs
 │   ├── stock.rs
 │   ├── support.rs      support tickets and time entries
+│   ├── therapy.rs      therapy clients and sessions
 │   ├── user.rs
 │   └── workspace.rs    desktop widgets and generated reports
 └── store/              SQLite persistence, one file per aggregate
@@ -57,6 +58,7 @@ src/
     ├── billing_items.rs
     ├── contacts.rs
     ├── dashboard.rs    counts, invoice overview rows, period totals
+    ├── reports.rs      period report over invoices and tracked time
     ├── invoices.rs
     ├── permissions.rs  roles + permission resolution
     ├── pos_orders.rs   receipts + stock in one transaction
@@ -64,8 +66,10 @@ src/
     ├── purchase_orders.rs  orders + atomic goods receipt
     ├── search.rs       FTS5 queries with substring fallback
     ├── sessions.rs     sessions + sign-in with lockout
+    ├── maintenance.rs  clean mode: delete all business records in one transaction
     ├── settings.rs     JSON key/value + company profile
     ├── support.rs      tickets + time tracking
+    ├── therapy.rs      therapy clients, sessions and invoice link
     ├── users.rs        accounts + credential checks
     └── workspace.rs    widgets + reports
 ```
@@ -193,6 +197,29 @@ JavaScript. The decision and the removal plan for the temporary Vite frontend ar
   and four languages, asserted headlessly with `egui::Context::run`. With the `window` feature the
   `socdof-ui-gallery` binary renders the same screen in an eframe window; the default build stays
   window free so tests and clippy need no desktop libraries.
+- `reports` is the reporting screen: four periods over `store::reports::load`, seven key figures,
+  per-state share bars and the invoice table. The core aggregates invoices and tracked time; the
+  screen only formats, and dates are printed with a locale-independent `dd.mm.yyyy` formatter.
+- `therapie` is the therapy practice: client list with search and rates, client detail with session
+  count, treatment hours, driven kilometres and the open amount, the session history with the amount
+  of every session and its billed state, session booking and the invoice link by number. All
+  arithmetic comes from `domain::therapy` (`session_amount`, `summarize`), persistence from
+  `store::therapy`.
+- `studio` is the Studio drawer: it opens from the taskbar and the command palette, edits the company
+  letterhead through `settings_service`, shows the stored record counts and runs the clean mode
+  (`Store::reset_business_data`) behind a confirmation dialog. Its third tab edits the document
+  layout: the PNG background path, a page preview that decodes the file into an egui texture and
+  paints the enabled tokens, and a per-token editor for position, size, bold and alignment. It holds
+  no business rules: profile validation, layout validation and the reset live in the core.
+- `document_layout` is the stored print layout: an optional PNG letterhead path plus nine tokens
+  (company name/address/contact, tax id, invoice number/date, due date, subject, footer), each with a
+  position in page percentages, a font size, bold and alignment. Every token is disabled by default.
+  `validate` returns catalogue codes (`layout_position_invalid`, `layout_size_invalid`,
+  `layout_tokens_required`, `layout_image_invalid`) and `background` decodes the file through the PDF
+  writer's PNG reader.
+- `richtext` is the editor's markup layer: it parses `# `, `- `, `> `, `**` and `_`, renders the
+  formatted preview (bold runs are painted twice with a sub-pixel offset, italic runs use epaint's
+  skew) and applies the ribbon actions to the character selection.
 - `settings` is the Phase 6 settings screen: eight tabs in one screen, reading and writing the
   company profile, per-user preferences, passwords/sessions, users, roles, backups and the persisted
   update/portable policies exclusively through the core services. Backup restore writes to a chosen
@@ -205,13 +232,26 @@ not a dependency of `socdof-ui` and is deleted in the step described in `ui-deci
 The UI crate is covered by three test layers: unit tests for tokens, theme, forms and calendar math;
 `tests/keyboard.rs` drives the real widgets with synthetic egui input (Tab order, activation, arrows,
 Escape, typing, click focus); and `tests/visual.rs` compares the paint commands of every primitive
-with 144 golden files (2 appearances × 4 languages × idle/focused/drawer/desktop/start menu/palette/
-tray/onboarding/tiled wallpaper/dashboard/contacts/products/invoices/accounting/purchases/pos/
-calendar/settings).
+with 264 golden files (2 appearances × 4 languages × 33 scenes: idle, focused, drawer, desktop,
+start menu, palette, tray, onboarding, tiled wallpaper, studio, studio data, studio layout, dashboard,
+contacts, products,
+invoices, accounting, purchases, pos, calendar, settings, users, app store, editor, editor preview,
+editor spell check, support, reports, therapy and the four auth screens).
 - `lock` only touches the file system: no database, no settings.
 - `pdf` consumes domain entities and the company profile. It never queries the database, so the same
-  renderer is used by tests, the CLI and later the UI.
+  renderer is used by tests, the CLI and later the UI. The writer holds one content stream per page
+  and repeats the letterhead image on each of them; `din5008` paginates the position table (19 rows
+  on page one, 33 per continuation page), repeats the column header, keeps totals and the payment
+  line on the last page and numbers the pages.
 - `date` is pure and shared by `pdf` and the UI.
+
+`crates/core/src/spell.rs` is the offline spell checker of the text editor. It parses the bundled
+German Hunspell dictionary (`crates/core/assets/dictionary/de_DE.dic` and `de_DE.aff`, igerman98,
+GPL, licence file included) once into stems with their affix flags and the prefix/suffix rules, and
+accepts a word when it is a stem, a stem with one suffix or prefix, a prefix plus suffix, or a
+two-part compound. Unknown words are returned as byte ranges for the editor underline and as unique
+words with counts for the proofing panel; the personal dictionary lives in the settings, not in the
+checker.
 
 ## Backup format
 
@@ -293,11 +333,11 @@ millimetres converted to points; the writer never depends on a system font.
 ## Schema and migrations
 
 `store/mod.rs` keeps the schema as numbered constants (`SCHEMA_V1`, `SCHEMA_V2`, ...) and applies
-them in order based on `PRAGMA user_version`. The current version is 4. To change the schema:
+them in order based on `PRAGMA user_version`. The current version is 8. To change the schema:
 
-1. Add `SCHEMA_V5` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
-2. Raise `SCHEMA_VERSION` to 5.
-3. Add `if version < 5 { ... }` to `Store::migrate`.
+1. Add `SCHEMA_V9` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
+2. Raise `SCHEMA_VERSION` to 9.
+3. Add `if version < 9 { ... }` to `Store::migrate`.
 4. Add a test that opens a fresh database and asserts the new version and behaviour.
 
 Never edit an already shipped schema block; existing databases only run the newer steps.
@@ -333,8 +373,7 @@ cargo test --workspace
 | Legacy (`SOCDOF - TS`) | Rust |
 | React + Vite + TypeScript UI | egui components drawn from the ported design tokens |
 | CSS variables / Tailwind classes | `tokens` + `Palette` applied to the egui context |
-| `lucide-react` icons | Rust-drawn glyphs (Phase 4, open) |
-|---|---|
+| `lucide-react` icons | Rust-drawn glyphs (28) |
 | `src/lib/db.ts` (Dexie/IndexedDB) | `crates/core/src/store` (SQLite) |
 | `src/lib/auth.ts` | `domain/user.rs`, `store/users.rs`, `security.rs` |
 | `src/components/*Module.tsx` | `crates/ui` screens (Phase 4–6) |

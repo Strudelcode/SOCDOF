@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 6 — in progress: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store and text editor (plain text) are complete. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Next: therapy, support, reports, documentation, the editor's rich-text ribbon and spell check; Phase 2 leftovers (zip/docx/PDF import, letterhead, update checker) remain |
+| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (DOCX/HTML, QR, legacy backup, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
 | **Overall progress** | ~99 % (data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -127,7 +127,7 @@ service is reachable from `socdof-cli` and covered by tests.
 - [~] File import/export: CSV (contacts, products) and JSON (legacy backup) done; zip, docx read and
       PDF read remain
 - [x] Print pipeline: DIN 5008 layout, address field, positions, totals → PDF
-- [ ] Letterhead background and multi-page tables
+- [x] Letterhead background and multi-page position tables with repeated headers (see Phase 8)
 - [ ] Update checker (GitHub releases, signature verification)
 - [x] Logging + crash report file (no telemetry)
 - [x] Service-level tests with temp databases and fixture files
@@ -352,8 +352,88 @@ loads and searches through those methods, shows word and character counts, creat
 deletes documents, and maps missing, validation, IO and storage failures to translated messages.
 Unsaved edits are guarded before switching, creating or leaving; confirming discards and cancelling
 keeps the draft. The editor has a gallery card, a dashboard quick action (filtered by its App Store
-module) and one scene with 8 goldens. The gallery now renders 264 PNGs in 33 scenes from 1,155
-catalogue keys per language; the golden suite has 200 files in 25 scenes. Version 0.21.0.
+module) and one scene with 8 goldens.The gallery now renders 264 PNGs in 33 scenes from 1,155 catalogue keys per language; the golden suite has 200 files in 25 scenes. Version 0.21.0.
+
+The editor's rich-text ribbon and spell check close the module. Formatting is stored in the document
+body as light markup (`**bold**`, `_italic_`, `# heading`, `- list`, `> quote`), so documents stay
+plain text for storage, search, backups and the legacy CSV path, and the ribbon applies it to the
+character selection: bold and italic wrap the selection, heading/list/quote toggle the line prefixes,
+and Ctrl+B/Ctrl+I do the same from the keyboard. A preview toggle renders the formatted document
+(heading size, bullets, quote bar, double-painted bold runs and epaint's italic skew) next to the
+markup editor, and word counts ignore the markup characters. The spell check (`socdof_core::spell`)
+runs offline against the German Hunspell dictionary the shipped application uses (`de_DE.dic` and
+`de_DE.aff` from igerman98, GPL, bundled in `crates/core/assets/dictionary` with its licence): it
+knows stems, one suffix or prefix rule, a prefix with a suffix, and two-part compounds, ignores short
+tokens, and underlines unknown words in the editor. The proofing panel lists each unknown word with
+its count, ignores words into a personal dictionary persisted under the `editor_spell_ignored`
+setting and can reset it. The ribbon and the panel work in both appearances and all four languages.
+Two scenes pin the preview and the proofing state: 256 goldens in 32 scenes, 1,396 keys per language.
+Version 0.27.0.
+
+The application window chrome (`socdof_ui::chrome`) is the first step of the visual parity work: every
+module screen is drawn inside the SOCDOF app window the shipped application uses, with the accent
+frame and top accent line, a 40 pixel title bar carrying the app icon, the translated name, the
+`[MODULE]` badge and the minimize, maximize and close buttons, and a header card with the accent
+icon tile, title, optional status chip, subtitle and back action. All four languages, the desktop and
+the browser preview share those functions, so a screenshot of a screen and the running window cannot
+drift apart. The desktop now offers the full app catalogue instead of three icons: eleven modules
+with the icon and tile color of the legacy app launcher, wrapping in reading order, with a label
+that wraps instead of clipping. Launching an app from an icon, the start menu, the command palette or
+the taskbar opens its real screen and reloads the module state from the store; closing that screen
+returns to the desktop and releases the running indicator. The dashboard key figures moved from an
+overflowing grid to equal-width columns, and module search fields reserve room for the primary action
+next to them. Version 0.22.0.
+
+The support app (`socdof_ui::support`) is the next module of the Phase 6 list: a ticket list with
+status and priority chips, a local search over subject and description, an open-only filter, a form
+with subject, description, priority and status, the four state transitions on the detail view and a
+working-time panel that books and removes time entries and shows the ticket total. Validation stays
+in `socdof-core`, so an empty subject or a non-positive duration never reaches SQLite. The app carries
+its own window chrome and catalogue in all four languages, sits in the launcher and the desktop, and
+is pinned by its own golden scene: 1,232 keys per language. Version 0.23.0.
+
+The reports screen (`socdof_ui::reports`) adds the reporting module the legacy app kept next to the
+dashboard. `store::reports` is a new core module: `load` gathers the invoices of a half-open period
+with their contact names and totals, adds the tracked minutes of the same range and returns a
+`Report` with a `ReportSummary` (invoice count, net, tax, gross, paid share, open share, minutes) and
+the gross total per invoice state; `summarize` and `status_totals` stay pure and are unit tested, so
+the screen only formats. The screen offers four periods (7, 30, 90 and 365 days), seven key figures,
+a per-state breakdown with share bars, and the invoice table with number, contact, date, state and
+gross, plus empty and error states and a locale-independent `dd.mm.yyyy` formatter. The feedback form
+of the legacy module is not implemented yet. The app carries its own window chrome, sits in the
+launcher and the desktop and has its own golden scene: 1,265 keys per language. Version 0.24.0.
+
+The therapy practice (`socdof_ui::therapie`) completes the licensed module: schema v8 adds
+`therapy_clients` and `therapy_sessions` (id, rates, active flag; start, minutes, kilometres in
+thousandths, notes and the linked invoice), and `store::therapy` offers the full CRUD, the session
+queries by client and by range, the session count and `link_invoice`, which puts every open session
+of a client on one invoice in a single statement. `domain::therapy` owns the arithmetic:
+`session_amount` bills minutes at the hourly rate plus kilometres at the kilometre rate with integer
+rounding, and `summarize` returns sessions, minutes, kilometres, the billable total and the split
+between billed and open amounts as a pure, tested function. The screen lists and searches clients
+with their session count and rates, shows the key figures, the session history with the amount of
+every session and a billed badge, books sessions, links the open ones to an invoice by number and
+keeps empty, validation and storage states in all four languages. The module is reachable from the
+launcher, the desktop, the gallery, the start menu, the command palette and its own preview scene,
+and is pinned by a new golden set: 1353 keys per language. Version 0.25.0.
+
+The documentation pass and the Studio drawer close the Phase 6 module list. `README.md`,
+`docs/architecture.md` and `CHANGELOG.md` now describe the state of the code instead of the state of
+an early milestone: the architecture file lists the reports, therapy and maintenance modules and the
+current schema version, the readme walks the gallery through every finished screen, and the changelog
+has one section per released version from 0.22.0 to 0.26.0 with the modules, schema steps and
+catalogue counts of each.
+
+The Studio drawer (`socdof_ui::studio`) opens from the desktop taskbar and the command palette as a
+real right-side drawer. Its letterhead tab edits the company profile that documents print through the
+validated settings service, with the stored profile as the starting point; an empty profile shows the
+empty state instead of a blank form, and the core's `company_name_required` code maps to its own
+message. Its data tab shows the stored contacts, products, invoices, purchase orders and receipts
+from the store and offers the clean mode: `Store::reset_business_data` deletes every business record
+in one transaction while the schema, the accounts, the roles, the sessions and the settings survive.
+The destructive action is behind its own confirmation dialog, and the drawer renders in both
+appearances in all four languages. It is pinned by two golden scenes: 240 goldens in 30 scenes (letterhead and data tab),
+1,381 keys per language. Version 0.26.0.
 
 - [x] Dashboard — period KPIs, quick actions, recent invoices, reorder list, empty state
 - [x] Contacts — list with core search, detail view, create/edit/delete form with validation, delete confirmation and four languages; sub-contacts and country autocomplete remain
@@ -367,12 +447,12 @@ catalogue keys per language; the golden suite has 200 files in 25 scenes. Versio
 - [x] User management — searchable accounts, create/edit/delete with custom roles and last-admin protection, password reset with session revocation, active-session count, two Argon2id recovery questions and four languages; login/lock screen and self-service recovery flow remain
 - [x] Login and lock screen — local sign-in through sessions, persistent failed-attempt lockout, disabled-account and empty-database setup paths, manual/Ctrl+L/inactivity lock, password unlock and sign-out; self-service security-question recovery remains
 - [x] App Store — core catalogue with persisted activation, licence and system state, translated unknown/repeat/locked/required/storage failures, dashboard action and immediate navigation filtering
-- [ ] Documentation & changelog
-- [x] Text editor — persistent core documents, search, create/edit/save/delete, word and character counts, translated validation/missing/storage errors and an unsaved-changes guard; rich-text ribbon and spell check remain
-- [ ] Therapy practice (clients, sessions, billing, appointments, mileage, sync to invoices)
-- [ ] Support & tickets (time tracking, attachments, Discord report)
-- [ ] Reports & feedback
-- [ ] Studio drawer (company letterhead, clean mode)
+- [x] Documentation & changelog — readme, architecture file and changelog describe the delivered state; per-module manuals and the release-notes translation remain with Phase 10
+- [x] Text editor — persistent core documents, search, create/edit/save/delete, word and character counts, translated validation/missing/storage errors and an unsaved-changes guard; the rich-text ribbon (bold, italic, heading, list, quote, Ctrl+B/Ctrl+I), the formatted preview, markup-safe word counts and the offline German spell check with underlines, a proofing panel and a persisted personal dictionary are done; the document layout editor now lives in the Studio layout tab (Phase 8), per-template variations remain open
+- [x] Therapy practice — schema v8 with clients and sessions, core CRUD, pure amounts and summaries, client list and detail with key figures, session history and booking, invoice link by number and four languages; appointment sync, series appointments and the treatment report remain
+- [x] Support & tickets — ticket list with search and open filter, detail with the four status transitions, form with validation and working-time panel that books, lists and removes entries; attachments and the Discord report remain
+- [x] Reports — period report over core aggregates: invoices with contact names, net, tax and gross, paid and open share, per-state totals, tracked hours and the invoice table; the feedback form remains
+- [x] Studio drawer — letterhead editing through the settings service with empty and error states, record counts and the confirmed clean mode that clears business data and keeps accounts, roles and settings; the layout tab with letterhead background and token placement is done (Phase 8), per-template variations remain open
 
 Per module definition of done:
 
@@ -399,8 +479,8 @@ Per module definition of done:
 ## 11. Phase 8 — Files, print & interoperability
 
 - [ ] DIN 5008 PDF output verified against a legacy PDF (golden files, pixel diff)
-- [ ] Multi-page tables with repeated headers and row splitting
-- [ ] Letterhead background + token placement
+- [x] Multi-page tables with repeated headers and row splitting — position tables paginate (19 rows on page one, 33 on each continuation page), the column header repeats on every page, totals and the closing line appear only on the last page, `Seite X von Y` is printed per page, and the letterhead background plus the placed `document_layout` tokens are painted on every page (background under, tokens over the content); a row that does not fit moves whole to the next page
+- [x] Letterhead background + token placement — a PNG letterhead is embedded into the PDF as a Flate-compressed DeviceRGB image XObject and painted under the DIN 5008 content, nine tokens (company name/address/contact, tax id, invoice number/date, due date, subject, footer) are placed in page percentages with size, bold and left/center/right alignment, edited in the Studio layout tab, validated in `document_layout`, persisted as the `document_layout` setting and applied by `export_invoice_pdf`; per-template variations remain open
 - [ ] DOCX read/write, HTML export
 - [ ] QR/barcode generation (native, no JS library)
 - [ ] Backup container compatible with legacy `.socdof` archives
@@ -490,8 +570,16 @@ Per module definition of done:
 | 2026-11-08 | 6 | Purchases screen: supplier filter and open-order summary over the existing purchase tables, list/detail/form with positions, create/edit/delete through new `update_purchase_order` and `search_purchase_orders` store accessors, status transitions, and the goods receipt booking the domain stock movements. 85 new keys bring the catalogue to 577 per language and eight goldens bring the suite to 120 in 15 scenes. Partial receipts in the UI, order PDF/email and supplier master data inside the module remain. |
 | 2026-11-08 | 6 | POS screen: schema v6 `cash_given_cents`; receipt list with core search and payment filter, daily close from `pos_orders_between` with net/tax/gross and payment totals, sale form with product positions and stock booking, cash given/change, cancellation returning goods to stock, and four languages. 83 new keys bring the catalogue to 660 per language and eight goldens bring the suite to 128 in 16 scenes. Receipt print, cash sessions/drawer counts, discounts and customer assignment remain. |
 | 2026-11-08 | 6 | Text editor: schema 7 `documents` table, core CRUD/search/validation with on-disk reopen test, egui list/editor with save, create, delete, word counts and unsaved-changes guard, translated missing/storage/validation errors, dashboard action filtered by the App Store module, gallery/snapshot/preview scene; 48 new keys (1,155), 8 goldens (200 in 25 scenes), preview 264 images in 33 scenes. Version 0.21.0. |
+| 2026-11-08 | 6 | Application window chrome (`socdof_ui::chrome`): accent frame and top accent line, a 40 pixel title bar with app icon, translated name, `[MODULE]` badge and window buttons, plus the module header card with accent icon tile and status chip, applied to every module screen and pinned by the golden scenes. The desktop shows the full app catalogue (eleven modules with legacy tile colors, wrapping labels) and launches the real screens from icons, start menu, palette and taskbar; dashboard key figures and module search toolbars no longer overflow. Six module icons and ten catalogue keys complete the set: 1,165 keys per language. Version 0.22.0. |
+| 2026-11-08 | 6 | Support app (`socdof_ui::support`): ticket list with status and priority chips, local search and an open-only filter, ticket form, the four status transitions, delete confirmation and a working-time panel that books, lists and removes entries per ticket. Validation stays in `socdof-core`; the module is reachable from the launcher and the desktop and is pinned by a new golden scene. 1,232 keys per language. Version 0.23.0. |
+| 2026-11-08 | 6 | Reports app (`socdof_ui::reports`): new core module `store::reports` with `load`, `summarize`, `status_totals` and per-period aggregates over invoices and tracked time, four periods, seven key figures, per-state share bars, invoice table with dates, window chrome, launcher and desktop entry and a new golden scene. 1,265 keys per language. Version 0.24.0. |
+| 2026-11-08 | 6 | Therapy practice app (`socdof_ui::therapie`): schema v8 (`therapy_clients`, `therapy_sessions`), `store::therapy` CRUD, range queries and `link_invoice`, pure `session_amount`/`summarize` with tests, client list, key figures, session history and booking, invoice link, window chrome, launcher/desktop entry and a new golden scene. 1353 keys per language. Version 0.25.0. |
 | 2026-11-08 | 6 | App Store: core module catalogue, persisted activation, licence/system rules, translated errors, dashboard action, gallery scene and immediate dashboard/desktop filtering; 46 new keys (1,107), 8 goldens (192 in 24 scenes), preview 256 images in 32 scenes. Version 0.20.0. |
 | 2026-11-08 | 6 | Login and lock screens (`socdof_ui::auth`): core login and lockout, first-admin setup, disabled-account handling, manual/Ctrl+L/five-minute inactivity lock, password unlock with its own five-attempt policy, sign-out, masked password fields and dashboard/gallery integration; 58 new keys (1,061), four goldens (184 in 23 scenes), preview 248 images in 31 scenes. Version 0.19.0. |
 | 2026-11-08 | 6 | User management screen (`socdof_ui::users`): account list/detail/form, custom-role assignment, last-admin protection, password reset with session revocation, session counts, Argon2id recovery answers and 72 new keys; catalogue 1,003, goldens 152 in 19 scenes, preview 216 images in 27 scenes. Version 0.18.0. |
 | 2026-11-08 | 6 | Settings screen: all eight tabs (general, appearance, security, backup, users, roles, updates, portable) over the core services; profile/preferences writes, Argon2id password reset with session revocation, user CRUD with last-admin protection and custom-role assignment, the full fifteen-module role matrix, backup create/list/verify/restore to a target file, and persisted update/portable policies. The core gained `update_user`/`delete_user`, `list_backups`, `UpdateSettings`/`PortableSettings`; 192 new keys bring the catalogue to 931 per language and eight goldens bring the suite to 144 in 18 scenes. |
 | 2026-11-08 | 6 | Calendar screen: month grid, week columns and day agenda over `appointments_between` and the new core `search_appointments_between`; status filter, detail view with lifecycle changes, create/edit/delete form, optional contact, conflict check for overlapping open slots through `Store::appointment_conflicts`, and four languages. The dashboard's calendar action opens the month view; four deterministic gallery samples use the real insert path. 79 new keys bring the catalogue to 739 per language and eight goldens bring the suite to 136 in 17 scenes. All-day entries, recurrence, reminders, drag-and-drop and a dedicated mobile layout remain. |
+| 2026-11-08 | 6 | Editor rich-text ribbon and spell check: markup body (`**bold**`, `_italic_`, `# heading`, `- list`, `> quote`) with ribbon and Ctrl+B/Ctrl+I actions on the character selection, formatted preview (`socdof_ui::richtext`), markup-safe word counts, and the offline German Hunspell checker (`socdof_core::spell`, bundled igerman98 dictionary with licence) with underlines, proofing panel, persisted personal dictionary and reset. Two new golden scenes pin the preview and the proofing state: 1,396 keys per language, 256 goldens in 32 scenes. Version 0.27.0. |
+| 2026-11-08 | 6 | Studio drawer and documentation pass (`socdof_ui::studio`, `store::maintenance`): letterhead tab over the validated company profile with empty and validation states, data tab with the stored record counts and the clean mode (`Store::reset_business_data`, one transaction, keeps accounts/roles/settings), confirmation dialog, taskbar button, command-palette entry, own golden scenes and two preview scenes; readme, architecture file and changelog describe the delivered state including reports and therapy. 1,381 keys per language, 240 goldens in 30 scenes. Version 0.26.0. |
+| 2026-11-08 | 8 | Letterhead background and token placement (`socdof_core::document_layout`, `pdf`): a PNG letterhead becomes a Flate-compressed DeviceRGB image XObject painted under the DIN 5008 content, nine tokens are placed in page percentages with size, bold and alignment, validated (`layout_position_invalid`, `layout_size_invalid`, `layout_tokens_required`, `layout_image_invalid`) and stored as the `document_layout` setting that `export_invoice_pdf` applies. The Studio drawer gained a third tab with a page preview, the background path and a per-token editor, reachable from a new `command_layout` palette entry; tokens stay disabled by default so existing PDFs do not change. 31 new keys bring the catalogue to 1,427 per language, eight goldens bring the suite to 264 in 33 scenes. Version 0.28.0. |
+| 2026-11-08 | 8 | Multi-page invoice PDFs (`pdf::writer`, `pdf::din5008`): `Document` keeps a page list (`new_page`, `page_count`), writes a `/Pages` tree with `/Count n` and one content stream per page, and repeats the letterhead image on every page. The DIN 5008 renderer paginates the position table (19 rows on page one, 33 per continuation page), repeats the column header and `Pos./Bezeichnung/Menge/Einzelpreis/Betrag` on every page, prints totals and the closing line only on the last page, numbers the pages (`Seite X von Y`) and paints the background under and the enabled `document_layout` tokens over the content of every page; a row moves whole to the next page. One-page invoices keep the previous output. The Studio layout tab names the continuation behaviour; the catalogue grows to 1,428 keys. Version 0.29.0. |

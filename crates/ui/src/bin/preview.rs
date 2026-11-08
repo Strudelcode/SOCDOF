@@ -38,6 +38,9 @@ enum Scene {
     Tray,
     Onboarding,
     Wallpaper,
+    Studio,
+    StudioData,
+    StudioLayout,
     Focused,
     Drawer,
     Dashboard,
@@ -51,7 +54,12 @@ enum Scene {
     Users,
     UserDetail,
     Editor,
+    EditorPreview,
+    EditorSpell,
     AppStore,
+    Support,
+    Reports,
+    Therapie,
     AuthLogin,
     AuthLocked,
     AuthSetup,
@@ -69,6 +77,9 @@ impl Scene {
             Scene::Tray => "tray".to_string(),
             Scene::Onboarding => "onboarding".to_string(),
             Scene::Wallpaper => "wallpaper".to_string(),
+            Scene::Studio => "studio".to_string(),
+            Scene::StudioData => "studio-data".to_string(),
+            Scene::StudioLayout => "studio-layout".to_string(),
             Scene::Focused => "focused".to_string(),
             Scene::Drawer => "drawer".to_string(),
             Scene::Dashboard => "dashboard".to_string(),
@@ -82,7 +93,12 @@ impl Scene {
             Scene::Users => "users".to_string(),
             Scene::UserDetail => "users-detail".to_string(),
             Scene::Editor => "editor".to_string(),
+            Scene::EditorPreview => "editor-preview".to_string(),
+            Scene::EditorSpell => "editor-spell".to_string(),
             Scene::AppStore => "app-store".to_string(),
+            Scene::Support => "support".to_string(),
+            Scene::Reports => "reports".to_string(),
+            Scene::Therapie => "therapy".to_string(),
             Scene::AuthLogin => "auth-login".to_string(),
             Scene::AuthLocked => "auth-locked".to_string(),
             Scene::AuthSetup => "auth-setup".to_string(),
@@ -100,6 +116,9 @@ impl Scene {
             Scene::Tray => "Tray flyout".to_string(),
             Scene::Onboarding => "Onboarding".to_string(),
             Scene::Wallpaper => "Wallpaper".to_string(),
+            Scene::Studio => "Studio · Letterhead".to_string(),
+            Scene::StudioData => "Studio · Business data".to_string(),
+            Scene::StudioLayout => "Studio · Document layout".to_string(),
             Scene::Focused => "Keyboard focus".to_string(),
             Scene::Drawer => "Details drawer".to_string(),
             Scene::Dashboard => "Dashboard".to_string(),
@@ -113,7 +132,12 @@ impl Scene {
             Scene::Users => "User management".to_string(),
             Scene::UserDetail => "User management · Account".to_string(),
             Scene::Editor => "Text editor · Documents".to_string(),
+            Scene::EditorPreview => "Text editor · Preview".to_string(),
+            Scene::EditorSpell => "Text editor · Spell check".to_string(),
             Scene::AppStore => "App Store · Modules".to_string(),
+            Scene::Support => "Support · Tickets".to_string(),
+            Scene::Reports => "Reports · Period totals".to_string(),
+            Scene::Therapie => "Therapy · Client detail".to_string(),
             Scene::AuthLogin => "Login".to_string(),
             Scene::AuthLocked => "Lock screen".to_string(),
             Scene::AuthSetup => "First-run setup".to_string(),
@@ -129,9 +153,12 @@ impl Scene {
             | Scene::Palette
             | Scene::Tray
             | Scene::Onboarding
-            | Scene::Wallpaper => (1280.0, 820.0),
+            | Scene::Wallpaper
+            | Scene::Studio
+            | Scene::StudioData => (1280.0, 820.0),
+            Scene::StudioLayout => (1280.0, 1620.0),
             Scene::Gallery => (1180.0, 2320.0),
-            Scene::Editor => (1180.0, 1500.0),
+            Scene::Editor | Scene::EditorPreview | Scene::EditorSpell => (1180.0, 1620.0),
             Scene::AppStore => (1180.0, 2800.0),
             Scene::Settings(_) => (1180.0, 2050.0),
             Scene::Users => (1180.0, 1500.0),
@@ -167,6 +194,19 @@ impl Scene {
         state.app_store.error = None;
         state.app_store.status = None;
         state.app_store.changed = false;
+        state.support_open = false;
+        state.support.back = false;
+        state.support.error = None;
+        state.support.status = None;
+        state.support.view = socdof_ui::support::SupportView::List;
+        state.reports_open = false;
+        state.reports.back = false;
+        state.reports.error = None;
+        state.therapie_open = false;
+        state.therapie.back = false;
+        state.therapie.error = None;
+        state.therapie.status = None;
+        state.therapie.view = socdof_ui::therapie::TherapieView::List;
         state.auth_open = false;
         state.auth.back = false;
         state.auth.allow_exit = false;
@@ -201,6 +241,27 @@ impl Scene {
                 state.shell.wallpaper.wallpaper = Wallpaper::Dusk;
                 state.shell.wallpaper.fit = WallpaperFit::Tile;
             }
+            Scene::Studio => {
+                state.desktop_open = true;
+                state.shell.studio.open(&state.store);
+            }
+            Scene::StudioData => {
+                state.desktop_open = true;
+                state.shell.studio.open(&state.store);
+                state
+                    .shell
+                    .studio
+                    .set_tab(socdof_ui::studio::StudioTab::Data);
+            }
+            Scene::StudioLayout => {
+                state.desktop_open = true;
+                state.shell.studio.open(&state.store);
+                state
+                    .shell
+                    .studio
+                    .set_tab(socdof_ui::studio::StudioTab::Layout);
+                *state.shell.studio.layout_mut() = socdof_ui::studio::gallery_layout();
+            }
             Scene::Focused => {}
             Scene::Drawer => state.drawer_open = true,
             Scene::Dashboard => state.dashboard_open = true,
@@ -216,14 +277,38 @@ impl Scene {
                 state.appointments.view = socdof_ui::appointments::AppointmentsView::Month;
             }
             Scene::Users => state.users_open = true,
-            Scene::Editor => {
+            Scene::Editor | Scene::EditorPreview | Scene::EditorSpell => {
                 let _ = state.editor.reset_for_open(&state.store);
+                state.editor.spell_ignored =
+                    vec!["Landingpage".to_string(), "Feedback".to_string()];
+                state.editor.preview = matches!(self, Scene::EditorPreview);
                 state.editor_open = true;
             }
             Scene::AppStore => {
                 let _ = socdof_core::app_store::set_active(&state.store, "contacts", false);
                 let _ = state.app_store.reset_for_open(&state.store);
                 state.app_store_open = true;
+            }
+            Scene::Support => {
+                let _ = state.support.reset_for_open(&state.store);
+                if let Some(id) = state.support.tickets.first().map(|ticket| ticket.id) {
+                    state.support.select(id);
+                    let _ = state.support.refresh(&state.store);
+                }
+                state.support_open = true;
+            }
+            Scene::Reports => {
+                let _ = state
+                    .reports
+                    .reset_for_open(&state.store, socdof_core::now_millis());
+                state.reports_open = true;
+            }
+            Scene::Therapie => {
+                let _ = state.therapie.reset_for_open(&state.store);
+                if let Some(id) = state.therapie.clients.first().map(|client| client.id) {
+                    let _ = state.therapie.select(&state.store, id);
+                }
+                state.therapie_open = true;
             }
             Scene::AuthLogin => {
                 state.auth.show_login();
@@ -296,6 +381,9 @@ fn scenes() -> Vec<Scene> {
         Scene::Tray,
         Scene::Onboarding,
         Scene::Wallpaper,
+        Scene::Studio,
+        Scene::StudioData,
+        Scene::StudioLayout,
         Scene::Focused,
         Scene::Drawer,
         Scene::Dashboard,
@@ -309,7 +397,12 @@ fn scenes() -> Vec<Scene> {
         Scene::Users,
         Scene::UserDetail,
         Scene::Editor,
+        Scene::EditorPreview,
+        Scene::EditorSpell,
         Scene::AppStore,
+        Scene::Support,
+        Scene::Reports,
+        Scene::Therapie,
         Scene::AuthLogin,
         Scene::AuthLocked,
         Scene::AuthSetup,
@@ -399,6 +492,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let images = out.join("images");
     fs::create_dir_all(&images)?;
 
+    // Optional scene filter, for example `socdof-ui-preview settings-general`, so a single screen
+    // can be rendered and inspected without rasterising the whole catalogue.
+    let filter = std::env::args().nth(1);
     let binary_time = std::env::current_exe()?.metadata()?.modified()?;
     let mut manifest = Vec::new();
     let all_scenes = scenes();
@@ -406,6 +502,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for appearance in APPEARANCES {
             let mut state = GalleryState::new(language, appearance, "indigo")?;
             for scene in &all_scenes {
+                if let Some(filter) = &filter {
+                    if !scene.id().contains(filter.as_str()) {
+                        continue;
+                    }
+                }
                 let file = format!(
                     "{}-{}-{}.png",
                     appearance_name(appearance),

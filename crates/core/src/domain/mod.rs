@@ -17,5 +17,6 @@ pub mod session;
 pub mod settings;
 pub mod stock;
 pub mod support;
+pub mod therapy;
 pub mod user;
 pub mod workspace;

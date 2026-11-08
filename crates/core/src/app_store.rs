@@ -193,7 +193,7 @@ const MODULES: [ModuleDefinition; 15] = [
         AppModule::Therapy,
         "settings_module_therapy",
         "app_store_desc_therapy",
-        ModuleLicense::Locked,
+        ModuleLicense::Trial,
         false,
     ),
     definition(
@@ -379,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_repeat_required_locked_and_unknown_modules() {
+    fn rejects_repeat_required_and_unknown_modules() {
         let store = store();
         assert!(matches!(
             set_active(&store, "contacts", true),
@@ -389,10 +389,7 @@ mod tests {
             set_active(&store, "dashboard", false),
             Err(CoreError::Validation(code)) if code == "app_module_required"
         ));
-        assert!(matches!(
-            set_active(&store, "therapy", true),
-            Err(CoreError::Validation(code)) if code == "app_module_not_licensed"
-        ));
+        assert!(is_active(&store, AppModule::Therapy).expect("state"));
         assert!(matches!(
             set_active(&store, "unknown", true),
             Err(CoreError::NotFound(id)) if id == "unknown"

@@ -65,10 +65,22 @@ pub enum Icon {
     Battery,
     /// Wi-Fi arcs.
     Wifi,
+    /// Receipt with two text lines, the invoices module.
+    Receipt,
+    /// Shopping cart, the purchases module.
+    Cart,
+    /// Three rising bars, the accounting module.
+    Chart,
+    /// Closed book, the text editor module.
+    Book,
+    /// Shield outline, the user management module.
+    Shield,
+    /// Shopping bag, the point of sale module.
+    Bag,
 }
 
 /// Every icon of the set, used by the gallery and the tests.
-pub const ALL_ICONS: [Icon; 28] = [
+pub const ALL_ICONS: [Icon; 34] = [
     Icon::Search,
     Icon::Plus,
     Icon::Edit,
@@ -97,6 +109,12 @@ pub const ALL_ICONS: [Icon; 28] = [
     Icon::Grid,
     Icon::Battery,
     Icon::Wifi,
+    Icon::Receipt,
+    Icon::Cart,
+    Icon::Chart,
+    Icon::Book,
+    Icon::Shield,
+    Icon::Bag,
 ];
 
 impl Icon {
@@ -342,6 +360,75 @@ impl Icon {
                     egui::Rounding::same(rect.width() * 0.03),
                     color,
                 );
+            }
+            Icon::Receipt => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.2, 0.12), p(0.8, 0.88)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.34, 0.36), p(0.66, 0.36)]);
+                polyline(vec![p(0.34, 0.54), p(0.66, 0.54)]);
+                polyline(vec![p(0.34, 0.72), p(0.54, 0.72)]);
+            }
+            Icon::Cart => {
+                polyline(vec![
+                    p(0.1, 0.2),
+                    p(0.26, 0.2),
+                    p(0.38, 0.66),
+                    p(0.76, 0.66),
+                ]);
+                polyline(vec![
+                    p(0.3, 0.36),
+                    p(0.82, 0.36),
+                    p(0.76, 0.6),
+                    p(0.36, 0.6),
+                ]);
+                dot(0.42, 0.82, 0.06);
+                dot(0.7, 0.82, 0.06);
+            }
+            Icon::Chart => {
+                polyline(vec![p(0.14, 0.86), p(0.14, 0.14)]);
+                polyline(vec![p(0.14, 0.86), p(0.88, 0.86)]);
+                for (x, top) in [(0.3, 0.6), (0.5, 0.42), (0.7, 0.24)] {
+                    polyline(vec![p(x, 0.82), p(x, top)]);
+                }
+            }
+            Icon::Book => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.18, 0.14), p(0.82, 0.86)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.34, 0.14), p(0.34, 0.86)]);
+                polyline(vec![p(0.46, 0.34), p(0.72, 0.34)]);
+                polyline(vec![p(0.46, 0.48), p(0.72, 0.48)]);
+            }
+            Icon::Shield => {
+                polygon(vec![
+                    p(0.5, 0.12),
+                    p(0.82, 0.26),
+                    p(0.82, 0.54),
+                    p(0.5, 0.86),
+                    p(0.18, 0.54),
+                    p(0.18, 0.26),
+                ]);
+                polyline(vec![p(0.36, 0.5), p(0.48, 0.62), p(0.66, 0.38)]);
+            }
+            Icon::Bag => {
+                polygon(vec![
+                    p(0.2, 0.32),
+                    p(0.8, 0.32),
+                    p(0.74, 0.88),
+                    p(0.26, 0.88),
+                ]);
+                polyline(vec![
+                    p(0.36, 0.32),
+                    p(0.36, 0.22),
+                    p(0.5, 0.12),
+                    p(0.64, 0.22),
+                    p(0.64, 0.32),
+                ]);
             }
             Icon::Wifi => {
                 for (spread, radius) in [(0.55, 0.44), (0.8, 0.3)] {

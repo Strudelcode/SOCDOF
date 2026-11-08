@@ -440,37 +440,24 @@ pub fn dashboard(
         )
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label(
-                            RichText::new(texts.get("dashboard_title"))
-                                .size(FONT_TITLE)
-                                .strong(),
-                        );
-                        ui.label(
-                            RichText::new(format!(
-                                "{} · {}",
-                                state.data.company,
-                                texts.get("dashboard_subtitle")
-                            ))
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                        );
-                    });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if button(
-                            ui,
-                            theme,
-                            focus,
-                            texts.get("dashboard_back"),
-                            ButtonVariant::Ghost,
-                        )
-                        .activated
-                        {
-                            state.back = true;
-                        }
-                    });
-                });
+                let subtitle = format!(
+                    "{} · {}",
+                    state.data.company,
+                    texts.get("dashboard_subtitle")
+                );
+                crate::chrome::module_header(
+                    ui,
+                    theme,
+                    texts,
+                    focus,
+                    crate::chrome::ModuleHeader {
+                        app: crate::chrome::app_chrome("dashboard"),
+                        title: texts.get("dashboard_title"),
+                        subtitle: &subtitle,
+                        status: None,
+                    },
+                    &mut state.back,
+                );
 
                 ui.add_space(12.0);
                 let labels: [&str; 4] =
@@ -547,17 +534,14 @@ pub fn dashboard(
                         Tone::Neutral,
                     ),
                 ];
-                egui::Grid::new("socdof-dashboard-kpis")
-                    .num_columns(4)
-                    .spacing(egui::vec2(12.0, 12.0))
-                    .show(ui, |ui| {
-                        for (index, (label, value, hint, tone)) in kpis.iter().enumerate() {
-                            kpi_card(ui, theme, label, value, hint, *tone);
-                            if (index + 1) % 4 == 0 {
-                                ui.end_row();
-                            }
+                for row in kpis.chunks(4) {
+                    ui.columns(4, |columns| {
+                        for (index, (label, value, hint, tone)) in row.iter().enumerate() {
+                            kpi_card(&mut columns[index], theme, label, value, hint, *tone);
                         }
                     });
+                    ui.add_space(8.0);
+                }
 
                 ui.add_space(12.0);
                 card(ui, theme, |ui| {

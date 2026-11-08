@@ -36,9 +36,16 @@ use crate::invoices::{invoices, seed_invoices, InvoicesState};
 use crate::pos::{pos, seed_pos, PosState};
 use crate::products::{products, seed_products, ProductsState};
 use crate::purchases::{purchases, seed_purchases, PurchasesState};
+use crate::reports::{reports, ReportsState, SAMPLE_NOW_MS as REPORTS_SAMPLE_NOW_MS};
 use crate::settings::{seed_settings, settings, SettingsState};
 use crate::shell::{Onboarding, ShellState};
+use crate::support::{
+    seed_sample as seed_support, support, SupportState, SAMPLE_NOW_MS as SUPPORT_SAMPLE_NOW_MS,
+};
 use crate::theme::{Appearance, Theme};
+use crate::therapie::{
+    seed_sample as seed_therapie, therapie, TherapieState, SAMPLE_NOW_MS as THERAPIE_SAMPLE_NOW_MS,
+};
 use crate::users::{seed_users, users, UsersState};
 use crate::wallpaper::{Wallpaper, WallpaperFit};
 
@@ -63,6 +70,12 @@ pub enum SnapshotVariant {
     Onboarding,
     /// The desktop with the dusk wallpaper, tiled.
     Wallpaper,
+    /// The desktop with the Studio drawer on its letterhead tab.
+    Studio,
+    /// The desktop with the Studio drawer on its data tab.
+    StudioData,
+    /// The desktop with the Studio drawer on its document layout tab.
+    StudioLayout,
     /// The dashboard module screen with its sample data.
     Dashboard,
     /// The contacts module screen with its sample data.
@@ -85,8 +98,18 @@ pub enum SnapshotVariant {
     Users,
     /// The App Store with the core module catalogue.
     AppStore,
+    /// The support module with its sample tickets and tracked time.
+    Support,
+    /// The reports module over the seeded invoices.
+    Reports,
+    /// The therapy module with its sample practice.
+    Therapie,
     /// The text editor with its seeded documents.
     Editor,
+    /// The text editor showing the formatted preview.
+    EditorPreview,
+    /// The text editor with the spell check panel and accepted words.
+    EditorSpell,
     /// The sign-in screen.
     Login,
     /// The locked session screen.
@@ -188,8 +211,30 @@ pub fn capture(
     if variant == SnapshotVariant::AppStore {
         return capture_app_store(language, appearance);
     }
-    if variant == SnapshotVariant::Editor {
-        return capture_editor(language, appearance);
+    if variant == SnapshotVariant::Support {
+        return capture_support(language, appearance);
+    }
+
+    if variant == SnapshotVariant::Reports {
+        return capture_reports(language, appearance);
+    }
+
+    if variant == SnapshotVariant::Therapie {
+        return capture_therapie(language, appearance);
+    }
+
+    if variant == SnapshotVariant::Studio
+        || variant == SnapshotVariant::StudioData
+        || variant == SnapshotVariant::StudioLayout
+    {
+        return capture_desktop(language, appearance, variant);
+    }
+
+    if matches!(
+        variant,
+        SnapshotVariant::Editor | SnapshotVariant::EditorPreview | SnapshotVariant::EditorSpell
+    ) {
+        return capture_editor(language, appearance, variant);
     }
     if matches!(
         variant,
@@ -241,13 +286,22 @@ fn capture_dashboard(language: Language, appearance: Appearance) -> Vec<String> 
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            dashboard(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                crate::dashboard::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("dashboard"),
+                |focus| {
+                    dashboard(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        crate::dashboard::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -276,14 +330,23 @@ fn capture_contacts(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            contacts(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::contacts::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("contacts"),
+                |focus| {
+                    contacts(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::contacts::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -312,14 +375,23 @@ fn capture_products(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            products(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::products::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("products"),
+                |focus| {
+                    products(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::products::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -348,14 +420,23 @@ fn capture_invoices(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            invoices(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::invoices::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("invoices"),
+                |focus| {
+                    invoices(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::invoices::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -386,14 +467,23 @@ fn capture_accounting(language: Language, appearance: Appearance) -> Vec<String>
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            accounting(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::accounting::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("accounting"),
+                |focus| {
+                    accounting(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::accounting::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -422,14 +512,23 @@ fn capture_purchases(language: Language, appearance: Appearance) -> Vec<String> 
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            purchases(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::purchases::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("purchases"),
+                |focus| {
+                    purchases(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::purchases::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -458,14 +557,23 @@ fn capture_pos(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            pos(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::pos::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("pos"),
+                |focus| {
+                    pos(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::pos::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -494,14 +602,23 @@ fn capture_calendar(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            appointments(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::appointments::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("calendar"),
+                |focus| {
+                    appointments(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::appointments::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -530,14 +647,23 @@ fn capture_settings(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            settings(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::settings::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("settings"),
+                |focus| {
+                    settings(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::settings::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -566,14 +692,23 @@ fn capture_users(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            users(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::users::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("users"),
+                |focus| {
+                    users(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::users::SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
@@ -602,7 +737,16 @@ fn capture_app_store(language: Language, appearance: Appearance) -> Vec<String> 
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            app_store(ctx, &theme, &texts, &mut focus, &mut state, &store);
+            crate::chrome::app_window(
+                ctx,
+                &theme,
+                &texts,
+                &mut focus,
+                crate::chrome::app_chrome("app-store"),
+                |focus| {
+                    app_store(ctx, &theme, &texts, focus, &mut state, &store);
+                },
+            );
         }));
     }
 
@@ -611,16 +755,68 @@ fn capture_app_store(language: Language, appearance: Appearance) -> Vec<String> 
     lines
 }
 
-/// Renders the text editor with two deterministic documents.
-fn capture_editor(language: Language, appearance: Appearance) -> Vec<String> {
+/// Renders the support module with its sample tickets and tracked time.
+fn capture_support(language: Language, appearance: Appearance) -> Vec<String> {
     let ctx = Context::default();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
-    seed_documents(&store, &texts).expect("seed documents");
+    seed_support(&store, &texts).expect("seed tickets");
     let mut focus = FocusState::default();
-    let mut state = EditorState::new();
-    state.reset_for_open(&store).expect("load documents");
+    let mut state = SupportState::new();
+    state.refresh(&store).expect("load tickets");
+
+    if let Some(id) = state.tickets.first().map(|ticket| ticket.id) {
+        state.select(id);
+        state.refresh(&store).expect("load time entries");
+    }
+
+    let mut output = None;
+    for _ in 0..2 {
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1000.0, 1600.0))),
+            time: Some(1.0),
+            ..Default::default()
+        };
+        output = Some(ctx.run(input, |ctx| {
+            crate::chrome::app_window(
+                ctx,
+                &theme,
+                &texts,
+                &mut focus,
+                crate::chrome::app_chrome("support"),
+                |focus| {
+                    support(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        SUPPORT_SAMPLE_NOW_MS,
+                    );
+                },
+            );
+        }));
+    }
+
+    let mut lines = vec![format!("scene(variant={:?})", SnapshotVariant::Support)];
+    lines.extend(signature(&output.expect("support frame")));
+    lines
+}
+
+/// Renders the reports module over the seeded invoices.
+fn capture_reports(language: Language, appearance: Appearance) -> Vec<String> {
+    let ctx = Context::default();
+    let theme = Theme::new(appearance, "indigo");
+    let texts = UiTexts::embedded(language).expect("embedded catalogue");
+    let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
+    crate::invoices::seed_invoices(&store, &texts).expect("seed invoices");
+    let mut focus = FocusState::default();
+    let mut state = ReportsState::new();
+    state
+        .refresh(&store, REPORTS_SAMPLE_NOW_MS)
+        .expect("load report");
 
     let mut output = None;
     for _ in 0..2 {
@@ -630,19 +826,132 @@ fn capture_editor(language: Language, appearance: Appearance) -> Vec<String> {
             ..Default::default()
         };
         output = Some(ctx.run(input, |ctx| {
-            editor(
+            crate::chrome::app_window(
                 ctx,
                 &theme,
                 &texts,
                 &mut focus,
-                &mut state,
-                &store,
-                crate::editor::SAMPLE_NOW_MS,
+                crate::chrome::app_chrome("reports"),
+                |focus| {
+                    reports(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        REPORTS_SAMPLE_NOW_MS,
+                    );
+                },
             );
         }));
     }
 
-    let mut lines = vec![format!("scene(variant={:?})", SnapshotVariant::Editor)];
+    let mut lines = vec![format!("scene(variant={:?})", SnapshotVariant::Reports)];
+    lines.extend(signature(&output.expect("reports frame")));
+    lines
+}
+
+/// Renders the therapy module with its sample practice.
+fn capture_therapie(language: Language, appearance: Appearance) -> Vec<String> {
+    let ctx = Context::default();
+    let theme = Theme::new(appearance, "indigo");
+    let texts = UiTexts::embedded(language).expect("embedded catalogue");
+    let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
+    seed_therapie(&store, &texts).expect("seed practice");
+    let mut focus = FocusState::default();
+    let mut state = TherapieState::new();
+    state.refresh(&store).expect("load clients");
+    if let Some(id) = state.clients.first().map(|client| client.id) {
+        state.select(&store, id).expect("load sessions");
+    }
+
+    let mut output = None;
+    for _ in 0..2 {
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1000.0, 1600.0))),
+            time: Some(1.0),
+            ..Default::default()
+        };
+        output = Some(ctx.run(input, |ctx| {
+            crate::chrome::app_window(
+                ctx,
+                &theme,
+                &texts,
+                &mut focus,
+                crate::chrome::app_chrome("therapy"),
+                |focus| {
+                    therapie(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        THERAPIE_SAMPLE_NOW_MS,
+                    );
+                },
+            );
+        }));
+    }
+
+    let mut lines = vec![format!("scene(variant={:?})", SnapshotVariant::Therapie)];
+    lines.extend(signature(&output.expect("therapy frame")));
+    lines
+}
+
+/// Renders the text editor with two deterministic documents.
+fn capture_editor(
+    language: Language,
+    appearance: Appearance,
+    variant: SnapshotVariant,
+) -> Vec<String> {
+    let ctx = Context::default();
+    let theme = Theme::new(appearance, "indigo");
+    let texts = UiTexts::embedded(language).expect("embedded catalogue");
+    let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
+    seed_documents(&store, &texts).expect("seed documents");
+    let mut focus = FocusState::default();
+    let mut state = EditorState::new();
+    state.reset_for_open(&store).expect("load documents");
+    if variant == SnapshotVariant::EditorPreview {
+        state.preview = true;
+    }
+    if variant == SnapshotVariant::EditorSpell {
+        state.spell_ignored = vec!["Landingpage".to_string(), "Feedback".to_string()];
+        state.selection = (0, 0);
+    }
+
+    let mut output = None;
+    for _ in 0..2 {
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1000.0, 1500.0))),
+            time: Some(1.0),
+            ..Default::default()
+        };
+        output = Some(ctx.run(input, |ctx| {
+            crate::chrome::app_window(
+                ctx,
+                &theme,
+                &texts,
+                &mut focus,
+                crate::chrome::app_chrome("editor"),
+                |focus| {
+                    editor(
+                        ctx,
+                        &theme,
+                        &texts,
+                        focus,
+                        &mut state,
+                        &store,
+                        crate::editor::SAMPLE_NOW_MS,
+                    );
+                },
+            );
+        }));
+    }
+
+    let mut lines = vec![format!("scene(variant={variant:?})")];
     lines.extend(signature(&output.expect("editor frame")));
     lines
 }
@@ -737,9 +1046,31 @@ fn capture_desktop(
         ),
         1_000,
     );
+    let store = {
+        let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
+        let profile = socdof_core::domain::settings::CompanyProfile {
+            name: "Studio Lindner".to_string(),
+            street: "Hauptstraße 4".to_string(),
+            zip_city: "10115 Berlin".to_string(),
+            email: "info@studiolindner.de".to_string(),
+            ..Default::default()
+        };
+        store.save_company_profile(&profile).expect("profile");
+        store
+    };
     let mut shell = ShellState::new();
     shell.onboarding = Onboarding::restore(true);
     match variant {
+        SnapshotVariant::Studio => shell.studio.open(&store),
+        SnapshotVariant::StudioData => {
+            shell.studio.open(&store);
+            shell.studio.set_tab(crate::studio::StudioTab::Data);
+        }
+        SnapshotVariant::StudioLayout => {
+            shell.studio.open(&store);
+            shell.studio.set_tab(crate::studio::StudioTab::Layout);
+            *shell.studio.layout_mut() = crate::studio::gallery_layout();
+        }
         SnapshotVariant::StartMenu => shell.open_start(),
         SnapshotVariant::Palette => shell.open_palette(),
         SnapshotVariant::Tray => shell.toggle_tray(),
@@ -766,6 +1097,7 @@ fn capture_desktop(
                     theme: &theme,
                     texts: &texts,
                     shell: &mut shell,
+                    store: &store,
                 },
                 &mut focus,
                 &mut icons,
