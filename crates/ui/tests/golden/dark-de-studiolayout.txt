@@ -67,7 +67,7 @@ clip(0.0,145.0,900.0,1387.0) text(532.00,192.00,"Hintergrundbild und Platzierung
 clip(0.0,145.0,900.0,1387.0) text(532.00,232.00,"Positionstabellen laufen bei Bedarf über weitere Seiten; die Kopfzeile wird auf jeder Seite wiederholt.")
 clip(0.0,145.0,900.0,1387.0) text(532.00,276.00,"Briefpapier (PNG)")
 clip(0.0,145.0,900.0,1387.0) rect(532.00,300.00,868.00,320.09,Color32([30, 41, 59, 255]),Color32([51, 65, 85, 255]))
-clip(535.0,301.0,865.0,319.1) text(536.00,302.00,"/workspace/chats/8baf0cbdedf9cc1eba7df650/crates/ui/assets/letterhead-sample.png")
+clip(535.0,301.0,865.0,319.1) text(536.00,302.00,"<crate>/assets/letterhead-sample.png")
 clip(0.0,145.0,900.0,1387.0) rect(516.00,354.09,728.00,670.66,Color32([15, 23, 42, 255]),Color32([51, 65, 85, 255]))
 clip(0.0,145.0,900.0,1387.0) text(532.00,370.09,"Seitenvorschau")
 clip(0.0,145.0,900.0,1387.0) rect(532.00,400.09,712.00,654.66,Color32([255, 255, 255, 255]),Color32([0, 0, 0, 0]))

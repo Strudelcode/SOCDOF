@@ -1394,6 +1394,26 @@ impl Store {
     }
 
     /// The underlying connection, used by the legacy backup reader/writer.
+    /// Snapshot for the dashboard screen: company name, key figures, the invoice overview rows and
+    /// the reorder list, all read in one place.
+    pub fn dashboard_snapshot(
+        &self,
+        now: i64,
+    ) -> CoreResult<(
+        String,
+        dashboard::DashboardCounts,
+        Vec<dashboard::InvoiceOverview>,
+        Vec<dashboard::LowStockRow>,
+    )> {
+        let profile = self.company_profile()?;
+        Ok((
+            profile.name,
+            dashboard::counts(&self.conn, now)?,
+            dashboard::overview(&self.conn)?,
+            dashboard::low_stock(&self.conn, 8)?,
+        ))
+    }
+
     pub(crate) fn connection(&self) -> &rusqlite::Connection {
         &self.conn
     }

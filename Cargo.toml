@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/app", "crates/ui", "crates/cli"]
+members = ["crates/core", "crates/app", "crates/ui", "crates/cli", "crates/web"]
 # The Tauri crate is its own workspace: it needs GTK/WebKit development packages that the core
 # workspace must not require. CI builds it in the dedicated desktop job.
 exclude = ["crates/app/src-tauri"]
 
 [workspace.package]
-version = "0.29.0"
+version = "0.30.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -15,7 +15,9 @@ license = "MIT"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-rusqlite = { version = "0.32", features = ["bundled"] }
+# 0.40 switches to `sqlite-wasm-rs` on `wasm32-unknown-unknown`, so the same store code runs in a
+# browser; the bundled C SQLite stays in place for the native builds.
+rusqlite = { version = "0.40", features = ["bundled"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = { version = "0.5", features = ["std"] }
 sha2 = "0.10"
@@ -24,6 +26,13 @@ egui = "0.27.2"
 eframe = "0.27.2"
 # Lossless PNG decoding for the bundled desktop wallpapers.
 png = "0.17"
+# Browser host: eframe's web runner plus the wasm-bindgen glue of the funded web target.
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Document", "Element", "Navigator", "Window"] }
+console_error_panic_hook = "0.1"
+log = "0.4"
 
 [profile.release]
 opt-level = "z"

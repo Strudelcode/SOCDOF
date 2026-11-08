@@ -13,3 +13,6 @@
 /crates/app/src-tauri/gen
 /crates/app/src-tauri/tauri.release.conf.json
 /release-notes.md
+
+# Trunk build output of the browser host
+/crates/web/dist

@@ -1314,6 +1314,14 @@ const WEEKDAY_KEYS: [&str; 7] = [
     "weekday_7",
 ];
 
+/// Replaces the absolute crate directory in a label with a stable placeholder.
+///
+/// The Studio layout tab shows the path of the chosen letterhead, which is an absolute path on the
+/// build machine. Normalising it keeps the golden files identical on every checkout and in CI.
+fn portable_text(text: &str) -> String {
+    text.replace(env!("CARGO_MANIFEST_DIR"), "<crate>")
+}
+
 fn shape_signature(shape: &Shape) -> String {
     match shape {
         Shape::Noop => "noop".to_string(),
@@ -1347,7 +1355,7 @@ fn shape_signature(shape: &Shape) -> String {
             "text({:.2},{:.2},{:?})",
             text.pos.x,
             text.pos.y,
-            text.galley.text()
+            portable_text(text.galley.text())
         ),
         Shape::Mesh(mesh) => format!("mesh({},{})", mesh.vertices.len(), mesh.indices.len()),
         Shape::QuadraticBezier(curve) => format!(

@@ -19,6 +19,7 @@ The full migration plan, budgets and the parity checklist are in
 │   │   ├── src-tauri        # Tauri 2 window layer (standalone Cargo workspace)
 │   │   └── ui               # temporary Vite/TypeScript frontend, removed once the Rust UI lands
 │   ├── ui                   # Rust UI: egui tokens, theme engine, component kit, gallery (no JS)
+│   ├── web                  # browser build: the same egui UI as WebAssembly (Trunk)
 │   └── cli                  # headless access to the core, used for tests and tooling
 └── SOCDOF - TS              # legacy TypeScript application (untouched)
 ```
@@ -87,6 +88,24 @@ the goldens:
 ```bash
 UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual
 ```
+
+### Browser build
+
+The same Rust interface also runs in a browser. `crates/web` is an `eframe` host compiled to
+`wasm32-unknown-unknown`; `socdof-core` opens its SQLite store there through `sqlite-wasm-rs`, so
+the login, the first-run administrator setup, the user management and every module screen run the
+unchanged product code. Requirements: the wasm target, `clang` with wasm support (it compiles the
+SQLite amalgamation) and [Trunk](https://trunkrs.dev).
+
+```bash
+rustup target add wasm32-unknown-unknown
+cd crates/web
+trunk serve --address 0.0.0.0 --port 3000     # or: trunk build --release, then serve dist/
+```
+
+The browser database is created in memory, so a reload starts with an empty company and the setup
+form again; OPFS persistence is not implemented yet. Print, backup, CSV and legacy import need file
+access and stay desktop-only for now.
 
 ### Desktop application
 

@@ -16,3 +16,11 @@ argon2 = { workspace = true }
 flate2 = "1"
 png = { workspace = true }
 sha2 = { workspace = true }
+
+# The browser build has no system clock and needs the JavaScript RNG for password salts, session
+# tokens and the UUID primary keys. Both are only pulled in for the wasm target.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { workspace = true }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+uuid = { workspace = true, features = ["js"] }

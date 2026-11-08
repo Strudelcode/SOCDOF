@@ -1,0 +1,5 @@
+# The browser build resolves its randomness through the JavaScript crypto API. `getrandom` 0.3 only
+# enables the matching backend when it is selected with a cfg, so the wasm target carries it here and
+# every build (cargo, clippy, Trunk) picks it up automatically.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

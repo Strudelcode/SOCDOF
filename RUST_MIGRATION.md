@@ -11,6 +11,7 @@
 | **Overall progress** | ~99 % (data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
+| **Browser build** | `crates/web` — the same egui UI as WebAssembly (Trunk), with real SQLite, real login and real user management; see section 14 |
 
 ---
 
@@ -510,7 +511,49 @@ Per module definition of done:
 
 ---
 
-## 14. Risk register
+## 14. Browser (WebAssembly) target
+
+The interface also runs in a browser. `crates/web` is an `eframe` (egui) host compiled to
+`wasm32-unknown-unknown` and built with Trunk; it opens the same `socdof-core` store. Nothing is
+reimplemented for the web: the same screens, the same SQLite schema and migrations, the same FTS5
+queries, the same Argon2id login and the same user management.
+
+- [x] `crates/web`: `#[wasm_bindgen(start)]` entry, `WebRunner` on the `socdof-canvas` element,
+      panics reported to the console
+- [x] eframe/egui compiled to WebAssembly, bundled by Trunk (`trunk build --release`)
+- [x] SQLite in the browser: `rusqlite` 0.40 links `sqlite-wasm-rs` on wasm, so schema migrations,
+      FTS5 search, sessions and password hashes run unchanged
+- [x] Browser platform shims: `now_millis()` reads `Date.now()`, `.cargo/config.toml` selects the
+      `getrandom` wasm backend, `uuid` uses its `js` feature
+- [x] Real first-run setup: an empty browser database opens the setup form and creates the first
+      administrator through `Store::insert_user`
+- [x] Real login: `Store::login` with failed-attempt counting, the persistent lockout and the session
+      token; the host shows the auth screen until a session is signed in
+- [x] Desktop and every module screen in the browser: icon grid, wallpapers, taskbar, start menu,
+      command palette, window chrome, dashboard quick actions, and an account chip that signs out
+- [x] Dashboard figures from the live store (`Store::dashboard_snapshot`) instead of sample data
+- [ ] Persistent browser storage: the database is in memory for the session; OPFS via
+      `sqlite-wasm-vfs` is the next step
+- [ ] Web build in CI (Trunk build plus artifact upload)
+- [ ] Print, backup, CSV and legacy import in the browser: they need file access and stay
+      desktop-only for now
+
+Measured bundle: 5.4 MB wasm, 2.5 MB gzip, plus 70 KB JavaScript glue.
+
+**Build and run:**
+
+```bash
+rustup target add wasm32-unknown-unknown
+cd crates/web
+trunk serve --address 0.0.0.0 --port 3000      # or: trunk build --release, then serve dist/
+```
+
+`clang` with wasm support (LLVM 15 or newer) must be on `PATH`; `sqlite-wasm-rs` compiles the SQLite
+amalgamation to wasm with it.
+
+---
+
+## 15. Risk register
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -523,7 +566,7 @@ Per module definition of done:
 
 ---
 
-## 15. Open questions
+## 16. Open questions
 
 - [ ] Does the Rust build ship as a separate download next to the Electron build, or replace it?
 - [ ] Are custom user language packs (external JSON in `languages/`) a hard requirement?
@@ -532,7 +575,7 @@ Per module definition of done:
 
 ---
 
-## 16. Progress log
+## 17. Progress log
 
 | Date | Phase | Note |
 |---|---|---|
@@ -583,3 +626,5 @@ Per module definition of done:
 | 2026-11-08 | 6 | Studio drawer and documentation pass (`socdof_ui::studio`, `store::maintenance`): letterhead tab over the validated company profile with empty and validation states, data tab with the stored record counts and the clean mode (`Store::reset_business_data`, one transaction, keeps accounts/roles/settings), confirmation dialog, taskbar button, command-palette entry, own golden scenes and two preview scenes; readme, architecture file and changelog describe the delivered state including reports and therapy. 1,381 keys per language, 240 goldens in 30 scenes. Version 0.26.0. |
 | 2026-11-08 | 8 | Letterhead background and token placement (`socdof_core::document_layout`, `pdf`): a PNG letterhead becomes a Flate-compressed DeviceRGB image XObject painted under the DIN 5008 content, nine tokens are placed in page percentages with size, bold and alignment, validated (`layout_position_invalid`, `layout_size_invalid`, `layout_tokens_required`, `layout_image_invalid`) and stored as the `document_layout` setting that `export_invoice_pdf` applies. The Studio drawer gained a third tab with a page preview, the background path and a per-token editor, reachable from a new `command_layout` palette entry; tokens stay disabled by default so existing PDFs do not change. 31 new keys bring the catalogue to 1,427 per language, eight goldens bring the suite to 264 in 33 scenes. Version 0.28.0. |
 | 2026-11-08 | 8 | Multi-page invoice PDFs (`pdf::writer`, `pdf::din5008`): `Document` keeps a page list (`new_page`, `page_count`), writes a `/Pages` tree with `/Count n` and one content stream per page, and repeats the letterhead image on every page. The DIN 5008 renderer paginates the position table (19 rows on page one, 33 per continuation page), repeats the column header and `Pos./Bezeichnung/Menge/Einzelpreis/Betrag` on every page, prints totals and the closing line only on the last page, numbers the pages (`Seite X von Y`) and paints the background under and the enabled `document_layout` tokens over the content of every page; a row moves whole to the next page. One-page invoices keep the previous output. The Studio layout tab names the continuation behaviour; the catalogue grows to 1,428 keys. Version 0.29.0. |
+| 2026-11-08 | 14 | Browser host (`crates/web`): eframe/egui compiled to `wasm32-unknown-unknown` and bundled with Trunk; the workspace moved to `rusqlite` 0.40, which links `sqlite-wasm-rs` on wasm, so schema migrations, FTS5, sessions and Argon2id run in the browser unchanged. `now_millis()` reads `Date.now()`, `.cargo/config.toml` selects the `getrandom` wasm backend and `uuid` uses its `js` feature. Verified in a real browser: empty database → first-run setup → administrator created → desktop. |
+| 2026-11-08 | 14 | Browser session flow: the host renders the auth screen until a session is signed in and then the desktop with icon grid, wallpapers, taskbar, start menu, command palette, window chrome, dashboard quick actions and every module screen, plus an account chip with sign-out; `Store::dashboard_snapshot` feeds the dashboard from the live store. Bundle: 5.4 MB wasm (2.5 MB gzip). Version 0.30.0. |

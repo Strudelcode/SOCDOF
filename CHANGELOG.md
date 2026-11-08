@@ -4,6 +4,29 @@ All notable changes to SOCDOF are documented here. The release workflow reads
 the section matching the pushed tag; a release fails if this file has no
 matching, non-empty section.
 
+## [0.30.0] - 2026-11-08
+
+### Added
+
+- Browser build (`crates/web`): the Rust interface now also runs as WebAssembly in a browser. The
+  egui screens, the SQLite schema, the Argon2id login and the user management are the same code as
+  in the desktop build — nothing is reimplemented for the web.
+- SQLite in the browser: `rusqlite` 0.40 links `sqlite-wasm-rs` on `wasm32-unknown-unknown`, so
+  migrations, FTS5 search, sessions and password hashes work unchanged.
+- Real first-run setup and login in the browser: an empty database opens the setup form that creates
+  the first administrator, and `Store::login` handles failed attempts, the lockout and the session.
+- Desktop and module screens in the browser: icon grid, wallpapers, taskbar, start menu, command
+  palette, window chrome, dashboard quick actions and every module, with an account chip that signs
+  the session out again.
+- Core helpers for the web host: `Store::dashboard_snapshot` feeds the dashboard with live figures
+  instead of the gallery sample, and `now_millis()` reads the browser clock on wasm.
+
+### Notes
+
+- The browser database currently lives in memory for the session; OPFS persistence is the next step.
+- Print, backup and import need file access and stay desktop-only for now.
+- Build with `trunk build --release` in `crates/web` (5.4 MB wasm, 2.5 MB gzip).
+
 ## [0.29.0] - 2026-11-08
 
 ### Added
