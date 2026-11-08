@@ -1,37 +1,47 @@
-//! Bundled wallpaper images and their lossless rendering.
+//! Desktop wallpapers: the plain accent gradient and the bundled images.
 //!
-//! The desktop does not fake a wallpaper with a color tint: two real PNG images ship inside the
-//! binary through `include_bytes!` and are decoded once per context into an egui texture. The
-//! texture is drawn either covering the screen (center cropped) or tiled at its native size, with
-//! linear filtering and without any recompression, so the pixels the asset contains are the pixels
-//! shown.
+//! The default desktop of the legacy app carries no image at all: it is the accent color washed into
+//! white. [`Wallpaper::Plain`] paints exactly that, band by band, so the Rust desktop starts on the
+//! same lavender surface instead of a photo.
+//!
+//! The two photographic wallpapers stay available. They ship inside the binary through
+//! `include_bytes!` and are decoded once per context into an egui texture. The texture is drawn
+//! either covering the screen (center cropped) or tiled at its native size, with linear filtering and
+//! without any recompression, so the pixels the asset contains are the pixels shown.
 //!
 //! ![Aurora](../assets/wallpaper-aurora.png)
 
 use egui::{
-    ColorImage, Context, Id, Mesh, Pos2, Rect, Shape, TextureHandle, TextureOptions, Ui, Vec2,
+    Color32, ColorImage, Context, Id, Mesh, Pos2, Rect, Shape, TextureHandle, TextureOptions, Ui,
+    Vec2,
 };
 
 const AURORA_PNG: &[u8] = include_bytes!("../assets/wallpaper-aurora.png");
 const DUSK_PNG: &[u8] = include_bytes!("../assets/wallpaper-dusk.png");
 
-/// Bundled desktop wallpapers.
+/// Selectable desktop wallpapers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Wallpaper {
-    /// Night sky with green aurora bands and stars.
+    /// The legacy default: the accent color washed into white, no image.
     #[default]
+    Plain,
+    /// Night sky with green aurora bands and stars.
     Aurora,
     /// Warm dusk gradient with a low sun and a mountain ridge.
     Dusk,
 }
 
 impl Wallpaper {
-    /// Every bundled wallpaper in switch order.
-    pub const ALL: [Wallpaper; 2] = [Self::Aurora, Self::Dusk];
+    /// Every wallpaper in switch order.
+    pub const ALL: [Wallpaper; 3] = [Self::Plain, Self::Aurora, Self::Dusk];
+
+    /// The bundled photographic wallpapers, in switch order.
+    pub const IMAGES: [Wallpaper; 2] = [Self::Aurora, Self::Dusk];
 
     /// Stable identifier used for texture names, snapshots and settings.
     pub fn id(self) -> &'static str {
         match self {
+            Wallpaper::Plain => "plain",
             Wallpaper::Aurora => "aurora",
             Wallpaper::Dusk => "dusk",
         }
@@ -40,6 +50,7 @@ impl Wallpaper {
     /// Catalogue key of the wallpaper name.
     pub fn label_key(self) -> &'static str {
         match self {
+            Wallpaper::Plain => "wallpaper_plain",
             Wallpaper::Aurora => "wallpaper_aurora",
             Wallpaper::Dusk => "wallpaper_dusk",
         }
@@ -48,16 +59,23 @@ impl Wallpaper {
     /// The next wallpaper in [`Wallpaper::ALL`].
     pub fn next(self) -> Self {
         match self {
+            Wallpaper::Plain => Wallpaper::Aurora,
             Wallpaper::Aurora => Wallpaper::Dusk,
-            Wallpaper::Dusk => Wallpaper::Aurora,
+            Wallpaper::Dusk => Wallpaper::Plain,
         }
     }
 
-    /// Embedded PNG bytes.
-    pub fn bytes(self) -> &'static [u8] {
+    /// Whether the wallpaper is a bundled image instead of the plain gradient.
+    pub fn is_image(self) -> bool {
+        !matches!(self, Wallpaper::Plain)
+    }
+
+    /// Embedded PNG bytes, or `None` for the plain gradient.
+    pub fn bytes(self) -> Option<&'static [u8]> {
         match self {
-            Wallpaper::Aurora => AURORA_PNG,
-            Wallpaper::Dusk => DUSK_PNG,
+            Wallpaper::Plain => None,
+            Wallpaper::Aurora => Some(AURORA_PNG),
+            Wallpaper::Dusk => Some(DUSK_PNG),
         }
     }
 }
@@ -98,7 +116,10 @@ impl WallpaperState {
 
 /// Decoded size and RGBA pixels of a bundled wallpaper.
 pub fn pixels(wallpaper: Wallpaper) -> (usize, usize, Vec<u8>) {
-    let decoder = png::Decoder::new(std::io::Cursor::new(wallpaper.bytes()));
+    let bytes = wallpaper
+        .bytes()
+        .expect("the plain wallpaper is painted, not decoded");
+    let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     let mut reader = decoder.read_info().expect("bundled wallpaper header");
     let mut buffer = vec![0; reader.output_buffer_size()];
     let info = reader
@@ -144,8 +165,65 @@ pub fn tile_rects(area: Rect, image: Vec2) -> Vec<Rect> {
     rects
 }
 
+/// Mixes two colors, `t` being the weight of `b`.
+pub fn blend(a: Color32, b: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    let channel = |x: u8, y: u8| (f32::from(x) * (1.0 - t) + f32::from(y) * t).round() as u8;
+    Color32::from_rgb(
+        channel(a.r(), b.r()),
+        channel(a.g(), b.g()),
+        channel(a.b(), b.b()),
+    )
+}
+
+/// Paints the legacy plain desktop: the accent color washed into white, brightest at the bottom.
+///
+/// A vertical wash alone looks flat, so a soft accent glow sits in the upper left corner, exactly
+/// where the legacy gradient starts.
+pub fn paint_plain(ui: &Ui, rect: Rect, accent: Color32) {
+    let painter = ui.painter().with_clip_rect(rect);
+    let top = blend(accent, Color32::WHITE, 0.80);
+    let bottom = blend(accent, Color32::WHITE, 0.96);
+    // A vertical mesh starts white at the bottom and keeps the accent at the top; a second mesh adds
+    // the accent wash of the upper left corner and fades to transparent. Two vertex gradients cost
+    // eight vertices and leave no banding, which a stack of rectangles cannot avoid.
+    painter.add(gradient_mesh(rect, top, top, bottom, bottom));
+    let corner = crate::tokens::with_alpha(accent, 7);
+    let clear = Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 0);
+    painter.add(gradient_mesh(rect, corner, clear, clear, corner));
+}
+
+/// Builds a rectangle whose four corners carry the given colors.
+fn gradient_mesh(
+    rect: Rect,
+    left_top: Color32,
+    right_top: Color32,
+    right_bottom: Color32,
+    left_bottom: Color32,
+) -> Shape {
+    let mut mesh = Mesh::default();
+    for (pos, color) in [
+        (rect.left_top(), left_top),
+        (rect.right_top(), right_top),
+        (rect.right_bottom(), right_bottom),
+        (rect.left_bottom(), left_bottom),
+    ] {
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos,
+            uv: egui::epaint::WHITE_UV,
+            color,
+        });
+    }
+    mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
+    Shape::mesh(mesh)
+}
+
 /// Paints the selected wallpaper into `rect`, clipped to the desktop area.
-pub fn paint(ctx: &Context, ui: &Ui, rect: Rect, state: &WallpaperState) {
+pub fn paint(ctx: &Context, ui: &Ui, rect: Rect, state: &WallpaperState, accent: Color32) {
+    if !state.wallpaper.is_image() {
+        paint_plain(ui, rect, accent);
+        return;
+    }
     let texture = texture(ctx, state.wallpaper);
     let image = texture.size_vec2();
     let painter = ui.painter().with_clip_rect(rect);
@@ -197,7 +275,7 @@ mod tests {
 
     #[test]
     fn both_bundled_images_decode_to_rgba_pixels() {
-        for wallpaper in Wallpaper::ALL {
+        for wallpaper in Wallpaper::IMAGES {
             let (width, height, rgba) = pixels(wallpaper);
             assert_eq!((width, height), (640, 400));
             assert_eq!(rgba.len(), width * height * 4);
@@ -211,15 +289,30 @@ mod tests {
     }
 
     #[test]
-    fn switching_wallpapers_alternates_between_the_assets() {
+    fn switching_wallpapers_cycles_through_all_three() {
         let mut state = WallpaperState::default();
+        assert_eq!(state.wallpaper, Wallpaper::Plain, "legacy default");
+        assert!(state.wallpaper.bytes().is_none());
+        state.next();
         assert_eq!(state.wallpaper, Wallpaper::Aurora);
         state.next();
         assert_eq!(state.wallpaper, Wallpaper::Dusk);
         state.next();
-        assert_eq!(state.wallpaper, Wallpaper::Aurora);
-        assert_eq!(Wallpaper::ALL.len(), 2);
+        assert_eq!(state.wallpaper, Wallpaper::Plain);
+        assert_eq!(Wallpaper::ALL.len(), 3);
+        assert!(!Wallpaper::Plain.is_image());
+        assert!(Wallpaper::Aurora.is_image());
         assert_ne!(Wallpaper::Aurora.id(), Wallpaper::Dusk.id());
+    }
+
+    #[test]
+    fn plain_wallpaper_washes_the_accent_into_white() {
+        let accent = Color32::from_rgb(0x4f, 0x46, 0xe5);
+        let top = blend(accent, Color32::WHITE, 0.80);
+        let bottom = blend(accent, Color32::WHITE, 0.96);
+        assert!(bottom.r() > top.r() && bottom.g() > top.g() && bottom.b() > top.b());
+        assert_eq!(blend(accent, Color32::WHITE, 0.0), accent);
+        assert_eq!(blend(accent, Color32::WHITE, 1.0), Color32::WHITE);
     }
 
     #[test]

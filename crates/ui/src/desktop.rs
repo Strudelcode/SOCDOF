@@ -11,7 +11,7 @@
 //! reachable through the same [`FocusState`] as every other control.
 
 use egui::{
-    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, Rounding, Sense, Stroke, Vec2,
+    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2,
     WidgetInfo, WidgetType,
 };
 use socdof_core::store::Store as SocdofStore;
@@ -22,14 +22,16 @@ use crate::i18n::UiTexts;
 use crate::icons::Icon;
 use crate::shell::{command_palette, onboarding, start_menu, tray_flyout, ShellAction, ShellState};
 use crate::theme::Theme;
-use crate::tokens::{FONT_BODY, FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL};
+use crate::tokens::{
+    with_alpha, FONT_BODY, FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL, RADIUS_DIALOG,
+};
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
 /// Height of the taskbar at the bottom of the screen.
 pub const TASKBAR_HEIGHT: f32 = 48.0;
-/// Height of a window title bar.
-pub const TITLE_BAR_HEIGHT: f32 = 36.0;
+/// Height of a window title bar, matching the legacy window chrome.
+pub const TITLE_BAR_HEIGHT: f32 = 40.0;
 /// Smallest width a window can be resized to.
 pub const WINDOW_MIN_WIDTH: f32 = 320.0;
 /// Smallest height a window can be resized to.
@@ -38,12 +40,24 @@ pub const WINDOW_MIN_HEIGHT: f32 = 220.0;
 pub const RESIZE_GRIP: f32 = 16.0;
 /// How long reopening an app after closing it needs a confirmation.
 pub const CLOSE_COOLDOWN_MS: i64 = 3_000;
-/// Size of one icon cell, including the gap to the next cell.
-pub const ICON_CELL: Vec2 = Vec2::new(108.0, 92.0);
-/// Number of columns of the icon grid.
+/// Size of one icon cell: a 48 pixel tile plus its wrapped label.
+pub const ICON_CELL: Vec2 = Vec2::new(96.0, 104.0);
+/// Vertical distance between two icon rows.
+pub const ICON_ROW_STEP: f32 = 114.0;
+/// Edge length of an app tile on the desktop.
+pub const ICON_TILE: f32 = 48.0;
+/// Edge length of the glyph inside a desktop tile.
+pub const ICON_GLYPH: f32 = 24.0;
+/// Width the desktop icon label wraps at, so long names use two lines.
+pub const ICON_LABEL_WIDTH: f32 = 90.0;
+/// Widest icon grid the window manager tracks positions for.
 pub const ICON_COLUMNS: u32 = 6;
+/// Narrowest icon grid: three columns below 440 points, like the legacy desktop.
+pub const ICON_MIN_COLUMNS: u32 = 3;
 /// Distance between the desktop edge and the first icon cell.
 pub const DESKTOP_MARGIN: f32 = 16.0;
+/// Taskbar width from which the search pill is shown.
+pub const TASKBAR_SEARCH_MIN_WIDTH: f32 = 640.0;
 
 /// Stable app identifier shared by desktop icons, windows and taskbar entries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -509,23 +523,43 @@ impl IconGrid {
     }
 
     /// Rectangle of a grid cell inside a desktop rectangle.
+    ///
+    /// The legacy desktop lays its icons out in a responsive grid: three columns below 440 points,
+    /// four below 768 and one column per 136 points above that. Each cell is centered on the cell
+    /// width, which is what gives the reference screenshot its airy spacing.
+    pub fn columns(desktop: Rect) -> u32 {
+        let width = desktop.width();
+        if width < 768.0 {
+            if width < 440.0 {
+                ICON_MIN_COLUMNS
+            } else {
+                4
+            }
+        } else {
+            (((width - 24.0) / 136.0).floor() as u32).clamp(ICON_MIN_COLUMNS, ICON_COLUMNS)
+        }
+    }
+
+    /// Rectangle of a grid cell inside a desktop rectangle.
     pub fn cell_rect(desktop: Rect, cell: (u32, u32)) -> Rect {
-        let min = Pos2::new(
-            desktop.min.x + DESKTOP_MARGIN + cell.0 as f32 * ICON_CELL.x,
-            desktop.min.y + DESKTOP_MARGIN + cell.1 as f32 * ICON_CELL.y,
-        );
-        Rect::from_min_size(
-            min,
-            Vec2::new(ICON_CELL.x - DESKTOP_MARGIN, ICON_CELL.y - DESKTOP_MARGIN),
-        )
+        let columns = Self::columns(desktop);
+        let column_width = (desktop.width() - 24.0) / columns as f32;
+        let left = desktop.min.x
+            + 12.0
+            + cell.0 as f32 * column_width
+            + ((column_width - 80.0) / 2.0).max(0.0);
+        let top = desktop.min.y + DESKTOP_MARGIN + cell.1 as f32 * ICON_ROW_STEP;
+        Rect::from_min_size(Pos2::new(left, top), ICON_CELL)
     }
 
     /// Cell under a screen point, clamped to the grid columns.
     pub fn cell_at(&self, desktop: Rect, point: Pos2) -> (u32, u32) {
-        let column = ((point.x - desktop.min.x - DESKTOP_MARGIN) / ICON_CELL.x).round();
-        let row = ((point.y - desktop.min.y - DESKTOP_MARGIN) / ICON_CELL.y).round();
+        let columns = Self::columns(desktop);
+        let column_width = (desktop.width() - 24.0) / columns as f32;
+        let column = ((point.x - desktop.min.x - 12.0) / column_width).floor();
+        let row = ((point.y - desktop.min.y - DESKTOP_MARGIN) / ICON_ROW_STEP).floor();
         (
-            (column.max(0.0) as u32).min(ICON_COLUMNS - 1),
+            (column.max(0.0) as u32).min(columns - 1),
             row.max(0.0) as u32,
         )
     }
@@ -628,12 +662,13 @@ pub fn default_window_rect(work_area: Rect, index: usize) -> Rect {
     clamp_rect(Rect::from_min_size(min, size), work_area)
 }
 
-/// Formats a millisecond timestamp as an `HH:MM` clock label (UTC, so snapshots stay stable).
+/// Formats a millisecond timestamp as an `HH:MM:SS` clock label (UTC, so snapshots stay stable).
 pub fn format_clock(millis: i64) -> String {
-    let total_minutes = millis.div_euclid(60_000);
-    let hours = total_minutes.div_euclid(60).rem_euclid(24);
-    let minutes = total_minutes.rem_euclid(60);
-    format!("{hours:02}:{minutes:02}")
+    let total_seconds = millis.div_euclid(1_000);
+    let hours = total_seconds.div_euclid(3_600).rem_euclid(24);
+    let minutes = total_seconds.div_euclid(60).rem_euclid(60);
+    let seconds = total_seconds.rem_euclid(60);
+    format!("{hours:02}:{minutes:02}:{seconds:02}")
 }
 
 /// Draws the desktop shell and reports what the host should do next.
@@ -657,6 +692,8 @@ pub fn desktop(
     let screen = ctx.screen_rect();
     let area = work_area(screen);
     let mut outcome = DesktopOutcome::default();
+    // The taskbar shows a clock with seconds, so the shell repaints once a second even while idle.
+    ctx.request_repaint_after(std::time::Duration::from_millis(1_000));
 
     crate::studio::studio_drawer(ctx, theme, texts, focus, &mut shell.studio, store);
 
@@ -664,7 +701,7 @@ pub fn desktop(
         .frame(egui::Frame::none().fill(theme.palette.background))
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
-            paint_wallpaper(ctx, ui, area, &shell.wallpaper);
+            paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
             let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
             if !blocked {
@@ -708,40 +745,68 @@ pub fn desktop(
                     }
                 }
                 let selected = icons.selected() == index;
-                let tile = Rect::from_center_size(
-                    Pos2::new(rect.center().x, rect.top() + 34.0),
-                    Vec2::splat(56.0),
-                );
+                let hovered = response.hovered() || focused;
+                let open = windows.is_open(icon.app());
                 let painter = ui.painter().clone();
+                if selected || hovered {
+                    painter.rect(
+                        rect.shrink(2.0),
+                        Rounding::same(RADIUS_CONTROL),
+                        if selected {
+                            theme.accent.light
+                        } else {
+                            with_alpha(theme.palette.text_muted, 8)
+                        },
+                        Stroke::new(
+                            1.0_f32,
+                            if selected {
+                                theme.accent.border
+                            } else {
+                                Color32::TRANSPARENT
+                            },
+                        ),
+                    );
+                }
+                let tile = Rect::from_center_size(
+                    Pos2::new(rect.center().x, rect.top() + 10.0 + ICON_TILE / 2.0),
+                    Vec2::splat(ICON_TILE),
+                );
                 let app = crate::chrome::app_chrome(icon.app().as_str());
                 let tint = crate::chrome::tint(app);
                 painter.rect(
                     tile,
                     Rounding::same(RADIUS_CARD),
                     tint,
-                    Stroke::new(
-                        1.0_f32,
-                        if selected || focused {
-                            theme.accent.base
-                        } else {
-                            crate::tokens::adjust(tint, 22)
-                        },
-                    ),
+                    Stroke::new(1.0_f32, crate::tokens::adjust(tint, 22)),
                 );
                 icon.icon().draw(
                     &painter,
-                    Rect::from_center_size(tile.center(), Vec2::splat(26.0)),
+                    Rect::from_center_size(tile.center(), Vec2::splat(ICON_GLYPH)),
                     Color32::WHITE,
                     1.6,
                 );
+                if open {
+                    painter.rect(
+                        Rect::from_min_size(
+                            Pos2::new(tile.center().x - 10.0, tile.bottom() + 3.0),
+                            Vec2::new(20.0, 3.0),
+                        ),
+                        Rounding::same(2.0),
+                        theme.accent.base,
+                        Stroke::NONE,
+                    );
+                }
                 let galley = painter.layout(
                     icon.label().to_owned(),
                     FontId::proportional(FONT_SMALL),
                     theme.palette.text,
-                    rect.width(),
+                    ICON_LABEL_WIDTH,
                 );
                 painter.galley(
-                    Pos2::new(rect.center().x - galley.size().x / 2.0, tile.bottom() + 6.0),
+                    Pos2::new(
+                        rect.center().x - galley.size().x / 2.0,
+                        tile.bottom() + if open { 10.0 } else { 4.0 },
+                    ),
                     galley,
                     theme.palette.text,
                 );
@@ -808,15 +873,27 @@ pub fn desktop(
                 }
 
                 let painter = ui.painter().clone();
+                crate::components::shadow(
+                    &painter,
+                    theme,
+                    frame,
+                    RADIUS_DIALOG,
+                    crate::tokens::ShadowStrength::Dialog,
+                );
                 painter.rect(
                     frame,
-                    Rounding::same(RADIUS_CONTROL),
+                    Rounding::same(RADIUS_DIALOG),
                     theme.palette.surface,
                     Stroke::new(1.0_f32, theme.palette.border),
                 );
                 painter.rect(
                     bar,
-                    Rounding::same(RADIUS_CONTROL),
+                    Rounding {
+                        nw: RADIUS_DIALOG,
+                        ne: RADIUS_DIALOG,
+                        sw: 0.0,
+                        se: 0.0,
+                    },
                     if is_active {
                         theme.accent.light
                     } else {
@@ -850,18 +927,18 @@ pub fn desktop(
 
                 let mut right = bar.right() - 8.0;
                 let close_rect = Rect::from_center_size(
-                    Pos2::new(right - 14.0, bar.center().y),
-                    Vec2::splat(28.0),
+                    Pos2::new(right - 16.0, bar.center().y),
+                    Vec2::splat(32.0),
                 );
-                right -= 32.0;
+                right -= 36.0;
                 let max_rect = Rect::from_center_size(
-                    Pos2::new(right - 14.0, bar.center().y),
-                    Vec2::splat(28.0),
+                    Pos2::new(right - 16.0, bar.center().y),
+                    Vec2::splat(32.0),
                 );
-                right -= 32.0;
+                right -= 36.0;
                 let min_rect = Rect::from_center_size(
-                    Pos2::new(right - 14.0, bar.center().y),
-                    Vec2::splat(28.0),
+                    Pos2::new(right - 16.0, bar.center().y),
+                    Vec2::splat(32.0),
                 );
                 if chrome_button(
                     ui,
@@ -986,7 +1063,7 @@ pub fn desktop(
             painter.rect(
                 bar,
                 Rounding::same(0.0),
-                theme.palette.surface,
+                with_alpha(theme.palette.surface, 84),
                 Stroke::new(1.0_f32, theme.palette.border),
             );
             painter.text(
@@ -999,7 +1076,7 @@ pub fn desktop(
 
             let start_rect = Rect::from_min_size(
                 Pos2::new(bar.left() + 12.0, bar.top() + 6.0),
-                Vec2::new(44.0, TASKBAR_HEIGHT - 12.0),
+                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
             );
             if taskbar_button(
                 ui,
@@ -1016,13 +1093,29 @@ pub fn desktop(
                 shell.toggle_start();
             }
 
-            let mut x = start_rect.right() + 8.0;
+            let mut x = start_rect.right() + 4.0;
+            if bar.width() >= TASKBAR_SEARCH_MIN_WIDTH {
+                let search_rect = Rect::from_min_size(
+                    Pos2::new(x, bar.top() + 6.0),
+                    Vec2::new(132.0, crate::tokens::TASKBAR_BUTTON),
+                );
+                if search_pill(ui, theme, focus, search_rect, texts.get("taskbar_search")) {
+                    shell.open_palette();
+                }
+                x += 136.0;
+            }
+            // The tray, the Studio button and the clock always keep their place on the right; app
+            // buttons that no longer fit are dropped instead of pushing the clock off the bar.
+            let right_limit = bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 8.0;
             for (app, label, icon) in &apps {
+                if x + crate::tokens::TASKBAR_BUTTON > right_limit {
+                    break;
+                }
                 let rect = Rect::from_min_size(
                     Pos2::new(x, bar.top() + 6.0),
-                    Vec2::new(56.0, TASKBAR_HEIGHT - 12.0),
+                    Vec2::splat(crate::tokens::TASKBAR_BUTTON),
                 );
-                x += 60.0;
+                x += crate::tokens::TASKBAR_BUTTON + 4.0;
                 let id = Id::new(("socdof-taskbar-app", app.as_str()));
                 let focused = focus.register(id);
                 let response = ui.interact(rect, id, Sense::click());
@@ -1082,8 +1175,8 @@ pub fn desktop(
             }
 
             let studio_rect = Rect::from_min_size(
-                Pos2::new(bar.right() - 148.0, bar.top() + 6.0),
-                Vec2::new(44.0, TASKBAR_HEIGHT - 12.0),
+                Pos2::new(bar.right() - 154.0, bar.top() + 6.0),
+                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
             );
             if taskbar_button(
                 ui,
@@ -1101,8 +1194,8 @@ pub fn desktop(
             }
 
             let tray_rect = Rect::from_min_size(
-                Pos2::new(bar.right() - 96.0, bar.top() + 6.0),
-                Vec2::new(44.0, TASKBAR_HEIGHT - 12.0),
+                Pos2::new(bar.right() - 114.0, bar.top() + 6.0),
+                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
             );
             if taskbar_button(
                 ui,
@@ -1328,6 +1421,58 @@ fn activate_app(
         .to_owned();
     let rect = default_window_rect(work_area, windows.windows().len());
     windows.open(Window::new(app, title, rect), now);
+}
+
+/// Draws the taskbar search pill and reports whether it was activated.
+fn search_pill(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    rect: Rect,
+    label: &str,
+) -> bool {
+    let id = Id::new("socdof-taskbar-search");
+    let focused = focus.register(id);
+    let response = ui.interact(rect, id, Sense::click());
+    if response.clicked() {
+        focus.set_focus(Some(id));
+    }
+    let keyboard = focus.activate(id);
+    let painter = ui.painter().clone();
+    painter.rect(
+        rect,
+        Rounding::same(RADIUS_CONTROL),
+        if response.hovered() || focused {
+            theme.palette.surface_muted
+        } else {
+            with_alpha(theme.palette.surface_muted, 70)
+        },
+        Stroke::new(1.0_f32, theme.palette.border),
+    );
+    Icon::Search.draw(
+        &painter,
+        Rect::from_center_size(
+            Pos2::new(rect.left() + 16.0, rect.center().y),
+            Vec2::splat(16.0),
+        ),
+        theme.accent_text(),
+        1.5,
+    );
+    let galley = painter.layout_no_wrap(
+        label.to_owned(),
+        FontId::proportional(FONT_SMALL),
+        theme.palette.text_muted,
+    );
+    painter.galley(
+        Pos2::new(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        theme.palette.text_muted,
+    );
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label));
+    if focused {
+        focus_ring(ui, theme, rect);
+    }
+    response.clicked() || keyboard
 }
 
 /// Geometry and label of one taskbar button.
@@ -1681,19 +1826,23 @@ mod tests {
             DesktopIcon::new(AppId::new("contacts"), "Kontakte", Icon::User),
             DesktopIcon::new(AppId::new("products"), "Produkte", Icon::Folder),
         ]);
-        assert_eq!(grid.cell_at(area(), Pos2::new(40.0, 40.0)), (0, 0));
-        assert_eq!(grid.cell_at(area(), Pos2::new(150.0, 40.0)), (1, 0));
+        for cell in [(0, 0), (1, 0), (2, 1), (3, 2)] {
+            let center = IconGrid::cell_rect(area(), cell).center();
+            assert_eq!(grid.cell_at(area(), center), cell);
+        }
+        let columns = IconGrid::columns(area());
+        assert!((ICON_MIN_COLUMNS..=ICON_COLUMNS).contains(&columns));
         assert_eq!(
             grid.cell_at(area(), Pos2::new(5_000.0, 5_000.0)).0,
-            ICON_COLUMNS - 1
+            columns - 1
         );
     }
 
     #[test]
     fn the_clock_is_a_stable_utc_label() {
-        assert_eq!(format_clock(0), "00:00");
-        assert_eq!(format_clock(1_000_000_000), "13:46");
-        assert_eq!(format_clock(86_399_000), "23:59");
+        assert_eq!(format_clock(0), "00:00:00");
+        assert_eq!(format_clock(1_000_000_000), "13:46:40");
+        assert_eq!(format_clock(86_399_000), "23:59:59");
     }
 
     #[test]

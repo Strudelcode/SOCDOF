@@ -594,9 +594,21 @@ Walk this path and screenshot every step; it is the path the Rust app has to rep
 
 Reference screenshots taken this way are committed in `docs/artifacts/gui-parity/`:
 `ts-01-language.png`, `ts-02-setup-account.png`, `ts-03-setup-appearance.png`,
-`ts-04-lock-screen.png`, `ts-05-desktop.png`, plus `rust-01-desktop.png` for the current Rust state.
-They are the only accepted evidence that the two applications match; re-take them whenever a parity
-change lands.
+`ts-04-lock-screen.png`, `ts-05-desktop.png`.
+
+The Rust counterparts come from the preview binary, which calls the same screen functions and
+rasterises them headlessly, so they are reproducible and exactly as wide as the legacy screenshots:
+
+```bash
+SOCDOF_PREVIEW_SIZE=432x771 cargo run -p socdof-ui --bin socdof-ui-preview -- desktop
+SOCDOF_PREVIEW_SIZE=432x771 cargo run -p socdof-ui --bin socdof-ui-preview -- auth-locked
+SOCDOF_PREVIEW_SIZE=432x771 cargo run -p socdof-ui --bin socdof-ui-preview -- auth-login
+```
+
+`rust-02-lock-screen.png`, `rust-03-desktop.png` and `rust-04-login.png` are those renders at
+432×771, the window size of the legacy screenshots, so the two sets compare without scaling. They are
+the only accepted evidence that the two applications match; re-take them whenever a parity change
+lands.
 
 ### 15.2 Where the values come from
 
@@ -614,48 +626,49 @@ window geometry), `crates/ui/src/chrome.rs` (window chrome, app tiles) and
 
 ### 15.3 Measured reference values
 
-| Aspect | Legacy (measured 2026-11-08) | Rust today | Target |
+| Aspect | Legacy (measured 2026-11-08) | Rust today (implemented 2026-11-08) | Target |
 |---|---|---|---|
 | Accent indigo | `#4f46e5`, hover `#4338ca`, tint 12 %, ring 35 %, border `#6366f1`, dark text `#818cf8` | identical in `tokens.rs` | keep |
 | Companion accent | `#0d9488`, hover `#0f766e`, tint 18 % | not used | use for secondary actions |
 | Light surfaces | background `#f6f8fb`, card `#ffffff`, muted `#f1f5f9`, border `#e2e8f0`, text `#0f172a`, muted text `#64748b` | identical in `Palette::of` | keep |
 | Dark surfaces | background `#020617`, card `#0f172a`, muted `#1e293b`, border `#334155`, text `#f8fafc` | identical | keep |
-| Card shadow | `0 4px 20px -2px rgba(accent,.07), 0 1px 3px rgba(0,0,0,.03)`; hover `0 8px 30px -4px rgba(accent,.20)` | none, cards are flat with a hairline border | two-layer soft shadow for cards, dialogs and windows |
-| Control radius | 12 px (`rounded-xl`) | `RADIUS_CONTROL` 10 | 12 |
-| Card and dialog radius | card 16 px, dialog and window 24 px (`rounded-3xl`) | `RADIUS_CARD` 16 everywhere | 16 for cards, 24 for dialogs and floating windows |
-| Control height | 40 px desktop, 44 px minimum on touch (`min-h-[44px]`) | `CONTROL_HEIGHT` 36 | 40 |
-| Type | body 14 px, secondary 12 px, form label 12 px semibold | `FONT_BODY` 14, `FONT_SMALL` 12 | keep, labels semibold |
-| Font stack | `system-ui, "Segoe UI", Roboto, …` | egui default (Ubuntu on Linux, Segoe on Windows) | platform UI font first, bundled fallback |
-| Taskbar | 48 px, top border, glass `rgba(255,255,255,.9)` with 24 px blur; start 36×36 radius 12; running apps 36×36 radius 12; search pill; task view; clock 12 px with seconds | `TASKBAR_HEIGHT` 48; flat surface; start 44×36; apps 56×36 radius 10; clock `HH:MM` | 36×36 buttons, glass surface, search, task view, clock with seconds |
-| Desktop icon | cell 96 px wide, 96–104 px high, tile 48×48 radius 16, glyph 24 px, label 12 px semibold, two lines, 90 px wide; open marker 20×4 | cell 108×92, tile 56 px radius 16, glyph 26 px, single-line label, no open marker | 96 px cell, 48 px tile, two-line label, open marker |
-| Icon grid | responsive, three columns at 432 px width, free drag and drop | fixed `ICON_COLUMNS` 6, drag between cells | derive the column count from the available width |
-| Wallpaper | no image by default: lavender to white gradient, user image optional | two embedded PNGs (aurora, dusk), cover or tiled | gradient as the default plain wallpaper |
-| Window chrome | 40 px title bar, 24 px radius, accent rim, 40×32 window buttons, soft outer shadow | 40 px title bar, 16 px radius, accent rim | 24 px radius, soft outer shadow |
-| Scrollbars | 6 px with a translucent thumb | egui default | 6 px thin scrollbars |
+| Card shadow | `0 4px 20px -2px rgba(accent,.07), 0 1px 3px rgba(0,0,0,.03)`; hover `0 8px 30px -4px rgba(accent,.20)` | `tokens::shadow_layers` stacks 6 rounded rects of 2 % accent each (hover 8, dialog 10); `components::shadow` paints them below cards, dialogs and windows | keep, tune per surface |
+| Control radius | 12 px (`rounded-xl`) | `RADIUS_CONTROL` 12 | done |
+| Card and dialog radius | card 16 px, dialog and window 24 px (`rounded-3xl`) | cards 16, floating windows 24 (`RADIUS_DIALOG`); the modal surface in `components::modal` is still 16 | modal surface 24 |
+| Control height | 40 px desktop, 44 px minimum on touch (`min-h-[44px]`) | `CONTROL_HEIGHT` 40 | done |
+| Type | body 14 px, secondary 12 px, form label 12 px semibold | `FONT_BODY` 14, `FONT_SMALL` 12; form labels use the body weight | semibold form labels |
+| Font stack | `system-ui, "Segoe UI", Roboto, …` | still the egui default (Ubuntu on Linux, Segoe on Windows) | platform UI font first, bundled fallback |
+| Taskbar | 48 px, top border, glass `rgba(255,255,255,.9)` with 24 px blur; start 36×36 radius 12; running apps 36×36 radius 12; search pill; task view; clock 12 px with seconds | `TASKBAR_HEIGHT` 48 with a 84 % translucent surface (no blur, egui cannot blur a panel); start, apps, Studio and tray are 36×36 at radius 12; search pill from 640 px width; clock `HH:MM:SS`; app buttons that no longer fit are dropped so the clock keeps its place | task view, overflow menu, status pill |
+| Desktop icon | cell 96 px wide, 96–104 px high, tile 48×48 radius 16, glyph 24 px, label 12 px semibold, two lines, 90 px wide; open marker 20×4 | cell 96×104, tile 48 px radius 16, glyph 24 px, label 12 px wrapped at 90 px, open marker 20×3, hover and selection tint | gradient tiles with a drop shadow |
+| Icon grid | responsive, three columns at 432 px width, free drag and drop | `IconGrid::columns`: 3 below 440 px, 4 below 768 px, then one column per 136 px up to 6; drag moves between cells | free placement beyond cells |
+| Wallpaper | no image by default: lavender to white gradient, user image optional | `Wallpaper::Plain` is the default and paints two vertex gradients (accent washed into white, plus a left-to-right corner wash); aurora and dusk stay selectable | done |
+| Window chrome | 40 px title bar, 24 px radius, accent rim, 40×32 window buttons, soft outer shadow | 40 px title bar, 24 px radius with only the top corners rounded, 32×32 window buttons, dialog shadow | done |
+| Scrollbars | 6 px with a translucent thumb | 6 px bar and thumb, minimum handle 12 px | done |
 
 ### 15.4 Screen differences that are structural
 
 These are not token tweaks; each one is its own piece of work.
 
-1. **Lock screen.** The legacy app shows the Windows lock screen: dark blurred wallpaper, clock with
-   date, avatar of the last active account, one password field with an arrow submit button, "forgot
-   password" and quick-switch tiles for the other accounts. The Rust app renders a centred card with
-   username and password. Target: split `AuthView::Login` (pick an account) from `AuthView::Locked`
-   (password only) and draw clock and avatar in the locked view.
-2. **First-run setup.** The legacy wizard has four steps (language, account, appearance, apps) with a
-   pill-shaped step label, a password strength meter, nine accent swatches, the theme switch, a
-   wallpaper upload and an app template selection. The Rust app has a single form. Target: keep the
-   core calls (`Store::insert_user`, the settings services) and build the steps around them.
-3. **Taskbar.** The legacy bar carries start, a search pill, task view, running app buttons, a status
-   pill, an overflow menu, the tray and a clock with seconds. The Rust bar has start, pinned apps, the
-   Studio button, the tray and the clock. Target: search (the command palette already exists),
-   task view and clock seconds.
-4. **Desktop.** The legacy desktop has gradient app tiles with a drop shadow, a hover tint, an open
-   marker and free placement; the Rust desktop uses flat tinted tiles on a fixed grid. Target:
-   gradient tiles in the legacy tints, hover tint, open marker, responsive columns.
-5. **Toasts.** The legacy app confirms actions in a bottom-left glass card (icon tile, uppercase
-   11 px title, 13 px body, close button); the Rust app writes a badge line. Target: one toast
-   component used by every module.
+1. **Lock screen — done.** `AuthView::Locked` no longer reuses the login card. It draws the 48 px
+   clock from `desktop::format_clock`, the date from `reports::format_date`, a 56 px avatar circle
+   with the account initial, the display name and handle, and one password field above the unlock and
+   sign-out buttons. Still open: quick-switch tiles for the other accounts, a "forgot password"
+   link, and the dark blurred backdrop (the Rust lock screen keeps the app background).
+2. **First-run setup — open.** The legacy wizard has four steps (language, account, appearance,
+   apps) with a pill-shaped step label, a password strength meter, nine accent swatches, the theme
+   switch, a wallpaper upload and an app template selection. The Rust app still shows one form.
+   Target: keep the core calls (`Store::insert_user`, the settings services) and build the steps
+   around them.
+3. **Taskbar — partly done.** The bar is translucent, its buttons are 36×36 at radius 12, it shows
+   the search pill once the window is at least 640 px wide (the legacy bar hides it below `sm` too)
+   and a clock with seconds, and it drops app buttons that would push the clock off the bar. Still
+   open: the task view button, the overflow menu and the web/version status pill.
+4. **Desktop — done.** 48 px tiles in the legacy tints, wrapped 90 px labels, hover and selection
+   tint, an open marker and a responsive column count instead of the fixed six. Still open: gradient
+   tiles with a per-tile drop shadow, and free placement beyond grid cells.
+5. **Toasts — open.** The legacy app confirms actions in a bottom-left glass card (icon tile,
+   uppercase 11 px title, 13 px body, close button); the Rust app still writes a badge line. Target:
+   one toast component used by every module.
 
 ### 15.5 Definition of done for a parity change
 
@@ -670,14 +683,21 @@ These are not token tweaks; each one is its own piece of work.
 
 ### 15.6 Open parity work
 
-- [ ] shadow helper in `tokens.rs`, used by cards, dialogs, windows and the taskbar
-- [ ] control height 40, control radius 12, dialog radius 24
-- [ ] taskbar: 36×36 buttons, glass surface, clock with seconds, search pill, task view
-- [ ] desktop: 48 px gradient tiles, two-line labels, open marker, responsive column count
-- [ ] plain gradient wallpaper as the default
-- [ ] lock screen and setup wizard as described in 15.4
-- [ ] toast component
+- [x] shadow helper (`tokens::shadow_layers`), used by cards, dialogs and windows
+- [x] control height 40, control radius 12, window radius 24
+- [x] taskbar: 36×36 buttons, translucent surface, clock with seconds, search pill, overflow guard
+- [x] desktop: 48 px tiles, wrapped labels, open marker, responsive column count
+- [x] plain gradient wallpaper as the default
+- [x] lock screen with clock, date, avatar and a single password field
+- [ ] modal surface (`components::modal`) still has radius 16 instead of 24
+- [ ] taskbar task view button, overflow menu and status pill; no backdrop blur (egui cannot blur)
+- [ ] desktop tiles: gradient fill and per-tile shadow, free placement beyond grid cells
+- [ ] lock screen: quick-switch tiles for the other accounts and a "forgot password" link
+- [ ] first-run setup wizard (language → account → appearance → apps)
+- [ ] toast component, replacing the badge confirmation line in the modules
 - [ ] font stack with the platform UI font first
+- [ ] companion accent color (`#0d9488`) for secondary actions
+- [ ] semibold form labels
 
 ---
 
@@ -757,3 +777,4 @@ These are not token tweaks; each one is its own piece of work.
 | 2026-11-08 | 14 | Browser host (`crates/web`): eframe/egui compiled to `wasm32-unknown-unknown` and bundled with Trunk; the workspace moved to `rusqlite` 0.40, which links `sqlite-wasm-rs` on wasm, so schema migrations, FTS5, sessions and Argon2id run in the browser unchanged. `now_millis()` reads `Date.now()`, `.cargo/config.toml` selects the `getrandom` wasm backend and `uuid` uses its `js` feature. Verified in a real browser: empty database → first-run setup → administrator created → desktop. |
 | 2026-11-08 | 14 | Browser session flow: the host renders the auth screen until a session is signed in and then the desktop with icon grid, wallpapers, taskbar, start menu, command palette, window chrome, dashboard quick actions and every module screen, plus an account chip with sign-out; `Store::dashboard_snapshot` feeds the dashboard from the live store. Bundle: 5.4 MB wasm (2.5 MB gzip). Version 0.30.0. |
 | 2026-11-08 | 15 | GUI parity reference: served the TypeScript app on the reserved preview port and walked it end to end (language chooser, three setup steps, lock screen, desktop). The measured tokens, component geometry and the five structural differences are recorded in section 15; reference screenshots live in `docs/artifacts/gui-parity/` (five legacy screens plus the current Rust desktop). |
+| 2026-11-08 | 15 | GUI parity implemented: soft card, dialog and window shadows from stacked accent layers, control radius 12 and height 40, window radius 24 with a 40 px title bar and 32 px buttons, taskbar with 36×36 buttons, a translucent surface, search pill, seconds clock and an overflow guard, desktop icon cell 96×104 with 48 px tiles, wrapped labels, an open marker and responsive columns (3/4/N), the plain accent-gradient wallpaper as the default, and a lock screen with clock, date and avatar above a single password field. 264 goldens regenerated, two catalogue keys added (1,432 per language), web build 5.5 MB. Section 15.3–15.6 updated with the achieved values and the remaining gaps. |

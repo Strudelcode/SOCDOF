@@ -4,16 +4,20 @@
 //! screen and the legacy screen pick the same colors. The legacy folder is reference only; nothing
 //! here imports or executes TypeScript.
 
-use egui::Color32;
+use egui::{Color32, Pos2, Rect};
 
 /// Base spacing unit. The legacy layout uses an eight pixel rhythm.
 pub const SPACING_UNIT: f32 = 8.0;
 /// Corner radius of cards and panels.
 pub const RADIUS_CARD: f32 = 16.0;
+/// Corner radius of dialogs and floating desktop windows.
+pub const RADIUS_DIALOG: f32 = 24.0;
 /// Corner radius of buttons, inputs and badges.
-pub const RADIUS_CONTROL: f32 = 10.0;
+pub const RADIUS_CONTROL: f32 = 12.0;
 /// Height of a standard control.
-pub const CONTROL_HEIGHT: f32 = 36.0;
+pub const CONTROL_HEIGHT: f32 = 40.0;
+/// Edge length of a taskbar button.
+pub const TASKBAR_BUTTON: f32 = 36.0;
 /// Font size of body text.
 pub const FONT_BODY: f32 = 14.0;
 /// Font size of secondary text.
@@ -229,6 +233,69 @@ pub fn with_alpha(color: Color32, alpha_percent: u8) -> Color32 {
     )
 }
 
+/// Strength of the soft drop shadow behind cards, dialogs and windows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShadowStrength {
+    /// Resting card or panel.
+    Card,
+    /// Hovered or focused card.
+    Hover,
+    /// Dialog or floating desktop window.
+    Dialog,
+}
+
+impl ShadowStrength {
+    /// Spread in points, added alpha in percent and number of stacked layers.
+    fn params(self) -> (f32, f32, usize) {
+        match self {
+            ShadowStrength::Card => (10.0, 12.0, 6),
+            ShadowStrength::Hover => (16.0, 26.0, 8),
+            ShadowStrength::Dialog => (18.0, 22.0, 10),
+        }
+    }
+}
+
+/// One layer of a soft drop shadow.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShadowLayer {
+    /// Rectangle to fill.
+    pub rect: Rect,
+    /// Corner radius of that rectangle.
+    pub rounding: f32,
+    /// Translucent fill.
+    pub color: Color32,
+}
+
+/// Builds the layers of the soft shadow under `rect`, widest first.
+///
+/// egui cannot blur. The legacy stylesheet draws `0 4px 20px -2px rgba(accent, .07)`, so the same
+/// falloff is painted as a stack of rounded rectangles that grow outwards with one small alpha each:
+/// far from the surface only the widest layer covers, close to it every layer overlaps, which is the
+/// soft halo of the legacy cards without a blur pass.
+pub fn shadow_layers(
+    rect: Rect,
+    rounding: f32,
+    strength: ShadowStrength,
+    tint: Color32,
+) -> Vec<ShadowLayer> {
+    let (spread, alpha, rings) = strength.params();
+    let per_layer = (alpha / rings as f32).round().max(1.0) as u8;
+    let color = with_alpha(tint, per_layer);
+    let mut layers = Vec::with_capacity(rings);
+    for ring in (1..=rings).rev() {
+        let grow = spread * ring as f32 / rings as f32;
+        layers.push(ShadowLayer {
+            rect: Rect::from_min_max(
+                Pos2::new(rect.min.x - grow, rect.min.y - grow + 2.0),
+                Pos2::new(rect.max.x + grow, rect.max.y + grow + 2.0),
+            ),
+            rounding: rounding + grow,
+            color,
+        });
+    }
+    layers
+}
+
 /// Hue of a color in degrees, rounded like the legacy helper.
 pub fn hue(color: Color32) -> u16 {
     let r = f32::from(color.r()) / 255.0;
@@ -304,6 +371,30 @@ mod tests {
 
         assert_eq!(AccentPreset::resolve("unknown").id, "indigo");
         assert_eq!(preset_ids().count(), 9);
+    }
+
+    #[test]
+    fn shadow_layers_grow_and_stack_outwards() {
+        let rect = Rect::from_min_size(Pos2::new(10.0, 20.0), egui::vec2(200.0, 120.0));
+        let layers = shadow_layers(
+            rect,
+            RADIUS_CARD,
+            ShadowStrength::Card,
+            Color32::from_rgb(0x4f, 0x46, 0xe5),
+        );
+        assert_eq!(layers.len(), 6);
+        assert!(layers[0].rect.width() > layers[5].rect.width());
+        assert!(layers[0].rounding > layers[5].rounding);
+        // The shadow hangs two points low, like the legacy `0 4px 20px` box shadow.
+        assert!(layers
+            .iter()
+            .all(|layer| layer.rect.width() >= rect.width()));
+        assert!(layers
+            .iter()
+            .all(|layer| layer.rect.height() >= rect.height()));
+        assert_eq!(layers[0].rect.center().x, rect.center().x);
+        assert!(layers.iter().all(|layer| layer.color == layers[0].color));
+        assert!(layers[0].color.a() < 12, "one layer stays faint");
     }
 
     #[test]

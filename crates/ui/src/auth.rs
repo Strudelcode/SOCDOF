@@ -654,41 +654,53 @@ fn lock_screen(
 ) {
     let mut unlock = false;
     let mut sign_out = false;
-    card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new(texts.get("auth_lock_title"))
-                    .size(22.0)
-                    .strong(),
-            );
-            badge(ui, theme, texts.get("auth_locked_badge"), Tone::Warning);
-        });
+    // The legacy lock screen is a screen, not a form: a large clock, the date and the avatar of the
+    // signed-in account above one password field.
+    ui.add_space(10.0);
+    ui.vertical_centered(|ui| {
         ui.label(
-            RichText::new(texts.get("auth_lock_subtitle"))
+            RichText::new(crate::desktop::format_clock(now))
+                .size(48.0)
+                .strong()
+                .color(theme.palette.text),
+        );
+        ui.label(
+            RichText::new(crate::reports::format_date(now))
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
         );
-        ui.add_space(10.0);
+        ui.add_space(18.0);
         if let Some(user) = state.user.as_ref() {
-            ui.horizontal(|ui| {
-                let initial = user
-                    .display_name
-                    .chars()
-                    .next()
-                    .map(|character| character.to_uppercase().to_string())
-                    .unwrap_or_default();
-                badge(ui, theme, &initial, Tone::Accent);
-                ui.vertical(|ui| {
-                    ui.label(RichText::new(&user.display_name).strong());
-                    ui.label(
-                        RichText::new(format!("@{}", user.username))
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                    );
-                });
-            });
+            let initial = user
+                .display_name
+                .chars()
+                .next()
+                .map(|character| character.to_uppercase().to_string())
+                .unwrap_or_default();
+            let (avatar, _) = ui.allocate_exact_size(egui::Vec2::splat(56.0), egui::Sense::hover());
+            ui.painter()
+                .circle_filled(avatar.center(), 28.0, theme.accent.base);
+            let galley = ui.painter().layout_no_wrap(
+                initial,
+                egui::FontId::proportional(22.0),
+                theme.palette.accent_on,
+            );
+            ui.painter().galley(
+                avatar.center() - galley.size() / 2.0,
+                galley,
+                theme.palette.accent_on,
+            );
+            ui.add_space(8.0);
+            ui.label(RichText::new(&user.display_name).size(FONT_TITLE).strong());
+            ui.label(
+                RichText::new(format!("@{}", user.username))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
         }
-        ui.add_space(8.0);
+        ui.add_space(14.0);
+    });
+    card(ui, theme, |ui| {
         password_field(
             ui,
             theme,

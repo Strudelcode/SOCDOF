@@ -172,8 +172,14 @@ impl Theme {
         ctx.set_visuals(visuals);
         ctx.style_mut(|style| {
             style.spacing.item_spacing = Vec2::splat(SPACING_UNIT);
-            style.spacing.button_padding = Vec2::new(12.0, 7.0);
+            style.spacing.button_padding = Vec2::new(14.0, 8.0);
             style.spacing.interact_size = Vec2::new(0.0, CONTROL_HEIGHT);
+            // The legacy app styles scrollbars at six pixels with a translucent thumb.
+            let mut scroll = style.spacing.scroll;
+            scroll.bar_width = 6.0;
+            scroll.floating_width = 6.0;
+            scroll.handle_min_length = 12.0;
+            style.spacing.scroll = scroll;
             style.text_styles = [
                 (
                     TextStyle::Body,

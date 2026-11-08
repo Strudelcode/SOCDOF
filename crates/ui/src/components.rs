@@ -17,8 +17,8 @@ use crate::focus::{focus_ring, FocusState};
 use crate::icons::Icon;
 use crate::theme::Theme;
 use crate::tokens::{
-    adjust, with_alpha, CARD_PADDING, CONTROL_HEIGHT, FONT_BODY, FONT_SMALL, RADIUS_CARD,
-    RADIUS_CONTROL,
+    adjust, shadow_layers, with_alpha, ShadowStrength, CARD_PADDING, CONTROL_HEIGHT, FONT_BODY,
+    FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL,
 };
 
 /// Visual weight of a button.
@@ -195,18 +195,45 @@ pub fn icon_button(
     }
 }
 
-/// Draws a card with the shared surface, border and padding.
+/// Paints the soft drop shadow of a surface below it, widest layer first.
+pub fn shadow(
+    painter: &egui::Painter,
+    theme: &Theme,
+    rect: Rect,
+    rounding: f32,
+    strength: ShadowStrength,
+) {
+    for layer in shadow_layers(rect, rounding, strength, theme.accent.base) {
+        painter.rect_filled(layer.rect, Rounding::same(layer.rounding), layer.color);
+    }
+}
+
+/// Draws a card with the shared surface, border, padding and soft shadow.
 pub fn card<R>(
     ui: &mut Ui,
     theme: &Theme,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R> {
-    egui::Frame::none()
+    // The shadow belongs below the frame, but its rectangle is only known once the frame was laid
+    // out. Reserve a paint slot first and fill it when the card size is final.
+    let slot = ui.painter().add(egui::Shape::Noop);
+    let response = egui::Frame::none()
         .fill(theme.palette.surface)
         .stroke(Stroke::new(1.0_f32, theme.palette.border))
         .rounding(Rounding::same(RADIUS_CARD))
         .inner_margin(egui::Margin::same(CARD_PADDING))
-        .show(ui, add_contents)
+        .show(ui, add_contents);
+    let shapes: Vec<egui::Shape> = shadow_layers(
+        response.response.rect,
+        RADIUS_CARD,
+        ShadowStrength::Card,
+        theme.accent.base,
+    )
+    .into_iter()
+    .map(|layer| egui::Shape::rect_filled(layer.rect, Rounding::same(layer.rounding), layer.color))
+    .collect();
+    ui.painter().set(slot, egui::Shape::Vec(shapes));
+    response
 }
 
 /// Draws a compact status badge.

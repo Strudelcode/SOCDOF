@@ -214,7 +214,7 @@ impl Scene {
         state.modal_open = false;
         state.shell.close_overlays();
         state.shell.onboarding = Onboarding::restore(true);
-        state.shell.wallpaper.wallpaper = Wallpaper::Aurora;
+        state.shell.wallpaper.wallpaper = Wallpaper::Plain;
         state.shell.wallpaper.fit = WallpaperFit::Cover;
 
         match self {
@@ -557,7 +557,16 @@ fn render_scene(
     state.accent_id = "indigo".to_string();
     state.language = language;
     let ctx = Context::default();
-    let (width, height) = scene.size();
+    // `SOCDOF_PREVIEW_SIZE=432x771` renders a scene in the window size of a reference screenshot,
+    // so the GUI parity artefacts in `docs/artifacts/gui-parity/` are directly comparable.
+    let override_size = std::env::var("SOCDOF_PREVIEW_SIZE").ok().and_then(|raw| {
+        let (width, height) = raw.split_once('x')?;
+        Some((
+            width.trim().parse::<f32>().ok()?,
+            height.trim().parse::<f32>().ok()?,
+        ))
+    });
+    let (width, height) = override_size.unwrap_or_else(|| scene.size());
     let width = width as usize;
     let height = height as usize;
     let mut textures = HashMap::new();
