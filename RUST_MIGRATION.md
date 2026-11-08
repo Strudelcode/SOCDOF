@@ -532,8 +532,17 @@ queries, the same Argon2id login and the same user management.
 - [x] Desktop and every module screen in the browser: icon grid, wallpapers, taskbar, start menu,
       command palette, window chrome, dashboard quick actions, and an account chip that signs out
 - [x] Dashboard figures from the live store (`Store::dashboard_snapshot`) instead of sample data
-- [ ] Persistent browser storage: the database is in memory for the session; OPFS via
-      `sqlite-wasm-vfs` is the next step
+- [x] Persistent browser storage: the database is serialized after every change
+      (`Store::snapshot_bytes`) and kept in IndexedDB (`crates/web/src/storage.rs`); the host
+      restores it (`Store::restore_snapshot`) before the first screen, so accounts, roles, sessions
+      and business data survive a reload, a hard reload and a new tab, and the setup form only
+      appears when no database has ever been stored
+- [x] Pointer accuracy: `sync_canvas_size` keeps the canvas backing store on its CSS box, so egui
+      paints and hit-tests in the same grid and a click reaches the control under the cursor even
+      after the panel was resized
+- [ ] OPFS instead of IndexedDB: `sqlite-wasm-vfs` needs `FileSystemSyncAccessHandle`, which browsers
+      only expose in a dedicated worker; the host has no worker, so the serialized image in
+      IndexedDB is the supported route for now
 - [ ] Web build in CI (Trunk build plus artifact upload)
 - [ ] Print, backup, CSV and legacy import in the browser: they need file access and stay
       desktop-only for now

@@ -1414,6 +1414,30 @@ impl Store {
         ))
     }
 
+    /// Serialized image of the whole database.
+    ///
+    /// The browser build keeps this image in IndexedDB so accounts and sessions survive a reload;
+    /// on the desktop it is a cheap way to copy a database without touching the file system.
+    pub fn snapshot_bytes(&self) -> CoreResult<Vec<u8>> {
+        let data = self.conn.serialize("main")?;
+        Ok(data.to_vec())
+    }
+
+    /// Replaces the content of this connection with a serialized database image.
+    ///
+    /// Every row that was loaded before the call is stale afterwards, and the schema is migrated
+    /// again so snapshots of older versions keep working.
+    pub fn restore_snapshot(&mut self, bytes: &[u8]) -> CoreResult<()> {
+        self.conn.deserialize_read_exact(
+            "main",
+            std::io::Cursor::new(bytes),
+            bytes.len(),
+            false,
+        )?;
+        self.migrate()?;
+        Ok(())
+    }
+
     pub(crate) fn connection(&self) -> &rusqlite::Connection {
         &self.conn
     }

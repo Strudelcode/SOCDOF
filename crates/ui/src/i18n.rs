@@ -1443,6 +1443,8 @@ pub const UI_KEYS: &[&str] = &[
     "studio_reset_cancel",
     "studio_status_cleared",
     "command_studio",
+    "web_storage_loading",
+    "web_storage_error",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]

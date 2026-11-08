@@ -77,7 +77,7 @@ subject, footer) on the page with size, bold and alignment, previews the result 
 5008 PDF export, which continues long position tables on further pages with the column header, the
 letterhead and the tokens repeated there; the palette entry **Document layout** opens that tab
 directly. Escape or the close
-button returns to the gallery. The catalogue holds 1,428 keys per language and 264 golden snapshots
+button returns to the gallery. The catalogue holds 1,430 keys per language and 264 golden snapshots
 pin 33 scenes in both appearances.
 
 `cargo test` also runs the keyboard suite (Tab order, Enter/Space activation, arrows, Escape, typing,
@@ -103,9 +103,17 @@ cd crates/web
 trunk serve --address 0.0.0.0 --port 3000     # or: trunk build --release, then serve dist/
 ```
 
-The browser database is created in memory, so a reload starts with an empty company and the setup
-form again; OPFS persistence is not implemented yet. Print, backup, CSV and legacy import need file
-access and stay desktop-only for now.
+The browser database lives in IndexedDB. After every change the host serializes the SQLite image
+(`Store::snapshot_bytes`) and writes it there, and it restores the image (`Store::restore_snapshot`)
+before the first screen, so accounts, roles, sessions and business data survive a reload, a hard
+reload and a new tab. The setup form only appears while this browser has never stored a database;
+the panel shows a loading hint instead of the form while IndexedDB is read.
+
+OPFS through `sqlite-wasm-vfs` is not usable here: its `FileSystemSyncAccessHandle` only exists in a
+dedicated worker, and the web host runs on the page thread without one. IndexedDB is the
+supported alternative. The host also keeps the canvas backing store on its CSS box
+(`sync_canvas_size`), so a click reaches the control under the cursor after the panel was resized.
+Print, backup, CSV and legacy import need file access and stay desktop-only for now.
 
 ### Desktop application
 

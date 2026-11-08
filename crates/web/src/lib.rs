@@ -18,6 +18,8 @@
 #![cfg(target_arch = "wasm32")]
 #![deny(missing_docs)]
 
+mod storage;
+
 use eframe::egui::{self, Align2, Context, Id, RichText};
 use socdof_core::app_store;
 use socdof_core::domain::permission::{AppModule, ALL_MODULES};
@@ -50,6 +52,7 @@ use socdof_ui::theme::{Appearance, Theme};
 use socdof_ui::therapie::{therapie, TherapieState};
 use socdof_ui::tokens::FONT_SMALL;
 use socdof_ui::users::{users, UsersState};
+use wasm_bindgen::JsCast;
 
 /// Accent of the first start; the appearance settings change it later.
 const DEFAULT_ACCENT: &str = "indigo";
@@ -108,6 +111,14 @@ struct WebApp {
     therapie: TherapieState,
     /// Catalogue key of a startup failure.
     error: Option<&'static str>,
+    /// IndexedDB handle that keeps the database image of this browser.
+    storage: storage::Storage,
+    /// Whether the stored database has been applied; the app starts on a loading screen.
+    loaded: bool,
+    /// Bytes of the last successful save, used to detect changes.
+    last_saved: Vec<u8>,
+    /// Last change check, in milliseconds.
+    last_check: i64,
 }
 
 impl WebApp {
@@ -155,6 +166,70 @@ impl WebApp {
             reports: ReportsState::new(),
             therapie: TherapieState::new(),
             error: None,
+            storage: storage::Storage::start(),
+            loaded: false,
+            last_saved: Vec::new(),
+            last_check: 0,
+        }
+    }
+
+    /// Applies the stored database once IndexedDB answered.
+    ///
+    /// Returns `false` while the read is still running; the caller then shows the loading hint. A
+    /// browser without storage (or with a corrupted snapshot) keeps working in memory and reports
+    /// it through the error line, so the user is never silently left without persistence.
+    fn load_snapshot(&mut self) -> bool {
+        let result = match self.storage.take_load() {
+            Some(result) => result,
+            None => return false,
+        };
+        self.loaded = true;
+        match result {
+            Ok(Some(bytes)) => {
+                if self.store.restore_snapshot(&bytes).is_err() {
+                    self.error = Some("web_storage_error");
+                    self.store = Store::open_in_memory().expect("in-memory SQLite store");
+                }
+            }
+            Ok(None) => {}
+            Err(()) => self.error = Some("web_storage_error"),
+        }
+        if !self.storage.is_writable() {
+            self.error = Some("web_storage_error");
+        }
+        // A restored database carries other accounts, roles and settings than the empty one.
+        let now = now_millis();
+        if let Ok(auth) = AuthState::new(&self.store, now) {
+            self.auth = auth;
+        }
+        let active =
+            app_store::active_modules(&self.store).unwrap_or_else(|_| ALL_MODULES.to_vec());
+        self.icons = desktop_icons(&self.texts, &active);
+        true
+    }
+
+    /// Draws the hint that is shown while the stored database is read.
+    fn render_loading(&self, ctx: &Context) {
+        let text = self.texts.get("web_storage_loading").to_owned();
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                ui.label(RichText::new(text).size(FONT_SMALL));
+            });
+        });
+    }
+
+    /// Writes the database image to IndexedDB when it changed.
+    fn persist(&mut self, now: i64) {
+        if !self.loaded || now.saturating_sub(self.last_check) < 400 {
+            return;
+        }
+        self.last_check = now;
+        let Ok(bytes) = self.store.snapshot_bytes() else {
+            return;
+        };
+        if bytes != self.last_saved {
+            self.storage.save(&bytes);
+            self.last_saved = bytes;
         }
     }
 
@@ -671,11 +746,23 @@ impl WebApp {
 
 impl eframe::App for WebApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        sync_canvas_size();
         self.focus.begin_frame(ctx);
+        // The browser reads the stored database asynchronously, therefore the first frames are a hint.
+        if !self.loaded && !self.load_snapshot() {
+            let theme = Theme::new(self.appearance, &self.accent_id);
+            theme.apply(ctx);
+            self.render_loading(ctx);
+            self.focus.finish_frame();
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+            return;
+        }
         let theme = Theme::new(self.appearance, &self.accent_id);
         theme.apply(ctx);
         let texts = self.texts.clone();
         let now = now_millis();
+        // Keep frames coming so the debounced save runs without further user input.
+        ctx.request_repaint_after(std::time::Duration::from_millis(400));
 
         if self.signed_in() {
             if ctx.input(|input| !input.events.is_empty()) {
@@ -710,6 +797,7 @@ impl eframe::App for WebApp {
             self.account_chip(ctx, &theme, &texts, now);
         }
         self.focus.finish_frame();
+        self.persist(now);
     }
 }
 
@@ -743,6 +831,36 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         ));
     }
     IconGrid::new(icons)
+}
+
+/// Keeps the canvas backing store in sync with its CSS box.
+///
+/// A panel that changes size before the app starts (split views, restored tabs, opened dev tools)
+/// leaves the canvas at a stale size. `egui` then paints into a larger point space than the one it
+/// maps pointer positions to, so clicks land beside the widget under the cursor. Syncing the
+/// backing store to the CSS box in device pixels keeps painting and pointer positions on one grid.
+fn sync_canvas_size() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let canvas = document
+        .get_element_by_id("socdof-canvas")
+        .and_then(|element| element.dyn_into::<web_sys::HtmlCanvasElement>().ok());
+    let Some(canvas) = canvas else {
+        return;
+    };
+    let ratio = window.device_pixel_ratio();
+    let width = (f64::from(canvas.client_width()) * ratio).round().max(0.0) as u32;
+    let height = (f64::from(canvas.client_height()) * ratio).round().max(0.0) as u32;
+    if width > 0 && canvas.width() != width {
+        canvas.set_width(width);
+    }
+    if height > 0 && canvas.height() != height {
+        canvas.set_height(height);
+    }
 }
 
 /// Language of the browser, German when it is not one of the four supported languages.

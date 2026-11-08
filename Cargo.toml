@@ -17,7 +17,7 @@ serde_json = "1"
 thiserror = "2"
 # 0.40 switches to `sqlite-wasm-rs` on `wasm32-unknown-unknown`, so the same store code runs in a
 # browser; the bundled C SQLite stays in place for the native builds.
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled", "serialize"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = { version = "0.5", features = ["std"] }
 sha2 = "0.10"
@@ -30,7 +30,22 @@ png = "0.17"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Document", "Element", "Navigator", "Window"] }
+web-sys = { version = "0.3", features = [
+    "HtmlCanvasElement",
+    "Document",
+    "Element",
+    "Event",
+    "EventTarget",
+    "IdbDatabase",
+    "IdbFactory",
+    "IdbObjectStore",
+    "IdbOpenDbRequest",
+    "IdbRequest",
+    "IdbTransaction",
+    "IdbTransactionMode",
+    "Navigator",
+    "Window",
+] }
 console_error_panic_hook = "0.1"
 log = "0.4"
 

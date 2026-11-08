@@ -20,10 +20,22 @@ matching, non-empty section.
   the session out again.
 - Core helpers for the web host: `Store::dashboard_snapshot` feeds the dashboard with live figures
   instead of the gallery sample, and `now_millis()` reads the browser clock on wasm.
+- Persistent browser storage: the browser build serializes its SQLite image after every change and
+  keeps it in IndexedDB (`Store::snapshot_bytes` / `Store::restore_snapshot`, `crates/web/src/storage.rs`).
+  Accounts, roles, sessions and business data survive a reload, a hard reload and a new tab, and the
+  setup form only appears when this browser has never stored a database. The loading hint and the
+  storage warning add two catalogue keys, so the catalogue holds 1,430 keys per language.
+
+### Fixed
+
+- Pointer accuracy in the browser build: the host now keeps the canvas backing store in sync with
+  its CSS box (`sync_canvas_size`). Without it egui painted in a stale point space and clicks landed
+  beside the control under the cursor.
 
 ### Notes
 
-- The browser database currently lives in memory for the session; OPFS persistence is the next step.
+- The browser database lives in IndexedDB. OPFS through `sqlite-wasm-vfs` is not usable here: its
+  `FileSystemSyncAccessHandle` only exists in a dedicated worker, and the web host has none.
 - Print, backup and import need file access and stay desktop-only for now.
 - Build with `trunk build --release` in `crates/web` (5.4 MB wasm, 2.5 MB gzip).
 
