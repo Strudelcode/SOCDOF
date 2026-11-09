@@ -11,8 +11,8 @@
 //! reachable through the same [`FocusState`] as every other control.
 
 use egui::{
-    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2,
-    WidgetInfo, WidgetType,
+    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, RichText, Rounding, Sense, Stroke, Ui,
+    Vec2, WidgetInfo, WidgetType,
 };
 use socdof_core::store::Store as SocdofStore;
 
@@ -58,6 +58,8 @@ pub const ICON_MIN_COLUMNS: u32 = 3;
 pub const DESKTOP_MARGIN: f32 = 16.0;
 /// Taskbar width from which the search pill is shown.
 pub const TASKBAR_SEARCH_MIN_WIDTH: f32 = 640.0;
+/// Taskbar width from which the version pill is shown.
+pub const TASKBAR_STATUS_MIN_WIDTH: f32 = 700.0;
 
 /// Stable app identifier shared by desktop icons, windows and taskbar entries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -773,10 +775,32 @@ pub fn desktop(
                 );
                 let app = crate::chrome::app_chrome(icon.app().as_str());
                 let tint = crate::chrome::tint(app);
+                // The legacy tile shadow is the accent at low alpha, not the app colour, so the
+                // tiles stay distinguishable without glowing in their own hue.
+                for layer in crate::tokens::shadow_layers(
+                    tile,
+                    RADIUS_CARD,
+                    crate::tokens::ShadowStrength::Card,
+                    theme.accent.base,
+                ) {
+                    painter.rect(
+                        layer.rect,
+                        Rounding::same(layer.rounding),
+                        layer.color,
+                        Stroke::NONE,
+                    );
+                }
+                painter.add(crate::wallpaper::gradient_mesh(
+                    tile,
+                    crate::tokens::adjust(tint, 12),
+                    crate::tokens::adjust(tint, 12),
+                    crate::tokens::adjust(tint, -18),
+                    crate::tokens::adjust(tint, -18),
+                ));
                 painter.rect(
                     tile,
                     Rounding::same(RADIUS_CARD),
-                    tint,
+                    Color32::TRANSPARENT,
                     Stroke::new(1.0_f32, crate::tokens::adjust(tint, 22)),
                 );
                 icon.icon().draw(
@@ -1106,7 +1130,8 @@ pub fn desktop(
             }
             // The tray, the Studio button and the clock always keep their place on the right; app
             // buttons that no longer fit are dropped instead of pushing the clock off the bar.
-            let right_limit = bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 8.0;
+            let right_limit =
+                bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 36.0 - 8.0;
             for (app, label, icon) in &apps {
                 if x + crate::tokens::TASKBAR_BUTTON > right_limit {
                     break;
@@ -1211,9 +1236,152 @@ pub fn desktop(
             ) {
                 shell.toggle_tray();
             }
+
+            if bar.width() >= TASKBAR_STATUS_MIN_WIDTH {
+                let pill = Rect::from_min_size(
+                    Pos2::new(bar.right() - 290.0, bar.top() + 12.0),
+                    Vec2::new(84.0, 24.0),
+                );
+                painter.rect(
+                    pill,
+                    Rounding::same(12.0),
+                    with_alpha(theme.palette.surface_muted, 90),
+                    Stroke::new(1.0_f32, theme.palette.border),
+                );
+                painter.circle_filled(
+                    Pos2::new(pill.left() + 12.0, pill.center().y),
+                    3.5,
+                    theme.companion().base,
+                );
+                painter.text(
+                    Pos2::new(pill.left() + 22.0, pill.center().y),
+                    Align2::LEFT_CENTER,
+                    format!("v{}", env!("CARGO_PKG_VERSION")),
+                    FontId::proportional(11.0),
+                    theme.palette.text_muted,
+                );
+                let _ = ui
+                    .interact(pill, Id::new("socdof-taskbar-status"), Sense::hover())
+                    .on_hover_text(texts.get("taskbar_status"));
+            }
+
+            let task_view_rect = Rect::from_min_size(
+                Pos2::new(bar.right() - 194.0, bar.top() + 6.0),
+                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
+            );
+            let task_view_id = Id::new("socdof-taskbar-taskview");
+            let task_view_focused = focus.register(task_view_id);
+            let task_view_response = ui.interact(task_view_rect, task_view_id, Sense::click());
+            let task_view_active = shell.task_view.is_open();
+            painter.rect(
+                task_view_rect,
+                Rounding::same(RADIUS_CONTROL),
+                if task_view_active {
+                    theme.accent.light
+                } else if task_view_response.hovered() || task_view_focused {
+                    theme.palette.surface_muted
+                } else {
+                    Color32::TRANSPARENT
+                },
+                Stroke::NONE,
+            );
+            // Two overlapping window outlines, the glyph the legacy task view button uses.
+            let glyph = Rect::from_center_size(task_view_rect.center(), Vec2::new(18.0, 12.0));
+            for (offset, size) in [
+                (Vec2::new(0.0, 3.0), Vec2::new(11.0, 9.0)),
+                (Vec2::new(7.0, 0.0), Vec2::new(11.0, 9.0)),
+            ] {
+                painter.rect(
+                    Rect::from_min_size(glyph.min + offset, size),
+                    Rounding::same(2.0),
+                    Color32::TRANSPARENT,
+                    Stroke::new(
+                        1.3_f32,
+                        if task_view_active {
+                            theme.accent_text()
+                        } else {
+                            theme.palette.text
+                        },
+                    ),
+                );
+            }
+            if task_view_focused {
+                focus_ring(ui, theme, task_view_rect);
+            }
+            task_view_response.widget_info(|| {
+                WidgetInfo::labeled(WidgetType::Button, texts.get("taskbar_task_view"))
+            });
+            if task_view_response.clicked() || focus.activate(task_view_id) {
+                shell.task_view.toggle();
+            }
         });
     if let Some(app) = launched {
         outcome.open_app = Some(app);
+    }
+
+    if shell.task_view.is_open() {
+        if ctx.input(|input| input.key_pressed(Key::Escape)) {
+            shell.task_view.close();
+        }
+        let mut focus_app: Option<AppId> = None;
+        let mut close = false;
+        egui::Area::new(Id::new("socdof-task-view"))
+            .order(egui::Order::Foreground)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+            .show(ctx, |ui| {
+                egui::Frame::none()
+                    .fill(with_alpha(theme.palette.surface, 96))
+                    .stroke(Stroke::new(1.0_f32, theme.palette.border))
+                    .rounding(Rounding::same(RADIUS_DIALOG))
+                    .inner_margin(egui::Margin::same(16.0))
+                    .show(ui, |ui| {
+                        ui.set_width(320.0);
+                        ui.label(
+                            RichText::new(texts.get("task_view_title"))
+                                .size(16.0)
+                                .strong(),
+                        );
+                        ui.add_space(8.0);
+                        let open: Vec<(AppId, String)> = windows
+                            .windows()
+                            .iter()
+                            .filter(|window| !window.is_minimized())
+                            .map(|window| (window.app(), window.title().to_owned()))
+                            .collect();
+                        if open.is_empty() {
+                            ui.label(
+                                RichText::new(texts.get("task_view_empty"))
+                                    .size(FONT_SMALL)
+                                    .color(theme.palette.text_muted),
+                            );
+                        }
+                        for (app, title) in open {
+                            if button(ui, theme, focus, &title, ButtonVariant::Secondary).activated
+                            {
+                                focus_app = Some(app);
+                            }
+                        }
+                        ui.add_space(8.0);
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("window_close_cancel"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                        {
+                            close = true;
+                        }
+                    });
+            });
+        if close {
+            shell.task_view.close();
+        }
+        if let Some(app) = focus_app {
+            windows.focus(app);
+            shell.task_view.close();
+        }
     }
 
     let mut dialog = false;

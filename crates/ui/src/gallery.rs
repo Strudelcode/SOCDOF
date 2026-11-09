@@ -20,7 +20,7 @@ use crate::auth::{auth, AuthState};
 use crate::calendar::CalendarState;
 use crate::components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
-    ButtonVariant, SortState, Toasts, Tone,
+    toast_stack, ButtonVariant, SortState, Toasts, Tone,
 };
 use crate::contacts::{contacts, seed_sample, ContactsState};
 use crate::controls::{
@@ -507,6 +507,17 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &state.store,
             now,
         );
+        // The wizard collects language, appearance, accent and layout; the host owns them, so it
+        // applies the choices as soon as the user leaves the step that made them.
+        if let Some(language) = state.auth.language_choice.take() {
+            state.language = language;
+        }
+        if let Some(appearance) = state.auth.appearance_choice.take() {
+            state.appearance = appearance;
+        }
+        if let Some(accent) = state.auth.accent_choice.take() {
+            state.accent_id = accent;
+        }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
             state.auth.back = false;
@@ -1493,9 +1504,12 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         )
                         .activated
                         {
-                            state
-                                .toasts
-                                .push(Tone::Success, texts.get("toast_saved"), now);
+                            state.toasts.push_titled(
+                                Tone::Success,
+                                texts.get("toast_title_success"),
+                                texts.get("toast_saved"),
+                                now,
+                            );
                         }
                         button(
                             ui,
@@ -1765,13 +1779,19 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                             );
                             if valid {
                                 state.form.mark_saved();
-                                state
-                                    .toasts
-                                    .push(Tone::Success, texts.get("toast_saved"), now);
+                                state.toasts.push_titled(
+                                    Tone::Success,
+                                    texts.get("toast_title_success"),
+                                    texts.get("toast_saved"),
+                                    now,
+                                );
                             } else {
-                                state
-                                    .toasts
-                                    .push(Tone::Danger, texts.get("toast_invalid"), now);
+                                state.toasts.push_titled(
+                                    Tone::Danger,
+                                    texts.get("toast_title_error"),
+                                    texts.get("toast_invalid"),
+                                    now,
+                                );
                             }
                         }
                         if button(
@@ -1806,9 +1826,6 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 card(ui, &theme, |ui| {
                     ui.label(RichText::new(texts.get("section_feedback")).strong());
                     ui.add_space(6.0);
-                    for toast in state.toasts.visible(now, TOAST_TTL_MS) {
-                        badge(ui, &theme, &toast.text, toast.tone);
-                    }
                     empty_state(
                         ui,
                         &theme,
@@ -2005,6 +2022,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         );
     }
     state.toasts.prune(now, TOAST_TTL_MS);
+    let _ = toast_stack(ctx, &theme, &mut state.toasts, now, TOAST_TTL_MS, 16.0);
     onboarding(
         ctx,
         &theme,

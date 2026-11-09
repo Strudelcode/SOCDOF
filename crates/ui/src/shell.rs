@@ -421,6 +421,39 @@ impl Onboarding {
     }
 }
 
+/// Task view overlay listing the open windows.
+#[derive(Debug, Clone, Default)]
+pub struct TaskView {
+    open: bool,
+}
+
+impl TaskView {
+    /// Builds a closed task view.
+    pub fn new() -> Self {
+        Self { open: false }
+    }
+
+    /// Whether the overview is visible.
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// Shows the overview.
+    pub fn open(&mut self) {
+        self.open = true;
+    }
+
+    /// Hides the overview.
+    pub fn close(&mut self) {
+        self.open = false;
+    }
+
+    /// Toggles the overview.
+    pub fn toggle(&mut self) {
+        self.open = !self.open;
+    }
+}
+
 /// Shell overlays, wallpaper and widgets of the desktop.
 #[derive(Debug, Clone, Default)]
 pub struct ShellState {
@@ -438,6 +471,8 @@ pub struct ShellState {
     pub widgets: WidgetLayer,
     /// Studio drawer with the letterhead and the clean mode.
     pub studio: StudioState,
+    /// Window overview.
+    pub task_view: TaskView,
 }
 
 impl ShellState {
@@ -451,6 +486,7 @@ impl ShellState {
             wallpaper: WallpaperState::default(),
             widgets: WidgetLayer::new(),
             studio: StudioState::new(),
+            task_view: TaskView::new(),
         }
     }
 
@@ -459,6 +495,7 @@ impl ShellState {
         self.start.close();
         self.palette.close();
         self.tray.close();
+        self.task_view.close();
     }
 
     /// Whether any overlay is visible.
@@ -467,6 +504,7 @@ impl ShellState {
             || self.start.is_open()
             || self.palette.is_open()
             || self.tray.is_open()
+            || self.task_view.is_open()
     }
 
     /// Opens the start menu and closes the other overlays.

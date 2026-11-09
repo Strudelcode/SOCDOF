@@ -194,7 +194,7 @@ pub fn paint_plain(ui: &Ui, rect: Rect, accent: Color32) {
 }
 
 /// Builds a rectangle whose four corners carry the given colors.
-fn gradient_mesh(
+pub(crate) fn gradient_mesh(
     rect: Rect,
     left_top: Color32,
     right_top: Color32,

@@ -26,6 +26,29 @@ use crate::tokens::{FONT_SMALL, FONT_TITLE};
 /// Inactivity after which the session is locked automatically.
 pub const DEFAULT_IDLE_TIMEOUT_MS: i64 = 5 * 60 * 1000;
 
+/// Number of steps in the first-run wizard.
+pub const SETUP_STEPS: usize = 4;
+
+/// Catalogue keys of the wizard steps, in order.
+const SETUP_STEP_KEYS: [&str; SETUP_STEPS] = [
+    "setup_step_language",
+    "setup_step_account",
+    "setup_step_appearance",
+    "setup_step_apps",
+];
+
+/// Desktop layout a first-run account can start with.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SetupTemplate {
+    /// Point of sale, invoices, products and reports.
+    #[default]
+    Sales,
+    /// Contacts, calendar, appointments and support.
+    Office,
+    /// Every app.
+    All,
+}
+
 /// Screen currently shown by the authentication flow.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum AuthView {
@@ -73,6 +96,18 @@ pub struct AuthState {
     pub back: bool,
     /// Whether the gallery demo may leave the login/setup screen.
     pub allow_exit: bool,
+    /// Current step of the first-run wizard.
+    pub setup_step: usize,
+    /// Language chosen in the wizard; the host applies it after setup.
+    pub language_choice: Option<socdof_core::domain::settings::Language>,
+    /// Appearance chosen in the wizard; the host applies it after setup.
+    pub appearance_choice: Option<crate::theme::Appearance>,
+    /// Accent chosen in the wizard; the host applies it after setup.
+    pub accent_choice: Option<String>,
+    /// Desktop layout chosen in the wizard.
+    pub template_choice: SetupTemplate,
+    /// Whether the lock screen shows the password recovery hint.
+    pub forgot_hint: bool,
     token: Option<String>,
 }
 
@@ -109,6 +144,7 @@ impl AuthState {
     /// Shows the login form.
     pub fn show_login(&mut self) {
         self.view = AuthView::Login;
+        self.forgot_hint = false;
         self.password.clear();
         self.password_confirm.clear();
         self.error = None;
@@ -119,6 +155,8 @@ impl AuthState {
     /// Shows the first-run setup form.
     pub fn show_setup(&mut self) {
         self.view = AuthView::Setup;
+        self.setup_step = 0;
+        self.forgot_hint = false;
         self.username.clear();
         self.display_name.clear();
         self.password.clear();
@@ -565,6 +603,8 @@ fn setup_form(
     submit: bool,
 ) {
     let mut create = false;
+    let mut next = false;
+    let mut back = false;
     card(ui, theme, |ui| {
         ui.horizontal(|ui| {
             ui.label(
@@ -572,7 +612,12 @@ fn setup_form(
                     .size(22.0)
                     .strong(),
             );
-            badge(ui, theme, texts.get("auth_setup_badge"), Tone::Accent);
+            badge(
+                ui,
+                theme,
+                &format!("{} / {}", state.setup_step + 1, SETUP_STEPS),
+                Tone::Accent,
+            );
         });
         ui.label(
             RichText::new(texts.get("auth_setup_subtitle"))
@@ -580,55 +625,214 @@ fn setup_form(
                 .color(theme.palette.text_muted),
         );
         ui.add_space(10.0);
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.display_name,
-            texts.get("auth_display_name"),
-            texts.get("auth_display_name_hint"),
-            None,
-        );
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.username,
-            texts.get("auth_username"),
-            texts.get("auth_username_hint"),
-            None,
-        );
-        password_field(
-            ui,
-            theme,
-            focus,
-            &mut state.password,
-            texts.get("auth_password"),
-            texts.get("auth_password_hint"),
-            None,
-        );
-        password_field(
-            ui,
-            theme,
-            focus,
-            &mut state.password_confirm,
-            texts.get("auth_password_confirm"),
-            texts.get("auth_password_hint"),
-            None,
-        );
+        ui.horizontal_wrapped(|ui| {
+            for (index, key) in SETUP_STEP_KEYS.iter().enumerate() {
+                let active = index == state.setup_step;
+                ui.label(
+                    RichText::new(format!("{}. {}", index + 1, texts.get(key)))
+                        .size(FONT_SMALL)
+                        .color(if active {
+                            theme.accent_text()
+                        } else {
+                            theme.palette.text_muted
+                        }),
+                );
+            }
+        });
+        ui.add_space(12.0);
+        match state.setup_step {
+            0 => {
+                ui.vertical(|ui| {
+                    for language in socdof_core::i18n::EMBEDDED_LANGUAGES {
+                        let selected = state.language_choice == Some(language);
+                        let variant = if selected {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, language_label(language), variant).activated {
+                            state.language_choice = Some(language);
+                        }
+                    }
+                });
+            }
+            1 => {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.display_name,
+                    texts.get("auth_display_name"),
+                    texts.get("auth_display_name_hint"),
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.username,
+                    texts.get("auth_username"),
+                    texts.get("auth_username_hint"),
+                    None,
+                );
+                password_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.password,
+                    texts.get("auth_password"),
+                    texts.get("auth_password_hint"),
+                    None,
+                );
+                password_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.password_confirm,
+                    texts.get("auth_password_confirm"),
+                    texts.get("auth_password_hint"),
+                    None,
+                );
+                let strength = password_strength(&state.password);
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(texts.get("setup_strength_label"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.label(
+                        RichText::new(strength_label(texts, strength))
+                            .size(FONT_SMALL)
+                            .color(strength_color(theme, strength)),
+                    );
+                });
+                ui.add_space(4.0);
+                let (bar, _) = ui.allocate_exact_size(
+                    egui::Vec2::new(ui.available_width(), 4.0),
+                    egui::Sense::hover(),
+                );
+                ui.painter().rect_filled(
+                    bar,
+                    egui::Rounding::same(2.0),
+                    theme.palette.surface_muted,
+                );
+                ui.painter().rect_filled(
+                    egui::Rect::from_min_size(
+                        bar.min,
+                        egui::Vec2::new(bar.width() * strength as f32 / 3.0, bar.height()),
+                    ),
+                    egui::Rounding::same(2.0),
+                    strength_color(theme, strength),
+                );
+            }
+            2 => {
+                ui.horizontal(|ui| {
+                    for (appearance, key) in [
+                        (crate::theme::Appearance::Light, "setup_appearance_light"),
+                        (crate::theme::Appearance::Dark, "setup_appearance_dark"),
+                    ] {
+                        let variant = if state.appearance_choice == Some(appearance) {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, texts.get(key), variant).activated {
+                            state.appearance_choice = Some(appearance);
+                        }
+                    }
+                });
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    for id in crate::tokens::preset_ids() {
+                        let preset = crate::tokens::AccentPreset::resolve(id);
+                        let swatch = egui::Id::new(("socdof-setup-accent", id));
+                        let focused = focus.register(swatch);
+                        let (rect, response) =
+                            ui.allocate_exact_size(egui::Vec2::splat(32.0), egui::Sense::click());
+                        ui.painter().circle_filled(rect.center(), 11.0, preset.base);
+                        let chosen = state.accent_choice.as_deref() == Some(id);
+                        if chosen || focused {
+                            ui.painter().circle_stroke(
+                                rect.center(),
+                                14.0,
+                                egui::Stroke::new(
+                                    2.0_f32,
+                                    if chosen {
+                                        preset.base
+                                    } else {
+                                        theme.palette.border
+                                    },
+                                ),
+                            );
+                        }
+                        if response.clicked() {
+                            state.accent_choice = Some(id.to_string());
+                            focus.set_focus(Some(swatch));
+                        }
+                    }
+                });
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(texts.get("setup_appearance_hint"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            }
+            _ => {
+                ui.vertical(|ui| {
+                    for (template, key) in [
+                        (SetupTemplate::Sales, "setup_template_sales"),
+                        (SetupTemplate::Office, "setup_template_office"),
+                        (SetupTemplate::All, "setup_template_all"),
+                    ] {
+                        let variant = if state.template_choice == template {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, texts.get(key), variant).activated {
+                            state.template_choice = template;
+                        }
+                    }
+                });
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(texts.get("setup_template_label"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            }
+        }
         messages(ui, theme, texts, state, now);
         ui.add_space(8.0);
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("auth_create_admin"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
+        ui.horizontal(|ui| {
+            if state.setup_step > 0
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("setup_step_back"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+            {
+                back = true;
+            }
+            let last = state.setup_step + 1 == SETUP_STEPS;
+            let label = if last {
+                texts.get("auth_create_admin")
+            } else {
+                texts.get("setup_next")
+            };
+            if button(ui, theme, focus, label, ButtonVariant::Primary).activated {
+                if last {
+                    create = true;
+                } else {
+                    next = true;
+                }
+            }
+        });
         ui.add_space(8.0);
         ui.label(
             RichText::new(texts.get("auth_setup_hint"))
@@ -636,8 +840,70 @@ fn setup_form(
                 .color(theme.palette.text_muted),
         );
     });
-    if create || submit {
+    if back && state.setup_step > 0 {
+        state.setup_step -= 1;
+    }
+    if next && state.setup_step + 1 < SETUP_STEPS {
+        state.setup_step += 1;
+    }
+    if create || (submit && state.setup_step + 1 == SETUP_STEPS) {
         let _ = state.create_first_admin(store, now);
+        if state.error.is_some() {
+            state.setup_step = 1;
+        }
+    }
+}
+
+/// Native name of a language, the same in every interface language.
+fn language_label(language: socdof_core::domain::settings::Language) -> &'static str {
+    match language.as_str() {
+        "de" => "Deutsch",
+        "fr" => "Français",
+        "es" => "Español",
+        _ => "English",
+    }
+}
+
+/// Rough password strength from zero to three, matching the legacy meter.
+fn password_strength(password: &str) -> usize {
+    let length = password.chars().count();
+    let classes = [
+        password
+            .chars()
+            .any(|character| character.is_ascii_lowercase()),
+        password
+            .chars()
+            .any(|character| character.is_ascii_uppercase()),
+        password.chars().any(|character| character.is_ascii_digit()),
+        password
+            .chars()
+            .any(|character| !character.is_alphanumeric()),
+    ]
+    .iter()
+    .filter(|class| **class)
+    .count();
+    if length < 8 {
+        1
+    } else if length >= 12 && classes >= 3 {
+        3
+    } else {
+        2
+    }
+}
+
+fn strength_label(texts: &UiTexts, strength: usize) -> &str {
+    match strength {
+        1 => texts.get("setup_strength_weak"),
+        2 => texts.get("setup_strength_ok"),
+        _ => texts.get("setup_strength_strong"),
+    }
+}
+
+fn strength_color(theme: &Theme, strength: usize) -> egui::Color32 {
+    match strength {
+        1 => theme.palette.danger,
+        2 => theme.palette.warning,
+        _ => theme.palette.success,
     }
 }
 
@@ -700,6 +966,18 @@ fn lock_screen(
         }
         ui.add_space(14.0);
     });
+    let others: Vec<User> = store
+        .list_users()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|user| {
+            user.active
+                && match state.user.as_ref() {
+                    Some(current) => current.id != user.id,
+                    None => true,
+                }
+        })
+        .collect();
     card(ui, theme, |ui| {
         password_field(
             ui,
@@ -736,13 +1014,86 @@ fn lock_screen(
                 sign_out = true;
             }
         });
-        ui.add_space(8.0);
+        ui.add_space(6.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("auth_forgot_password"),
+            ButtonVariant::Ghost,
+        )
+        .activated
+        {
+            state.forgot_hint = !state.forgot_hint;
+        }
         ui.label(
-            RichText::new(texts.get("auth_lock_hint"))
-                .size(FONT_SMALL)
-                .color(theme.palette.text_muted),
+            RichText::new(if state.forgot_hint {
+                texts.get("auth_forgot_hint")
+            } else {
+                texts.get("auth_lock_hint")
+            })
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
         );
     });
+    if !others.is_empty() {
+        ui.add_space(12.0);
+        ui.vertical_centered(|ui| {
+            ui.label(
+                RichText::new(texts.get("auth_switch_account"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        });
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            for user in &others {
+                let id = egui::Id::new(("socdof-lock-switch", user.id.to_string()));
+                let focused = focus.register(id);
+                let (rect, response) =
+                    ui.allocate_exact_size(egui::Vec2::new(128.0, 56.0), egui::Sense::click());
+                let painter = ui.painter().clone();
+                painter.rect(
+                    rect,
+                    egui::Rounding::same(crate::tokens::RADIUS_CONTROL),
+                    if response.hovered() || focused {
+                        theme.palette.surface_muted
+                    } else {
+                        theme.palette.surface
+                    },
+                    egui::Stroke::new(1.0_f32, theme.palette.border),
+                );
+                let initial = user
+                    .display_name
+                    .chars()
+                    .next()
+                    .map(|character| character.to_uppercase().to_string())
+                    .unwrap_or_default();
+                let avatar = egui::Pos2::new(rect.left() + 24.0, rect.center().y);
+                painter.circle_filled(avatar, 14.0, theme.accent.base);
+                painter.text(
+                    avatar,
+                    egui::Align2::CENTER_CENTER,
+                    initial,
+                    egui::FontId::proportional(14.0),
+                    theme.palette.accent_on,
+                );
+                painter.text(
+                    egui::Pos2::new(rect.left() + 46.0, rect.center().y),
+                    egui::Align2::LEFT_CENTER,
+                    &user.display_name,
+                    egui::FontId::proportional(FONT_SMALL),
+                    theme.palette.text,
+                );
+                if response.clicked() {
+                    state.user = Some(user.clone());
+                    state.password.clear();
+                    state.error = None;
+                    focus.set_focus(None);
+                }
+            }
+        });
+    }
     if unlock || submit {
         let _ = state.unlock(store, now);
     }

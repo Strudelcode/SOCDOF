@@ -9,8 +9,8 @@
 //! Enter or Space on a focused control reports the same activation as a click.
 
 use egui::{
-    Align2, Color32, Context, FontId, Id, InnerResponse, Rect, Response, RichText, Rounding, Sense,
-    Stroke, TextEdit, Ui, Vec2, WidgetInfo, WidgetType,
+    Align2, Color32, Context, FontId, Id, InnerResponse, Pos2, Rect, Response, RichText, Rounding,
+    Sense, Stroke, TextEdit, Ui, Vec2, WidgetInfo, WidgetType,
 };
 
 use crate::focus::{focus_ring, FocusState};
@@ -18,7 +18,7 @@ use crate::icons::Icon;
 use crate::theme::Theme;
 use crate::tokens::{
     adjust, shadow_layers, with_alpha, ShadowStrength, CARD_PADDING, CONTROL_HEIGHT, FONT_BODY,
-    FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL,
+    FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL, RADIUS_DIALOG,
 };
 
 /// Visual weight of a button.
@@ -453,7 +453,7 @@ pub fn modal(
             egui::Frame::none()
                 .fill(theme.palette.surface)
                 .stroke(Stroke::new(1.0_f32, theme.palette.border))
-                .rounding(Rounding::same(RADIUS_CARD))
+                .rounding(Rounding::same(RADIUS_DIALOG))
                 .inner_margin(egui::Margin::same(CARD_PADDING)),
         )
         .show(ctx, add_contents);
@@ -463,11 +463,18 @@ pub fn modal(
     still_open
 }
 
+/// Width of a toast card, matching the legacy bottom left card.
+pub const TOAST_WIDTH: f32 = 320.0;
+
 /// One transient message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Toast {
+    /// Stable id, used by the close button.
+    pub id: u64,
     /// Semantic color of the message.
     pub tone: Tone,
+    /// Short uppercase title; empty when the message has none.
+    pub title: String,
     /// Already translated text.
     pub text: String,
     /// Creation time in milliseconds since the Unix epoch.
@@ -478,16 +485,37 @@ pub struct Toast {
 #[derive(Debug, Clone, Default)]
 pub struct Toasts {
     items: Vec<Toast>,
+    next_id: u64,
 }
 
 impl Toasts {
-    /// Adds a message.
+    /// Adds a message without a title.
     pub fn push(&mut self, tone: Tone, text: impl Into<String>, now: i64) {
+        self.push_titled(tone, "", text, now);
+    }
+
+    /// Adds a message with a short title above the body.
+    pub fn push_titled(
+        &mut self,
+        tone: Tone,
+        title: impl Into<String>,
+        text: impl Into<String>,
+        now: i64,
+    ) {
+        self.next_id += 1;
+        let id = self.next_id;
         self.items.push(Toast {
+            id,
             tone,
+            title: title.into(),
             text: text.into(),
             created_at: now,
         });
+    }
+
+    /// Removes one message by id.
+    pub fn dismiss(&mut self, id: u64) {
+        self.items.retain(|toast| toast.id != id);
     }
 
     /// Drops messages older than `ttl_ms`.
@@ -511,6 +539,113 @@ impl Toasts {
     /// Whether no message is stored.
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+}
+
+/// Draws the visible messages as the legacy glass cards in the bottom left corner.
+///
+/// The cards stack upwards, carry the tone icon tile, an uppercase title, the body text and a close
+/// button. Returns whether a card was dismissed this frame, so the host can repaint.
+pub fn toast_stack(
+    ctx: &Context,
+    theme: &Theme,
+    toasts: &mut Toasts,
+    now: i64,
+    ttl_ms: i64,
+    bottom_offset: f32,
+) -> bool {
+    let visible: Vec<Toast> = toasts.visible(now, ttl_ms).cloned().collect();
+    if visible.is_empty() {
+        return false;
+    }
+    let body_width = TOAST_WIDTH - 24.0 - 32.0 - 10.0;
+    let mut dismissed = None;
+    egui::Area::new(Id::new("socdof-toasts"))
+        .order(egui::Order::Foreground)
+        .anchor(Align2::LEFT_BOTTOM, Vec2::new(16.0, -bottom_offset))
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                for toast in &visible {
+                    let body = ui.painter().layout(
+                        toast.text.clone(),
+                        FontId::proportional(13.0),
+                        theme.palette.text,
+                        body_width,
+                    );
+                    let title_height = if toast.title.is_empty() { 0.0 } else { 15.0 };
+                    let height = (12.0 + title_height + body.size().y + 12.0).max(56.0);
+                    let (rect, _) =
+                        ui.allocate_exact_size(Vec2::new(TOAST_WIDTH, height), Sense::hover());
+                    let painter = ui.painter().clone();
+                    for layer in
+                        shadow_layers(rect, RADIUS_CARD, ShadowStrength::Hover, theme.accent.base)
+                    {
+                        painter.rect(
+                            layer.rect,
+                            Rounding::same(layer.rounding),
+                            layer.color,
+                            Stroke::NONE,
+                        );
+                    }
+                    painter.rect(
+                        rect,
+                        Rounding::same(RADIUS_CARD),
+                        with_alpha(theme.palette.surface, 96),
+                        Stroke::new(1.0_f32, theme.palette.border),
+                    );
+                    let icon = Rect::from_min_size(
+                        Pos2::new(rect.min.x + 12.0, rect.min.y + 12.0),
+                        Vec2::splat(32.0),
+                    );
+                    painter.rect(
+                        icon,
+                        Rounding::same(10.0),
+                        with_alpha(toast.tone.color(theme), 18),
+                        Stroke::NONE,
+                    );
+                    painter.circle_filled(icon.center(), 5.0, toast.tone.color(theme));
+                    let text_x = icon.right() + 10.0;
+                    let mut y = rect.min.y + 12.0;
+                    if !toast.title.is_empty() {
+                        painter.text(
+                            Pos2::new(text_x, y),
+                            Align2::LEFT_TOP,
+                            toast.title.to_uppercase(),
+                            FontId::proportional(11.0),
+                            theme.palette.text_muted,
+                        );
+                        y += title_height;
+                    }
+                    painter.galley(Pos2::new(text_x, y), body, theme.palette.text);
+                    let close = Rect::from_min_size(
+                        Pos2::new(rect.right() - 30.0, rect.top() + 8.0),
+                        Vec2::splat(22.0),
+                    );
+                    let response = ui.interact(
+                        close,
+                        Id::new(("socdof-toast-close", toast.id)),
+                        Sense::click(),
+                    );
+                    painter.text(
+                        close.center(),
+                        Align2::CENTER_CENTER,
+                        "×",
+                        FontId::proportional(14.0),
+                        theme.palette.text_muted,
+                    );
+                    if response.clicked() {
+                        dismissed = Some(toast.id);
+                    }
+                    ui.add_space(8.0);
+                }
+            });
+        });
+    match dismissed {
+        Some(id) => {
+            toasts.dismiss(id);
+            true
+        }
+        None => false,
     }
 }
 

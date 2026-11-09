@@ -119,6 +119,11 @@ impl Theme {
         }
     }
 
+    /// Harmonic second color for status dots and dual indicators.
+    pub fn companion(&self) -> crate::tokens::CompanionColor {
+        self.accent.companion()
+    }
+
     /// Text color of accent-colored labels, lightened on dark surfaces.
     pub fn accent_text(&self) -> Color32 {
         if self.appearance.is_dark() {
