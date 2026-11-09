@@ -1459,5 +1459,9 @@
   "studio_layout_token_footer": "Fußzeile",
   "studio_layout_pagination": "Positionstabellen laufen bei Bedarf über weitere Seiten; die Kopfzeile wird auf jeder Seite wiederholt.",
   "web_storage_loading": "Datenbank wird geladen …",
-  "web_storage_error": "Der lokale Speicher des Browsers ist nicht verfügbar; Änderungen gehen beim Neuladen verloren."
+  "web_storage_error": "Der lokale Speicher des Browsers ist nicht verfügbar; Änderungen gehen beim Neuladen verloren.",
+  "widget_calculator": "Rechner",
+  "widget_notes": "Notizen",
+  "widget_notes_hint": "Notiz schreiben …",
+  "widget_calc_clear": "Löschen"
 }

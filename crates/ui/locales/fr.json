@@ -1459,5 +1459,9 @@
   "studio_layout_token_footer": "Pied de page",
   "studio_layout_pagination": "Les tableaux de positions se poursuivent sur d'autres pages si nécessaire ; l'en-tête est répété sur chaque page.",
   "web_storage_loading": "Chargement de la base de données …",
-  "web_storage_error": "Le stockage local du navigateur est indisponible ; les modifications sont perdues au rechargement."
+  "web_storage_error": "Le stockage local du navigateur est indisponible ; les modifications sont perdues au rechargement.",
+  "widget_calculator": "Calculatrice",
+  "widget_notes": "Notes",
+  "widget_notes_hint": "Écrire une note …",
+  "widget_calc_clear": "Effacer"
 }

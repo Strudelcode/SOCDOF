@@ -15,6 +15,10 @@ const CATALOG_ES: &str = include_str!("../locales/es.json");
 
 /// Keys the Rust UI requires. A catalogue that misses one fails the tests.
 pub const UI_KEYS: &[&str] = &[
+    "widget_calculator",
+    "widget_notes",
+    "widget_notes_hint",
+    "widget_calc_clear",
     "setup_appearance_light",
     "setup_appearance_dark",
     "setup_appearance_hint",
@@ -1539,5 +1543,58 @@ mod tests {
         let texts = UiTexts::embedded(Language::En).expect("catalogue");
         assert_eq!(texts.get("does_not_exist"), "does_not_exist");
         assert!(!texts.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod key_coverage {
+    use super::UI_KEYS;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    fn rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(directory).expect("read source directory") {
+            let path = entry.expect("directory entry").path();
+            if path.is_dir() {
+                rust_files(&path, files);
+            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+    }
+
+    fn literal_keys(source: &str) -> Vec<String> {
+        let mut keys = Vec::new();
+        let mut rest = source;
+        while let Some(offset) = rest.find(".get(\"") {
+            rest = &rest[offset + 6..];
+            if let Some(end) = rest.find('"') {
+                keys.push(rest[..end].to_owned());
+            }
+        }
+        keys
+    }
+
+    #[test]
+    fn every_literal_key_in_the_sources_is_declared() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = Vec::new();
+        rust_files(&root, &mut files);
+        let mut used: Vec<(String, String)> = Vec::new();
+        for file in files {
+            let source = fs::read_to_string(&file).expect("read source file");
+            for key in literal_keys(&source) {
+                let fixture = matches!(key.as_str(), "does_not_exist");
+                if !UI_KEYS.contains(&key.as_str()) && !fixture {
+                    used.push((file.display().to_string(), key));
+                }
+            }
+        }
+        used.sort();
+        used.dedup();
+        assert!(
+            used.is_empty(),
+            "catalogue keys used in the sources but missing from UI_KEYS: {used:?}"
+        );
     }
 }

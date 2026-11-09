@@ -404,3 +404,102 @@ mod tests {
         assert!(shapes > 5);
     }
 }
+
+/// Escapes a text for HTML output.
+pub fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+/// Renders the document markup as an HTML fragment.
+///
+/// Consecutive bullet lines share one `<ul>`, headings become `<h1>`, quotes `<blockquote>` and
+/// paragraphs `<p>`; inline emphasis becomes `<strong>` and `<em>`. All text is escaped, so a
+/// document can never inject markup into the exported file.
+pub fn to_html(body: &str) -> String {
+    let mut html = String::new();
+    let mut list_open = false;
+    for block in parse(body) {
+        if block.kind != BlockKind::Bullet && list_open {
+            html.push_str("</ul>\n");
+            list_open = false;
+        }
+        let mut inner = String::new();
+        for span in &block.spans {
+            let mut text = escape_html(&span.text);
+            if span.italic {
+                text = format!("<em>{text}</em>");
+            }
+            if span.bold {
+                text = format!("<strong>{text}</strong>");
+            }
+            inner.push_str(&text);
+        }
+        match block.kind {
+            BlockKind::Heading => {
+                html.push_str("<h1>");
+                html.push_str(&inner);
+                html.push_str("</h1>\n");
+            }
+            BlockKind::Bullet => {
+                if !list_open {
+                    html.push_str("<ul>\n");
+                    list_open = true;
+                }
+                html.push_str("<li>");
+                html.push_str(&inner);
+                html.push_str("</li>\n");
+            }
+            BlockKind::Quote => {
+                html.push_str("<blockquote>");
+                html.push_str(&inner);
+                html.push_str("</blockquote>\n");
+            }
+            BlockKind::Paragraph => {
+                html.push_str("<p>");
+                html.push_str(&inner);
+                html.push_str("</p>\n");
+            }
+        }
+    }
+    if list_open {
+        html.push_str("</ul>\n");
+    }
+    html
+}
+
+#[cfg(test)]
+mod html_tests {
+    use super::*;
+
+    #[test]
+    fn emphasis_and_blocks_become_html() {
+        let html = to_html("# Titel\n**fett** und _kursiv_\n- eins\n- zwei\n> Zitat");
+        assert_eq!(
+            html,
+            "<h1>Titel</h1>\n<p><strong>fett</strong> und <em>kursiv</em></p>\n<ul>\n<li>eins</li>\n<li>zwei</li>\n</ul>\n<blockquote>Zitat</blockquote>\n"
+        );
+    }
+
+    #[test]
+    fn text_is_escaped_so_documents_cannot_inject_markup() {
+        let html = to_html("<script>alert(\"x\")</script> & mehr");
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(html.contains("&amp; mehr"));
+    }
+
+    #[test]
+    fn empty_documents_produce_an_empty_paragraph() {
+        assert_eq!(to_html(""), "<p></p>\n");
+    }
+}

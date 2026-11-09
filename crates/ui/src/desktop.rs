@@ -885,7 +885,7 @@ pub fn desktop(
                 }
             }
 
-            widgets(ui, theme, texts, now, &shell.widgets);
+            widgets(ui, theme, texts, now, &mut shell.widgets);
         });
 
     if ctx.input(|input| input.modifiers.command && input.key_pressed(Key::K)) {

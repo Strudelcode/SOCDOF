@@ -1459,5 +1459,9 @@
   "studio_layout_token_footer": "Footer",
   "studio_layout_pagination": "Position tables continue on further pages when needed; the header repeats on every page.",
   "web_storage_loading": "Loading the database …",
-  "web_storage_error": "The local browser storage is unavailable; changes are lost on reload."
+  "web_storage_error": "The local browser storage is unavailable; changes are lost on reload.",
+  "widget_calculator": "Calculator",
+  "widget_notes": "Notes",
+  "widget_notes_hint": "Write a note …",
+  "widget_calc_clear": "Clear"
 }

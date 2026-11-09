@@ -231,8 +231,9 @@ appearances and all four languages. Phase 4 is complete.
       switcher remain
 - [x] Window chrome: minimize / maximize / close with confirmation dialog
 - [x] Close cooldown (3 s) after an app window closes, with "are you sure" prompt
-- [~] Widgets layer: clock/date and a battery/connection status widget done; calculator and notes
-      remain
+- [x] Widgets layer: clock/date, the battery/connection status card, a working calculator (integer
+      thousandths, 4×4 pad, chained operations, division-by-zero guard) and a notes card whose text
+      the host persists; all four languages, state machine unit tested in `crates/ui/src/widgets.rs`
 - [x] Command palette
 - [~] Onboarding wizard done (four pages, back/next/skip, persisted seen flag); login and lock
       screen remain
@@ -471,7 +472,9 @@ Per module definition of done:
 - [ ] Stable key compatibility check (no key silently dropped)
 - [ ] Plural/gender handling where the legacy strings rely on concatenation
 - [ ] External language packs (custom JSON in `languages/`) still loadable
-- [ ] Missing-key detection in CI (fails the build)
+- [x] Missing-key detection: the `key_coverage` test in `crates/ui/src/i18n.rs` walks every source
+      file under `crates/ui/src`, collects each literal `.get("…")` key and fails the build when a
+      key is used but not declared in `UI_KEYS`
 
 **Exit criteria:** key coverage for de/en/fr/es is 100 % of used keys; no hardcoded UI string in Rust code.
 
@@ -482,8 +485,11 @@ Per module definition of done:
 - [ ] DIN 5008 PDF output verified against a legacy PDF (golden files, pixel diff)
 - [x] Multi-page tables with repeated headers and row splitting — position tables paginate (19 rows on page one, 33 on each continuation page), the column header repeats on every page, totals and the closing line appear only on the last page, `Seite X von Y` is printed per page, and the letterhead background plus the placed `document_layout` tokens are painted on every page (background under, tokens over the content); a row that does not fit moves whole to the next page
 - [x] Letterhead background + token placement — a PNG letterhead is embedded into the PDF as a Flate-compressed DeviceRGB image XObject and painted under the DIN 5008 content, nine tokens (company name/address/contact, tax id, invoice number/date, due date, subject, footer) are placed in page percentages with size, bold and left/center/right alignment, edited in the Studio layout tab, validated in `document_layout`, persisted as the `document_layout` setting and applied by `export_invoice_pdf`; per-template variations remain open
-- [ ] DOCX read/write, HTML export
-- [ ] QR/barcode generation (native, no JS library)
+- [~] HTML export done: `richtext::to_html` renders the editor markup as escaped HTML (headings,
+      bullet lists, quotes, bold and italic) and is unit tested; DOCX read/write remains open
+- [~] Code 128 encoder done natively (`socdof_core::barcode`: ISO/IEC 15417 pattern table, check
+      symbol, module bits for PDF and print), unit tested against the published widths and the
+      modulo-103 check sum; QR generation remains open
 - [ ] Backup container compatible with legacy `.socdof` archives
 - [ ] Mobile companion sync endpoints (HTTP, same payloads as legacy)
 
@@ -801,3 +807,11 @@ These are not token tweaks; each one is its own piece of work.
 | 2026-11-08 | 15 | GUI parity implemented: soft card, dialog and window shadows from stacked accent layers, control radius 12 and height 40, window radius 24 with a 40 px title bar and 32 px buttons, taskbar with 36×36 buttons, a translucent surface, search pill, seconds clock and an overflow guard, desktop icon cell 96×104 with 48 px tiles, wrapped labels, an open marker and responsive columns (3/4/N), the plain accent-gradient wallpaper as the default, and a lock screen with clock, date and avatar above a single password field. 264 goldens regenerated, two catalogue keys added (1,432 per language), web build 5.5 MB. Section 15.3–15.6 updated with the achieved values and the remaining gaps. |
 | 2026-11-09 | 15 | Parity follow-up closed the open list: dialog radius 24, gradient desktop tiles with an accent shadow, task view overlay with the open window list, version pill with the companion dot, lock screen recovery hint and account switch tiles, the four step first-run wizard (language, account with strength meter, appearance with nine swatches, layout) whose choices the host applies, and the glass toast stack that replaced the badge line. Two texts sets were corrected after a swap between German and English, 26 catalogue keys added (1,458 per language), goldens regenerated and the web build rebuilt. Font stack and semibold labels stay open because no font file is bundled and egui has no synthetic bold. |
 | 2026-11-09 | 15 | Parity rest list closed. Taskbar overflow menu for app buttons that no longer fit, free desktop icon placement on top of the grid cells, wallpaper presets plus PNG drag and drop in the wizard's appearance step together with applying the chosen layout template, and bundled Source Sans 3 Regular/Semibold installed as the proportional family with a separate semibold family for form labels. Two tests added (free positions, template filtering), all 70 headless test contexts now install the bundled fonts, goldens regenerated because the font change moves every text metric, three catalogue keys added in four languages, web build rebuilt. The only item left open is the taskbar backdrop blur, with the egui limitation documented in 15.6. |
+
+- 2026-11-09 (second pass) — Code-only items of the open list: desktop calculator and notes widget,
+  the missing-key build gate, the Code 128 barcode encoder and the HTML export of documents. The
+  calculator keeps integer thousandths (no floats), the notes text is host state, and the key gate
+  walks `crates/ui/src` and fails on any literal catalogue key that `UI_KEYS` does not declare.
+  `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
+  the visual suite (goldens regenerated on purpose: the desktop gained two widget cards) and
+  `trunk build --release` are green.

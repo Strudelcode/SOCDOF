@@ -7,6 +7,7 @@ pub mod app_store;
 pub mod autosave;
 pub mod backup;
 pub mod backup_scheduler;
+pub mod barcode;
 pub mod csv;
 pub mod date;
 pub mod document_layout;

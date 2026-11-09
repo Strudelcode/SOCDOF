@@ -1459,5 +1459,9 @@
   "studio_layout_token_footer": "Pie de página",
   "studio_layout_pagination": "Las tablas de posiciones continúan en más páginas cuando es necesario; la cabecera se repite en cada página.",
   "web_storage_loading": "Cargando la base de datos …",
-  "web_storage_error": "El almacenamiento local del navegador no está disponible; los cambios se pierden al recargar."
+  "web_storage_error": "El almacenamiento local del navegador no está disponible; los cambios se pierden al recargar.",
+  "widget_calculator": "Calculadora",
+  "widget_notes": "Notas",
+  "widget_notes_hint": "Escribir una nota …",
+  "widget_calc_clear": "Borrar"
 }
