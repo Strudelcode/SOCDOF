@@ -10,12 +10,15 @@
 //! The checksum covers the database payload only, so a damaged archive is detected before anything
 //! is written over a live database.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
+use crate::date::parse_iso8601;
 use crate::error::{CoreError, CoreResult};
+use crate::legacy;
 use crate::store::Store;
 
 const MAGIC: &[u8; 8] = b"SOCDOFBK";
@@ -188,6 +191,284 @@ pub fn restore_backup(archive_path: &Path, database_path: &Path) -> CoreResult<B
     Ok(backup.metadata)
 }
 
+/// File suffix of the legacy archive: the JSON document the TypeScript application writes.
+pub const LEGACY_SUFFIX: &str = ".socdof.json";
+
+/// Document version of the legacy exporter. The TypeScript app writes `version: 2`.
+pub const LEGACY_DOCUMENT_VERSION: u64 = 2;
+
+/// Which container a file on disk uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveKind {
+    /// Native container with the `SOCDOFBK` header, metadata and checksum.
+    Container,
+    /// Legacy document written by the TypeScript exporter.
+    LegacyJson,
+}
+
+impl ArchiveKind {
+    /// Stable name for logs and the CLI.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ArchiveKind::Container => "container",
+            ArchiveKind::LegacyJson => "legacy-json",
+        }
+    }
+}
+
+/// Header of a legacy archive, as the TypeScript application writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LegacyMetadata {
+    /// Application marker of the document (`SOCDOF_Enterprise_Local_ERP`).
+    pub app: String,
+    /// Document version of the exporter.
+    pub document_version: u64,
+    /// `exported_at` in milliseconds since the Unix epoch.
+    pub created_at: i64,
+    /// `backup_owner` of the document.
+    pub owner: String,
+    /// Contacts in the document.
+    pub contacts: usize,
+    /// Products in the document.
+    pub products: usize,
+    /// Invoices in the document.
+    pub invoices: usize,
+    /// Purchase orders in the document.
+    pub purchases: usize,
+}
+
+/// A legacy archive on disk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyArchive {
+    /// Full path of the document.
+    pub path: PathBuf,
+    /// Header read from the document.
+    pub metadata: LegacyMetadata,
+    /// Size of the file in bytes.
+    pub archive_bytes: u64,
+}
+
+/// An archive of either format.
+#[derive(Debug, Clone)]
+pub enum Archive {
+    /// Native container.
+    Container(BackupFile),
+    /// Legacy `.socdof.json` document.
+    Legacy(LegacyArchive),
+}
+
+impl Archive {
+    /// Path of the archive.
+    pub fn path(&self) -> &Path {
+        match self {
+            Archive::Container(file) => &file.path,
+            Archive::Legacy(file) => &file.path,
+        }
+    }
+
+    /// Format of the archive.
+    pub fn kind(&self) -> ArchiveKind {
+        match self {
+            Archive::Container(_) => ArchiveKind::Container,
+            Archive::Legacy(_) => ArchiveKind::LegacyJson,
+        }
+    }
+
+    /// Creation time in milliseconds since the Unix epoch.
+    pub fn created_at(&self) -> i64 {
+        match self {
+            Archive::Container(file) => file.metadata.created_at,
+            Archive::Legacy(file) => file.metadata.created_at,
+        }
+    }
+
+    /// Size of the archive file in bytes.
+    pub fn archive_bytes(&self) -> u64 {
+        match self {
+            Archive::Container(file) => file.archive_bytes,
+            Archive::Legacy(file) => file.archive_bytes,
+        }
+    }
+}
+
+/// Result of restoring an archive.
+#[derive(Debug)]
+pub enum Restore {
+    /// A container replaced the database file; the metadata is its header.
+    Container(BackupMetadata),
+    /// A legacy document was imported into the database.
+    Legacy {
+        /// Header of the restored document.
+        metadata: LegacyMetadata,
+        /// Counts of the imported records.
+        report: legacy::LegacyImportReport,
+    },
+}
+
+/// True when the path names a legacy archive (`*.socdof.json`).
+pub fn is_legacy_path(path: &Path) -> bool {
+    path.to_string_lossy()
+        .to_ascii_lowercase()
+        .ends_with(LEGACY_SUFFIX)
+}
+
+/// Detects the archive format from the first bytes of a file.
+///
+/// The native container starts with its magic, the legacy document with `{`. Everything else is
+/// rejected before any database is touched.
+pub fn inspect_bytes(bytes: &[u8]) -> CoreResult<ArchiveKind> {
+    if bytes.starts_with(MAGIC) {
+        return Ok(ArchiveKind::Container);
+    }
+    match bytes.iter().find(|byte| !byte.is_ascii_whitespace()) {
+        Some(b'{') => Ok(ArchiveKind::LegacyJson),
+        Some(_) => Err(CoreError::Validation("backup_invalid_format".to_string())),
+        None => Err(CoreError::Validation("backup_truncated".to_string())),
+    }
+}
+
+/// Reads the header of a legacy archive from its bytes.
+///
+/// The document is the one `exportDatabaseToJson` writes: `app`, `version`, `exported_at`,
+/// `backup_owner`, `data_summary` and the record arrays. The counts come from the arrays, so a
+/// stale `data_summary` cannot report records the document does not contain.
+pub fn legacy_metadata(bytes: &[u8]) -> CoreResult<LegacyMetadata> {
+    let document: Value = serde_json::from_slice(bytes)
+        .map_err(|_| CoreError::Validation("backup_invalid_format".to_string()))?;
+    let object = document
+        .as_object()
+        .ok_or_else(|| CoreError::Validation("backup_invalid_format".to_string()))?;
+
+    if let Some(app) = object.get("app").and_then(Value::as_str) {
+        if app != legacy::LEGACY_APP {
+            return Err(CoreError::Validation("backup_invalid_format".to_string()));
+        }
+    }
+
+    let document_version = match object.get("version") {
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| CoreError::Validation("backup_invalid_format".to_string()))?,
+        None => LEGACY_DOCUMENT_VERSION,
+    };
+    if document_version != LEGACY_DOCUMENT_VERSION {
+        return Err(CoreError::Validation(
+            "backup_unsupported_version".to_string(),
+        ));
+    }
+
+    for required in ["contacts", "products", "invoices"] {
+        if !object.get(required).is_some_and(Value::is_array) {
+            return Err(CoreError::Validation("backup_invalid_format".to_string()));
+        }
+    }
+
+    let created_at = match object.get("exported_at").and_then(Value::as_str) {
+        Some(text) => parse_iso8601(text)
+            .ok_or_else(|| CoreError::Validation("backup_corrupt".to_string()))?,
+        None => 0,
+    };
+
+    Ok(LegacyMetadata {
+        app: legacy::LEGACY_APP.to_string(),
+        document_version,
+        created_at,
+        owner: object
+            .get("backup_owner")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        contacts: array_len(object.get("contacts")),
+        products: array_len(object.get("products")),
+        invoices: array_len(object.get("invoices")),
+        purchases: array_len(object.get("purchase_orders")),
+    })
+}
+
+/// Reads the header of a legacy archive from disk.
+pub fn read_legacy_archive(path: &Path) -> CoreResult<LegacyArchive> {
+    let bytes = std::fs::read(path)?;
+    let metadata = legacy_metadata(&bytes)?;
+    Ok(LegacyArchive {
+        path: path.to_path_buf(),
+        metadata,
+        archive_bytes: bytes.len() as u64,
+    })
+}
+
+/// Inspects an archive of either format from disk.
+pub fn inspect_archive(path: &Path) -> CoreResult<Archive> {
+    let bytes = std::fs::read(path)?;
+    let archive_bytes = bytes.len() as u64;
+    match inspect_bytes(&bytes)? {
+        ArchiveKind::Container => {
+            let backup = parse_archive(&bytes)?;
+            Ok(Archive::Container(BackupFile {
+                path: path.to_path_buf(),
+                metadata: backup.metadata,
+                archive_bytes,
+            }))
+        }
+        ArchiveKind::LegacyJson => Ok(Archive::Legacy(LegacyArchive {
+            path: path.to_path_buf(),
+            metadata: legacy_metadata(&bytes)?,
+            archive_bytes,
+        })),
+    }
+}
+
+/// Lists every archive in `folder`, newest first.
+///
+/// Both `.socdofbak` containers and `.socdof.json` documents are returned; files that are neither
+/// or that fail validation are skipped, so a stray file never hides the valid backups.
+pub fn list_archives(folder: &Path) -> CoreResult<Vec<Archive>> {
+    if !folder.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut archives = Vec::new();
+    for entry in std::fs::read_dir(folder)? {
+        let entry = entry?;
+        let path = entry.path();
+        let native = path.extension().and_then(|value| value.to_str()) == Some("socdofbak");
+        if !native && !is_legacy_path(&path) {
+            continue;
+        }
+        if let Ok(archive) = inspect_archive(&path) {
+            archives.push(archive);
+        }
+    }
+
+    archives.sort_by(|left, right| {
+        right
+            .created_at()
+            .cmp(&left.created_at())
+            .then_with(|| left.path().cmp(right.path()))
+    });
+    Ok(archives)
+}
+
+/// Restores an archive of either format into `database`.
+///
+/// A container replaces the database file atomically, as [`restore_backup`] does. A legacy document
+/// is imported through [`legacy::import_json`] into the database, so its contacts and products
+/// become live records and its invoices stay preserved in the raw document.
+pub fn restore_archive(archive: &Path, database: &Path) -> CoreResult<Restore> {
+    let bytes = std::fs::read(archive)?;
+    match inspect_bytes(&bytes)? {
+        ArchiveKind::Container => Ok(Restore::Container(restore_backup(archive, database)?)),
+        ArchiveKind::LegacyJson => {
+            if let Some(parent) = database.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let metadata = legacy_metadata(&bytes)?;
+            let store = Store::open(database)?;
+            let report = legacy::import_json(&store, &bytes)?;
+            Ok(Restore::Legacy { metadata, report })
+        }
+    }
+}
+
 fn parse_archive(bytes: &[u8]) -> CoreResult<Backup> {
     if bytes.len() < HEADER_LEN {
         return Err(CoreError::Validation("backup_truncated".to_string()));
@@ -221,6 +502,10 @@ fn parse_archive(bytes: &[u8]) -> CoreResult<Backup> {
         metadata,
         payload: payload.to_vec(),
     })
+}
+
+fn array_len(value: Option<&Value>) -> usize {
+    value.and_then(Value::as_array).map_or(0, Vec::len)
 }
 
 fn read_slice<'a>(bytes: &'a [u8], cursor: &mut usize, len: usize) -> CoreResult<&'a [u8]> {
@@ -399,5 +684,36 @@ mod tests {
         assert!(matches!(error, CoreError::Validation(code) if code == "backup_truncated"));
 
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn reads_the_legacy_header_from_the_document() {
+        let document = br#"{
+            "app": "SOCDOF_Enterprise_Local_ERP",
+            "version": 2,
+            "exported_at": "2026-11-07T12:00:00.000Z",
+            "backup_owner": "Yuri",
+            "data_summary": { "contacts_count": 99 },
+            "contacts": [{}],
+            "products": [],
+            "invoices": [{}, {}],
+            "purchase_orders": [{}]
+        }"#;
+
+        let metadata = legacy_metadata(document).expect("header");
+        assert_eq!(metadata.document_version, 2);
+        assert_eq!(metadata.owner, "Yuri");
+        assert_eq!(metadata.created_at, 1_794_052_800_000);
+        // Counts follow the arrays, not the (deliberately wrong) summary.
+        assert_eq!(metadata.contacts, 1);
+        assert_eq!(metadata.products, 0);
+        assert_eq!(metadata.invoices, 2);
+        assert_eq!(metadata.purchases, 1);
+        assert_eq!(
+            inspect_bytes(document).expect("kind"),
+            ArchiveKind::LegacyJson
+        );
+        assert!(is_legacy_path(Path::new("socdof-2026-11-07.socdof.json")));
+        assert!(!is_legacy_path(Path::new("socdof-2026-11-07.socdofbak")));
     }
 }

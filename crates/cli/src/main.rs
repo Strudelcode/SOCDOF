@@ -24,6 +24,7 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   settings <database>\n\
   backup <database> <archive>\n\
   restore <archive> <database>\n\
+  backups <directory>\n\
   backup-if-due <database> <directory> [interval_minutes] [keep]\n\
   autosave <database> <directory> [keep]\n\
   legacy-import <database> <backup.json>\n\
@@ -87,27 +88,70 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
                 .get(1)
                 .ok_or("usage: socdof-cli backup <database> <archive>")?;
             let store = Store::open(&path)?;
-            let info = backup::create_backup(
-                &store,
-                Path::new(archive),
-                env!("CARGO_PKG_VERSION"),
-                now_millis(),
-            )?;
 
-            println!("backup written: {archive}");
-            println!("  archive bytes:  {}", info.archive_bytes);
-            println!("  database bytes: {}", info.database_bytes);
-            println!("  schema version: {}", info.metadata.schema_version);
+            // A `.socdof.json` target is the document the TypeScript application restores; every
+            // other name writes the native container.
+            if backup::is_legacy_path(Path::new(archive)) {
+                let report = legacy::export(&store, Path::new(archive))?;
+                println!("legacy backup written: {archive}");
+                println!("  bytes:    {}", report.bytes);
+                println!("  contacts: {}", report.contacts);
+                println!("  products: {}", report.products);
+                println!("  invoices: {}", report.invoices);
+            } else {
+                let info = backup::create_backup(
+                    &store,
+                    Path::new(archive),
+                    env!("CARGO_PKG_VERSION"),
+                    now_millis(),
+                )?;
+
+                println!("backup written: {archive}");
+                println!("  archive bytes:  {}", info.archive_bytes);
+                println!("  database bytes: {}", info.database_bytes);
+                println!("  schema version: {}", info.metadata.schema_version);
+            }
         }
         "restore" => {
             let database = args
                 .get(1)
                 .ok_or("usage: socdof-cli restore <archive> <database>")?;
-            let metadata = backup::restore_backup(Path::new(&path), Path::new(database))?;
 
-            println!("restored {database} from {path}");
-            println!("  created at:     {}", metadata.created_at);
-            println!("  schema version: {}", metadata.schema_version);
+            match backup::restore_archive(Path::new(&path), Path::new(database))? {
+                backup::Restore::Container(metadata) => {
+                    println!("restored {database} from {path} (container)");
+                    println!("  created at:     {}", metadata.created_at);
+                    println!("  schema version: {}", metadata.schema_version);
+                    println!("  app version:    {}", metadata.app_version);
+                }
+                backup::Restore::Legacy { metadata, report } => {
+                    println!("restored {database} from {path} (legacy-json)");
+                    println!("  document version:   {}", metadata.document_version);
+                    println!("  created at:         {}", metadata.created_at);
+                    println!("  owner:              {}", metadata.owner);
+                    println!("  contacts imported:  {}", report.contacts);
+                    println!("  products imported:  {}", report.products);
+                    println!("  invoices preserved: {}", report.invoices);
+                }
+            }
+        }
+        "backups" => {
+            let directory = args
+                .first()
+                .ok_or("usage: socdof-cli backups <directory>")?;
+            let archives = backup::list_archives(Path::new(directory))?;
+            if archives.is_empty() {
+                println!("no archives in {directory}");
+            }
+            for archive in archives {
+                println!(
+                    "{}\t{}\t{} bytes\tcreated {}",
+                    archive.path().display(),
+                    archive.kind().as_str(),
+                    archive.archive_bytes(),
+                    socdof_core::date::format_date(archive.created_at())
+                );
+            }
         }
         "autosave" => {
             let directory = args

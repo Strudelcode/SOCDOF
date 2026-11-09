@@ -23,7 +23,7 @@ src/
 ├── error.rs            CoreError, CoreResult
 ├── money.rs            Money (integer cents)
 ├── security.rs         Argon2id hash + verify
-├── backup.rs           backup container: verify, write, atomic restore
+├── backup.rs           native container and legacy archives: inspect, list, restore
 ├── backup_scheduler.rs due check, folder, interval, retention
 ├── autosave.rs         atomic snapshots with count-based retention
 ├── csv.rs              CSV import/export (contacts, products)
@@ -263,6 +263,16 @@ checker.
 checksum covers the database payload; a damaged or foreign file is rejected before anything touches
 the live database (`backup_corrupt`, `backup_invalid_format`, `backup_truncated`,
 `backup_unsupported_version`).
+
+The legacy application writes no zip or tar archive: `exportDatabaseToJson` in
+`SOCDOF - TS/src/lib/db.ts` produces one JSON document per backup (`*.socdof.json`) and
+`importDatabaseFromJson` reads the same shape back. `backup` therefore treats both files as archives:
+`inspect_bytes` recognises the container magic or a JSON object, `legacy_metadata` reads `app`,
+`version`, `exported_at`, `backup_owner` and the counts of the record arrays, `list_archives`
+returns both kinds newest first, and `restore_archive` replaces the database from a container or
+imports a legacy document through `legacy::import_json`. `socdof-cli backup <database> <target>`
+writes the format the target name asks for, `socdof-cli restore` accepts either and
+`socdof-cli backups <folder>` lists both.
 
 ## Instance lock
 

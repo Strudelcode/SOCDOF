@@ -47,6 +47,66 @@ pub fn format_iso8601(ms: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
 }
 
+/// Parses an ISO-8601 UTC timestamp into milliseconds since the Unix epoch.
+///
+/// Accepts what the exporters write: `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM:SS`,
+/// `YYYY-MM-DDTHH:MM:SSZ` and `YYYY-MM-DDTHH:MM:SS.mmmZ`. Anything else is `None`, including
+/// impossible civil dates such as `2026-02-31`.
+pub fn parse_iso8601(text: &str) -> Option<i64> {
+    let text = text.trim();
+    let (date, time) = match text.split_once('T').or_else(|| text.split_once('t')) {
+        Some((date, time)) => (date, Some(time)),
+        None => (text, None),
+    };
+
+    let mut parts = date.split('-');
+    let year: i64 = parts.next()?.parse().ok()?;
+    let month: u32 = parts.next()?.parse().ok()?;
+    let day: u32 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+
+    let day_start = days_from_civil(year, month, day) * 86_400_000;
+    if civil_from_millis(day_start) != (year, month, day) {
+        return None;
+    }
+    let mut millis = day_start;
+
+    if let Some(time) = time {
+        let time = time.trim_end_matches(['Z', 'z']);
+        let mut clock = time.split(':');
+        let hours: i64 = clock.next()?.parse().ok()?;
+        let minutes: i64 = clock.next()?.parse().ok()?;
+        let seconds_part = clock.next()?;
+        if clock.next().is_some() {
+            return None;
+        }
+
+        let (seconds_text, fraction) = match seconds_part.split_once('.') {
+            Some((seconds, fraction)) => (seconds, fraction),
+            None => (seconds_part, ""),
+        };
+        let seconds: i64 = seconds_text.parse().ok()?;
+        if hours > 23 || minutes > 59 || seconds > 59 {
+            return None;
+        }
+        let fraction_ms = if fraction.is_empty() {
+            0
+        } else {
+            if fraction.len() > 3 || !fraction.bytes().all(|byte| byte.is_ascii_digit()) {
+                return None;
+            }
+            let digits: i64 = fraction.parse().ok()?;
+            digits * 10_i64.pow(3 - fraction.len() as u32)
+        };
+
+        millis += hours * 3_600_000 + minutes * 60_000 + seconds * 1_000 + fraction_ms;
+    }
+
+    Some(millis)
+}
+
 /// Converts days since 1970-01-01 into a civil date (Howard Hinnant's algorithm).
 fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
     let z = days_since_epoch + 719_468;
@@ -99,6 +159,33 @@ mod tests {
         assert_eq!(start_of_month_ms(2026, 11), 1_793_491_200_000);
         assert_eq!(format_date(start_of_month_ms(2026, 11)), "01.11.2026");
         assert_eq!(civil_from_millis(start_of_month_ms(2024, 2)), (2024, 2, 1));
+    }
+
+    #[test]
+    fn parses_iso_timestamps() {
+        assert_eq!(parse_iso8601("1970-01-01T00:00:00.000Z"), Some(0));
+        assert_eq!(
+            parse_iso8601("2026-11-07T12:00:00Z"),
+            Some(1_794_052_800_000)
+        );
+        assert_eq!(
+            parse_iso8601("2026-11-07T12:00:00.123Z"),
+            Some(1_794_052_800_123)
+        );
+        assert_eq!(parse_iso8601("2026-11-07"), Some(1_794_009_600_000));
+
+        let roundtrip = 1_794_052_800_123;
+        assert_eq!(parse_iso8601(&format_iso8601(roundtrip)), Some(roundtrip));
+    }
+
+    #[test]
+    fn rejects_impossible_iso_timestamps() {
+        assert_eq!(parse_iso8601(""), None);
+        assert_eq!(parse_iso8601("yesterday"), None);
+        assert_eq!(parse_iso8601("2026-13-07"), None);
+        assert_eq!(parse_iso8601("2026-02-31"), None);
+        assert_eq!(parse_iso8601("2026-11-07T25:00:00Z"), None);
+        assert_eq!(parse_iso8601("2026-11-07T12:00:00.1234Z"), None);
     }
 
     #[test]

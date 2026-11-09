@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (legacy backup container, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
+| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the last Phase 8 item (mobile companion sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
 | **Overall progress** | ~99 % (data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -97,7 +97,13 @@ the layout and conventions.
 - [x] Legacy import: reader for the legacy `.socdof.json` export (contacts, products, invoices and unknown tables preserved)
 - [x] Round-trip test: import a real legacy export → export → identical data, and the legacy importer reads the result
 - [x] Money handling: integer cents everywhere, no floats
-- [ ] Backup: `.socdof` zip container, integrity check, restore path
+- [x] Backup: native container (`SOCDOFBK`, metadata and CRC-32, atomic restore) plus the legacy
+      `.socdof.json` document. The TypeScript app has no zip or tar container — `backupManager.ts`,
+      `db.ts` and `App.tsx` write one JSON file per backup and `jszip` is only used to read DOCX
+      templates — so compatibility means that document. `backup` recognises both formats by their
+      bytes, reads the legacy header (`app`, `version`, `exported_at`, `backup_owner`, record
+      counts), lists both in one folder listing and restores either; `socdof-cli backup` writes the
+      format the target name asks for, `restore` accepts both and `backups` lists them.
 - [x] Auth: `argon2id` hashes, session tokens (hashed at rest, expiring, revocable), lockout policy
       (5 attempts, 5 minutes) and the roles/permissions matrix with built-in administrator and user roles
 - [x] Unit tests for repositories, money math, permission checks (contact/product CRUD, search,
@@ -555,7 +561,21 @@ Per module definition of done:
       table, the BCH checks of format and version information, finder, timing and alignment patterns,
       the dark module, capacity growth and the defined errors; the Python comparison skips the one
       payload with umlauts because that encoder writes Latin-1 where this one writes UTF-8.
-- [ ] Backup container compatible with legacy `.socdof` archives
+- [x] Backup container compatible with legacy `.socdof` archives: the legacy archive is its JSON
+      backup document, not a zip. `backup::inspect_archive`, `list_archives` and `restore_archive`
+      treat `*.socdof.json` as a first-class archive next to the native `SOCDOFBK` container;
+      `backup::legacy_metadata` reads `app`, `version`, `exported_at`, `backup_owner` and the record
+      counts from the arrays (not from a possibly stale `data_summary`), and
+      `socdof-cli backup <database> <file.socdof.json>` writes a document the legacy importer
+      accepts. Reached from `socdof-cli backup|restore|backups` and the core API. References: the
+      committed real backup `crates/core/tests/fixtures/legacy/SOCDOF_Legacy_Backup_2026-11-07.socdof.json`
+      (written by the TypeScript exporter) is inspected, listed by `tests/legacy_archive.rs`,
+      restored into a fresh database and round-tripped (write → restore → identical contacts,
+      products and unknown tables); the produced document is parsed by Python's `json` module
+      (app marker, `version: 2`, `exported_at`, owner, every record table, amounts); and empty,
+      whitespace-only, zip, non-object, foreign-app, unsupported-version, corrupt-timestamp and
+      truncated files return typed `backup_truncated` / `backup_invalid_format` /
+      `backup_unsupported_version` / `backup_corrupt` errors without creating a database.
 - [ ] Mobile companion sync endpoints (HTTP, same payloads as legacy)
 
 ---
@@ -945,3 +965,18 @@ These are not token tweaks; each one is its own piece of work.
   table cells and page break. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
   `trunk build --release` are green.
+
+- 2026-11-09 (eighth pass) — Phase 8 backup archives. The plan asked for a `.socdof` zip container,
+  but the TypeScript application never wrote one: `exportDatabaseToJson` emits a single JSON document
+  per backup (`*.socdof.json`) and `importDatabaseFromJson` reads it back, while `jszip` only serves
+  the DOCX template import. The document was already byte-compatible in `legacy`; what was missing
+  was the archive path around it. `backup` now sniffs both formats by content, reads the legacy
+  header (`app`, `version`, `exported_at`, `backup_owner`, counts per table), lists
+  `*.socdofbak` and `*.socdof.json` in one newest-first listing and restores either kind, and
+  `socdof-cli backup` chooses the format from the target name while `restore` accepts both and the
+  new `backups` command lists a folder. Verification uses the real legacy backup as the foreign
+  reference (inspect, list, restore into a fresh database, write → restore round trip with identical
+  tables) plus Python's `json` for the produced document, and rejects empty, whitespace, zip,
+  foreign-app, version-9, corrupt-timestamp and truncated files with typed errors. `cargo fmt`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, the visual
+  suite, `cargo build --release --workspace` and `trunk build --release` are green.
