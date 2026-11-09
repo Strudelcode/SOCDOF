@@ -155,6 +155,11 @@ pub enum StartMenuChoice {
     Switch(String),
 }
 
+/// Height the start menu's app list may grow to before it scrolls.
+pub const START_MENU_LIST_HEIGHT: f32 = 260.0;
+/// Width of the power flyout.
+pub const POWER_FLYOUT_WIDTH: f32 = 196.0;
+
 /// Entries of the power flyout with their catalogue keys and icons.
 pub const POWER_ITEMS: [(PowerAction, &str, Icon); 3] = [
     (PowerAction::Lock, "power_lock", Icon::Moon),
@@ -898,50 +903,54 @@ pub fn start_menu(
                             .size(FONT_SMALL)
                             .color(theme.palette.text_muted),
                     );
-                    return;
-                }
-                let (down, up) = ui.input(|input| {
-                    (
-                        !state.power_open() && input.key_pressed(Key::ArrowDown),
-                        !state.power_open() && input.key_pressed(Key::ArrowUp),
-                    )
-                });
-                let mut navigated = false;
-                if down {
-                    state.move_selection(1, results.len());
-                    navigated = true;
-                }
-                if up {
-                    state.move_selection(-1, results.len());
-                    navigated = true;
-                }
-                let selected = state.selected().min(results.len() - 1);
-                state.select(selected);
-                for (position, index) in results.iter().enumerate() {
-                    let icon = &icons.icons()[*index];
-                    let row_id = Id::new(("socdof-start-item", icon.app().as_str()));
-                    if navigated && position == selected {
-                        focus.set_focus(Some(row_id));
+                } else {
+                    let (down, up) = ui.input(|input| {
+                        (
+                            !state.power_open() && input.key_pressed(Key::ArrowDown),
+                            !state.power_open() && input.key_pressed(Key::ArrowUp),
+                        )
+                    });
+                    let mut navigated = false;
+                    if down {
+                        state.move_selection(1, results.len());
+                        navigated = true;
                     }
-                    if shell_row(
-                        ui,
-                        theme,
-                        focus,
-                        row_id,
-                        Some(icon.icon()),
-                        icon.label(),
-                        position == selected,
-                    ) {
-                        chosen = Some(StartMenuChoice::App(icon.app()));
+                    if up {
+                        state.move_selection(-1, results.len());
+                        navigated = true;
                     }
-                }
-                if ui.input(|input| input.key_pressed(Key::Enter))
-                    && chosen.is_none()
-                    && !state.power_open()
-                {
-                    chosen = results
-                        .get(selected)
-                        .map(|index| StartMenuChoice::App(icons.icons()[*index].app()));
+                    let selected = state.selected().min(results.len() - 1);
+                    state.select(selected);
+                    egui::ScrollArea::vertical()
+                        .max_height(START_MENU_LIST_HEIGHT)
+                        .show(ui, |ui| {
+                            for (position, index) in results.iter().enumerate() {
+                                let icon = &icons.icons()[*index];
+                                let row_id = Id::new(("socdof-start-item", icon.app().as_str()));
+                                if navigated && position == selected {
+                                    focus.set_focus(Some(row_id));
+                                }
+                                if shell_row(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    row_id,
+                                    Some(icon.icon()),
+                                    icon.label(),
+                                    position == selected,
+                                ) {
+                                    chosen = Some(StartMenuChoice::App(icon.app()));
+                                }
+                            }
+                        });
+                    if ui.input(|input| input.key_pressed(Key::Enter))
+                        && chosen.is_none()
+                        && !state.power_open()
+                    {
+                        chosen = results
+                            .get(selected)
+                            .map(|index| StartMenuChoice::App(icons.icons()[*index].app()));
+                    }
                 }
                 ui.add_space(8.0);
                 if shell_row(
@@ -959,16 +968,18 @@ pub fn start_menu(
         });
     let mut flyout_rect = None;
     if state.power_open() {
+        let screen = ctx.screen_rect();
+        let width = POWER_FLYOUT_WIDTH.min((screen.width() - 24.0).max(120.0));
+        let x: f32 = (12.0_f32 + 320.0 + 8.0)
+            .min(screen.width() - width - 12.0)
+            .max(12.0);
         let selected = state.power_selected();
         let flyout = egui::Area::new(key.with("power"))
             .order(egui::Order::Foreground)
-            .anchor(
-                Align2::LEFT_BOTTOM,
-                Vec2::new(12.0 + 320.0 + 8.0, -(TASKBAR_HEIGHT + 8.0)),
-            )
+            .anchor(Align2::LEFT_BOTTOM, Vec2::new(x, -(TASKBAR_HEIGHT + 8.0)))
             .show(ctx, |ui| {
                 panel_frame(theme).show(ui, |ui| {
-                    ui.set_width(196.0);
+                    ui.set_width(width);
                     ui.label(
                         RichText::new(texts.get("start_power"))
                             .size(FONT_SMALL)
