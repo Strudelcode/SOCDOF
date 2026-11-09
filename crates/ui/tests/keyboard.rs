@@ -65,7 +65,7 @@ struct Harness {
 impl Harness {
     fn new() -> Self {
         Self {
-            ctx: Context::default(),
+            ctx: socdof_ui::theme::headless_context(),
             focus: FocusState::default(),
             theme: Theme::new(Appearance::Light, "indigo"),
         }

@@ -16,7 +16,7 @@ use socdof_core::now_millis;
 use crate::accounting::{accounting, seed_accounting, AccountingState};
 use crate::app_store::{app_store as app_store_screen, AppStoreState};
 use crate::appointments::{appointments, seed_appointments, AppointmentsState};
-use crate::auth::{auth, AuthState};
+use crate::auth::{auth, AuthState, SetupTemplate};
 use crate::calendar::CalendarState;
 use crate::components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
@@ -141,6 +141,30 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         ));
     }
     IconGrid::new(icons)
+}
+
+/// Trims the desktop to the layout template chosen in the wizard.
+fn apply_setup_template(state: &mut GalleryState) {
+    let apps: &[&str] = match state.auth.template_choice {
+        SetupTemplate::Sales => &[
+            "dashboard",
+            "pos",
+            "invoices",
+            "products",
+            "reports",
+            "settings",
+        ],
+        SetupTemplate::Office => &[
+            "dashboard",
+            "contacts",
+            "calendar",
+            "support",
+            "editor",
+            "settings",
+        ],
+        SetupTemplate::All => return,
+    };
+    state.desktop_icons.retain_apps(apps);
 }
 
 /// State of the gallery screen.
@@ -517,6 +541,16 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         }
         if let Some(accent) = state.auth.accent_choice.take() {
             state.accent_id = accent;
+        }
+        if let Some(wallpaper) = state.auth.wallpaper_choice.take() {
+            state.shell.wallpaper.wallpaper = wallpaper;
+        }
+        if let Some(mut custom) = state.auth.wallpaper_custom.take() {
+            custom.revision = now as u64;
+            state.shell.wallpaper.custom = Some(custom);
+        }
+        if state.auth.take_wizard_completed() {
+            apply_setup_template(state);
         }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
@@ -2038,7 +2072,7 @@ mod tests {
     use super::*;
 
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(language, appearance, "indigo").expect("gallery state");
         state.modal_open = modal_open;
         let output = ctx.run(egui::RawInput::default(), |ctx| gallery(ctx, &mut state));
@@ -2093,7 +2127,7 @@ mod tests {
 
     #[test]
     fn desktop_mode_renders_the_shell() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.desktop_open = true;
@@ -2128,7 +2162,7 @@ mod tests {
 
     #[test]
     fn dashboard_mode_renders_the_overview() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2151,7 +2185,7 @@ mod tests {
 
     #[test]
     fn contacts_mode_renders_the_address_book() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.contacts_open = true;
@@ -2171,7 +2205,7 @@ mod tests {
 
     #[test]
     fn dashboard_contact_action_opens_the_contacts_form() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2191,7 +2225,7 @@ mod tests {
 
     #[test]
     fn products_mode_renders_the_catalogue() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.products_open = true;
@@ -2211,7 +2245,7 @@ mod tests {
 
     #[test]
     fn dashboard_product_action_opens_the_products_form() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2231,7 +2265,7 @@ mod tests {
 
     #[test]
     fn invoices_mode_renders_the_documents() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.invoices_open = true;
@@ -2251,7 +2285,7 @@ mod tests {
 
     #[test]
     fn dashboard_invoice_action_opens_the_invoices_form() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2271,7 +2305,7 @@ mod tests {
 
     #[test]
     fn accounting_mode_renders_the_journal() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.accounting_open = true;
@@ -2291,7 +2325,7 @@ mod tests {
 
     #[test]
     fn dashboard_accounting_action_opens_the_journal() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2316,7 +2350,7 @@ mod tests {
 
     #[test]
     fn purchases_mode_renders_the_order_list() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.purchases_open = true;
@@ -2336,7 +2370,7 @@ mod tests {
 
     #[test]
     fn dashboard_purchases_action_opens_the_orders() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2356,7 +2390,7 @@ mod tests {
 
     #[test]
     fn pos_mode_renders_the_receipts() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.pos_open = true;
@@ -2376,7 +2410,7 @@ mod tests {
 
     #[test]
     fn dashboard_pos_action_opens_the_receipts() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2396,7 +2430,7 @@ mod tests {
 
     #[test]
     fn calendar_mode_renders_the_month() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.appointments_open = true;
@@ -2416,7 +2450,7 @@ mod tests {
 
     #[test]
     fn dashboard_calendar_action_opens_the_month() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2439,7 +2473,7 @@ mod tests {
 
     #[test]
     fn dashboard_lock_action_opens_the_lock_screen() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2459,7 +2493,7 @@ mod tests {
 
     #[test]
     fn dashboard_editor_action_opens_documents() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2499,7 +2533,7 @@ mod tests {
 
     #[test]
     fn dashboard_app_store_action_opens_the_catalogue() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;
@@ -2550,7 +2584,7 @@ mod tests {
 
     #[test]
     fn settings_mode_renders_all_tabs() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.settings_open = true;
@@ -2571,7 +2605,7 @@ mod tests {
 
     #[test]
     fn dashboard_settings_action_opens_the_settings() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.dashboard_open = true;

@@ -18,7 +18,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use egui::epaint::Primitive;
-use egui::{Context, ImageData, Pos2, RawInput, Rect, TextureId, Vec2};
+use egui::{ImageData, Pos2, RawInput, Rect, TextureId, Vec2};
 use socdof_core::domain::settings::Language;
 use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::settings::SettingsTab;
@@ -33,6 +33,8 @@ const APPEARANCES: [Appearance; 2] = [Appearance::Light, Appearance::Dark];
 enum Scene {
     Gallery,
     Desktop,
+    DesktopOverflow,
+    DesktopFree,
     StartMenu,
     Palette,
     Tray,
@@ -72,6 +74,8 @@ impl Scene {
         match self {
             Scene::Gallery => "gallery".to_string(),
             Scene::Desktop => "desktop".to_string(),
+            Scene::DesktopOverflow => "desktop-overflow".to_string(),
+            Scene::DesktopFree => "desktop-free".to_string(),
             Scene::StartMenu => "start-menu".to_string(),
             Scene::Palette => "palette".to_string(),
             Scene::Tray => "tray".to_string(),
@@ -111,6 +115,8 @@ impl Scene {
         match self {
             Scene::Gallery => "Component gallery".to_string(),
             Scene::Desktop => "Desktop shell".to_string(),
+            Scene::DesktopOverflow => "Desktop · Overflow menu".to_string(),
+            Scene::DesktopFree => "Desktop · Free icon placement".to_string(),
             Scene::StartMenu => "Start menu".to_string(),
             Scene::Palette => "Command palette".to_string(),
             Scene::Tray => "Tray flyout".to_string(),
@@ -149,6 +155,8 @@ impl Scene {
     fn size(self) -> (f32, f32) {
         match self {
             Scene::Desktop
+            | Scene::DesktopOverflow
+            | Scene::DesktopFree
             | Scene::StartMenu
             | Scene::Palette
             | Scene::Tray
@@ -220,6 +228,21 @@ impl Scene {
         match self {
             Scene::Gallery => {}
             Scene::Desktop => state.desktop_open = true,
+            Scene::DesktopOverflow => {
+                state.desktop_open = true;
+                state.shell.toggle_overflow();
+            }
+            Scene::DesktopFree => {
+                state.desktop_open = true;
+                state.desktop_icons.place_at(
+                    socdof_ui::desktop::AppId::new("contacts"),
+                    egui::Pos2::new(250.0, 420.0),
+                );
+                state.desktop_icons.place_at(
+                    socdof_ui::desktop::AppId::new("products"),
+                    egui::Pos2::new(40.0, 470.0),
+                );
+            }
             Scene::StartMenu => {
                 state.desktop_open = true;
                 state.shell.open_start();
@@ -320,6 +343,7 @@ impl Scene {
             }
             Scene::AuthSetup => {
                 state.auth.show_setup();
+                state.auth.setup_step = 2;
                 state.auth_open = true;
             }
             Scene::AuthUnlocked => {
@@ -376,6 +400,8 @@ fn scenes() -> Vec<Scene> {
     let mut scenes = vec![
         Scene::Gallery,
         Scene::Desktop,
+        Scene::DesktopOverflow,
+        Scene::DesktopFree,
         Scene::StartMenu,
         Scene::Palette,
         Scene::Tray,
@@ -556,7 +582,7 @@ fn render_scene(
     state.appearance = appearance;
     state.accent_id = "indigo".to_string();
     state.language = language;
-    let ctx = Context::default();
+    let ctx = socdof_ui::theme::headless_context();
     // `SOCDOF_PREVIEW_SIZE=432x771` renders a scene in the window size of a reference screenshot,
     // so the GUI parity artefacts in `docs/artifacts/gui-parity/` are directly comparable.
     let override_size = std::env::var("SOCDOF_PREVIEW_SIZE").ok().and_then(|raw| {

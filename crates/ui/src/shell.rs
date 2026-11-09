@@ -421,6 +421,39 @@ impl Onboarding {
     }
 }
 
+/// Taskbar overflow menu for app buttons that no longer fit on the bar.
+#[derive(Debug, Clone, Default)]
+pub struct OverflowMenu {
+    open: bool,
+}
+
+impl OverflowMenu {
+    /// Builds a closed menu.
+    pub fn new() -> Self {
+        Self { open: false }
+    }
+
+    /// Whether the menu is visible.
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// Shows the menu.
+    pub fn open(&mut self) {
+        self.open = true;
+    }
+
+    /// Hides the menu.
+    pub fn close(&mut self) {
+        self.open = false;
+    }
+
+    /// Toggles the menu.
+    pub fn toggle(&mut self) {
+        self.open = !self.open;
+    }
+}
+
 /// Task view overlay listing the open windows.
 #[derive(Debug, Clone, Default)]
 pub struct TaskView {
@@ -473,6 +506,8 @@ pub struct ShellState {
     pub studio: StudioState,
     /// Window overview.
     pub task_view: TaskView,
+    /// Overflow menu of app buttons that do not fit on the taskbar.
+    pub overflow: OverflowMenu,
 }
 
 impl ShellState {
@@ -487,6 +522,7 @@ impl ShellState {
             widgets: WidgetLayer::new(),
             studio: StudioState::new(),
             task_view: TaskView::new(),
+            overflow: OverflowMenu::new(),
         }
     }
 
@@ -496,6 +532,7 @@ impl ShellState {
         self.palette.close();
         self.tray.close();
         self.task_view.close();
+        self.overflow.close();
     }
 
     /// Whether any overlay is visible.
@@ -505,6 +542,7 @@ impl ShellState {
             || self.palette.is_open()
             || self.tray.is_open()
             || self.task_view.is_open()
+            || self.overflow.is_open()
     }
 
     /// Opens the start menu and closes the other overlays.
@@ -526,6 +564,16 @@ impl ShellState {
     pub fn open_palette(&mut self) {
         self.close_overlays();
         self.palette.open();
+    }
+
+    /// Toggles the taskbar overflow menu, closing the other overlays first.
+    pub fn toggle_overflow(&mut self) {
+        if self.overflow.is_open() {
+            self.close_overlays();
+        } else {
+            self.close_overlays();
+            self.overflow.open();
+        }
     }
 
     /// Toggles the tray flyout.
@@ -1018,7 +1066,7 @@ pub fn wallpaper_label(wallpaper: Wallpaper) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use egui::{Context, Pos2, RawInput};
+    use egui::{Pos2, RawInput};
     use socdof_core::domain::settings::Language;
 
     use crate::desktop::DesktopIcon;
@@ -1166,7 +1214,7 @@ mod tests {
 
     #[test]
     fn overlays_paint_without_a_display() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let theme = Theme::new(Appearance::Light, "indigo");
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
         let grid = icons(&texts);

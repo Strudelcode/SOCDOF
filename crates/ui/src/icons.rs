@@ -452,11 +452,11 @@ impl Icon {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use egui::{Context, Sense, Vec2};
+    use egui::{Sense, Vec2};
 
     #[test]
     fn every_icon_draws_shapes() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         for icon in ALL_ICONS {
             let output = ctx.run(egui::RawInput::default(), |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {

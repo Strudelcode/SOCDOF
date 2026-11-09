@@ -90,6 +90,19 @@ pub enum WallpaperFit {
     Tile,
 }
 
+/// A user image, decoded from a PNG that was dropped onto the setup wizard.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CustomWallpaper {
+    /// Image width in pixels.
+    pub width: usize,
+    /// Image height in pixels.
+    pub height: usize,
+    /// RGBA pixels, four bytes per pixel.
+    pub pixels: std::sync::Arc<Vec<u8>>,
+    /// Revision used as the texture cache key; the host bumps it when the image arrives.
+    pub revision: u64,
+}
+
 /// Selected wallpaper and fit.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct WallpaperState {
@@ -97,6 +110,8 @@ pub struct WallpaperState {
     pub wallpaper: Wallpaper,
     /// How the image fills the screen.
     pub fit: WallpaperFit,
+    /// User image that replaces the bundled ones while it is set.
+    pub custom: Option<CustomWallpaper>,
 }
 
 impl WallpaperState {
@@ -220,6 +235,10 @@ pub(crate) fn gradient_mesh(
 
 /// Paints the selected wallpaper into `rect`, clipped to the desktop area.
 pub fn paint(ctx: &Context, ui: &Ui, rect: Rect, state: &WallpaperState, accent: Color32) {
+    if let Some(custom) = &state.custom {
+        paint_custom(ctx, ui, rect, custom);
+        return;
+    }
     if !state.wallpaper.is_image() {
         paint_plain(ui, rect, accent);
         return;
@@ -239,6 +258,52 @@ pub fn paint(ctx: &Context, ui: &Ui, rect: Rect, state: &WallpaperState, accent:
             }
         }
     }
+}
+
+/// Decodes a user supplied PNG into RGBA pixels.
+///
+/// Only eight bit RGB and RGBA PNGs are accepted; anything else reports an error code that the
+/// wizard turns into a translated hint.
+pub fn decode_png(bytes: &[u8]) -> Result<(usize, usize, Vec<u8>), &'static str> {
+    let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    let mut reader = decoder.read_info().map_err(|_| "png_header")?;
+    let mut buffer = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buffer).map_err(|_| "png_frame")?;
+    buffer.truncate(info.buffer_size());
+    let width = info.width as usize;
+    let height = info.height as usize;
+    let rgba = match (info.color_type, info.bit_depth) {
+        (png::ColorType::Rgba, png::BitDepth::Eight) => buffer,
+        (png::ColorType::Rgb, png::BitDepth::Eight) => buffer
+            .chunks_exact(3)
+            .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], 255])
+            .collect(),
+        _ => return Err("png_unsupported"),
+    };
+    Ok((width, height, rgba))
+}
+
+/// Paints a user image, scaling it to cover the desktop like the bundled wallpapers.
+fn paint_custom(ctx: &Context, ui: &Ui, rect: Rect, custom: &CustomWallpaper) {
+    let texture = custom_texture(ctx, custom);
+    let image = texture.size_vec2();
+    let target = cover_rect(rect, image);
+    let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+    ui.painter()
+        .with_clip_rect(rect)
+        .image(texture.id(), target, uv, Color32::WHITE);
+}
+
+/// Uploads a user image as a texture once per revision and caches it afterwards.
+fn custom_texture(ctx: &Context, custom: &CustomWallpaper) -> TextureHandle {
+    let id = Id::new(("socdof-wallpaper-custom", custom.revision));
+    if let Some(handle) = ctx.data(|data| data.get_temp::<TextureHandle>(id)) {
+        return handle;
+    }
+    let image = ColorImage::from_rgba_unmultiplied([custom.width, custom.height], &custom.pixels);
+    let handle = ctx.load_texture("custom-wallpaper", image, TextureOptions::LINEAR);
+    ctx.data_mut(|data| data.insert_temp(id, handle.clone()));
+    handle
 }
 
 /// Loads a wallpaper as a texture once per context and caches it for the following frames.
@@ -286,6 +351,15 @@ mod tests {
                 .collect::<std::collections::BTreeSet<_>>();
             assert!(distinct.len() > 8, "{} is a flat image", wallpaper.id());
         }
+    }
+
+    #[test]
+    fn user_pngs_decode_into_rgba() {
+        let bytes = Wallpaper::Aurora.bytes().expect("bundled panorama");
+        let (width, height, rgba) = decode_png(bytes).expect("png decodes");
+        assert_eq!((width, height), (640, 400));
+        assert_eq!(rgba.len(), width * height * 4);
+        assert!(decode_png(b"not a png").is_err());
     }
 
     #[test]

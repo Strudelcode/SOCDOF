@@ -256,7 +256,7 @@ pub fn capture(
     ) {
         return capture_desktop(language, appearance, variant);
     }
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let mut state = PrimitiveState::new(language, appearance).expect("embedded catalogue");
     if variant == SnapshotVariant::Drawer {
         state.drawer_open = true;
@@ -271,7 +271,7 @@ pub fn capture(
 
 /// Renders the dashboard screen with its deterministic sample data.
 fn capture_dashboard(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let mut focus = FocusState::default();
@@ -312,7 +312,7 @@ fn capture_dashboard(language: Language, appearance: Appearance) -> Vec<String> 
 
 /// Renders the contacts screen with its deterministic sample data.
 fn capture_contacts(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -358,7 +358,7 @@ fn capture_contacts(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the products screen with its deterministic sample data.
 fn capture_products(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -403,7 +403,7 @@ fn capture_products(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the invoices screen with its deterministic sample data.
 fn capture_invoices(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -448,7 +448,7 @@ fn capture_invoices(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the accounting screen with its deterministic sample data.
 fn capture_accounting(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -495,7 +495,7 @@ fn capture_accounting(language: Language, appearance: Appearance) -> Vec<String>
 
 /// Renders the purchases screen with its deterministic sample data.
 fn capture_purchases(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -540,7 +540,7 @@ fn capture_purchases(language: Language, appearance: Appearance) -> Vec<String> 
 
 /// Renders the POS screen with its deterministic sample data.
 fn capture_pos(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -585,7 +585,7 @@ fn capture_pos(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the calendar screen with its deterministic sample data.
 fn capture_calendar(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -630,7 +630,7 @@ fn capture_calendar(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the settings screen with its deterministic sample data.
 fn capture_settings(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -675,7 +675,7 @@ fn capture_settings(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the user management screen with its deterministic sample accounts.
 fn capture_users(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -720,7 +720,7 @@ fn capture_users(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the App Store with one deactivated module and the locked therapy module.
 fn capture_app_store(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -757,7 +757,7 @@ fn capture_app_store(language: Language, appearance: Appearance) -> Vec<String> 
 
 /// Renders the support module with its sample tickets and tracked time.
 fn capture_support(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -807,7 +807,7 @@ fn capture_support(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the reports module over the seeded invoices.
 fn capture_reports(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -854,7 +854,7 @@ fn capture_reports(language: Language, appearance: Appearance) -> Vec<String> {
 
 /// Renders the therapy module with its sample practice.
 fn capture_therapie(language: Language, appearance: Appearance) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -906,7 +906,7 @@ fn capture_editor(
     appearance: Appearance,
     variant: SnapshotVariant,
 ) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -962,7 +962,7 @@ fn capture_auth(
     appearance: Appearance,
     variant: SnapshotVariant,
 ) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let store = socdof_core::store::Store::open_in_memory().expect("in-memory store");
@@ -1006,7 +1006,7 @@ fn capture_desktop(
     appearance: Appearance,
     variant: SnapshotVariant,
 ) -> Vec<String> {
-    let ctx = Context::default();
+    let ctx = crate::theme::headless_context();
     let theme = Theme::new(appearance, "indigo");
     let texts = UiTexts::embedded(language).expect("embedded catalogue");
     let mut focus = FocusState::default();

@@ -606,9 +606,11 @@ SOCDOF_PREVIEW_SIZE=432x771 cargo run -p socdof-ui --bin socdof-ui-preview -- au
 ```
 
 `rust-02-lock-screen.png`, `rust-03-desktop.png` and `rust-04-login.png` are those renders at
-432×771, the window size of the legacy screenshots, so the two sets compare without scaling. They are
-the only accepted evidence that the two applications match; re-take them whenever a parity change
-lands.
+432×771, the window size of the legacy screenshots, so the two sets compare without scaling;
+`rust-05-setup.png` and `rust-06-desktop-wide.png` cover the wizard and the 1280 px shell, and
+`rust-07-overflow.png`, `rust-08-free-icons.png` and `rust-09-setup-wallpaper.png` document the
+overflow menu, the free icon placement and the wallpaper step of the wizard. They are the only
+accepted evidence that the two applications match; re-take them whenever a parity change lands.
 
 ### 15.2 Where the values come from
 
@@ -636,11 +638,11 @@ window geometry), `crates/ui/src/chrome.rs` (window chrome, app tiles) and
 | Control radius | 12 px (`rounded-xl`) | `RADIUS_CONTROL` 12 | done |
 | Card and dialog radius | card 16 px, dialog and window 24 px (`rounded-3xl`) | cards 16, floating windows 24 (`RADIUS_DIALOG`); `components::modal` uses the same 24 px dialog radius | done |
 | Control height | 40 px desktop, 44 px minimum on touch (`min-h-[44px]`) | `CONTROL_HEIGHT` 40 | done |
-| Type | body 14 px, secondary 12 px, form label 12 px semibold | `FONT_BODY` 14, `FONT_SMALL` 12; form labels use the body weight | semibold form labels |
-| Font stack | `system-ui, "Segoe UI", Roboto, …` | still the egui default (Ubuntu on Linux, Segoe on Windows) | platform UI font first, bundled fallback |
-| Taskbar | 48 px, top border, glass `rgba(255,255,255,.9)` with 24 px blur; start 36×36 radius 12; running apps 36×36 radius 12; search pill; task view; clock 12 px with seconds | `TASKBAR_HEIGHT` 48 with a 84 % translucent surface (no blur, egui cannot blur a panel); start, apps, Studio and tray are 36×36 at radius 12; search pill from 640 px width; clock `HH:MM:SS`; app buttons that no longer fit are dropped so the clock keeps its place; a task view button opens the window overview and a version pill with the companion dot appears from 700 px | app overflow menu, backdrop blur |
-| Desktop icon | cell 96 px wide, 96–104 px high, tile 48×48 radius 16, glyph 24 px, label 12 px semibold, two lines, 90 px wide; open marker 20×4 | cell 96×104, tile 48 px radius 16, glyph 24 px, label 12 px wrapped at 90 px, open marker 20×3, an accent drop shadow, a vertical gradient and hover and selection tint | free placement beyond cells |
-| Icon grid | responsive, three columns at 432 px width, free drag and drop | `IconGrid::columns`: 3 below 440 px, 4 below 768 px, then one column per 136 px up to 6; drag moves between cells | free placement beyond cells |
+| Type | body 14 px, secondary 12 px, form label 12 px semibold | `FONT_BODY` 14, `FONT_SMALL` 12; form labels use the bundled `Semibold` family (`theme::semibold`) | done |
+| Font stack | `system-ui, "Segoe UI", Roboto, …` | bundled Source Sans 3 Regular and Semibold (SIL OFL) as the first entry of the Proportional family, egui's built-in faces stay behind it as glyph fallback; egui 0.27 cannot read system fonts, so the OS face cannot come first | done with a bundled face |
+| Taskbar | 48 px, top border, glass `rgba(255,255,255,.9)` with 24 px blur; start 36×36 radius 12; running apps 36×36 radius 12; search pill; task view; clock 12 px with seconds | `TASKBAR_HEIGHT` 48 with a 84 % translucent surface (no blur, egui cannot blur a panel); start, apps, Studio and tray are 36×36 at radius 12; search pill from 640 px width; clock `HH:MM:SS`; app buttons that no longer fit move into a 28×36 overflow button whose popup lists them as ghost buttons; a task view button opens the window overview and a version pill with the companion dot appears from 700 px | done except backdrop blur |
+| Desktop icon | cell 96 px wide, 96–104 px high, tile 48×48 radius 16, glyph 24 px, label 12 px semibold, two lines, 90 px wide; open marker 20×4 | cell 96×104, tile 48 px radius 16, glyph 24 px, label 12 px wrapped at 90 px, open marker 20×3, an accent drop shadow, a vertical gradient and hover and selection tint; a drag stores a free pixel position (`DesktopIcon::pos`) that wins over the cell | done |
+| Icon grid | responsive, three columns at 432 px width, free drag and drop | `IconGrid::columns`: 3 below 440 px, 4 below 768 px, then one column per 136 px up to 6; a drag without a free position moves between cells, otherwise it clamps to the free position | done |
 | Wallpaper | no image by default: lavender to white gradient, user image optional | `Wallpaper::Plain` is the default and paints two vertex gradients (accent washed into white, plus a left-to-right corner wash); aurora and dusk stay selectable | done |
 | Window chrome | 40 px title bar, 24 px radius, accent rim, 40×32 window buttons, soft outer shadow | 40 px title bar, 24 px radius with only the top corners rounded, 32×32 window buttons, dialog shadow | done |
 | Scrollbars | 6 px with a translucent thumb | 6 px bar and thumb, minimum handle 12 px | done |
@@ -659,17 +661,24 @@ These are not token tweaks; each one is its own piece of work.
    appearance (light or dark plus the nine accent swatches) and desktop layout (sales, office,
    everything). Back and Continue move between the steps, the last step creates the administrator
    and jumps back to the account step when validation fails. The host applies language, appearance
-   and accent as soon as the step reports a choice. Still open: wallpaper upload inside the wizard,
-   and the chosen layout template is not applied to the desktop yet.
+   and accent as soon as the step reports a choice. The appearance step also offers the wallpaper
+   presets and a PNG drop zone: a dropped file is decoded (`wallpaper::decode_png`, 8-bit RGB/RGBA),
+   kept as `CustomWallpaper` and cached as a texture per revision, and the wizard finishes with
+   `AuthState::take_wizard_completed`, which makes the host apply the chosen layout template through
+   `IconGrid::retain_apps` (sales, office or everything). There is no native file dialog in egui 0.27,
+   so the upload is drag and drop only; the desktop build additionally accepts the real file path.
 3. **Taskbar — done.** Translucent 48 px bar, 36×36 buttons at radius 12, search pill from 640 px,
    task view from every width, version pill with the companion dot from 700 px, clock with seconds,
    and app buttons that would push the clock off the bar are dropped. The task view lists every open
-   window; clicking one raises it and closes the overview. Still open: the overflow menu for the
-   dropped app buttons, the status text (it shows the crate version), and no backdrop blur, which
-   egui cannot paint on a panel.
+   window; clicking one raises it and closes the overview. App buttons that no longer fit go into
+   the 28×36 overflow button, which opens a popup ("Weitere Apps") listing them as ghost buttons that
+   open the app. Still open: the status text shows the crate version, and the backdrop blur of the
+   glass surface, which egui cannot paint on a panel (see 15.6).
 4. **Desktop — done.** 48 px tiles with a vertical gradient, an accent drop shadow, wrapped 90 px
    labels, hover and selection tint, an open marker and the responsive column count (3 / 4 / N)
-   instead of the fixed six. Still open: free placement of icons between the grid cells.
+   instead of the fixed six. Dragging an icon stores a free position that overrides its grid cell
+   (clamped to the desktop area, cleared when a layout template is applied), while the cell keeps
+   keyboard navigation and persistence working.
 5. **Toasts — done.** `components::toast_stack` draws the legacy glass cards in the bottom left:
    tone icon tile, uppercase 11 px title, 13 px body and a close button, stacked upwards with the
    card shadow. The form and gallery actions use it with titles, and the previous badge line is gone.
@@ -696,11 +705,21 @@ These are not token tweaks; each one is its own piece of work.
 - [x] first-run wizard with language, account, appearance and layout steps, strength meter and swatches
 - [x] toast component replacing the badge confirmation line in the modules
 - [x] companion accent color for the taskbar status dot
-- [ ] taskbar overflow menu for app buttons that do not fit; no backdrop blur (egui limitation)
-- [ ] free placement of desktop icons beyond grid cells (positions are still cell based)
-- [ ] wizard: wallpaper upload, and applying the chosen layout template to the desktop
-- [ ] font stack with the platform UI font first (no font file is bundled, so egui uses its own)
-- [ ] semibold form labels (egui has no synthetic bold)
+- [x] taskbar overflow menu (`OverflowMenu` in `shell.rs`, popup in `desktop.rs`, button appears only
+      when apps are hidden); evidence `rust-07-overflow.png`
+- [x] free placement of desktop icons beyond grid cells (`DesktopIcon::pos`, `IconGrid::place_at`,
+      drag end clamps into the desktop); evidence `rust-08-free-icons.png`
+- [x] wizard: wallpaper upload (PNG drag and drop, `CustomWallpaper` texture cache) and applying the
+      chosen layout template to the desktop (`IconGrid::retain_apps` on `take_wizard_completed`);
+      evidence `rust-09-setup-wallpaper.png`
+- [x] bundled font stack: Source Sans 3 Regular and Semibold in `crates/ui/assets/fonts`, installed by
+      `theme::install_fonts`, egui defaults kept as glyph fallback
+- [x] semibold form labels through the `FontFamily::Name("Semibold")` family (`theme::semibold`), used
+      by the field labels in `controls.rs`; egui has no synthetic bold, hence a second face
+- [ ] backdrop blur of the taskbar glass — not possible in egui 0.27: a panel paints straight into the
+      window framebuffer and epaint has no render-to-texture or post-process pass, so nothing can blur
+      what is behind the bar. The honest alternative is the current 84 % translucent surface; a real
+      blur would need a custom wgpu callback with an offscreen pass and is out of scope here.
 ---
 
 ## 16. Risk register
@@ -781,3 +800,4 @@ These are not token tweaks; each one is its own piece of work.
 | 2026-11-08 | 15 | GUI parity reference: served the TypeScript app on the reserved preview port and walked it end to end (language chooser, three setup steps, lock screen, desktop). The measured tokens, component geometry and the five structural differences are recorded in section 15; reference screenshots live in `docs/artifacts/gui-parity/` (five legacy screens plus the current Rust desktop). |
 | 2026-11-08 | 15 | GUI parity implemented: soft card, dialog and window shadows from stacked accent layers, control radius 12 and height 40, window radius 24 with a 40 px title bar and 32 px buttons, taskbar with 36×36 buttons, a translucent surface, search pill, seconds clock and an overflow guard, desktop icon cell 96×104 with 48 px tiles, wrapped labels, an open marker and responsive columns (3/4/N), the plain accent-gradient wallpaper as the default, and a lock screen with clock, date and avatar above a single password field. 264 goldens regenerated, two catalogue keys added (1,432 per language), web build 5.5 MB. Section 15.3–15.6 updated with the achieved values and the remaining gaps. |
 | 2026-11-09 | 15 | Parity follow-up closed the open list: dialog radius 24, gradient desktop tiles with an accent shadow, task view overlay with the open window list, version pill with the companion dot, lock screen recovery hint and account switch tiles, the four step first-run wizard (language, account with strength meter, appearance with nine swatches, layout) whose choices the host applies, and the glass toast stack that replaced the badge line. Two texts sets were corrected after a swap between German and English, 26 catalogue keys added (1,458 per language), goldens regenerated and the web build rebuilt. Font stack and semibold labels stay open because no font file is bundled and egui has no synthetic bold. |
+| 2026-11-09 | 15 | Parity rest list closed. Taskbar overflow menu for app buttons that no longer fit, free desktop icon placement on top of the grid cells, wallpaper presets plus PNG drag and drop in the wizard's appearance step together with applying the chosen layout template, and bundled Source Sans 3 Regular/Semibold installed as the proportional family with a separate semibold family for form labels. Two tests added (free positions, template filtering), all 70 headless test contexts now install the bundled fonts, goldens regenerated because the font change moves every text metric, three catalogue keys added in four languages, web build rebuilt. The only item left open is the taskbar backdrop blur, with the egui limitation documented in 15.6. |

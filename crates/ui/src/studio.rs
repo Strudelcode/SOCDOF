@@ -1079,7 +1079,7 @@ mod tests {
         // Saving without a name renders the error badge instead of writing.
         assert!(!state.save(&store));
         assert_eq!(state.error(), Some("studio_error_name"));
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let theme = Theme::new(Appearance::Light, "indigo");
         let texts = texts();
         let mut focus = FocusState::default();
@@ -1135,7 +1135,7 @@ mod tests {
             let texts = texts();
             for tab in [StudioTab::Company, StudioTab::Data, StudioTab::Layout] {
                 state.set_tab(tab);
-                let ctx = Context::default();
+                let ctx = crate::theme::headless_context();
                 let mut focus = FocusState::default();
                 let input = RawInput {
                     screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 900.0))),

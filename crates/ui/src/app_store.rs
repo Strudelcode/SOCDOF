@@ -437,7 +437,7 @@ mod tests {
         let texts = texts();
         for query in ["", "xyz"] {
             state.query = query.to_string();
-            let ctx = Context::default();
+            let ctx = crate::theme::headless_context();
             let mut focus = FocusState::default();
             let mut output = None;
             for _ in 0..2 {

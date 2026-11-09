@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn renders_blocks_without_panicking() {
-        let ctx = egui::Context::default();
+        let ctx = crate::theme::headless_context();
         let theme = Theme::new(crate::theme::Appearance::Light, "indigo");
         let mut shapes = 0;
         for _ in 0..2 {

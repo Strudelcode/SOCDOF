@@ -678,7 +678,7 @@ mod tests {
     }
 
     fn render(state: &mut DashboardState) -> egui::FullOutput {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let texts =
             UiTexts::embedded(socdof_core::domain::settings::Language::De).expect("catalogue");
         let theme = Theme::new(crate::theme::Appearance::Light, "indigo");

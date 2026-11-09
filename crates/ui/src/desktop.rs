@@ -406,6 +406,7 @@ pub struct DesktopIcon {
     label: String,
     icon: Icon,
     cell: (u32, u32),
+    pos: Option<Pos2>,
 }
 
 impl DesktopIcon {
@@ -416,13 +417,25 @@ impl DesktopIcon {
             label: label.into(),
             icon,
             cell: (0, 0),
+            pos: None,
         }
     }
 
     /// Places the icon on a specific grid cell.
     pub fn at(mut self, cell: (u32, u32)) -> Self {
         self.cell = cell;
+        self.pos = None;
         self
+    }
+
+    /// Free position on the desktop, if the icon was dragged away from the grid.
+    pub fn pos(&self) -> Option<Pos2> {
+        self.pos
+    }
+
+    /// Moves the icon to an absolute desktop position.
+    pub fn place(&mut self, min: Pos2) {
+        self.pos = Some(min);
     }
 
     /// App of the icon.
@@ -587,6 +600,28 @@ impl IconGrid {
         Some(target)
     }
 
+    /// Places an icon at an absolute desktop position, free of the grid.
+    pub fn place_at(&mut self, app: AppId, min: Pos2) -> bool {
+        match self.index_of(app) {
+            Some(index) => {
+                self.icons[index].place(min);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Keeps only the given apps and lays the rest out again in reading order.
+    pub fn retain_apps(&mut self, apps: &[&str]) {
+        let mut icons = std::mem::take(&mut self.icons);
+        icons.retain(|icon| apps.contains(&icon.app.as_str()));
+        for (index, icon) in icons.iter_mut().enumerate() {
+            icon.cell = (index as u32 % ICON_COLUMNS, index as u32 / ICON_COLUMNS);
+            icon.pos = None;
+        }
+        *self = Self::new(icons);
+    }
+
     /// Cell positions in reading order, ready to be persisted.
     pub fn positions(&self) -> Vec<(AppId, (u32, u32))> {
         self.icons
@@ -732,7 +767,10 @@ pub fn desktop(
             let entries: Vec<(usize, DesktopIcon)> =
                 icons.icons().iter().cloned().enumerate().collect();
             for (index, icon) in entries {
-                let rect = IconGrid::cell_rect(area, icon.cell());
+                let rect = match icon.pos() {
+                    Some(pos) => Rect::from_min_size(pos, ICON_CELL),
+                    None => IconGrid::cell_rect(area, icon.cell()),
+                };
                 let id = Id::new(("socdof-desktop-icon", icon.app().as_str()));
                 let focused = focus.register(id);
                 let response = ui.interact(rect, id, Sense::click_and_drag());
@@ -742,8 +780,8 @@ pub fn desktop(
                 }
                 if !blocked && response.drag_stopped() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let cell = icons.cell_at(area, pos);
-                        icons.move_to(icon.app(), cell);
+                        let placed = clamp_rect(Rect::from_center_size(pos, ICON_CELL), area);
+                        icons.place_at(icon.app(), placed.min);
                     }
                 }
                 let selected = icons.selected() == index;
@@ -1076,6 +1114,7 @@ pub fn desktop(
         .iter()
         .map(|icon| (icon.app(), icon.label().to_owned(), icon.icon()))
         .collect();
+    let mut hidden: Vec<(AppId, String)> = Vec::new();
     let mut launched: Option<AppId> = None;
     egui::Area::new(Id::new("socdof-taskbar"))
         .order(egui::Order::Foreground)
@@ -1131,10 +1170,11 @@ pub fn desktop(
             // The tray, the Studio button and the clock always keep their place on the right; app
             // buttons that no longer fit are dropped instead of pushing the clock off the bar.
             let right_limit =
-                bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 36.0 - 8.0;
+                bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 32.0 - 8.0;
             for (app, label, icon) in &apps {
                 if x + crate::tokens::TASKBAR_BUTTON > right_limit {
-                    break;
+                    hidden.push((*app, label.clone()));
+                    continue;
                 }
                 let rect = Rect::from_min_size(
                     Pos2::new(x, bar.top() + 6.0),
@@ -1237,6 +1277,48 @@ pub fn desktop(
                 shell.toggle_tray();
             }
 
+            if !hidden.is_empty() {
+                let overflow_rect = Rect::from_min_size(
+                    Pos2::new(bar.right() - 236.0, bar.top() + 6.0),
+                    Vec2::new(28.0, crate::tokens::TASKBAR_BUTTON),
+                );
+                let overflow_id = Id::new("socdof-taskbar-overflow");
+                let overflow_focused = focus.register(overflow_id);
+                let overflow_response = ui.interact(overflow_rect, overflow_id, Sense::click());
+                painter.rect(
+                    overflow_rect,
+                    Rounding::same(RADIUS_CONTROL),
+                    if shell.overflow.is_open() {
+                        theme.accent.light
+                    } else if overflow_response.hovered() || overflow_focused {
+                        theme.palette.surface_muted
+                    } else {
+                        Color32::TRANSPARENT
+                    },
+                    Stroke::NONE,
+                );
+                for step in 0..3 {
+                    painter.circle_filled(
+                        Pos2::new(
+                            overflow_rect.center().x - 5.0 + step as f32 * 5.0,
+                            overflow_rect.center().y,
+                        ),
+                        1.7,
+                        theme.palette.text_muted,
+                    );
+                }
+                if overflow_focused {
+                    focus_ring(ui, theme, overflow_rect);
+                }
+                overflow_response.widget_info(|| {
+                    WidgetInfo::labeled(WidgetType::Button, texts.get("taskbar_more"))
+                });
+                let overflow_response = overflow_response.on_hover_text(texts.get("taskbar_more"));
+                if overflow_response.clicked() || focus.activate(overflow_id) {
+                    shell.toggle_overflow();
+                }
+            }
+
             if bar.width() >= TASKBAR_STATUS_MIN_WIDTH {
                 let pill = Rect::from_min_size(
                     Pos2::new(bar.right() - 290.0, bar.top() + 12.0),
@@ -1317,6 +1399,67 @@ pub fn desktop(
         });
     if let Some(app) = launched {
         outcome.open_app = Some(app);
+    }
+
+    if shell.overflow.is_open() {
+        if ctx.input(|input| input.key_pressed(Key::Escape)) {
+            shell.overflow.close();
+        }
+        let mut launch: Option<AppId> = None;
+        let mut close = false;
+        egui::Area::new(Id::new("socdof-taskbar-overflow-menu"))
+            .order(egui::Order::Foreground)
+            .anchor(
+                Align2::RIGHT_BOTTOM,
+                Vec2::new(-12.0, -(TASKBAR_HEIGHT + 8.0)),
+            )
+            .show(ctx, |ui| {
+                egui::Frame::none()
+                    .fill(with_alpha(theme.palette.surface, 96))
+                    .stroke(Stroke::new(1.0_f32, theme.palette.border))
+                    .rounding(Rounding::same(RADIUS_CARD))
+                    .inner_margin(egui::Margin::same(12.0))
+                    .show(ui, |ui| {
+                        ui.set_width(200.0);
+                        ui.label(
+                            RichText::new(texts.get("taskbar_more"))
+                                .size(FONT_SMALL)
+                                .family(crate::theme::semibold())
+                                .color(theme.palette.text_muted),
+                        );
+                        ui.add_space(6.0);
+                        ui.vertical(|ui| {
+                            for (app, label) in &hidden {
+                                if button(ui, theme, focus, label, ButtonVariant::Ghost).activated {
+                                    launch = Some(*app);
+                                }
+                            }
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("window_close_cancel"),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
+                                close = true;
+                            }
+                        });
+                    });
+            });
+        if close {
+            shell.overflow.close();
+        }
+        if let Some(app) = launch {
+            if windows.is_open(app) {
+                windows.focus(app);
+            } else {
+                activate_app(icons, windows, app, area, now);
+            }
+            outcome.open_app = Some(app);
+            shell.overflow.close();
+        }
     }
 
     if shell.task_view.is_open() {
@@ -1753,6 +1896,37 @@ fn clamp_rect(rect: Rect, area: Rect) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn free_positions_override_the_grid() {
+        let mut grid = IconGrid::new(vec![DesktopIcon::new(
+            AppId::new("contacts"),
+            "Kontakte",
+            Icon::User,
+        )]);
+        assert!(grid.icons()[0].pos().is_none());
+        assert!(grid.place_at(AppId::new("contacts"), Pos2::new(300.0, 240.0)));
+        assert_eq!(grid.icons()[0].pos(), Some(Pos2::new(300.0, 240.0)));
+        assert!(!grid.place_at(AppId::new("missing"), Pos2::new(0.0, 0.0)));
+    }
+
+    #[test]
+    fn layout_templates_keep_only_their_apps() {
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("pos"), "Kasse", Icon::User),
+            DesktopIcon::new(AppId::new("editor"), "Texteditor", Icon::User),
+            DesktopIcon::new(AppId::new("contacts"), "Kontakte", Icon::User),
+        ]);
+        grid.retain_apps(&["pos", "contacts"]);
+        let apps: Vec<&str> = grid
+            .icons()
+            .iter()
+            .map(|icon| icon.app().as_str())
+            .collect();
+        assert_eq!(apps, vec!["pos", "contacts"]);
+        assert_eq!(grid.icons()[0].cell(), (0, 0));
+        assert_eq!(grid.icons()[1].cell(), (1, 0));
+    }
     use crate::shell::Onboarding;
     use socdof_core::domain::settings::Language;
 
@@ -2015,7 +2189,7 @@ mod tests {
 
     #[test]
     fn the_desktop_draws_without_a_display() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let theme = Theme::new(crate::theme::Appearance::Light, "indigo");
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
         let mut focus = FocusState::default();

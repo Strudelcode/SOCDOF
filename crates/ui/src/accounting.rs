@@ -1248,7 +1248,7 @@ mod tests {
     }
 
     fn render(state: &mut AccountingState, store: &Store) -> String {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
         let theme = Theme::new(Appearance::Light, "indigo");
         let mut focus = FocusState::default();

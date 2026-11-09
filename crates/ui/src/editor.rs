@@ -1240,7 +1240,7 @@ mod tests {
         let texts = texts();
         for query in ["", "nicht vorhanden"] {
             state.query = query.to_string();
-            let ctx = Context::default();
+            let ctx = crate::theme::headless_context();
             let mut focus = FocusState::default();
             let mut output = None;
             for _ in 0..2 {
@@ -1328,7 +1328,7 @@ mod tests {
         for preview in [false, true] {
             state.preview = preview;
             state.spell = true;
-            let ctx = Context::default();
+            let ctx = crate::theme::headless_context();
             let mut focus = FocusState::default();
             let mut shapes = 0;
             for _ in 0..2 {

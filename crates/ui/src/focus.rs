@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn tab_cycles_in_reading_order_and_wraps() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut focus = FocusState::default();
         let ids = [Id::new("a"), Id::new("b"), Id::new("c")];
         frame(&ctx, &mut focus, Vec::new(), &ids);
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn tab_is_removed_from_the_input_queue() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut focus = FocusState::default();
         let ids = [Id::new("a")];
         frame(&ctx, &mut focus, Vec::new(), &ids);
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn overlays_trap_and_release_the_focus() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut focus = FocusState::default();
         let trigger = Id::new("trigger");
         let inner = Id::new("inner");
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn focus_first_uses_the_last_frame() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut focus = FocusState::default();
         frame(&ctx, &mut focus, Vec::new(), &[Id::new("x"), Id::new("y")]);
         focus.focus_first();
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn activation_needs_focus_and_enter() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let mut focus = FocusState::default();
         let id = Id::new("activate");
         frame(&ctx, &mut focus, Vec::new(), &[id]);

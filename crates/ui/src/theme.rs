@@ -135,6 +135,7 @@ impl Theme {
 
     /// Applies spacing, rounding and colors to the egui context.
     pub fn apply(&self, ctx: &Context) {
+        install_fonts(ctx);
         let mut visuals = match self.appearance {
             Appearance::Light => egui::Visuals::light(),
             Appearance::Dark => egui::Visuals::dark(),
@@ -211,6 +212,52 @@ impl Theme {
             style.visuals.override_text_color = Some(self.palette.text);
         });
     }
+}
+
+/// Bundled UI font family for labels the legacy app sets in semibold.
+pub fn semibold() -> FontFamily {
+    FontFamily::Name("Semibold".into())
+}
+
+/// Context with the bundled fonts installed, used by the headless renders and the tests.
+pub fn headless_context() -> Context {
+    let ctx = Context::default();
+    install_fonts(&ctx);
+    ctx
+}
+
+/// Installs the bundled Source Sans 3 faces once per context.
+///
+/// egui cannot read system fonts, so the legacy `system-ui` stack is matched with a bundled face of
+/// the same neutral, slightly humanist proportions; the egui defaults stay behind it as glyph
+/// fallback. Semibold lives in its own family because egui has no synthetic bold.
+pub(crate) fn install_fonts(ctx: &Context) {
+    let key = egui::Id::new("socdof-fonts");
+    if ctx.data(|data| data.get_temp::<bool>(key).unwrap_or(false)) {
+        return;
+    }
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "source-sans".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/SourceSans3-Regular.ttf")),
+    );
+    fonts.font_data.insert(
+        "source-sans-semibold".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/SourceSans3-Semibold.ttf")),
+    );
+    let proportional = fonts
+        .families
+        .get_mut(&FontFamily::Proportional)
+        .expect("egui ships a proportional family");
+    proportional.insert(0, "source-sans".to_owned());
+    let fallback = proportional.clone();
+    let mut semibold_family = vec!["source-sans-semibold".to_owned(), "source-sans".to_owned()];
+    semibold_family.extend(fallback);
+    fonts
+        .families
+        .insert(FontFamily::Name("Semibold".into()), semibold_family);
+    ctx.set_fonts(fonts);
+    ctx.data_mut(|data| data.insert_temp(key, true));
 }
 
 #[cfg(test)]

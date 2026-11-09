@@ -164,7 +164,6 @@ pub fn widgets(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, now: i64, stat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use egui::Context;
     use socdof_core::domain::settings::Language;
 
     #[test]
@@ -189,7 +188,7 @@ mod tests {
 
     #[test]
     fn widgets_paint_without_a_display() {
-        let ctx = Context::default();
+        let ctx = crate::theme::headless_context();
         let theme = Theme::new(crate::theme::Appearance::Dark, "indigo");
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
         let layer = WidgetLayer::new();

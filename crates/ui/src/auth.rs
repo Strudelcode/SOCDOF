@@ -17,7 +17,7 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{badge, button, card, ButtonVariant, Tone};
-use crate::controls::{password_field, text_field};
+use crate::controls::{drop_zone, password_field, text_field};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -108,6 +108,12 @@ pub struct AuthState {
     pub template_choice: SetupTemplate,
     /// Whether the lock screen shows the password recovery hint.
     pub forgot_hint: bool,
+    /// Wallpaper chosen in the wizard; the host applies it after setup.
+    pub wallpaper_choice: Option<crate::wallpaper::Wallpaper>,
+    /// Whether the wizard finished and the host still has to apply its choices.
+    pub wizard_completed: bool,
+    /// PNG dropped onto the wizard, applied as wallpaper after setup.
+    pub wallpaper_custom: Option<crate::wallpaper::CustomWallpaper>,
     token: Option<String>,
 }
 
@@ -157,6 +163,7 @@ impl AuthState {
         self.view = AuthView::Setup;
         self.setup_step = 0;
         self.forgot_hint = false;
+        self.wizard_completed = false;
         self.username.clear();
         self.display_name.clear();
         self.password.clear();
@@ -385,6 +392,11 @@ impl AuthState {
     /// Whether the current account is an administrator.
     pub fn is_admin(&self) -> bool {
         self.user.as_ref().is_some_and(User::is_admin)
+    }
+
+    /// Reports whether the wizard just finished, clearing the flag.
+    pub fn take_wizard_completed(&mut self) -> bool {
+        std::mem::take(&mut self.wizard_completed)
     }
 }
 
@@ -772,6 +784,66 @@ fn setup_form(
                         }
                     }
                 });
+                ui.add_space(10.0);
+                ui.label(
+                    RichText::new(texts.get("wallpaper_title"))
+                        .size(FONT_SMALL)
+                        .family(crate::theme::semibold())
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    for (wallpaper, key) in [
+                        (crate::wallpaper::Wallpaper::Plain, "wallpaper_plain"),
+                        (crate::wallpaper::Wallpaper::Aurora, "wallpaper_aurora"),
+                        (crate::wallpaper::Wallpaper::Dusk, "wallpaper_dusk"),
+                    ] {
+                        let variant = if state.wallpaper_choice == Some(wallpaper) {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, texts.get(key), variant).activated {
+                            state.wallpaper_choice = Some(wallpaper);
+                        }
+                    }
+                });
+                ui.add_space(8.0);
+                let hovering = !ui.ctx().input(|input| input.raw.hovered_files.is_empty());
+                drop_zone(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("setup_wallpaper_drop"),
+                    hovering,
+                );
+                for file in ui.ctx().input(|input| input.raw.dropped_files.clone()) {
+                    let data = match (file.bytes, file.path) {
+                        (Some(bytes), _) => Some(bytes.to_vec()),
+                        (None, Some(path)) => std::fs::read(path).ok(),
+                        _ => None,
+                    };
+                    if let Some(data) = data {
+                        match crate::wallpaper::decode_png(&data) {
+                            Ok((width, height, rgba)) => {
+                                state.wallpaper_custom = Some(crate::wallpaper::CustomWallpaper {
+                                    width,
+                                    height,
+                                    pixels: std::sync::Arc::new(rgba),
+                                    revision: 0,
+                                });
+                            }
+                            Err(_) => state.error = Some("setup_wallpaper_invalid"),
+                        }
+                    }
+                }
+                if let Some(custom) = &state.wallpaper_custom {
+                    ui.label(
+                        RichText::new(format!("{} × {} px", custom.width, custom.height))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.success),
+                    );
+                }
                 ui.add_space(6.0);
                 ui.label(
                     RichText::new(texts.get("setup_appearance_hint"))
@@ -850,6 +922,8 @@ fn setup_form(
         let _ = state.create_first_admin(store, now);
         if state.error.is_some() {
             state.setup_step = 1;
+        } else {
+            state.wizard_completed = true;
         }
     }
 }
@@ -1396,7 +1470,7 @@ mod tests {
                         AuthView::Setup => state.show_setup(),
                         AuthView::Unlocked => state.show_unlocked(),
                     }
-                    let ctx = Context::default();
+                    let ctx = crate::theme::headless_context();
                     let mut focus = FocusState::default();
                     let mut output = None;
                     for _ in 0..2 {

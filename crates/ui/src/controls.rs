@@ -520,6 +520,7 @@ pub fn text_field(
         ui.label(
             RichText::new(label)
                 .size(FONT_SMALL)
+                .family(crate::theme::semibold())
                 .color(theme.palette.text_muted),
         );
         ui.add_space(2.0);
@@ -569,6 +570,7 @@ pub fn password_field(
         ui.label(
             RichText::new(label)
                 .size(FONT_SMALL)
+                .family(crate::theme::semibold())
                 .color(theme.palette.text_muted),
         );
         ui.add_space(2.0);

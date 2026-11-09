@@ -1222,7 +1222,7 @@ mod tests {
                 crate::theme::Appearance::Light,
                 crate::theme::Appearance::Dark,
             ] {
-                let ctx = Context::default();
+                let ctx = crate::theme::headless_context();
                 let theme = Theme::new(appearance, "indigo");
                 let output = ctx.run(egui::RawInput::default(), |ctx| {
                     users(
