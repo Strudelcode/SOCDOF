@@ -35,7 +35,8 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   locales <src/lib/i18n.ts> <report.json>\n\
   i18n\n\
   i18n-pack <de|en|fr|es> <pack.json>\n\
-  log <directory> <message>";
+  log <directory> <message>\n\
+  qr <text> [L|M|Q|H] [label.pdf]";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -320,6 +321,53 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
             println!("  unknown keys: {}", report.unknown.len());
             for key in &report.unknown {
                 println!("    {key}");
+            }
+        }
+        "qr" => {
+            use socdof_core::barcode::qr::{qr as encode, EcLevel};
+            use socdof_core::pdf::writer::{mm, Document};
+
+            let text = args
+                .first()
+                .ok_or("usage: socdof-cli qr <text> [L|M|Q|H] [label.pdf]")?;
+            let level = EcLevel::from_label(args.get(1).map(String::as_str).unwrap_or("M"))
+                .ok_or("unknown error correction level, expected L, M, Q or H")?;
+            let code = encode(text, level)?;
+            match args.get(2) {
+                None => {
+                    for row in code.rows() {
+                        println!("{row}");
+                    }
+                }
+                Some(target) => {
+                    let mut document = Document::new("QR code");
+                    {
+                        let page = document.page_mut();
+                        page.text(mm(20.0), mm(287.0), 11.0, "QR code");
+                        page.qr(mm(20.0), mm(237.0), mm(40.0), &code);
+                        let caption: String = if text.chars().count() > 70 {
+                            text.chars().take(70).chain(['…']).collect()
+                        } else {
+                            text.clone()
+                        };
+                        page.text(mm(20.0), mm(228.0), 9.0, &caption);
+                        page.text(
+                            mm(20.0),
+                            mm(222.0),
+                            9.0,
+                            &format!(
+                                "Version {} · Level {} · Maske {} · {} × {} Module",
+                                code.version(),
+                                code.level().label(),
+                                code.mask(),
+                                code.size(),
+                                code.size()
+                            ),
+                        );
+                    }
+                    std::fs::write(target, document.to_bytes())?;
+                    println!("qr written: {target}");
+                }
             }
         }
         "log" => {

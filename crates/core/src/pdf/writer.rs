@@ -152,6 +152,34 @@ impl Page {
         ));
     }
 
+    /// Draws a QR code including its four module quiet zone.
+    ///
+    /// `x` and `y` are the lower left corner of the square, `size` its side in points.
+    pub fn qr(&mut self, x: f64, y: f64, size: f64, code: &crate::barcode::qr::QrCode) {
+        let quiet = 4usize;
+        let total = code.size() + quiet * 2;
+        let module = size / total as f64;
+        for row in 0..code.size() {
+            let mut column = 0;
+            while column < code.size() {
+                if !code.dark(row, column) {
+                    column += 1;
+                    continue;
+                }
+                let start = column;
+                while column < code.size() && code.dark(row, column) {
+                    column += 1;
+                }
+                let left = x + (quiet + start) as f64 * module;
+                let bottom = y + size - (quiet + row + 1) as f64 * module;
+                let width = (column - start) as f64 * module;
+                self.content.push_str(&format!(
+                    "0 G {left:.3} {bottom:.3} {width:.3} {module:.3} re f\n"
+                ));
+            }
+        }
+    }
+
     fn write_text(&mut self, font: &str, x: f64, y: f64, size: f64, text: &str) {
         self.content.push_str(&format!(
             "BT /{font} {size:.2} Tf 1 0 0 1 {x:.2} {y:.2} Tm ({}) Tj ET\n",

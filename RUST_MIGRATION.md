@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (DOCX/HTML, QR, legacy backup, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
+| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (DOCX read/write, legacy backup container, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
 | **Overall progress** | ~99 % (data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -524,9 +524,23 @@ Per module definition of done:
 - [x] Letterhead background + token placement — a PNG letterhead is embedded into the PDF as a Flate-compressed DeviceRGB image XObject and painted under the DIN 5008 content, nine tokens (company name/address/contact, tax id, invoice number/date, due date, subject, footer) are placed in page percentages with size, bold and left/center/right alignment, edited in the Studio layout tab, validated in `document_layout`, persisted as the `document_layout` setting and applied by `export_invoice_pdf`; per-template variations remain open
 - [~] HTML export done: `richtext::to_html` renders the editor markup as escaped HTML (headings,
       bullet lists, quotes, bold and italic) and is unit tested; DOCX read/write remains open
-- [~] Code 128 encoder done natively (`socdof_core::barcode`: ISO/IEC 15417 pattern table, check
-      symbol, module bits for PDF and print), unit tested against the published widths and the
-      modulo-103 check sum; QR generation remains open
+- [x] Code 128 and QR encoders done natively (`socdof_core::barcode`): Code 128 with the ISO/IEC
+      15417 pattern table, the modulo-103 check symbol and module bits for PDF and print; QR after
+      ISO/IEC 18004 with numeric, alphanumeric and byte mode, versions 1 to 40, levels L/M/Q/H,
+      Reed-Solomon over GF(2^8), block splitting and interleaving, the norm's eight masks scored by
+      its penalty rules, format and version information. `qr()` returns the smallest version that
+      fits and `QrError` reports an empty payload or one beyond version 40 instead of panicking.
+      `pdf::writer::Page::qr` draws a symbol with its four module quiet zone, and
+      `socdof-cli qr <text> [L|M|Q|H] [label.pdf]` prints the matrix or writes a label PDF — the only
+      Rust render path so far, because the TypeScript QR surfaces (product label, mobile pairing) are
+      not ported yet and the invoice has no EPC/IBAN payload to encode. Tests compare the produced
+      matrices module for module with two independent encoders: `qrcode` 1.5.4 for Node (the library
+      the TypeScript app uses) over 16 vectors from version 1 to 40 across all levels and modes,
+      including automatic version and mask selection, and `python-qrcode` from PyPI over the 15 ASCII
+      vectors at the same version, level and mask. Unit tests cover the published format-string
+      table, the BCH checks of format and version information, finder, timing and alignment patterns,
+      the dark module, capacity growth and the defined errors; the Python comparison skips the one
+      payload with umlauts because that encoder writes Latin-1 where this one writes UTF-8.
 - [ ] Backup container compatible with legacy `.socdof` archives
 - [ ] Mobile companion sync endpoints (HTTP, same payloads as legacy)
 
@@ -888,4 +902,18 @@ These are not token tweaks; each one is its own piece of work.
   footer. No legacy PDF exists in the repository, so the check is norm-based (documented in section
   11). `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
   the visual suite (unchanged, no screen touched), `cargo build --release --workspace` and
+  `trunk build --release` are green.
+
+- 2026-11-09 (sixth pass) — Phase 8 QR generation. `barcode::qr` implements ISO/IEC 18004 end to
+  end: mode selection (numeric, alphanumeric, byte as UTF-8), the smallest fitting version of 1 to
+  40, Reed-Solomon over GF(2^8), block splitting and interleaving for all four levels, data
+  placement, the eight masks scored with the norm's penalties, format and version information.
+  `QrError` reports empty payloads and payloads beyond version 40 instead of panicking.
+  `pdf::writer::Page::qr` renders a symbol with a four module quiet zone and `socdof-cli qr` prints
+  the matrix or writes a label PDF, so the encoder has a real render path until the TypeScript label
+  and pairing screens are ported. Reference matrices come from `qrcode` 1.5.4 (Node, the library the
+  TypeScript app uses; automatic version and mask selection, versions 1 to 40, levels L/M/Q/H, all
+  three modes) and from `python-qrcode` (PyPI) at the same version, level and mask; both agree module
+  for module and the encoder reproduces both. `cargo fmt`, `cargo clippy --workspace --all-targets --
+  -D warnings`, `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
   `trunk build --release` are green.

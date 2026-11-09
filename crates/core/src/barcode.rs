@@ -1,9 +1,11 @@
-//! Native Code 128 barcode encoding.
+//! Native barcode encoding: Code 128 and QR.
 //!
 //! The application prints barcodes without a JavaScript library, so the encoder lives in the core
 //! and returns plain module bits: `true` is a bar, `false` a space. [`code128`] encodes the whole
 //! printable ASCII range with code set B and appends the mandatory check symbol and the stop
 //! pattern. A printer or PDF writer scales the returned modules to its millimetre grid.
+
+pub mod qr;
 
 /// Bar and space widths of every Code 128 symbol, indexed by symbol value.
 ///
