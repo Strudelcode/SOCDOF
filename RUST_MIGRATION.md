@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (DOCX read/write, legacy backup container, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
+| **Current phase** | Phase 6 — complete: the dashboard, contacts, products, invoices, accounting, purchases, POS, calendar, settings, user management, login/lock flow, App Store, text editor (markup formatting, formatted preview and offline spell check), support, reports, therapy, the documentation/changelog pass and the Studio drawer are done. Decided: **egui**, no JavaScript/WASM in the UI path (`docs/ui-decision.md`). Phase 8 started: the letterhead background, the token placement and the multi-page position tables with repeated headers are done (Studio layout tab, `document_layout`, PNG image XObject repeated per page, paginated DIN 5008 table). Next: Phase 7 (key coverage in CI) and the rest of Phase 8 (legacy backup container, mobile sync); the Phase 2 leftovers (zip/docx/PDF import, update checker) remain |
 | **Overall progress** | ~99 % (data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -522,8 +522,22 @@ Per module definition of done:
       centimetres.
 - [x] Multi-page tables with repeated headers and row splitting — position tables paginate (19 rows on page one, 33 on each continuation page), the column header repeats on every page, totals and the closing line appear only on the last page, `Seite X von Y` is printed per page, and the letterhead background plus the placed `document_layout` tokens are painted on every page (background under, tokens over the content); a row that does not fit moves whole to the next page
 - [x] Letterhead background + token placement — a PNG letterhead is embedded into the PDF as a Flate-compressed DeviceRGB image XObject and painted under the DIN 5008 content, nine tokens (company name/address/contact, tax id, invoice number/date, due date, subject, footer) are placed in page percentages with size, bold and left/center/right alignment, edited in the Studio layout tab, validated in `document_layout`, persisted as the `document_layout` setting and applied by `export_invoice_pdf`; per-template variations remain open
-- [~] HTML export done: `richtext::to_html` renders the editor markup as escaped HTML (headings,
-      bullet lists, quotes, bold and italic) and is unit tested; DOCX read/write remains open
+- [x] HTML export and Word documents: `richtext::to_html` renders the editor markup as escaped HTML
+      (headings, bullet lists, quotes, bold and italic) and is unit tested. `socdof_core::docx` adds
+      a real OOXML package — ZIP container, `[Content_Types].xml`, both relationship parts,
+      `word/document.xml`, `word/styles.xml`, `docProps/core.xml` and `docProps/app.xml` — with the
+      same values the DIN 5008 PDF prints (number, dates, recipient block with one address line per
+      `<w:br/>`, positions with quantities/unit prices/amounts, totals block, payment note, company
+      footer, tax id) and matching metadata (title, creator, creation timestamp as W3CDTF). The
+      reader turns any `.docx` back into blocks (headings by style, paragraphs with bold/italic runs,
+      tables with merged runs, page breaks) plus the core properties, which is the shape the
+      TypeScript template import produced. It is wired to `socdof-cli invoice-docx <database>
+      <number> <out.docx>` and `Core::export_invoice_docx`. Tests write the package and open it with
+      `python-docx` (address lines, every table cell, totals, payment note, title/author) and read a
+      package produced by `python-docx` (`fixtures/foreign.docx`) to prove the parser is not a mirror
+      of the writer; a write → read round trip compares blocks and metadata, a 60 position invoice
+      keeps every row, and empty, truncated or broken packages return typed `DocxError` values
+      instead of panicking.
 - [x] Code 128 and QR encoders done natively (`socdof_core::barcode`): Code 128 with the ISO/IEC
       15417 pattern table, the modulo-103 check symbol and module bits for PDF and print; QR after
       ISO/IEC 18004 with numeric, alphanumeric and byte mode, versions 1 to 40, levels L/M/Q/H,
@@ -916,4 +930,18 @@ These are not token tweaks; each one is its own piece of work.
   three modes) and from `python-qrcode` (PyPI) at the same version, level and mask; both agree module
   for module and the encoder reproduces both. `cargo fmt`, `cargo clippy --workspace --all-targets --
   -D warnings`, `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
+  `trunk build --release` are green.
+
+- 2026-11-09 (seventh pass) — Phase 8 Word documents. The TypeScript app never wrote OOXML: it saved
+  its invoice HTML as `.doc` with the `application/msword` type, and only read `.docx` for the
+  template import. `socdof_core::docx` now writes a genuine package (own ZIP writer with deflate and
+  CRC-32, content types, both relationship parts, document, styles, core and app properties) with the
+  values of the printed invoice, and reads foreign packages into `Document` blocks with a small XML
+  parser of its own, reporting `DocxError` for empty, truncated or malformed input. The invoice fits
+  the existing DIN 5008 data, so no new feature was invented. `socdof-cli invoice-docx` and
+  `Core::export_invoice_docx` render it. Verification against foreign tools: `python-docx` opens the
+  generated file and finds title, author, address lines, all position cells and totals; the committed
+  `fixtures/foreign.docx` (written by `python-docx`) is parsed with its heading levels, bold run,
+  table cells and page break. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
   `trunk build --release` are green.

@@ -146,9 +146,10 @@ pub fn error_key(error: &CoreError) -> &'static str {
             "app_module_not_licensed" => "app_store_error_locked",
             _ => "app_store_error_storage",
         },
-        CoreError::Database(_) | CoreError::Serialization(_) | CoreError::Io(_) => {
-            "app_store_error_storage"
-        }
+        CoreError::Database(_)
+        | CoreError::Serialization(_)
+        | CoreError::Io(_)
+        | CoreError::Document(_) => "app_store_error_storage",
     }
 }
 

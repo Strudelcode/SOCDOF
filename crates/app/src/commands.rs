@@ -50,6 +50,24 @@ impl Shell {
         }
     }
 
+    /// Renders the invoice with `number` as a Word package.
+    pub fn export_invoice_docx(&self, number: &str, path: &Path) -> CoreResult<()> {
+        let invoice = self
+            .store()
+            .list_invoices()?
+            .into_iter()
+            .find(|invoice| invoice.number == number)
+            .ok_or_else(|| CoreError::NotFound(format!("invoice {number}")))?;
+        let recipient = self
+            .store()
+            .find_contact(invoice.contact_id)?
+            .ok_or_else(|| CoreError::NotFound(invoice.contact_id.to_string()))?;
+        let company = self.store().company_profile()?;
+
+        socdof_core::docx::write_invoice_docx(path, &invoice, &recipient, &company)?;
+        Ok(())
+    }
+
     /// Renders the invoice with `number` as a DIN 5008 PDF file.
     pub fn export_invoice_pdf(&self, number: &str, path: &Path) -> CoreResult<()> {
         let invoice = self

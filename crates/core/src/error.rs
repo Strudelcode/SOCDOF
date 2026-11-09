@@ -22,6 +22,10 @@ pub enum CoreError {
     /// The requested record does not exist.
     #[error("not found: {0}")]
     NotFound(String),
+
+    /// A Word package could not be written or read.
+    #[error("document error: {0}")]
+    Document(#[from] crate::docx::DocxError),
 }
 
 /// Convenience alias for results from the core.

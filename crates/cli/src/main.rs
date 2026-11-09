@@ -36,7 +36,8 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   i18n\n\
   i18n-pack <de|en|fr|es> <pack.json>\n\
   log <directory> <message>\n\
-  qr <text> [L|M|Q|H] [label.pdf]";
+  qr <text> [L|M|Q|H] [label.pdf]\n\
+  invoice-docx <database> <number> <out.docx>";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -369,6 +370,24 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
                     println!("qr written: {target}");
                 }
             }
+        }
+        "invoice-docx" => {
+            const USAGE: &str = "usage: socdof-cli invoice-docx <database> <number> <out.docx>";
+            let database = args.first().ok_or(USAGE)?;
+            let number = args.get(1).ok_or(USAGE)?;
+            let target = args.get(2).ok_or(USAGE)?;
+            let store = Store::open(Path::new(database))?;
+            let invoice = store
+                .list_invoices()?
+                .into_iter()
+                .find(|invoice| invoice.number == *number)
+                .ok_or_else(|| format!("invoice {number} not found"))?;
+            let contact = store
+                .find_contact(invoice.contact_id)?
+                .ok_or_else(|| format!("contact {} not found", invoice.contact_id))?;
+            let company = store.company_profile()?;
+            socdof_core::docx::write_invoice_docx(Path::new(target), &invoice, &contact, &company)?;
+            println!("docx written: {target}");
         }
         "log" => {
             let message = args.get(1).map(String::as_str).unwrap_or("cli");

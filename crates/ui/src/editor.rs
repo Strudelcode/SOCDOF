@@ -390,9 +390,10 @@ pub fn error_key(error: &CoreError) -> &'static str {
             "document_body_too_long" => "editor_error_body_long",
             _ => "editor_error_storage",
         },
-        CoreError::Database(_) | CoreError::Serialization(_) | CoreError::Io(_) => {
-            "editor_error_storage"
-        }
+        CoreError::Database(_)
+        | CoreError::Serialization(_)
+        | CoreError::Io(_)
+        | CoreError::Document(_) => "editor_error_storage",
     }
 }
 
