@@ -7,5 +7,6 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+serde_json.workspace = true
 socdof-core = { path = "../core" }
 uuid = { workspace = true }

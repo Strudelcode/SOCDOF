@@ -848,7 +848,11 @@ fn calendar_view(
     now: i64,
 ) {
     let count = state.appointments.len();
-    let subtitle = format!("{} · {}", count, texts.get("appointments_subtitle"));
+    let subtitle = format!(
+        "{} · {}",
+        texts.count("count_appointments", count),
+        texts.get("appointments_subtitle"),
+    );
     screen_header(
         ui,
         theme,

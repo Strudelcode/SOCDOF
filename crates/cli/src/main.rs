@@ -11,6 +11,7 @@ use socdof_core::backup_scheduler::{self, BackupSchedule};
 use socdof_core::csv;
 use socdof_core::domain::settings::Language;
 use socdof_core::i18n;
+use socdof_core::i18n_legacy;
 use socdof_core::legacy;
 use socdof_core::logging::Logger;
 use socdof_core::now_millis;
@@ -31,6 +32,7 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   contacts-csv-import <database> <file.csv>\n\
   products-csv-export <database> <file.csv>\n\
   products-csv-import <database> <file.csv>\n\
+  locales <src/lib/i18n.ts> <report.json>\n\
   i18n\n\
   i18n-pack <de|en|fr|es> <pack.json>\n\
   log <directory> <message>";
@@ -224,6 +226,67 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
             for error in &report.errors {
                 println!("  {error}");
             }
+        }
+        "locales" => {
+            let source = args
+                .first()
+                .ok_or("usage: socdof-cli locales <src/lib/i18n.ts> <report.json>")?;
+            let target = args.get(1).ok_or(
+                "usage: socdof-cli locales <src/lib/i18n.ts> <report.json> [catalogue-dir]",
+            )?;
+            let directory = args
+                .get(2)
+                .map(String::as_str)
+                .unwrap_or("crates/ui/locales");
+            let raw = std::fs::read_to_string(source)?;
+            let legacy = i18n_legacy::parse_translations(&raw);
+            let mut languages = serde_json::Map::new();
+            for language in i18n::EMBEDDED_LANGUAGES {
+                let texts = legacy.get(language.as_str()).cloned().unwrap_or_default();
+                let file = Path::new(directory).join(format!("{}.json", language.as_str()));
+                let catalog = if file.exists() {
+                    i18n::Catalog::from_file(language, &file)?
+                } else {
+                    i18n::Catalog::embedded(language)?
+                };
+                let report = i18n_legacy::coverage(language, &texts, &catalog);
+                println!(
+                    "{}: {}/{} legacy texts present ({:.1} %)",
+                    language.as_str(),
+                    report.matched,
+                    report.total,
+                    report.percent()
+                );
+                let modules: serde_json::Map<String, serde_json::Value> = report
+                    .modules
+                    .iter()
+                    .map(|(module, (matched, total))| {
+                        (
+                            module.clone(),
+                            serde_json::json!({ "matched": matched, "total": total }),
+                        )
+                    })
+                    .collect();
+                languages.insert(
+                    language.as_str().to_owned(),
+                    serde_json::json!({
+                        "total": report.total,
+                        "matched": report.matched,
+                        "percent": (report.percent() * 10.0).round() / 10.0,
+                        "modules": modules,
+                    }),
+                );
+            }
+            let document = serde_json::json!({
+                "source": source,
+                "catalogue": directory,
+                "languages": languages,
+            });
+            std::fs::write(
+                target,
+                format!("{}\n", serde_json::to_string_pretty(&document)?),
+            )?;
+            println!("report: {target}");
         }
         "i18n" => {
             for (language, missing) in i18n::coverage()? {

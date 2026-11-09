@@ -2940,6 +2940,7 @@ dependencies = [
 name = "socdof-cli"
 version = "0.30.0"
 dependencies = [
+ "serde_json",
  "socdof-core",
  "uuid",
 ]

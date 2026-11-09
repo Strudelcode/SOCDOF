@@ -51,6 +51,15 @@ use socdof_core::store::Store;
 /// How long a toast stays visible in the gallery.
 const TOAST_TTL_MS: i64 = 4_000;
 
+/// Loads the UI catalogue for a language, overlaying external packs from `SOCDOF_UI_PACKS` when the
+/// host points that variable at a folder of `*.json` packs.
+fn load_texts(language: Language) -> CoreResult<UiTexts> {
+    match std::env::var("SOCDOF_UI_PACKS") {
+        Ok(directory) if !directory.trim().is_empty() => UiTexts::with_packs(language, directory),
+        _ => UiTexts::embedded(language),
+    }
+}
+
 /// Month keys in calendar order.
 const MONTH_KEYS: [&str; 12] = [
     "month_1", "month_2", "month_3", "month_4", "month_5", "month_6", "month_7", "month_8",
@@ -290,7 +299,7 @@ pub struct GalleryState {
 impl GalleryState {
     /// Builds the initial state for a language, appearance and accent.
     pub fn new(language: Language, appearance: Appearance, accent_id: &str) -> CoreResult<Self> {
-        let texts = UiTexts::embedded(language)?;
+        let texts = load_texts(language)?;
         let form = FormState::new(vec![
             Field::new(texts.get("field_company"), texts.get("field_company_hint"))
                 .required()
@@ -411,7 +420,7 @@ impl GalleryState {
 
     /// Switches the language and relabels the form while keeping its values and errors.
     pub fn set_language(&mut self, language: Language) -> CoreResult<()> {
-        let texts = UiTexts::embedded(language)?;
+        let texts = load_texts(language)?;
         self.language = language;
         let labels = [
             (texts.get("field_company"), texts.get("field_company_hint")),

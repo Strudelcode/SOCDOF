@@ -470,10 +470,30 @@ Per module definition of done:
 
 ## 10. Phase 7 — Internationalisation
 
-- [ ] Generator: read `src/lib/i18n.ts` → emit `rust/crates/ui/locales/{de,en,fr,es}.json`
-- [ ] Stable key compatibility check (no key silently dropped)
-- [ ] Plural/gender handling where the legacy strings rely on concatenation
-- [ ] External language packs (custom JSON in `languages/`) still loadable
+- [x] Generator: `socdof-cli locales <src/lib/i18n.ts> <report.json> [catalogue-dir]` reads the
+      legacy catalogue and writes a coverage report. `socdof_core::i18n_legacy` parses the TypeScript
+      object literal (quoted and bare keys, escapes, comments; template strings and concatenations
+      are skipped on purpose and therefore stay uncovered) and `coverage` compares each language by
+      exact text, per module prefix. The committed report is `docs/legacy-locales.json`: 2,963 (de),
+      2,964 (en), 2,962 (fr) and 2,962 (es) legacy keys, of which 342, 307, 341 and 351 already exist
+      verbatim in the Rust catalogue (11–12 %). The rest is rewritten UX wording or a module the Rust
+      build does not ship (download page, updater, restaurant), which the report shows per module
+      instead of hiding in a total.
+- [x] Stable key compatibility check (no key silently dropped): `crates/ui/locales/catalogue-keys.json`
+      is the reviewable copy of `UI_KEYS`, written by `socdof-ui-catalogue`; the test
+      `the_committed_key_inventory_matches_the_catalogue` fails when a key is added or removed
+      without regenerating it, and `legacy_compatibility::the_catalogue_never_loses_legacy_texts`
+      keeps the number of legacy texts each language carries from dropping below its committed
+      floor, so neither a key nor a text can disappear unnoticed between releases.
+- [x] Plural handling where the legacy strings relied on concatenation: `UiTexts::count(key, n)`
+      selects the `_one` / `_other` form of the language (French also uses the singular for zero)
+      and replaces `{count}`. The module subtitles of users, products, purchases, POS, calendar and
+      accounting read the count through it instead of gluing a bare number to a label. The key gate
+      now also collects `.count("…")` literals and accepts a base key when both of its forms exist.
+- [x] External language packs (custom JSON in `languages/`) stay loadable: `UiTexts::with_pack` and
+      `UiTexts::with_packs` overlay `*.json` packs in file-name order over the embedded catalogue; a
+      missing folder means "no packs", an unreadable pack fails instead of rendering blank labels,
+      and the gallery host reads the folder named by `SOCDOF_UI_PACKS`.
 - [x] Missing-key detection: the `key_coverage` test in `crates/ui/src/i18n.rs` walks every source
       file under `crates/ui/src`, collects each literal `.get("…")` key and fails the build when a
       key is used but not declared in `UI_KEYS`
@@ -831,3 +851,15 @@ These are not token tweaks; each one is its own piece of work.
   the new scene and once after the render showed the flyout outside a narrow window) and the
   artifact `docs/artifacts/gui-parity/rust-10-start-power.png`. `cargo fmt`, `cargo clippy
   --workspace --all-targets -- -D warnings` and `cargo test --workspace` are green.
+
+- 2026-11-09 (fourth pass) — Phase 7 closed. New `socdof_core::i18n_legacy` parses the legacy
+  TypeScript catalogue and `socdof-cli locales` writes `docs/legacy-locales.json` (per language and
+  module, matched by exact text); the committed key inventory `crates/ui/locales/catalogue-keys.json`
+  and the legacy floors in `legacy_compatibility` make the catalogue a ratchet — a key or a text
+  that disappears fails the build. `UiTexts::count` adds `_one`/`_other` plural forms with the
+  `{count}` placeholder (French singular for zero) and the six module subtitles use it, and
+  `UiTexts::with_pack(s)` overlays external packs, read from `SOCDOF_UI_PACKS` by the gallery host.
+  12 new keys per language (1,483), the key gate also covers `.count("…")`, goldens regenerated on
+  purpose because the subtitles now carry the count word. `cargo fmt`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` and
+  `trunk build --release` are green.

@@ -759,7 +759,11 @@ fn list_view(
     state: &mut PosState,
     now: i64,
 ) {
-    let subtitle = format!("{} · {}", state.orders.len(), texts.get("pos_subtitle"));
+    let subtitle = format!(
+        "{} · {}",
+        texts.count("count_receipts", state.orders.len()),
+        texts.get("pos_subtitle"),
+    );
     screen_header(
         ui,
         theme,

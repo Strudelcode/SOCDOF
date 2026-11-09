@@ -27,3 +27,7 @@ required-features = ["window"]
 [[bin]]
 name = "socdof-ui-preview"
 path = "src/bin/preview.rs"
+
+[[bin]]
+name = "socdof-ui-catalogue"
+path = "src/bin/catalogue.rs"

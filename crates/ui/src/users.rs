@@ -615,7 +615,11 @@ fn list_view(
     focus: &mut FocusState,
     state: &mut UsersState,
 ) {
-    let subtitle = format!("{} · {}", state.users.len(), texts.get("users_subtitle"));
+    let subtitle = format!(
+        "{} · {}",
+        texts.count("count_accounts", state.users.len()),
+        texts.get("users_subtitle"),
+    );
     screen_header(
         ui,
         theme,

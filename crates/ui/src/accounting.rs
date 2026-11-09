@@ -656,8 +656,8 @@ fn list_view(
 ) {
     let subtitle = format!(
         "{} · {}",
-        state.entries.len(),
-        texts.get("accounting_subtitle")
+        texts.count("count_bookings", state.entries.len()),
+        texts.get("accounting_subtitle"),
     );
     screen_header(
         ui,

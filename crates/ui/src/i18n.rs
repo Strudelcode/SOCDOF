@@ -15,6 +15,18 @@ const CATALOG_ES: &str = include_str!("../locales/es.json");
 
 /// Keys the Rust UI requires. A catalogue that misses one fails the tests.
 pub const UI_KEYS: &[&str] = &[
+    "count_accounts_one",
+    "count_accounts_other",
+    "count_products_one",
+    "count_products_other",
+    "count_orders_one",
+    "count_orders_other",
+    "count_receipts_one",
+    "count_receipts_other",
+    "count_appointments_one",
+    "count_appointments_other",
+    "count_bookings_one",
+    "count_bookings_other",
     "start_accounts",
     "start_current",
     "start_power",
@@ -1517,6 +1529,67 @@ impl UiTexts {
         self.catalog.get(key).unwrap_or(key)
     }
 
+    /// Loads the embedded catalogue and overlays one external language pack.
+    ///
+    /// A pack that cannot be read fails instead of leaving the interface without texts.
+    pub fn with_pack(language: Language, path: impl AsRef<std::path::Path>) -> CoreResult<Self> {
+        let mut texts = Self::embedded(language)?;
+        texts.catalog.merge(&Catalog::from_file(language, path)?);
+        Ok(texts)
+    }
+
+    /// Loads the embedded catalogue and overlays every `*.json` pack of a folder, in file-name
+    /// order. A missing folder means "no packs" and keeps the embedded texts.
+    pub fn with_packs(
+        language: Language,
+        directory: impl AsRef<std::path::Path>,
+    ) -> CoreResult<Self> {
+        let mut texts = Self::embedded(language)?;
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return Ok(texts);
+        };
+        let mut files: Vec<std::path::PathBuf> = entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+            .collect();
+        files.sort();
+        for file in files {
+            texts.catalog.merge(&Catalog::from_file(language, file)?);
+        }
+        Ok(texts)
+    }
+
+    /// Whether a count takes the singular form in this language.
+    ///
+    /// French treats zero as singular ("0 compte"), German, English and Spanish only one.
+    pub fn plural_one(&self, count: usize) -> bool {
+        match self.language() {
+            Language::Fr => count <= 1,
+            _ => count == 1,
+        }
+    }
+
+    /// Translation of a count-bearing key: picks the `_one` or `_other` form of the language and
+    /// replaces `{count}`. Falls back to the base key, then to the key itself.
+    pub fn count(&self, key: &str, count: usize) -> String {
+        let suffix = if self.plural_one(count) {
+            "_one"
+        } else {
+            "_other"
+        };
+        let plural = format!("{key}{suffix}");
+        let template = match self.catalog.get(&plural) {
+            Some(text) => text.to_owned(),
+            None => self
+                .catalog
+                .get(key)
+                .map(str::to_owned)
+                .unwrap_or_else(|| plural.clone()),
+        };
+        template.replace("{count}", &count.to_string())
+    }
+
     /// Number of entries.
     pub fn len(&self) -> usize {
         self.catalog.len()
@@ -1550,6 +1623,91 @@ mod tests {
         assert_eq!(texts.get("does_not_exist"), "does_not_exist");
         assert!(!texts.is_empty());
     }
+
+    fn temp_dir(name: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("socdof-ui-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).expect("temp directory");
+        path
+    }
+
+    #[test]
+    fn plurals_follow_the_language() {
+        let de = UiTexts::embedded(Language::De).expect("catalogue");
+        assert_eq!(de.count("count_accounts", 1), "1 Konto");
+        assert_eq!(de.count("count_accounts", 7), "7 Konten");
+        let en = UiTexts::embedded(Language::En).expect("catalogue");
+        assert_eq!(en.count("count_accounts", 1), "1 account");
+        assert_eq!(en.count("count_accounts", 0), "0 accounts");
+        let fr = UiTexts::embedded(Language::Fr).expect("catalogue");
+        assert_eq!(fr.count("count_accounts", 0), "0 compte");
+        assert_eq!(fr.count("count_accounts", 2), "2 comptes");
+        assert!(fr.plural_one(0) && fr.plural_one(1) && !fr.plural_one(2));
+        let es = UiTexts::embedded(Language::Es).expect("catalogue");
+        assert_eq!(es.count("count_bookings", 3), "3 asientos");
+        assert_eq!(de.count("does_not_exist", 2), "does_not_exist_other");
+    }
+
+    #[test]
+    fn a_pack_overrides_single_keys_and_keeps_everything_else() {
+        let directory = temp_dir("pack");
+        std::fs::write(
+            directory.join("01-pack.json"),
+            r#"{"start_title": "Hasiera"}"#,
+        )
+        .expect("pack");
+        let plain = UiTexts::embedded(Language::De).expect("catalogue");
+        let packed = UiTexts::with_packs(Language::De, &directory).expect("packed");
+        assert_eq!(packed.get("start_title"), "Hasiera");
+        assert_eq!(packed.get("start_search"), plain.get("start_search"));
+        assert_eq!(packed.len(), plain.len());
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn packs_apply_in_file_name_order() {
+        let directory = temp_dir("order");
+        std::fs::write(directory.join("02-late.json"), r#"{"start_title": "late"}"#).expect("pack");
+        std::fs::write(
+            directory.join("01-early.json"),
+            r#"{"start_title": "early"}"#,
+        )
+        .expect("pack");
+        let packed = UiTexts::with_packs(Language::De, &directory).expect("packed");
+        assert_eq!(packed.get("start_title"), "late");
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_missing_pack_folder_keeps_the_embedded_texts() {
+        let missing = std::env::temp_dir().join("socdof-ui-folder-that-does-not-exist");
+        let texts = UiTexts::with_packs(Language::De, missing).expect("catalogue");
+        assert_eq!(texts.len(), UI_KEYS.len());
+    }
+
+    #[test]
+    fn a_broken_pack_fails_instead_of_blanking_the_ui() {
+        let directory = temp_dir("broken");
+        std::fs::write(directory.join("broken.json"), "not json").expect("pack");
+        assert!(UiTexts::with_packs(Language::De, &directory).is_err());
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn the_committed_key_inventory_matches_the_catalogue() {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("locales/catalogue-keys.json");
+        let raw = std::fs::read_to_string(&path).expect("catalogue key inventory");
+        let stored: Vec<String> = serde_json::from_str(&raw).expect("inventory json");
+        let mut current: Vec<String> = UI_KEYS.iter().map(|key| (*key).to_owned()).collect();
+        current.sort();
+        current.dedup();
+        assert_eq!(
+            stored, current,
+            "the catalogue keys changed: run `cargo run -p socdof-ui --bin socdof-ui-catalogue` \
+             and commit the inventory"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1571,11 +1729,13 @@ mod key_coverage {
 
     fn literal_keys(source: &str) -> Vec<String> {
         let mut keys = Vec::new();
-        let mut rest = source;
-        while let Some(offset) = rest.find(".get(\"") {
-            rest = &rest[offset + 6..];
-            if let Some(end) = rest.find('"') {
-                keys.push(rest[..end].to_owned());
+        for marker in [".get(\"", ".count(\""] {
+            let mut rest = source;
+            while let Some(offset) = rest.find(marker) {
+                rest = &rest[offset + marker.len()..];
+                if let Some(end) = rest.find('"') {
+                    keys.push(rest[..end].to_owned());
+                }
             }
         }
         keys
@@ -1591,7 +1751,14 @@ mod key_coverage {
             let source = fs::read_to_string(&file).expect("read source file");
             for key in literal_keys(&source) {
                 let fixture = matches!(key.as_str(), "does_not_exist");
-                if !UI_KEYS.contains(&key.as_str()) && !fixture {
+                // `UiTexts::count` takes the base key and appends the plural form, so a base counts
+                // as declared when both of its forms exist.
+                let plural_base = {
+                    let one = format!("{key}_one");
+                    let other = format!("{key}_other");
+                    UI_KEYS.contains(&one.as_str()) && UI_KEYS.contains(&other.as_str())
+                };
+                if !UI_KEYS.contains(&key.as_str()) && !plural_base && !fixture {
                     used.push((file.display().to_string(), key));
                 }
             }
@@ -1602,5 +1769,43 @@ mod key_coverage {
             used.is_empty(),
             "catalogue keys used in the sources but missing from UI_KEYS: {used:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod legacy_compatibility {
+    use super::*;
+    use socdof_core::i18n_legacy;
+
+    /// Legacy texts each catalogue carried when the check was introduced. The numbers are a floor,
+    /// not a target: the Rust interface may grow, but a text may not disappear silently.
+    const FLOORS: [(Language, usize); 4] = [
+        (Language::De, 342),
+        (Language::En, 307),
+        (Language::Fr, 341),
+        (Language::Es, 351),
+    ];
+
+    #[test]
+    fn the_catalogue_never_loses_legacy_texts() {
+        let legacy_file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../SOCDOF - TS/src/lib/i18n.ts");
+        let source = std::fs::read_to_string(&legacy_file)
+            .expect("legacy TypeScript catalogue next to the Rust workspace");
+        let catalogues = i18n_legacy::parse_translations(&source);
+        for (language, floor) in FLOORS {
+            let legacy = catalogues
+                .get(language.as_str())
+                .expect("legacy catalogue of the language");
+            let catalog = UiTexts::embedded(language).expect("catalogue");
+            let report = i18n_legacy::coverage(language, legacy, &catalog.catalog);
+            assert!(
+                report.matched >= floor,
+                "{} carries {} legacy texts, used to carry {floor}: run `socdof-cli locales` and \
+                 lower the floor on purpose if the text was replaced",
+                language.as_str(),
+                report.matched
+            );
+        }
     }
 }

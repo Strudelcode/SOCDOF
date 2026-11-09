@@ -17,7 +17,7 @@ clip(0.0,0.0,1000.0,1600.0) rect(40.00,80.00,84.00,124.00,Color32([24, 20, 86, 3
 clip(0.0,0.0,1000.0,1600.0) path(6,true)
 clip(0.0,0.0,1000.0,1600.0) path(3,false)
 clip(0.0,0.0,1000.0,1600.0) text(96.00,80.00,"Benutzerverwaltung")
-clip(0.0,0.0,1000.0,1600.0) text(96.00,112.00,"3 · Konten, Rollen, Passwörter und Wiederherstellung")
+clip(0.0,0.0,1000.0,1600.0) text(96.00,112.00,"3 Konten · Konten, Rollen, Passwörter und Wiederherstellung")
 clip(0.0,0.0,1000.0,1600.0) rect(888.91,84.00,960.00,124.00,Color32([15, 23, 42, 255]),Color32([51, 65, 85, 255]))
 clip(0.0,0.0,1000.0,1600.0) text(902.91,94.50,"Zurück")
 clip(0.0,0.0,1000.0,1600.0) rect(24.00,161.00,144.97,201.00,Color32([79, 70, 229, 255]),Color32([0, 0, 0, 0]))

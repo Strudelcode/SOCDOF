@@ -14,6 +14,7 @@ pub mod document_layout;
 pub mod domain;
 pub mod error;
 pub mod i18n;
+pub mod i18n_legacy;
 pub mod legacy;
 pub mod lock;
 pub mod logging;
