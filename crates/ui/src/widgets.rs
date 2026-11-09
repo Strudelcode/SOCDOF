@@ -6,8 +6,8 @@
 //! and persisted without a display.
 
 use egui::{
-    Button, FontId, Id, Pos2, Rect, RichText, Rounding, Sense, Stroke, TextEdit, Vec2, WidgetInfo,
-    WidgetType,
+    Button, Color32, FontId, Id, Pos2, Rect, RichText, Rounding, Sense, Stroke, TextEdit, Vec2,
+    WidgetInfo, WidgetType,
 };
 
 use crate::desktop::format_clock;
@@ -443,18 +443,31 @@ fn calculator_card(
     let rect = card_rect(area, 16.0 + WIDGET_HEIGHT + 8.0, CALCULATOR_HEIGHT);
     let inner = card(ui, theme, rect, texts.get("widget_calculator"));
     let clear = Rect::from_min_size(
-        Pos2::new(inner.right() - 20.0, rect.top() + 8.0),
-        Vec2::splat(20.0),
+        Pos2::new(rect.right() - 34.0, rect.top() + 6.0),
+        Vec2::new(22.0, 20.0),
     );
-    if ui
-        .put(clear, Button::new(RichText::new("C").size(FONT_SMALL)))
-        .on_hover_text(texts.get("widget_calc_clear"))
-        .clicked()
-    {
+    let clear_response = ui
+        .interact(clear, Id::new("socdof-calc-clear"), Sense::click())
+        .on_hover_text(texts.get("widget_calc_clear"));
+    let clear_fill = if clear_response.hovered() {
+        theme.palette.surface_muted
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter()
+        .rect_filled(clear, Rounding::same(6.0), clear_fill);
+    ui.painter().text(
+        clear.center(),
+        egui::Align2::CENTER_CENTER,
+        "C",
+        FontId::proportional(FONT_SMALL),
+        theme.palette.text_muted,
+    );
+    if clear_response.clicked() {
         calculator.press(CalcKey::Clear);
     }
     ui.painter().text(
-        Pos2::new(inner.right(), inner.top()),
+        Pos2::new(inner.right(), rect.top() + 34.0),
         egui::Align2::RIGHT_TOP,
         calculator.display(),
         FontId::proportional(22.0),
@@ -462,7 +475,7 @@ fn calculator_card(
     );
     let gap = 4.0;
     let column = (inner.width() - gap * 3.0) / 4.0;
-    let mut row_top = inner.top() + 34.0;
+    let mut row_top = rect.top() + 70.0;
     let row_height = (inner.bottom() - row_top - gap * 3.0) / 4.0;
     for row in PAD {
         for (column_index, label) in row.iter().enumerate() {

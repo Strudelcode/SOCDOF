@@ -549,7 +549,9 @@ queries, the same Argon2id login and the same user management.
 - [ ] OPFS instead of IndexedDB: `sqlite-wasm-vfs` needs `FileSystemSyncAccessHandle`, which browsers
       only expose in a dedicated worker; the host has no worker, so the serialized image in
       IndexedDB is the supported route for now
-- [ ] Web build in CI (Trunk build plus artifact upload)
+- [x] Web build in CI: the `web` job in `.github/workflows/rust.yml` installs the wasm target and
+      Trunk, builds `crates/web` in release mode, checks that `index.html` and a wasm bundle of
+      plausible size exist and uploads `crates/web/dist` as an artifact
 - [ ] Print, backup, CSV and legacy import in the browser: they need file access and stay
       desktop-only for now
 
