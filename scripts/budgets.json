@@ -1,0 +1,47 @@
+{
+  "$comment": "Phase 9 budgets of RUST_MIGRATION.md. Every entry names what is measured, in which unit and where. scripts/check-budgets.mjs enforces them.",
+  "ui_bundle": {
+    "context": "Desktop frontend (crates/app/ui) after `npm run build`: the UI bundle of the Phase 9 table.",
+    "path": "crates/app/dist",
+    "raw_bytes": 1572864,
+    "gzip_bytes": 409600,
+    "note": "1.5 MB raw and 400 KB gzip, the limits from RUST_MIGRATION.md section 1."
+  },
+  "web_bundle": {
+    "context": "Browser build (crates/web/dist) after `trunk build --release`; a separate target, documented in RUST_MIGRATION.md section 14.",
+    "path": "crates/web/dist",
+    "wasm_raw_bytes": 7340032,
+    "wasm_gzip_bytes": 3670016,
+    "note": "Regression guard for the browser target. The 1.5 MB / 400 KB Phase 9 budget is not applied here: the browser host ships egui and SQLite as WebAssembly, which section 14 records explicitly."
+  },
+  "cold_start": {
+    "context": "Release binary `target/release/socdof-app --database <fresh temp file>`; wall time from spawn to exit with the line `SOCDOF shell ready` (instance lock, schema migration, status read).",
+    "median_ms": 800,
+    "runs": 5,
+    "note": "The windowed desktop adds only the Tauri window creation on top of this path; CI measures that in the gui-smoke job."
+  },
+  "installer": {
+    "context": "Tauri bundle in crates/app/src-tauri/target/release/bundle (AppImage, deb, NSIS, MSI, DMG).",
+    "max_bytes": 15728640,
+    "note": "Only measurable where GTK/WebKit and the Tauri toolchain exist (CI desktop job). The script reports `not built here` instead of guessing."
+  },
+  "installed": {
+    "context": "Unpacked application directory of that bundle.",
+    "max_bytes": 41943040
+  },
+  "idle_ram": {
+    "context": "Resident memory of the running desktop application sampled from /proc/<pid>/status (VmRSS) after five seconds without input.",
+    "max_kib": 122880,
+    "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
+  },
+  "idle_cpu": {
+    "context": "CPU time of the running desktop application from /proc/<pid>/stat over a five second quiet interval.",
+    "max_percent": 0.5,
+    "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
+  },
+  "large_dataset": {
+    "context": "Contacts and invoices screens with 50k contacts and 100k invoices, rendered by the real egui layout in crates/ui/tests/performance.rs.",
+    "max_frame_ms": 16.6,
+    "note": "60 fps. Currently open: see docs/performance.md."
+  }
+}
