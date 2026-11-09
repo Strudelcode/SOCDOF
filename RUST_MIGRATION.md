@@ -576,7 +576,28 @@ Per module definition of done:
       whitespace-only, zip, non-object, foreign-app, unsupported-version, corrupt-timestamp and
       truncated files return typed `backup_truncated` / `backup_invalid_format` /
       `backup_unsupported_version` / `backup_corrupt` errors without creating a database.
-- [ ] Mobile companion sync endpoints (HTTP, same payloads as legacy)
+- [x] Mobile companion sync endpoints (HTTP, same payloads as legacy): `mobile_sync::payload`
+      validates the document of `SOCDOF - TS/src/lib/mobileCompanionTypes.ts`
+      (`SOCDOF_MOBILE_COMPANION_V1`, `exportVersion`, `summary`, `date_range`, `tickets`, `sessions`
+      with the five note fields, `trips`, `customers`, `standalone_timesheets`,
+      `standalone_expenses`, also wrapped in `data`/`payload`/`export`) and imports it as support
+      tickets plus tracked time. `mobile_sync::http` serves the routes of
+      `SOCDOF - TS/vite.config.ts` (`mobile-sync-api`) and `SOCDOF - TS/electron/main.cjs`
+      (`startMobileSyncServer`): `GET /api/mobile-sync/info`, `GET|POST /api/mobile-sync/ping|test`,
+      `POST|PUT /api/mobile-sync|/upload|/submit`, `GET /api/mobile-sync?token=…&consume=true`,
+      `OPTIONS` 204 and the CORS headers, on port 3000 with the 3001 fallback, keeping the token,
+      UPPER/lower, `latest` and `device_<id>` slots readable for twenty minutes. Reached from
+      `socdof-cli companion-sync <database> [port] [--once]`,
+      `socdof-cli companion-import <database> <payload.json>` and
+      `mobile_sync::http::{start, start_with, client}`. Deliberate differences: broken JSON, a
+      non-object body and a foreign `protocol` answer `400` with `mobile_invalid_json` /
+      `mobile_invalid_payload` / `mobile_unsupported_protocol` instead of being stored as raw text,
+      and `ips` carries the primary LAN address because Rust has no interface enumeration.
+      References: the running gateway was spoken to with Python's `http.client` (discovery, ping,
+      preflight, upload with pairing token, poll, `consume`, typed failures, unknown path), a foreign
+      request was replayed into it, and `crates/core/tests/fixtures/mobile/sync_payload.json` imports
+      to 3 tickets, 405 minutes, 93,20 € in four expenses and 84,0 km in `tests/mobile_sync.rs`;
+      the same document round-trips through the client unchanged.
 
 ---
 
@@ -964,6 +985,23 @@ These are not token tweaks; each one is its own piece of work.
   `fixtures/foreign.docx` (written by `python-docx`) is parsed with its heading levels, bold run,
   table cells and page break. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
+  `trunk build --release` are green.
+
+- 2026-11-09 (ninth pass) — Phase 8 mobile companion sync. The TypeScript application has a real
+  gateway, not a stub: `mobile-sync-api` in `vite.config.ts` and `startMobileSyncServer` in
+  `electron/main.cjs` answer the same routes, the app pairs by scanning a QR code that carries
+  `{url, token, station, protocol, timestamp}` and polls `GET /api/mobile-sync` every 1.4 s until it
+  is ready. `mobile_sync::payload` rebuilds the document model and the ticket planning of
+  `mobileCompanionTypes.ts`, `mobile_sync::http` rebuilds the gateway (own HTTP/1.1 over
+  `std::net`, no new crate) plus a client, and the gateway is reachable from
+  `socdof-cli companion-sync` and `companion-import`. Verification against foreign tools: the
+  server was started for real and driven with Python's `http.client` through discovery, ping,
+  preflight, a fixture upload with pairing token, poll, `consume=true`, a second poll answering
+  `ready:false`, broken JSON, a non-object, a foreign protocol and an unknown path, with the
+  database checked afterwards; `tests/mobile_sync.rs` repeats the dialogue over raw TCP, imports the
+  fixture (3 tickets, 405 minutes, 93,20 € in four expenses, 84,0 km) and round-trips the payload
+  through `mobile_sync::http::client`. `cargo fmt`, `cargo clippy --workspace --all-targets --
+  -D warnings`, `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
   `trunk build --release` are green.
 
 - 2026-11-09 (eighth pass) — Phase 8 backup archives. The plan asked for a `.socdof` zip container,

@@ -19,6 +19,7 @@ pub mod i18n_legacy;
 pub mod legacy;
 pub mod lock;
 pub mod logging;
+pub mod mobile_sync;
 pub mod money;
 pub mod pdf;
 pub mod security;

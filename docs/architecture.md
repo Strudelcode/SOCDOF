@@ -274,6 +274,35 @@ imports a legacy document through `legacy::import_json`. `socdof-cli backup <dat
 writes the format the target name asks for, `socdof-cli restore` accepts either and
 `socdof-cli backups <folder>` lists both.
 
+## Mobile companion sync
+
+The mobile app does not stream over WebSocket and does not discover the desktop over mDNS: it posts
+one JSON document over plain HTTP and the desktop polls the gateway until the document is there.
+The routes and bodies come from `SOCDOF - TS/vite.config.ts` (`mobile-sync-api`) and
+`SOCDOF - TS/electron/main.cjs` (`startMobileSyncServer`), the document shape from
+`SOCDOF - TS/src/lib/mobileCompanionTypes.ts`.
+
+- `mobile_sync::payload` parses `SOCDOF_MOBILE_COMPANION_V1` documents (`summary`, `date_range`,
+  `tickets`, `sessions` with `task`/`objective`/`onSiteReport`/`materialAndExpenses`/`remarks`,
+  `trips`, `customers`, `standalone_timesheets`, `standalone_expenses`, wrapped or bare) and plans
+  support tickets plus time entries from them. Amounts have no column of their own in Rust, so they
+  are summed into an import report and appended to the ticket description; the ticket number and
+  the voice note transcripts go to the description as well.
+- `mobile_sync::http` binds `0.0.0.0:3000` (falling back to 3001) and serves
+  `GET /api/mobile-sync/info`, `GET|POST /api/mobile-sync/ping|test`,
+  `POST|PUT /api/mobile-sync|/upload|/submit`, `GET /api/mobile-sync?token=…&consume=true`,
+  `OPTIONS` with 204 and the CORS headers. Uploads are accepted as JSON, as form data or as base64
+  JSON; the token comes from the query, the `Bearer` header or the body and falls back to
+  `default`. A stored document stays readable for twenty minutes under the token, its upper and
+  lower case, `latest` and `device_<id>`, and `consume=true` clears those slots.
+- Broken JSON, a non-object body and a foreign `protocol` answer `400` with `mobile_invalid_json`,
+  `mobile_invalid_payload` or `mobile_unsupported_protocol`; unknown paths answer `404 Not found`
+  like the TypeScript server. The accept loop never panics on a request.
+- Reached from `socdof-cli companion-sync <database> [port] [--once]` (server plus import, report
+  on stdout), `socdof-cli companion-import <database> <payload.json>` and the core API
+  (`mobile_sync::import`, `import_value`, `import_bytes`, `import_file`, `http::start_with`,
+  `http::client`).
+
 ## Instance lock
 
 `lock.rs` creates a JSON lock file with `create_new` (atomic), stores pid, user, machine, start time

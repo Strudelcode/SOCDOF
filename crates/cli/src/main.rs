@@ -38,7 +38,9 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   i18n-pack <de|en|fr|es> <pack.json>\n\
   log <directory> <message>\n\
   qr <text> [L|M|Q|H] [label.pdf]\n\
-  invoice-docx <database> <number> <out.docx>";
+  invoice-docx <database> <number> <out.docx>\n\
+  companion-sync <database> [port] [--once]\n\
+  companion-import <database> <payload.json>";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -414,6 +416,96 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
                     println!("qr written: {target}");
                 }
             }
+        }
+        "companion-sync" => {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use std::sync::{Arc, Mutex};
+
+            let port = match args.get(1) {
+                Some(value) if value != "--once" => value.parse::<u16>()?,
+                _ => socdof_core::mobile_sync::DEFAULT_PORT,
+            };
+            let once = args.iter().any(|value| value == "--once");
+            let store = Arc::new(Mutex::new(Store::open(&path)?));
+            let importing = store.clone();
+            let done = Arc::new(AtomicBool::new(false));
+            let signal = done.clone();
+
+            let mut server = socdof_core::mobile_sync::http::start_with(
+                socdof_core::mobile_sync::http::Options::new(port),
+                move |payload| {
+                    let report = match importing.lock() {
+                        Ok(store) => socdof_core::mobile_sync::import_value(&store, payload),
+                        Err(_) => {
+                            eprintln!("mobile sync: database lock is poisoned");
+                            return;
+                        }
+                    };
+                    match report {
+                        Ok(report) => {
+                            println!("mobile payload imported");
+                            println!("  tickets created: {}", report.tickets_created);
+                            println!("  duplicates:      {}", report.duplicates);
+                            println!(
+                                "  timesheets:      {} ({} min)",
+                                report.timesheets, report.minutes
+                            );
+                            let expenses = format!(
+                                "{},{:02} EUR",
+                                report.expense_cents / 100,
+                                report.expense_cents % 100
+                            );
+                            println!("  expenses:        {} ({expenses})", report.expenses);
+                            println!("  kilometers:      {:.1}", report.kilometers);
+                        }
+                        Err(error) => eprintln!("mobile payload rejected: {error}"),
+                    }
+                    signal.store(true, Ordering::SeqCst);
+                },
+            )?;
+
+            println!("mobile companion sync listening on {}", server.url());
+            println!("  discovery: {}", server.info_url());
+            println!("  pairing token: use the one the desktop app shows");
+
+            if once {
+                println!("  waiting for the first payload, press Ctrl+C to abort");
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(600);
+                while !done.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                server.stop();
+                if !done.load(Ordering::SeqCst) {
+                    return Err("no mobile payload received within ten minutes".into());
+                }
+            } else {
+                println!("  running until Ctrl+C");
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(3600));
+                }
+            }
+        }
+        "companion-import" => {
+            let payload = args
+                .get(1)
+                .ok_or("usage: socdof-cli companion-import <database> <payload.json>")?;
+            let store = Store::open(&path)?;
+            let report = socdof_core::mobile_sync::import_file(&store, Path::new(payload))?;
+
+            println!("mobile payload imported: {payload}");
+            println!("  tickets created: {}", report.tickets_created);
+            println!("  duplicates:      {}", report.duplicates);
+            println!(
+                "  timesheets:      {} ({} min)",
+                report.timesheets, report.minutes
+            );
+            let expenses = format!(
+                "{},{:02} EUR",
+                report.expense_cents / 100,
+                report.expense_cents % 100
+            );
+            println!("  expenses:        {} ({expenses})", report.expenses);
+            println!("  kilometers:      {:.1}", report.kilometers);
         }
         "invoice-docx" => {
             const USAGE: &str = "usage: socdof-cli invoice-docx <database> <number> <out.docx>";
