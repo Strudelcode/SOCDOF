@@ -827,6 +827,7 @@ These are not token tweaks; each one is its own piece of work.
   the flyout before the menu, arrows and Enter drive whichever list is open, and the start menu
   reports `StartMenuChoice` instead of a bare app id. New catalogue keys `start_accounts`,
   `start_current`, `start_power`, `power_lock`, `power_sign_out`, `power_quit` in all four
-  languages; new golden scene `StartMenuPower` (goldens regenerated once on purpose) and the
+  languages; new golden scene `StartMenuPower` (goldens regenerated on purpose, twice: once for
+  the new scene and once after the render showed the flyout outside a narrow window) and the
   artifact `docs/artifacts/gui-parity/rust-10-start-power.png`. `cargo fmt`, `cargo clippy
   --workspace --all-targets -- -D warnings` and `cargo test --workspace` are green.
