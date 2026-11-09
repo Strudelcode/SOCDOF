@@ -20,6 +20,11 @@ pub fn mm(value: f64) -> f64 {
     value * POINTS_PER_MM
 }
 
+/// Converts PDF points back into millimetres, used by the layout tests.
+pub fn to_mm(points: f64) -> f64 {
+    points / POINTS_PER_MM
+}
+
 /// Content of one page, written as a PDF content stream.
 #[derive(Debug)]
 pub struct Page {
@@ -131,6 +136,13 @@ impl Page {
     pub fn background(&mut self, image: &BackgroundImage, width_pt: f64, height_pt: f64) {
         self.content
             .insert_str(0, &image.operator(width_pt, height_pt));
+    }
+
+    /// Draws a light horizontal mark (fold or hole mark) and returns the stroke colour to black.
+    pub fn mark(&mut self, x1: f64, y: f64, x2: f64, grey: f64) {
+        self.content.push_str(&format!(
+            "{grey:.2} G 0.4 w {x1:.2} {y:.2} m {x2:.2} {y:.2} l S 0 G\n"
+        ));
     }
 
     /// Draws a horizontal line.

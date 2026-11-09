@@ -504,7 +504,22 @@ Per module definition of done:
 
 ## 11. Phase 8 — Files, print & interoperability
 
-- [ ] DIN 5008 PDF output verified against a legacy PDF (golden files, pixel diff)
+- [x] DIN 5008 PDF output verified norm-based: `pdf::din5008::LetterGeometry` names every
+      measurement of form B (A4 210 × 297 mm, text margins 25/20 mm, letterhead 45 mm, address field
+      45–90 mm and 85 × 45 mm at 20 mm from the left with the address zone from 62.7 mm, return-sender
+      line at 43 mm, information block from 50 mm at 125 mm with at most 75 mm width, subject at
+      98.46 mm, body at 111.5 mm, fold marks at 105 mm and 210 mm, hole mark at 148.5 mm, footer from
+      277 mm, last text line 257 mm) and draws the marks as 5 mm lines inside the 20 mm binding margin.
+      Tests read the coordinates back out of the PDF content stream and compare them in millimetres
+      with a 0.05 mm tolerance, prove that a long body text wraps inside the 165 mm column, and that
+      60 positions break into three pages without a single line reaching the footer area. The
+      pagination reserves the totals block, so the closing line never lands in the footer.
+      **No legacy reference exists:** the repository contains no PDF, print screenshot or print layout
+      of the TypeScript app (searched `*.pdf` plus the TS print/Studio code), therefore the comparison
+      is against the norm and not against a legacy document. One correction to the brief: DIN 5008
+      form B puts the hole mark at half the sheet height, 43.5 mm below the first fold mark; the 8.7
+      figure is 8.7 cm, the first fold mark of *form A* (87 mm), which templates often quote in
+      centimetres.
 - [x] Multi-page tables with repeated headers and row splitting — position tables paginate (19 rows on page one, 33 on each continuation page), the column header repeats on every page, totals and the closing line appear only on the last page, `Seite X von Y` is printed per page, and the letterhead background plus the placed `document_layout` tokens are painted on every page (background under, tokens over the content); a row that does not fit moves whole to the next page
 - [x] Letterhead background + token placement — a PNG letterhead is embedded into the PDF as a Flate-compressed DeviceRGB image XObject and painted under the DIN 5008 content, nine tokens (company name/address/contact, tax id, invoice number/date, due date, subject, footer) are placed in page percentages with size, bold and left/center/right alignment, edited in the Studio layout tab, validated in `document_layout`, persisted as the `document_layout` setting and applied by `export_invoice_pdf`; per-template variations remain open
 - [~] HTML export done: `richtext::to_html` renders the editor markup as escaped HTML (headings,
@@ -862,4 +877,15 @@ These are not token tweaks; each one is its own piece of work.
   12 new keys per language (1,483), the key gate also covers `.count("…")`, goldens regenerated on
   purpose because the subtitles now carry the count word. `cargo fmt`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` and
+  `trunk build --release` are green.
+
+- 2026-11-09 (fifth pass) — Phase 8 print layout. `pdf::din5008::LetterGeometry` replaces the loose
+  constants with the DIN 5008 form B measurements, draws both fold marks and the hole mark, reserves
+  the totals block in the pagination and wraps the body text inside the text column. New tests read
+  the rendered content stream back, convert the coordinates to millimetres and check the address
+  field, information block, subject, body, marks, footer and the 257 mm last text line against the
+  norm with a 0.05 mm tolerance; a 60 position invoice breaks into three pages without touching the
+  footer. No legacy PDF exists in the repository, so the check is norm-based (documented in section
+  11). `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
+  the visual suite (unchanged, no screen touched), `cargo build --release --workspace` and
   `trunk build --release` are green.
