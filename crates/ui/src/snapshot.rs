@@ -62,6 +62,8 @@ pub enum SnapshotVariant {
     Desktop,
     /// The desktop with the start menu open.
     StartMenu,
+    /// The desktop with the start menu and its power flyout open.
+    StartMenuPower,
     /// The desktop with the command palette open.
     Palette,
     /// The desktop with the tray flyout open.
@@ -249,6 +251,7 @@ pub fn capture(
         variant,
         SnapshotVariant::Desktop
             | SnapshotVariant::StartMenu
+            | SnapshotVariant::StartMenuPower
             | SnapshotVariant::Palette
             | SnapshotVariant::Tray
             | SnapshotVariant::Onboarding
@@ -1072,6 +1075,24 @@ fn capture_desktop(
             *shell.studio.layout_mut() = crate::studio::gallery_layout();
         }
         SnapshotVariant::StartMenu => shell.open_start(),
+        SnapshotVariant::StartMenuPower => {
+            shell.open_start();
+            shell.start.set_accounts(vec![
+                crate::shell::AccountEntry {
+                    id: uuid::Uuid::from_u128(1),
+                    username: String::from("anna"),
+                    name: String::from("Anna Weber"),
+                    current: true,
+                },
+                crate::shell::AccountEntry {
+                    id: uuid::Uuid::from_u128(2),
+                    username: String::from("ben"),
+                    name: String::from("Ben Ostermann"),
+                    current: false,
+                },
+            ]);
+            shell.start.open_power();
+        }
         SnapshotVariant::Palette => shell.open_palette(),
         SnapshotVariant::Tray => shell.toggle_tray(),
         SnapshotVariant::Onboarding => shell.onboarding.restart(),
@@ -1098,6 +1119,7 @@ fn capture_desktop(
                     texts: &texts,
                     shell: &mut shell,
                     store: &store,
+                    current_user: None,
                 },
                 &mut focus,
                 &mut icons,

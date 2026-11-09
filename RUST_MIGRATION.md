@@ -227,16 +227,18 @@ appearances and all four languages. Phase 4 is complete.
 - [x] Desktop canvas with wallpapers, icon grid, drag & drop, saved positions
 - [x] Window manager: move, resize, snap, maximize, minimize, close, z-order, focus trap
 - [x] Taskbar: pinned apps, running indicators, clock, tray flyout
-- [~] Start menu: search, app list, keyboard navigation and app launch done; power flyout and user
-      switcher remain
+- [x] Start menu: search over the app list, keyboard navigation, app launch, the user switcher
+      (accounts from the store, the signed-in one marked, choosing one prefills its sign-in form) and
+      the power flyout with lock, sign-out and quit; Escape closes the flyout before the menu,
+      arrows and Enter drive whichever list is open, state machine covered by `start_power_tests`
 - [x] Window chrome: minimize / maximize / close with confirmation dialog
 - [x] Close cooldown (3 s) after an app window closes, with "are you sure" prompt
 - [x] Widgets layer: clock/date, the battery/connection status card, a working calculator (integer
       thousandths, 4×4 pad, chained operations, division-by-zero guard) and a notes card whose text
       the host persists; all four languages, state machine unit tested in `crates/ui/src/widgets.rs`
 - [x] Command palette
-- [~] Onboarding wizard done (four pages, back/next/skip, persisted seen flag); login and lock
-      screen remain
+- [x] Onboarding wizard with four pages, back/next/skip and the persisted seen flag; login, lock and
+      first-run screens are `socdof_ui::auth` (Phase 6), so nothing is open in this step
 
 **Exit criteria:** desktop behaves like the legacy app on a 1080p screen; window state survives restart.
 
@@ -251,9 +253,9 @@ snapshots (2 appearances × 4 languages × 18 scenes: idle, focused, drawer, des
 palette, tray, onboarding, tiled wallpaper, dashboard, contacts, products, invoices, accounting,
 purchases, pos, calendar, settings) pin it. Window positions, icon cells, the wallpaper choice
 and the onboarding seen flag are host state and survive language and theme switches; the onboarding
-seen flag is persisted through the eframe storage of the gallery host. Login and lock screen are not
-part of this step, and the start menu's power flyout, user switcher, calculator and notes widgets
-remain open as tracked above.
+seen flag is persisted through the eframe storage of the gallery host. Login and lock screens are
+`socdof_ui::auth` (Phase 6), and the start menu's power flyout, user switcher, calculator and notes
+widgets are implemented, so Phase 5 has no open item left.
 
 ---
 
@@ -817,3 +819,14 @@ These are not token tweaks; each one is its own piece of work.
   `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
   the visual suite (goldens regenerated on purpose: the desktop gained two widget cards) and
   `trunk build --release` are green.
+
+- 2026-11-09 (third pass) — Phase 5 closed. The start menu gained its power flyout (lock, sign out,
+  quit, all through `DesktopOutcome` into the real session paths of the gallery and the browser
+  host) and the user switcher, which reads the accounts from the store, marks the signed-in one and
+  prefills the sign-in form of the chosen account through `AuthState::begin_switch`. Escape closes
+  the flyout before the menu, arrows and Enter drive whichever list is open, and the start menu
+  reports `StartMenuChoice` instead of a bare app id. New catalogue keys `start_accounts`,
+  `start_current`, `start_power`, `power_lock`, `power_sign_out`, `power_quit` in all four
+  languages; new golden scene `StartMenuPower` (goldens regenerated once on purpose) and the
+  artifact `docs/artifacts/gui-parity/rust-10-start-power.png`. `cargo fmt`, `cargo clippy
+  --workspace --all-targets -- -D warnings` and `cargo test --workspace` are green.

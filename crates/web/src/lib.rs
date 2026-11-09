@@ -671,12 +671,22 @@ impl WebApp {
                 texts,
                 shell: &mut self.shell,
                 store: &self.store,
+                current_user: self.auth.user.as_ref().map(|user| user.id),
             },
             &mut self.focus,
             &mut self.icons,
             &mut self.windows,
             now,
         );
+        if outcome.lock {
+            self.auth.lock(now);
+        }
+        if outcome.sign_out {
+            let _ = self.auth.sign_out(&self.store, now);
+        }
+        if let Some(username) = outcome.switch_account.clone() {
+            self.auth.begin_switch(&username);
+        }
         if outcome.toggle_theme {
             self.appearance = if self.appearance.is_dark() {
                 Appearance::Light

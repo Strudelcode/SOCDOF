@@ -33,6 +33,7 @@ fn primitives_match_the_golden_files() {
                 SnapshotVariant::Drawer,
                 SnapshotVariant::Desktop,
                 SnapshotVariant::StartMenu,
+                SnapshotVariant::StartMenuPower,
                 SnapshotVariant::Palette,
                 SnapshotVariant::Tray,
                 SnapshotVariant::Onboarding,

@@ -568,6 +568,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 texts: &texts,
                 shell: &mut state.shell,
                 store: &state.store,
+                current_user: state.auth.user.as_ref().map(|user| user.id),
             },
             &mut state.focus,
             &mut state.desktop_icons,
@@ -575,6 +576,18 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             now,
         );
         if outcome.back {
+            state.desktop_open = false;
+        }
+        if outcome.lock {
+            state.auth.lock(now);
+            state.desktop_open = false;
+        }
+        if outcome.sign_out {
+            let _ = state.auth.sign_out(&state.store, now);
+            state.desktop_open = false;
+        }
+        if let Some(username) = outcome.switch_account.clone() {
+            state.auth.begin_switch(&username);
             state.desktop_open = false;
         }
         if outcome.toggle_theme {

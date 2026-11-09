@@ -1463,5 +1463,11 @@
   "widget_calculator": "Rechner",
   "widget_notes": "Notizen",
   "widget_notes_hint": "Notiz schreiben …",
-  "widget_calc_clear": "Löschen"
+  "widget_calc_clear": "Löschen",
+  "start_accounts": "Konten",
+  "start_current": "aktiv",
+  "start_power": "Energie",
+  "power_lock": "Sperren",
+  "power_sign_out": "Abmelden",
+  "power_quit": "Beenden"
 }

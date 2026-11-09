@@ -15,6 +15,12 @@ const CATALOG_ES: &str = include_str!("../locales/es.json");
 
 /// Keys the Rust UI requires. A catalogue that misses one fails the tests.
 pub const UI_KEYS: &[&str] = &[
+    "start_accounts",
+    "start_current",
+    "start_power",
+    "power_lock",
+    "power_sign_out",
+    "power_quit",
     "widget_calculator",
     "widget_notes",
     "widget_notes_hint",

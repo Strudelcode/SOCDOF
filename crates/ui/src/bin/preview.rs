@@ -36,6 +36,7 @@ enum Scene {
     DesktopOverflow,
     DesktopFree,
     StartMenu,
+    StartMenuPower,
     Palette,
     Tray,
     Onboarding,
@@ -77,6 +78,7 @@ impl Scene {
             Scene::DesktopOverflow => "desktop-overflow".to_string(),
             Scene::DesktopFree => "desktop-free".to_string(),
             Scene::StartMenu => "start-menu".to_string(),
+            Scene::StartMenuPower => "start-menu-power".to_string(),
             Scene::Palette => "palette".to_string(),
             Scene::Tray => "tray".to_string(),
             Scene::Onboarding => "onboarding".to_string(),
@@ -118,6 +120,7 @@ impl Scene {
             Scene::DesktopOverflow => "Desktop · Overflow menu".to_string(),
             Scene::DesktopFree => "Desktop · Free icon placement".to_string(),
             Scene::StartMenu => "Start menu".to_string(),
+            Scene::StartMenuPower => "Start menu with power flyout".to_string(),
             Scene::Palette => "Command palette".to_string(),
             Scene::Tray => "Tray flyout".to_string(),
             Scene::Onboarding => "Onboarding".to_string(),
@@ -246,6 +249,25 @@ impl Scene {
             Scene::StartMenu => {
                 state.desktop_open = true;
                 state.shell.open_start();
+            }
+            Scene::StartMenuPower => {
+                state.desktop_open = true;
+                state.shell.open_start();
+                state.shell.start.set_accounts(vec![
+                    socdof_ui::shell::AccountEntry {
+                        id: uuid::Uuid::from_u128(1),
+                        username: String::from("anna"),
+                        name: String::from("Anna Weber"),
+                        current: true,
+                    },
+                    socdof_ui::shell::AccountEntry {
+                        id: uuid::Uuid::from_u128(2),
+                        username: String::from("ben"),
+                        name: String::from("Ben Ostermann"),
+                        current: false,
+                    },
+                ]);
+                state.shell.start.open_power();
             }
             Scene::Palette => {
                 state.desktop_open = true;
@@ -403,6 +425,7 @@ fn scenes() -> Vec<Scene> {
         Scene::DesktopOverflow,
         Scene::DesktopFree,
         Scene::StartMenu,
+        Scene::StartMenuPower,
         Scene::Palette,
         Scene::Tray,
         Scene::Onboarding,

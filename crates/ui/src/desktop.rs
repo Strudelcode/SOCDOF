@@ -20,7 +20,10 @@ use crate::components::{button, icon_button, modal, ButtonVariant};
 use crate::focus::{focus_ring, FocusState};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
-use crate::shell::{command_palette, onboarding, start_menu, tray_flyout, ShellAction, ShellState};
+use crate::shell::{
+    command_palette, onboarding, start_menu, tray_flyout, AccountEntry, ShellAction, ShellState,
+    StartMenuChoice,
+};
 use crate::theme::Theme;
 use crate::tokens::{
     with_alpha, FONT_BODY, FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL, RADIUS_DIALOG,
@@ -657,10 +660,12 @@ pub struct DesktopFrame<'a> {
     pub shell: &'a mut ShellState,
     /// Store the Studio drawer reads and writes.
     pub store: &'a SocdofStore,
+    /// Signed-in account, marked in the start menu's user switcher.
+    pub current_user: Option<uuid::Uuid>,
 }
 
 /// What the desktop asks the host to do after a frame.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DesktopOutcome {
     /// Leave the desktop and return to the gallery.
     pub back: bool,
@@ -672,6 +677,12 @@ pub struct DesktopOutcome {
     pub open_studio: bool,
     /// Tab the Studio drawer opens on; `None` keeps the current tab.
     pub studio_tab: Option<crate::studio::StudioTab>,
+    /// Lock the session without revoking it.
+    pub lock: bool,
+    /// Sign out and revoke the session.
+    pub sign_out: bool,
+    /// Account the user picked in the start menu; the host prefills its sign-in name.
+    pub switch_account: Option<String>,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -725,10 +736,25 @@ pub fn desktop(
         texts,
         shell,
         store,
+        current_user,
     } = frame;
     let screen = ctx.screen_rect();
     let area = work_area(screen);
     let mut outcome = DesktopOutcome::default();
+    if shell.start.is_open() && shell.start.accounts().is_empty() {
+        if let Ok(users) = store.list_users() {
+            let accounts = users
+                .into_iter()
+                .map(|user| AccountEntry {
+                    id: user.id,
+                    username: user.username.clone(),
+                    name: user.display_name.clone(),
+                    current: current_user == Some(user.id),
+                })
+                .collect();
+            shell.start.set_accounts(accounts);
+        }
+    }
     // The taskbar shows a clock with seconds, so the shell repaints once a second even while idle.
     ctx.request_repaint_after(std::time::Duration::from_millis(1_000));
 
@@ -1091,9 +1117,28 @@ pub fn desktop(
             apply_action(action, shell, icons, windows, area, now, &mut outcome);
         }
     } else if shell.start.is_open() {
-        if let Some(app) = start_menu(ctx, theme, texts, focus, &mut shell.start, icons) {
-            activate_app(icons, windows, app, area, now);
-            outcome.open_app = Some(app);
+        if let Some(choice) = start_menu(ctx, theme, texts, focus, &mut shell.start, icons) {
+            match choice {
+                StartMenuChoice::App(app) => {
+                    activate_app(icons, windows, app, area, now);
+                    outcome.open_app = Some(app);
+                }
+                StartMenuChoice::Power(action) => {
+                    apply_action(
+                        action.action(),
+                        shell,
+                        icons,
+                        windows,
+                        area,
+                        now,
+                        &mut outcome,
+                    );
+                }
+                StartMenuChoice::Switch(username) => {
+                    shell.close_overlays();
+                    outcome.switch_account = Some(username);
+                }
+            }
         }
     } else if shell.tray.is_open() {
         if let Some(action) = tray_flyout(ctx, theme, texts, focus, &mut shell.tray) {
@@ -1711,6 +1756,14 @@ fn apply_action(
             outcome.open_studio = true;
             outcome.studio_tab = Some(crate::studio::StudioTab::Layout);
         }
+        ShellAction::Lock => {
+            shell.close_overlays();
+            outcome.lock = true;
+        }
+        ShellAction::SignOut => {
+            shell.close_overlays();
+            outcome.sign_out = true;
+        }
     }
 }
 
@@ -2226,6 +2279,7 @@ mod tests {
                     texts: &texts,
                     shell: &mut shell,
                     store: &store,
+                    current_user: None,
                 },
                 &mut focus,
                 &mut icons,

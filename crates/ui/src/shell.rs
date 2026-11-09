@@ -50,6 +50,10 @@ pub enum ShellAction {
     OpenStudio,
     /// Opens the Studio drawer on the document layout tab.
     OpenLayout,
+    /// Locks the session without revoking it.
+    Lock,
+    /// Signs out and revokes the session.
+    SignOut,
 }
 
 /// One entry of the command palette.
@@ -105,12 +109,68 @@ pub const COMMANDS: [Command; 10] = [
     },
 ];
 
+/// Account row of the start menu's user switcher.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountEntry {
+    /// Account identifier.
+    pub id: uuid::Uuid,
+    /// Sign-in name used to prefill the login form.
+    pub username: String,
+    /// Display name shown in the row.
+    pub name: String,
+    /// Whether this is the signed-in account.
+    pub current: bool,
+}
+
+/// Entry of the start menu power flyout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PowerAction {
+    /// Locks the session without revoking it.
+    Lock,
+    /// Signs out and revokes the session.
+    SignOut,
+    /// Leaves the desktop.
+    Quit,
+}
+
+impl PowerAction {
+    /// Shell action the entry runs.
+    pub fn action(self) -> ShellAction {
+        match self {
+            PowerAction::Lock => ShellAction::Lock,
+            PowerAction::SignOut => ShellAction::SignOut,
+            PowerAction::Quit => ShellAction::CloseDesktop,
+        }
+    }
+}
+
+/// Result of one interaction with the start menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StartMenuChoice {
+    /// Launch an app.
+    App(AppId),
+    /// Run a power action.
+    Power(PowerAction),
+    /// Switch to another account by its sign-in name.
+    Switch(String),
+}
+
+/// Entries of the power flyout with their catalogue keys and icons.
+pub const POWER_ITEMS: [(PowerAction, &str, Icon); 3] = [
+    (PowerAction::Lock, "power_lock", Icon::Moon),
+    (PowerAction::SignOut, "power_sign_out", Icon::User),
+    (PowerAction::Quit, "power_quit", Icon::Close),
+];
+
 /// State of the start menu.
 #[derive(Debug, Clone, Default)]
 pub struct StartMenu {
     open: bool,
     query: String,
     selected: usize,
+    power_open: bool,
+    power_selected: usize,
+    accounts: Vec<AccountEntry>,
 }
 
 impl StartMenu {
@@ -125,10 +185,15 @@ impl StartMenu {
     }
 
     /// Opens the menu with an empty query and the first entry selected.
+    ///
+    /// The account list is dropped, so the host refills it from the store whenever the menu opens.
     pub fn open(&mut self) {
         self.open = true;
         self.query.clear();
         self.selected = 0;
+        self.power_open = false;
+        self.power_selected = 0;
+        self.accounts.clear();
     }
 
     /// Closes the menu.
@@ -143,6 +208,65 @@ impl StartMenu {
         } else {
             self.open();
         }
+    }
+
+    /// Whether the power flyout is open.
+    pub fn power_open(&self) -> bool {
+        self.power_open
+    }
+
+    /// Opens the power flyout with its first entry selected.
+    pub fn open_power(&mut self) {
+        self.power_open = true;
+        self.power_selected = 0;
+    }
+
+    /// Closes the power flyout.
+    pub fn close_power(&mut self) {
+        self.power_open = false;
+    }
+
+    /// Toggles the power flyout.
+    pub fn toggle_power(&mut self) {
+        if self.power_open {
+            self.close_power();
+        } else {
+            self.open_power();
+        }
+    }
+
+    /// Index of the selected power entry.
+    pub fn power_selected(&self) -> usize {
+        self.power_selected
+    }
+
+    /// Moves the power selection with wrap-around.
+    pub fn move_power_selection(&mut self, delta: i32) {
+        let total = POWER_ITEMS.len() as i32;
+        self.power_selected = (self.power_selected as i32 + delta).rem_euclid(total) as usize;
+    }
+
+    /// Escape handling: closes the power flyout first, then the menu.
+    ///
+    /// Returns whether the menu itself closed.
+    pub fn dismiss(&mut self) -> bool {
+        if self.power_open {
+            self.close_power();
+            false
+        } else {
+            self.close();
+            true
+        }
+    }
+
+    /// Accounts shown by the user switcher.
+    pub fn accounts(&self) -> &[AccountEntry] {
+        &self.accounts
+    }
+
+    /// Replaces the accounts shown by the user switcher.
+    pub fn set_accounts(&mut self, accounts: Vec<AccountEntry>) {
+        self.accounts = accounts;
     }
 
     /// Search text typed by the user.
@@ -683,7 +807,7 @@ fn shell_row(
     activated
 }
 
-/// Draws the start menu and returns the app the user chose.
+/// Draws the start menu with its power flyout and returns the chosen entry.
 pub fn start_menu(
     ctx: &Context,
     theme: &Theme,
@@ -691,18 +815,39 @@ pub fn start_menu(
     focus: &mut FocusState,
     state: &mut StartMenu,
     icons: &IconGrid,
-) -> Option<AppId> {
+) -> Option<StartMenuChoice> {
     if !state.is_open() {
         return None;
     }
     if focus.escape() {
-        state.close();
-        end_overlay(focus);
+        if state.dismiss() {
+            end_overlay(focus);
+        }
         return None;
     }
     let key = overlay_key("start");
     begin_overlay(focus, key, Id::new("socdof-taskbar-start"));
-    let mut chosen = None;
+    let mut chosen: Option<StartMenuChoice> = None;
+    if state.power_open() {
+        let (down, up, enter) = ctx.input(|input| {
+            (
+                input.key_pressed(Key::ArrowDown),
+                input.key_pressed(Key::ArrowUp),
+                input.key_pressed(Key::Enter),
+            )
+        });
+        if down {
+            state.move_power_selection(1);
+        }
+        if up {
+            state.move_power_selection(-1);
+        }
+        if enter {
+            chosen = Some(StartMenuChoice::Power(
+                POWER_ITEMS[state.power_selected()].0,
+            ));
+        }
+    }
     let panel = egui::Area::new(key.with("panel"))
         .order(egui::Order::Foreground)
         .anchor(
@@ -726,6 +871,26 @@ pub fn start_menu(
                     texts.get("start_search"),
                 );
                 ui.add_space(4.0);
+                let accounts = state.accounts().to_vec();
+                if !accounts.is_empty() {
+                    ui.label(
+                        RichText::new(texts.get("start_accounts"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.add_space(2.0);
+                    for account in accounts {
+                        let row_id = Id::new(("socdof-start-account", account.id.to_string()));
+                        let label = if account.current {
+                            format!("{} · {}", account.name, texts.get("start_current"))
+                        } else {
+                            account.name.clone()
+                        };
+                        if shell_row(ui, theme, focus, row_id, Some(Icon::User), &label, false) {
+                            chosen = Some(StartMenuChoice::Switch(account.username));
+                        }
+                    }
+                }
                 let results = state.results(icons);
                 if results.is_empty() {
                     ui.label(
@@ -737,8 +902,8 @@ pub fn start_menu(
                 }
                 let (down, up) = ui.input(|input| {
                     (
-                        input.key_pressed(Key::ArrowDown),
-                        input.key_pressed(Key::ArrowUp),
+                        !state.power_open() && input.key_pressed(Key::ArrowDown),
+                        !state.power_open() && input.key_pressed(Key::ArrowUp),
                     )
                 });
                 let mut navigated = false;
@@ -767,18 +932,70 @@ pub fn start_menu(
                         icon.label(),
                         position == selected,
                     ) {
-                        chosen = Some(icon.app());
+                        chosen = Some(StartMenuChoice::App(icon.app()));
                     }
                 }
-                if ui.input(|input| input.key_pressed(Key::Enter)) && chosen.is_none() {
+                if ui.input(|input| input.key_pressed(Key::Enter))
+                    && chosen.is_none()
+                    && !state.power_open()
+                {
                     chosen = results
                         .get(selected)
-                        .map(|index| icons.icons()[*index].app());
+                        .map(|index| StartMenuChoice::App(icons.icons()[*index].app()));
+                }
+                ui.add_space(8.0);
+                if shell_row(
+                    ui,
+                    theme,
+                    focus,
+                    Id::new("socdof-start-power"),
+                    Some(Icon::Moon),
+                    texts.get("start_power"),
+                    state.power_open(),
+                ) {
+                    state.toggle_power();
                 }
             });
         });
+    let mut flyout_rect = None;
+    if state.power_open() {
+        let selected = state.power_selected();
+        let flyout = egui::Area::new(key.with("power"))
+            .order(egui::Order::Foreground)
+            .anchor(
+                Align2::LEFT_BOTTOM,
+                Vec2::new(12.0 + 320.0 + 8.0, -(TASKBAR_HEIGHT + 8.0)),
+            )
+            .show(ctx, |ui| {
+                panel_frame(theme).show(ui, |ui| {
+                    ui.set_width(196.0);
+                    ui.label(
+                        RichText::new(texts.get("start_power"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.add_space(4.0);
+                    for (index, (action, label_key, icon)) in POWER_ITEMS.iter().enumerate() {
+                        let row_id = Id::new(("socdof-power-item", *label_key));
+                        if shell_row(
+                            ui,
+                            theme,
+                            focus,
+                            row_id,
+                            Some(*icon),
+                            texts.get(label_key),
+                            index == selected,
+                        ) {
+                            chosen = Some(StartMenuChoice::Power(*action));
+                        }
+                    }
+                });
+            });
+        flyout_rect = Some(flyout.response.rect);
+    }
     focus.collecting(false);
-    if state.is_open() && pointer_clicked_outside(ctx, panel.response.rect) {
+    let inside = flyout_rect.map_or(panel.response.rect, |rect| panel.response.rect.union(rect));
+    if state.is_open() && pointer_clicked_outside(ctx, inside) {
         state.close();
     }
     if chosen.is_some() || !state.is_open() {
@@ -900,6 +1117,8 @@ fn command_icon(action: ShellAction) -> Icon {
         ShellAction::NextWallpaper => Icon::Refresh,
         ShellAction::ShowOnboarding => Icon::Info,
         ShellAction::CloseDesktop => Icon::Close,
+        ShellAction::Lock => Icon::Moon,
+        ShellAction::SignOut => Icon::User,
     }
 }
 
@@ -1297,5 +1516,60 @@ mod tests {
         for wallpaper in Wallpaper::ALL {
             assert_ne!(texts.get(wallpaper_label(wallpaper)), wallpaper.label_key());
         }
+    }
+}
+
+#[cfg(test)]
+mod start_power_tests {
+    use super::*;
+
+    fn account(username: &str, current: bool) -> AccountEntry {
+        AccountEntry {
+            id: uuid::Uuid::new_v4(),
+            username: username.to_owned(),
+            name: username.to_owned(),
+            current,
+        }
+    }
+
+    #[test]
+    fn the_power_flyout_dismisses_before_the_menu() {
+        let mut menu = StartMenu::new();
+        menu.open();
+        menu.toggle_power();
+        assert!(menu.power_open());
+        assert!(!menu.dismiss(), "the first escape only closes the flyout");
+        assert!(menu.is_open());
+        assert!(!menu.power_open());
+        assert!(menu.dismiss(), "the second escape closes the menu");
+        assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn the_power_selection_wraps_in_both_directions() {
+        let mut menu = StartMenu::new();
+        assert_eq!(menu.power_selected(), 0);
+        menu.move_power_selection(-1);
+        assert_eq!(menu.power_selected(), POWER_ITEMS.len() - 1);
+        menu.move_power_selection(1);
+        assert_eq!(menu.power_selected(), 0);
+    }
+
+    #[test]
+    fn reopening_the_menu_drops_stale_accounts_and_power_state() {
+        let mut menu = StartMenu::new();
+        menu.set_accounts(vec![account("anna", true)]);
+        menu.open_power();
+        menu.open();
+        assert!(menu.accounts().is_empty(), "the host refills the list");
+        assert!(!menu.power_open());
+        assert_eq!(menu.power_selected(), 0);
+    }
+
+    #[test]
+    fn power_entries_map_to_shell_actions() {
+        assert_eq!(PowerAction::Lock.action(), ShellAction::Lock);
+        assert_eq!(PowerAction::SignOut.action(), ShellAction::SignOut);
+        assert_eq!(PowerAction::Quit.action(), ShellAction::CloseDesktop);
     }
 }

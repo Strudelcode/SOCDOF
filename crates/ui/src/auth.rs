@@ -290,6 +290,19 @@ impl AuthState {
         Ok(())
     }
 
+    /// Switches the sign-in form to another account without a password.
+    ///
+    /// The user still has to prove the account with its own password, so a switch never hands out a
+    /// session on its own.
+    pub fn begin_switch(&mut self, username: &str) {
+        self.view = AuthView::Login;
+        self.username = username.to_owned();
+        self.password.clear();
+        self.error = None;
+        self.status = None;
+        self.forgot_hint = false;
+    }
+
     /// Locks the current session without revoking it.
     pub fn lock(&mut self, now: i64) {
         if self.user.is_some() && self.session.is_some() {

@@ -1463,5 +1463,11 @@
   "widget_calculator": "Calculatrice",
   "widget_notes": "Notes",
   "widget_notes_hint": "Écrire une note …",
-  "widget_calc_clear": "Effacer"
+  "widget_calc_clear": "Effacer",
+  "start_accounts": "Comptes",
+  "start_current": "actif",
+  "start_power": "Alimentation",
+  "power_lock": "Verrouiller",
+  "power_sign_out": "Se déconnecter",
+  "power_quit": "Quitter"
 }
