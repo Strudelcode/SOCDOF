@@ -339,6 +339,11 @@ a 20 s timeout, returned as a `SplashAction` so the window layer only closes the
 main window. `crates/app/ui/public/splash.html` is the splash page; the main window is created
 invisible and becomes visible on `ready` — or in its error state when initialisation fails.
 
+`dialogs.rs` validates native dialog answers before any caller sees them: folder must be a directory,
+opened file must exist and match the allowed extensions, a save target needs an existing parent,
+cancelled and acknowledged are explicit outcomes. `commands.rs` opens the platform dialog through
+`tauri-plugin-dialog` and forwards the selection; the validation is unit-tested without GTK.
+
 `shortcuts.rs` maps a key chord to one `AppAction` (`F11`, `Ctrl+K`, `Ctrl+L`, `Escape`) and owns the
 repeat and locked-context rules; the window layer registers the key handler, forwards the event and
 executes the returned action, nothing else.

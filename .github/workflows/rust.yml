@@ -565,6 +565,47 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Native dialog bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/dialog-target
+          echo '{}' > artifacts/dialog-target/import.json
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-dialogs"
+          export GDK_BACKEND=x11
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export NO_AT_BRIDGE=1
+          export SOCDOF_SMOKE_DIALOGS=1
+          export SOCDOF_SMOKE_DIALOG_FOLDER="$PWD/artifacts/dialog-target"
+          export SOCDOF_SMOKE_DIALOG_OPEN="$PWD/artifacts/dialog-target/import.json"
+          export SOCDOF_SMOKE_DIALOG_SAVE="$PWD/artifacts/dialog-target/missing/backup.socdofbak"
+          SOCDOF_SMOKE_REPORT="$PWD/artifacts/dialogs-report.json" \
+            timeout 120s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+              "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/dialogs.log 2>&1
+          python3 - <<'PY'
+          import pathlib
+
+          log = pathlib.Path("artifacts/dialogs.log").read_text(errors="replace")
+
+          assert "SOCDOF_DIALOG kind=folder outcome=chosen" in log, "folder picker rejected a folder"
+          assert "SOCDOF_DIALOG kind=open_file outcome=chosen" in log, "open dialog rejected a file"
+          assert "SOCDOF_DIALOG kind=save_file outcome=error reason=parent_missing" in log, (
+              "save dialog accepted a missing parent folder"
+          )
+          assert "SOCDOF_DIALOG kind=folder outcome=cancelled" in log, "cancel was not reported"
+          assert "SOCDOF_DIALOG kind=message outcome=acknowledged" in log, "message was not acknowledged"
+          print("dialog bridge OK")
+          PY
+          {
+            echo '### Native dialog bridge'
+            echo '```text'
+            grep 'SOCDOF_DIALOG' artifacts/dialogs.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Shortcut dispatch
         shell: bash
         run: |
@@ -710,6 +751,7 @@ jobs:
             artifacts/splash.log
             artifacts/splash-failure.log
             artifacts/keys-*.log
+            artifacts/dialogs.log
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

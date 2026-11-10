@@ -178,6 +178,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
@@ -232,6 +233,9 @@ pub fn run() {
                     );
                 }
             }
+            if smoke_mode() && std::env::var_os("SOCDOF_SMOKE_DIALOGS").is_some() {
+                commands::dialog_smoke();
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -255,6 +259,10 @@ pub fn run() {
             commands::smoke_enabled,
             commands::smoke_idle,
             commands::dispatch_shortcut,
+            commands::pick_folder,
+            commands::pick_open_file,
+            commands::pick_save_file,
+            commands::show_message,
             commands::finish_smoke,
             commands::abort_smoke
         ])

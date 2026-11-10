@@ -9,7 +9,7 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
-| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake and the shortcut mapping, plus the Phase 9 budgets. Open: the remaining Tauri window features (tray, dialogs), the installer and
+| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake, the shortcut mapping and the native dialog bridge, plus the Phase 9 budgets. Open: the tray, the installer and
 idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
@@ -238,7 +238,18 @@ jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on ea
       splash closed; that step needs GTK/WebKit and runs in CI only
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
 - [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
-- [ ] Native dialogs: folder picker, file open/save, message boxes — method: `gui-smoke` opens each dialog under Xvfb and asserts the chosen path comes back through the command result
+- [x] Native dialogs: folder picker, file open/save, message boxes: `crates/app/src/dialogs.rs`
+      validates every answer before the caller sees it — a folder must be a directory, an opened file
+      must exist and match the allowed extensions, a save target needs an existing parent folder, a
+      cancelled dialog and a closed message box are their own outcomes. `crates/app/src-tauri/src/commands.rs`
+      opens the platform dialog through `tauri-plugin-dialog` (`blocking` feature) and only forwards
+      the selection. Tests: existing folder accepted, cancel for every kind, file rejected by the
+      folder picker plus missing path, extension enforcement (case-insensitive) and file/directory
+      confusion, save target in an existing folder plus missing parent, message box without a path,
+      marker names stable (`cargo test -p socdof-app --lib dialogs::`). The bridge runs end to end in
+      the gui-smoke step **Native dialog bridge** with canned selections (chosen folder, chosen JSON
+      file, missing save parent, cancel, message); the platform picker itself is only exercised by a
+      human, because CI cannot click a GTK dialog
 - [x] Global shortcuts (F11, window snapping, command palette): `crates/app/src/shortcuts.rs` maps a
       chord to exactly one `AppAction` and decides repeat and locked-context behaviour, so no window
       code interprets keys. Bound are the documented chords only: `F11` → `toggle_fullscreen`,

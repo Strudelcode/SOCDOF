@@ -12,10 +12,12 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 use socdof_app::shortcuts::{
     self, AppAction, Key, KeyChord, Modifiers, ShortcutContext, ShortcutOutcome,
 };
 use socdof_app::desktop::{BackupReport, ContactInput, DesktopState, ProductInput};
+use socdof_app::dialogs::{self, DialogKind, DialogOutcome};
 use socdof_app::shell::ShellStatus;
 use socdof_core::domain::contact::Contact;
 use socdof_core::domain::product::Product;
@@ -431,4 +433,143 @@ pub fn dispatch_shortcut(app: tauri::AppHandle, event: ShortcutEvent) -> Shortcu
         }
     }
     outcome
+}
+
+/// Reply of a native dialog request.
+#[derive(Debug, Clone, Serialize)]
+pub struct DialogReply {
+    /// `chosen`, `cancelled`, `acknowledged` or `error`.
+    pub outcome: String,
+    /// Chosen path, if any.
+    pub path: Option<String>,
+    /// Validation error code, if any.
+    pub error: Option<String>,
+}
+
+/// Runs the shared validation for `kind` and reports it in smoke mode.
+fn dialog_reply(kind: &DialogKind, selection: Option<PathBuf>) -> DialogReply {
+    let result = dialogs::resolve(kind, selection);
+    if smoke_report_path().is_some() {
+        smoke_log(&dialogs::marker(kind, &result));
+    }
+    match result {
+        Ok(DialogOutcome::Path(path)) => DialogReply {
+            outcome: "chosen".to_string(),
+            path: Some(path.display().to_string()),
+            error: None,
+        },
+        Ok(DialogOutcome::Cancelled) => DialogReply {
+            outcome: "cancelled".to_string(),
+            path: None,
+            error: None,
+        },
+        Ok(DialogOutcome::Acknowledged) => DialogReply {
+            outcome: "acknowledged".to_string(),
+            path: None,
+            error: None,
+        },
+        Err(error) => DialogReply {
+            outcome: "error".to_string(),
+            path: None,
+            error: Some(error.as_str().to_string()),
+        },
+    }
+}
+
+/// Reads a canned selection from the environment so CI can exercise the bridge.
+fn smoke_selection(variable: &str) -> Option<Option<PathBuf>> {
+    if smoke_report_path().is_none() {
+        return None;
+    }
+    std::env::var_os(variable).map(|value| {
+        if value == "cancel" {
+            None
+        } else {
+            Some(PathBuf::from(value))
+        }
+    })
+}
+
+/// Opens the folder picker.
+#[tauri::command]
+pub fn pick_folder(app: tauri::AppHandle) -> DialogReply {
+    let selection = smoke_selection("SOCDOF_SMOKE_DIALOG_FOLDER").unwrap_or_else(|| {
+        app.dialog()
+            .file()
+            .blocking_pick_folder()
+            .and_then(|path| path.into_path().ok())
+    });
+    dialog_reply(&DialogKind::Folder, selection)
+}
+
+/// Opens the file picker and validates the chosen path.
+#[tauri::command]
+pub fn pick_open_file(app: tauri::AppHandle, extensions: Vec<String>) -> DialogReply {
+    let kind = DialogKind::OpenFile {
+        extensions: extensions.clone(),
+    };
+    let selection = smoke_selection("SOCDOF_SMOKE_DIALOG_OPEN").unwrap_or_else(|| {
+        let mut builder = app.dialog().file();
+        if !extensions.is_empty() {
+            let allowed: Vec<&str> = extensions.iter().map(String::as_str).collect();
+            builder = builder.add_filter("Supported files", &allowed);
+        }
+        builder
+            .blocking_pick_file()
+            .and_then(|path| path.into_path().ok())
+    });
+    dialog_reply(&kind, selection)
+}
+
+/// Opens the save dialog with a proposed name and validates the chosen target.
+#[tauri::command]
+pub fn pick_save_file(app: tauri::AppHandle, suggested_name: String) -> DialogReply {
+    let kind = DialogKind::SaveFile {
+        suggested_name: suggested_name.clone(),
+    };
+    let selection = smoke_selection("SOCDOF_SMOKE_DIALOG_SAVE").unwrap_or_else(|| {
+        app.dialog()
+            .file()
+            .set_file_name(&suggested_name)
+            .blocking_save_file()
+            .and_then(|path| path.into_path().ok())
+    });
+    dialog_reply(&kind, selection)
+}
+
+/// Shows a message box.
+#[tauri::command]
+pub fn show_message(app: tauri::AppHandle, text: String, title: String) -> DialogReply {
+    if smoke_selection("SOCDOF_SMOKE_DIALOG_MESSAGE").is_none() {
+        app.dialog().message(&text).title(&title).blocking_show();
+    }
+    dialog_reply(&DialogKind::Message, None)
+}
+
+/// Exercises the dialog bridge with canned selections (CI smoke only).
+pub fn dialog_smoke() {
+    let cases = [
+        (
+            DialogKind::Folder,
+            smoke_selection("SOCDOF_SMOKE_DIALOG_FOLDER").flatten(),
+        ),
+        (
+            DialogKind::OpenFile {
+                extensions: vec!["json".to_string()],
+            },
+            smoke_selection("SOCDOF_SMOKE_DIALOG_OPEN").flatten(),
+        ),
+        (
+            DialogKind::SaveFile {
+                suggested_name: "backup.socdofbak".to_string(),
+            },
+            smoke_selection("SOCDOF_SMOKE_DIALOG_SAVE").flatten(),
+        ),
+        (DialogKind::Folder, None),
+        (DialogKind::Message, None),
+    ];
+    for (kind, selection) in cases {
+        let result = dialogs::resolve(&kind, selection);
+        smoke_log(&dialogs::marker(&kind, &result));
+    }
 }

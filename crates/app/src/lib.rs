@@ -8,6 +8,7 @@
 
 pub mod commands;
 pub mod desktop;
+pub mod dialogs;
 pub mod shell;
 pub mod shortcuts;
 pub mod startup;
