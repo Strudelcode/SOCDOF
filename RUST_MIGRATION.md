@@ -1084,7 +1084,7 @@ Every parity change has to satisfy these points — they are the review rule, no
   assistant with `MigrationState`, wizard rendering and the host hook; all catalogues extended by 13
   keys in four languages. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, `cargo build --release --workspace`, `trunk build --release` green.
-  Implementation commit: {%SHA%}.
+  Implementation commit: ec1d17a.
 
 - 2026-11-10 (eleventh pass) — Phase 9 completed. Both lists draw through `ScrollArea::show_rows`
   with a fixed row height (`crates/ui/src/contacts.rs`, `crates/ui/src/invoices.rs`) and the invoice
