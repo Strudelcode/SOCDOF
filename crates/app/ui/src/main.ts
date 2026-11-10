@@ -162,6 +162,7 @@ const contactStreet = byId<HTMLInputElement>("contact-street");
 const contactZip = byId<HTMLInputElement>("contact-zip");
 const contactCity = byId<HTMLInputElement>("contact-city");
 const contactCountry = byId<HTMLInputElement>("contact-country");
+const contactCountrySuggestions = byId<HTMLDivElement>("contact-country-suggestions");
 const contactTaxId = byId<HTMLInputElement>("contact-tax-id");
 const contactNotes = byId<HTMLTextAreaElement>("contact-notes");
 const productDialog = byId<HTMLDialogElement>("product-dialog");
@@ -493,6 +494,100 @@ function contactInput(): ContactInput {
   };
 }
 
+// Country suggestions of the contact dialog: the core matches them like `searchCountries()`, this
+// frontend only renders the returned list and writes the chosen name into the input.
+interface CountrySuggestion {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+let countrySuggestions: CountrySuggestion[] = [];
+let activeCountryIndex = 0;
+
+function closeCountrySuggestions(): void {
+  countrySuggestions = [];
+  activeCountryIndex = 0;
+  contactCountrySuggestions.hidden = true;
+  contactCountrySuggestions.replaceChildren();
+}
+
+function selectCountry(item: CountrySuggestion): void {
+  contactCountry.value = item.name;
+  closeCountrySuggestions();
+  contactCountry.focus();
+}
+
+function renderCountrySuggestions(): void {
+  contactCountrySuggestions.replaceChildren();
+  if (countrySuggestions.length === 0) {
+    contactCountrySuggestions.hidden = true;
+    return;
+  }
+
+  contactCountrySuggestions.hidden = false;
+  const heading = document.createElement("p");
+  heading.className = "country-suggestions-title";
+  heading.textContent = translate(language, "countrySuggestions");
+  contactCountrySuggestions.append(heading);
+
+  countrySuggestions.forEach((item, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = index === activeCountryIndex ? "country-suggestion active" : "country-suggestion";
+    option.textContent = `${item.flag} ${item.name}`;
+    // Keep the focus in the input so the click still selects the country.
+    option.addEventListener("mousedown", (event) => event.preventDefault());
+    option.addEventListener("click", () => selectCountry(item));
+    contactCountrySuggestions.append(option);
+  });
+}
+
+async function updateCountrySuggestions(): Promise<void> {
+  try {
+    countrySuggestions = await invoke<CountrySuggestion[]>("search_countries", {
+      query: contactCountry.value,
+      language,
+    });
+  } catch {
+    countrySuggestions = [];
+  }
+  activeCountryIndex = 0;
+  renderCountrySuggestions();
+}
+
+contactCountry.addEventListener("input", () => void updateCountrySuggestions());
+contactCountry.addEventListener("focus", () => void updateCountrySuggestions());
+contactCountry.addEventListener("keydown", (event) => {
+  if (countrySuggestions.length === 0) {
+    return;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    activeCountryIndex = (activeCountryIndex + 1) % countrySuggestions.length;
+    renderCountrySuggestions();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    activeCountryIndex =
+      activeCountryIndex > 0 ? activeCountryIndex - 1 : countrySuggestions.length - 1;
+    renderCountrySuggestions();
+  } else if (event.key === "Enter") {
+    const item = countrySuggestions[activeCountryIndex];
+    if (item) {
+      event.preventDefault();
+      selectCountry(item);
+    }
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeCountrySuggestions();
+  }
+});
+document.addEventListener("pointerdown", (event) => {
+  if (event.target instanceof Node && !contactCountrySuggestions.contains(event.target)) {
+    closeCountrySuggestions();
+  }
+});
+
 function openContactDialog(contact?: Contact): void {
   contactDialogTitle.textContent = translate(
     language,
@@ -511,7 +606,9 @@ function openContactDialog(contact?: Contact): void {
   contactStreet.value = contact?.street ?? "";
   contactZip.value = contact?.zip ?? "";
   contactCity.value = contact?.city ?? "";
-  contactCountry.value = contact?.country ?? "";
+  // The legacy modal opens new contacts with the German default country.
+  contactCountry.value = contact?.country ?? "Deutschland";
+  closeCountrySuggestions();
   contactTaxId.value = contact?.tax_id ?? "";
   contactNotes.value = contact?.notes ?? "";
   contactDialog.showModal();

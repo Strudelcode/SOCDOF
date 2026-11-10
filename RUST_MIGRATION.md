@@ -543,7 +543,7 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
 1,381 keys per language. Version 0.26.0.
 
 - [x] Dashboard — period KPIs, quick actions, recent invoices, reorder list, empty state
-- [~] Contacts — list with core search, detail view, create/edit/delete form with validation,
+- [x] Contacts — list with core search, detail view, create/edit/delete form with validation,
       delete confirmation and four languages. Contact persons ("sub-contacts") are ported the way
       `ContactEditModal.tsx` has them: `ContactPerson` with `id`, `first_name`, `last_name`,
       `email`, `phone`, `role` and `is_primary`; the first person of a company becomes primary,
@@ -554,8 +554,14 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
       the desktop command layer treats an absent `contact_persons` field as "keep", an empty
       array as "remove". Tests: `cargo test -p socdof-core --lib contact::`,
       `cargo test -p socdof-core --test contact_persons`, `cargo test -p socdof-app --test
-      contact_persons`, `cargo test -p socdof-ui --lib contacts::`. Still open: country
-      autocomplete (`searchCountries` in `lib/countries.ts`)
+      contact_persons`, `cargo test -p socdof-ui --lib contacts::`. The form edits the whole legacy
+      address block — street, postal code, city, country, tax id and notes — and the country input
+      autocompletes from `domain::countries`: 47 entries in the legacy order with the five localized
+      names, ISO code and name prefix/substring matching on a trimmed, lower-cased query, the first
+      eight entries for an empty query, prefix hits before substring hits, no diacritic folding and
+      the localized name written on selection; new contacts start with "Deutschland". Tests:
+      `cargo test -p socdof-core --lib domain::countries` (8 tests) plus the contacts tests, which
+      pin the default country, the localized selection and the free-text round-trip
 - [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion and four languages; labels and smart reorder remain
 - [x] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; DIN 5008 print, templates, dunning, email draft and payment modal remain
 - [x] Accounting — journal with create/edit/delete, cash book with running balance, BWA per account, CSV export and four languages; account plans, DATEV export and print remain
@@ -1199,6 +1205,20 @@ the answer is then recorded on the line and, where it changes behaviour, impleme
   `docs/performance.md`: the 50k/100k frame budget (both lists still lay out every row, so
   virtualisation plus a benchmark is required), the installer/installed size and idle RAM/CPU
   (Tauri and Xvfb, i.e. the CI desktop and gui-smoke jobs), and the UI memory profile.
+
+- 2026-11-10 (eleventh pass) — country autocomplete of the contact form. `lib/countries.ts` of the
+  TypeScript app holds 47 countries (DACH first) with German/English/French/Spanish/Italian names
+  and a flag, and `searchCountries(query, lang)` trims and lower-cases the query, matches the ISO
+  code and every localized name by prefix or substring, returns the first eight entries for an
+  empty query and sorts prefix hits before substring hits, alphabetically by the localized name
+  (`localeCompare`). `ContactEditModal.tsx` writes the localized name of the clicked entry into the
+  free-text `country` field and preselects "Deutschland". The port keeps the list and the matching
+  in `domain::countries` (8 tests: order and shape, shortlist, code prefix, localized names,
+  substring with prefix-first ordering, trimming, the missing diacritic folding, unknown queries),
+  the egui form shows the same suggestion list and writes the localized name into
+  `ContactDraft.country`, and the Tauri frontend renders the list from the new `search_countries`
+  command. Because the same form was still missing the legacy street/postal-code/tax-id/notes
+  inputs, those are part of this pass as well, which closes the contact checklist line.
 
 - 2026-11-10 (tenth pass) — contact persons ("sub-contacts") of a company. The TypeScript app keeps
   them as `contact_persons` on the contact (`types.ts`), edits them in `ContactEditModal.tsx` and

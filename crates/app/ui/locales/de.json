@@ -66,6 +66,7 @@
   "fieldZip": "PLZ",
   "fieldCity": "Ort",
   "fieldCountry": "Land",
+  "countrySuggestions": "Vorgeschlagene Länder",
   "fieldEmail": "E-Mail",
   "fieldPhone": "Telefon",
   "fieldTaxId": "USt-IdNr. / Steuernummer",

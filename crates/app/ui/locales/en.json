@@ -66,6 +66,7 @@
   "fieldZip": "ZIP",
   "fieldCity": "City",
   "fieldCountry": "Country",
+  "countrySuggestions": "Suggested countries",
   "fieldEmail": "Email",
   "fieldPhone": "Phone",
   "fieldTaxId": "VAT ID / tax number",

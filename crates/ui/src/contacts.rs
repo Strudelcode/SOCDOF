@@ -11,6 +11,8 @@
 
 use egui::{Context, RichText};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
+use socdof_core::domain::countries::{search_countries, Country};
+use socdof_core::domain::settings::Language;
 use socdof_core::store::Store;
 use uuid::Uuid;
 
@@ -26,6 +28,9 @@ use crate::tokens::{FONT_SMALL, FONT_TITLE};
 
 /// Fixed timestamp of the sample contacts, shared with the dashboard fixture.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
+
+/// Country a new contact starts with, the same default the legacy modal's form uses.
+pub const DEFAULT_COUNTRY: &str = "Deutschland";
 
 /// Catalogue keys of the four CRM categories, in [`ContactType`] order.
 const TYPE_KEYS: [&str; 4] = [
@@ -69,8 +74,18 @@ pub struct ContactDraft {
     pub email: String,
     /// Phone number.
     pub phone: String,
+    /// Street and house number.
+    pub street: String,
+    /// Postal code.
+    pub zip: String,
     /// City.
     pub city: String,
+    /// Country; free text, with suggestions from [`COUNTRIES`](socdof_core::domain::countries::COUNTRIES).
+    pub country: String,
+    /// VAT number or tax id.
+    pub tax_id: String,
+    /// Internal notes.
+    pub notes: String,
     /// Index into [`TYPE_KEYS`].
     pub contact_type: usize,
     /// Contact persons of a company ("sub-contacts" in the legacy UI).
@@ -89,7 +104,12 @@ impl ContactDraft {
             company: contact.company_name.clone().unwrap_or_default(),
             email: contact.email.clone().unwrap_or_default(),
             phone: contact.phone.clone().unwrap_or_default(),
+            street: contact.street.clone().unwrap_or_default(),
+            zip: contact.zip.clone().unwrap_or_default(),
             city: contact.city.clone().unwrap_or_default(),
+            country: contact.country.clone().unwrap_or_default(),
+            tax_id: contact.tax_id.clone().unwrap_or_default(),
+            notes: contact.notes.clone().unwrap_or_default(),
             contact_type: type_index(contact.contact_type),
             persons: contact.contact_persons.clone(),
         }
@@ -114,7 +134,12 @@ impl ContactDraft {
         contact.company_name = company;
         contact.email = non_empty(&self.email);
         contact.phone = non_empty(&self.phone);
+        contact.street = non_empty(&self.street);
+        contact.zip = non_empty(&self.zip);
         contact.city = non_empty(&self.city);
+        contact.country = non_empty(&self.country);
+        contact.tax_id = non_empty(&self.tax_id);
+        contact.notes = non_empty(&self.notes);
         contact.contact_persons = self.persons.clone();
         // The legacy save path drops persons without a name, email or phone and keeps one primary.
         contact.sanitize_contact_persons();
@@ -138,6 +163,8 @@ pub struct ContactsState {
     pub draft: ContactDraft,
     /// Dropdown state of the category select.
     pub type_popup: PopupState,
+    /// Whether the country suggestion list is open.
+    pub country_open: bool,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
     /// Catalogue key of the validation or storage error.
@@ -191,6 +218,8 @@ impl ContactsState {
     pub fn start_new(&mut self) {
         self.selected = None;
         self.draft = ContactDraft::default();
+        self.draft.country = DEFAULT_COUNTRY.to_string();
+        self.country_open = false;
         self.error = None;
         self.status = None;
         self.view = ContactsView::Form;
@@ -202,6 +231,7 @@ impl ContactsState {
             return;
         };
         self.draft = ContactDraft::from_contact(contact);
+        self.country_open = false;
         self.error = None;
         self.status = None;
         self.view = ContactsView::Form;
@@ -209,6 +239,7 @@ impl ContactsState {
 
     /// Leaves the form without writing.
     pub fn cancel_edit(&mut self) {
+        self.country_open = false;
         self.error = None;
         self.view = if self.selected.is_some() {
             ContactsView::Detail
@@ -239,6 +270,7 @@ impl ContactsState {
 
         self.selected = Some(contact.id);
         self.view = ContactsView::Detail;
+        self.country_open = false;
         self.error = None;
         self.status = Some("contacts_saved");
         self.reload = true;
@@ -637,7 +669,12 @@ fn detail_view(
             ("contacts_col_company", contact.company_name.as_deref()),
             ("contacts_email", contact.email.as_deref()),
             ("contacts_phone", contact.phone.as_deref()),
+            ("contacts_street", contact.street.as_deref()),
+            ("contacts_zip", contact.zip.as_deref()),
             ("contacts_col_city", contact.city.as_deref()),
+            ("contacts_country", contact.country.as_deref()),
+            ("contacts_tax_id", contact.tax_id.as_deref()),
+            ("contacts_notes", contact.notes.as_deref()),
         ] {
             ui.horizontal(|ui| {
                 ui.label(
@@ -735,6 +772,54 @@ fn detail_view(
     }
 }
 
+/// Writes the localized name of a suggestion into the draft, as selecting it in the legacy modal
+/// does, and closes the list.
+fn apply_country_suggestion(
+    state: &mut ContactsState,
+    country: &'static Country,
+    language: Language,
+) {
+    state.draft.country = country.localized_name(language).to_string();
+    state.country_open = false;
+}
+
+/// Suggestion list under the country field: flag, localized name, prefix hits first.
+fn country_suggestions(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &mut ContactsState,
+) {
+    let language = texts.language();
+    let matches = search_countries(&state.draft.country, language);
+    if matches.is_empty() {
+        return;
+    }
+
+    ui.add_space(4.0);
+    card(ui, theme, |ui| {
+        ui.label(
+            RichText::new(texts.get("contacts_country_suggestions"))
+                .size(FONT_SMALL)
+                .strong()
+                .color(theme.palette.text_muted),
+        );
+        let mut chosen = None;
+        for country in matches {
+            let label = format!("{} {}", country.flag, country.localized_name(language));
+            if ui
+                .selectable_label(false, RichText::new(label).size(FONT_SMALL))
+                .clicked()
+            {
+                chosen = Some(country);
+            }
+        }
+        if let Some(country) = chosen {
+            apply_country_suggestion(state, country, language);
+        }
+    });
+}
+
 fn form_view(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -803,9 +888,66 @@ fn form_view(
             ui,
             theme,
             focus,
+            &mut state.draft.street,
+            texts.get("contacts_street"),
+            texts.get("contacts_street_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.zip,
+            texts.get("contacts_zip"),
+            texts.get("contacts_zip_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
             &mut state.draft.city,
             texts.get("contacts_city"),
             texts.get("contacts_city_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        // Country is free text with the legacy suggestion list, not a closed select.
+        let country = text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.country,
+            texts.get("contacts_country"),
+            texts.get("contacts_country_hint"),
+            None,
+        );
+        if country.response.changed() || country.response.clicked() {
+            state.country_open = true;
+        }
+        if state.country_open {
+            country_suggestions(ui, theme, texts, state);
+        }
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.tax_id,
+            texts.get("contacts_tax_id"),
+            texts.get("contacts_tax_id_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.notes,
+            texts.get("contacts_notes"),
+            texts.get("contacts_notes_hint"),
             None,
         );
         ui.add_space(6.0);
@@ -1070,6 +1212,58 @@ mod tests {
     }
 
     #[test]
+    fn keeps_the_address_through_the_draft() {
+        let mut contact = Contact::new(ContactKind::Company, 0);
+        contact.company_name = Some("AlpenTech".to_string());
+        contact.street = Some("Bahnhofstrasse 1".to_string());
+        contact.zip = Some("8001".to_string());
+        contact.city = Some("Zürich".to_string());
+        contact.country = Some("Schweiz".to_string());
+
+        let mut draft = ContactDraft::from_contact(&contact);
+        assert_eq!(draft.country, "Schweiz");
+        draft.street = " Bahnhofstrasse 2 ".to_string();
+        draft.tax_id = "CHE-123.456".to_string();
+        draft.notes = "Stammkunde".to_string();
+
+        let saved = draft.to_contact(Some(&contact), 5);
+        assert_eq!(saved.country.as_deref(), Some("Schweiz"));
+        assert_eq!(saved.street.as_deref(), Some("Bahnhofstrasse 2"));
+        assert_eq!(saved.tax_id.as_deref(), Some("CHE-123.456"));
+        assert_eq!(saved.notes.as_deref(), Some("Stammkunde"));
+    }
+
+    #[test]
+    fn new_contacts_start_with_the_legacy_default_country() {
+        let mut state = ContactsState::new();
+        state.start_new();
+        assert_eq!(state.draft.country, DEFAULT_COUNTRY);
+        assert!(!state.country_open);
+    }
+
+    #[test]
+    fn country_suggestions_write_the_localized_name() {
+        let mut state = ContactsState::new();
+        state.start_new();
+        state.draft.country = "schweiz".to_string();
+        let found = search_countries(&state.draft.country, Language::En);
+        assert_eq!(found[0].code, "CH");
+        apply_country_suggestion(&mut state, found[0], Language::En);
+        assert_eq!(state.draft.country, "Switzerland");
+        assert!(!state.country_open);
+
+        // A free-text country survives the save untouched, like the legacy input.
+        state.draft.country = "Mittelreich".to_string();
+        let saved = state.draft.to_contact(None, 1);
+        assert_eq!(saved.country.as_deref(), Some("Mittelreich"));
+
+        // Deleting the value persists no country at all.
+        state.draft.country = "   ".to_string();
+        let saved = state.draft.to_contact(None, 2);
+        assert_eq!(saved.country, None);
+    }
+
+    #[test]
     fn keeps_contact_persons_through_the_draft() {
         let mut contact = Contact::new(ContactKind::Company, 0);
         contact.company_name = Some("AlpenTech".to_string());
@@ -1148,6 +1342,7 @@ mod tests {
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("contacts_save")));
         assert!(painted.contains(texts.get("contacts_type")));
+        assert!(painted.contains(texts.get("contacts_country")));
     }
 
     #[test]

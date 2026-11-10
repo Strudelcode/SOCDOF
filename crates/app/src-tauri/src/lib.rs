@@ -336,6 +336,7 @@ pub fn run() {
             commands::create_contact,
             commands::update_contact,
             commands::delete_contact,
+            commands::search_countries,
             commands::list_products,
             commands::create_product,
             commands::update_product,

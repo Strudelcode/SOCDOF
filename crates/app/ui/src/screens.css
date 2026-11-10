@@ -354,3 +354,50 @@ textarea:focus {
     grid-column: 1;
   }
 }
+
+/* Country suggestions of the contact dialog (ported from the TypeScript modal). */
+.country-suggestions {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.3rem;
+  padding: 0.35rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.7rem;
+  background: var(--surface);
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.country-suggestions[hidden] {
+  display: none;
+}
+
+.country-suggestions-title {
+  margin: 0 0 0.15rem;
+  padding: 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.country-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+
+.country-suggestion.active,
+.country-suggestion:hover {
+  background: rgba(99, 102, 241, 0.14);
+}

@@ -21,7 +21,9 @@ use socdof_app::dialogs::{self, DialogKind, DialogOutcome};
 use socdof_app::shell::ShellStatus;
 use socdof_app::tray;
 use socdof_core::domain::contact::Contact;
+use socdof_core::domain::countries::{self as countries, Country};
 use socdof_core::domain::product::Product;
+use socdof_core::domain::settings::Language;
 use socdof_core::legacy::{LegacyExportReport, LegacyImportReport};
 use uuid::Uuid;
 
@@ -122,6 +124,37 @@ pub fn delete_contact(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result
         smoke_log(&format!("SOCDOF_SMOKE delete_contact id={id}"));
     }
     Ok(())
+}
+
+/// One entry of the country suggestion list of the contact form.
+#[derive(Serialize)]
+pub struct CountrySuggestion {
+    /// ISO 3166-1 alpha-2 code.
+    pub code: &'static str,
+    /// Country name in the requested language.
+    pub name: &'static str,
+    /// Flag emoji.
+    pub flag: &'static str,
+}
+
+/// Searches the country list for the contact address form.
+///
+/// The matching lives in `socdof_core::domain::countries` and mirrors `searchCountries()` of the
+/// legacy app, so the frontend only renders what the core returns.
+#[tauri::command]
+pub fn search_countries(query: String, language: Option<String>) -> Vec<CountrySuggestion> {
+    let language = language
+        .as_deref()
+        .and_then(Language::from_storage)
+        .unwrap_or_default();
+    countries::search_countries(&query, language)
+        .into_iter()
+        .map(|country: &Country| CountrySuggestion {
+            code: country.code,
+            name: country.localized_name(language),
+            flag: country.flag,
+        })
+        .collect()
 }
 
 /// Lists products with an optional search query.

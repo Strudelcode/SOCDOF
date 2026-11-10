@@ -66,6 +66,7 @@
   "fieldZip": "Code postal",
   "fieldCity": "Ville",
   "fieldCountry": "Pays",
+  "countrySuggestions": "Pays suggérés",
   "fieldEmail": "E-mail",
   "fieldPhone": "Téléphone",
   "fieldTaxId": "TVA / numéro fiscal",

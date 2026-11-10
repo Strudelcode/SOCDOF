@@ -7,6 +7,7 @@ pub mod accounting;
 pub mod appointment;
 pub mod billing;
 pub mod contact;
+pub mod countries;
 pub mod document;
 pub mod invoice;
 pub mod permission;

@@ -355,6 +355,14 @@ their contact, and `store::contacts` loads them with every list, lookup and hit 
 search. The legacy `.socdof.json` document keeps the array on the contact, so a backup written by
 either application carries it.
 
+`domain::countries` owns the country list of the contact form and its matching: the 47 entries of
+the legacy `lib/countries.ts` in the same order with the same five localized names, ISO code and
+flag, plus `search_countries`, which trims and lower-cases the query, matches the code and every
+localized name by prefix or substring, shortlists the first eight entries for an empty query and
+sorts prefix hits before substring hits. The egui form renders that list and writes the localized
+name into `ContactDraft.country`; the Tauri frontend calls the `search_countries` command, so both
+surfaces suggest exactly what the core matches.
+
 `tray.rs` owns the system tray menu: stable ids, reading order, one command per entry (`show_window`,
 `create_backup`, `quit`), the label key of each entry and the tooltip. The Tauri layer builds the
 platform icon from `tray::menu()`, resolves the labels for the session locale through
