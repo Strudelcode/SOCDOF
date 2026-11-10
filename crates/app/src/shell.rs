@@ -23,10 +23,16 @@ pub struct Paths {
 }
 
 impl Paths {
-    /// Derives the lock file next to the database (`socdof.db` becomes `socdof.lock`).
+    /// Derives the lock file next to the database.
+    ///
+    /// The name is the one the legacy Electron app uses (`network_session.lock`), so both builds
+    /// exclude each other while they share a data folder.
     pub fn new(database: impl Into<PathBuf>) -> Self {
         let database = database.into();
-        let lock = database.with_extension("lock");
+        let lock = match database.parent() {
+            Some(parent) => parent.join(socdof_core::lock::LOCK_FILE_NAME),
+            None => PathBuf::from(socdof_core::lock::LOCK_FILE_NAME),
+        };
         Self { database, lock }
     }
 }

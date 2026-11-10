@@ -17,6 +17,7 @@ use socdof_core::logging::Logger;
 use socdof_core::now_millis;
 use socdof_core::settings_service;
 use socdof_core::store::Store;
+use socdof_core::updates;
 
 const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
 \n\
@@ -40,7 +41,11 @@ const USAGE: &str = "usage: socdof-cli <command> [arguments]\n\
   qr <text> [L|M|Q|H] [label.pdf]\n\
   invoice-docx <database> <number> <out.docx>\n\
   companion-sync <database> [port] [--once]\n\
-  companion-import <database> <payload.json>";
+  companion-import <database> <payload.json>\n\
+  update-check <feed.json> [current]\n\
+  update-stage <channel-dir> <version> <artifact>\n\
+  update-current <channel-dir>\n\
+  update-rollback <channel-dir>";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -63,6 +68,59 @@ fn run(command: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>>
         .unwrap_or_else(|| "socdof.db".to_string());
 
     match command {
+        "update-check" => {
+            let feed = args
+                .first()
+                .ok_or("usage: socdof-cli update-check <feed.json> [current]")?;
+            let current = args
+                .get(1)
+                .cloned()
+                .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+            let json = std::fs::read_to_string(Path::new(feed))?;
+            let check = updates::check(&current, &json)?;
+            println!("{}", updates::to_json(&check)?);
+            if check.update_available {
+                println!(
+                    "update available: {} -> {}",
+                    check.current, check.latest.version
+                );
+            } else {
+                println!("up to date: {}", check.current);
+            }
+        }
+        "update-stage" => {
+            let dir = args
+                .first()
+                .ok_or("usage: socdof-cli update-stage <channel-dir> <version> <artifact>")?;
+            let version = args
+                .get(1)
+                .ok_or("usage: socdof-cli update-stage <channel-dir> <version> <artifact>")?;
+            let artifact = args
+                .get(2)
+                .ok_or("usage: socdof-cli update-stage <channel-dir> <version> <artifact>")?;
+            let channel = updates::Channel::new(Path::new(dir));
+            let staged = channel.stage(version, Path::new(artifact), now_millis())?;
+            println!("{}", updates::to_json(&staged)?);
+        }
+        "update-current" => {
+            let dir = args
+                .first()
+                .ok_or("usage: socdof-cli update-current <channel-dir>")?;
+            let channel = updates::Channel::new(Path::new(dir));
+            match channel.current()? {
+                Some(staged) => println!("{}", updates::to_json(&staged)?),
+                None => println!("{}", updates::to_json(&Vec::<updates::Staged>::new())?),
+            }
+        }
+        "update-rollback" => {
+            let dir = args
+                .first()
+                .ok_or("usage: socdof-cli update-rollback <channel-dir>")?;
+            let channel = updates::Channel::new(Path::new(dir));
+            let staged = channel.rollback()?;
+            println!("{}", updates::to_json(&staged)?);
+            println!("rolled back to {}", staged.version);
+        }
         "legacy-import" => {
             let backup = args
                 .get(1)

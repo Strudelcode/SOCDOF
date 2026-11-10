@@ -27,6 +27,7 @@ pub mod security_questions;
 pub mod settings_service;
 pub mod spell;
 pub mod store;
+pub mod updates;
 
 pub use error::{CoreError, CoreResult};
 pub use money::Money;

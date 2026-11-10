@@ -112,6 +112,10 @@ pub struct AuthState {
     pub wallpaper_choice: Option<crate::wallpaper::Wallpaper>,
     /// Whether the wizard finished and the host still has to apply its choices.
     pub wizard_completed: bool,
+    /// Import step of the assistant: legacy backup, counts and errors.
+    pub migration: crate::migration::MigrationState,
+    /// The user asked to run the import; the host executes it and clears the flag.
+    pub import_pending: bool,
     /// PNG dropped onto the wizard, applied as wallpaper after setup.
     pub wallpaper_custom: Option<crate::wallpaper::CustomWallpaper>,
     token: Option<String>,
@@ -411,6 +415,97 @@ impl AuthState {
     pub fn take_wizard_completed(&mut self) -> bool {
         std::mem::take(&mut self.wizard_completed)
     }
+
+    /// Runs the import the wizard asked for in the previous frame.
+    pub fn run_pending_import(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        if !self.import_pending {
+            return Ok(());
+        }
+        self.import_pending = false;
+        self.migration.import(store)
+    }
+}
+
+/// A foreign instance on the shared database, shown before the login screen.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LockConflict {
+    /// Owner reported by the lock file.
+    pub owner: Option<socdof_core::lock::LockInfo>,
+    /// The user confirmed the takeover.
+    pub take_over: bool,
+    /// The user dismissed the dialog.
+    pub cancelled: bool,
+}
+
+impl LockConflict {
+    /// Builds the dialog state from the lock owner.
+    pub fn new(owner: socdof_core::lock::LockInfo) -> Self {
+        Self {
+            owner: Some(owner),
+            ..Self::default()
+        }
+    }
+
+    /// `host / user (pid 4711)` of the owning instance.
+    pub fn owner_label(&self) -> String {
+        match &self.owner {
+            Some(owner) => format!("{} / {} (pid {})", owner.machine, owner.user, owner.pid),
+            None => String::new(),
+        }
+    }
+
+    /// Sentence shown in the dialog, with the owner inserted.
+    pub fn hint(&self, texts: &UiTexts) -> String {
+        texts
+            .get("lock_conflict_hint")
+            .replace("{owner}", &self.owner_label())
+    }
+
+    /// The user takes the lock over.
+    pub fn accept(&mut self) {
+        self.take_over = true;
+        self.cancelled = false;
+    }
+
+    /// The user keeps the other instance and stops this start.
+    pub fn cancel(&mut self) {
+        self.cancelled = true;
+        self.take_over = false;
+    }
+}
+
+/// Draws the takeover dialog and reports the button the user pressed.
+pub fn lock_conflict(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &mut LockConflict,
+) -> bool {
+    let mut decided = false;
+    card(ui, theme, |ui| {
+        ui.label(
+            RichText::new(texts.get("lock_conflict_title"))
+                .size(20.0)
+                .strong(),
+        );
+        ui.label(
+            RichText::new(state.hint(texts))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            if ui.button(texts.get("lock_conflict_take_over")).clicked() {
+                state.accept();
+                decided = true;
+            }
+            if ui.button(texts.get("lock_conflict_cancel")).clicked() {
+                state.cancel();
+                decided = true;
+            }
+        });
+    });
+    decided
 }
 
 fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AuthState, now: i64) {
@@ -665,6 +760,12 @@ fn setup_form(
             }
         });
         ui.add_space(12.0);
+        if state.setup_step + 1 == SETUP_STEPS {
+            ui.label(RichText::new(texts.get("setup_step_import")).strong());
+            state.import_pending |=
+                crate::migration::migration_step(ui, theme, texts, &mut state.migration);
+            ui.add_space(12.0);
+        }
         match state.setup_step {
             0 => {
                 ui.vertical(|ui| {
@@ -1514,5 +1615,53 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod lock_conflict_tests {
+    use super::*;
+    use socdof_core::lock::LockInfo;
+
+    fn owner() -> LockInfo {
+        LockInfo {
+            pid: 4711,
+            user: "anna".to_string(),
+            machine: "share-pc".to_string(),
+            started_at: 1_000,
+            heartbeat_at: 2_000,
+            request_quit: false,
+        }
+    }
+
+    #[test]
+    fn names_the_owner_and_keeps_the_takeover_explicit() {
+        let mut conflict = LockConflict::new(owner());
+        assert_eq!(conflict.owner_label(), "share-pc / anna (pid 4711)");
+        assert!(!conflict.take_over);
+        assert!(!conflict.cancelled);
+
+        conflict.accept();
+        assert!(conflict.take_over);
+        assert!(!conflict.cancelled);
+    }
+
+    #[test]
+    fn cancelling_withdraws_a_previous_takeover() {
+        let mut conflict = LockConflict::new(owner());
+        conflict.accept();
+        conflict.cancel();
+        assert!(conflict.cancelled);
+        assert!(
+            !conflict.take_over,
+            "a cancelled dialog must not take the lock"
+        );
+    }
+
+    #[test]
+    fn a_missing_owner_renders_an_empty_label() {
+        let conflict = LockConflict::default();
+        assert_eq!(conflict.owner_label(), "");
+        assert_eq!(conflict.owner, None);
     }
 }

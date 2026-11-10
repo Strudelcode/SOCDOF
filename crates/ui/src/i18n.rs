@@ -15,6 +15,19 @@ const CATALOG_ES: &str = include_str!("../locales/es.json");
 
 /// Keys the Rust UI requires. A catalogue that misses one fails the tests.
 pub const UI_KEYS: &[&str] = &[
+    "lock_conflict_cancel",
+    "lock_conflict_hint",
+    "lock_conflict_take_over",
+    "lock_conflict_title",
+    "setup_import_done",
+    "setup_import_failed",
+    "setup_import_hint",
+    "setup_import_missing_file",
+    "setup_import_missing_path",
+    "setup_import_path",
+    "setup_import_run",
+    "setup_import_skip",
+    "setup_step_import",
     "count_accounts_one",
     "count_accounts_other",
     "count_products_one",

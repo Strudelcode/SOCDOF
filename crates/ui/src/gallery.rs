@@ -531,6 +531,9 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     let now = now_millis();
 
     if state.auth_open {
+        if state.auth.import_pending {
+            let _ = state.auth.run_pending_import(&state.store);
+        }
         auth(
             ctx,
             &theme,

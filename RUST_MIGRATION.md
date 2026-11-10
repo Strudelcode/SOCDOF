@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
-| **Current phase** | Phase 9 — complete: the size, cold-start, frame, installer, idle RAM/CPU and memory budgets are measured or enforced in CI (`docs/performance.md`), both lists are virtualised and the frame benchmark reports median 0.10 ms / 0.20 ms for 50k contacts and 100k invoices against 16.6 ms. Next: Phase 10 (packaging, installer signing, dual-run migration wizard) and the Phase 2 leftovers (zip/docx/PDF import, update checker) |
+| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, plus the Phase 9 budgets. Open: the Tauri window features and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -138,21 +138,25 @@ service is reachable from `socdof-cli` and covered by tests.
 - [x] Translation loader (compile-time embedded de/en/fr/es + external language packs)
 - [x] Autosave / snapshot service (crash-safe, atomic writes)
 - [x] Network share lock (`.lock` file with heartbeat and stale takeover)
-- [ ] Interactive lock takeover dialog (Phase 5) — the core supports it (`InstanceLock::acquire_with`
-      takes over a stale lock and `Shell::lock_owner` reports host/user/pid), the dialog itself is
-      UI work in `crates/ui/src/auth.rs`/`shell.rs`. Method: state + screen + golden, the harness
-      exists (`cargo test -p socdof-ui --test visual`)
+- [x] Interactive lock takeover dialog: `InstanceLock::force_takeover` / `InstanceLock::inspect`
+      (`crates/core/src/lock.rs`) plus `LockConflict` with `owner_label`/`accept`/`cancel` and the
+      `lock_conflict` dialog in `crates/ui/src/auth.rs`. Tests: fresh legacy lock blocks, stale lock is
+      taken over, `force_takeover` wins against a fresh heartbeat, cancel withdraws a takeover, owner
+      label renders `share-pc / anna (pid 4711)` (`cargo test -p socdof-core --lib lock::`,
+      `cargo test -p socdof-ui --lib lock_conflict_tests`)
 - [x] Backup container (metadata, checksum, atomic restore)
 - [x] Backup scheduler (interval, retention, target folder, verification)
 - [~] File import/export: CSV (contacts, products) and JSON (legacy backup) done; zip, docx read and
       PDF read remain
 - [x] Print pipeline: DIN 5008 layout, address field, positions, totals → PDF
 - [x] Letterhead background and multi-page position tables with repeated headers (see Phase 8)
-- [ ] Update checker (GitHub releases, signature verification) — the desktop path is covered by
-      `tauri-plugin-updater` with the signed manifest from `scripts/generate-updater-manifest.mjs`
-      (see §6 and `docs/RELEASING.md`); a core/CLI checker that reads the GitHub release JSON and
-      verifies the signature without the plugin is not written. Method: fixture JSON + a signed
-      release asset, test in `crates/core`, command in `socdof-cli`
+- [x] Update checker: `socdof_core::updates` reads a GitHub release document or the updater manifest
+      (`parse_feed`), compares versions by number with the pre-release ordering (`compare_versions`)
+      and reports `UpdateCheck { current, latest, update_available }`. `socdof-cli update-check
+      <feed.json> [current]` prints it as JSON. Verified 2026-11-10: `0.30.0` against a `v0.31.0`
+      feed prints `"update_available": true` and `update available: 0.30.0 -> 0.31.0`; `0.31.0`
+      prints `up to date: 0.31.0`; a feed without a version fails with `update_feed_missing_version`
+      (`cargo test -p socdof-core --lib updates::`, CLI runs above)
 - [x] Logging + crash report file (no telemetry)
 - [x] Service-level tests with temp databases and fixture files
 
@@ -676,19 +680,27 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 - [ ] Code signing of those artifacts — no certificate or Apple identity here (see §6, same
       evidence); method: the release workflow with the signing secrets, verified with
       `signtool verify` / `codesign -dv`
-- [ ] Auto-update channel with rollback — the channel itself is plumbed (`tauri-plugin-updater`,
-      signed `latest.json` from `scripts/generate-updater-manifest.mjs`, release workflow); a
-      rollback path is not implemented, and neither can be exercised without the release secrets
-      and a published release. Method: publish a release, install N-1, update to N, then roll the
-      manifest back to N-1 and check that N-1 is offered
-- [ ] Migration wizard on first start — the pieces exist (`legacy::import`, automatic pre-migration
-      backup in the import path, the first-run wizard in `crates/ui/src/auth.rs` with four steps),
-      the import step itself is not written. Method: a fifth wizard step with a path field, import
-      report and backup, asserted in a `socdof-ui` test
-- [ ] Dual-run period: the Rust lock (`.lock`, host/user/pid plus heartbeat and stale takeover in
-      `crates/core/src/lock.rs`) and the legacy `network_session.lock` are different files, so the
-      two apps do not exclude each other yet. Method: adopt the legacy file name and format in
-      `InstanceLock`, then run both apps on one folder and assert the second start is refused
+- [x] Rollback for the update channel: `updates::Channel` stages an artifact per version
+      (`update-stage`), reports the installed one (`update-current`) and returns to the previous
+      version (`update-rollback`). An empty or missing artifact is rejected and leaves the channel
+      untouched, and a rollback whose previous artifact disappeared keeps the installed version.
+      Verified 2026-11-10 on the CLI: stage 0.30.0, stage 0.31.0, `update-current` -> 0.31.0,
+      `update-rollback` -> `rolled back to 0.30.0`, `update-current` -> 0.30.0, a second rollback
+      exits 1 with `update_no_previous` (`cargo test -p socdof-core --lib updates::`). Publishing and
+      code signing of the releases stay with the release workflow (see the signing item above)
+- [x] Import step in the first-run assistant: `crates/ui/src/migration.rs` holds the step
+      (`MigrationState::import` through `legacy::import`, which writes the pre-migration backup), the
+      wizard renders it on the last page (`crates/ui/src/auth.rs`) and the host runs the request
+      (`AuthState::run_pending_import` in `crates/ui/src/gallery.rs`). Tests: the committed legacy
+      fixture imports 3 contacts / 2 products / 1 invoice, an empty path and a missing file stay on
+      the step, a broken document reports `setup_import_failed` and imports nothing, skipping
+      finishes the step (`cargo test -p socdof-ui --lib migration::`)
+- [x] Dual-run period: the Rust lock uses the legacy file name `network_session.lock` and writes the
+      legacy keys (`hostname`, `username`, `pid`, `heartbeat`, `requestQuit`), so both apps exclude
+      each other on one data folder; `Paths::new` derives it next to the database. Tests: a fresh
+      legacy file blocks the second start, a stale one is taken over, the written file carries the
+      legacy keys, and a legacy ISO `startTime` is read as zero instead of breaking the parse
+      (`cargo test -p socdof-core --lib lock::`)
 - [x] Release notes in all four languages: `docs/releases/0.30.0-{de,en,fr,es}.md` written
       2026-11-10 from the delivered scope (virtualised lists, schema v9, mobile sync, DIN 5008 with
       QR, docx, backup formats)
@@ -1063,6 +1075,16 @@ Every parity change has to satisfy these points — they are the review rule, no
   table cells and page break. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace`, the visual suite, `cargo build --release --workspace` and
   `trunk build --release` are green.
+
+- 2026-11-10 (twelfth pass) — the five remaining feature items, all with executed tests:
+  `network_session.lock` with the legacy JSON keys, stale takeover, `force_takeover` and the
+  `LockConflict` dialog; `socdof_core::updates` with feed parsing, version ordering, `UpdateCheck`
+  and the `update-check` CLI command; `updates::Channel` with stage/current/rollback including the
+  empty-artifact, missing-artifact and no-previous failures; the import step in the first-run
+  assistant with `MigrationState`, wizard rendering and the host hook; all catalogues extended by 13
+  keys in four languages. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo test --workspace`, `cargo build --release --workspace`, `trunk build --release` green.
+  Implementation commit: {%SHA%}.
 
 - 2026-11-10 (eleventh pass) — Phase 9 completed. Both lists draw through `ScrollArea::show_rows`
   with a fixed row height (`crates/ui/src/contacts.rs`, `crates/ui/src/invoices.rs`) and the invoice

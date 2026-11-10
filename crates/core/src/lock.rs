@@ -15,19 +15,41 @@ use crate::now_millis;
 /// A lock older than this is considered abandoned.
 pub const DEFAULT_STALE_AFTER_MS: i64 = 30_000;
 
+/// File name of the shared-folder lock.
+///
+/// The legacy Electron app writes the same file next to its data, so both builds exclude each other
+/// during a dual-run period. The JSON keys below are the legacy ones (`hostname`, `username`,
+/// `heartbeat`, `requestQuit`), which keeps the file readable in both directions.
+pub const LOCK_FILE_NAME: &str = "network_session.lock";
+
 /// Data written into the lock file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LockInfo {
     /// Process identifier of the owning instance.
     pub pid: u32,
-    /// Operating system user name.
+    /// Operating system user name (`username` in the legacy format).
+    #[serde(rename = "username", alias = "user")]
     pub user: String,
-    /// Machine name.
+    /// Machine name (`hostname` in the legacy format).
+    #[serde(rename = "hostname", alias = "machine")]
     pub machine: String,
     /// When the instance started, in milliseconds since the Unix epoch.
+    ///
+    /// The legacy app writes an ISO timestamp here, which is read as `0`: only the heartbeat decides
+    /// whether a lock is alive.
+    #[serde(
+        rename = "startTime",
+        default,
+        deserialize_with = "de_started_at",
+        skip_serializing_if = "is_zero"
+    )]
     pub started_at: i64,
-    /// Last heartbeat, in milliseconds since the Unix epoch.
+    /// Last heartbeat, in milliseconds since the Unix epoch (`heartbeat` in the legacy format).
+    #[serde(rename = "heartbeat", alias = "heartbeat_at")]
     pub heartbeat_at: i64,
+    /// Set by the legacy app when it wants the other instance to quit.
+    #[serde(rename = "requestQuit", default)]
+    pub request_quit: bool,
 }
 
 /// Held lock. Releasing happens on drop, so a normal exit always frees the file.
@@ -52,6 +74,7 @@ impl InstanceLock {
             machine: env_value("HOSTNAME", "COMPUTERNAME"),
             started_at: now,
             heartbeat_at: now,
+            request_quit: false,
         };
 
         match create_lock_file(&path, &info) {
@@ -87,6 +110,35 @@ impl InstanceLock {
     /// Path of the lock file.
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Takes the lock even when the current heartbeat is fresh.
+    ///
+    /// This is what the interactive takeover dialog calls after the user confirmed it: on a shared
+    /// folder a hanging window cannot refresh its heartbeat, and waiting for the stale timeout is not
+    /// always an option.
+    pub fn force_takeover(path: impl AsRef<Path>, now: i64) -> CoreResult<Self> {
+        let path = path.as_ref().to_path_buf();
+        let info = LockInfo {
+            pid: std::process::id(),
+            user: env_value("USER", "USERNAME"),
+            machine: env_value("HOSTNAME", "COMPUTERNAME"),
+            started_at: now,
+            heartbeat_at: now,
+            request_quit: false,
+        };
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(CoreError::Io(error)),
+        }
+        create_lock_file(&path, &info)?;
+        Ok(InstanceLock { path, info })
+    }
+
+    /// Reads the owner of a lock file without acquiring it.
+    pub fn inspect(path: impl AsRef<Path>) -> CoreResult<Option<LockInfo>> {
+        read_info(path.as_ref())
     }
 }
 
@@ -142,6 +194,27 @@ fn is_stale(path: &Path, now: i64, stale_after_ms: i64) -> CoreResult<bool> {
         // Unreadable or empty file: treat it as abandoned.
         None => Ok(true),
     }
+}
+
+fn de_started_at<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumberOrText {
+        Number(i64),
+        Text(String),
+    }
+
+    Ok(match NumberOrText::deserialize(deserializer)? {
+        NumberOrText::Number(value) => value,
+        NumberOrText::Text(text) => text.parse::<i64>().unwrap_or(0),
+    })
+}
+
+fn is_zero(value: &i64) -> bool {
+    *value == 0
 }
 
 fn env_value(primary: &str, fallback: &str) -> String {
@@ -208,6 +281,7 @@ mod tests {
             machine: "other-pc".to_string(),
             started_at: 1_000,
             heartbeat_at: 1_000,
+            request_quit: false,
         };
         std::fs::write(&path, serde_json::to_string(&crashed).expect("json")).expect("lock file");
 
@@ -215,6 +289,84 @@ mod tests {
         let owner = lock.owner().expect("owner");
         assert_eq!(owner.pid, std::process::id());
         assert_eq!(owner.heartbeat_at, 100_000);
+
+        drop(lock);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn legacy_file(dir: &Path, heartbeat_at: i64) -> PathBuf {
+        let path = dir.join(LOCK_FILE_NAME);
+        let text = format!(
+            r#"{{"hostname":"legacy-pc","username":"legacy-user","pid":4242,
+                "startTime":"2026-11-07T10:00:00.000Z","heartbeat":{heartbeat_at},"requestQuit":false}}"#
+        );
+        std::fs::write(&path, text).expect("legacy lock");
+        path
+    }
+
+    #[test]
+    fn honours_a_fresh_lock_from_the_legacy_app() {
+        let dir = temp_dir("legacy-fresh");
+        let path = legacy_file(&dir, 1_000);
+
+        let second = InstanceLock::acquire_with(&path, 1_500, 30_000);
+        assert!(matches!(second, Err(CoreError::Validation(code)) if code == "lock_busy"));
+
+        let owner = InstanceLock::inspect(&path)
+            .expect("inspect")
+            .expect("owner");
+        assert_eq!(owner.pid, 4242);
+        assert_eq!(owner.machine, "legacy-pc");
+        assert_eq!(owner.heartbeat_at, 1_000);
+        assert_eq!(owner.started_at, 0, "ISO startTime is read as zero");
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn takes_over_a_stale_legacy_lock() {
+        let dir = temp_dir("legacy-stale");
+        let path = legacy_file(&dir, 1_000);
+
+        let lock = InstanceLock::acquire_with(&path, 100_000, 30_000).expect("takeover");
+        assert_eq!(lock.owner().expect("owner").pid, std::process::id());
+
+        drop(lock);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn forced_takeover_wins_against_a_fresh_heartbeat() {
+        let dir = temp_dir("forced");
+        let path = legacy_file(&dir, 1_000);
+        let blocked = InstanceLock::acquire_with(&path, 1_100, 30_000);
+        assert!(matches!(blocked, Err(CoreError::Validation(code)) if code == "lock_busy"));
+
+        let lock = InstanceLock::force_takeover(&path, 1_200).expect("forced takeover");
+        let owner = lock.owner().expect("owner");
+        assert_eq!(owner.pid, std::process::id());
+        assert_eq!(owner.heartbeat_at, 1_200);
+
+        drop(lock);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn writes_the_keys_the_legacy_app_reads() {
+        let dir = temp_dir("roundtrip");
+        let path = dir.join(LOCK_FILE_NAME);
+        let lock = InstanceLock::acquire_with(&path, 2_000, 30_000).expect("lock");
+
+        let text = std::fs::read_to_string(&path).expect("lock file");
+        for key in [
+            "\"hostname\"",
+            "\"username\"",
+            "\"pid\"",
+            "\"heartbeat\"",
+            "\"requestQuit\"",
+        ] {
+            assert!(text.contains(key), "missing {key} in {text}");
+        }
 
         drop(lock);
         let _ = std::fs::remove_dir_all(dir);

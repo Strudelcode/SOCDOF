@@ -40,6 +40,7 @@ pub mod gallery;
 pub mod i18n;
 pub mod icons;
 pub mod invoices;
+pub mod migration;
 pub mod pos;
 pub mod products;
 pub mod purchases;

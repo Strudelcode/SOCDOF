@@ -35,7 +35,8 @@ folder with the new ZIP, the `SOCDOF-data/` directory is kept.
 The database can live on a shared folder as long as the share supports byte-range locking. One
 instance at a time works on it:
 
-- Every start creates `.lock` next to the database. It carries the host, the user, the pid and a
+- Every start creates `network_session.lock` next to the database — the same file the
+legacy Electron build uses, so both versions exclude each other during a dual-run period. It carries the host, the user, the pid and a
   heartbeat that is refreshed while the application runs.
 - A second start on the same share refuses to open the database and reports which host and user
   holds the lock. Exit the other instance, or wait until its heartbeat is stale: an abandoned lock
