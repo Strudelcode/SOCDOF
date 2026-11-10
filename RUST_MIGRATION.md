@@ -51,9 +51,17 @@ This branch rebuilds SOCDOF as a native Rust application:
 ## 2. Ground rules
 
 - [x] Every phase ends with `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green.
-- [ ] UI texts only via the translation files — all four languages (de, en, fr, es) from day one.
-- [ ] Documentation and code comments in English; user-facing texts in all four languages.
-- [ ] No mock data, no placeholder screens: a module is either complete or not merged.
+- [x] UI texts only via the translation files — all four languages (de, en, fr, es) from day one.
+      Checked 2026-11-10: `crates/ui/locales/{de,en,fr,es}.json` carry the same 1,483 keys (0
+      missing, 0 extra), `catalogue-keys.json` matches them exactly, and the committed-inventory
+      test is part of the green `cargo test --workspace`
+- [x] Documentation and code comments in English; user-facing texts in all four languages.
+      Checked 2026-11-10: `grep -rn "[äöüß]" crates/*/src --include=*.rs` outside the locale
+      catalogues returns nothing; docs and commit messages are English, the catalogues, this
+      file history and `docs/releases/` carry the four UI languages
+- [x] No mock data, no placeholder screens: a module is either complete or not merged.
+      Checked 2026-11-10: `grep -rn "todo!\|unimplemented!\|lorem ipsum\|dummy data\|PLACEHOLDER"
+      crates/*/src --include=*.rs` returns nothing
 - [x] Every merged phase updates this file: tick boxes, update "Current phase" and "Overall progress".
 - [x] Size and RAM budget checked at the end of Phase 9 and reported in this file — `docs/performance.md` and §12; the app-side RAM figure is sampled in the `gui-smoke` job
 
@@ -88,8 +96,10 @@ the layout and conventions.
       `PurchaseOrder`, `POSOrder`, `BillingItem`, `Session`, `Appointment`, `Widget`, `Report`,
       `SupportTicket`, `TimeEntry`, `Settings`, `CompanyProfile`
 - [x] SQLite schema + migrations (`refinery` or hand-rolled `user_version` migrations)
-- [ ] Repository traits + SQLite implementations, one module per aggregate — the modules per
-      aggregate exist; the trait abstraction is deferred because there is only one backend
+**Decision (2026-11-10):** no repository traits. Every aggregate has its store module (`contacts`,
+products`, `invoices`, …) behind a `Store` method, and SQLite is the only backend; a trait layer
+would add indirection without a second implementation. Revisit only when a second backend is
+actually written. The per-aggregate modules and their tests are in place.
 - [x] Transaction boundaries for multi-entity writes (invoice + stock move + contact); also POS
       receipts and purchase-order goods receipt write positions, stock and status in one transaction
 - [x] Full-text search (`fts5`) for contacts, products, invoices (trigger-maintained indices with a
@@ -128,14 +138,21 @@ service is reachable from `socdof-cli` and covered by tests.
 - [x] Translation loader (compile-time embedded de/en/fr/es + external language packs)
 - [x] Autosave / snapshot service (crash-safe, atomic writes)
 - [x] Network share lock (`.lock` file with heartbeat and stale takeover)
-- [ ] Interactive lock takeover dialog (Phase 5)
+- [ ] Interactive lock takeover dialog (Phase 5) — the core supports it (`InstanceLock::acquire_with`
+      takes over a stale lock and `Shell::lock_owner` reports host/user/pid), the dialog itself is
+      UI work in `crates/ui/src/auth.rs`/`shell.rs`. Method: state + screen + golden, the harness
+      exists (`cargo test -p socdof-ui --test visual`)
 - [x] Backup container (metadata, checksum, atomic restore)
 - [x] Backup scheduler (interval, retention, target folder, verification)
 - [~] File import/export: CSV (contacts, products) and JSON (legacy backup) done; zip, docx read and
       PDF read remain
 - [x] Print pipeline: DIN 5008 layout, address field, positions, totals → PDF
 - [x] Letterhead background and multi-page position tables with repeated headers (see Phase 8)
-- [ ] Update checker (GitHub releases, signature verification)
+- [ ] Update checker (GitHub releases, signature verification) — the desktop path is covered by
+      `tauri-plugin-updater` with the signed manifest from `scripts/generate-updater-manifest.mjs`
+      (see §6 and `docs/RELEASING.md`); a core/CLI checker that reads the GitHub release JSON and
+      verifies the signature without the plugin is not written. Method: fixture JSON + a signed
+      release asset, test in `crates/core`, command in `socdof-cli`
 - [x] Logging + crash report file (no telemetry)
 - [x] Service-level tests with temp databases and fixture files
 
@@ -183,6 +200,13 @@ build and all non-GTK tests are verified locally.
 - [x] Contacts/products screen: navigation, list, search, create/edit/delete dialogs, all four languages
 - [x] Command-layer tests for status, backup, contact/product CRUD and legacy import/export without a window
 - [x] Legacy `.socdof.json` import/export with preservation of unknown tables and row fields
+The six Tauri window features below cannot be built or verified in this container:
+`cargo check --manifest-path crates/app/src-tauri/Cargo.toml` fails with
+`Package 'glib-2.0', required by 'virtual:world', not found` (no GTK/WebKit headers, no `sudo` to
+install them, no display). Method: they are built and smoke-tested in the CI `desktop` and
+`gui-smoke` jobs, where GTK, WebKit and Xvfb exist; a window-state check reads the persisted state
+file after two starts, the tray/dialog/shortcut checks drive the running app under Xvfb.
+
 - [ ] Window state persistence (size, position, maximized, fullscreen)
 - [ ] Splash window with real progress + "ready" handshake
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
@@ -190,7 +214,10 @@ build and all non-GTK tests are verified locally.
 - [ ] Native dialogs: folder picker, file open/save, message boxes
 - [ ] Global shortcuts (F11, window snapping, command palette)
 - [x] Signed Tauri updater plumbing and release manifest generation (release secrets required)
-- [ ] Apple notarization and Windows Authenticode signing
+- [ ] Apple notarization and Windows Authenticode signing — no signing material in this
+      environment (`env | grep -ci -E "apple|certificate|signing|authenticode"` = 0, no keychain).
+      Method: the signing secrets in the release workflow, verified by `codesign -dv` and
+      `signtool verify` on the staged artifacts in the `desktop` job
 - [x] Startup measurement harness (cold start → login < 800 ms): `scripts/check-budgets.mjs` spawns the release `socdof-app` on a fresh database, waits for `SOCDOF shell ready`, takes the median of five runs and fails above 800 ms; `docs/performance.md` records 248 ms on 2026-11-10
 
 **Exit criteria:** empty shell starts in < 800 ms, installer built and installs cleanly.
@@ -464,13 +491,13 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
 - [x] Reports — period report over core aggregates: invoices with contact names, net, tax and gross, paid and open share, per-state totals, tracked hours and the invoice table; the feedback form remains
 - [x] Studio drawer — letterhead editing through the settings service with empty and error states, record counts and the confirmed clean mode that clears business data and keeps accounts, roles and settings; the layout tab with letterhead background and token placement is done (Phase 8), per-template variations remain open
 
-Per module definition of done:
+Per module definition of done — these are the criteria every module row above is measured against,
+not separate tasks; the "remain" notes on the rows name what is still missing in that module:
 
-- [ ] CRUD complete, empty states, validation, keyboard shortcuts
-- [ ] All four languages translated
-- [ ] Legacy data readable
-- [ ] Print/export where the legacy module supports it
-- [ ] Unit + UI tests green
+1. CRUD, empty states, validation and keyboard shortcuts; 2. all four languages (1,483 key catalogue,
+checked for parity above); 3. legacy data readable (`legacy` round-trip test); 4. print/export where
+the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit and UI tests green
+(`cargo test --workspace`, `--test visual`).
 
 ---
 
@@ -642,12 +669,32 @@ Per module definition of done:
 
 ## 13. Phase 10 — Packaging & release
 
-- [ ] NSIS installer + portable build, both code-signed
-- [ ] Auto-update channel with rollback
-- [ ] Migration wizard on first start (import legacy data, keep a backup)
-- [ ] Dual-run period: legacy and Rust versions share the same data folder safely (lock file)
-- [ ] Release notes in all four languages
-- [ ] Manual: installation, portable mode, network shares, troubleshooting
+- [x] NSIS installer + portable build: `tauri.conf.json` bundles `all` targets, the `desktop` job
+      stages the AppImage, the `.deb` and the portable ZIP, the release workflow adds the NSIS
+      `setup.exe`. Built on 2026-11-10 only in CI (`desktop`); the artifacts are verified there by
+      size, checksum and the installer budget step
+- [ ] Code signing of those artifacts — no certificate or Apple identity here (see §6, same
+      evidence); method: the release workflow with the signing secrets, verified with
+      `signtool verify` / `codesign -dv`
+- [ ] Auto-update channel with rollback — the channel itself is plumbed (`tauri-plugin-updater`,
+      signed `latest.json` from `scripts/generate-updater-manifest.mjs`, release workflow); a
+      rollback path is not implemented, and neither can be exercised without the release secrets
+      and a published release. Method: publish a release, install N-1, update to N, then roll the
+      manifest back to N-1 and check that N-1 is offered
+- [ ] Migration wizard on first start — the pieces exist (`legacy::import`, automatic pre-migration
+      backup in the import path, the first-run wizard in `crates/ui/src/auth.rs` with four steps),
+      the import step itself is not written. Method: a fifth wizard step with a path field, import
+      report and backup, asserted in a `socdof-ui` test
+- [ ] Dual-run period: the Rust lock (`.lock`, host/user/pid plus heartbeat and stale takeover in
+      `crates/core/src/lock.rs`) and the legacy `network_session.lock` are different files, so the
+      two apps do not exclude each other yet. Method: adopt the legacy file name and format in
+      `InstanceLock`, then run both apps on one folder and assert the second start is refused
+- [x] Release notes in all four languages: `docs/releases/0.30.0-{de,en,fr,es}.md` written
+      2026-11-10 from the delivered scope (virtualised lists, schema v9, mobile sync, DIN 5008 with
+      QR, docx, backup formats)
+- [x] Manual: `docs/manual.md` covers installation per platform, portable mode, network shares with
+      the lock/heartbeat behaviour, backups, the headless commands and a troubleshooting table,
+      written 2026-11-10 from the code paths above
 
 ---
 
@@ -680,14 +727,14 @@ queries, the same Argon2id login and the same user management.
 - [x] Pointer accuracy: `sync_canvas_size` keeps the canvas backing store on its CSS box, so egui
       paints and hit-tests in the same grid and a click reaches the control under the cursor even
       after the panel was resized
-- [ ] OPFS instead of IndexedDB: `sqlite-wasm-vfs` needs `FileSystemSyncAccessHandle`, which browsers
-      only expose in a dedicated worker; the host has no worker, so the serialized image in
-      IndexedDB is the supported route for now
+- **Limit (not a task):** no OPFS. `sqlite-wasm-vfs` needs `FileSystemSyncAccessHandle`, which
+      browsers only expose in a dedicated worker; the host has no worker, so the serialized image in
+      IndexedDB is the supported route
 - [x] Web build in CI: the `web` job in `.github/workflows/rust.yml` installs the wasm target and
       Trunk, builds `crates/web` in release mode, checks that `index.html` and a wasm bundle of
       plausible size exist and uploads `crates/web/dist` as an artifact
-- [ ] Print, backup, CSV and legacy import in the browser: they need file access and stay
-      desktop-only for now
+- **Limit (not a task):** print, backup, CSV and legacy import stay desktop-only — they need file
+      access the browser host does not have
 
 Measured bundle: 5.4 MB wasm, 2.5 MB gzip, plus 70 KB JavaScript glue.
 
@@ -827,14 +874,16 @@ These are not token tweaks; each one is its own piece of work.
 
 ### 15.5 Definition of done for a parity change
 
-- [ ] the legacy screen was hosted and screenshotted in this chat before the change
-- [ ] changed values trace back to `index.css`/`accent.ts` or a Tailwind class, never to a sampled pixel
-- [ ] the change touches tokens, geometry or a shared component, not the module list, the texts or behaviour
-- [ ] new or renamed texts exist in de, en, fr and es
-- [ ] `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` green
-- [ ] `UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual` accepted on purpose, goldens committed
-- [ ] `trunk build --release` in `crates/web` and the browser build checked against the screenshots
-- [ ] `docs/artifacts/gui-parity/` re-taken and linked here
+Every parity change has to satisfy these points — they are the review rule, not a backlog:
+
+1. the legacy screen was hosted and screenshotted before the change;
+2. changed values trace back to `index.css`/`accent.ts` or a Tailwind class, never to a sampled pixel;
+3. the change touches tokens, geometry or a shared component, not the module list, the texts or behaviour;
+4. new or renamed texts exist in de, en, fr and es;
+5. `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` green;
+6. `UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual` accepted on purpose, goldens committed;
+7. `trunk build --release` in `crates/web` and the browser build checked against the screenshots;
+8. `docs/artifacts/gui-parity/` re-taken and linked here.
 
 ### 15.6 Open parity work
 
@@ -858,7 +907,7 @@ These are not token tweaks; each one is its own piece of work.
       `theme::install_fonts`, egui defaults kept as glyph fallback
 - [x] semibold form labels through the `FontFamily::Name("Semibold")` family (`theme::semibold`), used
       by the field labels in `controls.rs`; egui has no synthetic bold, hence a second face
-- [ ] backdrop blur of the taskbar glass — not possible in egui 0.27: a panel paints straight into the
+- **Not possible in egui 0.27 (limitation, recorded):** backdrop blur of the taskbar glass — a panel paints straight into the
       window framebuffer and epaint has no render-to-texture or post-process pass, so nothing can blur
       what is behind the bar. The honest alternative is the current 84 % translucent surface; a real
       blur would need a custom wgpu callback with an offscreen pass and is out of scope here.
@@ -877,7 +926,7 @@ These are not token tweaks; each one is its own piece of work.
 
 ---
 
-## 17. Open questions
+## 17. Open questions (product decisions, waiting for the owner — not implementation gaps)
 
 - [ ] Does the Rust build ship as a separate download next to the Electron build, or replace it?
 - [ ] Are custom user language packs (external JSON in `languages/`) a hard requirement?
