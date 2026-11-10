@@ -18,7 +18,7 @@ measured on an artifact this checkout built.
 | Installer / installed | largest Tauri bundle artifact, and its unpacked tree (`dpkg-deb -x` or `--appimage-extract`), in the CI `desktop` job |
 | Idle RAM / CPU | `VmRSS` and `utime+stime` of the running desktop process from `/proc/<pid>` over five quiet seconds, in the CI `gui-smoke` job under Xvfb |
 
-## Measured 2026-11-10 (commit `09899f5`)
+## Measured 2026-11-10 (commit `da602f1`)
 
 Environment: Linux 6.1.102 x86_64 container, 8 vCPU, `rustc 1.99.1 (58cf8f9c3 2026-10-13)`,
 Node v26.13.0; release profile; dates in UTC.
@@ -99,5 +99,5 @@ fails). So the four artifact budgets are measured where those exist, and both pl
 
 - 2026-11-09 (`ebe231b`) — harness and limits, UI/Web bundle and cold start measured; installer,
   idle RAM/CPU and the 50k/100k frame budget named as open.
-- 2026-11-10 (`09899f5`) — virtualised lists, contact-label index, FTS rowid map (schema v9), frame
+- 2026-11-10 (`da602f1`) — virtualised lists, contact-label index, FTS rowid map (schema v9), frame
   benchmark with real median/P95, memory report, installer and runtime budgets wired into CI.
