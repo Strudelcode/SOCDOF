@@ -101,6 +101,8 @@ building block:
 its own; the document functions call it inside theirs, so an insufficient stock level rolls the
 whole document back. `products::adjust_stock` is the standalone wrapper for single movements.
 
+`domain::label` builds the article label of the TypeScript modal (the three `LabelFormat` widths, the `{"name","sku","price","asin","currency"}` payload and the `de-DE` price text) and encodes it with the in-house QR encoder, so the preview needs no extra dependency. `domain::reorder` holds the smart reorder rules (threshold modes, request quantity, ASIN extraction, cart URL, replenishment text and the draft purchase order); the egui dialog and the Tauri layer only render and store its result.
+
 ### Full-text search
 
 Schema v4 adds `contacts_fts`, `products_fts` and `invoices_fts`. They are plain FTS5 tables with an

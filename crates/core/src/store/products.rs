@@ -9,8 +9,9 @@ use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
 
 const COLUMNS: &str = "id, sku, name, category, unit, price_cents, cost_price_cents, tax_rate_bp, \
-                       stock, reorder_level, target_stock, barcode, description, image_emoji, \
-                       active, exclude_from_reorder, legacy_id, legacy_json, created_at, updated_at";
+                       stock, reorder_level, target_stock, barcode, asin, web_link, source_domain, \
+                       description, image_emoji, active, exclude_from_reorder, legacy_id, \
+                       legacy_json, created_at, updated_at";
 
 /// Inserts a product.
 pub fn insert(conn: &Connection, product: &Product) -> CoreResult<()> {
@@ -18,10 +19,11 @@ pub fn insert(conn: &Connection, product: &Product) -> CoreResult<()> {
 
     conn.execute(
         "INSERT INTO products (id, sku, name, category, unit, price_cents, cost_price_cents,
-            tax_rate_bp, stock, reorder_level, target_stock, barcode, description, image_emoji,
-            active, exclude_from_reorder, legacy_id, legacy_json, created_at, updated_at)
+            tax_rate_bp, stock, reorder_level, target_stock, barcode, asin, web_link, source_domain,
+            description, image_emoji, active, exclude_from_reorder, legacy_id, legacy_json,
+            created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17,
-            ?18, ?19, ?20)",
+            ?18, ?19, ?20, ?21, ?22, ?23)",
         params![
             product.id.to_string(),
             product.sku,
@@ -35,6 +37,9 @@ pub fn insert(conn: &Connection, product: &Product) -> CoreResult<()> {
             product.reorder_level,
             product.target_stock,
             product.barcode,
+            product.asin,
+            product.web_link,
+            product.source_domain,
             product.description,
             product.image_emoji,
             product.active,
@@ -56,9 +61,9 @@ pub fn update(conn: &Connection, product: &Product) -> CoreResult<()> {
     let changed = conn.execute(
         "UPDATE products SET sku = ?2, name = ?3, category = ?4, unit = ?5, price_cents = ?6,
             cost_price_cents = ?7, tax_rate_bp = ?8, stock = ?9, reorder_level = ?10,
-            target_stock = ?11, barcode = ?12, description = ?13, image_emoji = ?14,
-            active = ?15, exclude_from_reorder = ?16, legacy_id = ?17, legacy_json = ?18,
-            updated_at = ?19
+            target_stock = ?11, barcode = ?12, asin = ?13, web_link = ?14, source_domain = ?15,
+            description = ?16, image_emoji = ?17, active = ?18, exclude_from_reorder = ?19,
+            legacy_id = ?20, legacy_json = ?21, updated_at = ?22
          WHERE id = ?1",
         params![
             product.id.to_string(),
@@ -73,6 +78,9 @@ pub fn update(conn: &Connection, product: &Product) -> CoreResult<()> {
             product.reorder_level,
             product.target_stock,
             product.barcode,
+            product.asin,
+            product.web_link,
+            product.source_domain,
             product.description,
             product.image_emoji,
             product.active,
@@ -215,6 +223,9 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Product> {
         reorder_level: row.get("reorder_level")?,
         target_stock: row.get("target_stock")?,
         barcode: row.get("barcode")?,
+        asin: row.get("asin")?,
+        web_link: row.get("web_link")?,
+        source_domain: row.get("source_domain")?,
         description: row.get("description")?,
         image_emoji: row.get("image_emoji")?,
         active: row.get("active")?,

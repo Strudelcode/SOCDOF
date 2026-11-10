@@ -70,6 +70,9 @@ interface Product {
   reorder_level: number;
   target_stock: number;
   barcode: string | null;
+  asin: string | null;
+  web_link: string | null;
+  source_domain: string | null;
   description: string | null;
   image_emoji: string | null;
   active: boolean;
@@ -108,6 +111,9 @@ interface ProductInput {
   reorder_level: number;
   target_stock: number;
   barcode: string;
+  asin: string;
+  web_link: string;
+  source_domain: string;
   description: string;
   image_emoji: string;
   exclude_from_reorder: boolean;
@@ -181,6 +187,9 @@ const productStock = byId<HTMLInputElement>("product-stock");
 const productReorder = byId<HTMLInputElement>("product-reorder-level");
 const productTargetStock = byId<HTMLInputElement>("product-target-stock");
 const productBarcode = byId<HTMLInputElement>("product-barcode");
+const productAsin = byId<HTMLInputElement>("product-asin");
+const productWebLink = byId<HTMLInputElement>("product-web-link");
+const productSourceDomain = byId<HTMLInputElement>("product-source-domain");
 const productDescription = byId<HTMLTextAreaElement>("product-description");
 const productEmoji = byId<HTMLInputElement>("product-emoji");
 const productExcludeReorder = byId<HTMLInputElement>("product-exclude-reorder");
@@ -646,6 +655,9 @@ function productInput(): ProductInput {
     reorder_level: Math.round(Number.parseFloat(productReorder.value || "0")),
     target_stock: Math.round(Number.parseFloat(productTargetStock.value || "0")),
     barcode: productBarcode.value,
+    asin: productAsin.value,
+    web_link: productWebLink.value,
+    source_domain: productSourceDomain.value,
     description: productDescription.value,
     image_emoji: productEmoji.value,
     exclude_from_reorder: productExcludeReorder.checked,
@@ -670,6 +682,9 @@ function openProductDialog(product?: Product): void {
   productReorder.value = product ? String(product.reorder_level) : "0";
   productTargetStock.value = product ? String(product.target_stock) : "0";
   productBarcode.value = product?.barcode ?? "";
+  productAsin.value = product?.asin ?? "";
+  productWebLink.value = product?.web_link ?? "";
+  productSourceDomain.value = product?.source_domain ?? "";
   productDescription.value = product?.description ?? "";
   productEmoji.value = product?.image_emoji ?? "";
   productExcludeReorder.checked = product?.exclude_from_reorder ?? false;
@@ -813,6 +828,9 @@ function smokeProductInput(priceCents: number): ProductInput {
     reorder_level: 2,
     target_stock: 10,
     barcode: "1234567890123",
+    asin: "B08N5WRWNW",
+    web_link: "https://www.amazon.de/dp/B08N5WRWNW",
+    source_domain: "Amazon (DE)",
     description: "GUI smoke product",
     image_emoji: "🧪",
     exclude_from_reorder: false,

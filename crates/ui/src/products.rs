@@ -11,7 +11,10 @@
 //! [`FocusState`], every visible string comes from the catalogue and all painting uses the tokens.
 
 use egui::{Context, RichText};
+use socdof_core::domain::contact::ContactType;
+use socdof_core::domain::label::{LabelFormat, ProductLabel};
 use socdof_core::domain::product::Product;
+use socdof_core::domain::reorder::{self, ReorderPlan, Threshold};
 use socdof_core::domain::stock::{StockMove, StockMoveKind};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
@@ -20,7 +23,7 @@ use uuid::Uuid;
 use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
 };
-use crate::controls::{switch, text_field};
+use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -77,6 +80,14 @@ pub struct ProductDraft {
     pub active: bool,
     /// Whether it is excluded from reorder suggestions.
     pub exclude_from_reorder: bool,
+    /// Barcode / EAN.
+    pub barcode: String,
+    /// Amazon ASIN.
+    pub asin: String,
+    /// Supplier or shop link.
+    pub web_link: String,
+    /// Shop the link points to.
+    pub source_domain: String,
 }
 
 impl Default for ProductDraft {
@@ -93,6 +104,10 @@ impl Default for ProductDraft {
             target_stock: "0".to_string(),
             active: true,
             exclude_from_reorder: false,
+            barcode: String::new(),
+            asin: String::new(),
+            web_link: String::new(),
+            source_domain: String::new(),
         }
     }
 }
@@ -112,6 +127,10 @@ impl ProductDraft {
             target_stock: product.target_stock.to_string(),
             active: product.active,
             exclude_from_reorder: product.exclude_from_reorder,
+            barcode: product.barcode.clone().unwrap_or_default(),
+            asin: product.asin.clone().unwrap_or_default(),
+            web_link: product.web_link.clone().unwrap_or_default(),
+            source_domain: product.source_domain.clone().unwrap_or_default(),
         }
     }
 
@@ -143,6 +162,10 @@ impl ProductDraft {
         product.target_stock = target_stock;
         product.active = self.active;
         product.exclude_from_reorder = self.exclude_from_reorder;
+        product.barcode = optional(&self.barcode);
+        product.asin = optional(&self.asin);
+        product.web_link = optional(&self.web_link);
+        product.source_domain = optional(&self.source_domain);
         product.updated_at = now;
 
         Ok(product)
@@ -166,6 +189,15 @@ fn parse_count(input: &str) -> Option<i64> {
     trimmed.parse::<i64>().ok().filter(|value| *value >= 0)
 }
 
+fn optional(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 /// State of the products screen.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductsState {
@@ -181,6 +213,24 @@ pub struct ProductsState {
     pub draft: ProductDraft,
     /// Quantity entered for the next stock booking.
     pub stock_amount: String,
+    /// Whether the label preview is open.
+    pub label_open: bool,
+    /// Format of the label preview.
+    pub label_format: LabelFormat,
+    /// Product shown by the label preview.
+    pub label: Option<ProductLabel>,
+    /// Whether the reorder assistant is open.
+    pub reorder_open: bool,
+    /// Reorder plan of the assistant.
+    pub reorder: Option<ReorderPlan>,
+    /// Popup state of the marketplace select.
+    pub reorder_popup: PopupState,
+    /// Whether the fixed threshold mode is active.
+    pub reorder_fixed_mode: bool,
+    /// Fixed threshold as entered.
+    pub reorder_fixed: String,
+    /// Message of the reorder assistant.
+    pub reorder_note: Option<String>,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
     /// Catalogue key of the validation or storage error.
@@ -202,6 +252,15 @@ impl Default for ProductsState {
             view: ProductsView::List,
             draft: ProductDraft::default(),
             stock_amount: String::new(),
+            label_open: false,
+            label_format: LabelFormat::Standard,
+            label: None,
+            reorder_open: false,
+            reorder: None,
+            reorder_popup: PopupState::default(),
+            reorder_fixed_mode: false,
+            reorder_fixed: "5".to_string(),
+            reorder_note: None,
             confirm_delete: false,
             error: None,
             status: None,
@@ -245,6 +304,25 @@ impl ProductsState {
         self.selected = Some(id);
         self.stock_amount.clear();
         self.view = ProductsView::Detail;
+    }
+
+    /// Opens the label preview of the selected product.
+    pub fn open_label(&mut self) {
+        let Some(product) = self.current() else {
+            return;
+        };
+        self.label = Some(ProductLabel::from_product(product, "€"));
+        self.label_format = LabelFormat::Standard;
+        self.label_open = true;
+    }
+
+    /// Opens the reorder assistant for the loaded products.
+    pub fn open_reorder(&mut self) {
+        self.reorder = Some(ReorderPlan::new(&self.products, Threshold::Individual));
+        self.reorder_fixed_mode = false;
+        self.reorder_fixed = reorder::FIXED_THRESHOLD.to_string();
+        self.reorder_note = None;
+        self.reorder_open = true;
     }
 
     /// Opens an empty form.
@@ -554,6 +632,492 @@ pub fn products(
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("products_error_delete");
     }
+
+    label_modal(ctx, theme, texts, focus, state);
+    reorder_modal(ctx, theme, texts, focus, state, store, now);
+}
+
+/// Label preview of the selected product: format selector, the fields of the legacy label and the
+/// QR code of the same payload the TypeScript modal encodes.
+fn label_modal(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ProductsState,
+) {
+    if !state.label_open {
+        return;
+    }
+    let Some(label) = state.label.clone() else {
+        state.label_open = false;
+        return;
+    };
+    let mut format = state.label_format;
+    let mut open = state.label_open;
+    let mut close = false;
+    modal(
+        ctx,
+        theme,
+        &mut open,
+        texts.get("products_label_title"),
+        |ui| {
+            ui.horizontal(|ui| {
+                for candidate in LabelFormat::all() {
+                    let variant = if candidate == format {
+                        ButtonVariant::Primary
+                    } else {
+                        ButtonVariant::Ghost
+                    };
+                    if button(ui, theme, focus, texts.get(candidate.label_key()), variant).activated
+                    {
+                        format = candidate;
+                    }
+                }
+            });
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(&label.category)
+                    .size(FONT_SMALL)
+                    .strong()
+                    .color(theme.palette.text_muted),
+            );
+            ui.label(RichText::new(&label.name).size(FONT_TITLE).strong());
+            ui.label(format!("SKU: {}", label.sku));
+            if let Some(asin) = &label.asin {
+                ui.label(RichText::new(format!("ASIN: {asin}")).size(FONT_SMALL));
+            }
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(texts.get("products_label_price"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.label(RichText::new(label.price_text()).size(FONT_TITLE).strong());
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(socdof_core::domain::label::SCAN_HINT)
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(RichText::new(&label.unit).size(FONT_SMALL));
+            });
+
+            if let Ok(code) = label.qr() {
+                let size = 120.0;
+                let (rect, _) =
+                    ui.allocate_exact_size(egui::Vec2::splat(size), egui::Sense::hover());
+                let module = size / code.size() as f32;
+                let painter = ui.painter();
+                painter.rect_filled(rect, 0.0, egui::Color32::WHITE);
+                for row in 0..code.size() {
+                    for column in 0..code.size() {
+                        if code.dark(row, column) {
+                            let min = egui::pos2(
+                                rect.left() + column as f32 * module,
+                                rect.top() + row as f32 * module,
+                            );
+                            painter.rect_filled(
+                                egui::Rect::from_min_size(min, egui::Vec2::splat(module)),
+                                0.0,
+                                egui::Color32::from_rgb(15, 23, 42),
+                            );
+                        }
+                    }
+                }
+            }
+
+            ui.add_space(10.0);
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("products_label_close"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                close = true;
+            }
+            close
+        },
+    );
+    state.label_format = format;
+    state.label_open = open && !close;
+}
+
+/// Reorder assistant: threshold, marketplace, search, quantities, the Amazon cart link and the
+/// generated draft order.
+fn reorder_modal(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ProductsState,
+    store: &Store,
+    now: i64,
+) {
+    if !state.reorder_open {
+        return;
+    }
+    let Some(mut plan) = state.reorder.take() else {
+        state.reorder_open = false;
+        return;
+    };
+    let products = state.products.clone();
+    let mut popup = state.reorder_popup;
+    let mut fixed_mode = state.reorder_fixed_mode;
+    let mut fixed = state.reorder_fixed.clone();
+    let mut note = state.reorder_note.clone();
+    let mut open = state.reorder_open;
+    let mut close = false;
+    let mut create_order = false;
+    let mut copy_list = false;
+
+    modal(
+        ctx,
+        theme,
+        &mut open,
+        texts.get("products_reorder_title"),
+        |ui| {
+            ui.label(
+                RichText::new(texts.get("products_reorder_subtitle"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.add_space(8.0);
+
+            ui.horizontal(|ui| {
+                let individual = if fixed_mode {
+                    ButtonVariant::Ghost
+                } else {
+                    ButtonVariant::Primary
+                };
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("products_reorder_threshold_individual"),
+                    individual,
+                )
+                .activated
+                    && fixed_mode
+                {
+                    fixed_mode = false;
+                    plan.set_threshold(Threshold::Individual, &products);
+                }
+                let fixed_variant = if fixed_mode {
+                    ButtonVariant::Primary
+                } else {
+                    ButtonVariant::Ghost
+                };
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("products_reorder_threshold_fixed"),
+                    fixed_variant,
+                )
+                .activated
+                    && !fixed_mode
+                {
+                    fixed_mode = true;
+                    let value = parse_count(&fixed).unwrap_or(reorder::FIXED_THRESHOLD);
+                    plan.set_threshold(Threshold::Fixed(value.max(1)), &products);
+                }
+            });
+            if fixed_mode {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut fixed,
+                    texts.get("products_reorder_threshold"),
+                    "5",
+                    None,
+                );
+                if let Some(value) = parse_count(&fixed) {
+                    let wanted = Threshold::Fixed(value.max(1));
+                    if plan.threshold != wanted {
+                        plan.set_threshold(wanted, &products);
+                    }
+                }
+            }
+
+            ui.add_space(6.0);
+            let domains = [
+                "amazon.de",
+                "amazon.com",
+                "amazon.co.uk",
+                "amazon.fr",
+                "amazon.es",
+                "amazon.it",
+            ];
+            let labels: Vec<&str> = domains.to_vec();
+            let mut selected = domains
+                .iter()
+                .position(|domain| *domain == plan.domain)
+                .unwrap_or(0);
+            if select(
+                ui,
+                theme,
+                focus,
+                &mut popup,
+                "socdof-reorder-domain",
+                &mut selected,
+                &labels,
+            ) {
+                plan.domain = domains[selected].to_string();
+            }
+            ui.add_space(6.0);
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut plan.query,
+                texts.get("products_reorder_search"),
+                160.0,
+            );
+            switch(
+                ui,
+                theme,
+                focus,
+                &mut plan.excluded_only,
+                texts.get("products_reorder_excluded_only"),
+            );
+
+            ui.add_space(8.0);
+            let stats = plan.stats();
+            ui.horizontal(|ui| {
+                badge(
+                    ui,
+                    theme,
+                    &format!(
+                        "{} {}",
+                        stats.low_stock_count,
+                        texts.get("products_reorder_kpi_low")
+                    ),
+                    Tone::Warning,
+                );
+                badge(
+                    ui,
+                    theme,
+                    &format!(
+                        "{} {}",
+                        stats.total_units,
+                        texts.get("products_reorder_kpi_units")
+                    ),
+                    Tone::Accent,
+                );
+                badge(
+                    ui,
+                    theme,
+                    &format!(
+                        "{} {}",
+                        stats.asin_ready_count,
+                        texts.get("products_reorder_kpi_asin")
+                    ),
+                    Tone::Success,
+                );
+                badge(
+                    ui,
+                    theme,
+                    &format!(
+                        "{} {}",
+                        stats.estimated_cost.format_localized("€"),
+                        texts.get("products_reorder_kpi_cost")
+                    ),
+                    Tone::Neutral,
+                );
+            });
+
+            ui.add_space(8.0);
+            if plan.lines.is_empty() {
+                empty_state(
+                    ui,
+                    theme,
+                    texts.get("products_reorder_empty"),
+                    texts.get("products_reorder_empty_hint"),
+                );
+            }
+            for index in plan.visible() {
+                let name = plan.lines[index].product.name.clone();
+                let sku = plan.lines[index].product.sku.clone();
+                let quantity = plan.lines[index].quantity;
+                let excluded = plan.lines[index].product.exclude_from_reorder;
+                let mut included = plan.lines[index].included;
+                let mut minus = false;
+                let mut plus = false;
+                let mut permanent = false;
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(&name).strong());
+                    ui.label(
+                        RichText::new(&sku)
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    if button(ui, theme, focus, "-", ButtonVariant::Ghost).activated {
+                        minus = true;
+                    }
+                    ui.label(RichText::new(quantity.to_string()).strong());
+                    if button(ui, theme, focus, "+", ButtonVariant::Ghost).activated {
+                        plus = true;
+                    }
+                    switch(
+                        ui,
+                        theme,
+                        focus,
+                        &mut included,
+                        texts.get("products_reorder_include"),
+                    );
+                    let variant = if excluded {
+                        ButtonVariant::Danger
+                    } else {
+                        ButtonVariant::Ghost
+                    };
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("products_reorder_exclude"),
+                        variant,
+                    )
+                    .activated
+                    {
+                        permanent = true;
+                    }
+                });
+                if minus {
+                    plan.adjust(index, -1);
+                }
+                if plus {
+                    plan.adjust(index, 1);
+                }
+                if included != plan.lines[index].included {
+                    plan.toggle(index);
+                }
+                if permanent {
+                    if let Some(product) = plan.set_permanent_exclusion(index, !excluded) {
+                        let _ = store.update_product(&product);
+                    }
+                }
+            }
+
+            ui.add_space(8.0);
+            let url = plan.cart_url();
+            if url.is_empty() {
+                ui.label(
+                    RichText::new(texts.get("products_reorder_cart_empty"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            } else {
+                ui.label(
+                    RichText::new(texts.get("products_reorder_cart"))
+                        .size(FONT_SMALL)
+                        .strong(),
+                );
+                ui.label(RichText::new(url).size(FONT_SMALL));
+            }
+            if let Some(message) = &note {
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(message.clone())
+                        .size(FONT_SMALL)
+                        .color(theme.palette.success),
+                );
+            }
+
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("products_reorder_copy"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    copy_list = true;
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("products_reorder_create_order"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    create_order = true;
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("products_reorder_close"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+                {
+                    close = true;
+                }
+            });
+            close
+        },
+    );
+
+    if copy_list {
+        let stamp = socdof_core::date::format_iso8601(now);
+        let date = if stamp.len() >= 10 {
+            format!("{}.{}.{}", &stamp[8..10], &stamp[5..7], &stamp[0..4])
+        } else {
+            stamp
+        };
+        let list = plan.replenishment_text("€", &date);
+        if !list.is_empty() {
+            ctx.output_mut(|output| output.copied_text = list);
+            note = Some(texts.get("products_reorder_copied").to_string());
+        }
+    }
+    if create_order {
+        let stamp = socdof_core::date::format_iso8601(now);
+        let year: i32 = stamp
+            .get(0..4)
+            .and_then(|year| year.parse().ok())
+            .unwrap_or(2026);
+        let number = reorder::order_number(year, 1000 + (now.rem_euclid(9000)) as u16);
+        let vendor = store.list_contacts().ok().and_then(|contacts| {
+            contacts.into_iter().find(|contact| {
+                matches!(
+                    contact.contact_type,
+                    ContactType::Vendor | ContactType::Both
+                )
+            })
+        });
+        note = match vendor {
+            None => Some(texts.get("products_reorder_no_vendor").to_string()),
+            Some(vendor) => match plan.draft_order(vendor.id, number.clone(), now, "€") {
+                None => Some(texts.get("products_reorder_empty").to_string()),
+                Some(order) => match store.insert_purchase_order(&order) {
+                    Ok(()) => Some(format!(
+                        "{} {}",
+                        texts.get("products_reorder_order_created"),
+                        number
+                    )),
+                    Err(_) => Some(texts.get("products_reorder_error").to_string()),
+                },
+            },
+        };
+    }
+
+    state.reorder_popup = popup;
+    state.reorder_fixed_mode = fixed_mode;
+    state.reorder_fixed = fixed;
+    state.reorder_note = note;
+    state.reorder = Some(plan);
+    state.reorder_open = open && !close;
 }
 
 fn list_view(
@@ -730,6 +1294,19 @@ fn detail_view(
             ),
             ("products_reorder", product.reorder_level.to_string()),
             ("products_target", product.target_stock.to_string()),
+            (
+                "products_barcode",
+                product.barcode.clone().unwrap_or_default(),
+            ),
+            ("products_asin", product.asin.clone().unwrap_or_default()),
+            (
+                "products_web_link",
+                product.web_link.clone().unwrap_or_default(),
+            ),
+            (
+                "products_source_domain",
+                product.source_domain.clone().unwrap_or_default(),
+            ),
         ] {
             ui.horizontal(|ui| {
                 ui.label(
@@ -787,6 +1364,8 @@ fn detail_view(
     ui.add_space(12.0);
     let mut edit = false;
     let mut delete = false;
+    let mut label = false;
+    let mut reorder = false;
     ui.horizontal(|ui| {
         if button(
             ui,
@@ -821,6 +1400,28 @@ fn detail_view(
         {
             state.view = ProductsView::List;
         }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("products_label_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            label = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("products_reorder_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            reorder = true;
+        }
     });
 
     if book_in {
@@ -838,6 +1439,12 @@ fn detail_view(
     }
     if delete {
         state.confirm_delete = true;
+    }
+    if label {
+        state.open_label();
+    }
+    if reorder {
+        state.open_reorder();
     }
 }
 
@@ -952,6 +1559,46 @@ fn form_view(
             &mut state.draft.target_stock,
             texts.get("products_target"),
             texts.get("products_target_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.barcode,
+            texts.get("products_barcode"),
+            texts.get("products_barcode_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.asin,
+            texts.get("products_asin"),
+            texts.get("products_asin_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.web_link,
+            texts.get("products_web_link"),
+            texts.get("products_web_link_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.source_domain,
+            texts.get("products_source_domain"),
+            texts.get("products_source_domain_hint"),
             None,
         );
         ui.add_space(6.0);
@@ -1177,6 +1824,59 @@ mod tests {
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("products_save")));
         assert!(painted.contains(texts.get("products_tax")));
+    }
+
+    #[test]
+    fn keeps_the_catalogue_links_through_the_draft() {
+        let mut product = Product::new("Kaffee", 0);
+        product.sku = "KAF-1".to_string();
+        product.price = Money::from_cents(1_299);
+        product.barcode = Some("1234567890123".to_string());
+        product.asin = Some("B08N5WRWNW".to_string());
+        product.web_link = Some("https://www.amazon.de/dp/B08N5WRWNW".to_string());
+        product.source_domain = Some("Amazon (DE)".to_string());
+
+        let mut draft = ProductDraft::from_product(&product);
+        assert_eq!(draft.asin, "B08N5WRWNW");
+        assert_eq!(draft.source_domain, "Amazon (DE)");
+        draft.asin = format!(" {} ", draft.asin);
+        let saved = draft.to_product(Some(&product), 5).expect("product");
+        assert_eq!(saved.asin.as_deref(), Some("B08N5WRWNW"));
+        assert_eq!(
+            saved.web_link.as_deref(),
+            Some("https://www.amazon.de/dp/B08N5WRWNW")
+        );
+        assert_eq!(saved.barcode.as_deref(), Some("1234567890123"));
+
+        let mut draft = ProductDraft::from_product(&product);
+        draft.asin = "  ".to_string();
+        draft.web_link.clear();
+        let saved = draft.to_product(Some(&product), 6).expect("product");
+        assert_eq!(saved.asin, None);
+        assert_eq!(saved.web_link, None);
+    }
+
+    #[test]
+    fn label_and_reorder_use_the_domain_logic() {
+        let (store, mut state, texts) = seeded();
+        let id = state.products[0].id;
+        state.select(id);
+        state.open_label();
+        assert!(state.label_open);
+        let label = state.label.clone().expect("label");
+        assert_eq!(label.sku, state.products[0].sku);
+        assert!(!label.payload.is_empty());
+        assert_eq!(state.label_format, LabelFormat::Standard);
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("products_label_title")));
+
+        state.label_open = false;
+        state.open_reorder();
+        assert!(state.reorder_open);
+        let plan = state.reorder.clone().expect("plan");
+        assert_eq!(plan.lines.len(), plan.stats().low_stock_count);
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("products_reorder_title")));
     }
 
     #[test]

@@ -46,7 +46,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 10;
+pub const SCHEMA_VERSION: i64 = 11;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -518,6 +518,14 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
 "#;
 
+const SCHEMA_V11: &str = r#"
+-- Product fields the legacy catalogue has always carried: the ASIN of the article, the supplier
+-- link and the shop it points to. The reorder assistant and the QR label read them.
+ALTER TABLE products ADD COLUMN asin TEXT;
+ALTER TABLE products ADD COLUMN web_link TEXT;
+ALTER TABLE products ADD COLUMN source_domain TEXT;
+"#;
+
 const SCHEMA_V9: &str = r#"
 -- The invoice triggers looked up their row through `invoice_id`, an UNINDEXED FTS column, so every
 -- insert scanned the whole index: a bulk import of 100k invoices cost minutes and grew quadratically.
@@ -686,6 +694,11 @@ impl Store {
         if version < 10 {
             self.conn.execute_batch(SCHEMA_V10)?;
             version = 10;
+        }
+
+        if version < 11 {
+            self.conn.execute_batch(SCHEMA_V11)?;
+            version = 11;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;

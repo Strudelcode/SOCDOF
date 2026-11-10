@@ -165,6 +165,8 @@ pub struct ContactsState {
     pub type_popup: PopupState,
     /// Whether the country suggestion list is open.
     pub country_open: bool,
+    /// Highlighted row of the country suggestion list.
+    pub country_active: usize,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
     /// Catalogue key of the validation or storage error.
@@ -220,6 +222,7 @@ impl ContactsState {
         self.draft = ContactDraft::default();
         self.draft.country = DEFAULT_COUNTRY.to_string();
         self.country_open = false;
+        self.country_active = 0;
         self.error = None;
         self.status = None;
         self.view = ContactsView::Form;
@@ -232,6 +235,7 @@ impl ContactsState {
         };
         self.draft = ContactDraft::from_contact(contact);
         self.country_open = false;
+        self.country_active = 0;
         self.error = None;
         self.status = None;
         self.view = ContactsView::Form;
@@ -240,6 +244,7 @@ impl ContactsState {
     /// Leaves the form without writing.
     pub fn cancel_edit(&mut self) {
         self.country_open = false;
+        self.country_active = 0;
         self.error = None;
         self.view = if self.selected.is_some() {
             ContactsView::Detail
@@ -271,6 +276,7 @@ impl ContactsState {
         self.selected = Some(contact.id);
         self.view = ContactsView::Detail;
         self.country_open = false;
+        self.country_active = 0;
         self.error = None;
         self.status = Some("contacts_saved");
         self.reload = true;
@@ -412,6 +418,7 @@ pub fn contacts(
         match state.view {
             ContactsView::List => state.back = true,
             ContactsView::Detail => state.view = ContactsView::List,
+            ContactsView::Form if state.country_open => state.country_open = false,
             ContactsView::Form => state.cancel_edit(),
         }
     }
@@ -783,6 +790,38 @@ fn apply_country_suggestion(
     state.country_open = false;
 }
 
+/// Keyboard control of the open country list, like the legacy modal: the arrows move the
+/// highlight and Enter takes it. Escape is handled by the screen, which closes the list first.
+fn country_keys(ctx: &egui::Context, state: &mut ContactsState, texts: &UiTexts) {
+    let language = texts.language();
+    let matches = search_countries(&state.draft.country, language);
+    if matches.is_empty() {
+        return;
+    }
+
+    let (down, up, enter) = ctx.input(|input| {
+        (
+            input.key_pressed(egui::Key::ArrowDown),
+            input.key_pressed(egui::Key::ArrowUp),
+            input.key_pressed(egui::Key::Enter),
+        )
+    });
+    if down {
+        state.country_active = (state.country_active + 1) % matches.len();
+    }
+    if up {
+        state.country_active = if state.country_active == 0 {
+            matches.len() - 1
+        } else {
+            state.country_active - 1
+        };
+    }
+    if enter {
+        let index = state.country_active.min(matches.len() - 1);
+        apply_country_suggestion(state, matches[index], language);
+    }
+}
+
 /// Suggestion list under the country field: flag, localized name, prefix hits first.
 fn country_suggestions(
     ui: &mut egui::Ui,
@@ -804,14 +843,15 @@ fn country_suggestions(
                 .strong()
                 .color(theme.palette.text_muted),
         );
+        let active = state.country_active.min(matches.len() - 1);
         let mut chosen = None;
-        for country in matches {
+        for (index, country) in matches.iter().enumerate() {
             let label = format!("{} {}", country.flag, country.localized_name(language));
             if ui
-                .selectable_label(false, RichText::new(label).size(FONT_SMALL))
+                .selectable_label(index == active, RichText::new(label).size(FONT_SMALL))
                 .clicked()
             {
-                chosen = Some(country);
+                chosen = Some(*country);
             }
         }
         if let Some(country) = chosen {
@@ -926,6 +966,10 @@ fn form_view(
         );
         if country.response.changed() || country.response.clicked() {
             state.country_open = true;
+            state.country_active = 0;
+        }
+        if state.country_open {
+            country_keys(ui.ctx(), state, texts);
         }
         if state.country_open {
             country_suggestions(ui, theme, texts, state);
@@ -1261,6 +1305,75 @@ mod tests {
         state.draft.country = "   ".to_string();
         let saved = state.draft.to_contact(None, 2);
         assert_eq!(saved.country, None);
+    }
+
+    fn press_key(state: &mut ContactsState, store: &Store, key: egui::Key) {
+        let text = UiTexts::embedded(Language::De).expect("catalogue");
+        let theme = Theme::new(Appearance::Light, "indigo");
+        let mut focus = FocusState::default();
+        let ctx = crate::theme::headless_context();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(900.0, 1600.0),
+            )),
+            events: vec![egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::default(),
+            }],
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| {
+            contacts(ctx, &theme, &text, &mut focus, state, store, SAMPLE_NOW_MS);
+        });
+    }
+
+    #[test]
+    fn country_list_follows_the_keyboard() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = ContactsState::new();
+        state.start_new();
+        state.draft.country = "sch".to_string();
+        state.country_open = true;
+
+        let matches = search_countries("sch", Language::De);
+        assert!(
+            matches.len() > 1,
+            "the test query matches several countries"
+        );
+
+        press_key(&mut state, &store, egui::Key::ArrowDown);
+        assert_eq!(state.country_active, 1);
+        assert!(state.country_open, "moving does not close the list");
+
+        press_key(&mut state, &store, egui::Key::Enter);
+        assert_eq!(
+            state.draft.country,
+            matches[1].localized_name(Language::De),
+            "Enter takes the highlighted row"
+        );
+        assert!(!state.country_open);
+
+        // Escape closes the list without touching the value.
+        state.draft.country = "sch".to_string();
+        state.country_open = true;
+        state.country_active = 0;
+        press_key(&mut state, &store, egui::Key::Escape);
+        assert!(!state.country_open);
+        assert_eq!(state.draft.country, "sch");
+        assert_eq!(state.view, ContactsView::Form);
+
+        // The arrow up from the first row wraps to the last one.
+        state.country_open = true;
+        state.country_active = 0;
+        press_key(&mut state, &store, egui::Key::ArrowUp);
+        assert_eq!(
+            state.country_active,
+            search_countries("sch", Language::De).len() - 1
+        );
     }
 
     #[test]

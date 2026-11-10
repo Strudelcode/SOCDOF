@@ -148,6 +148,15 @@ pub struct ProductInput {
     /// Barcode / EAN.
     #[serde(default)]
     pub barcode: String,
+    /// Amazon ASIN.
+    #[serde(default)]
+    pub asin: String,
+    /// Supplier or shop link.
+    #[serde(default)]
+    pub web_link: String,
+    /// Shop the link points to.
+    #[serde(default)]
+    pub source_domain: String,
     /// Description.
     #[serde(default)]
     pub description: String,
@@ -373,6 +382,9 @@ fn build_product(input: &ProductInput, existing: Option<&Product>) -> CoreResult
     product.reorder_level = input.reorder_level;
     product.target_stock = input.target_stock;
     product.barcode = non_empty(&input.barcode);
+    product.asin = non_empty(&input.asin);
+    product.web_link = non_empty(&input.web_link);
+    product.source_domain = non_empty(&input.source_domain);
     product.description = non_empty(&input.description);
     product.image_emoji = non_empty(&input.image_emoji);
     product.exclude_from_reorder = input.exclude_from_reorder;

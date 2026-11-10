@@ -32,6 +32,12 @@ pub struct Product {
     pub target_stock: i64,
     /// Barcode / EAN.
     pub barcode: Option<String>,
+    /// Amazon ASIN of the article.
+    pub asin: Option<String>,
+    /// Supplier or shop link of the article.
+    pub web_link: Option<String>,
+    /// Shop the link points to (`source_domain` in the legacy catalogue).
+    pub source_domain: Option<String>,
     /// Free-form description.
     pub description: Option<String>,
     /// Emoji used as the legacy catalog preview.
@@ -67,6 +73,9 @@ impl Product {
             reorder_level: 0,
             target_stock: 0,
             barcode: None,
+            asin: None,
+            web_link: None,
+            source_domain: None,
             description: None,
             image_emoji: None,
             active: true,

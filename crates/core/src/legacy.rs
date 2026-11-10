@@ -322,6 +322,9 @@ fn parse_products(values: &[Value], now: i64) -> CoreResult<Vec<Product>> {
         product.reorder_level = integer(object.get("min_qty")).unwrap_or(0);
         product.target_stock = integer(object.get("target_stock")).unwrap_or(0);
         product.barcode = text(object.get("barcode"));
+        product.asin = text(object.get("asin"));
+        product.web_link = text(object.get("web_link"));
+        product.source_domain = text(object.get("source_domain"));
         product.description = text(object.get("description"));
         product.image_emoji = text(object.get("image_emoji"));
         product.active = object
@@ -491,6 +494,13 @@ fn export_products(products: &[Product]) -> Vec<Value> {
             object.insert("target_stock".to_string(), json!(product.target_stock));
         }
         set_optional(&mut object, "barcode", product.barcode.as_deref());
+        set_optional(&mut object, "asin", product.asin.as_deref());
+        set_optional(&mut object, "web_link", product.web_link.as_deref());
+        set_optional(
+            &mut object,
+            "source_domain",
+            product.source_domain.as_deref(),
+        );
         set_optional(&mut object, "description", product.description.as_deref());
         set_optional(&mut object, "image_emoji", product.image_emoji.as_deref());
         if object.contains_key("exclude_from_reorder")

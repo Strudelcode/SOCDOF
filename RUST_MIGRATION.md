@@ -562,7 +562,7 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
       the localized name written on selection; new contacts start with "Deutschland". Tests:
       `cargo test -p socdof-core --lib domain::countries` (8 tests) plus the contacts tests, which
       pin the default country, the localized selection and the free-text round-trip
-- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion and four languages; labels and smart reorder remain
+- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion, four languages, the legacy barcode/ASIN/web-link/source-domain fields (schema v11, store, import/export, both frontends), the QR label preview with three formats (`domain::label`) and the smart reorder hub with threshold modes, request list, Amazon cart link, clipboard list and draft purchase order (`domain::reorder`)
 - [x] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; DIN 5008 print, templates, dunning, email draft and payment modal remain
 - [x] Accounting — journal with create/edit/delete, cash book with running balance, BWA per account, CSV export and four languages; account plans, DATEV export and print remain
 - [x] Purchases — list with core search and supplier filter, open-order summary, detail with positions/totals, create/edit/delete, status changes, goods receipt with stock bookings and four languages; partial receipts in the UI, order PDF/email and supplier master data inside the module remain
@@ -1219,6 +1219,25 @@ the answer is then recorded on the line and, where it changes behaviour, impleme
   `ContactDraft.country`, and the Tauri frontend renders the list from the new `search_countries`
   command. Because the same form was still missing the legacy street/postal-code/tax-id/notes
   inputs, those are part of this pass as well, which closes the contact checklist line.
+
+- 2026-11-10 (twelfth pass) — product labels and the smart reorder hub, plus the keyboard half of the
+  country line. `ProductLabelModal.tsx` renders three formats (standard 320 px, shelf 340 px, compact
+  260 px wide) with name, SKU, `de-DE` price, category fallback "SOCDOF ERP", unit fallback "Stück",
+  the note "SOCDOF-SCAN" and the payload `{"name","sku","price","asin","currency"}` encoded as a QR
+  symbol with error correction M; `domain::label` keeps all of that (6 tests: payload order, price
+  format, fallbacks, ASIN from the web link, matrix) and the preview paints the same payload through
+  the in-house encoder (`crates/core/src/barcode/qr.rs`). `SmartReorderModal.tsx` and
+  `lib/productLinkExtractor.ts` take candidates from `stock <= (min_qty ?? 5)` or a fixed threshold
+  (default 5), order `max(1, target - stock)` with `target = target_stock || min_qty * 2 || 10`,
+  include every article unless `exclude_from_reorder`, search name/SKU/ASIN/source domain, report low
+  stock/units/cost/ASIN readiness, build `https://www.<domain>/gp/aws/cart/add.html?ASIN.n=…` and
+  derive a draft purchase order with 19 % tax, delivery in three days, number `PO/<year>/<1000..9999>`
+  and the note "Automatisch generiert über den SOCDOF Smart Reorder Hub für N knappe Artikel.";
+  `domain::reorder` mirrors it (10 tests) and both dialogs are egui modals. Products gained the legacy
+  `asin`, `web_link` and `source_domain` columns through schema v11 (`ALTER TABLE`), the store, the
+  import/export and both frontends. The egui country list is now keyboard driven like the modal:
+  ArrowDown/ArrowUp move the highlighted row with wrapping, Enter writes the localized name and Escape
+  closes the list before it can close the form (`country_list_follows_the_keyboard`).
 
 - 2026-11-10 (tenth pass) — contact persons ("sub-contacts") of a company. The TypeScript app keeps
   them as `contact_persons` on the contact (`types.ts`), edits them in `ContactEditModal.tsx` and
