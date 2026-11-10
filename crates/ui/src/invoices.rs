@@ -19,7 +19,8 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, table_cell, table_columns,
+    ButtonVariant, Tone, TABLE_ROW_HEIGHT,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
@@ -324,6 +325,8 @@ pub struct InvoicesState {
     pub invoices: Vec<Invoice>,
     /// Customers selectable in the form.
     pub contacts: Vec<Contact>,
+    /// Customer labels by contact id, rebuilt on every refresh so the list needs no scan.
+    pub contact_labels: std::collections::HashMap<Uuid, String>,
     /// Selected invoice, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -350,6 +353,7 @@ impl Default for InvoicesState {
             query: String::new(),
             invoices: Vec::new(),
             contacts: Vec::new(),
+            contact_labels: std::collections::HashMap::new(),
             selected: None,
             view: InvoicesView::List,
             draft: InvoiceDraft::default(),
@@ -382,6 +386,11 @@ impl InvoicesState {
             store.search_invoices(&self.query)?
         };
         self.contacts = store.list_contacts()?;
+        self.contact_labels = self
+            .contacts
+            .iter()
+            .map(|contact| (contact.id, contact_label(contact)))
+            .collect();
         self.loaded_query = self.query.clone();
         self.reload = false;
         Ok(())
@@ -805,39 +814,69 @@ fn list_view(
 
     let mut chosen = None;
     card(ui, theme, |ui| {
-        egui::Grid::new("socdof-invoices-table")
-            .num_columns(5)
-            .spacing(egui::vec2(16.0, 8.0))
-            .show(ui, |ui| {
-                for key in [
-                    "invoices_col_number",
-                    "invoices_col_contact",
-                    "invoices_col_date",
-                    "invoices_col_total",
-                    "invoices_col_status",
-                ] {
+        let gap = 16.0;
+        let widths = table_columns(ui.available_width(), &[0.18, 0.28, 0.16, 0.20, 0.18], gap);
+        ui.spacing_mut().item_spacing.x = gap;
+        ui.horizontal(|ui| {
+            for (key, width) in [
+                "invoices_col_number",
+                "invoices_col_contact",
+                "invoices_col_date",
+                "invoices_col_total",
+                "invoices_col_status",
+            ]
+            .into_iter()
+            .zip(&widths)
+            {
+                table_cell(ui, *width, |ui| {
                     ui.label(
                         RichText::new(texts.get(key))
                             .size(FONT_SMALL)
                             .strong()
                             .color(theme.palette.text_muted),
                     );
-                }
-                ui.end_row();
-                for invoice in &state.invoices {
-                    if button(ui, theme, focus, &invoice.number, ButtonVariant::Ghost).activated {
-                        chosen = Some(invoice.id);
-                    }
-                    ui.label(contact_name(&state.contacts, invoice.contact_id));
-                    ui.label(format_date(invoice.issued_at));
-                    ui.label(money(&invoice.currency_symbol, invoice.total_gross()));
-                    badge(
-                        ui,
-                        theme,
-                        texts.get(status_key(invoice.status)),
-                        status_tone(invoice.status),
-                    );
-                    ui.end_row();
+                });
+            }
+        });
+
+        // Virtualised like the contact list: 100k invoices must not be laid out per frame.
+        egui::ScrollArea::vertical()
+            .id_source("socdof-invoices-rows")
+            .max_height(ui.available_height().clamp(TABLE_ROW_HEIGHT, 720.0))
+            .show_rows(ui, TABLE_ROW_HEIGHT, state.invoices.len(), |ui, range| {
+                ui.spacing_mut().item_spacing.x = gap;
+                for invoice in &state.invoices[range] {
+                    let customer = state
+                        .contact_labels
+                        .get(&invoice.contact_id)
+                        .cloned()
+                        .unwrap_or_default();
+                    ui.horizontal(|ui| {
+                        table_cell(ui, widths[0], |ui| {
+                            if button(ui, theme, focus, &invoice.number, ButtonVariant::Ghost)
+                                .activated
+                            {
+                                chosen = Some(invoice.id);
+                            }
+                        });
+                        table_cell(ui, widths[1], |ui| {
+                            ui.label(customer);
+                        });
+                        table_cell(ui, widths[2], |ui| {
+                            ui.label(format_date(invoice.issued_at));
+                        });
+                        table_cell(ui, widths[3], |ui| {
+                            ui.label(money(&invoice.currency_symbol, invoice.total_gross()));
+                        });
+                        table_cell(ui, widths[4], |ui| {
+                            badge(
+                                ui,
+                                theme,
+                                texts.get(status_key(invoice.status)),
+                                status_tone(invoice.status),
+                            );
+                        });
+                    });
                 }
             });
     });

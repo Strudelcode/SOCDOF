@@ -15,7 +15,8 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, table_cell, table_columns,
+    ButtonVariant, Tone, TABLE_ROW_HEIGHT,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
@@ -521,33 +522,62 @@ fn list_view(
 
     let mut chosen = None;
     card(ui, theme, |ui| {
-        egui::Grid::new("socdof-contacts-table")
-            .num_columns(4)
-            .spacing(egui::vec2(16.0, 8.0))
-            .show(ui, |ui| {
-                for key in [
-                    "contacts_col_name",
-                    "contacts_col_company",
-                    "contacts_col_email",
-                    "contacts_col_city",
-                ] {
+        let gap = 16.0;
+        let widths = table_columns(ui.available_width(), &[0.32, 0.26, 0.26, 0.16], gap);
+        ui.spacing_mut().item_spacing.x = gap;
+        ui.horizontal(|ui| {
+            for (key, width) in [
+                "contacts_col_name",
+                "contacts_col_company",
+                "contacts_col_email",
+                "contacts_col_city",
+            ]
+            .into_iter()
+            .zip(&widths)
+            {
+                table_cell(ui, *width, |ui| {
                     ui.label(
                         RichText::new(texts.get(key))
                             .size(FONT_SMALL)
                             .strong()
                             .color(theme.palette.text_muted),
                     );
-                }
-                ui.end_row();
-                for contact in &state.contacts {
-                    let name = contact.display_name();
-                    if button(ui, theme, focus, &name, ButtonVariant::Ghost).activated {
-                        chosen = Some(contact.id);
-                    }
-                    ui.label(contact.company_name.as_deref().unwrap_or(""));
-                    ui.label(contact.email.as_deref().unwrap_or(""));
-                    ui.label(contact.city.as_deref().unwrap_or(""));
-                    ui.end_row();
+                });
+            }
+        });
+
+        // Only the rows inside the viewport are laid out; a full grid of 50k contacts would cost
+        // a frame per scroll step.
+        egui::ScrollArea::vertical()
+            .id_source("socdof-contacts-rows")
+            .max_height(ui.available_height().clamp(TABLE_ROW_HEIGHT, 720.0))
+            .show_rows(ui, TABLE_ROW_HEIGHT, state.contacts.len(), |ui, range| {
+                ui.spacing_mut().item_spacing.x = gap;
+                for contact in &state.contacts[range] {
+                    ui.horizontal(|ui| {
+                        table_cell(ui, widths[0], |ui| {
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                &contact.display_name(),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
+                                chosen = Some(contact.id);
+                            }
+                        });
+                        table_cell(ui, widths[1], |ui| {
+                            ui.label(contact.company_name.as_deref().unwrap_or(""));
+                        });
+                        table_cell(ui, widths[2], |ui| {
+                            ui.label(contact.email.as_deref().unwrap_or(""));
+                        });
+                        table_cell(ui, widths[3], |ui| {
+                            ui.label(contact.city.as_deref().unwrap_or(""));
+                        });
+                    });
                 }
             });
     });

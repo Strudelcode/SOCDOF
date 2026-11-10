@@ -13,8 +13,6 @@ const COLUMNS: &str = "id, number, contact_id, status, issued_at, due_at, curren
 
 /// Inserts an invoice and all of its positions atomically.
 pub fn insert(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
-    invoice.validate().map_err(CoreError::Validation)?;
-
     let transaction = conn.unchecked_transaction()?;
     insert_rows(&transaction, invoice)?;
     transaction.commit()?;
@@ -41,7 +39,10 @@ pub fn insert_with_stock(
     Ok(())
 }
 
-fn insert_rows(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
+/// Writes the invoice and its positions without opening a transaction of its own.
+pub(crate) fn insert_rows(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
+    invoice.validate().map_err(CoreError::Validation)?;
+
     conn.execute(
         "INSERT INTO invoices (id, number, contact_id, status, issued_at, due_at, currency_symbol, note)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",

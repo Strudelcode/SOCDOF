@@ -236,6 +236,29 @@ pub fn card<R>(
     response
 }
 
+/// Height of one row of a virtualised table, including its padding.
+pub const TABLE_ROW_HEIGHT: f32 = 36.0;
+
+/// Splits `total` into the given fractions, keeping `gap` pixels between the columns.
+pub fn table_columns(total: f32, fractions: &[f32], gap: f32) -> Vec<f32> {
+    let gaps = gap * fractions.len().saturating_sub(1) as f32;
+    let usable = (total - gaps).max(0.0);
+    fractions
+        .iter()
+        .map(|fraction| (usable * fraction).max(48.0))
+        .collect()
+}
+
+/// Lays out one fixed-size cell of a virtualised table row.
+pub fn table_cell<R>(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+    // A plain `allocate_ui_with_layout` shrinks to the content, which would let every row find its
+    // own column positions. The explicit rect keeps header and rows on the same grid.
+    let (rect, _) =
+        ui.allocate_exact_size(egui::vec2(width, TABLE_ROW_HEIGHT), egui::Sense::hover());
+    let mut cell = ui.child_ui(rect, egui::Layout::left_to_right(egui::Align::Center));
+    add(&mut cell)
+}
+
 /// Draws a compact status badge.
 pub fn badge(ui: &mut Ui, theme: &Theme, label: &str, tone: Tone) -> Response {
     let color = tone.color(theme);

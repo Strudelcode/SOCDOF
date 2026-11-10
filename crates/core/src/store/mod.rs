@@ -46,7 +46,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 9;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -498,6 +498,95 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
 "#;
 
+const SCHEMA_V9: &str = r#"
+-- The invoice triggers looked up their row through `invoice_id`, an UNINDEXED FTS column, so every
+-- insert scanned the whole index: a bulk import of 100k invoices cost minutes and grew quadratically.
+-- The map turns each lookup into a primary key hit against the FTS rowid.
+CREATE TABLE IF NOT EXISTS invoices_fts_rows (
+    invoice_id TEXT PRIMARY KEY,
+    fts_rowid  INTEGER NOT NULL
+);
+
+DROP TRIGGER IF EXISTS invoices_fts_ai;
+DROP TRIGGER IF EXISTS invoices_fts_au;
+DROP TRIGGER IF EXISTS invoices_fts_ad;
+DROP TRIGGER IF EXISTS invoices_fts_lines_ai;
+DROP TRIGGER IF EXISTS invoices_fts_lines_au;
+DROP TRIGGER IF EXISTS invoices_fts_lines_ad;
+
+CREATE TRIGGER invoices_fts_ai AFTER INSERT ON invoices BEGIN
+    INSERT INTO invoices_fts(invoice_id, body)
+    VALUES (new.id, coalesce(new.number, '') || ' ' || coalesce(new.note, ''));
+    INSERT OR REPLACE INTO invoices_fts_rows(invoice_id, fts_rowid)
+    VALUES (new.id, last_insert_rowid());
+END;
+
+CREATE TRIGGER invoices_fts_au AFTER UPDATE ON invoices BEGIN
+    DELETE FROM invoices_fts
+     WHERE rowid = (SELECT fts_rowid FROM invoices_fts_rows WHERE invoice_id = old.id);
+    INSERT INTO invoices_fts(invoice_id, body)
+    VALUES (new.id, coalesce(new.number, '') || ' ' || coalesce(new.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = new.id), ''));
+    INSERT OR REPLACE INTO invoices_fts_rows(invoice_id, fts_rowid)
+    VALUES (new.id, last_insert_rowid());
+    DELETE FROM invoices_fts_rows WHERE invoice_id = old.id;
+END;
+
+CREATE TRIGGER invoices_fts_ad AFTER DELETE ON invoices BEGIN
+    DELETE FROM invoices_fts
+     WHERE rowid = (SELECT fts_rowid FROM invoices_fts_rows WHERE invoice_id = old.id);
+    DELETE FROM invoices_fts_rows WHERE invoice_id = old.id;
+END;
+
+CREATE TRIGGER invoices_fts_lines_ai AFTER INSERT ON invoice_lines BEGIN
+    DELETE FROM invoices_fts
+     WHERE rowid = (SELECT fts_rowid FROM invoices_fts_rows WHERE invoice_id = new.invoice_id);
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = new.invoice_id;
+    INSERT OR REPLACE INTO invoices_fts_rows(invoice_id, fts_rowid)
+    VALUES (new.invoice_id, last_insert_rowid());
+END;
+
+CREATE TRIGGER invoices_fts_lines_au AFTER UPDATE ON invoice_lines BEGIN
+    DELETE FROM invoices_fts
+     WHERE rowid = (SELECT fts_rowid FROM invoices_fts_rows WHERE invoice_id = old.invoice_id);
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = old.invoice_id;
+    INSERT OR REPLACE INTO invoices_fts_rows(invoice_id, fts_rowid)
+    VALUES (old.invoice_id, last_insert_rowid());
+END;
+
+CREATE TRIGGER invoices_fts_lines_ad AFTER DELETE ON invoice_lines BEGIN
+    DELETE FROM invoices_fts
+     WHERE rowid = (SELECT fts_rowid FROM invoices_fts_rows WHERE invoice_id = old.invoice_id);
+    INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i WHERE i.id = old.invoice_id;
+    INSERT OR REPLACE INTO invoices_fts_rows(invoice_id, fts_rowid)
+    VALUES (old.invoice_id, last_insert_rowid());
+END;
+
+-- Rebuild once so the map and the index start out consistent, including rows written before v9.
+DELETE FROM invoices_fts;
+DELETE FROM invoices_fts_rows;
+INSERT INTO invoices_fts(invoice_id, body)
+    SELECT i.id, coalesce(i.number, '') || ' ' || coalesce(i.note, '') || ' ' ||
+        coalesce((SELECT group_concat(l.description, ' ') FROM invoice_lines l
+                  WHERE l.invoice_id = i.id), '')
+    FROM invoices i;
+INSERT INTO invoices_fts_rows(invoice_id, fts_rowid)
+    SELECT invoice_id, rowid FROM invoices_fts WHERE invoice_id IS NOT NULL;
+"#;
+
 /// A connection to the SOCDOF database.
 pub struct Store {
     conn: Connection,
@@ -569,6 +658,11 @@ impl Store {
             version = 8;
         }
 
+        if version < 9 {
+            self.conn.execute_batch(SCHEMA_V9)?;
+            version = 9;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -631,6 +725,16 @@ impl Store {
     /// Inserts a contact.
     pub fn insert_contact(&self, contact: &Contact) -> CoreResult<()> {
         contacts::insert(&self.conn, contact)
+    }
+
+    /// Inserts many contacts in one transaction.
+    pub fn insert_contacts(&self, contacts_to_insert: &[Contact]) -> CoreResult<()> {
+        let transaction = self.conn.unchecked_transaction()?;
+        for contact in contacts_to_insert {
+            contacts::insert(&transaction, contact)?;
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Lists all contacts ordered by display name.
@@ -706,6 +810,16 @@ impl Store {
     /// Inserts an invoice together with its positions inside one transaction.
     pub fn insert_invoice(&self, invoice: &Invoice) -> CoreResult<()> {
         invoices::insert(&self.conn, invoice)
+    }
+
+    /// Inserts many invoices in one transaction.
+    pub fn insert_invoices(&self, invoices_to_insert: &[Invoice]) -> CoreResult<()> {
+        let transaction = self.conn.unchecked_transaction()?;
+        for invoice in invoices_to_insert {
+            invoices::insert_rows(&transaction, invoice)?;
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Lists all invoices including their positions.

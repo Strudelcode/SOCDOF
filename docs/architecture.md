@@ -375,7 +375,7 @@ millimetres converted to points; the writer never depends on a system font.
 them in order based on `PRAGMA user_version`. The current version is 8. To change the schema:
 
 1. Add `SCHEMA_V9` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
-2. Raise `SCHEMA_VERSION` to 9.
+2. Raise `SCHEMA_VERSION` and add the matching `SCHEMA_V<n>` block.
 3. Add `if version < 9 { ... }` to `Store::migrate`.
 4. Add a test that opens a fresh database and asserts the new version and behaviour.
 
