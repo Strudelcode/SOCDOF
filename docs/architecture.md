@@ -334,6 +334,11 @@ single start path:
 2. `Store::open` — migrations happen here; a failure releases the lock again.
 3. Ready — `status()` reports database, schema version, row counts and the lock owner.
 
+`window_state.rs` keeps `window_state.json` next to the database: geometry in physical pixels plus
+the maximized/fullscreen flags, written atomically and clamped to the minimum window size and onto
+the current monitor. The Tauri layer restores it in `setup` before the window is shown and writes it
+on `CloseRequested`; the module has no windowing dependency, so the restore rules are unit-tested.
+
 `DesktopState` (`crates/app/src/desktop.rs`) owns one `Shell` behind a mutex. It exposes the exact
 methods the window commands call, which keeps the command path testable without GTK/WebKit:
 

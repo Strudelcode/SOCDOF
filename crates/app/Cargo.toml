@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 socdof-core = { path = "../core" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

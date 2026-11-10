@@ -509,6 +509,56 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Window state round trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-window"
+          export GDK_BACKEND=x11
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export NO_AT_BRIDGE=1
+          app_bin="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+          for run in 1 2; do
+            if ! SOCDOF_SMOKE_REPORT="$PWD/artifacts/window-report-$run.json" \
+              timeout 120s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+                "$app_bin" > "artifacts/window-$run.log" 2>&1; then
+              echo "window state run $run failed"
+              cat "artifacts/window-$run.log"
+              exit 1
+            fi
+          done
+          state_file=$(find "$XDG_DATA_HOME" -name window_state.json -print -quit)
+          test -n "$state_file"
+          test -s "$state_file"
+          python3 - "$state_file" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          state = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert state["schema_version"] == 1, state
+          main = state["main"]
+          for key in ("x", "y", "width", "height", "maximized", "fullscreen"):
+              assert key in main, f"missing {key} in {main}"
+          assert main["width"] >= 760 and main["height"] >= 560, main
+          first = pathlib.Path("artifacts/window-1.log").read_text(errors="replace")
+          second = pathlib.Path("artifacts/window-2.log").read_text(errors="replace")
+          assert "SOCDOF_WINDOW state_restored" in first, "first run wrote no restore marker"
+          assert "source=default" in first, "first run must start from the default geometry"
+          assert "source=file" in second, "second run must restore the stored file"
+          print("window state OK:", main)
+          PY
+          {
+            echo '### Window state round trip'
+            echo '```text'
+            grep 'SOCDOF_WINDOW' artifacts/window-1.log artifacts/window-2.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -517,6 +567,8 @@ jobs:
           path: |
             artifacts/smoke.log
             artifacts/smoke-report.json
+            artifacts/window-*.log
+            artifacts/window-report-*.json
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

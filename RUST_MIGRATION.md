@@ -9,7 +9,8 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
-| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, plus the Phase 9 budgets. Open: the Tauri window features and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
+| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, plus the Phase 9 budgets. Open: the remaining Tauri window features (splash, tray, dialogs, shortcuts), the installer and
+idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -214,7 +215,15 @@ because `sudo -n true` answers `sudo: The "no new privileges" flag is set, which
 running as root.` and `command -v Xvfb` prints nothing. Method: the CI `desktop` and `gui-smoke`
 jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on each line.
 
-- [ ] Window state persistence (size, position, maximized, fullscreen) — method: two starts in `gui-smoke`, then assert the persisted state file (size, position, flags) matches the first window and is restored on the second
+- [x] Window state persistence (size, position, maximized, fullscreen): `crates/app/src/window_state.rs`
+      stores `window_state.json` next to the database (schema 1, written through a temporary file and
+      renamed), clamps to the minimum size from `tauri.conf.json` and pulls a window that was saved on
+      a vanished monitor back onto the current one; `crates/app/src-tauri/src/lib.rs` restores it in
+      `setup` and writes it on `CloseRequested`. Tests: round trip after a restart, missing/broken/
+      foreign-schema file, minimum clamp, off-screen pull-back, no temporary file left
+      (`cargo test -p socdof-app --lib window_state::`). The real window round trip is the gui-smoke
+      step **Window state round trip**: two starts under Xvfb, the first reports `source=default`, the
+      second `source=file`; that step needs GTK/WebKit and runs in CI only
 - [ ] Splash window with real progress + "ready" handshake — method: `gui-smoke` reads `artifacts/smoke.log` for the splash progress line before `SOCDOF shell ready` and asserts the handshake fires once
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
 - [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
