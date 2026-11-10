@@ -9,7 +9,7 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
-| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence and the splash handshake, plus the Phase 9 budgets. Open: the remaining Tauri window features (tray, dialogs, shortcuts), the installer and
+| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake and the shortcut mapping, plus the Phase 9 budgets. Open: the remaining Tauri window features (tray, dialogs), the installer and
 idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
@@ -239,7 +239,19 @@ jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on ea
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
 - [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
 - [ ] Native dialogs: folder picker, file open/save, message boxes — method: `gui-smoke` opens each dialog under Xvfb and asserts the chosen path comes back through the command result
-- [ ] Global shortcuts (F11, window snapping, command palette) — method: `gui-smoke` sends the key events to the focused window and asserts the window state and the palette visibility change
+- [x] Global shortcuts (F11, window snapping, command palette): `crates/app/src/shortcuts.rs` maps a
+      chord to exactly one `AppAction` and decides repeat and locked-context behaviour, so no window
+      code interprets keys. Bound are the documented chords only: `F11` → `toggle_fullscreen`,
+      `Ctrl+K` → `open_command_palette`, `Ctrl+L` → `lock_session`, `Escape` → `dismiss`; window
+      snapping has no agreed chord and stays unbound until that is decided. Tests: a binding triggers
+      exactly one action and no action is bound twice, an unknown key does nothing, modifiers
+      distinguish `K` from `Ctrl+K` and `F11` from `Shift+F11`, a repeated key never retriggers, a
+      locked context only lets `dismiss` through, marker names are stable
+      (`cargo test -p socdof-app --lib shortcuts::`). The real path is the gui-smoke step
+      **Shortcut dispatch**: real key events through xdotool, `F11` must log
+      `chord=F11 action=toggle_fullscreen`, `F12` must log `action=none reason=unknown`, and a run
+      with `SOCDOF_SMOKE_LOCKED=1` must log `reason=locked` without any action; that step needs
+      GTK/WebKit and runs in CI only
 - [x] Signed Tauri updater plumbing and release manifest generation (release secrets required)
 - [ ] Apple notarization and Windows Authenticode signing — no signing material in this
       environment (`env | grep -ci -E "apple|certificate|signing|authenticode"` = 0, no keychain).

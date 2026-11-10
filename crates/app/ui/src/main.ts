@@ -711,6 +711,10 @@ async function runSmokeIfEnabled(): Promise<boolean> {
     return false;
   }
 
+  if (await invoke<boolean>("smoke_idle")) {
+    return false;
+  }
+
   try {
     const status = await invoke<ShellStatus>("database_status");
     renderStatus(status);
@@ -875,3 +879,32 @@ async function start(): Promise<void> {
 }
 
 void start();
+
+interface ShortcutReply {
+  outcome: "action" | "ignored";
+  action?: string;
+  reason?: string;
+}
+
+function installShortcutDispatch(): void {
+  window.addEventListener("keydown", (event) => {
+    const isFunctionKey = event.key === "F11";
+    if (isFunctionKey) {
+      event.preventDefault();
+    }
+    void invoke<ShortcutReply>("dispatch_shortcut", {
+      event: {
+        key: event.key,
+        control: event.ctrlKey,
+        shift: event.shiftKey,
+        alt: event.altKey,
+        meta: event.metaKey,
+        repeat: event.repeat,
+      },
+    }).catch(() => {
+      /* the window keeps working without the shortcut layer */
+    });
+  });
+}
+
+installShortcutDispatch();

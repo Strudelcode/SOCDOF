@@ -253,6 +253,8 @@ pub fn run() {
             commands::import_legacy_backup,
             commands::export_legacy_backup,
             commands::smoke_enabled,
+            commands::smoke_idle,
+            commands::dispatch_shortcut,
             commands::finish_smoke,
             commands::abort_smoke
         ])

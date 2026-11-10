@@ -132,6 +132,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            xdotool \
             libssl-dev \
             patchelf \
             xvfb \
@@ -564,6 +565,88 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Shortcut dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export GDK_BACKEND=x11
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export NO_AT_BRIDGE=1
+          app_bin="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+
+          run_keys() {
+            local label="$1" locked="$2" log="$3"
+            local xdg="$PWD/artifacts/xdg-keys-$label"
+            mkdir -p "$xdg"
+            Xvfb :91 -screen 0 1280x800x24 > "artifacts/xvfb-$label.log" 2>&1 &
+            local xvfb_pid=$!
+            sleep 2
+            local app_pid=""
+            (
+              export DISPLAY=:91
+              export XDG_DATA_HOME="$xdg"
+              export SOCDOF_SMOKE_REPORT="$PWD/artifacts/keys-$label-report.json"
+              export SOCDOF_SMOKE_IDLE=1
+              if [ "$locked" = "locked" ]; then
+                export SOCDOF_SMOKE_LOCKED=1
+              fi
+              "$app_bin"
+            ) > "$log" 2>&1 &
+            app_pid=$!
+            local window=""
+            for _ in $(seq 1 40); do
+              window=$(DISPLAY=:91 xdotool search --onlyvisible --name SOCDOF 2>/dev/null | head -n 1 || true)
+              if [ -n "$window" ]; then
+                break
+              fi
+              sleep 1
+            done
+            if [ -z "$window" ]; then
+              echo "no SOCDOF window appeared for $label"
+              cat "$log"
+              kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
+              return 1
+            fi
+            DISPLAY=:91 xdotool windowfocus "$window" 2>/dev/null || true
+            sleep 1
+            DISPLAY=:91 xdotool key --window "$window" F11 || true
+            sleep 1
+            DISPLAY=:91 xdotool key --window "$window" F12 || true
+            sleep 1
+            kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+          }
+
+          run_keys ready ready artifacts/keys-ready.log
+          run_keys locked locked artifacts/keys-locked.log
+
+          python3 - <<'PY'
+          import pathlib
+
+          ready = pathlib.Path("artifacts/keys-ready.log").read_text(errors="replace")
+          locked = pathlib.Path("artifacts/keys-locked.log").read_text(errors="replace")
+
+          assert "SOCDOF_SHORTCUT chord=F11 action=toggle_fullscreen" in ready, (
+              "F11 did not resolve to the fullscreen action"
+          )
+          assert "SOCDOF_SHORTCUT chord=other action=none reason=unknown" in ready, (
+              "an unbound key was not ignored"
+          )
+          assert "reason=locked" in locked, "a locked context still ran a shortcut"
+          assert "action=toggle_fullscreen" not in locked, "the locked run performed F11"
+          print("shortcut dispatch OK")
+          PY
+          {
+            echo '### Shortcut dispatch'
+            echo '```text'
+            grep 'SOCDOF_SHORTCUT' artifacts/keys-ready.log artifacts/keys-locked.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Window state round trip
         shell: bash
         run: |
@@ -626,6 +709,7 @@ jobs:
             artifacts/window-report-*.json
             artifacts/splash.log
             artifacts/splash-failure.log
+            artifacts/keys-*.log
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

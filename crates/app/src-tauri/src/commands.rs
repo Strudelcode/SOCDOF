@@ -11,6 +11,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
+use socdof_app::shortcuts::{
+    self, AppAction, Key, KeyChord, Modifiers, ShortcutContext, ShortcutOutcome,
+};
 use socdof_app::desktop::{BackupReport, ContactInput, DesktopState, ProductInput};
 use socdof_app::shell::ShellStatus;
 use socdof_core::domain::contact::Contact;
@@ -358,4 +362,73 @@ fn validate_smoke_report(state: &DesktopState, report: &SmokeReport) -> Result<(
     }
 
     Ok(())
+}
+
+/// Key event reported by the frontend.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ShortcutEvent {
+    /// `event.key` as reported by the web layer.
+    pub key: String,
+    /// Ctrl (or Cmd).
+    #[serde(default)]
+    pub control: bool,
+    /// Shift.
+    #[serde(default)]
+    pub shift: bool,
+    /// Alt.
+    #[serde(default)]
+    pub alt: bool,
+    /// Meta/Cmd.
+    #[serde(default)]
+    pub meta: bool,
+    /// Whether the key is held down (`event.repeat`).
+    #[serde(default)]
+    pub repeat: bool,
+}
+
+/// Returns whether the smoke run should stay open instead of finishing the contract.
+#[tauri::command]
+pub fn smoke_idle() -> bool {
+    std::env::var_os("SOCDOF_SMOKE_IDLE").is_some()
+}
+
+/// Resolves one key event through [`socdof_app::shortcuts`] and performs window actions.
+///
+/// The decision (binding, repeat, locked context) comes from the tested module; this command only
+/// performs what the decision allows.
+#[tauri::command]
+pub fn dispatch_shortcut(app: tauri::AppHandle, event: ShortcutEvent) -> ShortcutOutcome {
+    let chord = KeyChord::new(
+        Key::from_name(&event.key),
+        Modifiers {
+            control: event.control,
+            shift: event.shift,
+            alt: event.alt,
+            meta: event.meta,
+        },
+    );
+    let context = if std::env::var_os("SOCDOF_SMOKE_LOCKED").is_some() {
+        ShortcutContext::locked()
+    } else {
+        ShortcutContext::ready()
+    };
+    let outcome = shortcuts::resolve(
+        context,
+        &shortcuts::default_bindings(),
+        chord,
+        event.repeat,
+    );
+    if smoke_report_path().is_some() {
+        println!("{}", shortcuts::marker(chord, outcome));
+    }
+    if let ShortcutOutcome::Action {
+        action: AppAction::ToggleFullscreen,
+    } = outcome
+    {
+        if let Some(window) = app.get_window("main") {
+            let fullscreen = window.is_fullscreen().unwrap_or(false);
+            let _ = window.set_fullscreen(!fullscreen);
+        }
+    }
+    outcome
 }
