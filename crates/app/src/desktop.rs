@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
-use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
+use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::domain::product::Product;
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::legacy;
@@ -31,6 +31,32 @@ pub struct BackupReport {
     pub schema_version: i64,
     /// Creation time in milliseconds since the Unix epoch.
     pub created_at: i64,
+}
+
+/// Editable contact person fields from the UI; the field names are those of the legacy model.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ContactPersonInput {
+    /// Identifier; empty means a new person and gets a fresh one.
+    #[serde(default)]
+    pub id: String,
+    /// First name.
+    #[serde(default)]
+    pub first_name: String,
+    /// Last name.
+    #[serde(default)]
+    pub last_name: String,
+    /// Email address.
+    #[serde(default)]
+    pub email: String,
+    /// Phone number, including the extension.
+    #[serde(default)]
+    pub phone: String,
+    /// Role or department.
+    #[serde(default)]
+    pub role: String,
+    /// Whether this person is the primary contact of the company.
+    #[serde(default)]
+    pub is_primary: bool,
 }
 
 /// Editable contact fields from the UI.
@@ -78,6 +104,12 @@ pub struct ContactInput {
     /// Free-form notes.
     #[serde(default)]
     pub notes: String,
+    /// Contact persons of a company ("sub-contacts" in the legacy UI).
+    ///
+    /// `None` means the caller does not manage them and keeps the stored list; an empty vector
+    /// clears it, which is how a client removes every person.
+    #[serde(default)]
+    pub contact_persons: Option<Vec<ContactPersonInput>>,
 }
 
 /// Editable product fields from the UI.
@@ -290,6 +322,28 @@ fn build_contact(input: &ContactInput, existing: Option<&Contact>) -> CoreResult
     contact.phone = non_empty(&input.phone);
     contact.tax_id = non_empty(&input.tax_id);
     contact.notes = non_empty(&input.notes);
+    if let Some(persons) = input.contact_persons.as_deref() {
+        contact.contact_persons = persons
+            .iter()
+            .enumerate()
+            .map(|(index, input)| {
+                let id = if input.id.trim().is_empty() {
+                    ContactPerson::draft_id(now, &format!("{index}"))
+                } else {
+                    input.id.trim().to_string()
+                };
+                let mut person = ContactPerson::draft(id, input.is_primary);
+                person.first_name = input.first_name.trim().to_string();
+                person.last_name = input.last_name.trim().to_string();
+                person.email = input.email.trim().to_string();
+                person.phone = input.phone.trim().to_string();
+                person.role = input.role.trim().to_string();
+                person
+            })
+            .collect();
+        // The legacy save path drops persons without a name, email or phone and keeps one primary.
+        contact.sanitize_contact_persons();
+    }
     contact.updated_at = now;
     if existing.is_none() {
         contact.created_at = now;

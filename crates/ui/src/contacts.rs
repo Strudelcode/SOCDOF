@@ -10,7 +10,7 @@
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
 use egui::{Context, RichText};
-use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
+use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::store::Store;
 use uuid::Uuid;
 
@@ -73,6 +73,8 @@ pub struct ContactDraft {
     pub city: String,
     /// Index into [`TYPE_KEYS`].
     pub contact_type: usize,
+    /// Contact persons of a company ("sub-contacts" in the legacy UI).
+    pub persons: Vec<ContactPerson>,
 }
 
 impl ContactDraft {
@@ -89,6 +91,7 @@ impl ContactDraft {
             phone: contact.phone.clone().unwrap_or_default(),
             city: contact.city.clone().unwrap_or_default(),
             contact_type: type_index(contact.contact_type),
+            persons: contact.contact_persons.clone(),
         }
     }
 
@@ -112,6 +115,9 @@ impl ContactDraft {
         contact.email = non_empty(&self.email);
         contact.phone = non_empty(&self.phone);
         contact.city = non_empty(&self.city);
+        contact.contact_persons = self.persons.clone();
+        // The legacy save path drops persons without a name, email or phone and keeps one primary.
+        contact.sanitize_contact_persons();
         contact.updated_at = now;
         contact
     }
@@ -644,6 +650,45 @@ fn detail_view(
         }
     });
 
+    if !contact.contact_persons.is_empty() {
+        ui.add_space(12.0);
+        card(ui, theme, |ui| {
+            ui.label(
+                RichText::new(texts.get("contacts_persons_title"))
+                    .size(FONT_SMALL)
+                    .strong()
+                    .color(theme.palette.text_muted),
+            );
+            for person in &contact.contact_persons {
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(person.full_name()).strong());
+                    if person.is_primary {
+                        badge(
+                            ui,
+                            theme,
+                            texts.get("contacts_person_primary"),
+                            Tone::Accent,
+                        );
+                    }
+                    if !person.role.is_empty() {
+                        ui.label(
+                            RichText::new(person.role.clone())
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    if !person.email.is_empty() {
+                        ui.label(person.email.clone());
+                    }
+                    if !person.phone.is_empty() {
+                        ui.label(person.phone.clone());
+                    }
+                });
+            }
+        });
+    }
+
     ui.add_space(12.0);
     let mut edit = false;
     let mut delete = false;
@@ -779,6 +824,138 @@ fn form_view(
             &mut state.draft.contact_type,
             &labels,
         );
+
+        // Contact persons ("sub-contacts") of a company, edited in place.
+        ui.add_space(12.0);
+        ui.label(
+            RichText::new(texts.get("contacts_persons_title"))
+                .size(FONT_SMALL)
+                .strong()
+                .color(theme.palette.text_muted),
+        );
+        if state.draft.persons.is_empty() {
+            ui.label(
+                RichText::new(texts.get("contacts_persons_empty"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        }
+        let mut remove_person = None;
+        let mut set_primary = None;
+        for index in 0..state.draft.persons.len() {
+            let person = &mut state.draft.persons[index];
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut person.first_name,
+                    texts.get("contacts_person_first"),
+                    "",
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut person.last_name,
+                    texts.get("contacts_person_last"),
+                    "",
+                    None,
+                );
+            });
+            ui.horizontal(|ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut person.email,
+                    texts.get("contacts_person_email"),
+                    "",
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut person.phone,
+                    texts.get("contacts_person_phone"),
+                    "",
+                    None,
+                );
+            });
+            ui.horizontal(|ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut person.role,
+                    texts.get("contacts_person_role"),
+                    "",
+                    None,
+                );
+                if person.is_primary {
+                    badge(
+                        ui,
+                        theme,
+                        texts.get("contacts_person_primary"),
+                        Tone::Accent,
+                    );
+                } else if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_person_primary"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+                {
+                    set_primary = Some(index);
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_person_remove"),
+                    ButtonVariant::Danger,
+                )
+                .activated
+                {
+                    remove_person = Some(index);
+                }
+            });
+        }
+        if let Some(index) = set_primary {
+            for (position, person) in state.draft.persons.iter_mut().enumerate() {
+                person.is_primary = position == index;
+            }
+        }
+        if let Some(index) = remove_person {
+            state.draft.persons.remove(index);
+            let has_primary = state.draft.persons.iter().any(|person| person.is_primary);
+            if !has_primary {
+                if let Some(first) = state.draft.persons.first_mut() {
+                    first.is_primary = true;
+                }
+            }
+        }
+        ui.add_space(6.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_person_add"),
+            ButtonVariant::Ghost,
+        )
+        .activated
+        {
+            let suffix = Uuid::new_v4().simple().to_string();
+            let id = ContactPerson::draft_id(now, &suffix[..5]);
+            let primary = state.draft.persons.is_empty();
+            state.draft.persons.push(ContactPerson::draft(id, primary));
+        }
+
         if let Some(key) = state.error {
             ui.add_space(6.0);
             ui.label(
@@ -890,6 +1067,37 @@ mod tests {
         assert_eq!(store.contact_count().expect("count"), 0);
         assert_eq!(state.view, ContactsView::List);
         assert_eq!(state.selected, None);
+    }
+
+    #[test]
+    fn keeps_contact_persons_through_the_draft() {
+        let mut contact = Contact::new(ContactKind::Company, 0);
+        contact.company_name = Some("AlpenTech".to_string());
+        let mut person = ContactPerson::draft(ContactPerson::draft_id(0, "a1"), true);
+        person.first_name = "Anna".to_string();
+        person.last_name = " Weber ".to_string();
+        person.role = "Einkauf".to_string();
+        contact.add_contact_person(person);
+
+        let mut draft = ContactDraft::from_contact(&contact);
+        assert_eq!(draft.persons.len(), 1);
+        assert!(draft.persons[0].is_primary);
+        draft
+            .persons
+            .push(ContactPerson::draft("cp_blank".to_string(), false));
+
+        let saved = draft.to_contact(Some(&contact), 5);
+        assert_eq!(
+            saved.contact_persons.len(),
+            1,
+            "the blank person is dropped"
+        );
+        assert_eq!(saved.contact_persons[0].last_name, "Weber");
+        assert!(saved.contact_persons[0].is_primary);
+        assert_eq!(
+            saved.contact_person_summary().as_deref(),
+            Some("Anna Weber (Einkauf)")
+        );
     }
 
     #[test]

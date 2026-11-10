@@ -25,6 +25,16 @@ interface BackupReport {
   created_at: number;
 }
 
+interface ContactPerson {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  role: string;
+  is_primary: boolean;
+}
+
 interface Contact {
   id: string;
   kind: "person" | "company";
@@ -41,6 +51,7 @@ interface Contact {
   phone: string | null;
   tax_id: string | null;
   notes: string | null;
+  contact_persons: ContactPerson[];
   legacy_id: number | null;
   created_at: number;
   updated_at: number;
@@ -333,6 +344,17 @@ function renderContacts(contacts: Contact[]): void {
       .join(" ");
     if (place) {
       meta.appendChild(makeElement("span", undefined, place));
+    }
+    // Contact persons of a company: the primary one with its role, as the legacy list shows it.
+    const persons = contact.contact_persons ?? [];
+    const primary = persons.find((person) => person.is_primary) ?? persons[0];
+    if (primary) {
+      const fullName = `${primary.first_name} ${primary.last_name}`.trim();
+      const role = primary.role.trim();
+      const label = role ? `${fullName} (${role})` : fullName;
+      if (label) {
+        meta.appendChild(makeElement("span", undefined, label));
+      }
     }
     // Note is kept in the editor; cards stay compact.
     if (meta.childElementCount > 0) {

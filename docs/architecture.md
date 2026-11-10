@@ -348,6 +348,13 @@ cancelled and acknowledged are explicit outcomes. `commands.rs` opens the platfo
 repeat and locked-context rules; the window layer registers the key handler, forwards the event and
 executes the returned action, nothing else.
 
+Contact persons are part of the contact aggregate: `domain::contact::ContactPerson` holds the
+legacy fields (`id`, `first_name`, `last_name`, `email`, `phone`, `role`, `is_primary`) and the
+primary rules, schema v10 stores them in `contact_persons` ordered by `position` and deleted with
+their contact, and `store::contacts` loads them with every list, lookup and hit of the contact
+search. The legacy `.socdof.json` document keeps the array on the contact, so a backup written by
+either application carries it.
+
 `tray.rs` owns the system tray menu: stable ids, reading order, one command per entry (`show_window`,
 `create_backup`, `quit`), the label key of each entry and the tooltip. The Tauri layer builds the
 platform icon from `tray::menu()`, resolves the labels for the session locale through

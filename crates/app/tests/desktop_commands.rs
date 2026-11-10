@@ -42,6 +42,7 @@ fn contact_input(name: &str, city: &str) -> ContactInput {
         phone: "+49 30 123456".to_string(),
         tax_id: "DE-ACME".to_string(),
         notes: "Stammkunde".to_string(),
+        contact_persons: None,
     }
 }
 

@@ -543,7 +543,19 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
 1,381 keys per language. Version 0.26.0.
 
 - [x] Dashboard — period KPIs, quick actions, recent invoices, reorder list, empty state
-- [x] Contacts — list with core search, detail view, create/edit/delete form with validation, delete confirmation and four languages; sub-contacts and country autocomplete remain
+- [~] Contacts — list with core search, detail view, create/edit/delete form with validation,
+      delete confirmation and four languages. Contact persons ("sub-contacts") are ported the way
+      `ContactEditModal.tsx` has them: `ContactPerson` with `id`, `first_name`, `last_name`,
+      `email`, `phone`, `role` and `is_primary`; the first person of a company becomes primary,
+      removing the primary promotes the first remaining one, setting a primary clears the others,
+      and saving drops persons whose name, email and phone are empty (schema v10 keeps them in
+      `contact_persons`, ordered, cascade-deleted with the contact). Person names, emails and
+      phones are searchable, the legacy `.socdof.json` document reads and writes the array, and
+      the desktop command layer treats an absent `contact_persons` field as "keep", an empty
+      array as "remove". Tests: `cargo test -p socdof-core --lib contact::`,
+      `cargo test -p socdof-core --test contact_persons`, `cargo test -p socdof-app --test
+      contact_persons`, `cargo test -p socdof-ui --lib contacts::`. Still open: country
+      autocomplete (`searchCountries` in `lib/countries.ts`)
 - [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion and four languages; labels and smart reorder remain
 - [x] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; DIN 5008 print, templates, dunning, email draft and payment modal remain
 - [x] Accounting — journal with create/edit/delete, cash book with running balance, BWA per account, CSV export and four languages; account plans, DATEV export and print remain
@@ -1187,6 +1199,19 @@ the answer is then recorded on the line and, where it changes behaviour, impleme
   `docs/performance.md`: the 50k/100k frame budget (both lists still lay out every row, so
   virtualisation plus a benchmark is required), the installer/installed size and idle RAM/CPU
   (Tauri and Xvfb, i.e. the CI desktop and gui-smoke jobs), and the UI memory profile.
+
+- 2026-11-10 (tenth pass) — contact persons ("sub-contacts") of a company. The TypeScript app keeps
+  them as `contact_persons` on the contact (`types.ts`), edits them in `ContactEditModal.tsx` and
+  shows the primary one in `ContactsModule.tsx`; the Rust port had no model for them at all.
+  `domain::contact::ContactPerson` now carries the same fields and the same rules (first person
+  primary, removal promotes the next one, one primary at most, save drops blank persons), schema
+  v10 stores them in `contact_persons` ordered by position with `ON DELETE CASCADE`, the contact
+  search matches person names/emails/phones, the legacy document reads and writes the array in the
+  legacy field names, and the desktop command layer keeps the stored list when a client omits the
+  field. Verified with `cargo test -p socdof-core --lib contact::` (9 tests),
+  `cargo test -p socdof-core --test contact_persons` (4 tests, including the committed legacy
+  backup with `cp-1` / Florian Weber), `cargo test -p socdof-app --test contact_persons` and
+  `cargo test -p socdof-ui --lib contacts::` (6 tests).
 
 - 2026-11-09 (ninth pass) — Phase 8 mobile companion sync. The TypeScript application has a real
   gateway, not a stub: `mobile-sync-api` in `vite.config.ts` and `startMobileSyncServer` in

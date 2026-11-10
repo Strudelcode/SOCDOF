@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 
+use crate::domain::contact::ContactPerson;
+
 use crate::date::format_iso8601;
 use crate::domain::contact::{Contact, ContactKind, ContactType};
 use crate::domain::product::Product;
@@ -238,6 +240,8 @@ fn parse_contacts(values: &[Value], now: i64) -> CoreResult<Vec<Contact>> {
         contact.phone = text(object.get("phone"));
         contact.tax_id = text(object.get("taxId")).or_else(|| text(object.get("tax_id")));
         contact.notes = text(object.get("notes"));
+        contact.contact_persons = parse_contact_persons(object.get("contact_persons"));
+        contact.ensure_single_primary_contact_person();
         contact.legacy_id = Some(id);
         contact.legacy_json = Some(serde_json::to_string(value)?);
         contact.validate().map_err(CoreError::Validation)?;
@@ -245,6 +249,39 @@ fn parse_contacts(values: &[Value], now: i64) -> CoreResult<Vec<Contact>> {
     }
 
     Ok(contacts)
+}
+
+/// Reads the `contact_persons` array of one legacy contact in its stored order.
+///
+/// A person without an id keeps a deterministic one derived from its position, and the field names
+/// stay those of `SOCDOF - TS/src/types.ts`.
+fn parse_contact_persons(value: Option<&Value>) -> Vec<ContactPerson> {
+    let Some(items) = value.and_then(Value::as_array) else {
+        return Vec::new();
+    };
+
+    let mut persons = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let Some(object) = item.as_object() else {
+            continue;
+        };
+        let id = text(object.get("id"))
+            .unwrap_or_else(|| ContactPerson::draft_id(0, &format!("legacy{index}")));
+        let mut person = ContactPerson::draft(
+            id,
+            object
+                .get("is_primary")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        );
+        person.first_name = text(object.get("first_name")).unwrap_or_default();
+        person.last_name = text(object.get("last_name")).unwrap_or_default();
+        person.email = text(object.get("email")).unwrap_or_default();
+        person.phone = text(object.get("phone")).unwrap_or_default();
+        person.role = text(object.get("role")).unwrap_or_default();
+        persons.push(person);
+    }
+    persons
 }
 
 fn parse_products(values: &[Value], now: i64) -> CoreResult<Vec<Product>> {
@@ -358,6 +395,30 @@ fn export_contacts(contacts: &[Contact]) -> Vec<Value> {
         set_optional(&mut object, "country", contact.country.as_deref());
         set_optional(&mut object, "taxId", contact.tax_id.as_deref());
         set_optional(&mut object, "notes", contact.notes.as_deref());
+        // The legacy document stores the contact persons as a plain array on the contact. Write the
+        // current rows so an edit in this application cannot leave a stale copy behind.
+        if !contact.contact_persons.is_empty() || object.contains_key("contact_persons") {
+            object.insert(
+                "contact_persons".to_string(),
+                Value::Array(
+                    contact
+                        .contact_persons
+                        .iter()
+                        .map(|person| {
+                            json!({
+                                "id": person.id,
+                                "first_name": person.first_name,
+                                "last_name": person.last_name,
+                                "email": person.email,
+                                "phone": person.phone,
+                                "role": person.role,
+                                "is_primary": person.is_primary,
+                            })
+                        })
+                        .collect(),
+                ),
+            );
+        }
         if object.contains_key("is_company") || contact.legacy_json.is_none() {
             object.insert(
                 "is_company".to_string(),

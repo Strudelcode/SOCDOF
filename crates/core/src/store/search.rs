@@ -49,8 +49,16 @@ pub fn match_query(query: &str) -> Option<String> {
 }
 
 /// Searches contacts through the index, falling back to substring matching.
+///
+/// The index carries only the contact row, so the contact persons are searched separately and their
+/// companies are added to the hits; the legacy application matched person names the same way.
 pub fn contacts(conn: &Connection, query: &str) -> CoreResult<Vec<Contact>> {
-    let ids = matching_ids(conn, "contacts_fts", "contact_id", query)?;
+    let mut ids = matching_ids(conn, "contacts_fts", "contact_id", query)?;
+    for id in contacts::ids_matching_persons(conn, query)? {
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
     if ids.is_empty() {
         return contacts::search(conn, query);
     }

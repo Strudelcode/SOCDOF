@@ -46,7 +46,27 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
+
+const SCHEMA_V10: &str = r#"
+-- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
+-- one contact, keep their order and carry the primary flag the legacy editor manages.
+CREATE TABLE IF NOT EXISTS contact_persons (
+    contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    id         TEXT NOT NULL,
+    position   INTEGER NOT NULL,
+    first_name TEXT NOT NULL DEFAULT '',
+    last_name  TEXT NOT NULL DEFAULT '',
+    email      TEXT NOT NULL DEFAULT '',
+    phone      TEXT NOT NULL DEFAULT '',
+    role       TEXT NOT NULL DEFAULT '',
+    is_primary INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (contact_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_contact_persons_contact
+    ON contact_persons(contact_id, position);
+"#;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS contacts (
@@ -663,6 +683,11 @@ impl Store {
             version = 9;
         }
 
+        if version < 10 {
+            self.conn.execute_batch(SCHEMA_V10)?;
+            version = 10;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -722,9 +747,12 @@ impl Store {
             .query_row("SELECT COUNT(*) FROM invoices", [], |row| row.get(0))?)
     }
 
-    /// Inserts a contact.
+    /// Inserts a contact and its contact persons in one transaction.
     pub fn insert_contact(&self, contact: &Contact) -> CoreResult<()> {
-        contacts::insert(&self.conn, contact)
+        let transaction = self.conn.unchecked_transaction()?;
+        contacts::insert(&transaction, contact)?;
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Inserts many contacts in one transaction.
@@ -747,9 +775,12 @@ impl Store {
         contacts::find(&self.conn, id)
     }
 
-    /// Replaces an existing contact.
+    /// Replaces an existing contact and its contact persons in one transaction.
     pub fn update_contact(&self, contact: &Contact) -> CoreResult<()> {
-        contacts::update(&self.conn, contact)
+        let transaction = self.conn.unchecked_transaction()?;
+        contacts::update(&transaction, contact)?;
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Deletes a contact.
