@@ -562,7 +562,7 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
       the localized name written on selection; new contacts start with "Deutschland". Tests:
       `cargo test -p socdof-core --lib domain::countries` (8 tests) plus the contacts tests, which
       pin the default country, the localized selection and the free-text round-trip
-- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion, four languages, the legacy barcode/ASIN/web-link/source-domain fields (schema v11, store, import/export, both frontends), the QR label preview with three formats (`domain::label`) and the smart reorder hub with threshold modes, request list, Amazon cart link, clipboard list and draft purchase order (`domain::reorder`)
+- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion, four languages, the legacy barcode/ASIN/web-link/source-domain fields (schema v11, store, import/export, both frontends), the QR label preview with three formats (`domain::label`) and the smart reorder hub with threshold modes, request list, Amazon cart link, clipboard list and draft purchase order (`domain::reorder`); both dialogs live in the egui app, the Tauri webview edits the same fields
 - [x] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; DIN 5008 print, templates, dunning, email draft and payment modal remain
 - [x] Accounting — journal with create/edit/delete, cash book with running balance, BWA per account, CSV export and four languages; account plans, DATEV export and print remain
 - [x] Purchases — list with core search and supplier filter, open-order summary, detail with positions/totals, create/edit/delete, status changes, goods receipt with stock bookings and four languages; partial receipts in the UI, order PDF/email and supplier master data inside the module remain
@@ -1238,6 +1238,8 @@ the answer is then recorded on the line and, where it changes behaviour, impleme
   import/export and both frontends. The egui country list is now keyboard driven like the modal:
   ArrowDown/ArrowUp move the highlighted row with wrapping, Enter writes the localized name and Escape
   closes the list before it can close the form (`country_list_follows_the_keyboard`).
+  The label and reorder dialogs are egui modals; the Tauri webview carries the new
+  barcode/ASIN/web-link/source-domain inputs but not the two dialogs.
 
 - 2026-11-10 (tenth pass) — contact persons ("sub-contacts") of a company. The TypeScript app keeps
   them as `contact_persons` on the contact (`types.ts`), edits them in `ContactEditModal.tsx` and
