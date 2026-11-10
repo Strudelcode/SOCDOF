@@ -10,7 +10,7 @@
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
 | **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake, the shortcut mapping and the native dialog bridge, plus the Phase 9 budgets. Open: the tray, the installer and
-idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
+idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -149,8 +149,13 @@ service is reachable from `socdof-cli` and covered by tests.
       `cargo test -p socdof-ui --lib lock_conflict_tests`)
 - [x] Backup container (metadata, checksum, atomic restore)
 - [x] Backup scheduler (interval, retention, target folder, verification)
-- [~] File import/export: CSV (contacts, products) and JSON (legacy backup) done; zip, docx read and
-      PDF read remain
+- [~] File import/export: CSV (contacts, products), JSON (legacy backup) and the `.docx` reader are
+      done — `socdof_core::docx::read_docx`/`read_docx_file` turn any package into blocks (headings by
+      style, bold/italic runs, tables, page breaks) plus the core properties, and the zip reader
+      (`crates/core/src/docx/zip.rs`) is part of that path (`cargo test -p socdof-core --lib docx::`
+      17 tests, `cargo test -p socdof-core --test docx_invoice` 6 tests including a package written by
+      `python-docx`). Still open: a ZIP *import/export format* for user data and PDF text import —
+      both need a decision on which files and fields they carry, so they are not implemented here
 - [x] Print pipeline: DIN 5008 layout, address field, positions, totals → PDF
 - [x] Letterhead background and multi-page position tables with repeated headers (see Phase 8)
 - [x] Update checker: `socdof_core::updates` reads a GitHub release document or the updater manifest
