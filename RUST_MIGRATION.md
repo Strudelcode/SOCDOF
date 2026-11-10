@@ -7,6 +7,8 @@
 |---|---|
 | **Branch** | `rust-rewrite` |
 | **Started** | 2026-11-07 |
+| **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
+`docs/architecture.md` describe that commit |
 | **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, plus the Phase 9 budgets. Open: the Tauri window features and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
@@ -204,19 +206,20 @@ build and all non-GTK tests are verified locally.
 - [x] Contacts/products screen: navigation, list, search, create/edit/delete dialogs, all four languages
 - [x] Command-layer tests for status, backup, contact/product CRUD and legacy import/export without a window
 - [x] Legacy `.socdof.json` import/export with preservation of unknown tables and row fields
-The six Tauri window features below cannot be built or verified in this container:
-`cargo check --manifest-path crates/app/src-tauri/Cargo.toml` fails with
-`Package 'glib-2.0', required by 'virtual:world', not found` (no GTK/WebKit headers, no `sudo` to
-install them, no display). Method: they are built and smoke-tested in the CI `desktop` and
-`gui-smoke` jobs, where GTK, WebKit and Xvfb exist; a window-state check reads the persisted state
-file after two starts, the tray/dialog/shortcut checks drive the running app under Xvfb.
+The Tauri window features below cannot be built or verified in this container. Observed
+2026-11-10: `cargo check --manifest-path crates/app/src-tauri/Cargo.toml` exits 101 with
+`error: failed to run custom build command for gio-sys v0.18.1` /
+`Package 'gio-2.0', required by 'virtual:world', not found`; installing the stack is impossible
+because `sudo -n true` answers `sudo: The "no new privileges" flag is set, which prevents sudo from
+running as root.` and `command -v Xvfb` prints nothing. Method: the CI `desktop` and `gui-smoke`
+jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on each line.
 
-- [ ] Window state persistence (size, position, maximized, fullscreen)
-- [ ] Splash window with real progress + "ready" handshake
+- [ ] Window state persistence (size, position, maximized, fullscreen) — method: two starts in `gui-smoke`, then assert the persisted state file (size, position, flags) matches the first window and is restored on the second
+- [ ] Splash window with real progress + "ready" handshake — method: `gui-smoke` reads `artifacts/smoke.log` for the splash progress line before `SOCDOF shell ready` and asserts the handshake fires once
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
-- [ ] System tray with quick actions
-- [ ] Native dialogs: folder picker, file open/save, message boxes
-- [ ] Global shortcuts (F11, window snapping, command palette)
+- [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
+- [ ] Native dialogs: folder picker, file open/save, message boxes — method: `gui-smoke` opens each dialog under Xvfb and asserts the chosen path comes back through the command result
+- [ ] Global shortcuts (F11, window snapping, command palette) — method: `gui-smoke` sends the key events to the focused window and asserts the window state and the palette visibility change
 - [x] Signed Tauri updater plumbing and release manifest generation (release secrets required)
 - [ ] Apple notarization and Windows Authenticode signing — no signing material in this
       environment (`env | grep -ci -E "apple|certificate|signing|authenticode"` = 0, no keychain).
@@ -634,13 +637,16 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 
 ## 12. Phase 9 — Performance & size budget
 
-- [ ] Installer ≤ 15 MB, installed ≤ 40 MB — not built here: this container has no GTK/WebKit
-      development stack, no `sudo` (`sudo -n true` fails) and no `crates/app/src-tauri/target`.
+- [ ] Installer ≤ 15 MB, installed ≤ 40 MB — not built here. Observed 2026-11-10:
+      `cargo check --manifest-path crates/app/src-tauri/Cargo.toml` exits 101 with
+      `error: failed to run custom build command for gio-sys v0.18.1` /
+      `Package 'gio-2.0' … not found`, and there is no `crates/app/src-tauri/target`.
       Measurement: `.github/workflows/rust.yml`, job `desktop`, step **Check installer size
       budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on the built bundle (limit
       15,728,640 B) and on its extracted tree (limit 41,943,040 B, `dpkg-deb -x` or
       `--appimage-extract`); a violation exits 1 and fails the job
-- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — not built here for the same reason (and no `Xvfb`).
+- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — not built here for the same reason; additionally
+      `command -v Xvfb` prints nothing, so no window can exist.
       Measurement: `.github/workflows/rust.yml`, job `gui-smoke`, step **Idle RAM/CPU budget**
       starts the built app under `Xvfb :99`, resolves the real process with
       `scripts/idle-app-pid.py` and runs `node scripts/check-budgets.mjs --scope=runtime --pid <pid>`,
@@ -677,9 +683,10 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
       stages the AppImage, the `.deb` and the portable ZIP, the release workflow adds the NSIS
       `setup.exe`. Built on 2026-11-10 only in CI (`desktop`); the artifacts are verified there by
       size, checksum and the installer budget step
-- [ ] Code signing of those artifacts — no certificate or Apple identity here (see §6, same
-      evidence); method: the release workflow with the signing secrets, verified with
-      `signtool verify` / `codesign -dv`
+- [ ] Code signing of those artifacts — observed 2026-11-10:
+      `env | grep -ci -E "apple|certificate|signing|authenticode"` prints `0` and there is no
+      keychain entry to sign with; method: the release workflow with the signing secrets, verified
+      with `signtool verify` / `codesign -dv` on the staged artifacts
 - [x] Rollback for the update channel: `updates::Channel` stages an artifact per version
       (`update-stage`), reports the installed one (`update-current`) and returns to the previous
       version (`update-rollback`). An empty or missing artifact is rejected and leaves the channel
@@ -939,6 +946,10 @@ Every parity change has to satisfy these points — they are the review rule, no
 ---
 
 ## 17. Open questions (product decisions, waiting for the owner — not implementation gaps)
+
+Each line below is blocked by a decision the repository cannot make: no code path waits for it,
+so there is neither a failing command nor a measurement. The item closes when the owner answers;
+the answer is then recorded on the line and, where it changes behaviour, implemented with a test.
 
 - [ ] Does the Rust build ship as a separate download next to the Electron build, or replace it?
 - [ ] Are custom user language packs (external JSON in `languages/`) a hard requirement?

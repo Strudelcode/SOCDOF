@@ -31,7 +31,8 @@ src/
 ├── logging.rs          rotating local log and crash reports
 ├── settings_service.rs validated profile and per-user preferences
 ├── date.rs             civil date formatting (DD.MM.YYYY)
-├── lock.rs             instance lock with heartbeat and stale takeover
+├── lock.rs             shared-folder lock `network_session.lock`: heartbeat, stale + forced takeover
+├── updates.rs          release feed check, version ordering, update channel with rollback
 ├── pdf/                PDF writer + DIN 5008 invoice layout
 │   ├── mod.rs
 │   ├── writer.rs       PDF 1.4 writer (Helvetica, WinAnsi, xref, multiple pages)
@@ -305,10 +306,24 @@ The routes and bodies come from `SOCDOF - TS/vite.config.ts` (`mobile-sync-api`)
 
 ## Instance lock
 
-`lock.rs` creates a JSON lock file with `create_new` (atomic), stores pid, user, machine, start time
-and heartbeat, and refreshes the heartbeat while running. A second start reads the file and is
-rejected with `lock_busy`. If the heartbeat is older than `DEFAULT_STALE_AFTER_MS` (30 s), the lock
-is treated as abandoned and taken over, so a crash never blocks the application permanently.
+`lock.rs` creates `network_session.lock` next to the database with `create_new` (atomic) and writes
+the keys the legacy Electron app reads (`hostname`, `username`, `pid`, `startTime`, `heartbeat`,
+`requestQuit`), so both versions exclude each other on one shared folder during the dual-run period.
+`Paths::new` derives the path, the heartbeat is refreshed while running, and a second start is
+rejected with `lock_busy`. A heartbeat older than `DEFAULT_STALE_AFTER_MS` (30 s) marks the lock as
+abandoned and it is taken over; `InstanceLock::inspect` reads the owner without acquiring, and
+`InstanceLock::force_takeover` takes a fresh lock after the user confirmed the dialog. The UI side is
+`auth::LockConflict` + `auth::lock_conflict` (`crates/ui/src/auth.rs`).
+
+`updates.rs` is UI-free: `parse_feed` reads a GitHub release document or the updater manifest,
+`compare_versions` orders versions (a release above its pre-release), `check` returns
+`UpdateCheck { current, latest, update_available }`, and `Channel` stages one artifact per version
+with a journal so `rollback` returns to the previous version. `socdof-cli update-check`,
+`update-stage`, `update-current` and `update-rollback` expose the same calls.
+
+The setup wizard imports legacy data through `crates/ui/src/migration.rs` (`MigrationState::import`
+→ `legacy::import`, which writes the pre-migration backup); the last wizard page renders the step and
+`AuthState::run_pending_import` in `crates/ui/src/gallery.rs` executes the request.
 
 ## Desktop shell (Phase 3)
 
