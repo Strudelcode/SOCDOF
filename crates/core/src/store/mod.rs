@@ -11,6 +11,7 @@ use crate::domain::billing::BillingItem;
 use crate::domain::contact::Contact;
 use crate::domain::document::Document;
 use crate::domain::invoice::Invoice;
+use crate::domain::payment::InvoicePayment;
 use crate::domain::permission::{AppModule, PermissionLevel, Role};
 use crate::domain::pos::PosOrder;
 use crate::domain::product::Product;
@@ -46,7 +47,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 11;
+pub const SCHEMA_VERSION: i64 = 12;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -518,6 +519,19 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
 "#;
 
+const SCHEMA_V12: &str = r#"
+-- Payment capture of the invoice modal. The TypeScript app keeps `paid_at`, `payment_method`,
+-- `payment_reference` and `tse_signature` on the invoice row; the port keeps one payment per invoice
+-- in its own table so the invoice literal stays small.
+CREATE TABLE IF NOT EXISTS invoice_payments (
+    invoice_id    TEXT PRIMARY KEY REFERENCES invoices(id) ON DELETE CASCADE,
+    paid_at       INTEGER NOT NULL,
+    method        TEXT NOT NULL,
+    reference     TEXT NOT NULL,
+    tse_signature TEXT
+);
+"#;
+
 const SCHEMA_V11: &str = r#"
 -- Product fields the legacy catalogue has always carried: the ASIN of the article, the supplier
 -- link and the shop it points to. The reorder assistant and the QR label read them.
@@ -699,6 +713,11 @@ impl Store {
         if version < 11 {
             self.conn.execute_batch(SCHEMA_V11)?;
             version = 11;
+        }
+
+        if version < 12 {
+            self.conn.execute_batch(SCHEMA_V12)?;
+            version = 12;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -1084,6 +1103,16 @@ impl Store {
     /// Inserts a purchase order with its positions.
     pub fn insert_purchase_order(&self, order: &PurchaseOrder) -> CoreResult<()> {
         purchase_orders::insert(&self.conn, order)
+    }
+
+    /// Records the payment of an invoice and marks it paid in one transaction.
+    pub fn record_invoice_payment(&self, payment: &InvoicePayment) -> CoreResult<()> {
+        invoices::record_payment(&self.conn, payment)
+    }
+
+    /// Payment recorded for an invoice, if any.
+    pub fn invoice_payment(&self, id: uuid::Uuid) -> CoreResult<Option<InvoicePayment>> {
+        invoices::payment(&self.conn, id)
     }
 
     /// Loads one purchase order with its positions.
@@ -1655,6 +1684,57 @@ mod tests {
         contact.city = Some("Bozen".to_string());
         store.insert_contact(&contact).expect("contact inserted");
         contact
+    }
+
+    #[test]
+    fn records_the_invoice_payment() {
+        use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use crate::domain::payment::{InvoicePayment, PaymentMethod};
+
+        let store = Store::open_in_memory().expect("store");
+        let mut contact =
+            crate::domain::contact::Contact::new(crate::domain::contact::ContactKind::Company, 0);
+        contact.company_name = Some("Kunde".to_string());
+        store.insert_contact(&contact).expect("contact");
+        let invoice = Invoice {
+            id: uuid::Uuid::new_v4(),
+            number: "2026-0001".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: 0,
+            due_at: 86_400_000,
+            currency_symbol: "€".to_string(),
+            note: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: crate::money::Money::from_cents(10_000),
+                tax_rate_bp: 1900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+        assert_eq!(store.invoice_payment(invoice.id).expect("read"), None);
+
+        let mut payment = InvoicePayment::new(
+            invoice.id,
+            PaymentMethod::Cash,
+            1_760_000_000_000,
+            "Barzahlung Kasse".to_string(),
+        );
+        payment.tse_signature = Some("CASH-TSE-1".to_string());
+        store.record_invoice_payment(&payment).expect("payment");
+
+        let stored = store
+            .invoice_payment(invoice.id)
+            .expect("read")
+            .expect("payment");
+        assert_eq!(stored, payment);
+        let reloaded = store
+            .find_invoice(invoice.id)
+            .expect("find")
+            .expect("invoice");
+        assert_eq!(reloaded.status, InvoiceStatus::Paid);
+        assert_eq!(store.schema_version().expect("version"), SCHEMA_VERSION);
     }
 
     #[test]

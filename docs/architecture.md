@@ -431,11 +431,14 @@ millimetres converted to points; the writer never depends on a system font.
 ## Schema and migrations
 
 `store/mod.rs` keeps the schema as numbered constants (`SCHEMA_V1`, `SCHEMA_V2`, ...) and applies
-them in order based on `PRAGMA user_version`. The current version is 8. To change the schema:
+them in order based on `PRAGMA user_version`. The current version is 12; v11 adds the legacy
+product link columns (`asin`, `web_link`, `source_domain`) and v12 the `invoice_payments` table that
+keeps `paid_at`, `payment_method`, `payment_reference` and the TSE signature of an invoice. To change
+the schema:
 
-1. Add `SCHEMA_V9` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
+1. Add `SCHEMA_V13` with only the delta (`ALTER TABLE`, `CREATE TABLE`).
 2. Raise `SCHEMA_VERSION` and add the matching `SCHEMA_V<n>` block.
-3. Add `if version < 9 { ... }` to `Store::migrate`.
+3. Add `if version < 13 { ... }` to `Store::migrate`.
 4. Add a test that opens a fresh database and asserts the new version and behaviour.
 
 Never edit an already shipped schema block; existing databases only run the newer steps.

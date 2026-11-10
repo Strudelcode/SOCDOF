@@ -25,6 +25,7 @@ use crate::components::{
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
+use crate::invoice_actions::{self, InvoiceActions};
 use crate::theme::Theme;
 use crate::tokens::{FONT_SMALL, FONT_TITLE};
 
@@ -335,6 +336,8 @@ pub struct InvoicesState {
     pub draft: InvoiceDraft,
     /// Dropdown state of the customer select.
     pub contact_popup: PopupState,
+    /// Dialogs of the detail view.
+    pub actions: InvoiceActions,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
     /// Catalogue key of the validation or storage error.
@@ -358,6 +361,7 @@ impl Default for InvoicesState {
             view: InvoicesView::List,
             draft: InvoiceDraft::default(),
             contact_popup: PopupState::default(),
+            actions: InvoiceActions::default(),
             confirm_delete: false,
             error: None,
             status: None,
@@ -682,7 +686,7 @@ pub fn invoices(
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
                 InvoicesView::List => list_view(ui, theme, texts, focus, state, now),
-                InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store),
+                InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
                 InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
         });
@@ -733,6 +737,36 @@ pub fn invoices(
 
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("invoices_error_delete");
+    }
+
+    if let Some(invoice) = state.current().cloned() {
+        let company = store.company_profile().unwrap_or_default();
+        let customer = state
+            .contact_labels
+            .get(&invoice.contact_id)
+            .cloned()
+            .unwrap_or_default();
+        let contact = store.find_contact(invoice.contact_id).ok().flatten();
+        let changed = invoice_actions::dialogs(
+            ctx,
+            theme,
+            texts,
+            focus,
+            &mut state.actions,
+            &invoice_actions::DialogData {
+                invoice: &invoice,
+                customer: &customer,
+                contact: contact.as_ref(),
+                company: &company,
+                store,
+                now,
+            },
+        );
+        if let Some(status) = changed {
+            if state.set_status(store, status).is_err() {
+                state.error = Some("invoices_error_status");
+            }
+        }
     }
 }
 
@@ -892,6 +926,7 @@ fn detail_view(
     focus: &mut FocusState,
     state: &mut InvoicesState,
     store: &Store,
+    now: i64,
 ) {
     let Some(invoice) = state.current().cloned() else {
         state.view = InvoicesView::List;
@@ -1000,6 +1035,9 @@ fn detail_view(
     let mut mark = None;
     let mut edit = false;
     let mut delete = false;
+    let mut dunning = false;
+    let mut mail = false;
+    let mut payment = false;
     ui.horizontal(|ui| {
         if invoice.status != InvoiceStatus::Sent && invoice.status != InvoiceStatus::Cancelled {
             let activated = button(
@@ -1056,6 +1094,39 @@ fn detail_view(
             ui,
             theme,
             focus,
+            texts.get("invoices_dunning_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            dunning = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("invoices_mail_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            mail = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("invoices_payment_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            payment = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
             texts.get("invoices_edit"),
             ButtonVariant::Secondary,
         )
@@ -1097,6 +1168,27 @@ fn detail_view(
     }
     if delete {
         state.confirm_delete = true;
+    }
+
+    if dunning || mail || payment {
+        let company = store.company_profile().unwrap_or_default();
+        let customer = state
+            .contact_labels
+            .get(&invoice.contact_id)
+            .cloned()
+            .unwrap_or_default();
+        let contact = store.find_contact(invoice.contact_id).ok().flatten();
+        if dunning {
+            state.actions.open_dunning(&invoice, now);
+        }
+        if mail {
+            state
+                .actions
+                .open_email(&invoice, &customer, contact.as_ref(), &company);
+        }
+        if payment {
+            state.actions.open_payment(now);
+        }
     }
 }
 

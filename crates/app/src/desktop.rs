@@ -10,6 +10,7 @@ use std::sync::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::domain::product::Product;
+use socdof_core::domain::purchase::PurchaseOrder;
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::legacy;
 use socdof_core::money::Money;
@@ -259,6 +260,24 @@ impl DesktopState {
             Some(query) => shell.store().search_products(query),
             None => shell.store().list_products(),
         }
+    }
+
+    /// Loads one product by id.
+    pub fn product(&self, id: Uuid) -> CoreResult<Product> {
+        self.shell()?
+            .store()
+            .find_product(id)?
+            .ok_or_else(|| CoreError::NotFound(id.to_string()))
+    }
+
+    /// Stores a changed product, for example the reorder exclusion.
+    pub fn store_product(&self, product: &Product) -> CoreResult<()> {
+        self.shell()?.store().update_product(product)
+    }
+
+    /// Stores a purchase order that the reorder assistant generated.
+    pub fn create_purchase_order(&self, order: &PurchaseOrder) -> CoreResult<()> {
+        self.shell()?.store().insert_purchase_order(order)
     }
 
     /// Creates a product from the UI form.

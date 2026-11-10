@@ -562,8 +562,8 @@ appearances in all four languages. It is pinned by two golden scenes: 240 golden
       the localized name written on selection; new contacts start with "Deutschland". Tests:
       `cargo test -p socdof-core --lib domain::countries` (8 tests) plus the contacts tests, which
       pin the default country, the localized selection and the free-text round-trip
-- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion, four languages, the legacy barcode/ASIN/web-link/source-domain fields (schema v11, store, import/export, both frontends), the QR label preview with three formats (`domain::label`) and the smart reorder hub with threshold modes, request list, Amazon cart link, clipboard list and draft purchase order (`domain::reorder`); both dialogs live in the egui app, the Tauri webview edits the same fields
-- [x] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; DIN 5008 print, templates, dunning, email draft and payment modal remain
+- [x] Products & stock — list with core search, detail with stock bookings through `adjust_stock`, create/edit/delete form, reorder exclusion, four languages, the legacy barcode/ASIN/web-link/source-domain fields (schema v11, store, import/export, both frontends), the QR label preview with three formats (`domain::label`) and the smart reorder hub with threshold modes, request list, Amazon cart link, clipboard list and draft purchase order (`domain::reorder`); both dialogs live in the egui app and, through the `product_label`, `reorder_plan`, `create_reorder_draft` and `set_product_reorder_exclusion` commands, in the Tauri webview as well
+- [~] Invoices — list with core search, detail with positions/totals, create/edit/delete, status changes and four languages; the dunning letter, the invoice e-mail draft and the payment modal are ported 1:1 (schema v12 `invoice_payments`, `domain::dunning`, `domain::mail`, `domain::payment`, egui dialogs); DIN 5008 print, templates and the invoice screens of the Tauri webview remain
 - [x] Accounting — journal with create/edit/delete, cash book with running balance, BWA per account, CSV export and four languages; account plans, DATEV export and print remain
 - [x] Purchases — list with core search and supplier filter, open-order summary, detail with positions/totals, create/edit/delete, status changes, goods receipt with stock bookings and four languages; partial receipts in the UI, order PDF/email and supplier master data inside the module remain
 - [x] POS / cash register — receipt list with core search and payment filter, daily close with payment totals, detail with positions/totals/change, sale form with product positions and stock booking, cancellation with stock return and four languages; receipt print, cash sessions/drawer counts, discounts and customer assignment remain
@@ -1205,6 +1205,26 @@ the answer is then recorded on the line and, where it changes behaviour, impleme
   `docs/performance.md`: the 50k/100k frame budget (both lists still lay out every row, so
   virtualisation plus a benchmark is required), the installer/installed size and idle RAM/CPU
   (Tauri and Xvfb, i.e. the CI desktop and gui-smoke jobs), and the UI memory profile.
+
+- 2026-11-10 (thirteenth pass) — invoice dunning, e-mail draft and payment modal, plus the two
+  product dialogs in the Tauri webview. `DunningModal.tsx` offers the levels 0/1/2/3 with the fee
+  presets 0,00/2,50/2,50/5,00 €, the 5 % interest only on level 3, the payment deadlines 7/7/5 days,
+  computes `overdue_days` from `due_at` and writes a German letter with the title
+  "Zahlungserinnerung"/"1. Mahnung"/"2. Mahnung" and the note "Bitte überweisen Sie den Gesamtbetrag
+  bis zum <date> auf das Konto <IBAN> bei <bank>."; `lib/emlGenerator.ts` encodes the subject as
+  base64 UTF-8 for the dunning mail and only for non-ASCII invoice subjects, uses `
+` line
+  endings, `text/plain; charset=utf-8` and `Content-Transfer-Encoding: base64` with 76-character
+  lines. `PaymentModal.tsx` books cash (with the quick amounts 5/10/20/50/100 and the change), card
+  (terminal name, TSE signature, base36 reference) and transfer (bank, IBAN, BIC, `AUTH-` reference,
+  booking date, `paid_at`) and sets the invoice to `paid`; `domain::payment`, `domain::dunning` and
+  `domain::mail` mirror the rules (14 tests), schema v12 adds the 1:1 table `invoice_payments`
+  (`Store::record_invoice_payment`/`invoice_payment`, one row per invoice, store round-trip test), and
+  the three egui dialogs sit behind the detail buttons of the invoice screen. The Tauri webview now
+  also renders the label dialog with format switch, QR matrix, price and fallbacks, and the reorder
+  assistant with threshold modes, quantities, inclusion, permanent exclusion (persisted through
+  `set_product_reorder_exclusion`), search, marketplace, Amazon cart link, clipboard list and draft
+  purchase order; the commands return ready-made DTOs so no rule is duplicated in the frontend.
 
 - 2026-11-10 (eleventh pass) — country autocomplete of the contact form. `lib/countries.ts` of the
   TypeScript app holds 47 countries (DACH first) with German/English/French/Spanish/Italian names

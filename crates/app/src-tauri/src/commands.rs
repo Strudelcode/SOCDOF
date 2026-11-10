@@ -22,7 +22,10 @@ use socdof_app::shell::ShellStatus;
 use socdof_app::tray;
 use socdof_core::domain::contact::Contact;
 use socdof_core::domain::countries::{self as countries, Country};
+use socdof_core::domain::label::{LabelFormat, ProductLabel};
 use socdof_core::domain::product::Product;
+use socdof_core::domain::purchase::PurchaseOrder;
+use socdof_core::domain::reorder::{self, ReorderPlan, Threshold};
 use socdof_core::domain::settings::Language;
 use socdof_core::legacy::{LegacyExportReport, LegacyImportReport};
 use uuid::Uuid;
@@ -630,4 +633,285 @@ pub fn dialog_smoke() {
         let result = dialogs::resolve(&kind, selection);
         smoke_log(&dialogs::marker(&kind, &result));
     }
+}
+
+/// One selectable label format.
+#[derive(Serialize)]
+pub struct LabelFormatView {
+    /// Stable identifier.
+    pub id: &'static str,
+    /// Catalogue key of the format name.
+    pub label_key: &'static str,
+    /// Width in pixels.
+    pub width: f32,
+}
+
+/// Barcode and QR label of a product, ready for the webview dialog.
+#[derive(Serialize)]
+pub struct ProductLabelView {
+    /// Product name.
+    pub name: String,
+    /// Article number.
+    pub sku: String,
+    /// Amazon ASIN, when known.
+    pub asin: Option<String>,
+    /// Category with the legacy fallback.
+    pub category: String,
+    /// Unit with the legacy fallback.
+    pub unit: String,
+    /// Price formatted like the TypeScript label.
+    pub price_text: String,
+    /// Payload encoded in the QR symbol.
+    pub payload: String,
+    /// Selectable formats.
+    pub formats: Vec<LabelFormatView>,
+    /// QR matrix, one string of `0`/`1` per row.
+    pub qr: Vec<String>,
+}
+
+/// Returns the label payload and QR matrix of a product.
+#[tauri::command]
+pub fn product_label(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<ProductLabelView, String> {
+    let product = state.product(id).map_err(|error| error.to_string())?;
+    let label = ProductLabel::from_product(&product, "€");
+    let code = label.qr().map_err(|error| error.to_string())?;
+    let mut qr = Vec::with_capacity(code.size());
+    for row in 0..code.size() {
+        let mut line = String::with_capacity(code.size());
+        for column in 0..code.size() {
+            line.push(if code.dark(row, column) { '1' } else { '0' });
+        }
+        qr.push(line);
+    }
+    Ok(ProductLabelView {
+        name: label.name,
+        sku: label.sku,
+        asin: label.asin,
+        category: label.category,
+        unit: label.unit,
+        price_text: label.price_text(),
+        payload: label.payload,
+        formats: LabelFormat::all()
+            .iter()
+            .map(|format| LabelFormatView {
+                id: format.as_str(),
+                label_key: format.label_key(),
+                width: format.width(),
+            })
+            .collect(),
+        qr,
+    })
+}
+
+/// Adjustment the webview applies to one reorder row.
+#[derive(Deserialize)]
+pub struct ReorderAdjustment {
+    /// Product of the row.
+    pub product_id: Uuid,
+    /// Quantity entered by the user.
+    pub quantity: Option<i64>,
+    /// Whether the row is part of the order.
+    pub included: Option<bool>,
+}
+
+/// Request of the reorder assistant.
+#[derive(Deserialize)]
+pub struct ReorderRequest {
+    /// `individual` or `fixed`.
+    pub threshold: Option<String>,
+    /// Threshold of the fixed mode.
+    pub fixed: Option<i64>,
+    /// Marketplace domain.
+    pub domain: Option<String>,
+    /// Search text.
+    pub query: Option<String>,
+    /// Whether only permanently excluded articles are listed.
+    pub excluded_only: Option<bool>,
+    /// Per-row overrides.
+    pub adjustments: Option<Vec<ReorderAdjustment>>,
+}
+
+/// One request line.
+#[derive(Serialize)]
+pub struct ReorderLineView {
+    /// Product of the row.
+    pub product_id: Uuid,
+    /// Product name.
+    pub name: String,
+    /// Article number.
+    pub sku: String,
+    /// Amazon ASIN, when known.
+    pub asin: Option<String>,
+    /// Requested quantity.
+    pub quantity: i64,
+    /// Whether the row is part of the order.
+    pub included: bool,
+    /// Whether the article is permanently excluded.
+    pub excluded: bool,
+    /// Current stock.
+    pub stock: i64,
+    /// Unit cost in cents.
+    pub unit_cost_cents: i64,
+}
+
+/// Key figures of the assistant.
+#[derive(Serialize)]
+pub struct ReorderStatsView {
+    /// Number of low-stock articles.
+    pub low_stock_count: i64,
+    /// Units in the request.
+    pub total_units: i64,
+    /// Estimated cost in cents.
+    pub estimated_cost_cents: i64,
+    /// Permanently excluded articles.
+    pub excluded_count: i64,
+    /// Articles with a usable ASIN.
+    pub asin_ready_count: i64,
+    /// Articles without an ASIN.
+    pub missing_asin_count: i64,
+}
+
+/// Result of the reorder assistant.
+#[derive(Serialize)]
+pub struct ReorderView {
+    /// Request lines.
+    pub lines: Vec<ReorderLineView>,
+    /// Key figures.
+    pub stats: ReorderStatsView,
+    /// Amazon cart link of the included ASINs.
+    pub cart_url: String,
+    /// Amazon search link of the request.
+    pub search_url: String,
+}
+
+fn build_plan(
+    state: &DesktopState,
+    request: &ReorderRequest,
+) -> Result<ReorderPlan, String> {
+    let products = state.products(None).map_err(|error| error.to_string())?;
+    let threshold = match request.threshold.as_deref() {
+        Some("fixed") => Threshold::Fixed(request.fixed.unwrap_or(reorder::FIXED_THRESHOLD).max(1)),
+        _ => Threshold::Individual,
+    };
+    let mut plan = ReorderPlan::new(&products, threshold);
+    for adjustment in request.adjustments.iter().flatten() {
+        let Some(index) = plan
+            .lines
+            .iter()
+            .position(|line| line.product.id == adjustment.product_id)
+        else {
+            continue;
+        };
+        if let Some(quantity) = adjustment.quantity {
+            plan.set_quantity(index, quantity);
+        }
+        if let Some(included) = adjustment.included {
+            if plan.lines[index].included != included {
+                plan.toggle(index);
+            }
+        }
+    }
+    plan.query = request.query.clone().unwrap_or_default();
+    plan.excluded_only = request.excluded_only.unwrap_or(false);
+    plan.domain = reorder::clean_domain(
+        request
+            .domain
+            .as_deref()
+            .unwrap_or(reorder::DEFAULT_DOMAIN),
+    );
+    Ok(plan)
+}
+
+/// Computes the reorder assistant result.
+#[tauri::command]
+pub fn reorder_plan(
+    state: tauri::State<'_, DesktopState>,
+    request: ReorderRequest,
+) -> Result<ReorderView, String> {
+    let plan = build_plan(&state, &request)?;
+    let lines = plan
+        .visible()
+        .into_iter()
+        .map(|index| {
+            let line = &plan.lines[index];
+            ReorderLineView {
+                product_id: line.product.id,
+                name: line.product.name.clone(),
+                sku: line.product.sku.clone(),
+                asin: line.asin(),
+                quantity: line.quantity,
+                included: line.included,
+                excluded: line.is_excluded(),
+                stock: line.product.stock,
+                unit_cost_cents: line.unit_cost().cents(),
+            }
+        })
+        .collect();
+    let stats = plan.stats();
+    Ok(ReorderView {
+        lines,
+        stats: ReorderStatsView {
+            low_stock_count: stats.low_stock_count as i64,
+            total_units: stats.total_units,
+            estimated_cost_cents: stats.estimated_cost.cents(),
+            excluded_count: stats.excluded_count as i64,
+            asin_ready_count: stats.asin_ready_count as i64,
+            missing_asin_count: stats.missing_asin_count as i64,
+        },
+        cart_url: plan.cart_url(),
+        search_url: plan.search_url(),
+    })
+}
+
+/// Creates the draft purchase order of the reorder assistant and returns its number.
+#[tauri::command]
+pub fn create_reorder_draft(
+    state: tauri::State<'_, DesktopState>,
+    request: ReorderRequest,
+) -> Result<String, String> {
+    let plan = build_plan(&state, &request)?;
+    let vendor = state
+        .contacts(None)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .find(|contact| {
+            matches!(
+                contact.contact_type,
+                socdof_core::domain::contact::ContactType::Vendor
+                    | socdof_core::domain::contact::ContactType::Both
+            )
+        })
+        .ok_or_else(|| "no_vendor".to_string())?;
+    let now = socdof_core::now_millis();
+    let stamp = socdof_core::date::format_iso8601(now);
+    let year: i32 = stamp
+        .get(0..4)
+        .and_then(|year| year.parse().ok())
+        .unwrap_or(2026);
+    let number = reorder::order_number(year, 1000 + (now.rem_euclid(9000)) as u16);
+    let order: PurchaseOrder = plan
+        .draft_order(vendor.id, number.clone(), now, "€")
+        .ok_or_else(|| "no_lines".to_string())?;
+    state
+        .create_purchase_order(&order)
+        .map_err(|error| error.to_string())?;
+    Ok(number)
+}
+
+/// Sets the permanent reorder exclusion of a product.
+#[tauri::command]
+pub fn set_product_reorder_exclusion(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+    excluded: bool,
+) -> Result<Product, String> {
+    let mut product = state.product(id).map_err(|error| error.to_string())?;
+    product.exclude_from_reorder = excluded;
+    state
+        .store_product(&product)
+        .map_err(|error| error.to_string())?;
+    Ok(product)
 }

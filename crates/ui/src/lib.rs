@@ -39,6 +39,7 @@ pub mod form;
 pub mod gallery;
 pub mod i18n;
 pub mod icons;
+pub mod invoice_actions;
 pub mod invoices;
 pub mod migration;
 pub mod pos;

@@ -950,6 +950,7 @@ pub fn seed_settings(store: &Store, texts: &UiTexts) -> socdof_core::CoreResult<
                 auto_backup_enabled: false,
                 backup_interval_minutes: 120,
                 backup_max_keep_count: 10,
+                ..CompanyProfile::default()
             },
         )?;
     }

@@ -4,6 +4,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+use crate::domain::payment::{InvoicePayment, PaymentMethod};
 use crate::domain::stock::StockMove;
 use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
@@ -124,6 +125,68 @@ pub fn set_status(conn: &Connection, id: Uuid, status: InvoiceStatus) -> CoreRes
         return Err(CoreError::NotFound(id.to_string()));
     }
     Ok(())
+}
+
+/// Records the payment of an invoice and marks it paid in the same transaction.
+pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult<()> {
+    let changed = conn.execute(
+        "UPDATE invoices SET status = ?2 WHERE id = ?1",
+        params![payment.invoice_id.to_string(), InvoiceStatus::Paid.as_str()],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(payment.invoice_id.to_string()));
+    }
+
+    conn.execute(
+        "INSERT INTO invoice_payments (invoice_id, paid_at, method, reference, tse_signature)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(invoice_id) DO UPDATE SET paid_at = excluded.paid_at,
+            method = excluded.method, reference = excluded.reference,
+            tse_signature = excluded.tse_signature",
+        params![
+            payment.invoice_id.to_string(),
+            payment.paid_at,
+            payment.method.as_str(),
+            payment.reference,
+            payment.tse_signature,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Payment recorded for an invoice, if any.
+pub fn payment(conn: &Connection, id: Uuid) -> CoreResult<Option<InvoicePayment>> {
+    let row = conn
+        .query_row(
+            "SELECT invoice_id, paid_at, method, reference, tse_signature
+             FROM invoice_payments WHERE invoice_id = ?1",
+            params![id.to_string()],
+            |row| {
+                let invoice_text: String = row.get("invoice_id")?;
+                let method: String = row.get("method")?;
+                Ok((
+                    invoice_text,
+                    row.get::<_, i64>("paid_at")?,
+                    method,
+                    row.get::<_, String>("reference")?,
+                    row.get::<_, Option<String>>("tse_signature")?,
+                ))
+            },
+        )
+        .optional()?;
+
+    let Some((invoice_text, paid_at, method, reference, tse_signature)) = row else {
+        return Ok(None);
+    };
+    let invoice_id =
+        Uuid::parse_str(&invoice_text).map_err(|_| CoreError::NotFound(invoice_text))?;
+    Ok(Some(InvoicePayment {
+        invoice_id,
+        paid_at,
+        method: PaymentMethod::from_storage(&method).unwrap_or(PaymentMethod::Transfer),
+        reference,
+        tse_signature,
+    }))
 }
 
 /// Loads one invoice with its positions.

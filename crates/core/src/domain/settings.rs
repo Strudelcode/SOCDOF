@@ -71,6 +71,24 @@ pub struct CompanyProfile {
     pub phone: String,
     /// Tax number / VAT id.
     pub tax_id: String,
+    /// Bank name printed on dunning letters and mail drafts.
+    pub bank_name: String,
+    /// IBAN printed on letters and drafts.
+    pub iban: String,
+    /// BIC printed on letters and drafts.
+    pub bic: String,
+    /// Account holder printed on drafts.
+    pub bank_account_holder: String,
+    /// SMTP host, empty when mail is handed to the local client.
+    pub smtp_host: String,
+    /// SMTP port.
+    pub smtp_port: i64,
+    /// SMTP user.
+    pub smtp_user: String,
+    /// Whether a card terminal is configured.
+    pub card_payment_enabled: bool,
+    /// Name of the card terminal.
+    pub card_terminal_name: String,
     /// Currency symbol used for printing.
     pub currency: String,
     /// Interface language.
@@ -99,6 +117,15 @@ impl Default for CompanyProfile {
             email: String::new(),
             phone: String::new(),
             tax_id: String::new(),
+            bank_name: String::new(),
+            iban: String::new(),
+            bic: String::new(),
+            bank_account_holder: String::new(),
+            smtp_host: String::new(),
+            smtp_port: 587,
+            smtp_user: String::new(),
+            card_payment_enabled: false,
+            card_terminal_name: String::new(),
             currency: "€".to_string(),
             language: Language::default(),
             accent_color: "indigo".to_string(),

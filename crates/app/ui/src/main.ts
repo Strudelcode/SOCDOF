@@ -429,6 +429,8 @@ function renderProducts(products: Product[]): void {
     card.appendChild(meta);
 
     const actions = makeElement("div", "entity-actions");
+    addActionButton(actions, "labelButton", "secondary", () => void openLabelDialog(product));
+    addActionButton(actions, "reorderButton", "secondary", () => void openReorderDialog());
     addActionButton(actions, "edit", "secondary", () => openProductDialog(product));
     addActionButton(actions, "delete", "danger", () => void removeProduct(product));
     card.appendChild(actions);
@@ -1045,3 +1047,337 @@ function installShortcutDispatch(): void {
 }
 
 installShortcutDispatch();
+
+// ---------------------------------------------------------------------------
+// Barcode/QR label and smart reorder assistant (ported from the TypeScript modals)
+// ---------------------------------------------------------------------------
+
+interface LabelFormatView {
+  id: string;
+  label_key: string;
+  width: number;
+}
+
+interface ProductLabelView {
+  name: string;
+  sku: string;
+  asin: string | null;
+  category: string;
+  unit: string;
+  price_text: string;
+  payload: string;
+  formats: LabelFormatView[];
+  qr: string[];
+}
+
+interface ReorderAdjustment {
+  product_id: string;
+  quantity?: number;
+  included?: boolean;
+}
+
+interface ReorderLineView {
+  product_id: string;
+  name: string;
+  sku: string;
+  asin: string | null;
+  quantity: number;
+  included: boolean;
+  excluded: boolean;
+  stock: number;
+  unit_cost_cents: number;
+}
+
+interface ReorderStatsView {
+  low_stock_count: number;
+  total_units: number;
+  estimated_cost_cents: number;
+  excluded_count: number;
+  asin_ready_count: number;
+  missing_asin_count: number;
+}
+
+interface ReorderView {
+  lines: ReorderLineView[];
+  stats: ReorderStatsView;
+  cart_url: string;
+  search_url: string;
+}
+
+const labelDialog = byId<HTMLDialogElement>("label-dialog");
+const labelFormats = byId<HTMLDivElement>("label-formats");
+const labelCategory = byId<HTMLSpanElement>("label-category");
+const labelName = byId<HTMLElement>("label-name");
+const labelSku = byId<HTMLSpanElement>("label-sku");
+const labelAsin = byId<HTMLSpanElement>("label-asin");
+const labelPrice = byId<HTMLSpanElement>("label-price");
+const labelUnit = byId<HTMLSpanElement>("label-unit");
+const labelQr = byId<HTMLCanvasElement>("label-qr");
+const reorderDialog = byId<HTMLDialogElement>("reorder-dialog");
+const reorderModeIndividual = byId<HTMLButtonElement>("reorder-mode-individual");
+const reorderModeFixed = byId<HTMLButtonElement>("reorder-mode-fixed");
+const reorderFixedInput = byId<HTMLInputElement>("reorder-fixed");
+const reorderDomainSelect = byId<HTMLSelectElement>("reorder-domain");
+const reorderSearchInput = byId<HTMLInputElement>("reorder-search");
+const reorderExcludedInput = byId<HTMLInputElement>("reorder-excluded");
+const reorderStats = byId<HTMLDivElement>("reorder-stats");
+const reorderLines = byId<HTMLDivElement>("reorder-lines");
+const reorderCart = byId<HTMLAnchorElement>("reorder-cart");
+const reorderCopyButton = byId<HTMLButtonElement>("reorder-copy");
+const reorderDraftButton = byId<HTMLButtonElement>("reorder-draft");
+const reorderMessage = byId<HTMLParagraphElement>("reorder-message");
+
+let labelView: ProductLabelView | null = null;
+let labelFormat = "standard";
+const reorderAdjustments = new Map<string, ReorderAdjustment>();
+let reorderView: ReorderView | null = null;
+let reorderThresholdMode: "individual" | "fixed" = "individual";
+let reorderBusy = false;
+
+function formatCents(cents: number): string {
+  return `${(cents / 100).toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} €`;
+}
+
+async function openLabelDialog(product: Product): Promise<void> {
+  try {
+    labelView = await invoke<ProductLabelView>("product_label", { id: product.id });
+  } catch (error) {
+    productsMessage.textContent = format(translate(language, "errorLoadProducts"), {
+      message: describe(error),
+    });
+    return;
+  }
+  labelFormat = "standard";
+  renderLabel();
+  labelDialog.showModal();
+}
+
+function renderLabel(): void {
+  if (!labelView) {
+    return;
+  }
+  labelCategory.textContent = labelView.category;
+  labelName.textContent = labelView.name;
+  labelSku.textContent = `SKU: ${labelView.sku}`;
+  labelAsin.textContent = labelView.asin ? `ASIN: ${labelView.asin}` : "";
+  labelPrice.textContent = labelView.price_text;
+  labelUnit.textContent = labelView.unit;
+
+  labelFormats.replaceChildren();
+  for (const format of labelView.formats) {
+    const button = makeElement("button", format.id === labelFormat ? undefined : "secondary");
+    button.type = "button";
+    button.textContent = translate(language, format.label_key as TranslationKey);
+    if (format.id === labelFormat) {
+      labelQr.style.width = `${format.width}px`;
+    }
+    button.addEventListener("click", () => {
+      labelFormat = format.id;
+      renderLabel();
+    });
+    labelFormats.appendChild(button);
+  }
+  drawQr(labelQr, labelView.qr);
+}
+
+function drawQr(canvas: HTMLCanvasElement, rows: string[]): void {
+  const context = canvas.getContext("2d");
+  if (!context || rows.length === 0) {
+    return;
+  }
+  const modules = rows.length;
+  const scale = Math.max(1, Math.floor(canvas.width / modules));
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#0f172a";
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x += 1) {
+      if (row[x] === "1") {
+        context.fillRect(x * scale, y * scale, scale, scale);
+      }
+    }
+  });
+}
+
+async function openReorderDialog(): Promise<void> {
+  reorderAdjustments.clear();
+  reorderThresholdMode = "individual";
+  reorderSearchInput.value = "";
+  reorderExcludedInput.checked = false;
+  reorderMessage.textContent = "";
+  await refreshReorder();
+  reorderDialog.showModal();
+}
+
+async function refreshReorder(): Promise<void> {
+  if (reorderBusy) {
+    return;
+  }
+  reorderBusy = true;
+  try {
+    const request = {
+      threshold: reorderThresholdMode,
+      fixed: Number.parseInt(reorderFixedInput.value || "5", 10) || 5,
+      domain: reorderDomainSelect.value,
+      query: reorderSearchInput.value,
+      excluded_only: reorderExcludedInput.checked,
+      adjustments: [...reorderAdjustments.values()],
+    };
+    reorderView = await invoke<ReorderView>("reorder_plan", { request });
+    renderReorder();
+  } catch (error) {
+    reorderMessage.textContent = format(translate(language, "errorLoadProducts"), {
+      message: describe(error),
+    });
+  } finally {
+    reorderBusy = false;
+  }
+}
+
+function renderReorder(): void {
+  if (!reorderView) {
+    return;
+  }
+  const stats = reorderView.stats;
+  reorderStats.replaceChildren(
+    makeElement("span", "badge", `${stats.low_stock_count} ${translate(language, "reorderLowStock")}`),
+    makeElement("span", "badge", `${stats.total_units} ${translate(language, "reorderUnits")}`),
+    makeElement("span", "badge", `${stats.asin_ready_count} ${translate(language, "reorderAsinReady")}`),
+    makeElement("span", "badge", formatCents(stats.estimated_cost_cents)),
+  );
+
+  reorderModeIndividual.className =
+    reorderThresholdMode === "individual" ? "" : "secondary";
+  reorderModeFixed.className = reorderThresholdMode === "fixed" ? "" : "secondary";
+
+  reorderLines.replaceChildren();
+  if (reorderView.lines.length === 0) {
+    reorderLines.appendChild(
+      makeElement("p", "hint", translate(language, "reorderEmpty")),
+    );
+  }
+  for (const line of reorderView.lines) {
+    const row = makeElement("div", "reorder-row");
+    row.appendChild(makeElement("strong", undefined, line.name));
+    row.appendChild(makeElement("span", "hint", line.sku));
+
+    const minus = makeElement("button", "secondary", "−");
+    minus.type = "button";
+    minus.addEventListener("click", () => void adjustReorder(line.product_id, line.quantity - 1));
+    row.appendChild(minus);
+    row.appendChild(makeElement("span", undefined, String(line.quantity)));
+    const plus = makeElement("button", "secondary", "+");
+    plus.type = "button";
+    plus.addEventListener("click", () => void adjustReorder(line.product_id, line.quantity + 1));
+    row.appendChild(plus);
+
+    const include = document.createElement("input");
+    include.type = "checkbox";
+    include.checked = line.included;
+    include.title = translate(language, "reorderInclude");
+    include.addEventListener("change", () => {
+      reorderAdjustments.set(line.product_id, {
+        ...reorderAdjustments.get(line.product_id),
+        product_id: line.product_id,
+        quantity: line.quantity,
+        included: include.checked,
+      });
+      void refreshReorder();
+    });
+    row.appendChild(include);
+
+    const exclude = makeElement(
+      "button",
+      line.excluded ? "danger" : "secondary",
+      translate(language, "reorderExclude"),
+    );
+    exclude.type = "button";
+    exclude.addEventListener("click", () => void toggleExclusion(line));
+    row.appendChild(exclude);
+    reorderLines.appendChild(row);
+  }
+
+  if (reorderView.cart_url) {
+    reorderCart.textContent = reorderView.cart_url;
+    reorderCart.href = reorderView.cart_url;
+  } else {
+    reorderCart.removeAttribute("href");
+    reorderCart.textContent = translate(language, "reorderCartEmpty");
+  }
+}
+
+async function adjustReorder(productId: string, quantity: number): Promise<void> {
+  const line = reorderView?.lines.find((entry) => entry.product_id === productId);
+  reorderAdjustments.set(productId, {
+    product_id: productId,
+    quantity: Math.max(1, quantity),
+    included: line?.included,
+  });
+  await refreshReorder();
+}
+
+async function toggleExclusion(line: ReorderLineView): Promise<void> {
+  try {
+    await invoke("set_product_reorder_exclusion", {
+      id: line.product_id,
+      excluded: !line.excluded,
+    });
+    await loadProducts();
+    await refreshReorder();
+  } catch (error) {
+    reorderMessage.textContent = describe(error);
+  }
+}
+
+function reorderRequestPayload() {
+  return {
+    threshold: reorderThresholdMode,
+    fixed: Number.parseInt(reorderFixedInput.value || "5", 10) || 5,
+    domain: reorderDomainSelect.value,
+    query: reorderSearchInput.value,
+    excluded_only: reorderExcludedInput.checked,
+    adjustments: [...reorderAdjustments.values()],
+  };
+}
+
+reorderModeIndividual.addEventListener("click", () => {
+  reorderThresholdMode = "individual";
+  void refreshReorder();
+});
+reorderModeFixed.addEventListener("click", () => {
+  reorderThresholdMode = "fixed";
+  void refreshReorder();
+});
+reorderFixedInput.addEventListener("change", () => void refreshReorder());
+reorderDomainSelect.addEventListener("change", () => void refreshReorder());
+reorderSearchInput.addEventListener("input", () => void refreshReorder());
+reorderExcludedInput.addEventListener("change", () => void refreshReorder());
+
+reorderCopyButton.addEventListener("click", async () => {
+  const text = [
+    translate(language, "reorderTitle"),
+    ...((reorderView?.lines ?? []).map(
+      (line) => `${line.name} | ${line.sku} | ${line.quantity}`,
+    )),
+  ].join("\n");
+  await navigator.clipboard.writeText(text);
+  reorderMessage.textContent = translate(language, "reorderCopied");
+});
+
+reorderDraftButton.addEventListener("click", async () => {
+  try {
+    const number = await invoke<string>("create_reorder_draft", {
+      request: reorderRequestPayload(),
+    });
+    reorderMessage.textContent = `${translate(language, "reorderDraftCreated")} ${number}`;
+  } catch (error) {
+    const message = describe(error);
+    reorderMessage.textContent =
+      message.includes("no_vendor")
+        ? translate(language, "reorderNoVendor")
+        : message;
+  }
+});

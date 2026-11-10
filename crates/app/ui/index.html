@@ -282,6 +282,73 @@
       </form>
     </dialog>
 
+    <dialog id="label-dialog" class="editor">
+      <div class="editor-head">
+        <h2 data-i18n="labelTitle"></h2>
+        <button class="icon-button" type="button" data-close="label-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="reorder-controls" id="label-formats"></div>
+      <div class="label-preview">
+        <div class="label-text">
+          <span class="label-category" id="label-category"></span>
+          <strong class="label-name" id="label-name"></strong>
+          <span id="label-sku"></span>
+          <span id="label-asin"></span>
+          <span class="label-price" id="label-price"></span>
+          <span class="hint" id="label-scan">SOCDOF-SCAN</span>
+          <span id="label-unit"></span>
+        </div>
+        <canvas id="label-qr" width="180" height="180"></canvas>
+      </div>
+      <div class="editor-actions">
+        <button class="secondary" type="button" data-close="label-dialog" data-i18n="close"></button>
+      </div>
+    </dialog>
+
+    <dialog id="reorder-dialog" class="editor">
+      <div class="editor-head">
+        <h2 data-i18n="reorderTitle"></h2>
+        <button class="icon-button" type="button" data-close="reorder-dialog" aria-label="Close">×</button>
+      </div>
+      <p class="hint" data-i18n="reorderSubtitle"></p>
+      <div class="reorder-controls">
+        <button type="button" id="reorder-mode-individual" data-i18n="reorderIndividual"></button>
+        <button type="button" id="reorder-mode-fixed" data-i18n="reorderFixed"></button>
+        <label class="field">
+          <span data-i18n="reorderThreshold"></span>
+          <input id="reorder-fixed" type="number" min="1" step="1" value="5" />
+        </label>
+        <label class="field">
+          <span data-i18n="reorderDomain"></span>
+          <select id="reorder-domain">
+            <option value="amazon.de">amazon.de</option>
+            <option value="amazon.com">amazon.com</option>
+            <option value="amazon.co.uk">amazon.co.uk</option>
+            <option value="amazon.fr">amazon.fr</option>
+            <option value="amazon.es">amazon.es</option>
+            <option value="amazon.it">amazon.it</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="reorderSearch"></span>
+          <input id="reorder-search" type="search" />
+        </label>
+        <label class="field field-inline">
+          <input id="reorder-excluded" type="checkbox" />
+          <span data-i18n="reorderExcludedOnly"></span>
+        </label>
+      </div>
+      <div class="reorder-stats" id="reorder-stats"></div>
+      <div class="reorder-lines" id="reorder-lines"></div>
+      <p class="hint"><span data-i18n="reorderCart"></span> <a id="reorder-cart" target="_blank" rel="noreferrer"></a></p>
+      <div class="editor-actions">
+        <button class="secondary" type="button" id="reorder-copy" data-i18n="reorderCopy"></button>
+        <button type="button" id="reorder-draft" data-i18n="reorderDraft"></button>
+        <button class="secondary" type="button" data-close="reorder-dialog" data-i18n="close"></button>
+      </div>
+      <p class="message" id="reorder-message" role="alert"></p>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
