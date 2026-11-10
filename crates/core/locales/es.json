@@ -49,6 +49,10 @@
   "subject_required": "Introduce un asunto.",
   "tax_rate_out_of_range": "El tipo de IVA está fuera de rango.",
   "title_required": "Introduce un título.",
+  "tray_create_backup": "Crear copia de seguridad",
+  "tray_quit": "Salir",
+  "tray_show_window": "Mostrar ventana",
+  "tray_tooltip": "SOCDOF — acceso rápido",
   "username_invalid_characters": "El nombre de usuario contiene caracteres no válidos.",
   "username_too_short": "El nombre de usuario es demasiado corto."
 }

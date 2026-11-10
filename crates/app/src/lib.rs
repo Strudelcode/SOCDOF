@@ -12,4 +12,5 @@ pub mod dialogs;
 pub mod shell;
 pub mod shortcuts;
 pub mod startup;
+pub mod tray;
 pub mod window_state;

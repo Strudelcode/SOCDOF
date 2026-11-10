@@ -14,7 +14,10 @@ pub mod commands;
 
 use socdof_app::desktop::DesktopState;
 use socdof_app::startup::{SplashAction, StartupHandshake};
+use socdof_app::tray::{self, TrayCommand};
 use socdof_app::window_state::{self, ScreenBounds, WindowGeometry};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder, Window,
     WindowEvent,
@@ -167,6 +170,76 @@ fn persist(window: &Window) {
     }
 }
 
+/// Menu id of the tray icon.
+const TRAY_ID: &str = "socdof-tray";
+
+/// Locale of the desktop session, used for the tray labels.
+fn system_locale() -> String {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .find_map(|name| std::env::var(name).ok().filter(|value| !value.is_empty()))
+        .unwrap_or_default()
+}
+
+/// Performs a tray command. The menu event and the left click on the icon both end here.
+pub(crate) fn run_tray_command(app: &AppHandle, entry_id: &str, command: TrayCommand) {
+    if smoke_mode() {
+        println!("{}", tray::marker(entry_id, command));
+    }
+    match command {
+        TrayCommand::ShowWindow => show_main(app, None),
+        TrayCommand::CreateBackup => match app.state::<DesktopState>().backup(None) {
+            Ok(report) => {
+                if smoke_mode() {
+                    println!(
+                        "SOCDOF_TRAY backup path={} bytes={}",
+                        report.path.display(),
+                        report.bytes
+                    );
+                }
+            }
+            Err(error) => eprintln!("SOCDOF_TRAY backup_failed {error}"),
+        },
+        TrayCommand::Quit => app.exit(0),
+    }
+}
+
+/// Builds the platform tray icon from `socdof_app::tray`.
+fn create_tray(app: &AppHandle, locale: &str) -> tauri::Result<()> {
+    let menu = Menu::new(app)?;
+    for entry in tray::menu() {
+        match entry.command {
+            Some(_) => {
+                let item = MenuItem::with_id(
+                    app,
+                    entry.id,
+                    tray::label_for_locale(locale, entry.label_key),
+                    true,
+                    None::<&str>,
+                )?;
+                menu.append(&item)?;
+            }
+            None => menu.append(&PredefinedMenuItem::separator(app)?)?,
+        }
+    }
+
+    let mut builder = TrayIconBuilder::with_id(TRAY_ID)
+        .tooltip(tray::tooltip_for_locale(locale))
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| {
+            let id = event.id.as_ref().to_string();
+            if let Some(command) = tray::command_for(&id) {
+                run_tray_command(app, &id, command);
+            }
+        });
+    if let Some(icon) = app.default_window_icon().cloned() {
+        builder = builder.icon(icon);
+    }
+    builder.build(app)?;
+    Ok(())
+}
+
 /// Starts the SOCDOF desktop window.
 ///
 /// The application data directory is created before the state is opened, so the database, the
@@ -235,6 +308,19 @@ pub fn run() {
             }
             if smoke_mode() && std::env::var_os("SOCDOF_SMOKE_DIALOGS").is_some() {
                 commands::dialog_smoke();
+            }
+
+            let locale = system_locale();
+            match create_tray(&handle, &locale) {
+                Ok(()) => {
+                    if smoke_mode() {
+                        println!("SOCDOF_TRAY tray_icon=created");
+                    }
+                }
+                Err(error) => eprintln!("SOCDOF_TRAY tray_icon=failed {error}"),
+            }
+            if smoke_mode() && std::env::var_os("SOCDOF_SMOKE_TRAY").is_some() {
+                commands::tray_smoke(&handle);
             }
             Ok(())
         })

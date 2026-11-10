@@ -348,6 +348,14 @@ cancelled and acknowledged are explicit outcomes. `commands.rs` opens the platfo
 repeat and locked-context rules; the window layer registers the key handler, forwards the event and
 executes the returned action, nothing else.
 
+`tray.rs` owns the system tray menu: stable ids, reading order, one command per entry (`show_window`,
+`create_backup`, `quit`), the label key of each entry and the tooltip. The Tauri layer builds the
+platform icon from `tray::menu()`, resolves the labels for the session locale through
+`tray::label_for_locale` and passes every activation back into `tray::command_for`; the command
+itself runs in one function, so the menu cannot drift from what the shell performs. The labels live
+in the embedded core catalogue (`tray_show_window`, `tray_create_backup`, `tray_quit`, `tray_tooltip`)
+in all four languages, and nothing in the module needs GTK.
+
 `window_state.rs` keeps `window_state.json` next to the database: geometry in physical pixels plus
 the maximized/fullscreen flags, written atomically and clamped to the minimum window size and onto
 the current monitor. The Tauri layer restores it in `setup` before the window is shown and writes it

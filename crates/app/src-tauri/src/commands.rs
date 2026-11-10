@@ -19,6 +19,7 @@ use socdof_app::shortcuts::{
 use socdof_app::desktop::{BackupReport, ContactInput, DesktopState, ProductInput};
 use socdof_app::dialogs::{self, DialogKind, DialogOutcome};
 use socdof_app::shell::ShellStatus;
+use socdof_app::tray;
 use socdof_core::domain::contact::Contact;
 use socdof_core::domain::product::Product;
 use socdof_core::legacy::{LegacyExportReport, LegacyImportReport};
@@ -544,6 +545,30 @@ pub fn show_message(app: tauri::AppHandle, text: String, title: String) -> Dialo
         app.dialog().message(&text).title(&title).blocking_show();
     }
     dialog_reply(&DialogKind::Message, None)
+}
+
+/// Exercises the tray menu (CI smoke only).
+///
+/// Reports every label the menu can show and the unknown-id path, then dispatches the entries in
+/// menu order through the function the platform menu event calls — including quit, which ends the
+/// run. The icon itself needs a status-notifier host, which the Xvfb session does not provide; the
+/// menu, the window effect and the backup are real.
+pub fn tray_smoke(app: &tauri::AppHandle) {
+    for (language, id, label) in tray::label_dump() {
+        smoke_log(&format!(
+            "SOCDOF_TRAY labels lang={language} item={id} label={label}"
+        ));
+    }
+    let unknown = tray::command_for("no-such-entry");
+    smoke_log(&format!(
+        "SOCDOF_TRAY item=unknown action={}",
+        unknown.map(|command| command.as_str()).unwrap_or("none")
+    ));
+    for entry in tray::menu() {
+        if let Some(command) = entry.command {
+            crate::run_tray_command(app, entry.id, command);
+        }
+    }
 }
 
 /// Exercises the dialog bridge with canned selections (CI smoke only).

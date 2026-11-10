@@ -49,6 +49,10 @@
   "subject_required": "Bitte einen Betreff angeben.",
   "tax_rate_out_of_range": "Der Steuersatz liegt außerhalb des gültigen Bereichs.",
   "title_required": "Bitte einen Titel angeben.",
+  "tray_create_backup": "Sicherung erstellen",
+  "tray_quit": "Beenden",
+  "tray_show_window": "Fenster anzeigen",
+  "tray_tooltip": "SOCDOF — Schnellzugriff",
   "username_invalid_characters": "Der Benutzername enthält ungültige Zeichen.",
   "username_too_short": "Der Benutzername ist zu kurz."
 }

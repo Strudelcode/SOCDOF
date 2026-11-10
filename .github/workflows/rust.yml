@@ -606,6 +606,56 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: System tray menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-tray"
+          export LANG=de_DE.UTF-8
+          export GDK_BACKEND=x11
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export NO_AT_BRIDGE=1
+          export SOCDOF_SMOKE_TRAY=1
+          SOCDOF_SMOKE_REPORT="$PWD/artifacts/tray-report.json" \
+            timeout 120s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+              "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/tray.log 2>&1
+          python3 - <<'PY'
+          import pathlib
+
+          log = pathlib.Path("artifacts/tray.log").read_text(errors="replace")
+          assert "SOCDOF_TRAY item=show action=show_window" in log, "the window action did not run"
+          assert "SOCDOF_SPLASH main_window=visible error=-" in log, (
+              "the window action did not show the window"
+          )
+          assert "SOCDOF_TRAY item=backup action=create_backup" in log, "the backup action did not run"
+          assert "SOCDOF_TRAY backup path=" in log, "the backup action reported no file"
+          assert "bytes=0" not in log, "the backup action wrote an empty file"
+          assert "SOCDOF_TRAY item=quit action=quit" in log, "the quit action did not run"
+          assert "SOCDOF_TRAY item=unknown action=none" in log, "an unknown menu id dispatched"
+          for label in (
+              "lang=de item=show label=Fenster anzeigen",
+              "lang=en item=show label=Show window",
+              "lang=fr item=show label=Afficher la fenêtre",
+              "lang=es item=show label=Mostrar ventana",
+          ):
+              assert label in log, f"missing tray label: {label}"
+          assert log.index("action=show_window") < log.index("action=create_backup"), (
+              "menu order changed"
+          )
+          assert log.index("action=create_backup") < log.index("action=quit"), "menu order changed"
+          print("tray menu OK")
+          PY
+          {
+            echo '### System tray menu'
+            echo '```text'
+            grep 'SOCDOF_TRAY' artifacts/tray.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Shortcut dispatch
         shell: bash
         run: |

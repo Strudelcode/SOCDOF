@@ -9,7 +9,7 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
-| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake, the shortcut mapping and the native dialog bridge, plus the Phase 9 budgets. Open: the tray, the installer and
+| **Current phase** | Phase 9 — complete, and the last six feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence, the splash handshake, the shortcut mapping, the native dialog bridge and the system tray, plus the Phase 9 budgets. Open: the installer and
 idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
@@ -242,7 +242,22 @@ jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on ea
       a run with `SOCDOF_SMOKE_FAIL_STARTUP=1` must log `phase=failed reason=database_error` with the
       splash closed; that step needs GTK/WebKit and runs in CI only
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
-- [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
+- [x] System tray with quick actions: `crates/app/src/tray.rs` owns the menu — ids, reading order,
+      labels and one command per entry — and `crates/app/src-tauri/src/lib.rs` only builds the
+      platform icon from that model and runs the command it returns. The menu carries the three
+      actions the shell really performs: show the main window, write a backup through
+      `DesktopState`, quit; no id is bound twice and the menu is the only activation path, because
+      Tauri emits no tray click events on Linux.
+      Labels and tooltip come from the core catalogue in de/en/fr/es and follow the session locale
+      (`de_DE.UTF-8` -> German, `fr-CA` -> French, an unknown locale -> English). Tests: menu order
+      with one command per entry and exactly two separators, every id resolving to its own command
+      plus unknown and separator ids doing nothing, locale selection in all four languages, every
+      label coming from the catalogue instead of the key, a localized tooltip, the labeled menu
+      without separators and stable marker names (`cargo test -p socdof-app --lib tray::`). The menu
+      runs end to end in the gui-smoke step **System tray menu**: every entry is dispatched through
+      the same function the platform menu event calls — the window becomes visible, the backup writes
+      a non-empty file and quit ends the run — and the labels of all four languages are asserted; the
+      icon itself needs a status-notifier host, so its appearance is only checked by a human
 - [x] Native dialogs: folder picker, file open/save, message boxes: `crates/app/src/dialogs.rs`
       validates every answer before the caller sees it — a folder must be a directory, an opened file
       must exist and match the allowed extensions, a save target needs an existing parent folder, a

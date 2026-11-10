@@ -49,6 +49,10 @@
   "subject_required": "Please enter a subject.",
   "tax_rate_out_of_range": "The tax rate is out of range.",
   "title_required": "Please enter a title.",
+  "tray_create_backup": "Create backup",
+  "tray_quit": "Quit",
+  "tray_show_window": "Show window",
+  "tray_tooltip": "SOCDOF — quick access",
   "username_invalid_characters": "The username contains invalid characters.",
   "username_too_short": "The username is too short."
 }

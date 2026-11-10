@@ -49,6 +49,10 @@
   "subject_required": "Veuillez saisir un objet.",
   "tax_rate_out_of_range": "Le taux de TVA est hors limites.",
   "title_required": "Veuillez saisir un titre.",
+  "tray_create_backup": "Créer une sauvegarde",
+  "tray_quit": "Quitter",
+  "tray_show_window": "Afficher la fenêtre",
+  "tray_tooltip": "SOCDOF — accès rapide",
   "username_invalid_characters": "Le nom d'utilisateur contient des caractères invalides.",
   "username_too_short": "Le nom d'utilisateur est trop court."
 }
