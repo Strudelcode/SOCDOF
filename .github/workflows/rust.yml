@@ -509,6 +509,61 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Splash handshake
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-splash"
+          export GDK_BACKEND=x11
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export NO_AT_BRIDGE=1
+          app_bin="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+          SOCDOF_SMOKE_REPORT="$PWD/artifacts/splash-report.json" \
+            timeout 120s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+              "$app_bin" > artifacts/splash.log 2>&1
+          set +e
+          SOCDOF_SMOKE_FAIL_STARTUP=1 SOCDOF_SMOKE_REPORT="$PWD/artifacts/splash-failure-report.json" \
+            timeout 25s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+              "$app_bin" > artifacts/splash-failure.log 2>&1
+          set -e
+          python3 - <<'PY'
+          import pathlib
+
+          ok = pathlib.Path("artifacts/splash.log").read_text(errors="replace")
+          failed = pathlib.Path("artifacts/splash-failure.log").read_text(errors="replace")
+
+          assert "SOCDOF_SPLASH phase=starting" in ok, "no starting phase in the normal run"
+          assert "SOCDOF_SPLASH phase=ready" in ok, "the shell never reported ready"
+          assert "SOCDOF_SPLASH splash_window=closed" in ok, "the splash was not closed"
+          assert "SOCDOF_SPLASH main_window=visible error=-" in ok, "the main window was not shown"
+          assert ok.index("phase=starting") < ok.index("phase=ready"), "ready before starting"
+          assert ok.index("splash_window=closed") < ok.index("main_window=visible"), (
+              "main window shown before the splash closed"
+          )
+          assert ok.index("phase=ready") < ok.index("SOCDOF_SMOKE_OK"), (
+              "the smoke contract ran before the shell was ready"
+          )
+
+          assert "SOCDOF_SPLASH phase=failed" in failed, "the failure path left the splash open"
+          assert "reason=database_error" in failed, "the failure reason was not reported"
+          assert "SOCDOF_SPLASH splash_window=closed" in failed, "failure did not close the splash"
+          assert "main_window=visible error=database_error" in failed, (
+              "failure did not show the error state"
+          )
+          assert failed.index("phase=starting") < failed.index("phase=failed"), "failure before start"
+          print("splash handshake OK")
+          PY
+          {
+            echo '### Splash handshake'
+            echo '```text'
+            grep 'SOCDOF_SPLASH' artifacts/splash.log artifacts/splash-failure.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Window state round trip
         shell: bash
         run: |
@@ -569,6 +624,8 @@ jobs:
             artifacts/smoke-report.json
             artifacts/window-*.log
             artifacts/window-report-*.json
+            artifacts/splash.log
+            artifacts/splash-failure.log
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

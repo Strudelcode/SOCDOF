@@ -3,21 +3,32 @@
 //! This crate only wires the webview to [`socdof_app::desktop::DesktopState`]. The startup sequence,
 //! instance lock, SQLite access and backup format stay in `socdof-app` and `socdof-core`.
 //!
-//! Window geometry persistence lives in [`socdof_app::window_state`]; this layer only converts
-//! between the window's physical pixels and that module, so the restore/clamp rules are tested
-//! without GTK.
+//! Two pieces of behaviour live in `socdof-app` and are only performed here:
+//! [`socdof_app::startup`] decides when the splash closes and which window becomes visible (including
+//! the failure and timeout path), and [`socdof_app::window_state`] decides geometry restore and
+//! clamping.
 
 #![deny(missing_docs)]
 
 pub mod commands;
 
 use socdof_app::desktop::DesktopState;
+use socdof_app::startup::{SplashAction, StartupHandshake};
 use socdof_app::window_state::{self, ScreenBounds, WindowGeometry};
-use tauri::{Manager, PhysicalPosition, PhysicalSize, Window, WindowEvent};
+use tauri::{
+    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder, Window,
+    WindowEvent,
+};
+
+/// Environment variable that marks a CI smoke run.
+const SMOKE_ENV: &str = "SOCDOF_SMOKE_REPORT";
+
+/// Environment variable that forces the startup failure path in CI.
+const FAIL_STARTUP_ENV: &str = "SOCDOF_SMOKE_FAIL_STARTUP";
 
 /// Whether the process runs the CI smoke contract (`SOCDOF_SMOKE_REPORT` set).
 fn smoke_mode() -> bool {
-    std::env::var_os("SOCDOF_SMOKE_REPORT").is_some()
+    std::env::var_os(SMOKE_ENV).is_some()
 }
 
 /// Reads the current geometry of `window`, in physical pixels.
@@ -48,7 +59,7 @@ fn screen_of(window: &Window) -> ScreenBounds {
 }
 
 /// Applies a stored geometry to the window.
-fn apply(window: &Window, geometry: &WindowGeometry) {
+fn apply_geometry(window: &Window, geometry: &WindowGeometry) {
     let _ = window.set_size(PhysicalSize::new(geometry.width, geometry.height));
     let _ = window.set_position(PhysicalPosition::new(geometry.x, geometry.y));
     if geometry.maximized {
@@ -56,6 +67,74 @@ fn apply(window: &Window, geometry: &WindowGeometry) {
     }
     if geometry.fullscreen {
         let _ = window.set_fullscreen(true);
+    }
+}
+
+/// Creates the splash window with the static page from `ui/public/splash.html`.
+fn show_splash(app: &AppHandle) {
+    let created = WebviewWindowBuilder::new(app, "splash", WebviewUrl::App("splash.html".into()))
+        .title("SOCDOF")
+        .inner_size(400.0, 240.0)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .center()
+        .build();
+    match created {
+        Ok(_) => {
+            if smoke_mode() {
+                println!("SOCDOF_SPLASH splash_window=visible");
+            }
+        }
+        Err(error) => {
+            eprintln!("SOCDOF_SPLASH window_failed {error}");
+        }
+    }
+}
+
+/// Closes the splash window and reports it once.
+fn close_splash(app: &AppHandle) {
+    if let Some(splash) = app.get_window("splash") {
+        if smoke_mode() {
+            println!("SOCDOF_SPLASH splash_window=closed");
+        }
+        let _ = splash.close();
+    }
+}
+
+/// Shows and focuses the main window, optionally in its error state.
+fn show_main(app: &AppHandle, error: Option<&str>) {
+    if let Some(main) = app.get_window("main") {
+        if let Some(reason) = error {
+            let _ = main.set_title(&format!("SOCDOF — start failed: {reason}"));
+        }
+        let _ = main.show();
+        let _ = main.set_focus();
+        if smoke_mode() {
+            println!(
+                "SOCDOF_SPLASH main_window=visible error={}",
+                error.unwrap_or("-")
+            );
+        }
+    }
+}
+
+/// Performs the window calls that belong to a handshake transition.
+fn apply_action(app: &AppHandle, action: SplashAction, handshake: &StartupHandshake) {
+    match action {
+        SplashAction::None => {}
+        SplashAction::ShowSplash => show_splash(app),
+        SplashAction::ShowMain => {
+            close_splash(app);
+            show_main(app, None);
+        }
+        SplashAction::ShowError => {
+            close_splash(app);
+            show_main(app, handshake.reason());
+        }
+    }
+    if smoke_mode() {
+        println!("{}", handshake.marker());
     }
 }
 
@@ -91,8 +170,10 @@ fn persist(window: &Window) {
 /// Starts the SOCDOF desktop window.
 ///
 /// The application data directory is created before the state is opened, so the database, the
-/// instance lock and the window state always live in a writable location. Returns when the last
-/// window closes.
+/// instance lock and the window state always live in a writable location. The main window starts
+/// hidden (`"visible": false` in `tauri.conf.json`) and is shown by the handshake, so the user sees
+/// either the splash or the finished window — never an empty frame. Returns when the last window
+/// closes.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -100,7 +181,32 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            app.manage(DesktopState::open(data_dir.join("socdof.db"))?);
+            let handle = app.handle().clone();
+            let mut handshake = StartupHandshake::new();
+
+            show_splash(&handle);
+            if smoke_mode() {
+                println!("{}", handshake.marker());
+            }
+
+            let open = if std::env::var_os(FAIL_STARTUP_ENV).is_some() {
+                Err("database_error".to_string())
+            } else {
+                DesktopState::open(data_dir.join("socdof.db")).map_err(|error| error.to_string())
+            };
+
+            match open {
+                Ok(state) => {
+                    app.manage(state);
+                    let action = handshake.mark_ready();
+                    apply_action(&handle, action, &handshake);
+                }
+                Err(error) => {
+                    eprintln!("SOCDOF startup failed: {error}");
+                    let action = handshake.mark_failed("database_error");
+                    apply_action(&handle, action, &handshake);
+                }
+            }
 
             let path = window_state::state_path(&data_dir);
             let stored = window_state::load(&path);
@@ -109,7 +215,7 @@ pub fn run() {
                     .clone()
                     .unwrap_or_default()
                     .sanitized(screen_of(&window));
-                apply(&window, &geometry);
+                apply_geometry(&window, &geometry);
                 if stored.is_none() {
                     let _ = window_state::save(&path, &geometry);
                 }

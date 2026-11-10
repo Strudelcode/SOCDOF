@@ -9,4 +9,5 @@
 pub mod commands;
 pub mod desktop;
 pub mod shell;
+pub mod startup;
 pub mod window_state;

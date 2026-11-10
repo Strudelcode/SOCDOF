@@ -9,7 +9,7 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-10, commit `a2ca5e2` — this checklist, the code and `docs/performance.md` /
 `docs/architecture.md` describe that commit |
-| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, plus the Phase 9 budgets. Open: the remaining Tauri window features (splash, tray, dialogs, shortcuts), the installer and
+| **Current phase** | Phase 9 — complete, and the last five feature items of Phases 2/5/10 are done: legacy-compatible `network_session.lock` with forced takeover and dialog, core update checker with CLI, update channel with rollback, import step in the first-run assistant, window geometry persistence and the splash handshake, plus the Phase 9 budgets. Open: the remaining Tauri window features (tray, dialogs, shortcuts), the installer and
 idle budgets, and code signing (no GTK/WebKit, no certificates here), the zip/docx/PDF import leftovers and four product decisions in §17. |
 | **Overall progress** | ~99 % (Phase 9 budgets measured and enforced in CI; data layer with all aggregates, FTS5, transactions, sessions/roles; settings, translations, autosave, scheduler, logging, CSV; headless shell, wired Tauri shell, contacts/products CRUD and search; Rust UI tokens, theme, controls, icons, forms, focus system, gallery, window host and golden snapshots; complete desktop shell with window manager, overlays, widgets and real wallpapers; legacy backup compatibility, packaging, runtime proof and release infrastructure) |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
@@ -224,7 +224,18 @@ jobs build with GTK/WebKit and run under Xvfb; the per-item check is named on ea
       (`cargo test -p socdof-app --lib window_state::`). The real window round trip is the gui-smoke
       step **Window state round trip**: two starts under Xvfb, the first reports `source=default`, the
       second `source=file`; that step needs GTK/WebKit and runs in CI only
-- [ ] Splash window with real progress + "ready" handshake — method: `gui-smoke` reads `artifacts/smoke.log` for the splash progress line before `SOCDOF shell ready` and asserts the handshake fires once
+- [x] Splash window with real progress + "ready" handshake: `crates/app/src/startup.rs` holds the
+      phase machine `Starting → Ready/Failed/Closed` with idempotent transitions, a 20 s timeout
+      (`startup_timeout`) and `SplashAction` as the only window contract; the static page is
+      `crates/app/ui/public/splash.html`, and `crates/app/src-tauri/src/lib.rs` creates the splash,
+      keeps the main window hidden (`"visible": false`) and closes the splash on `ready`, on failure
+      and on timeout. Tests: splash visible while starting, ready closes it once, a failed start keeps
+      its reason and a late ready cannot revive it, the timeout closes instead of hanging, a double
+      close is a no-op, marker names are stable (`cargo test -p socdof-app --lib startup::`). The real
+      window transition is the gui-smoke step **Splash handshake**: a normal start must log
+      `phase=starting` before `phase=ready`, then `splash_window=closed` and `main_window=visible`, and
+      a run with `SOCDOF_SMOKE_FAIL_STARTUP=1` must log `phase=failed reason=database_error` with the
+      splash closed; that step needs GTK/WebKit and runs in CI only
 - [x] Single instance guard (lock is held by the shared desktop state; focus needs the window layer)
 - [ ] System tray with quick actions — method: `gui-smoke` starts the app under Xvfb, opens the tray menu through the Tauri test handle and asserts each action reaches its command
 - [ ] Native dialogs: folder picker, file open/save, message boxes — method: `gui-smoke` opens each dialog under Xvfb and asserts the chosen path comes back through the command result

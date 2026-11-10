@@ -334,6 +334,11 @@ single start path:
 2. `Store::open` — migrations happen here; a failure releases the lock again.
 3. Ready — `status()` reports database, schema version, row counts and the lock owner.
 
+`startup.rs` owns the startup handshake: `Starting → Ready/Failed/Closed`, idempotent transitions and
+a 20 s timeout, returned as a `SplashAction` so the window layer only closes the splash and shows the
+main window. `crates/app/ui/public/splash.html` is the splash page; the main window is created
+invisible and becomes visible on `ready` — or in its error state when initialisation fails.
+
 `window_state.rs` keeps `window_state.json` next to the database: geometry in physical pixels plus
 the maximized/fullscreen flags, written atomically and clamped to the minimum window size and onto
 the current monitor. The Tauri layer restores it in `setup` before the window is shown and writes it
