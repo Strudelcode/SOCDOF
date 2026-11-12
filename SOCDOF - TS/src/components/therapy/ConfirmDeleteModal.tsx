@@ -1,1 +1,1 @@
-export { ConfirmDeleteModal, type ConfirmDeleteModalProps } from '../ConfirmDeleteModal';
+export { ConfirmDeleteModal, type ConfirmDeleteModalProps } from '../ui/ConfirmDeleteModal';

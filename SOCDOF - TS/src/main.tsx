@@ -41,10 +41,6 @@ function mountApp() {
         <App />
       </StrictMode>,
     );
-    // Tell the Electron main process the first screen is mounted so the splash can close.
-    requestAnimationFrame(() => {
-      window.electronAPI?.notifyAppReady?.();
-    });
   }
 }
 

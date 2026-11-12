@@ -1,142 +1,197 @@
-# SOCDOF — Rust Rewrite
+# SOCDOF
 
-Native Rust rebuild of SOCDOF. The shipped TypeScript/React/Electron application lives unchanged in
-[`SOCDOF - TS`](SOCDOF%20-%20TS) and keeps its own build and release tooling there.
+> **Strudel's Organization, Commerce & Documentation Offline Flow**  
+> *Eine offline-first Windows-ERP-Desktopsuite und Produktivitäts-Arbeitsplatz für Betriebe, Praxen, Freelancer und Handel.*
 
-The full migration plan, budgets and the parity checklist are in
-[`RUST_MIGRATION.md`](RUST_MIGRATION.md). Tick items off there as work lands.
+[![GitHub Release](https://img.shields.io/github/v/release/Strudelcode/SOCDOF?color=blue&logo=github)](https://github.com/Strudelcode/SOCDOF/releases)
+[![Discord](https://img.shields.io/badge/Community-Discord-5865F2?logo=discord)](https://discord.gg/QW85EaXTgB)
+[![Offline First](https://img.shields.io/badge/Data%20Storage-100%25%20Offline%20First-emerald)](#-privacy--offline-first-architektur)
+[![License](https://img.shields.io/badge/License-MIT%20%2F%20Free-green)](#)
+[![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE%20%7C%20FR%20%7C%20ES-indigo)](#-vier-sprachen-von-anfang-an)
 
-## Layout
 
+
+> **Two implementations live in this repository.** The TypeScript/React/Electron
+> application is preserved in [`SOCDOF - TS`](SOCDOF%20-%20TS) (25.2.x line); the
+> native Rust/Tauri rebuild is in [`crates/`](crates) (26.0.0, migration in
+> progress). The Rust plan, gates and parity evidence are in
+> [`RUST_MIGRATION.md`](RUST_MIGRATION.md); the measured screenshots are in
+> [`docs/parity/`](docs/parity).
+
+## Repository layout
+
+```text
+SOCDOF/
+├── Cargo.toml               # Rust workspace (core, app, ui, web, cli)
+├── crates/                  # native Rust/Tauri rebuild (v26.0.0)
+├── docs/parity/             # ten TypeScript/Rust screenshot pairs + scores
+├── scripts/                 # Rust build, budget and release tooling
+├── RUST_MIGRATION.md        # migration plan, checklist, parity evidence
+├── SOCDOF - TS/             # complete TypeScript/React/Electron application
+└── CHANGELOG.md             # Rust changelog (TypeScript log in SOCDOF - TS/)
 ```
-.
-├── Cargo.toml               # workspace (core, app, ui, cli)
-├── RUST_MIGRATION.md        # plan + checklist + progress log
-├── crates
-│   ├── core                 # domain model, money, SQLite persistence, FTS5, sessions/roles,
-│   │                        # settings, i18n, autosave, scheduler, logging, CSV, backup, lock, PDF
-│   ├── app                  # shell lifecycle, desktop command state, headless runner
-│   │   ├── src-tauri        # Tauri 2 window layer (standalone Cargo workspace)
-│   │   └── ui               # shipping Tauri webview frontend (visual-parity target)
-│   ├── ui                   # pure-Rust egui surface: tokens, gallery, browser build
-│   ├── web                  # browser build: the same egui UI as WebAssembly (Trunk)
-│   └── cli                  # headless access to the core, used for tests and tooling
-└── SOCDOF - TS              # legacy TypeScript application (untouched)
+
+---
+
+## 🌟 Überblick
+
+**SOCDOF** bringt die Leistungsfähigkeit eines ERP-Systems in eine vertraute, **Windows-11-inspirierte Desktop-Oberfläche**.
+
+Ob Kundenverwaltung, Rechnungen, Lagerbestand, ein Restaurant-Kassensystem mit Tischplan, Therapie-Dokumentation oder das Fahrtenbuch: SOCDOF deckt diese Aufgaben ab, **zu 100 % offline**, ohne Pflicht-Cloud-Konto und ohne Abo.
+
+Alle Daten liegen lokal auf deinem Rechner in einer IndexedDB-Datenbank (Dexie.js). Dazu kommen schnelle Suche, Kundenakten und Ein-Klick-Backups als JSON.
+
+---
+
+## 🚀 Funktionen & Module
+
+### 🪟 Windows-Desktop-Erlebnis
+- **Mehrfenster-Arbeitsfläche**: Fenster öffnen, verschieben, skalieren, andocken, minimieren und maximieren.
+- **Startmenü & Taskleiste**: Angeheftete Apps, Suche, Systemstatus und Benutzerwechsel.
+- **Mehrere Monitore**: Arbeitsbereiche auf mehrere Bildschirme erweitern und Fenster abtrennen.
+- **Nachtmodus**: Warme Farbtemperatur (1500 K – 5500 K) gegen Augenbelastung.
+- **Personalisierung**: Hintergrundbilder, Mica-Effekt, Akzentfarben und eigene Profilbilder.
+- **Systemmodus beim Start**: Hell, dunkel oder dem System folgend. Die Ersteinrichtung folgt direkt dem System.
+
+### 👥 Kontakte & CRM (Kundenbuch)
+- **Zentrales Adressbuch** für Kunden, Lieferanten, Partner und Interessenten.
+- **Kundenauswahl überall**: Live-Suche und Neuanlage direkt aus jedem Modul.
+- **360°-Kundenakte**: Rechnungen, Angebote, Therapieprotokolle und Zahlungen pro Kontakt.
+
+### 🧾 Rechnungen & Abrechnung
+- **DIN-5008-Layouts** für Rechnungen, Angebote, Lieferscheine und Gutschriften.
+- **EPC-QR-Code** (GiroCode) für Überweisungen per Smartphone.
+- **Steuern**: Regelsteuersatz, ermäßigter Satz, Kleinunternehmerregelung (§ 19 UStG) und Steuerbefreiung für Therapie (§ 4 Nr. 14 UStG).
+- **Zahlungsverfolgung**: Offene, bezahlte und überfällige Posten mit Zahlungserinnerungen.
+
+### 🏥 Therapie- & Praxisverwaltung (TheraPsy Suite)
+- **Klienten direkt aus dem Kundenbuch** auswählen, ohne doppelte Eingabe.
+- **Sitzungsdokumentation** mit Verlaufsnotizen, Methoden und Dauer-Vorlagen (30, 50, 60, 90 Minuten).
+- **Abrechnung** mit Praxis-Briefkopf und Synchronisation in die Hauptbuchhaltung.
+- **Fahrtenbuch**: Start- und Endkilometer, automatische Strecke und EStG-Erstattung (0,30 €, 0,38 €, 0,42 €/km).
+- **Auswertung**: Umsatz- und Sitzungsdiagramme mit KPI-Karten.
+
+### 📦 Lager, Produkte & Warenbewegungen
+- **Bestandsführung** mit Artikelnummern, Barcodes, Einkaufs- und Verkaufspreisen sowie Mindestbeständen.
+- **Bewegungsprotokoll** für Umlagerungen, Lieferungen, Verluste und Wareneingänge.
+- **Warnungen** bei Unterschreitung des Mindestbestands.
+
+### 🍽️ Kasse (POS) & Gastronomie
+- **Tischplan-Editor** mit Drag-and-Drop für Tische, Plätze und Räume.
+- **Bestellungen** am Tisch oder zum Mitnehmen mit Varianten und Notizen.
+- **Küchen- und Barbildschirm** mit Bestellstatus.
+- **Rechnung teilen** nach Person oder Artikel, Bar- oder Kartenzahlung.
+
+### 📊 Buchhaltung & Auswertung
+- **Auswertungen**: Umsatz, Ausgaben und Margen.
+- **Steuerberichte**: BWA, EÜR, UStVA und tägliche Kassenberichte (Z-Bon).
+
+### 🌐 Vier Sprachen von Anfang an
+Alle Oberflächentexte gibt es in **Deutsch, Englisch, Französisch und Spanisch**. Die Sprache wird bei der ersten Einrichtung gewählt.
+
+---
+
+## 🛡️ Stabilität & Betrieb
+
+- **Sitzungsprotokolle**: Die Desktop-Version schreibt Sitzungslogs, auch bei Abstürzen. Die letzten 20 Sitzungen bleiben erhalten.
+- **Startbildschirm**: Ein Splash-Screen erscheint bei jedem Start.
+- **Selbst-Update der portablen Version**: Die portable EXE kann sich selbst aktualisieren. Auf anderen Arbeitsplätzen erscheint ein Hinweis zum Update.
+
+---
+
+## 🔒 Datenschutz & Offline-First
+
+Deine Geschäftsdaten gehören dir.
+
+- **Keine Cloud-Pflicht**: Läuft vollständig lokal auf dem Desktop oder im Browser. Keine Konten und keine Telemetrie.
+- **IndexedDB & Dexie.js**: Transaktionale Speicherung im Browser, geeignet für zehntausende Datensätze.
+- **Lokale JSON-Backups**: Gesamte Datenbank als Datei exportieren und auf jedem Rechner wiederherstellen.
+- **Sicheres Zurücksetzen**: Mehrstufiger Assistent, um den lokalen Stand beim Gerätewechsel zu löschen.
+
+---
+
+## 📥 Installation & Downloads
+
+Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
+
+1. **Setup-Installer (`SOCDOF Setup ... .exe`)**: Installation mit Desktop-Verknüpfung, Startmenü und Auto-Updater.
+2. **Portable Version (`SOCDOF ... .exe`)**: Eine einzelne EXE ohne Installation, mit Selbst-Update.
+3. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+
+---
+
+## 🛠️ TypeScript-Entwicklung (`SOCDOF - TS`)
+
+### Voraussetzungen
+- **Node.js** (v18 oder neuer)
+- **npm** (v9 oder neuer)
+
+### Schnellstart
+```bash
+# 1. Repository klonen
+git clone https://github.com/Strudelcode/SOCDOF.git
+cd SOCDOF
+cd "SOCDOF - TS"
+
+# 2. Abhängigkeiten installieren
+npm install
+
+# 3. Entwicklungsserver starten (Port 3000)
+npm run dev
+
+# 4. TypeScript- und Syntaxprüfung
+npm run lint
+
+# 5. Produktionsbuild (Web-Bundle)
+npm run build
 ```
 
-The Tauri crate is its own Cargo workspace. This keeps the root `cargo fmt`, `clippy` and `test`
-commands independent of GTK/WebKit development packages; only the desktop job installs them.
+### Windows-Electron-App bauen
+```bash
+# NSIS-Installer und portable EXE erstellen
+npm run build:exe
+```
 
-The desktop product ships the **Tauri webview** in `crates/app/ui` at version **26.0.0**. Its shell
-is measured against the legacy TypeScript app in `docs/parity/`: eight of ten pairs meet the window
-pixel target and five meet SSIM ≥0.90; the Settings icon set, the dark Spotlight backdrop and the
-native window chrome are the documented residuals in [`RUST_MIGRATION.md`](RUST_MIGRATION.md) §15.7.
+---
 
-The pure-Rust **egui** surface in `crates/ui` remains
-the no-webview alternative and powers the gallery and browser build; the earlier plan to remove the
-Vite frontend is not the current shipping path. `SOCDOF - TS` is only the historical reference and
-is never bundled or executed by the Rust code.
+## 📂 TypeScript-Projektstruktur
 
-## Highlights
+```text
+SOCDOF - TS/
+├── electron/              # Electron-Hauptprozess, IPC-Handler, Fensterverwaltung, Splash & Sitzungslogs
+├── src/
+│   ├── components/        # UI-Module (Rechnungen, Kasse, Lager, Therapie, Einstellungen usw.)
+│   │   └── therapy/       # Therapie-Untermodule (Dashboard, Abrechnung, Fahrtenbuch, Klienten)
+│   ├── lib/               # Datenbank (Dexie.js), Übersetzungen (i18n), Sound, Displays, Versionierung
+│   ├── types/             # TypeScript-Typen für alle Geschäftsobjekte
+│   ├── App.tsx            # Hauptsteuerung der Arbeitsfläche
+│   └── main.tsx           # React-Einstiegspunkt
+├── todo/                  # Offene Aufgaben (todo.md) und Archiv (completed_todo.md)
+├── versions/              # Detaillierte Versionshinweise je Versionsreihe
+└── package.json           # App-Metadaten, Abhängigkeiten und Build-Skripte
+```
 
-- Real FatturaPA 1.2 XML import: the invoice screen parses seller, lines, VAT, due date, IBAN,
-  CUP/CIG and bollo, creates or reuses the vendor and stores a draft invoice.
-- Sequential contact creation (`+ Mehrere anlegen`) keeps the contact form open and saves each
-  entry before opening the next one.
-- The command palette follows the TypeScript Spotlight order and descriptions; all four language
-  packs still share exactly 1,011 keys.
-- Release gates: rustfmt, clippy with `-D warnings`, workspace tests, Vite build, Tauri check and
-  the real Xvfb GUI smoke (`SOCDOF_SMOKE_OK`) pass for v26.
+---
 
-## Build
+## 🦀 Rust rewrite (`crates/`, v26.0.0)
 
-Requirements: stable Rust (pinned in `rust-toolchain.toml`) and a C toolchain for the bundled SQLite.
+The native rebuild talks to one SQLite core through Tauri commands. It ships the
+Tauri webview in `crates/app/ui`, keeps a pure-Rust egui surface in `crates/ui`
+and a WebAssembly host in `crates/web`, and has no second database layer.
+
+### Build and gates
+
+Requirements: stable Rust (pinned in `rust-toolchain.toml`) and a C toolchain for
+the bundled SQLite.
 
 ```bash
-cargo fmt --all
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
 ```
 
-The Rust interface can be started as a real window (eframe); the `window` feature is off by
-default so tests and clippy need no desktop libraries:
-
-```bash
-cargo run -p socdof-ui --features window --bin socdof-ui-gallery
-```
-
-The gallery has a **Desktop** card that opens the Phase 5 shell: icon grid with drag and drop,
-floating windows with move, resize, snap and maximize, window chrome with a close confirmation, a
-taskbar with running indicators, a clock, the start menu and the tray flyout. Ctrl+K opens the
-command palette, two bundled PNG wallpapers render cover or tiled behind a widgets layer with clock,
-date and status, and the first-run onboarding can be replayed from the gallery. A **Dashboard** card
-opens the Phase 6 overview with period tabs, key figures, quick actions, recent invoices and the
-reorder list, a **Contacts** card opens the address book with search, detail, create, edit and
-delete, and a **Products** card opens the catalogue with stock levels, stock bookings and
-reordering, and an **Invoices** card opens the billing documents with positions, totals, status
-changes and delete, an **Accounting** card opens the journal with cash book, BWA and CSV
-export, a **Purchases** card opens the supplier orders with positions, status changes and the
-goods receipt, a **POS** card opens the register with receipts, payment totals, cash change and
-cancellation, and a **Calendar** card opens the month view with week/day views, the agenda,
-appointment details and the create/edit form, and a **Settings** card opens all eight tabs
-(company profile, appearance, security, backup, users, roles, updates and portable mode) over the
-core services. An **App Store** card opens the module catalogue with licence and activation, an
-**Editor** card opens the document editor with its formatting ribbon, formatted preview and offline
-spell check, a **Users** card opens account management, a **Support**
-card opens the ticket board with tracked time, a **Reports** card opens the period report and a
-**Therapy** card opens the therapy practice with clients and sessions. On the desktop, the taskbar
-opens the **Studio** drawer: it edits the company letterhead, shows the stored record counts and runs
-the clean mode that clears business data while accounts, roles and settings stay. Its **Layout** tab
-sets the PNG letterhead and places the nine print tokens (company data, invoice number, dates,
-subject, footer) on the page with size, bold and alignment, previews the result and feeds the DIN
-5008 PDF export, which continues long position tables on further pages with the column header, the
-letterhead and the tokens repeated there; the palette entry **Document layout** opens that tab
-directly. Escape or the close
-button returns to the gallery. The catalogue holds 1,430 keys per language and 264 golden snapshots
-pin 33 scenes in both appearances.
-
-`cargo test` also runs the keyboard suite (Tab order, Enter/Space activation, arrows, Escape, typing,
-click focus), the window-manager tests and the golden snapshots that pin every primitive and the
-desktop shell in both appearances and all four languages. After an intended visual change, refresh
-the goldens:
-
-```bash
-UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual
-```
-
-### Browser build
-
-The same Rust interface also runs in a browser. `crates/web` is an `eframe` host compiled to
-`wasm32-unknown-unknown`; `socdof-core` opens its SQLite store there through `sqlite-wasm-rs`, so
-the login, the first-run administrator setup, the user management and every module screen run the
-unchanged product code. Requirements: the wasm target, `clang` with wasm support (it compiles the
-SQLite amalgamation) and [Trunk](https://trunkrs.dev).
-
-```bash
-rustup target add wasm32-unknown-unknown
-cd crates/web
-trunk serve --address 0.0.0.0 --port 3000     # or: trunk build --release, then serve dist/
-```
-
-The browser database lives in IndexedDB. After every change the host serializes the SQLite image
-(`Store::snapshot_bytes`) and writes it there, and it restores the image (`Store::restore_snapshot`)
-before the first screen, so accounts, roles, sessions and business data survive a reload, a hard
-reload and a new tab. The setup form only appears while this browser has never stored a database;
-the panel shows a loading hint instead of the form while IndexedDB is read.
-
-OPFS through `sqlite-wasm-vfs` is not usable here: its `FileSystemSyncAccessHandle` only exists in a
-dedicated worker, and the web host runs on the page thread without one. IndexedDB is the
-supported alternative. The host also keeps the canvas backing store on its CSS box
-(`sync_canvas_size`), so a click reaches the control under the cursor after the panel was resized.
-Print, backup, CSV and legacy import need file access and stay desktop-only for now.
-
-### Desktop application
-
-The desktop app talks to the existing core through Tauri commands; there is no second database layer.
-The first screen shows the schema version, row counts and lock owner, and writes a real backup.
-
-Linux prerequisites (Ubuntu/Debian):
+Desktop prerequisites (Ubuntu/Debian):
 
 ```bash
 sudo apt-get update
@@ -145,99 +200,40 @@ sudo apt-get install -y \
   librsvg2-dev libxdo-dev libssl-dev patchelf
 ```
 
-Windows needs the MSVC Rust target, the Visual Studio C++ build tools and WebView2 (included in
-current Windows versions). No GTK packages are needed. macOS needs the Xcode command line tools;
-the CI build produces a universal (Apple Silicon + Intel) DMG.
-
 ```bash
 cd crates/app
 npm ci
-npm run build          # TypeScript check + Vite build into crates/app/dist
-npm run tauri build    # native binary + bundle
+npm run build
+npm run tauri build
 ```
 
-For a universal macOS build:
+### Visual parity
 
-```bash
-cd crates/app
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
-npm run tauri -- build --target universal-apple-darwin
-```
+`docs/parity/` holds the ten 1440×900 pairs (Dashboard, Invoices, Contacts,
+Settings and Command Palette, light and dark) captured from the TypeScript app
+and the Rust webview. `python3 docs/parity/parity_diff.py` recomputes the window
+pixel score and SSIM and writes `diff.csv` / `diff.json`. The remaining gaps are
+documented in `RUST_MIGRATION.md` §15.7; the dense Settings text and the dark
+Spotlight panel are still below the SSIM target because of WebKitGTK/Chromium
+text rasterization and the backdrop, not a different layout.
 
-For development with hot reload:
+### CI
 
-```bash
-cd crates/app
-npm run tauri dev
-```
+The workflows in `.github/workflows/` are **manual only** while the rewrite is
+merged: `rust.yml` (format, clippy, tests, desktop bundles, GUI smoke) and
+`release.yml` (signed release) plus the Discord announcement only run through
+**Run workflow**. Pushing to `main` triggers no build, release or Discord post.
 
-Artifacts are written to:
+---
 
-- Linux: `crates/app/src-tauri/target/release/bundle/deb/*.deb` and
-  `crates/app/src-tauri/target/release/bundle/appimage/*.AppImage`
-- Windows: `crates/app/src-tauri/target/release/bundle/nsis/*-setup.exe` and
-  `crates/app/src-tauri/target/release/bundle/msi/*.msi`
-- macOS (universal): `crates/app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg`
+## 🤝 Community & Support
 
-The `.deb` + AppImage and NSIS + MSI targets are selected in `tauri.linux.conf.json` and
-`tauri.windows.conf.json`. The desktop crate has its own `Cargo.lock`; the root workspace lockfile is
-unaffected.
+- **Discord**: Diskussionen, Funktionswünsche und Hilfe auf dem [Discord-Server](https://discord.gg/QW85EaXTgB).
+- **Fehlerberichte**: Über die [GitHub Issues](https://github.com/Strudelcode/SOCDOF/issues).
+- **Changelog**: [CHANGELOG.md](./CHANGELOG.md) für den Rust-Zweig, [`SOCDOF - TS/CHANGELOG.md`](SOCDOF%20-%20TS/CHANGELOG.md) für die TypeScript-App.
 
-### Portable packages
+---
 
-The Linux AppImage in the CI artifacts is the portable Linux build. It does not need an installer;
-run it directly. On distributions without FUSE 2, use the AppImage extraction mode
-(`./SOCDOF-0.1.0-linux-x86_64.AppImage --appimage-extract-and-run`). The AppImage still expects the
-usual desktop libraries (GTK 3, WebKitGTK 4.1 and the graphics stack) to be present.
+*Entwickelt von Strudel / Yuri in Südtirol, Italien.*
 
-The Windows portable ZIP contains `SOCDOF.exe`, its optional `WebView2Loader.dll` when emitted by
-the build, and [`crates/app/portable/README-PORTABLE.txt`](crates/app/portable/README-PORTABLE.txt).
-It does not require an installer and writes its database under
-`%APPDATA%\com.strudelcode.socdof\`. It uses the machine-wide **WebView2 Evergreen Runtime**, which
-is present on Windows 11 and most Windows 10 systems; if it is missing, install the runtime from
-Microsoft. The portable package deliberately does not carry a private WebView2 copy, so Edge
-security updates keep applying. A fixed WebView2 runtime is not part of this pass.
-
-> The Linux development image used to prepare this branch has no GTK/WebKit development packages,
-> so the Tauri build cannot run there. The `Desktop` CI jobs install the packages above and build the
-> full bundle matrix on Ubuntu and Windows; the `GUI smoke` job additionally starts the real Linux
-> WebView under Xvfb. Those jobs are the build and runtime proof for this layer.
-
-## CI
-
-[`.github/workflows/rust.yml`](.github/workflows/rust.yml) runs on every push to `main` and
-`rust-rewrite` and on pull requests:
-
-- **Format** on Ubuntu: `cargo fmt --all -- --check` plus the standalone desktop crate.
-- **Test** on Ubuntu and Windows: `cargo clippy --workspace --all-targets -- -D warnings` and
-  `cargo test --workspace`, including the command-layer test for schema status and backup.
-- **Shell smoke** on Ubuntu: starts `socdof-app` headlessly on a fresh database and writes a backup.
-- **Desktop** on Ubuntu, Windows and macOS: installs the Linux WebKit/GTK dependencies, runs
-  `npm ci`, builds the frontend, builds the full Tauri bundle matrix and uploads each file as a
-  separate artifact: `SOCDOF-<version>-linux-x86_64.AppImage`,
-  `SOCDOF-<version>-linux-amd64.deb`, `SOCDOF-<version>-windows-x64-portable.zip`,
-  `SOCDOF-<version>-windows-x64-setup.exe`, `SOCDOF-<version>-windows-x64.msi` and
-  `SOCDOF-<version>-macos-universal.dmg` (plus checksum files).
-- **GUI smoke** on Ubuntu: installs Xvfb, DBus and WebKit, builds the real Tauri binary, starts it
-  under `xvfb-run`, waits for the loaded frontend to invoke `database_status` and `create_backup`,
-  verifies the returned schema version, database path and backup size against the live state, and
-  uploads `artifacts/smoke.log`, `artifacts/smoke-report.json` and the generated backup, and publishes
-  the app's `SOCDOF_SMOKE_OK` line as a run annotation. The job fails if the window/WebView does not
-  start or a value is invalid.
-
-All actions use the Node 24 runtime (`checkout@v5`, `setup-node@v5`, `upload-artifact@v6`,
-`rust-cache@v2.9.3`), so the run does not emit Node 20 deprecation warnings.
-
-## Releases and updates
-
-Tags matching `v*` run [`.github/workflows/release.yml`](.github/workflows/release.yml). The
-release body is extracted from the matching [`CHANGELOG.md`](CHANGELOG.md) section, signed updater
-artifacts and a `latest.json` are generated, and a Discord announcement is sent after publication.
-The required GitHub secrets and signing-key setup are documented in
-[`docs/RELEASING.md`](docs/RELEASING.md).
-
-The in-app update card uses the Tauri updater plugin. It is shown only in release builds built with
-`TAURI_UPDATER_PUBKEY` and `TAURI_SIGNING_PRIVATE_KEY`; development and ordinary CI builds hide it
-instead of pretending an unsigned update channel is available. Linux AppImage, Windows NSIS and
-macOS app bundles are supported by the updater; `.deb` and MSI installs are manual downloads. macOS
-Gatekeeper additionally requires Apple signing and notarization for normal distribution.
+*Dieses Projekt wird mithilfe von KI programmiert.*

@@ -25,3 +25,8 @@
 - [ ] Continuous module performance and responsive UX refinements.
 - [ ] Automated regression coverage for critical local data workflows.
 - [ ] Accessibility audit and keyboard-navigation refinement across major desktop surfaces.
+
+- [ ] **Multi-user merge for the portable / NAS version** (open): Several workstations share one `data` folder. Implement per-record merge with conflict copies, exclusive locks for critical bulk operations, and a periodic merge every few seconds. Rules: see `INSTRUCTIONS.md` section 9. Requires a storage-layer refactor across about 40 `localStorage` write sites and the Dexie database, and real multi-workstation testing on a NAS.
+
+- [x] Portable-Update: Selbstersetzung und Neustart; Hinweis für andere Arbeitsplätze (25.2.23)
+- [x] Lesbare Sitzungs-Logs im Datenordner (letzte 20 Sitzungen, Absturz-Protokollierung) (25.2.24)

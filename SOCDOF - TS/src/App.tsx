@@ -17,17 +17,38 @@ import {
   exportDatabaseToJson
 } from './lib/db';
 import { sounds } from './lib/sound';
-import { StudioDrawer } from './components/StudioDrawer';
-import { DesktopWindowWorkspace } from './components/DesktopWindowWorkspace';
-import { AccountScopedWorkspace } from './components/AccountScopedWorkspace';
-import { BackupSetupModal } from './components/BackupSetupModal';
-import { AuthGate } from './components/AuthGate';
+import { StudioDrawer } from './components/shell/StudioDrawer';
+import { DesktopWindowWorkspace } from './components/shell/DesktopWindowWorkspace';
+import { AccountScopedWorkspace } from './components/auth/AccountScopedWorkspace';
+import { BackupSetupModal } from './components/auth/BackupSetupModal';
+import { AuthGate } from './components/auth/AuthGate';
 import { applyAccentColor } from './lib/accent';
 import { getLanguage, setLanguage, LanguageCode } from './lib/i18n';
 import { checkAndRunAutoBackup } from './lib/backupManager';
-import { getSession, getUserById, updateUserPreferences } from './lib/auth';
+import { getSession, getUserById, hasUsers, updateUserPreferences } from './lib/auth';
 import { applyNightLight } from './lib/displayManager';
 import { processDiscordOfflineQueue } from './lib/discordFeedback';
+
+// Cache the chosen theme mode so the login and recovery screens can use it
+// before IndexedDB has loaded the company profile.
+const THEME_MODE_CACHE_KEY = 'socdof_theme_mode';
+
+function readCachedThemeMode(): CompanyProfile['theme_mode'] | undefined {
+  try {
+    const value = localStorage.getItem(THEME_MODE_CACHE_KEY);
+    return value === 'light' || value === 'dark' || value === 'system' ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedThemeMode(mode: NonNullable<CompanyProfile['theme_mode']>) {
+  try {
+    localStorage.setItem(THEME_MODE_CACHE_KEY, mode);
+  } catch {
+    // ignore storage failures
+  }
+}
 
 export default function App() {
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -49,9 +70,11 @@ export default function App() {
   const [posOrders, setPosOrders] = useState<POSOrder[]>([]);
   const [company, setCompany] = useState<CompanyProfile>(() => {
     const cachedAccent = typeof localStorage !== 'undefined' ? localStorage.getItem('socdof_accent_color') : null;
+    const cachedThemeMode = readCachedThemeMode();
     return {
       ...defaultCompanyProfile,
-      ...(cachedAccent ? { accent_color: cachedAccent } : {})
+      ...(cachedAccent ? { accent_color: cachedAccent } : {}),
+      ...(cachedThemeMode ? { theme_mode: cachedThemeMode } : {})
     };
   });
   const isInitialDataLoadedRef = useRef<boolean>(false);
@@ -61,6 +84,7 @@ export default function App() {
     try {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       const enableDark = mode === 'dark' || (mode !== 'light' && media.matches);
+      writeCachedThemeMode(mode || 'system');
       setIsDark(enableDark);
       document.documentElement.classList.toggle('dark', enableDark);
       document.documentElement.style.colorScheme = enableDark ? 'dark' : 'light';
@@ -77,11 +101,20 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.removeItem('odoo_view_mode');
-      const savedMode = company?.theme_mode;
+      const savedMode = company?.theme_mode || readCachedThemeMode();
       const legacyTheme = localStorage.getItem('odoo_theme_dark');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const mode: CompanyProfile['theme_mode'] = savedMode || (legacyTheme !== null ? (legacyTheme === 'true' ? 'dark' : 'light') : 'system');
-      applyThemeMode(mode);
+      // First run (no user account yet): follow the system scheme instead of the 'light' company default, without persisting it
+      const isFirstRun = !hasUsers();
+      if (isFirstRun) {
+        const enableDark = prefersDark;
+        setIsDark(enableDark);
+        document.documentElement.classList.toggle('dark', enableDark);
+        document.documentElement.style.colorScheme = enableDark ? 'dark' : 'light';
+      } else {
+        applyThemeMode(mode);
+      }
     } catch {
       // ignore
     }
@@ -459,15 +492,7 @@ export default function App() {
 
           <BackupSetupModal
             isOpen={isBackupModalOpen}
-            onClose={() => {
-              // Dismissing the first-run backup step counts as answered, so it is not shown again.
-              try {
-                localStorage.setItem('socdof_backup_setup_initialized', 'true');
-              } catch {
-                // ignore
-              }
-              setIsBackupModalOpen(false);
-            }}
+            onClose={() => setIsBackupModalOpen(false)}
             company={company}
             onUpdateCompany={handleUpdateCompany}
           />

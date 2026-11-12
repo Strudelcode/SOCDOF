@@ -2,6 +2,84 @@
 
 > This file contains the complete historical archive of all tasks, feature requests, and milestones completed and verified across SOCDOF versions.
 
+### Update Download Hardening (v25.2.22)
+- [x] Redirect loop limit, connection-drop handling, 60 s stall timeout
+- [x] Incomplete downloads rejected and partial file removed
+
+### Update Download Time Estimate (v25.2.21)
+- [x] Remaining time uses the smoothed measured download speed instead of a fixed guess
+- [x] "Restzeit wird berechnet..." shown during warm-up in de, en, fr and es
+- [x] Update launcher opens the installer directly if PowerShell cannot start
+
+### Installer Language and Install Folder (v25.2.20)
+- [x] Installer language list limited to de, en, fr and es in `electron-builder.json`
+- [x] Install folder fixed; the directory page is disabled
+- [x] Sidebar status block centred in the asset generator script
+
+### Roles Tab & Dialog Restyle (v25.2.18)
+- [x] Roles tab restyled: role list, role settings, app permissions and assignment are separate sections with accent colors
+- [x] Create dialog uses accent variables; Next/Create primary, Back secondary
+- [x] Role keys added in en, de, fr and es
+
+### Localized User Management Badges (v25.2.18)
+- [x] Account-type badge and auto-login hint use translated keys in en, de, fr and es
+- [x] Settings overlays reviewed; intentional modal and identify overlay kept
+
+### Temporary Password Feedback for New Users (v25.2.17)
+- [x] Strength bar and red hint for the temporary password of a new user
+- [x] Create jumps to the step with the missing field and frames it in red
+
+### Recovery Screen Follows Dark Mode (v25.2.16)
+- [x] The saved Light/Dark mode is cached in localStorage and applied before login, so the "Konto wiederherstellen" card and the other auth screens follow the active mode
+- [x] Measured in both modes with an account created through the real Erstsetup UI
+
+### Password Recovery Blank Screen Fixed (v25.2.14)
+- [x] "Passwort vergessen" no longer leaves a blank screen (hook order fix in `LoginScreen`)
+
+### Password Recovery Questions and Layout Fixes (v25.2.13)
+- [x] Recovery screen lists all security questions of the account
+- [x] Admin add-user form wraps on small screens
+
+### Multi-User Merge Rules Documented (v25.2.12)
+- [x] Documented the merge rules for the portable / NAS version in `INSTRUCTIONS.md` section 9. The merge implementation itself remains open in `todo/todo.md`.
+
+### Power Menu Overlay (v25.2.12)
+- [x] Ein/Aus menu opens as a layer above the start menu without shifting its content
+
+### Window Control Cooldown Corrected (v25.2.11)
+- [x] App window controls locked for 2 seconds after closing an in-app window
+
+### User Management Tab Wrapping (v25.2.10)
+- [x] Tabs wrap onto a second line on narrow windows instead of being cut off
+
+### In-App Window Control Cooldown (v25.2.9)
+- [x] Minimize, maximize and close of in-app windows are locked for 3 seconds after a click
+
+### User Management Tab Layout (v25.2.8)
+- [x] Tabs of the user management no longer overlap on small screens
+
+### First Administrator Login Fix (v25.2.7)
+- [x] First administrator no longer forced to change the password set during setup; legacy flag cleared once
+
+### Account Creation and First Login (v25.2.6)
+- [x] Temporary password label, red required-field markers, security questions moved to first login
+
+### First-Run Onboarding Polish (v25.2.5)
+- [x] Language selection on first start uses the system colour scheme immediately.
+- [x] First administrator account setup is labelled "Kontoeinrichtung" in all four languages.
+- [x] First administrator is no longer forced to set a new password after creating the account.
+- [x] Lint and build green.
+
+### Quit Confirmation & Window Controls Lock (v25.2.4)
+- [x] X button on the login screen with a "Möchtest du die App wirklich schließen?" confirmation.
+- [x] Desktop X button asks for the same confirmation.
+- [x] Minimize and fullscreen are disabled for 3 seconds after a window closes; close shows a confirmation prompt during that time.
+- [x] Lint and build green.
+
+### Login Error Position (v25.2.3)
+- [x] Wrong-password message on the login screen uses a fixed-height slot below the password field, so nothing shifts.
+- [x] Lint and build green.
+
 ### Passwordless Accounts & Custom Roles with App Permissions (v25.2.0)
 - [x] Passwordless non-admin accounts with one-click "<Name> continue" login; administrators always require a password.
 - [x] Per-person security question on first sign-in (or once for all users).
@@ -1161,3 +1239,12 @@
 
 ### Tables Spreadsheet Program (v24.11.0)
 - [x] Added a simple spreadsheet program named "Tabellen" with SUM, AVERAGE, MAX, MIN, COUNT and cell arithmetic formulas, registered in the launcher, command palette, app store and desktop windows, with CSV save and open and docs in all four languages.
+
+- [x] Portable-Update: Selbstersetzung und Neustart; Hinweis für andere Arbeitsplätze (25.2.23)
+
+- [x] Lesbare Sitzungs-Logs im Datenordner (letzte 20 Sitzungen, Absturz-Protokollierung) (25.2.24)
+- [x] Startfenster bei jedem Start anzeigen, auch bei der Portable-Version (25.2.25)
+- [x] Ersteinrichtung: Sprachauswahl folgt dem System-Dunkelmodus (25.2.26)
+- [x] Ordnerstruktur für src/components nach Bereichen (shell, auth, sales, contacts, support, documents, apps, ui, therapy) (25.2.27)
+- [x] Firmendaten-Kopf auf schmalen Bildschirmen umbrechbar (25.2.27)
+- [x] Dokumentation: Versionsfilter zeigen die aktuellen Hauptversionen statt festem V24 & V23 (25.2.27)

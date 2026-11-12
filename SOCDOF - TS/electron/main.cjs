@@ -34,6 +34,27 @@ try {
   console.warn('[SOCDOF Electron] Portable mode initialization error:', err);
 }
 
+// Readable session log in <data>/logs (last 20 sessions kept). Started after portable setup so it lands in the right folder.
+const sessionLog = require('./sessionLog.cjs');
+sessionLog.startSessionLog(app.getPath('userData'), {
+  version: app.getVersion(),
+  platform: `${process.platform} ${process.arch}`,
+  electron: process.versions.electron,
+  node: process.versions.node,
+});
+process.on('uncaughtException', (err) => {
+  sessionLog.logError('Uncaught exception (main process)', err);
+});
+process.on('unhandledRejection', (reason) => {
+  sessionLog.logError('Unhandled promise rejection (main process)', reason);
+});
+app.on('render-process-gone', (_event, webContents, details) => {
+  sessionLog.logError('Renderer process gone', details);
+});
+app.on('child-process-gone', (_event, details) => {
+  sessionLog.logError('Child process gone', details);
+});
+
 // Single-instance lock: Enforce single process to prevent profile lock deadlocks and frozen windows
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -44,45 +65,69 @@ if (!gotSingleInstanceLock) {
 
 let mainWindow;
 let splashWindow = null;
-let mainWindowReadyResolver = null;
 
-// Bump this when first-run setup changes so existing installs re-run it once.
+// Setup marker: 'setup-state.json' in the user data folder (the portable 'data' folder when portable).
+// It is written only after the first-run data preparation has completed successfully. Later launches
+// skip the heavy preparation (and the splash) when the stored setupVersion matches SETUP_VERSION.
+// Bump SETUP_VERSION whenever the first-run preparation steps change so existing installs run them again.
 const SETUP_VERSION = 1;
+const SETUP_STATE_FILE_NAME = 'setup-state.json';
+let firstRunSetupPending = false;
+let revealMainWindowFn = null;
 
-// Completion marker written after a successful first-run setup. Lives in the data folder (portable or userData).
-function getSetupMarkerPath() {
-  const dataRoot = portableDataDir || app.getPath('userData');
-  return path.join(dataRoot, 'setup-complete.json');
+function getSetupStatePath() {
+  return path.join(app.getPath('userData'), SETUP_STATE_FILE_NAME);
 }
 
-// True only when the marker exists and was written by the same setup version.
-function isSetupComplete() {
+// Returns true when the stored marker is missing, unreadable, or was written for another setup version.
+function isFirstRunSetupNeeded() {
   try {
-    const marker = JSON.parse(fs.readFileSync(getSetupMarkerPath(), 'utf8'));
-    return marker && marker.setupVersion === SETUP_VERSION;
+    const raw = fs.readFileSync(getSetupStatePath(), 'utf8');
+    const state = JSON.parse(raw);
+    return state.setupVersion !== SETUP_VERSION;
   } catch {
-    return false;
+    return true;
   }
 }
 
-function writeSetupMarker() {
+function markFirstRunSetupComplete() {
   try {
-    fs.mkdirSync(path.dirname(getSetupMarkerPath()), { recursive: true });
-    fs.writeFileSync(getSetupMarkerPath(), JSON.stringify({ setupVersion: SETUP_VERSION, completedAt: new Date().toISOString() }, null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[SOCDOF Electron] Could not write setup marker:', e);
+    const state = { setupVersion: SETUP_VERSION, completedAt: new Date().toISOString() };
+    fs.writeFileSync(getSetupStatePath(), JSON.stringify(state, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Could not write setup marker:', err);
   }
 }
 
-// Send a progress step to the splash window (fraction 0..1 plus a stable step key).
-function sendSplashProgress(fraction, stepKey) {
-  if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.webContents.send('socdof:splash-progress', { fraction, stepKey });
+// Push a progress update (0-100 and a step key) to the splash window. Step labels are localized in splash.html.
+function sendSplashProgress(percent, stepKey) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  const send = () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.webContents.send('socdof:splash-progress', { percent, stepKey });
+    }
+  };
+  if (splashWindow.webContents.isLoading()) {
+    splashWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
   }
 }
 
-// Show a lightweight branded window while the main workspace initializes.
-function createSplashWindow(showImmediately = true) {
+// Finish the first-run setup: store the marker and let the splash hand over to the main window.
+function finishFirstRunSetup(succeeded) {
+  if (!firstRunSetupPending) return;
+  firstRunSetupPending = false;
+  if (succeeded) markFirstRunSetupComplete();
+  sendSplashProgress(100, 'ready');
+  setTimeout(() => {
+    if (revealMainWindowFn) revealMainWindowFn();
+    setTimeout(closeSplashWindow, 400);
+  }, 300);
+}
+
+// Show a lightweight branded window while the first-run data preparation runs (progress-aware).
+function createSplashWindow() {
   if (splashWindow && !splashWindow.isDestroyed()) return;
   splashWindow = new BrowserWindow({
     width: 320,
@@ -104,14 +149,10 @@ function createSplashWindow(showImmediately = true) {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   splashWindow.once('ready-to-show', () => {
-    if (showImmediately) {
-      if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
-      return;
-    }
-    // Later launches usually finish within a moment: only show the splash if the main window is still not ready.
-    setTimeout(() => {
-      if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
-    }, 400);
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+  });
+  splashWindow.webContents.once('did-finish-load', () => {
+    sendSplashProgress(5, 'start');
   });
   splashWindow.on('closed', () => { splashWindow = null; });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
@@ -570,6 +611,8 @@ function createWindow() {
   let mainWindowRevealed = false;
   const revealMainWindow = () => {
     if (mainWindowRevealed || !mainWindow || mainWindow.isDestroyed()) return;
+    // On first run the main window stays hidden until the data preparation has finished
+    if (firstRunSetupPending) return;
     mainWindowRevealed = true;
     closeSplashWindow();
     mainWindow.setFullScreen(true);
@@ -577,11 +620,13 @@ function createWindow() {
     mainWindow.focus();
   };
 
-  // Reveal only after the renderer reports ready (see socdof:app-ready), so the splash stays up during setup.
-  // The renderer reports ready once the first screen has mounted, so the splash stays until the app is usable.
-  // The long fallback only protects against a renderer that never reports back.
-  mainWindowReadyResolver = revealMainWindow;
-  setTimeout(revealMainWindow, 30000);
+  revealMainWindowFn = revealMainWindow;
+
+  // Reveal window once first paint is completed and DOM is ready
+  mainWindow.once('ready-to-show', revealMainWindow);
+
+  // Fallback timeout in case ready-to-show is delayed by background resource compilation
+  setTimeout(revealMainWindow, 2200);
 
   // Load the compiled Vite app
   const indexPath = path.join(__dirname, '../dist/index.html');
@@ -601,25 +646,36 @@ function createWindow() {
 }
 
 // Download file following redirects (e.g. GitHub Releases CDN)
-function downloadFileWithProgress(fileUrl, destPath, onProgress) {
+function downloadFileWithProgress(fileUrl, destPath, onProgress, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     const client = fileUrl.startsWith('https') ? https : http;
-    
-    client.get(fileUrl, { headers: { 'User-Agent': 'SOCDOF-AutoUpdater' } }, (res) => {
-      // Handle redirects
+    const failAndCleanup = (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    };
+
+    const request = client.get(fileUrl, { headers: { 'User-Agent': 'SOCDOF-AutoUpdater' } }, (res) => {
+      // Handle redirects (bounded, so a redirect loop cannot recurse forever)
       if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+        res.resume();
         if (res.headers.location) {
-          return downloadFileWithProgress(res.headers.location, destPath, onProgress).then(resolve).catch(reject);
+          if (redirectsLeft <= 0) return failAndCleanup(new Error('Too many redirects while downloading the update.'));
+          return downloadFileWithProgress(res.headers.location, destPath, onProgress, redirectsLeft - 1).then(resolve).catch(reject);
         }
       }
 
       if (res.statusCode !== 200) {
-        return reject(new Error(`Failed to download file. HTTP status: ${res.statusCode}`));
+        res.resume();
+        return failAndCleanup(new Error(`Failed to download file. HTTP status: ${res.statusCode}`));
       }
 
       const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
       let downloadedBytes = 0;
       const fileStream = fs.createWriteStream(destPath);
+
+      // A connection that drops mid-download must reject instead of hanging the update dialog
+      res.on('aborted', () => failAndCleanup(new Error('Update download was interrupted.')));
+      res.on('error', failAndCleanup);
 
       res.on('data', (chunk) => {
         downloadedBytes += chunk.length;
@@ -632,14 +688,20 @@ function downloadFileWithProgress(fileUrl, destPath, onProgress) {
       res.pipe(fileStream);
 
       fileStream.on('finish', () => {
+        // Reject a truncated file: the installer must never be started from a partial download
+        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+          return failAndCleanup(new Error('Update download is incomplete.'));
+        }
         fileStream.close(() => resolve(destPath));
       });
 
-      fileStream.on('error', (err) => {
-        fs.unlink(destPath, () => {});
-        reject(err);
-      });
-    }).on('error', (err) => {
+      fileStream.on('error', failAndCleanup);
+    });
+
+    // Stall protection: abort if no data arrives for 60 seconds
+    request.setTimeout(60000, () => request.destroy(new Error('Update download timed out.')));
+    request.on('error', (err) => {
+      fs.unlink(destPath, () => {});
       reject(err);
     });
   });
@@ -1049,9 +1111,9 @@ function setupLanguagesFolderWatcher() {
         notifyChange('languages', eventType, filename);
       }, 300);
     });
-    // Network shares (NAS) can fail watch events at runtime; log and drop the watcher instead of crashing.
+    // Watch errors (e.g. on network shares) are emitted asynchronously; without a listener they crash the main process
     languageFolderWatcher.on('error', (err) => {
-      console.warn('Languages folder watcher failed:', err);
+      console.warn('Languages directory watcher error:', err);
       try { languageFolderWatcher.close(); } catch {}
       languageFolderWatcher = null;
     });
@@ -1068,7 +1130,7 @@ function setupLanguagesFolderWatcher() {
       }, 300);
     });
     flagsFolderWatcher.on('error', (err) => {
-      console.warn('Flags folder watcher failed:', err);
+      console.warn('Flags directory watcher error:', err);
       try { flagsFolderWatcher.close(); } catch {}
       flagsFolderWatcher = null;
     });
@@ -1249,7 +1311,7 @@ function setupTemplatesWatcher() {
       }
     });
     templatesWatcher.on('error', (err) => {
-      console.warn('Templates folder watcher failed:', err);
+      console.warn('Templates watcher error:', err);
       try { templatesWatcher.close(); } catch {}
       templatesWatcher = null;
     });
@@ -1426,6 +1488,9 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     const installerFilename = `SOCDOF-Setup-${safeVersion}-${Date.now()}.exe`;
     const installerPath = path.join(tempDir, installerFilename);
 
+    // Tell other workstations on the shared data folder that this one is about to update and close.
+    signalUpdateToOtherWorkstations(app.getVersion(), version || 'update');
+
     // Create a fresh renderer-side data snapshot before downloading/installing.
     // This includes the current IndexedDB database and relevant localStorage state.
     const backupResult = await requestPreUpdateBackup();
@@ -1433,8 +1498,13 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
       throw new Error(`Update abgebrochen: Datensicherung vor dem Update fehlgeschlagen. ${backupResult?.error || ''}`.trim());
     }
 
+    // Portable builds must download the portable EXE (same release), not the NSIS setup
+    const effectiveDownloadUrl = portableDataDir
+      ? downloadUrl.replace(/SOCDOF-Setup-/i, 'SOCDOF-Portable-')
+      : downloadUrl;
+
     // Download update file
-    await downloadFileWithProgress(downloadUrl, installerPath, (progress) => {
+    await downloadFileWithProgress(effectiveDownloadUrl, installerPath, (progress) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('socdof:update-download-progress', progress);
       }
@@ -1451,7 +1521,27 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     setTimeout(() => {
       const currentPid = process.pid;
       const safeEscapedPath = installerPath.replace(/"/g, '`"');
-      const launcherCmd = `Wait-Process -Id ${currentPid} -Timeout 5 -ErrorAction SilentlyContinue; Start-Process -FilePath "${safeEscapedPath}" -ArgumentList "/S", "--auto", "--update"`;
+      // Portable builds cannot be updated by the NSIS setup: replace the running EXE and restart it.
+      const portableExePath = process.env.PORTABLE_EXECUTABLE_FILE || (portableDataDir ? process.execPath : null);
+      if (portableDataDir && portableExePath) {
+        const safeTarget = portableExePath.replace(/'/g, "''");
+        const safeNew = installerPath.replace(/'/g, "''");
+        const relaunchCmd = `$ErrorActionPreference='SilentlyContinue'; Wait-Process -Id ${currentPid} -Timeout 30; Start-Sleep -Milliseconds 500; Copy-Item -LiteralPath '${safeNew}' -Destination '${safeTarget}' -Force; Start-Process -FilePath '${safeTarget}' -ArgumentList '--portable'`;
+        try {
+          const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-Command', relaunchCmd], { detached: true, stdio: 'ignore' });
+          child.on('error', (err) => console.error('Portable relaunch failed:', err));
+          child.unref();
+        } catch (spawnErr) {
+          console.error('Failed to spawn portable relaunch:', spawnErr);
+        }
+        app.exit(0);
+        return;
+      }
+
+      // Launch installer detached with silent in-place update flags (/S --auto --update)
+      // We launch via a lightweight PowerShell runner that waits for the current Electron PID to exit,
+      // guaranteeing zero Windows file locks on SOCDOF.exe before the installer touches any files.
+      const launcherCmd = `Wait-Process -Id ${currentPid} -Timeout 30 -ErrorAction SilentlyContinue; Start-Process -FilePath "${safeEscapedPath}" -ArgumentList "/S", "--auto", "--update"`;
 
       try {
         const child = spawn('powershell.exe', [
@@ -1462,6 +1552,12 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
         ], {
           detached: true,
           stdio: 'ignore'
+        });
+        // A missing or blocked powershell.exe emits an async 'error' event; without a listener it crashes the main process
+        child.on('error', (err) => {
+          console.error('Installer launcher failed:', err);
+          // Without PowerShell the installer would never start; open it directly instead
+          shell.openPath(installerPath);
         });
         child.unref();
       } catch (spawnErr) {
@@ -1482,6 +1578,21 @@ ipcMain.handle('socdof:download-and-install-update', async (_event, payload) => 
     return { success: false, error: err.message };
   }
 });
+
+function signalUpdateToOtherWorkstations(currentVersion, targetVersion) {
+  try {
+    const lockPath = getNetworkLockFilePath();
+    if (!fs.existsSync(lockPath)) return;
+    const existing = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    if (existing.hostname !== os.hostname() || existing.pid !== process.pid) return;
+    existing.requestQuit = true;
+    existing.reason = 'update';
+    existing.requestedBy = `${os.userInfo().username || 'Mitarbeiter'} (${os.hostname()}) – Update ${currentVersion} → ${targetVersion}`;
+    fs.writeFileSync(lockPath, JSON.stringify(existing, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[SOCDOF Electron] Could not signal update to other workstations:', err);
+  }
+}
 
 // Native Windows Background Updater Splash Window ("Updating to Version...")
 function spawnWindowsUpdatingSplash(targetVersion, installerPid) {
@@ -1603,6 +1714,8 @@ try {
       detached: true,
       stdio: 'ignore'
     });
+    // Same guard as the installer launcher: an async spawn failure must not crash the main process
+    splashProc.on('error', (err) => console.warn('Updating splash failed to start:', err));
     splashProc.unref();
   } catch (err) {
     console.warn('Failed to launch updating splash screen:', err);
@@ -1841,7 +1954,10 @@ function startNetworkLockHeartbeat() {
         networkLockHeartbeatTimer = null;
 
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('socdof:remote-quit-requested', data.requestedBy || 'Anderer Arbeitsplatz');
+          mainWindow.webContents.send('socdof:remote-quit-requested', {
+            requestedBy: data.requestedBy || 'Anderer Arbeitsplatz',
+            reason: data.reason || 'quit'
+          });
         }
 
         setTimeout(() => {
@@ -2053,41 +2169,39 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
-  const firstRunSetup = !isSetupComplete();
-  createSplashWindow(firstRunSetup);
-  sendSplashProgress(0.05, 'checkingStart');
   const canProceed = await verifyNetworkSessionLock();
   if (!canProceed) return;
-  sendSplashProgress(0.15, 'preparingData');
 
-  // Register the ready listener before the window loads, so an early renderer signal is not missed.
-  ipcMain.once('socdof:app-ready', () => {
-    if (mainWindowReadyResolver) mainWindowReadyResolver();
-  });
-
+  // The splash shows on every launch so the user sees that SOCDOF is starting.
+  // The first run also reports data-preparation steps; later launches only wait for the main window.
+  firstRunSetupPending = isFirstRunSetupNeeded();
+  createSplashWindow();
   createWindow();
+  if (!firstRunSetupPending) {
+    sendSplashProgress(60, 'ready');
+  }
 
-  // Heavy first-run setup runs once; later launches with a matching marker skip it.
+  // Defer background init so the UI thread renders immediately.
+  // Later launches only run the cheap folder checks; the first run also seeds the language files.
   setImmediate(() => {
     try {
-      if (firstRunSetup) {
-        sendSplashProgress(0.3, 'preparingBackups');
-        getBackupDirectory();
-        sendSplashProgress(0.5, 'preparingLanguages');
+      if (firstRunSetupPending) sendSplashProgress(20, 'folders');
+      getBackupDirectory();
+      if (firstRunSetupPending) {
+        sendSplashProgress(45, 'languages');
         ensureDefaultLanguageFiles();
-        sendSplashProgress(0.75, 'startingWatchers');
-        setupLanguagesFolderWatcher();
-        setupTemplatesWatcher();
-        sendSplashProgress(0.9, 'loadingWorkspace');
-        writeSetupMarker();
-      } else {
-        // Cheap check only: make sure the backups folder still exists.
-        getBackupDirectory();
-        setupLanguagesFolderWatcher();
-        setupTemplatesWatcher();
+      }
+      if (firstRunSetupPending) sendSplashProgress(70, 'watchers');
+      setupLanguagesFolderWatcher();
+      setupTemplatesWatcher();
+      if (firstRunSetupPending) {
+        sendSplashProgress(90, 'finishing');
+        finishFirstRunSetup(true);
       }
     } catch (e) {
       console.warn('Background init error:', e);
+      // A failed first run must not be marked complete, so it runs again on the next launch
+      finishFirstRunSetup(false);
     }
   });
 

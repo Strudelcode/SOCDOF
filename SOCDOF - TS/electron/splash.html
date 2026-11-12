@@ -106,17 +106,18 @@ body {
   box-shadow: 0 0 10px rgba(88, 101, 242, 0.5);
   animation: travel 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+.percent-text {
+  font-size: 10px;
+  color: #8e9aff;
+  margin-top: 8px;
+  z-index: 2;
+}
 .footer-text {
   position: absolute;
   bottom: 16px;
   font-size: 9px;
   color: #72767d;
   letter-spacing: 0.03em;
-}
-.bar.determinate {
-  animation: none;
-  width: 0%;
-  transition: width 0.3s ease-out;
 }
 @keyframes travel {
   0% { transform: translateX(-120%); }
@@ -141,17 +142,19 @@ body {
   <div class="app-subtitle">OFFLINE COMMERCE & ERP SUITE</div>
   <div class="status-text" id="status-text">Wird gestartet...</div>
   <div class="track">
-    <div class="bar" id="bar"></div>
+    <div class="bar" id="progress-bar"></div>
   </div>
+  <div class="percent-text" id="percent-text"></div>
   <div class="footer-text">Strudelcode · 100% Offline Desktop Suite</div>
 
   <script>
-    (async () => {
+    (() => {
+      // Localized labels for the first-run data preparation steps (de, en, fr, es)
       const messages = {
-        de: { starting: 'Wird gestartet...', checkingStart: 'Startprüfung...', preparingData: 'Datenordner wird vorbereitet...', preparingBackups: 'Sicherungen werden vorbereitet...', preparingLanguages: 'Sprachdateien werden geladen...', startingWatchers: 'Überwachung wird gestartet...', loadingWorkspace: 'Arbeitsbereich wird geladen...' },
-        en: { starting: 'Starting...', checkingStart: 'Startup check...', preparingData: 'Preparing data folder...', preparingBackups: 'Preparing backups...', preparingLanguages: 'Loading language files...', startingWatchers: 'Starting file watchers...', loadingWorkspace: 'Loading workspace...' },
-        fr: { starting: 'Démarrage...', checkingStart: 'Vérification du démarrage...', preparingData: 'Préparation du dossier de données...', preparingBackups: 'Préparation des sauvegardes...', preparingLanguages: 'Chargement des fichiers de langue...', startingWatchers: 'Démarrage de la surveillance...', loadingWorkspace: 'Chargement de l’espace de travail...' },
-        es: { starting: 'Iniciando...', checkingStart: 'Comprobando el inicio...', preparingData: 'Preparando la carpeta de datos...', preparingBackups: 'Preparando copias de seguridad...', preparingLanguages: 'Cargando archivos de idioma...', startingWatchers: 'Iniciando la supervisión...', loadingWorkspace: 'Cargando el espacio de trabajo...' }
+        de: { start: 'Daten werden vorbereitet...', folders: 'Datenordner wird erstellt...', languages: 'Sprachdateien werden geladen...', watchers: 'Ordner werden überwacht...', finishing: 'Fast fertig...', ready: 'Fertig' },
+        en: { start: 'Preparing data...', folders: 'Creating data folders...', languages: 'Loading language files...', watchers: 'Setting up folder watchers...', finishing: 'Almost done...', ready: 'Done' },
+        fr: { start: 'Préparation des données...', folders: 'Création des dossiers de données...', languages: 'Chargement des fichiers de langue...', watchers: 'Surveillance des dossiers...', finishing: 'Presque terminé...', ready: 'Terminé' },
+        es: { start: 'Preparando los datos...', folders: 'Creando las carpetas de datos...', languages: 'Cargando los archivos de idioma...', watchers: 'Configurando la supervisión de carpetas...', finishing: 'Casi listo...', ready: 'Listo' }
       };
       let lang = 'de';
       try {
@@ -163,17 +166,22 @@ body {
           if (messages[navLang]) lang = navLang;
         }
       } catch (_) {}
-      const t = messages[lang];
+      const dict = messages[lang];
       const label = document.getElementById('status-text');
-      const bar = document.getElementById('bar');
-      if (label) label.textContent = t.starting;
-      if (window.electronAPI?.onSplashProgress) {
-        window.electronAPI.onSplashProgress(({ fraction, stepKey }) => {
-          if (label && t[stepKey]) label.textContent = t[stepKey];
+      const bar = document.getElementById('progress-bar');
+      const percentText = document.getElementById('percent-text');
+      if (label) label.textContent = dict.start;
+      if (bar) bar.style.width = '5%';
+
+      // Progress is pushed from the main process; the bar switches from indeterminate to determinate
+      if (window.electronAPI && window.electronAPI.onSplashProgress) {
+        window.electronAPI.onSplashProgress(({ percent, stepKey }) => {
+          if (label && dict[stepKey]) label.textContent = dict[stepKey];
           if (bar) {
-            bar.classList.add('determinate');
-            bar.style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%';
+            bar.style.animation = 'none';
+            bar.style.width = Math.max(0, Math.min(100, percent)) + '%';
           }
+          if (percentText) percentText.textContent = Math.round(percent) + '%';
         });
       }
     })();

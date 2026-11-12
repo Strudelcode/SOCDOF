@@ -110,3 +110,14 @@ Before finishing any modification turn:
 1. Run `npm run lint` (`lint_applet` / TypeScript check) to ensure no type errors.
 2. Run `npm run build` (`compile_applet`) to verify successful production compilation.
 
+
+---
+
+## 9. Multi-User Data Merge (Portable / NAS)
+
+- **Shared data folder**: In portable mode, all workstations on a NAS or shared drive use the same `data` folder. Data is never overwritten blindly.
+- **Per-record merge, not whole-file overwrite**: Changes are merged record by record (like a Git merge), keyed by a stable record ID. Two users editing different records must both keep their changes.
+- **Conflict rule**: If two users change the same record, the newer change is kept and the older one is preserved as a conflict copy, so no data is silently lost.
+- **Critical operations are locked**: Operations that change shared state in bulk (backup restore, data import, year-end closing, database reset) require an exclusive lock. If another workstation holds it, the operation is refused with a clear message.
+- **Periodic merge**: Local changes are merged into the main shared data at a short interval (a few seconds), so everyone sees current data.
+- **Every new merge-related UI text** must be translated in all four languages via `src/lib/i18n.ts`, and documented in the in-app manual.
