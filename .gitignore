@@ -1,4 +1,5 @@
 /target
+/node_modules
 /crates/app/src-tauri/target
 /crates/app/node_modules
 /crates/app/dist
