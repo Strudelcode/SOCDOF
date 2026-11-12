@@ -12,6 +12,7 @@
 
 use egui::{Context, RichText};
 use socdof_core::date;
+use socdof_core::document_layout;
 use socdof_core::domain::contact::{Contact, ContactKind};
 use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
 use socdof_core::money::Money;
@@ -26,6 +27,7 @@ use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::invoice_actions::{self, InvoiceActions};
+use crate::invoice_templates::{self, InvoiceTemplatesState};
 use crate::theme::Theme;
 use crate::tokens::{FONT_SMALL, FONT_TITLE};
 
@@ -318,7 +320,7 @@ fn draft_totals(draft: &InvoiceDraft) -> (Money, Money, Money) {
 }
 
 /// State of the invoices screen.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InvoicesState {
     /// Search text; empty lists every invoice.
     pub query: String,
@@ -338,6 +340,8 @@ pub struct InvoicesState {
     pub contact_popup: PopupState,
     /// Dialogs of the detail view.
     pub actions: InvoiceActions,
+    /// Print template manager.
+    pub templates: InvoiceTemplatesState,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
     /// Catalogue key of the validation or storage error.
@@ -362,6 +366,7 @@ impl Default for InvoicesState {
             draft: InvoiceDraft::default(),
             contact_popup: PopupState::default(),
             actions: InvoiceActions::default(),
+            templates: InvoiceTemplatesState::new(),
             confirm_delete: false,
             error: None,
             status: None,
@@ -390,6 +395,7 @@ impl InvoicesState {
             store.search_invoices(&self.query)?
         };
         self.contacts = store.list_contacts()?;
+        self.templates.ensure_loaded(store);
         self.contact_labels = self
             .contacts
             .iter()
@@ -665,7 +671,10 @@ pub fn invoices(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if !state.confirm_delete
+        && !state.templates.open
+        && ctx.input(|input| input.key_pressed(egui::Key::Escape))
+    {
         match state.view {
             InvoicesView::List => state.back = true,
             InvoicesView::Detail => state.view = InvoicesView::List,
@@ -685,7 +694,7 @@ pub fn invoices(
         )
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                InvoicesView::List => list_view(ui, theme, texts, focus, state, now),
+                InvoicesView::List => list_view(ui, theme, texts, focus, state, store, now),
                 InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
                 InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
@@ -747,6 +756,12 @@ pub fn invoices(
             .cloned()
             .unwrap_or_default();
         let contact = store.find_contact(invoice.contact_id).ok().flatten();
+        let template = state
+            .templates
+            .active()
+            .cloned()
+            .unwrap_or_else(socdof_core::invoice_template::default_template);
+        let layout = document_layout::load(store).unwrap_or_default();
         let changed = invoice_actions::dialogs(
             ctx,
             theme,
@@ -760,6 +775,8 @@ pub fn invoices(
                 company: &company,
                 store,
                 now,
+                template: &template,
+                layout: &layout,
             },
         );
         if let Some(status) = changed {
@@ -768,6 +785,34 @@ pub fn invoices(
             }
         }
     }
+
+    let preview_invoice = state
+        .current()
+        .cloned()
+        .or_else(|| state.invoices.first().cloned());
+    let preview_contact = preview_invoice
+        .as_ref()
+        .and_then(|invoice| store.find_contact(invoice.contact_id).ok().flatten());
+    let preview_company = store.company_profile().unwrap_or_default();
+    let preview_currency = preview_invoice
+        .as_ref()
+        .map(|invoice| invoice.currency_symbol.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(preview_company.currency.as_str());
+    invoice_templates::templates_modal(
+        ctx,
+        theme,
+        texts,
+        focus,
+        &mut state.templates,
+        store,
+        invoice_templates::TemplatePreview {
+            invoice: preview_invoice.as_ref(),
+            contact: preview_contact.as_ref(),
+            company: &preview_company,
+            currency: preview_currency,
+        },
+    );
 }
 
 fn list_view(
@@ -776,6 +821,7 @@ fn list_view(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut InvoicesState,
+    store: &Store,
     now: i64,
 ) {
     let subtitle = format!(
@@ -797,6 +843,7 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut create = false;
+    let mut templates = false;
     ui.horizontal(|ui| {
         search_field_reserved(
             ui,
@@ -804,8 +851,19 @@ fn list_view(
             focus,
             &mut state.query,
             texts.get("invoices_search"),
-            150.0,
+            310.0,
         );
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("invoices_templates_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            templates = true;
+        }
         if button(
             ui,
             theme,
@@ -818,6 +876,9 @@ fn list_view(
             create = true;
         }
     });
+    if templates {
+        state.templates.open(store);
+    }
     if create {
         state.start_new(now);
         return;
@@ -1038,6 +1099,8 @@ fn detail_view(
     let mut dunning = false;
     let mut mail = false;
     let mut payment = false;
+    let mut print = false;
+    let mut templates = false;
     ui.horizontal(|ui| {
         if invoice.status != InvoiceStatus::Sent && invoice.status != InvoiceStatus::Cancelled {
             let activated = button(
@@ -1127,6 +1190,28 @@ fn detail_view(
             ui,
             theme,
             focus,
+            texts.get("invoices_print_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            print = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("invoices_templates_button"),
+            ButtonVariant::Ghost,
+        )
+        .activated
+        {
+            templates = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
             texts.get("invoices_edit"),
             ButtonVariant::Secondary,
         )
@@ -1168,6 +1253,12 @@ fn detail_view(
     }
     if delete {
         state.confirm_delete = true;
+    }
+    if templates {
+        state.templates.open(store);
+    }
+    if print {
+        state.actions.open_print(&invoice);
     }
 
     if dunning || mail || payment {

@@ -6,24 +6,67 @@
     <title>SOCDOF</title>
   </head>
   <body>
+    <div class="desktop-icons" aria-label="Desktop-Verknüpfungen">
+      <button type="button" class="desktop-shortcut" data-desktop-view="dashboard" style="--tile:#9333ea" title="Dashboard">◈</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="invoices" style="--tile:#ea580c" title="Rechnungen">▤</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="accounting" style="--tile:#4f46e5" title="Abrechnung">€</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="contacts" style="--tile:#2563eb" title="Kontakte">♧</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="products" style="--tile:#059669" title="Produkte">▣</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="calendar" style="--tile:#be185d" title="Kalender">▦</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="purchases" style="--tile:#0d9488" title="Einkauf">▥</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="reports" style="--tile:#2563eb" title="Berichte">▥</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="projects" style="--tile:#4f46e5" title="Projekte">▣</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="documents" style="--tile:#334155" title="Dokumente">▤</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="settings" style="--tile:#d97706" title="Einstellungen">⚙</button>
+      <button type="button" class="desktop-shortcut" data-desktop-view="templates" style="--tile:#ea580c" title="Vorlagen">▧</button>
+    </div>
     <div class="app">
       <header class="app-header">
-        <div>
+        <div class="window-heading">
           <p class="brand">SOCDOF</p>
-          <h1 data-i18n="screenTitle"></h1>
-          <p class="subtitle" data-i18n="screenSubtitle"></p>
+          <h1 id="app-title" data-i18n="screenTitle"></h1>
+          <span id="app-tag" class="window-tag"></span>
+          <p id="app-subtitle" class="subtitle" data-i18n="screenSubtitle"></p>
         </div>
-        <span class="badge" data-i18n="sessionBadge"></span>
+        <div class="header-actions">
+          <span class="badge" data-i18n="sessionBadge"></span>
+          <div class="header-tools" role="group">
+            <button id="command-open" class="header-tool" type="button" title="Befehl">⌘</button>
+            <button id="taskview-open" class="header-tool" type="button" title="Aufgabenansicht">▤</button>
+            <button id="widgets-open" class="header-tool" type="button" title="Widgets">✦</button>
+            <button id="calculator-open" class="header-tool" type="button" title="Taschenrechner">▦</button>
+            <span class="window-separator" aria-hidden="true"></span>
+            <button id="window-toggle-fullscreen" class="window-control" type="button" title="Vollbild">⛶</button>
+            <button id="window-minimize" class="window-control" type="button" title="Minimieren">−</button>
+            <button id="window-toggle-maximize" class="window-control" type="button" title="Maximieren">□</button>
+            <button id="window-close" class="window-control window-control-close" type="button" title="Schließen">×</button>
+          </div>
+        </div>
       </header>
 
       <nav class="tabs" aria-label="SOCDOF">
-        <button class="tab is-active" type="button" data-view="dashboard" data-i18n="navDashboard"></button>
-        <button class="tab" type="button" data-view="contacts" data-i18n="navContacts"></button>
-        <button class="tab" type="button" data-view="products" data-i18n="navProducts"></button>
+        <button class="tab tab-with-icon is-active" type="button" data-view="dashboard"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span><span data-i18n="navDashboard"></span></button>
+        <button class="tab tab-with-icon" type="button" data-view="invoices"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg></span><span data-i18n="navInvoices"></span></button>
+        <button class="tab tab-with-icon" type="button" data-view="accounting"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg></span><span data-i18n="navAccounting"></span></button>
+        <button class="tab tab-with-icon" type="button" data-view="contacts"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></span><span data-i18n="navContacts"></span></button>
+        <button class="tab tab-with-icon" type="button" data-view="products"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg></span><span data-i18n="navProducts"></span></button>
+        <button class="tab tab-with-icon" type="button" data-view="stock"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg></span><span>Lager</span></button>
+        <button class="tab" type="button" data-view="templates" data-i18n="navTemplates"></button>
+        <button class="tab" type="button" data-view="purchases" data-i18n="navPurchases"></button>
+        <button class="tab" type="button" data-view="reports" data-i18n="navReports"></button>
+        <button class="tab" type="button" data-view="fleet" data-i18n="navFleet"></button>
+        <button class="tab" type="button" data-view="projects" data-i18n="navProjects"></button>
+        <button class="tab" type="button" data-view="restaurant" data-i18n="navRestaurant"></button>
+        <button class="tab" type="button" data-view="documents" data-i18n="navDocuments"></button>
+        <button class="tab" type="button" data-view="docs" data-i18n="navDocs"></button>
+        <button class="tab" type="button" data-view="users" data-i18n="navUsers"></button>
+        <button class="tab" type="button" data-view="settings" data-i18n="navSettings"></button>
+        <button class="tab" type="button" data-view="calendar" data-i18n="navCalendar" aria-hidden="true" style="display:none"></button>
       </nav>
 
-      <main>
+      <main class="workspace-window-body">
         <section id="view-dashboard" class="view">
+          <div id="dashboard-overview"></div>
           <div class="grid">
             <section class="card" aria-labelledby="status-title">
               <h2 id="status-title" data-i18n="statusTitle"></h2>
@@ -79,22 +122,45 @@
         </section>
 
         <section id="view-contacts" class="view" hidden>
-          <div class="section-head">
-            <div>
-              <p class="eyebrow" data-i18n="masterDataLabel"></p>
-              <h2 data-i18n="contactsTitle"></h2>
-              <p class="subtitle" id="contacts-count"></p>
+          <div class="page-card contacts-top">
+            <div class="page-identity contacts-identity">
+              <span class="contacts-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              <div>
+                <h2 data-i18n="contactsTitle"></h2>
+                <p class="subtitle" id="contacts-count"></p>
+              </div>
             </div>
-            <div class="toolbar">
-              <label class="search-field">
-                <span class="visually-hidden" data-i18n="contactsSearchLabel"></span>
-                <input id="contact-search" type="search" autocomplete="off" />
+            <div class="contacts-actions">
+              <button id="contact-new" class="contacts-new" type="button"><span aria-hidden="true">+</span> <span id="contacts-new-label" data-i18n="contactsNew"></span></button>
+              <button id="contact-batch" class="contacts-secondary" type="button"><span aria-hidden="true">▤</span> <span id="contact-batch-label">+ Mehrere anlegen</span></button>
+              <label class="contacts-secondary contacts-import">
+                <span aria-hidden="true">⇧</span> <span id="contact-import-label">CSV / Outlook Import</span>
+                <input id="contact-import-file" type="file" accept=".csv,.vcf,.vcard,text/csv" hidden />
               </label>
-              <button id="contact-new" type="button" data-i18n="contactsNew"></button>
+              <div class="contacts-export-wrap">
+                <button id="contact-export" class="contacts-secondary" type="button"><span aria-hidden="true">⇩</span> <span id="contact-export-label">Export</span> <span class="chevron" aria-hidden="true">▾</span></button>
+                <div id="contact-export-menu" class="contacts-export-menu" hidden>
+                  <p id="contact-export-options-label">Kontakte exportieren</p>
+                  <button type="button" id="contact-export-csv"><span class="export-icon csv">▦</span><span><strong>CSV / Excel (<span id="contact-export-count">0</span>)</strong><small id="contact-export-all-label">Alle Kontakte exportieren</small></span></button>
+                  <button type="button" id="contact-export-vcf"><span class="export-icon vcf">◎</span><span><strong>vCard (.vcf) (<span id="contact-export-vcf-count">0</span>)</strong><small id="contact-export-vcf-label">Outlook, Apple &amp; Android</small></span></button>
+                </div>
+              </div>
             </div>
           </div>
+          <div class="filter-row contacts-filter-row">
+            <div class="filter-pills contact-filters" role="tablist" aria-label="Kontaktfilter">
+              <button type="button" class="filter-pill is-active" role="tab" aria-selected="true" data-contact-filter="all"><span data-i18n="invoicesFilterAll"></span> (<span id="contacts-count-all">0</span>)</button>
+              <button type="button" class="filter-pill" role="tab" aria-selected="false" data-contact-filter="customer"><span data-i18n="contactsFilterCustomers"></span> (<span id="contacts-count-customer">0</span>)</button>
+              <button type="button" class="filter-pill contact-guest-filter" role="tab" aria-selected="false" data-contact-filter="guest"><span class="guest-book-icon" aria-hidden="true">▤</span><span data-i18n="contactsFilterGuests"></span> <span class="guest-count" id="contacts-count-guest">0</span></button>
+              <button type="button" class="filter-pill" role="tab" aria-selected="false" data-contact-filter="vendor"><span data-i18n="contactsFilterVendors"></span> (<span id="contacts-count-vendor">0</span>)</button>
+            </div>
+            <label class="search-field contact-search-field">
+              <span class="visually-hidden" data-i18n="contactsSearchLabel"></span>
+              <input id="contact-search" type="search" autocomplete="off" />
+            </label>
+          </div>
           <p id="contacts-message" class="message" role="status"></p>
-          <div id="contacts-list" class="entity-list"></div>
+          <div id="contacts-list" class="entity-list contacts-grid"></div>
         </section>
 
         <section id="view-products" class="view" hidden>
@@ -114,6 +180,229 @@
           </div>
           <p id="products-message" class="message" role="status"></p>
           <div id="products-list" class="entity-list"></div>
+        </section>
+
+        <section id="view-invoices" class="view" hidden>
+          <div class="page-card invoice-banner" id="invoice-incomplete-banner">
+            <span class="banner-icon" aria-hidden="true">!</span>
+            <div class="banner-copy">
+              <strong data-i18n="invoicesIncompleteTitle"></strong>
+              <p data-i18n="invoicesIncompleteHint"></p>
+            </div>
+            <button type="button" id="invoice-complete-data" data-i18n="invoicesIncompleteAction"></button>
+          </div>
+          <div class="filter-row invoice-toolbar-row">
+            <div class="filter-pills invoice-filters" role="tablist" aria-label="Rechnungsfilter">
+              <button type="button" class="filter-pill is-active" role="tab" aria-selected="true" data-invoice-filter="all"><span data-i18n="invoicesFilterAll"></span><span class="invoice-filter-count">(<span id="invoice-count-all">0</span>)</span></button>
+              <button type="button" class="filter-pill" role="tab" aria-selected="false" data-invoice-filter="draft"><span data-i18n="invoiceStatusDraft"></span><span class="invoice-filter-count">(<span id="invoice-count-draft">0</span>)</span></button>
+              <button type="button" class="filter-pill" role="tab" aria-selected="false" data-invoice-filter="sent"><span data-i18n="invoiceStatusSent"></span><span class="invoice-filter-count">(<span id="invoice-count-sent">0</span>)</span></button>
+              <button type="button" class="filter-pill" role="tab" aria-selected="false" data-invoice-filter="paid"><span data-i18n="invoiceStatusPaid"></span><span class="invoice-filter-count">(<span id="invoice-count-paid">0</span>)</span></button>
+            </div>
+            <div class="invoice-toolbar-actions">
+              <label class="search-field invoice-search-field">
+                <span class="visually-hidden" data-i18n="invoicesSearchLabel"></span>
+                <input id="invoice-search" type="search" autocomplete="off" />
+              </label>
+              <select id="invoice-status-filter" class="visually-hidden" tabindex="-1" aria-hidden="true"></select>
+              <button id="invoice-templates" class="invoice-tool-button" type="button"><span aria-hidden="true">▤</span> <span id="invoice-templates-label">Vorlagen &amp; Layout</span></button>
+              <label class="invoice-tool-button invoice-import-button">
+                <span aria-hidden="true">⇧</span> <span id="invoice-import-label">XML / FatturaPA importieren</span>
+                <input id="invoice-import-file" type="file" accept=".xml,.p7m" hidden />
+              </label>
+              <button id="invoice-new" type="button"><span aria-hidden="true">+</span> <span data-i18n="invoicesNew"></span></button>
+            </div>
+          </div>
+          <p id="invoices-message" class="message" role="status"></p>
+          <div class="invoice-journal">
+            <div class="invoice-journal-head">
+              <h2><span id="invoice-journal-label">Rechnungsjournal</span> (<span id="invoices-count">0</span> <span id="invoice-entries-label">Einträge</span>)</h2>
+            </div>
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th id="invoice-th-number">Rechnungs-Nr.</th>
+                  <th id="invoice-th-contact">Kunde / Empfänger</th>
+                  <th id="invoice-th-date">Datum</th>
+                  <th id="invoice-th-due">Fälligkeit</th>
+                  <th id="invoice-th-status">Status</th>
+                  <th id="invoice-th-total" class="right">Gesamtbetrag (Brutto)</th>
+                  <th id="invoice-th-actions" class="right">Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-list"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="view-fleet" class="view" hidden>
+          <div class="grid fleet-kpis">
+            <section class="card">
+              <h3 data-i18n="fleetKpiTotal"></h3>
+              <p id="fleet-kpi-total" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="fleetKpiBusiness"></h3>
+              <p id="fleet-kpi-business" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="fleetKpiFuel"></h3>
+              <p id="fleet-kpi-fuel" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="fleetKpiVehicles"></h3>
+              <p id="fleet-kpi-vehicles" class="fleet-kpi-value">–</p>
+            </section>
+          </div>
+
+          <section class="card">
+            <div class="toolbar fleet-toolbar">
+              <div class="fleet-tabs">
+                <button class="secondary" id="fleet-tab-logbook" type="button" data-i18n="fleetTabLogbook"></button>
+                <button class="secondary" id="fleet-tab-vehicles" type="button" data-i18n="fleetTabVehicles"></button>
+                <button class="secondary" id="fleet-tab-fuel" type="button" data-i18n="fleetTabFuel"></button>
+              </div>
+              <input id="fleet-search" type="search">
+              <select id="fleet-vehicle-filter">
+                <option value="all" data-i18n="fleetFilterVehicleAll"></option>
+              </select>
+              <select id="fleet-purpose-filter">
+                <option value="all" data-i18n="fleetFilterPurposeAll"></option>
+                <option value="business" data-i18n="fleetPurposeBusiness"></option>
+                <option value="private" data-i18n="fleetPurposePrivate"></option>
+                <option value="commute" data-i18n="fleetPurposeCommute"></option>
+              </select>
+              <input id="fleet-date-from" type="date" aria-label="from">
+              <input id="fleet-date-to" type="date" aria-label="to">
+              <button id="fleet-add-vehicle" type="button" data-i18n="fleetAddVehicle"></button>
+              <button id="fleet-add-trip" type="button" data-i18n="fleetAddTrip"></button>
+              <button id="fleet-add-fuel" type="button" data-i18n="fleetAddFuel"></button>
+              <button class="secondary" id="fleet-export-csv" type="button" data-i18n="fleetExportCsv"></button>
+            </div>
+            <p id="fleet-message" class="message" role="status"></p>
+            <div id="fleet-logbook"></div>
+            <div id="fleet-vehicles" hidden></div>
+            <div id="fleet-fuel" hidden></div>
+          </section>
+        </section>
+
+        <section id="view-projects" class="view" hidden>
+          <div class="grid project-kpis">
+            <section class="card">
+              <h3 data-i18n="projectKpiActive"></h3>
+              <p id="project-kpi-active" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="projectKpiProgress"></h3>
+              <p id="project-kpi-progress" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="projectKpiHours"></h3>
+              <p id="project-kpi-hours" class="fleet-kpi-value">–</p>
+            </section>
+            <section class="card">
+              <h3 data-i18n="projectKpiRevenue"></h3>
+              <p id="project-kpi-revenue" class="fleet-kpi-value">–</p>
+            </section>
+          </div>
+
+          <section class="card">
+            <div class="toolbar project-toolbar">
+              <div class="project-tabs">
+                <button id="project-tab-portfolio" type="button" data-i18n="projectTabPortfolio"></button>
+                <button id="project-tab-kanban" type="button" data-i18n="projectTabKanban"></button>
+              </div>
+              <input id="project-search" type="search">
+              <select id="project-status-filter">
+                <option value="all" data-i18n="projectFilterStatusAll"></option>
+                <option value="active" data-i18n="projectStatusActive"></option>
+                <option value="planning" data-i18n="projectStatusPlanning"></option>
+                <option value="review" data-i18n="projectStatusReview"></option>
+                <option value="completed" data-i18n="projectStatusCompleted"></option>
+                <option value="on_hold" data-i18n="projectStatusOnHold"></option>
+              </select>
+              <select id="project-category-filter">
+                <option value="all" data-i18n="projectFilterCategoryAll"></option>
+                <option value="client_work" data-i18n="projectCategoryClient"></option>
+                <option value="internal" data-i18n="projectCategoryInternal"></option>
+                <option value="maintenance" data-i18n="projectCategoryMaintenance"></option>
+                <option value="development" data-i18n="projectCategoryDevelopment"></option>
+                <option value="marketing" data-i18n="projectCategoryMarketing"></option>
+              </select>
+              <button id="project-new" type="button" data-i18n="projectNew"></button>
+              <button class="secondary" id="project-export-csv" type="button" data-i18n="projectExportCsv"></button>
+            </div>
+            <p id="project-message" class="message" role="status"></p>
+            <div id="project-portfolio"></div>
+            <div id="project-kanban" hidden>
+              <div class="toolbar project-board-switcher">
+                <label class="field field-inline">
+                  <span data-i18n="projectCurrent"></span>
+                  <select id="project-kanban-select"></select>
+                </label>
+                <button id="project-add-task" type="button" data-i18n="projectAddTask"></button>
+              </div>
+              <div id="project-board" class="project-columns"></div>
+            </div>
+          </section>
+        </section>
+
+        <section id="view-restaurant" class="view" hidden></section>
+        <section id="view-calendar" class="view" hidden></section>
+        <section id="view-accounting" class="view" hidden></section>
+        <section id="view-purchases" class="view" hidden></section>
+        <section id="view-reports" class="view" hidden></section>
+        <section id="view-documents" class="view" hidden></section>
+        <section id="view-docs" class="view" hidden></section>
+        <section id="view-users" class="view" hidden></section>
+        <section id="view-settings" class="view" hidden></section>
+
+        <section id="view-templates" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow" data-i18n="masterDataLabel"></p>
+              <h2 data-i18n="templatesTitle"></h2>
+              <p class="subtitle" id="templates-count"></p>
+            </div>
+            <div class="toolbar">
+              <button id="template-new" type="button" data-i18n="templatesNew"></button>
+            </div>
+          </div>
+          <p id="templates-message" class="message" role="status"></p>
+          <div class="external-assets">
+            <div class="section-head">
+              <div>
+                <h3 data-i18n="externalAssetsTitle"></h3>
+                <p class="subtitle" id="external-assets-message" role="status"></p>
+              </div>
+              <div class="toolbar">
+                <button id="external-assets-refresh" type="button" class="secondary" data-i18n="externalAssetsRefresh"></button>
+              </div>
+            </div>
+            <div class="external-assets-grid">
+              <section class="external-assets-column">
+                <div class="toolbar">
+                  <h4 data-i18n="externalTemplatesLabel"></h4>
+                  <button id="external-templates-open" type="button" class="secondary" data-i18n="externalAssetsOpenFolder"></button>
+                </div>
+                <div id="external-templates-list" class="entity-list"></div>
+              </section>
+              <section class="external-assets-column">
+                <div class="toolbar">
+                  <h4 data-i18n="externalLanguagesLabel"></h4>
+                  <button id="external-languages-open" type="button" class="secondary" data-i18n="externalAssetsOpenFolder"></button>
+                </div>
+                <div id="external-languages-list" class="entity-list"></div>
+              </section>
+              <section class="external-assets-column">
+                <div class="toolbar">
+                  <h4 data-i18n="externalFlagsLabel"></h4>
+                  <button id="external-flags-open" type="button" class="secondary" data-i18n="externalAssetsOpenFolder"></button>
+                </div>
+                <div id="external-flags-list" class="entity-list"></div>
+              </section>
+            </div>
+          </div>
+          <div id="templates-list" class="entity-list"></div>
         </section>
       </main>
     </div>
@@ -349,6 +638,677 @@
       <p class="message" id="reorder-message" role="alert"></p>
     </dialog>
 
+    <dialog id="invoice-dialog" class="editor invoice-editor">
+      <form id="invoice-form" novalidate>
+        <div class="editor-head">
+          <h2 id="invoice-dialog-title"></h2>
+          <button class="icon-button" type="button" data-close="invoice-dialog" aria-label="Close">×</button>
+        </div>
+        <div class="form-grid invoice-form-grid">
+          <input id="invoice-id" type="hidden" />
+          <label class="field">
+            <span data-i18n="fieldInvoiceNumber"></span>
+            <input id="invoice-number" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldInvoiceStatus"></span>
+            <select id="invoice-status"></select>
+          </label>
+          <div class="field field-wide">
+            <span data-i18n="fieldInvoiceContact"></span>
+            <div class="input-with-button">
+              <select id="invoice-contact"></select>
+              <button id="invoice-contact-pick" type="button" data-i18n="customerPickerOpen"></button>
+            </div>
+          </div>
+          <label class="field">
+            <span data-i18n="fieldInvoiceDate"></span>
+            <input id="invoice-issued-date" type="date" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldInvoiceDueDate"></span>
+            <input id="invoice-due-date" type="date" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldInvoicePaymentTerms"></span>
+            <input id="invoice-payment-terms" type="number" min="0" max="365" step="1" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldInvoiceCurrency"></span>
+            <input id="invoice-currency" type="text" />
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldInvoiceNotes"></span>
+            <textarea id="invoice-note" rows="2"></textarea>
+          </label>
+        </div>
+        <div class="invoice-line-section">
+          <div class="section-head section-head-small">
+            <h3 data-i18n="fieldInvoiceItems"></h3>
+            <button class="secondary" id="invoice-line-add" type="button" data-i18n="invoiceItemsAdd"></button>
+          </div>
+          <div id="invoice-lines" class="invoice-lines"></div>
+          <dl class="invoice-totals">
+            <div><dt data-i18n="invoiceTotalsNet"></dt><dd id="invoice-total-net"></dd></div>
+            <div><dt data-i18n="invoiceTotalsTax"></dt><dd id="invoice-total-tax"></dd></div>
+            <div><dt data-i18n="invoiceTotalsGross"></dt><dd id="invoice-total-gross"></dd></div>
+          </dl>
+        </div>
+        <p id="invoice-error" class="message" role="alert"></p>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="invoice-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="invoice-preview-dialog" class="editor invoice-preview">
+      <div class="editor-head">
+        <h2 id="invoice-preview-title"></h2>
+        <button class="icon-button" type="button" data-close="invoice-preview-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="preview-toolbar">
+        <label class="field">
+          <span data-i18n="invoicePreviewTemplate"></span>
+          <select id="invoice-preview-template"></select>
+        </label>
+        <div class="toolbar">
+          <button class="secondary" id="invoice-export-docx" type="button" data-i18n="invoiceExportDocx"></button>
+          <button id="invoice-export-pdf" type="button" data-i18n="invoiceExportPdf"></button>
+        </div>
+      </div>
+      <p id="invoice-preview-message" class="message" role="status"></p>
+      <div class="invoice-preview-scroll">
+        <section class="invoice-preview-html">
+          <h3 data-i18n="invoicePreviewBody"></h3>
+          <div id="invoice-preview-body"></div>
+        </section>
+        <section id="invoice-preview-stationery" class="invoice-preview-sheet" hidden>
+          <h3 data-i18n="invoicePreviewStationery"></h3>
+          <p id="invoice-preview-stationery-hint" class="hint"></p>
+          <div id="invoice-preview-page" class="invoice-preview-page">
+            <div id="invoice-preview-tokens" class="invoice-preview-tokens"></div>
+          </div>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="template-dialog" class="editor template-editor">
+      <form id="template-form" novalidate>
+        <div class="editor-head">
+          <h2 id="template-dialog-title"></h2>
+          <button class="icon-button" type="button" data-close="template-dialog" aria-label="Close">×</button>
+        </div>
+        <p class="hint" data-i18n="templateFormHint"></p>
+        <div class="form-grid">
+          <input id="template-id" type="hidden" />
+          <label class="field field-wide">
+            <span data-i18n="fieldTemplateName"></span>
+            <input id="template-name" type="text" />
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldTemplateDescription"></span>
+            <input id="template-description" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldPresetType"></span>
+            <select id="template-preset">
+              <option value="din_5008">din_5008</option>
+              <option value="modern">modern</option>
+              <option value="corporate">corporate</option>
+              <option value="creative">creative</option>
+              <option value="praxis">praxis</option>
+              <option value="custom">custom</option>
+            </select>
+          </label>
+          <label class="field">
+            <span data-i18n="fieldFontFamily"></span>
+            <select id="template-font">
+              <option value="sans">sans</option>
+              <option value="serif">serif</option>
+              <option value="mono">mono</option>
+            </select>
+          </label>
+          <label class="field">
+            <span data-i18n="fieldHeaderTitle"></span>
+            <input id="template-header-title" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldPrimaryColor"></span>
+            <input id="template-primary-color" type="text" placeholder="#2563eb" />
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldHeaderText"></span>
+            <textarea id="template-header-text" rows="2"></textarea>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldFooterText"></span>
+            <textarea id="template-footer-text" rows="2"></textarea>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldTaxNote"></span>
+            <textarea id="template-tax-note" rows="2"></textarea>
+          </label>
+          <label class="field">
+            <span data-i18n="fieldDueDays"></span>
+            <input id="template-due-days" type="number" min="0" max="365" step="1" />
+          </label>
+          <label class="field checkbox-field">
+            <input id="template-show-fold-marks" type="checkbox" />
+            <span data-i18n="fieldShowFoldMarks"></span>
+          </label>
+          <label class="field checkbox-field">
+            <input id="template-show-logo" type="checkbox" />
+            <span data-i18n="fieldShowLogo"></span>
+          </label>
+          <label class="field">
+            <span data-i18n="fieldLogoPosition"></span>
+            <select id="template-logo-position">
+              <option value="left">left</option>
+              <option value="center">center</option>
+              <option value="right">right</option>
+            </select>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldLogo"></span>
+            <input id="template-logo" type="text" />
+            <input id="template-logo-file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.ico" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyName"></span>
+            <input id="template-company-name" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanySubtitle"></span>
+            <input id="template-company-subtitle" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyOwner"></span>
+            <input id="template-company-owner" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyAddress"></span>
+            <input id="template-company-address" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyZipCity"></span>
+            <input id="template-company-zip-city" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyPhone"></span>
+            <input id="template-company-phone" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyEmail"></span>
+            <input id="template-company-email" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyWebsite"></span>
+            <input id="template-company-website" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyTaxId"></span>
+            <input id="template-company-tax-id" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyVatId"></span>
+            <input id="template-company-vat-id" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyBankName"></span>
+            <input id="template-company-bank-name" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyIban"></span>
+            <input id="template-company-iban" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyBic"></span>
+            <input id="template-company-bic" type="text" />
+          </label>
+          <label class="field">
+            <span data-i18n="fieldCompanyCommercialRegister"></span>
+            <input id="template-company-commercial-register" type="text" />
+          </label>
+          <label class="field checkbox-field field-wide">
+            <input id="template-use-custom" type="checkbox" />
+            <span data-i18n="fieldUseCustomLayout"></span>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldCustomBody"></span>
+            <textarea id="template-custom-body" rows="6"></textarea>
+          </label>
+          <label class="field checkbox-field field-wide">
+            <input id="template-stationery-mode" type="checkbox" />
+            <span data-i18n="fieldStationeryMode"></span>
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldStationeryImage"></span>
+            <input id="template-stationery-image" type="text" />
+            <input id="template-stationery-image-file" type="file" accept=".png,.jpg,.jpeg,.webp" />
+          </label>
+          <label class="field field-wide">
+            <span data-i18n="fieldStationeryPdf"></span>
+            <input id="template-stationery-pdf" type="text" />
+            <input id="template-stationery-pdf-file" type="file" accept=".pdf" />
+          </label>
+        </div>
+        <div class="token-section">
+          <div class="section-head section-head-small">
+            <h3 data-i18n="fieldStationeryTokens"></h3>
+            <div class="toolbar">
+              <button class="secondary" id="template-token-defaults" type="button" data-i18n="tokenDefaults"></button>
+              <button class="secondary" id="template-token-add" type="button" data-i18n="tokenAdd"></button>
+            </div>
+          </div>
+          <div id="template-tokens" class="token-list"></div>
+        </div>
+        <p id="template-error" class="message" role="alert"></p>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="template-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="invoice-action-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="invoice-action-title"></h2>
+        <button class="icon-button" type="button" data-close="invoice-action-dialog" aria-label="Close">×</button>
+      </div>
+      <p id="invoice-action-message" class="message" role="status"></p>
+
+      <section id="invoice-dunning-section">
+        <label class="field">
+          <span data-i18n="dunningLevel"></span>
+          <select id="dunning-level">
+            <option value="reminder" data-i18n="dunningLevelReminder"></option>
+            <option value="first" data-i18n="dunningLevelFirst"></option>
+            <option value="last" data-i18n="dunningLevelLast"></option>
+          </select>
+        </label>
+        <div class="editor-grid">
+          <label class="field">
+            <span data-i18n="dunningFee"></span>
+            <input id="dunning-fee" inputmode="decimal">
+          </label>
+          <label class="field">
+            <span data-i18n="dunningDays"></span>
+            <input id="dunning-days" inputmode="numeric">
+          </label>
+        </div>
+        <label class="field">
+          <span data-i18n="dunningSubject"></span>
+          <input id="dunning-subject" readonly>
+        </label>
+        <label class="field">
+          <span data-i18n="dunningBody"></span>
+          <textarea id="dunning-body" rows="10" readonly></textarea>
+        </label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="invoice-action-dialog" data-i18n="cancel"></button>
+          <button id="dunning-save" type="button" data-i18n="dunningSave"></button>
+        </div>
+      </section>
+
+      <section id="invoice-email-section" hidden>
+        <label class="field">
+          <span data-i18n="emailRecipient"></span>
+          <input id="email-recipient">
+        </label>
+        <label class="field">
+          <span data-i18n="emailSubject"></span>
+          <input id="email-subject">
+        </label>
+        <label class="field">
+          <span data-i18n="emailBody"></span>
+          <textarea id="email-body" rows="12"></textarea>
+        </label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="invoice-action-dialog" data-i18n="cancel"></button>
+          <button id="email-save" type="button" data-i18n="emailSave"></button>
+        </div>
+      </section>
+
+      <section id="invoice-payment-section" hidden>
+        <label class="field">
+          <span data-i18n="paymentMethod"></span>
+          <select id="payment-method">
+            <option value="transfer" data-i18n="methodTransfer"></option>
+            <option value="cash" data-i18n="methodCash"></option>
+            <option value="card" data-i18n="methodCard"></option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="paymentReference"></span>
+          <input id="payment-reference">
+        </label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="invoice-action-dialog" data-i18n="cancel"></button>
+          <button id="payment-record" type="button" data-i18n="paymentRecord"></button>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="contact-email-dialog" class="editor">
+      <div class="editor-head">
+        <h2 data-i18n="contactEmailTitle"></h2>
+        <button class="icon-button" type="button" data-close="contact-email-dialog" aria-label="Close">×</button>
+      </div>
+      <p id="contact-email-message" class="message" role="status"></p>
+      <label class="field"><span data-i18n="contactEmailRecipient"></span><input id="contact-email-recipient" type="email"></label>
+      <label class="field"><span data-i18n="contactEmailSubject"></span><input id="contact-email-subject"></label>
+      <label class="field"><span data-i18n="contactEmailBody"></span><textarea id="contact-email-body" rows="12"></textarea></label>
+      <div class="editor-actions">
+        <button class="secondary" type="button" data-close="contact-email-dialog" data-i18n="cancel"></button>
+        <button id="contact-email-save" type="button" data-i18n="contactEmailSave"></button>
+      </div>
+    </dialog>
+
+    <dialog id="fattura-dialog" class="editor">
+      <div class="editor-head">
+        <h2 data-i18n="fatturaTitle"></h2>
+        <button class="icon-button" type="button" data-close="fattura-dialog" aria-label="Close">×</button>
+      </div>
+      <p id="fattura-message" class="message" role="status"></p>
+      <div class="editor-grid">
+        <label class="field"><span data-i18n="fatturaDocumentType"></span>
+          <select id="fattura-document-type">
+            <option value="TD01" data-i18n="fatturaTypeInvoice"></option>
+            <option value="TD04" data-i18n="fatturaTypeCreditNote"></option>
+            <option value="TD24" data-i18n="fatturaTypeDeferred"></option>
+          </select>
+        </label>
+        <label class="field"><span data-i18n="fatturaRegime"></span>
+          <select id="fattura-regime">
+            <option value="RF01" data-i18n="fatturaRegimeOrdinary"></option>
+            <option value="RF19" data-i18n="fatturaRegimeForfettario"></option>
+          </select>
+        </label>
+      </div>
+      <div class="editor-grid">
+        <label class="field"><span data-i18n="fatturaRecipientCode"></span><input id="fattura-recipient-code" maxlength="7"></label>
+        <label class="field"><span data-i18n="fatturaPec"></span><input id="fattura-pec" type="email"></label>
+      </div>
+      <div class="editor-grid">
+        <label class="field"><span data-i18n="fatturaCup"></span><input id="fattura-cup"></label>
+        <label class="field"><span data-i18n="fatturaCig"></span><input id="fattura-cig"></label>
+      </div>
+      <label class="checkbox"><input id="fattura-bollo" type="checkbox"><span data-i18n="fatturaBollo"></span></label>
+      <label class="field"><span data-i18n="fatturaPreview"></span><textarea id="fattura-xml" rows="12" readonly></textarea></label>
+      <div class="editor-actions">
+        <button class="secondary" type="button" data-close="fattura-dialog" data-i18n="cancel"></button>
+        <button id="fattura-save" type="button" data-i18n="fatturaSave"></button>
+      </div>
+    </dialog>
+
+    <dialog id="fleet-vehicle-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="fleet-vehicle-title"></h2>
+        <button class="icon-button" type="button" data-close="fleet-vehicle-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="fleet-vehicle-form">
+        <p id="fleet-vehicle-message" class="message" role="status"></p>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetPlate"></span><input id="fleet-vehicle-plate" required></label>
+          <label class="field"><span data-i18n="fleetMake"></span><input id="fleet-vehicle-make" required></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetModel"></span><input id="fleet-vehicle-model"></label>
+          <label class="field"><span data-i18n="fleetType"></span>
+            <select id="fleet-vehicle-type">
+              <option value="car" data-i18n="fleetTypeCar"></option>
+              <option value="van" data-i18n="fleetTypeVan"></option>
+              <option value="truck" data-i18n="fleetTypeTruck"></option>
+              <option value="motorcycle" data-i18n="fleetTypeMotorcycle"></option>
+              <option value="electric" data-i18n="fleetTypeElectric"></option>
+            </select>
+          </label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetFuelType"></span>
+            <select id="fleet-vehicle-fuel">
+              <option value="diesel" data-i18n="fleetFuelDiesel"></option>
+              <option value="petrol" data-i18n="fleetFuelPetrol"></option>
+              <option value="electric" data-i18n="fleetFuelElectric"></option>
+              <option value="hybrid" data-i18n="fleetFuelHybrid"></option>
+              <option value="cng" data-i18n="fleetFuelCng"></option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="fleetOdometer"></span><input id="fleet-vehicle-odometer" type="number" min="0" step="1"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetDriver"></span><input id="fleet-vehicle-driver"></label>
+          <label class="field"><span data-i18n="fleetYear"></span><input id="fleet-vehicle-year" type="number" min="1900" max="2100"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetInspection"></span><input id="fleet-vehicle-inspection" type="date"></label>
+          <label class="field"><span data-i18n="fleetStatus"></span>
+            <select id="fleet-vehicle-status">
+              <option value="active" data-i18n="fleetStatusActive"></option>
+              <option value="maintenance" data-i18n="fleetStatusMaintenance"></option>
+              <option value="retired" data-i18n="fleetStatusRetired"></option>
+            </select>
+          </label>
+        </div>
+        <label class="field"><span data-i18n="fleetVin"></span><input id="fleet-vehicle-vin"></label>
+        <label class="field"><span data-i18n="fleetNotes"></span><textarea id="fleet-vehicle-notes" rows="3"></textarea></label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="fleet-vehicle-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="fleet-trip-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="fleet-trip-title"></h2>
+        <button class="icon-button" type="button" data-close="fleet-trip-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="fleet-trip-form">
+        <p id="fleet-trip-message" class="message" role="status"></p>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetVehicle"></span><select id="fleet-trip-vehicle" required></select></label>
+          <label class="field"><span data-i18n="fleetDriver"></span><input id="fleet-trip-driver" required></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetDate"></span><input id="fleet-trip-date" type="date" required></label>
+          <label class="field"><span data-i18n="fleetStartTime"></span><input id="fleet-trip-start-time" type="time"></label>
+          <label class="field"><span data-i18n="fleetEndTime"></span><input id="fleet-trip-end-time" type="time"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetStartLocation"></span><input id="fleet-trip-start-location" required></label>
+          <label class="field"><span data-i18n="fleetEndLocation"></span><input id="fleet-trip-end-location" required></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetPurpose"></span>
+            <select id="fleet-trip-purpose">
+              <option value="business" data-i18n="fleetPurposeBusiness"></option>
+              <option value="private" data-i18n="fleetPurposePrivate"></option>
+              <option value="commute" data-i18n="fleetPurposeCommute"></option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="fleetCustomer"></span><input id="fleet-trip-customer"></label>
+        </div>
+        <label class="field"><span data-i18n="fleetReason"></span><input id="fleet-trip-reason"></label>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetStartKm"></span><input id="fleet-trip-start-km" type="number" min="0" step="1"></label>
+          <label class="field"><span data-i18n="fleetEndKm"></span><input id="fleet-trip-end-km" type="number" min="0" step="1"></label>
+        </div>
+        <label class="field"><span data-i18n="fleetNotes"></span><textarea id="fleet-trip-notes" rows="2"></textarea></label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="fleet-trip-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="fleet-fuel-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="fleet-fuel-title"></h2>
+        <button class="icon-button" type="button" data-close="fleet-fuel-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="fleet-fuel-form">
+        <p id="fleet-fuel-message" class="message" role="status"></p>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetVehicle"></span><select id="fleet-fuel-vehicle" required></select></label>
+          <label class="field"><span data-i18n="fleetDate"></span><input id="fleet-fuel-date" type="date" required></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetOdometer"></span><input id="fleet-fuel-odometer" type="number" min="0" step="1"></label>
+          <label class="field"><span data-i18n="fleetStation"></span><input id="fleet-fuel-station"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="fleetUnits"></span><input id="fleet-fuel-units" type="number" min="0" step="0.01"></label>
+          <label class="field"><span data-i18n="fleetTotalCost"></span><input id="fleet-fuel-total" type="number" min="0" step="0.01"></label>
+        </div>
+        <label class="field"><span data-i18n="fleetNotes"></span><textarea id="fleet-fuel-notes" rows="2"></textarea></label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="fleet-fuel-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+
+
+
+
+
+
+    <dialog id="project-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="project-dialog-title"></h2>
+        <button class="icon-button" type="button" data-close="project-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="project-form">
+        <p id="project-form-message" class="message" role="status"></p>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectTitle"></span><input id="project-title" required></label>
+          <label class="field"><span data-i18n="projectCode"></span><input id="project-code"></label>
+        </div>
+        <label class="field"><span data-i18n="projectCustomer"></span>
+          <select id="project-contact"></select>
+        </label>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectCategory"></span>
+            <select id="project-category">
+              <option value="client_work" data-i18n="projectCategoryClient"></option>
+              <option value="internal" data-i18n="projectCategoryInternal"></option>
+              <option value="maintenance" data-i18n="projectCategoryMaintenance"></option>
+              <option value="development" data-i18n="projectCategoryDevelopment"></option>
+              <option value="marketing" data-i18n="projectCategoryMarketing"></option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="projectStatus"></span>
+            <select id="project-status">
+              <option value="active" data-i18n="projectStatusActive"></option>
+              <option value="planning" data-i18n="projectStatusPlanning"></option>
+              <option value="review" data-i18n="projectStatusReview"></option>
+              <option value="completed" data-i18n="projectStatusCompleted"></option>
+              <option value="on_hold" data-i18n="projectStatusOnHold"></option>
+            </select>
+          </label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectPriority"></span>
+            <select id="project-priority">
+              <option value="low" data-i18n="projectPriorityLow"></option>
+              <option value="medium" data-i18n="projectPriorityMedium"></option>
+              <option value="high" data-i18n="projectPriorityHigh"></option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="projectBudget"></span><input id="project-budget" type="number" min="0" step="0.01"></label>
+          <label class="field"><span data-i18n="projectHourlyRate"></span><input id="project-rate" type="number" min="0" step="0.01"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectStartDate"></span><input id="project-start" type="date"></label>
+          <label class="field"><span data-i18n="projectDeadline"></span><input id="project-deadline" type="date"></label>
+          <label class="field"><span data-i18n="projectColor"></span><input id="project-color" type="color"></label>
+        </div>
+        <label class="field"><span data-i18n="projectDescription"></span><textarea id="project-description" rows="3"></textarea></label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="project-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="project-task-dialog" class="editor">
+      <div class="editor-head">
+        <h2 id="project-task-dialog-title"></h2>
+        <button class="icon-button" type="button" data-close="project-task-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="project-task-form">
+        <p id="project-task-message" class="message" role="status"></p>
+        <label class="field"><span data-i18n="projectSelectProject"></span><select id="project-task-project" required></select></label>
+        <label class="field"><span data-i18n="projectTaskTitle"></span><input id="project-task-title" required></label>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectStatus"></span>
+            <select id="project-task-status">
+              <option value="todo" data-i18n="projectTaskStatusTodo"></option>
+              <option value="in_progress" data-i18n="projectTaskStatusInProgress"></option>
+              <option value="review" data-i18n="projectTaskStatusReview"></option>
+              <option value="done" data-i18n="projectTaskStatusDone"></option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="projectPriority"></span>
+            <select id="project-task-priority">
+              <option value="low" data-i18n="projectPriorityLow"></option>
+              <option value="medium" data-i18n="projectPriorityMedium"></option>
+              <option value="high" data-i18n="projectPriorityHigh"></option>
+              <option value="urgent" data-i18n="projectPriorityUrgent"></option>
+            </select>
+          </label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectAssignee"></span><input id="project-task-assignee"></label>
+          <label class="field"><span data-i18n="projectDueDate"></span><input id="project-task-due" type="date"></label>
+        </div>
+        <div class="editor-grid">
+          <label class="field"><span data-i18n="projectEstimatedHours"></span><input id="project-task-estimated" type="number" min="0" step="0.25"></label>
+          <label class="field"><span data-i18n="projectLoggedHours"></span><input id="project-task-logged" type="number" min="0" step="0.25"></label>
+        </div>
+        <label class="checkbox"><input id="project-task-billable" type="checkbox"><span data-i18n="projectBillable"></span></label>
+        <label class="field"><span data-i18n="projectTaskDescription"></span><textarea id="project-task-description" rows="3"></textarea></label>
+        <div class="editor-actions">
+          <button class="secondary" type="button" data-close="project-task-dialog" data-i18n="cancel"></button>
+          <button type="submit" data-i18n="save"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="restaurant-dish-dialog" class="editor"></dialog>
+    <dialog id="restaurant-billing-dialog" class="editor"></dialog>
+    <dialog id="restaurant-receipt-dialog" class="editor"></dialog>
+    <dialog id="restaurant-z-dialog" class="editor"></dialog>
+
     <script type="module" src="/src/main.ts"></script>
+    <footer class="desktop-taskbar" aria-label="SOCDOF Taskleiste">
+      <div class="taskbar-brand">
+        <span class="taskbar-logo" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="taskbar-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#252932"/><stop offset="100%" stop-color="#14171d"/></linearGradient></defs><rect x="5" y="5" width="90" height="90" rx="22" ry="22" fill="url(#taskbar-bg)"/><path d="M 5 32 C 5 17 17 5 32 5" stroke="#22c55e" stroke-width="5.5" stroke-linecap="round"/><path d="M 68 5 C 83 5 95 17 95 32" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round"/><path d="M 95 68 C 95 83 83 95 68 95" stroke="#ef4444" stroke-width="5.5" stroke-linecap="round"/><path d="M 32 95 C 17 95 5 83 5 68" stroke="#f59e0b" stroke-width="5.5" stroke-linecap="round"/><rect x="8" y="8" width="84" height="84" rx="19" ry="19" stroke="rgba(255,255,255,0.08)" stroke-width="1.2"/><text x="50" y="66.5" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="52" fill="#ffffff" letter-spacing="-1">S</text></svg></span>
+        <span id="taskbar-company">SOCDOF</span>
+      </div>
+      <div class="taskbar-apps" role="group">
+        <button class="taskbar-start" type="button" aria-label="Start"><svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="taskbar-start-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#252932"/><stop offset="100%" stop-color="#14171d"/></linearGradient></defs><rect x="5" y="5" width="90" height="90" rx="22" ry="22" fill="url(#taskbar-start-bg)"/><path d="M 5 32 C 5 17 17 5 32 5" stroke="#22c55e" stroke-width="5.5" stroke-linecap="round"/><path d="M 68 5 C 83 5 95 17 95 32" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round"/><path d="M 95 68 C 95 83 83 95 68 95" stroke="#ef4444" stroke-width="5.5" stroke-linecap="round"/><path d="M 32 95 C 17 95 5 83 5 68" stroke="#f59e0b" stroke-width="5.5" stroke-linecap="round"/><rect x="8" y="8" width="84" height="84" rx="19" ry="19" stroke="rgba(255,255,255,0.08)" stroke-width="1.2"/><text x="50" y="66.5" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="52" fill="#ffffff" letter-spacing="-1">S</text></svg></button>
+        <button id="taskbar-search" class="taskbar-search" type="button">
+          <span aria-hidden="true">⌕</span><span data-i18n="commandOpen"></span>
+        </button>
+        <button class="taskbar-app" type="button" data-taskbar-view="dashboard" title="Dashboard">◈</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="invoices" title="Rechnungen">▤</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="contacts" title="Kontakte">♧</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="products" title="Produkte">▣</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="calendar" title="Kalender">▦</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="settings" title="Einstellungen">⚙</button>
+      </div>
+      <div class="taskbar-status">
+        <span class="taskbar-language">DE</span>
+        <button id="theme-toggle" class="taskbar-icon" type="button" title="Farbschema wechseln" aria-label="Farbschema wechseln">☾</button>
+        <div class="taskbar-clock">
+          <span id="taskbar-time">--:--</span>
+          <span id="taskbar-date"></span>
+        </div>
+      </div>
+    </footer>
   </body>
 </html>

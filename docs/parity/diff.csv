@@ -1,0 +1,11 @@
+view,theme,full_pixel_score,full_mae,full_close_pixels_pct,full_ssim,window_pixel_score,window_mae,window_close_pixels_pct,window_ssim
+dashboard,light,97.31,6.87,88.71,0.9191,98.87,2.89,97.06,0.9491
+dashboard,dark,96.8,8.15,88.94,0.8577,98.44,3.99,96.43,0.931
+invoices,light,97.23,7.05,88.39,0.8894,98.76,3.16,96.57,0.9041
+invoices,dark,96.74,8.32,87.88,0.8345,98.33,4.26,94.89,0.8961
+contacts,light,97.29,6.91,88.55,0.8941,98.85,2.92,96.94,0.9116
+contacts,dark,96.78,8.22,86.97,0.8362,98.38,4.13,93.65,0.8979
+settings,light,96.79,8.17,86.86,0.8534,98.1,4.85,94.37,0.8499
+settings,dark,95.96,10.3,86.61,0.7974,97.14,7.3,93.05,0.8393
+command-palette,light,97.59,6.15,90.11,0.9193,97.94,5.25,94.49,0.9029
+command-palette,dark,97.11,7.37,92.61,0.8653,96.91,7.89,91.13,0.8573

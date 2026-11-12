@@ -20,8 +20,19 @@ pub fn insert(conn: &Connection, order: &PosOrder, movements: &[StockMove]) -> C
     order.validate().map_err(CoreError::Validation)?;
 
     let transaction = conn.unchecked_transaction()?;
+    insert_rows(&transaction, order)?;
+    for movement in movements {
+        products::apply_stock(&transaction, movement)?;
+    }
+    transaction.commit()?;
+    Ok(())
+}
 
-    transaction.execute(
+/// Writes a receipt and its positions without opening a transaction.
+pub(crate) fn insert_rows(conn: &Connection, order: &PosOrder) -> CoreResult<()> {
+    order.validate().map_err(CoreError::Validation)?;
+
+    conn.execute(
         "INSERT INTO pos_orders (id, receipt_number, contact_id, payment_method, paid_at,
             currency_symbol, note, cash_given_cents, legacy_id, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -40,7 +51,7 @@ pub fn insert(conn: &Connection, order: &PosOrder, movements: &[StockMove]) -> C
     )?;
 
     for (position, line) in order.lines.iter().enumerate() {
-        transaction.execute(
+        conn.execute(
             "INSERT INTO pos_order_lines (pos_order_id, position, product_id, description,
                 quantity_milli, unit_price_cents, tax_rate_bp)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -56,11 +67,6 @@ pub fn insert(conn: &Connection, order: &PosOrder, movements: &[StockMove]) -> C
         )?;
     }
 
-    for movement in movements {
-        products::apply_stock(&transaction, movement)?;
-    }
-
-    transaction.commit()?;
     Ok(())
 }
 

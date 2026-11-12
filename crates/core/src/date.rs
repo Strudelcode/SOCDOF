@@ -127,6 +127,27 @@ fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
     (year, month, day)
 }
 
+/// Formats a timestamp as an RFC 2822 date in UTC (`Mon, 11 Nov 2026 12:34:56 +0000`).
+pub fn rfc2822(ms: i64) -> String {
+    const DAY_MS: i64 = 86_400_000;
+    let days = ms.div_euclid(DAY_MS);
+    let time = ms.rem_euclid(DAY_MS);
+    let (year, month, day) = civil_from_millis(days * DAY_MS);
+    let weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let weekday = weekdays[(days + 4).rem_euclid(7) as usize];
+    let month_name = months[(month - 1) as usize];
+    let seconds = time / 1000;
+    format!(
+        "{weekday}, {day:02} {month_name} {year:04} {:02}:{:02}:{:02} +0000",
+        seconds / 3600,
+        (seconds / 60) % 60,
+        seconds % 60
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

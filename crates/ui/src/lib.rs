@@ -40,6 +40,8 @@ pub mod gallery;
 pub mod i18n;
 pub mod icons;
 pub mod invoice_actions;
+pub mod invoice_templates;
+mod invoice_tokens;
 pub mod invoices;
 pub mod migration;
 pub mod pos;
@@ -96,6 +98,7 @@ pub use form::{CloseDecision, Field, FormState, UnsavedGuard};
 pub use gallery::{gallery, GalleryState};
 pub use i18n::{UiTexts, UI_KEYS};
 pub use icons::{Icon, ALL_ICONS};
+pub use invoice_templates::{templates_modal, InvoiceTemplatesState};
 pub use invoices::{
     invoices, seed_invoices, InvoiceDraft, InvoiceLineDraft, InvoicesState, InvoicesView,
 };

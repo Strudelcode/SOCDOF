@@ -80,6 +80,14 @@ pub fn menu() -> &'static [TrayEntry] {
     &MENU
 }
 
+/// Entry and command used by a left click on the tray icon.
+///
+/// The platform window layer maps only a completed left-button click to this pair; the menu event
+/// and the icon click therefore both end in `TrayCommand::ShowWindow`.
+pub fn icon_click() -> (&'static str, TrayCommand) {
+    (SHOW_ID, TrayCommand::ShowWindow)
+}
+
 /// Command behind a menu id. Unknown ids and separators return `None`.
 pub fn command_for(id: &str) -> Option<TrayCommand> {
     MENU.iter()
@@ -218,6 +226,17 @@ mod tests {
         assert_eq!(tooltip_for_locale("en_US.UTF-8"), "SOCDOF — quick access");
         assert_ne!(tooltip_for_locale("fr_FR.UTF-8"), "tray_tooltip");
         assert_ne!(tooltip_for_locale("es_ES.UTF-8"), "tray_tooltip");
+    }
+
+    #[test]
+    fn a_left_click_on_the_icon_uses_the_show_command() {
+        let (id, command) = icon_click();
+        assert_eq!(id, SHOW_ID);
+        assert_eq!(command, TrayCommand::ShowWindow);
+        assert_eq!(
+            marker(id, command),
+            "SOCDOF_TRAY item=show action=show_window"
+        );
     }
 
     #[test]

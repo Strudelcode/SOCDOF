@@ -140,21 +140,32 @@ impl InstanceLock {
     pub fn inspect(path: impl AsRef<Path>) -> CoreResult<Option<LockInfo>> {
         read_info(path.as_ref())
     }
+
+    /// Removes the lock file now, when it still belongs to this instance.
+    ///
+    /// `Drop` does the same, but a window layer can exit through a path that skips destructors
+    /// (for example `app.exit`); releasing explicitly keeps an immediate restart possible.
+    pub fn release(&self) {
+        remove_owned(&self.path, &self.info);
+    }
 }
 
 impl Drop for InstanceLock {
     fn drop(&mut self) {
         // Only remove the file when it still belongs to this instance; a takeover must not be undone.
-        match read_info(&self.path) {
-            Ok(Some(info))
-                if info.pid == self.info.pid && info.started_at == self.info.started_at =>
-            {
-                let _ = std::fs::remove_file(&self.path);
-            }
-            Ok(Some(_)) => {}
-            _ => {
-                let _ = std::fs::remove_file(&self.path);
-            }
+        remove_owned(&self.path, &self.info);
+    }
+}
+
+/// Removes `path` when it still belongs to `info`; a takeover must not be undone.
+fn remove_owned(path: &Path, info: &LockInfo) {
+    match read_info(path) {
+        Ok(Some(owner)) if owner.pid == info.pid && owner.started_at == info.started_at => {
+            let _ = std::fs::remove_file(path);
+        }
+        Ok(Some(_)) => {}
+        _ => {
+            let _ = std::fs::remove_file(path);
         }
     }
 }
@@ -190,9 +201,32 @@ fn read_info(path: &Path) -> CoreResult<Option<LockInfo>> {
 
 fn is_stale(path: &Path, now: i64, stale_after_ms: i64) -> CoreResult<bool> {
     match read_info(path)? {
-        Some(info) => Ok(now.saturating_sub(info.heartbeat_at) > stale_after_ms),
+        Some(info) => {
+            // A lock from a process that no longer exists on this machine is abandoned even when
+            // its heartbeat is fresh: an `app.exit` path skips destructors and would otherwise
+            // block the next start for the whole stale timeout.
+            if info.machine == env_value("HOSTNAME", "COMPUTERNAME")
+                && pid_is_alive(info.pid) == Some(false)
+            {
+                return Ok(true);
+            }
+            Ok(now.saturating_sub(info.heartbeat_at) > stale_after_ms)
+        }
         // Unreadable or empty file: treat it as abandoned.
         None => Ok(true),
+    }
+}
+
+/// Whether `pid` still runs, when the platform can answer that cheaply.
+fn pid_is_alive(pid: u32) -> Option<bool> {
+    #[cfg(target_os = "linux")]
+    {
+        Some(Path::new(&format!("/proc/{pid}")).exists())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = pid;
+        None
     }
 }
 
@@ -367,6 +401,44 @@ mod tests {
         ] {
             assert!(text.contains(key), "missing {key} in {text}");
         }
+
+        drop(lock);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn takes_over_a_lock_from_a_dead_local_process() {
+        let dir = temp_dir("dead-local");
+        let path = dir.join("socdof.lock");
+        let dead = LockInfo {
+            pid: 999_999,
+            user: "someone".to_string(),
+            machine: env_value("HOSTNAME", "COMPUTERNAME"),
+            started_at: 1_000,
+            heartbeat_at: 1_000,
+            request_quit: false,
+        };
+        std::fs::write(&path, serde_json::to_string(&dead).expect("json")).expect("lock file");
+
+        // The heartbeat still looks fresh; only the dead pid reveals the abandoned lock.
+        let lock = InstanceLock::acquire_with(&path, 1_100, 30_000).expect("dead owner takeover");
+        assert_eq!(lock.owner().expect("owner").pid, std::process::id());
+
+        drop(lock);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn keeps_a_fresh_lock_from_a_live_local_process() {
+        let dir = temp_dir("live-local");
+        let path = dir.join("socdof.lock");
+
+        let mut lock = InstanceLock::acquire_with(&path, 1_000, 30_000).expect("first");
+        lock.heartbeat(1_000).expect("heartbeat");
+
+        let second = InstanceLock::acquire_with(&path, 1_100, 30_000);
+        assert!(matches!(second, Err(CoreError::Validation(code)) if code == "lock_busy"));
 
         drop(lock);
         let _ = std::fs::remove_dir_all(dir);

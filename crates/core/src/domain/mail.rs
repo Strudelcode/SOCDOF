@@ -1,6 +1,7 @@
 //! Invoice mail drafts, ported from `InvoiceEmailModal.tsx` and `lib/emlGenerator.ts`.
 
 use crate::date::format_date;
+use crate::domain::contact::Contact;
 use crate::domain::invoice::Invoice;
 use crate::domain::settings::CompanyProfile;
 use crate::money::Money;
@@ -45,6 +46,167 @@ pub fn invoice_subject(invoice: &Invoice, company: &CompanyProfile) -> String {
         company.name.trim()
     };
     format!("Rechnung {} – {}", invoice.number, company_name)
+}
+
+/// Display name of a contact, matching `buildContactEmlPayload`.
+pub fn contact_display_name(contact: &Contact) -> String {
+    contact
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            contact
+                .company_name
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or("Sehr geehrte Damen und Herren")
+        .to_string()
+}
+
+fn company_or<'a>(company: &'a CompanyProfile, fallback: &'a str) -> &'a str {
+    if company.name.trim().is_empty() {
+        fallback
+    } else {
+        company.name.trim()
+    }
+}
+
+/// Subject of the contact mail.
+pub fn contact_subject(contact: &Contact, company: &CompanyProfile) -> String {
+    format!(
+        "Mitteilung von {} an {}",
+        company_or(company, "Ihrem Partner"),
+        contact_display_name(contact)
+    )
+}
+
+/// Draft body of the contact mail, ported from `buildContactEmlPayload`.
+pub fn contact_body(contact: &Contact, company: &CompanyProfile) -> String {
+    let recipient_name = contact_display_name(contact);
+    let sender_name = company_or(company, "SOCDOF ERP");
+    let mut lines = vec![
+        format!("Sehr geehrte(r) Frau/Herr {recipient_name},"),
+        String::new(),
+        "wir freuen uns über den geschäftlichen Austausch mit Ihnen.".to_string(),
+        String::new(),
+    ];
+    if let Some(name) = contact
+        .company_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        lines.push(format!("Unternehmen: {name}"));
+    }
+    if let Some(phone) = contact
+        .phone
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        lines.push(format!("Telefon: {phone}"));
+    }
+    lines.extend([
+        String::new(),
+        "Mit freundlichen Grüßen,".to_string(),
+        sender_name.to_string(),
+    ]);
+    if !company.street.trim().is_empty() {
+        lines.push(format!(
+            "{}, {}",
+            company.street.trim(),
+            company.zip_city.trim()
+        ));
+    }
+    if !company.phone.trim().is_empty() {
+        lines.push(format!("Tel.: {}", company.phone.trim()));
+    }
+    if !company.email.trim().is_empty() {
+        lines.push(format!("E-Mail: {}", company.email.trim()));
+    }
+    lines.join("\r\n")
+}
+
+/// File name of the contact `.eml` draft.
+pub fn contact_eml_file_name(contact: &Contact) -> String {
+    let safe: String = contact_display_name(contact)
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    format!("EML_Entwurf_{safe}.eml")
+}
+
+/// Complete RFC 822 draft of a contact mail with editable fields.
+#[allow(clippy::too_many_arguments)]
+pub fn contact_eml_with(
+    contact: &Contact,
+    company: &CompanyProfile,
+    recipient_name: &str,
+    recipient_email: &str,
+    subject: &str,
+    body: &str,
+    now: i64,
+) -> String {
+    let sender_name = company_or(company, "SOCDOF ERP");
+    let sender_email = if company.email.trim().is_empty() {
+        "buchhaltung@firma.local"
+    } else {
+        company.email.trim()
+    };
+    let name = if recipient_name.trim().is_empty() {
+        "Kunde"
+    } else {
+        recipient_name.trim()
+    };
+    let email = if recipient_email.trim().is_empty() {
+        "kunde@kontakt.local"
+    } else {
+        recipient_email.trim()
+    };
+    let subject = if subject.trim().is_empty() {
+        "Mitteilung"
+    } else {
+        subject.trim()
+    };
+    let _ = contact;
+    format!(
+        "From: \"{}\" <{}>\r\nTo: \"{}\" <{}>\r\nSubject: {}\r\nDate: {}\r\n\
+         MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8; format=flowed\r\n\
+         Content-Transfer-Encoding: 8bit\r\nX-Unsent: 1\r\n\
+         X-Mailer: SOCDOF ERP Offline Suite\r\n\r\n{}",
+        encode_mime_header(sender_name),
+        sender_email,
+        encode_mime_header(name),
+        email,
+        encode_mime_header(subject),
+        crate::date::rfc2822(now),
+        body
+    )
+}
+
+/// Complete RFC 822 draft with the payload defaults of the modal.
+pub fn contact_eml(contact: &Contact, company: &CompanyProfile, now: i64) -> String {
+    let recipient = contact.email.clone().unwrap_or_default();
+    let subject = contact_subject(contact, company);
+    let body = contact_body(contact, company);
+    contact_eml_with(
+        contact,
+        company,
+        &contact_display_name(contact),
+        &recipient,
+        &subject,
+        &body,
+        now,
+    )
 }
 
 /// Draft body shown in the modal before it is handed to a mail client.

@@ -4,4 +4,5 @@
 //! invoices according to the German letter norm.
 
 pub mod din5008;
+pub mod vector;
 pub mod writer;

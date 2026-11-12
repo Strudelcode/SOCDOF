@@ -5,16 +5,22 @@
 //! `domain::mail` and `domain::payment`, and payments are stored through
 //! [`Store::record_invoice_payment`].
 
+use std::path::Path;
+
 use egui::{Context, RichText};
 
 use socdof_core::date::{format_iso8601, parse_iso8601};
+use socdof_core::document_layout::DocumentLayout;
+use socdof_core::docx::write_invoice_docx_with_template;
 use socdof_core::domain::contact::Contact;
 use socdof_core::domain::dunning::{self as dunning, DunningLetter, DunningLevel};
 use socdof_core::domain::invoice::{Invoice, InvoiceStatus};
 use socdof_core::domain::mail;
 use socdof_core::domain::payment::{self, InvoicePayment, PaymentMethod};
 use socdof_core::domain::settings::CompanyProfile;
+use socdof_core::invoice_template::InvoiceTemplate;
 use socdof_core::money::Money;
+use socdof_core::pdf::din5008::write_invoice_pdf_with_layout_and_template;
 use socdof_core::store::Store;
 
 use crate::components::{button, modal, ButtonVariant};
@@ -33,9 +39,11 @@ pub enum InvoiceAction {
     Email,
     /// Payment capture.
     Payment,
+    /// PDF print.
+    Print,
 }
 
-/// Editable state of the three dialogs.
+/// Editable state of the four dialogs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvoiceActions {
     /// Open dialog.
@@ -66,6 +74,10 @@ pub struct InvoiceActions {
     pub card_type: usize,
     /// Terminal receipt reference.
     pub trace: String,
+    /// Target path of the PDF print.
+    pub path: String,
+    /// Target path of the Word export.
+    pub docx_path: String,
     /// Message shown inside the dialog.
     pub notice: Option<String>,
 }
@@ -87,6 +99,8 @@ impl Default for InvoiceActions {
             cash: String::new(),
             card_type: 0,
             trace: String::new(),
+            path: String::new(),
+            docx_path: String::new(),
             notice: None,
         }
     }
@@ -138,6 +152,14 @@ impl InvoiceActions {
         self.trace.clear();
         self.notice = None;
         self.action = Some(InvoiceAction::Payment);
+    }
+
+    /// Opens the print dialog with a safe default file name.
+    pub fn open_print(&mut self, invoice: &Invoice) {
+        self.path = default_pdf_path(&invoice.number);
+        self.docx_path = default_pdf_path(&invoice.number).replace(".pdf", ".docx");
+        self.notice = None;
+        self.action = Some(InvoiceAction::Print);
     }
 
     /// Applies the presets of a dunning level, like the level tabs of the modal.
@@ -231,6 +253,20 @@ fn today(now: i64) -> String {
     stamp.get(0..10).unwrap_or_default().to_string()
 }
 
+fn default_pdf_path(number: &str) -> String {
+    let safe: String = number
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '-' || character == '_' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("Rechnung-{safe}.pdf")
+}
+
 /// Invoice, customer and store data the invoice dialogs need.
 pub struct DialogData<'a> {
     /// Invoice the dialog works on.
@@ -245,6 +281,10 @@ pub struct DialogData<'a> {
     pub store: &'a Store,
     /// Current timestamp in milliseconds.
     pub now: i64,
+    /// Active print template.
+    pub template: &'a InvoiceTemplate,
+    /// Stored letterhead layout used for printing.
+    pub layout: &'a DocumentLayout,
 }
 
 /// Renders the open dialog and returns the status the caller has to store.
@@ -264,6 +304,8 @@ pub fn dialogs(
         company,
         store,
         now,
+        template,
+        layout,
     } = *data;
     let mut open = true;
     let mut close = false;
@@ -708,6 +750,179 @@ pub fn dialogs(
                 },
             );
         }
+        InvoiceAction::Print => {
+            modal(
+                ctx,
+                theme,
+                &mut open,
+                texts.get("invoices_print_title"),
+                |ui| {
+                    ui.label(
+                        RichText::new(format!("{} · {}", invoice.number, template.name)).strong(),
+                    );
+                    ui.label(
+                        RichText::new(format!(
+                            "{}: {}",
+                            texts.get("invoices_print_template"),
+                            template.name
+                        ))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                    );
+                    ui.add_space(6.0);
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.path,
+                        texts.get("invoices_print_path"),
+                        "Rechnung.pdf",
+                        None,
+                    );
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.docx_path,
+                        texts.get("invoices_word_save"),
+                        "Rechnung.docx",
+                        None,
+                    );
+                    ui.label(
+                        RichText::new(format!(
+                            "{}: {} · {}",
+                            texts.get("invoices_print_due_days"),
+                            template.due_days,
+                            if template.show_fold_marks {
+                                texts.get("invoices_print_fold_on")
+                            } else {
+                                texts.get("invoices_print_fold_off")
+                            }
+                        ))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                    );
+                    if let Some(note) = &actions.notice {
+                        ui.add_space(6.0);
+                        ui.label(RichText::new(note.clone()).size(FONT_SMALL));
+                    }
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("invoices_print_save"),
+                            ButtonVariant::Primary,
+                        )
+                        .activated
+                        {
+                            let mut path = actions.path.trim().to_string();
+                            if path.is_empty() {
+                                actions.notice =
+                                    Some(texts.get("invoices_print_error_path").to_string());
+                            } else {
+                                if !path.to_ascii_lowercase().ends_with(".pdf") {
+                                    path.push_str(".pdf");
+                                }
+                                actions.path = path.clone();
+                                match contact {
+                                    Some(contact) => {
+                                        match write_invoice_pdf_with_layout_and_template(
+                                            Path::new(&path),
+                                            invoice,
+                                            contact,
+                                            company,
+                                            layout,
+                                            template,
+                                        ) {
+                                            Ok(()) => {
+                                                actions.notice = Some(format!(
+                                                    "{} {}",
+                                                    texts.get("invoices_print_saved"),
+                                                    path
+                                                ));
+                                            }
+                                            Err(error) => {
+                                                actions.notice = Some(format!(
+                                                    "{}: {error}",
+                                                    texts.get("invoices_print_error_save")
+                                                ));
+                                            }
+                                        }
+                                    }
+                                    None => {
+                                        actions.notice = Some(
+                                            texts.get("invoices_print_error_contact").to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("invoices_word_save"),
+                            ButtonVariant::Secondary,
+                        )
+                        .activated
+                        {
+                            let mut path = actions.docx_path.trim().to_string();
+                            if path.is_empty() {
+                                actions.notice =
+                                    Some(texts.get("invoices_print_error_path").to_string());
+                            } else {
+                                if !path.to_ascii_lowercase().ends_with(".docx") {
+                                    path.push_str(".docx");
+                                }
+                                actions.docx_path = path.clone();
+                                match contact {
+                                    Some(contact) => match write_invoice_docx_with_template(
+                                        Path::new(&path),
+                                        invoice,
+                                        contact,
+                                        company,
+                                        template,
+                                    ) {
+                                        Ok(()) => {
+                                            actions.notice = Some(format!(
+                                                "{} {}",
+                                                texts.get("invoices_word_saved"),
+                                                path
+                                            ));
+                                        }
+                                        Err(error) => {
+                                            actions.notice = Some(format!(
+                                                "{}: {error}",
+                                                texts.get("invoices_word_error")
+                                            ));
+                                        }
+                                    },
+                                    None => {
+                                        actions.notice = Some(
+                                            texts.get("invoices_print_error_contact").to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("invoices_close"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                        {
+                            close = true;
+                        }
+                    });
+                    close
+                },
+            );
+        }
     }
 
     if !open || close {
@@ -825,6 +1040,14 @@ mod tests {
     }
 
     #[test]
+    fn print_dialog_uses_a_safe_default_path() {
+        let mut actions = InvoiceActions::default();
+        actions.open_print(&invoice());
+        assert_eq!(actions.action, Some(InvoiceAction::Print));
+        assert_eq!(actions.path, "Rechnung-2026-0001.pdf");
+    }
+
+    #[test]
     fn dialogs_render_all_three_actions() {
         let store = Store::open_in_memory().expect("store");
         let mut contact = Contact::new(
@@ -867,6 +1090,8 @@ mod tests {
     ) -> String {
         let invoice = invoice();
         let company = company();
+        let template = socdof_core::invoice_template::default_template();
+        let layout = socdof_core::document_layout::DocumentLayout::default();
         let mut focus = FocusState::default();
         let input = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(
@@ -889,6 +1114,8 @@ mod tests {
                     company: &company,
                     store,
                     now: 1_760_000_000_000,
+                    template: &template,
+                    layout: &layout,
                 },
             );
         };

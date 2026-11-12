@@ -28,6 +28,10 @@ impl GalleryApp {
         };
         let mut state = GalleryState::new(Language::De, appearance, "indigo")
             .expect("embedded UI catalogue is valid");
+        state
+            .invoices
+            .templates
+            .set_asset_picker(socdof_ui::invoice_templates::native_asset_picker());
         if let Some(storage) = cc.storage {
             let seen = storage.get_string("onboarding_seen").as_deref() == Some("true");
             state.shell.onboarding = Onboarding::restore(seen);

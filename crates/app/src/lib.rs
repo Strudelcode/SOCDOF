@@ -9,8 +9,14 @@
 pub mod commands;
 pub mod desktop;
 pub mod dialogs;
+pub mod external_assets;
+pub mod fleet_bridge;
+pub mod invoice_bridge;
+pub mod project_bridge;
+pub mod restaurant_bridge;
 pub mod shell;
 pub mod shortcuts;
 pub mod startup;
+pub mod template_bridge;
 pub mod tray;
 pub mod window_state;

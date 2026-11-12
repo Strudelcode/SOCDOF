@@ -10,12 +10,15 @@ use crate::domain::appointment::Appointment;
 use crate::domain::billing::BillingItem;
 use crate::domain::contact::Contact;
 use crate::domain::document::Document;
+use crate::domain::fleet::{FleetFuel, FleetTrip, FleetVehicle};
 use crate::domain::invoice::Invoice;
 use crate::domain::payment::InvoicePayment;
 use crate::domain::permission::{AppModule, PermissionLevel, Role};
 use crate::domain::pos::PosOrder;
 use crate::domain::product::Product;
+use crate::domain::project::{Project, ProjectTask};
 use crate::domain::purchase::PurchaseOrder;
+use crate::domain::restaurant::{MenuItem, TableOrder};
 use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
 use crate::domain::stock::StockMove;
@@ -30,14 +33,17 @@ pub mod billing_items;
 pub mod contacts;
 pub mod dashboard;
 pub mod documents;
+pub mod fleet;
 pub mod invoices;
 pub mod journal;
 pub mod maintenance;
 pub mod permissions;
 pub mod pos_orders;
 pub mod products;
+pub mod projects;
 pub mod purchase_orders;
 pub mod reports;
+pub mod restaurant;
 pub mod search;
 pub mod sessions;
 pub mod settings;
@@ -47,7 +53,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 12;
+pub const SCHEMA_VERSION: i64 = 15;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -720,6 +726,21 @@ impl Store {
             version = 12;
         }
 
+        if version < 13 {
+            self.conn.execute_batch(SCHEMA_V13)?;
+            version = 13;
+        }
+
+        if version < 14 {
+            self.conn.execute_batch(SCHEMA_V14)?;
+            version = 14;
+        }
+
+        if version < 15 {
+            self.conn.execute_batch(SCHEMA_V15)?;
+            version = 15;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -733,6 +754,225 @@ impl Store {
         Ok(self
             .conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))?)
+    }
+
+    /// All fleet vehicles, oldest first.
+    pub fn fleet_vehicles(&self) -> CoreResult<Vec<FleetVehicle>> {
+        fleet::list_vehicles(&self.conn)
+    }
+
+    /// One fleet vehicle by id.
+    pub fn fleet_vehicle(&self, id: uuid::Uuid) -> CoreResult<Option<FleetVehicle>> {
+        fleet::find_vehicle(&self.conn, id)
+    }
+
+    /// Inserts a fleet vehicle.
+    pub fn insert_fleet_vehicle(&self, vehicle: &FleetVehicle) -> CoreResult<()> {
+        fleet::insert_vehicle(&self.conn, vehicle)
+    }
+
+    /// Replaces a fleet vehicle.
+    pub fn update_fleet_vehicle(&self, vehicle: &FleetVehicle) -> CoreResult<()> {
+        fleet::update_vehicle(&self.conn, vehicle)
+    }
+
+    /// Deletes a fleet vehicle; trips and receipts stay like in the TypeScript module.
+    pub fn delete_fleet_vehicle(&self, id: uuid::Uuid) -> CoreResult<()> {
+        fleet::delete_vehicle(&self.conn, id)
+    }
+
+    /// All logbook trips, newest first.
+    pub fn fleet_trips(&self) -> CoreResult<Vec<FleetTrip>> {
+        fleet::list_trips(&self.conn)
+    }
+
+    /// Inserts a trip and lifts the odometer of its vehicle.
+    pub fn insert_fleet_trip(&self, trip: &FleetTrip) -> CoreResult<()> {
+        fleet::insert_trip(&self.conn, trip)
+    }
+
+    /// Replaces a trip without touching the odometer.
+    pub fn update_fleet_trip(&self, trip: &FleetTrip) -> CoreResult<()> {
+        fleet::update_trip(&self.conn, trip)
+    }
+
+    /// Deletes a trip.
+    pub fn delete_fleet_trip(&self, id: uuid::Uuid) -> CoreResult<()> {
+        fleet::delete_trip(&self.conn, id)
+    }
+
+    /// All fuel and charging receipts, newest first.
+    pub fn fleet_fuel(&self) -> CoreResult<Vec<FleetFuel>> {
+        fleet::list_fuel(&self.conn)
+    }
+
+    /// Inserts a receipt.
+    pub fn insert_fleet_fuel(&self, entry: &FleetFuel) -> CoreResult<()> {
+        fleet::insert_fuel(&self.conn, entry)
+    }
+
+    /// Replaces a receipt.
+    pub fn update_fleet_fuel(&self, entry: &FleetFuel) -> CoreResult<()> {
+        fleet::update_fuel(&self.conn, entry)
+    }
+
+    /// Deletes a receipt.
+    pub fn delete_fleet_fuel(&self, id: uuid::Uuid) -> CoreResult<()> {
+        fleet::delete_fuel(&self.conn, id)
+    }
+
+    /// All projects of the portfolio, newest first.
+    pub fn projects(&self) -> CoreResult<Vec<Project>> {
+        projects::list_projects(&self.conn)
+    }
+
+    /// One project by id.
+    pub fn project(&self, id: uuid::Uuid) -> CoreResult<Option<Project>> {
+        projects::find_project(&self.conn, id)
+    }
+
+    /// Inserts a project.
+    pub fn insert_project(&self, project: &Project) -> CoreResult<()> {
+        projects::insert_project(&self.conn, project)
+    }
+
+    /// Replaces a project.
+    pub fn update_project(&self, project: &Project) -> CoreResult<()> {
+        projects::update_project(&self.conn, project)
+    }
+
+    /// Deletes a project and its tasks.
+    pub fn delete_project(&self, id: uuid::Uuid) -> CoreResult<()> {
+        projects::delete_project(&self.conn, id)
+    }
+
+    /// Tasks of one project in creation order.
+    pub fn project_tasks(&self, project_id: uuid::Uuid) -> CoreResult<Vec<ProjectTask>> {
+        projects::list_tasks(&self.conn, project_id)
+    }
+
+    /// Every task of every project, oldest first.
+    pub fn project_tasks_all(&self) -> CoreResult<Vec<ProjectTask>> {
+        projects::list_all_tasks(&self.conn)
+    }
+
+    /// One task by id.
+    pub fn project_task(&self, id: uuid::Uuid) -> CoreResult<Option<ProjectTask>> {
+        projects::find_task(&self.conn, id)
+    }
+
+    /// Inserts a task.
+    pub fn insert_project_task(&self, task: &ProjectTask) -> CoreResult<()> {
+        projects::insert_task(&self.conn, task)
+    }
+
+    /// Replaces a task.
+    pub fn update_project_task(&self, task: &ProjectTask) -> CoreResult<()> {
+        projects::update_task(&self.conn, task)
+    }
+
+    /// Changes the Kanban status of one task.
+    pub fn set_project_task_status(
+        &self,
+        project_id: uuid::Uuid,
+        task_id: uuid::Uuid,
+        status: &str,
+    ) -> CoreResult<()> {
+        projects::set_task_status(&self.conn, project_id, task_id, status)
+    }
+
+    /// Deletes one task of a project.
+    pub fn delete_project_task(
+        &self,
+        project_id: uuid::Uuid,
+        task_id: uuid::Uuid,
+    ) -> CoreResult<()> {
+        projects::delete_task(&self.conn, project_id, task_id)
+    }
+
+    // --- Restaurant -----------------------------------------------------------------------
+
+    /// All dishes and drinks, newest first.
+    pub fn restaurant_menu(&self) -> CoreResult<Vec<MenuItem>> {
+        restaurant::list_menu(&self.conn)
+    }
+
+    /// One dish by id.
+    pub fn restaurant_menu_item(&self, id: uuid::Uuid) -> CoreResult<Option<MenuItem>> {
+        restaurant::find_menu_item(&self.conn, id)
+    }
+
+    /// Inserts a dish.
+    pub fn insert_restaurant_menu_item(&self, item: &MenuItem) -> CoreResult<()> {
+        restaurant::insert_menu_item(&self.conn, item)
+    }
+
+    /// Replaces a dish.
+    pub fn update_restaurant_menu_item(&self, item: &MenuItem) -> CoreResult<()> {
+        restaurant::update_menu_item(&self.conn, item)
+    }
+
+    /// Deletes a dish.
+    pub fn delete_restaurant_menu_item(&self, id: uuid::Uuid) -> CoreResult<()> {
+        restaurant::delete_menu_item(&self.conn, id)
+    }
+
+    /// All table orders, oldest first.
+    pub fn restaurant_orders(&self) -> CoreResult<Vec<TableOrder>> {
+        restaurant::list_orders(&self.conn)
+    }
+
+    /// One table order by id.
+    pub fn restaurant_order(&self, id: uuid::Uuid) -> CoreResult<Option<TableOrder>> {
+        restaurant::find_order(&self.conn, id)
+    }
+
+    /// The open order of a table.
+    pub fn restaurant_open_order(&self, table_number: &str) -> CoreResult<Option<TableOrder>> {
+        restaurant::find_open_order(&self.conn, table_number)
+    }
+
+    /// Inserts a table order.
+    pub fn insert_restaurant_order(&self, order: &TableOrder) -> CoreResult<()> {
+        restaurant::insert_order(&self.conn, order)
+    }
+
+    /// Replaces a table order.
+    pub fn update_restaurant_order(&self, order: &TableOrder) -> CoreResult<()> {
+        restaurant::update_order(&self.conn, order)
+    }
+
+    /// Inserts or updates a table order.
+    pub fn save_restaurant_order(&self, order: &TableOrder) -> CoreResult<()> {
+        restaurant::save_order(&self.conn, order)
+    }
+
+    /// Deletes a table order.
+    pub fn delete_restaurant_order(&self, id: uuid::Uuid) -> CoreResult<()> {
+        restaurant::delete_order(&self.conn, id)
+    }
+
+    /// Books the paid order, POS receipt and invoice in one transaction.
+    pub fn restaurant_checkout(
+        &self,
+        order: &TableOrder,
+        invoice: &Invoice,
+        receipt: &PosOrder,
+    ) -> CoreResult<()> {
+        restaurant::checkout(&self.conn, order, invoice, receipt)
+    }
+
+    /// Next hospitality receipt number for a year.
+    pub fn restaurant_receipt_number(&self, year: i64) -> CoreResult<String> {
+        restaurant::next_receipt_number(&self.conn, year)
+    }
+
+    /// Shared walk-in contact of restaurant invoices.
+    pub fn restaurant_walk_in_contact(
+        &self,
+        now: i64,
+    ) -> CoreResult<crate::domain::contact::Contact> {
+        restaurant::walk_in_contact(&self.conn, now)
     }
 
     /// Number of rows in `contacts`.
@@ -1630,7 +1870,182 @@ impl Store {
     }
 }
 
-/// Schema v8: therapy clients and sessions with their invoice link.
+/// Schema v13: fleet vehicles, logbook trips and fuel receipts.
+const SCHEMA_V13: &str = r#"
+-- Fleet vehicles, logbook trips and fuel receipts of the TypeScript FleetModule.
+CREATE TABLE IF NOT EXISTS fleet_vehicles (
+    id                   TEXT PRIMARY KEY,
+    license_plate        TEXT NOT NULL,
+    make                 TEXT NOT NULL,
+    model                TEXT NOT NULL DEFAULT '',
+    vehicle_type         TEXT NOT NULL DEFAULT 'car',
+    fuel_type            TEXT NOT NULL DEFAULT 'diesel',
+    vin                  TEXT NOT NULL DEFAULT '',
+    current_odometer     INTEGER NOT NULL DEFAULT 0,
+    assigned_driver      TEXT NOT NULL DEFAULT '',
+    year                 INTEGER,
+    next_inspection_due  TEXT NOT NULL DEFAULT '',
+    notes                TEXT NOT NULL DEFAULT '',
+    status               TEXT NOT NULL DEFAULT 'active',
+    created_at           INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fleet_trips (
+    id                    TEXT PRIMARY KEY,
+    vehicle_id            TEXT NOT NULL,
+    vehicle_plate         TEXT NOT NULL,
+    driver                TEXT NOT NULL,
+    date                  TEXT NOT NULL,
+    start_time            TEXT NOT NULL DEFAULT '',
+    end_time              TEXT NOT NULL DEFAULT '',
+    start_location        TEXT NOT NULL,
+    end_location          TEXT NOT NULL,
+    purpose               TEXT NOT NULL,
+    reason                TEXT NOT NULL DEFAULT '',
+    customer_name         TEXT NOT NULL DEFAULT '',
+    start_km              INTEGER NOT NULL,
+    end_km                INTEGER NOT NULL,
+    distance_km           INTEGER NOT NULL,
+    notes                 TEXT NOT NULL DEFAULT '',
+    created_at            INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fleet_fuel (
+    id                    TEXT PRIMARY KEY,
+    vehicle_id            TEXT NOT NULL,
+    vehicle_plate         TEXT NOT NULL,
+    date                  TEXT NOT NULL,
+    odometer              INTEGER NOT NULL,
+    units_milli           INTEGER NOT NULL,
+    total_cost_cents      INTEGER NOT NULL,
+    price_per_unit_milli  INTEGER NOT NULL,
+    fuel_station          TEXT NOT NULL DEFAULT '',
+    notes                 TEXT NOT NULL DEFAULT '',
+    created_at            INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fleet_trips_vehicle ON fleet_trips(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_fuel_vehicle ON fleet_fuel(vehicle_id);
+"#;
+
+/// Schema v15: restaurant menu, table orders and kitchen positions of the TypeScript `RestaurantModule`.
+const SCHEMA_V15: &str = r#"
+CREATE TABLE IF NOT EXISTS restaurant_menu_items (
+    id                 TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    category           TEXT NOT NULL,
+    price_cents        INTEGER NOT NULL,
+    tax_rate_bp        INTEGER NOT NULL,
+    ingredients        TEXT NOT NULL DEFAULT '',
+    allergens          TEXT NOT NULL DEFAULT '[]',
+    emoji              TEXT NOT NULL DEFAULT '',
+    prep_time_minutes  INTEGER NOT NULL DEFAULT 0,
+    is_available       INTEGER NOT NULL DEFAULT 1,
+    created_at         INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS restaurant_orders (
+    id                      TEXT PRIMARY KEY,
+    table_number            TEXT NOT NULL,
+    server_name             TEXT NOT NULL DEFAULT '',
+    status                  TEXT NOT NULL,
+    subtotal_cents          INTEGER NOT NULL DEFAULT 0,
+    tax_total_cents         INTEGER NOT NULL DEFAULT 0,
+    total_cents             INTEGER NOT NULL DEFAULT 0,
+    tip_cents               INTEGER NOT NULL DEFAULT 0,
+    payment_method          TEXT,
+    opened_at               INTEGER NOT NULL,
+    paid_at                 INTEGER,
+    cash_tendered_cents     INTEGER,
+    cash_change_cents       INTEGER,
+    is_hospitality_receipt  INTEGER NOT NULL DEFAULT 0,
+    hospitality_host        TEXT NOT NULL DEFAULT '',
+    hospitality_occasion    TEXT NOT NULL DEFAULT '',
+    hospitality_guests      TEXT NOT NULL DEFAULT '',
+    receipt_number          TEXT,
+    invoice_id              TEXT,
+    created_at              INTEGER NOT NULL,
+    updated_at              INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS restaurant_order_items (
+    order_id       TEXT NOT NULL REFERENCES restaurant_orders(id) ON DELETE CASCADE,
+    id             TEXT NOT NULL,
+    position       INTEGER NOT NULL,
+    menu_item_id   TEXT,
+    name           TEXT NOT NULL,
+    price_cents    INTEGER NOT NULL,
+    tax_rate_bp    INTEGER NOT NULL,
+    qty            INTEGER NOT NULL,
+    category       TEXT NOT NULL DEFAULT '',
+    emoji          TEXT NOT NULL DEFAULT '',
+    notes          TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (order_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_restaurant_orders_table
+    ON restaurant_orders(table_number, status);
+CREATE INDEX IF NOT EXISTS idx_restaurant_orders_paid
+    ON restaurant_orders(paid_at);
+CREATE INDEX IF NOT EXISTS idx_restaurant_order_items_order
+    ON restaurant_order_items(order_id, position);
+
+INSERT OR IGNORE INTO restaurant_menu_items
+    (id, name, category, price_cents, tax_rate_bp, ingredients, allergens, emoji, prep_time_minutes, is_available, created_at)
+VALUES
+    ('00000000-0000-4000-8000-000000000101', 'Bruschetta Classico', 'starters', 750, 700, 'Geröstetes Ciabatta, Strauchtomaten, Basilikum, Knoblauch, natives Olivenöl', '["A (Gluten)"]', '🥖', 8, 1, 0),
+    ('00000000-0000-4000-8000-000000000102', 'Carpaccio di Manzo', 'starters', 1420, 700, 'Hauchdünnes Rinderfilet, Rucola, gehobelter Parmesan, Trüffel-Vinaigrette', '["G (Milch)"]', '🥩', 10, 1, 0),
+    ('00000000-0000-4000-8000-000000000103', 'Pizza Margherita DOC', 'pizza', 1050, 700, 'San Marzano Tomatensugo, Fior di Latte Mozzarella, frisches Basilikum', '["A (Gluten)", "G (Milch)"]', '🍕', 12, 1, 0),
+    ('00000000-0000-4000-8000-000000000104', 'Pizza Diavola Piccante', 'pizza', 1380, 700, 'Scharfe kalabrische Salami, Peperoni, rote Zwiebeln, Mozzarella', '["A (Gluten)", "G (Milch)"]', '🍕', 12, 1, 0),
+    ('00000000-0000-4000-8000-000000000105', 'Pizza Quattro Formaggi & Tartufo', 'pizza', 1550, 700, 'Mozzarella, Gorgonzola, Taleggio, Ricotta, schwarze Trüffelcreme', '["A (Gluten)", "G (Milch)"]', '🧀', 14, 1, 0),
+    ('00000000-0000-4000-8000-000000000106', 'Dry-Aged Angus Burger Deluxe', 'burgers', 1690, 700, '200g Black Angus Patty, Brioche Bun, Cheddar, Bacon-Jam, Pommes frites', '["A (Gluten)", "C (Ei)", "G (Milch)"]', '🍔', 15, 1, 0),
+    ('00000000-0000-4000-8000-000000000107', 'Tagliolini al Tartufo Fresco', 'mains', 1850, 700, 'Frische Eierpasta im Parmesanlaib geschwenkt mit frischem Sommertrüffel', '["A (Gluten)", "C (Ei)", "G (Milch)"]', '🍝', 12, 1, 0),
+    ('00000000-0000-4000-8000-000000000108', 'Tiramisù Tradizionale', 'desserts', 680, 700, 'Löffelbiskuits, Espresso, Mascarponecreme, feinstes Kakaopulver', '["A (Gluten)", "C (Ei)", "G (Milch)"]', '🍰', 5, 1, 0),
+    ('00000000-0000-4000-8000-000000000109', 'San Pellegrino Mineralwasser (0.75l)', 'drinks', 620, 1900, 'Natürliches Mineralwasser aus den italienischen Alpen', '[]', '💧', 2, 1, 0),
+    ('00000000-0000-4000-8000-000000000110', 'Aperol Spritz Veneziano (0.25l)', 'drinks', 790, 1900, 'Aperol, Valdobbiadene Prosecco DOCG, Soda, frische Orangenscheibe', '["O (Sulfite)"]', '🍹', 3, 1, 0),
+    ('00000000-0000-4000-8000-000000000111', 'Espresso Barista Arabica', 'drinks', 280, 1900, '100% Arabica Siebträger-Espresso', '[]', '☕', 2, 1, 0);
+"#;
+
+/// Schema v14: project portfolio and Kanban tasks of the TypeScript `ProjectsModule`.
+const SCHEMA_V14: &str = r#"
+CREATE TABLE IF NOT EXISTS projects (
+    id                  TEXT PRIMARY KEY,
+    title               TEXT NOT NULL,
+    code                TEXT NOT NULL,
+    description         TEXT NOT NULL DEFAULT '',
+    contact_id          TEXT,
+    client_name         TEXT NOT NULL DEFAULT '',
+    category            TEXT NOT NULL,
+    status              TEXT NOT NULL,
+    priority            TEXT NOT NULL,
+    budget_cents        INTEGER NOT NULL DEFAULT 0,
+    hourly_rate_cents   INTEGER NOT NULL DEFAULT 0,
+    start_date          TEXT NOT NULL DEFAULT '',
+    deadline            TEXT NOT NULL DEFAULT '',
+    color               TEXT NOT NULL DEFAULT '',
+    created_at          INTEGER NOT NULL,
+    updated_at          INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS project_tasks (
+    id                     TEXT PRIMARY KEY,
+    project_id             TEXT NOT NULL,
+    title                  TEXT NOT NULL,
+    description            TEXT NOT NULL DEFAULT '',
+    status                 TEXT NOT NULL,
+    priority               TEXT NOT NULL,
+    assignee               TEXT NOT NULL DEFAULT '',
+    estimated_hours_milli  INTEGER NOT NULL DEFAULT 0,
+    logged_hours_milli     INTEGER NOT NULL DEFAULT 0,
+    due_date               TEXT NOT NULL DEFAULT '',
+    billable               INTEGER NOT NULL DEFAULT 1,
+    created_at             INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_created ON projects(created_at);
+CREATE INDEX IF NOT EXISTS idx_project_tasks_project ON project_tasks(project_id);
+"#;
+
 const SCHEMA_V8: &str = r#"
 CREATE TABLE IF NOT EXISTS therapy_clients (
     id                  TEXT PRIMARY KEY,

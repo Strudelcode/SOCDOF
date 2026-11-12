@@ -17,8 +17,8 @@ The full migration plan, budgets and the parity checklist are in
 │   │                        # settings, i18n, autosave, scheduler, logging, CSV, backup, lock, PDF
 │   ├── app                  # shell lifecycle, desktop command state, headless runner
 │   │   ├── src-tauri        # Tauri 2 window layer (standalone Cargo workspace)
-│   │   └── ui               # temporary Vite/TypeScript frontend, removed once the Rust UI lands
-│   ├── ui                   # Rust UI: egui tokens, theme engine, component kit, gallery (no JS)
+│   │   └── ui               # shipping Tauri webview frontend (visual-parity target)
+│   ├── ui                   # pure-Rust egui surface: tokens, gallery, browser build
 │   ├── web                  # browser build: the same egui UI as WebAssembly (Trunk)
 │   └── cli                  # headless access to the core, used for tests and tooling
 └── SOCDOF - TS              # legacy TypeScript application (untouched)
@@ -27,10 +27,26 @@ The full migration plan, budgets and the parity checklist are in
 The Tauri crate is its own Cargo workspace. This keeps the root `cargo fmt`, `clippy` and `test`
 commands independent of GTK/WebKit development packages; only the desktop job installs them.
 
-The interface is being rebuilt in **egui**, so the UI path stays pure Rust: no webview, no WASM and
-no npm. The decision, the rejected alternatives and the ordered removal of the Vite/TypeScript
-frontend are in [`docs/ui-decision.md`](docs/ui-decision.md). `SOCDOF - TS` is only the historical
-reference and is never bundled or executed by the Rust code.
+The desktop product ships the **Tauri webview** in `crates/app/ui` at version **26.0.0**. Its shell
+is measured against the legacy TypeScript app in `docs/parity/`: eight of ten pairs meet the window
+pixel target and five meet SSIM ≥0.90; the Settings icon set, the dark Spotlight backdrop and the
+native window chrome are the documented residuals in [`RUST_MIGRATION.md`](RUST_MIGRATION.md) §15.7.
+
+The pure-Rust **egui** surface in `crates/ui` remains
+the no-webview alternative and powers the gallery and browser build; the earlier plan to remove the
+Vite frontend is not the current shipping path. `SOCDOF - TS` is only the historical reference and
+is never bundled or executed by the Rust code.
+
+## Highlights
+
+- Real FatturaPA 1.2 XML import: the invoice screen parses seller, lines, VAT, due date, IBAN,
+  CUP/CIG and bollo, creates or reuses the vendor and stores a draft invoice.
+- Sequential contact creation (`+ Mehrere anlegen`) keeps the contact form open and saves each
+  entry before opening the next one.
+- The command palette follows the TypeScript Spotlight order and descriptions; all four language
+  packs still share exactly 1,011 keys.
+- Release gates: rustfmt, clippy with `-D warnings`, workspace tests, Vite build, Tauri check and
+  the real Xvfb GUI smoke (`SOCDOF_SMOKE_OK`) pass for v26.
 
 ## Build
 

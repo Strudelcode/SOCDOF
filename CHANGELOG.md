@@ -4,6 +4,320 @@ All notable changes to SOCDOF are documented here. The release workflow reads
 the section matching the pushed tag; a release fails if this file has no
 matching, non-empty section.
 
+The next release is **26.0.0 (v26)**. Its changelog body is below and stays marked unreleased until
+the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26.0.0`; the historical
+`0.1.0`–`0.30.0` sections stay untouched and document everything before 26.
+
+## [26.0.0] - unreleased
+
+### Known issues
+
+- Visual parity is **not fully accepted**. The final ten pairs (Dashboard, Invoices, Contacts,
+  Settings, Command Palette × light/dark at 1440×900) reach 98.87/0.9491, 98.44/0.9310,
+  98.76/0.9041, 98.33/0.8961, 98.85/0.9116, 98.38/0.8979, 95.92/0.7251, 95.42/0.7072,
+  97.87/0.9011 and 97.88/0.8778 (window pixel / SSIM). Eight of ten pass the pixel target and five
+  pass SSIM ≥0.90; Settings (both themes) and the dark palette remain open because of the TS outline
+  icon set, WebKit text rendering and the Spotlight backdrop. See `RUST_MIGRATION.md` §15.7.
+- The v26 tag is not cut yet; the TypeScript reference stays at `25.2.1`. See
+  `RUST_MIGRATION.md` §2.1.
+
+### Added
+
+- FatturaPA XML import in the invoice screen: `fattura_import.ts` parses FatturaPA 1.2 documents
+  (seller, buyer, document type, lines, VAT, due date, IBAN, CUP/CIG and bollo), reuses or creates
+  the vendor contact and stores a draft invoice through the normal commands. Invalid XML reports a
+  visible error instead of a static hint.
+- Sequential contact creation: `+ Mehrere anlegen` opens the structured contact dialog in batch
+  mode, saves each entry and immediately presents a fresh form until the dialog is closed.
+- The Command Palette now follows the TS Spotlight module order and descriptions (including Lager and
+  POS Kasse) and uses the TS 391/282 px settings quick-start columns and 96 px cards.
+- v26 version alignment: Rust workspace, Tauri app, webview package and lock are at `26.0.0`; DOCX
+  app properties read the crate version instead of a hard-coded string, and the 88 egui goldens were
+  regenerated for the version pill.
+- Visual-parity corrections in the Tauri webview: the TS window geometry (1140×750 at `100,15`,
+  43 px title bar, 24 px content padding), the corrected dashboard header/KPI/quick-action/welcome
+  spacing, the TS empty-state KPI labels and real POS aggregate, the exact SOCDOF logo and
+  quick-action/KPI glyphs, and the computed typography (system stack for UI text, bundled JetBrains
+  Mono for numeric values). All ten pairs were recaptured from the v26 binary; eight pass the pixel
+  target and five pass SSIM, see `RUST_MIGRATION.md` §15.7.
+- The Tauri webview now has the requested TS surfaces: contact detail dialog and customer picker,
+  integer calculator with history, desktop widgets, command palette, TaskView with virtual desktops,
+  a login gate and local user management, the four-language selection modal, a searchable
+  documentation browser and a storage inspector backed by `storage_inspector`. New commands `users`,
+  `save_user`, `delete_user`, `login_user` and `storage_inspector`; tests in
+  `crates/app/tests/users_storage.rs`. The four language packs share 1,011 identical keys, guarded
+  by `crates/app/tests/ui_assets.rs`.
+- The Tauri webview now uses the TypeScript desktop shell: a shared `parity.css` token layer with
+  light/dark surfaces and an indigo accent, the floating workspace window, icon rail and taskbar,
+  the settings landing page, invoice banner, contact filters, empty states and a TS-style command
+  palette. The theme toggle persists in `socdof.ui.theme`; `parity.css` is the single palette.
+- Ten real screenshot pairs (Dashboard, Invoices, Contacts, Settings and Command Palette, each in
+  light and dark at 1440×900) are in `docs/parity/`, recaptured from the v26 release binary with the
+  current window crop `(100,15,1240,765)`. `parity_diff.py` records the per-pair pixel and SSIM
+  scores in `diff.json`/`diff.csv`. Eight pairs meet the ≥98 pixel target, five meet SSIM ≥0.90.
+- The Dashboard tab now renders live store data: period KPIs (revenue, open, overdue, contacts,
+  products, low stock, inventory value), recent invoices with contact names and status badges, the
+  reorder list and quick actions through the new `dashboard` command and
+  `DesktopState::dashboard`. Tests in `crates/app/tests/dashboard.rs` cover the aggregates and
+  period filtering.
+- Settings now expose the display section: language, light/dark/system theme and accent colour are
+  stored in `CompanyProfile`, applied immediately and restored on the next start. A language change
+  persists in `localStorage` and reloads the webview so every module uses the new pack.
+- Four language packs now carry 883 identical keys, including every dashboard, display-settings,
+  backoffice, restore and AppStore label.
+- Accounting, Purchases and Reports are now real Tauri webview modules: journal CRUD with BWA and
+  cash-book totals plus CSV export (`journal_entries`, `journal_summary`, `journal_cash_book`,
+  `save_journal_entry`, `delete_journal_entry`, `export_journal_csv`), purchase orders with supplier
+  and product reference validation, lifecycle actions and goods receipt (`purchase_orders`,
+  `save_purchase_order`, `set_purchase_order_status`, `receive_purchase_order`) and period reports
+  over invoices and tracked time (`report`). The webview screens are reachable from the navigation.
+- Settings gained archive verification and atomic restore (`verify_backup`, `restore_backup`) and
+  the AppStore catalogue with persisted activation switches (`app_store_modules`,
+  `app_store_set_active`). Tests `journal_entries_summarise_cash_book_and_reject_invalid_values`,
+  `purchase_orders_validate_references_and_receive_stock`,
+  `app_store_lists_and_persists_activation` and
+  `verify_and_restore_replace_the_database_atomically` cover the new backend paths.
+- The native Xvfb smoke now drives the rendered webview through the real navigation: it creates and
+  lists an accounting entry and a purchase order, checks the report with the paid smoke invoice,
+  toggles an AppStore module and verifies/restores the freshly created `.socdofbak` archive. The
+  runner asserts the emitted `SOCDOF_SMOKE_UI` markers, so the rendered rows are part of the test
+  output rather than a build-only claim.
+- `backup_files` now lists the default `backups/` folder beside the database when the company
+  profile has no explicit backup folder, matching where `create_backup` writes without a path.
+- Desktop settings and Textwerk are now real webview flows: a Settings tab edits the company
+  profile, chooses/lists/opens the backup folder and writes a backup through the native save dialog;
+  a Textwerk tab lists, searches, creates, updates and deletes core documents with word/character
+  counts. Tauri commands `company_profile`, `save_company_profile`, `backup_files`,
+  `save_backup_to_disk`, `open_backup_folder`, `select_backup_folder`, `list_documents`,
+  `save_document` and `delete_document`; tests
+  `documents_roundtrip_update_search_and_delete` and
+  `company_profile_and_backup_list_share_the_configured_folder`.
+- Window chrome is reachable from the webview header: `window_minimize`,
+  `window_toggle_maximize`, `window_toggle_fullscreen`, `window_is_fullscreen`,
+  `window_set_fullscreen` and `window_is_maximized` cover the Electron window channels.
+- The Calendar tab now has a Monday-first month grid, day agenda and appointment create/edit/delete
+  through `appointments`, `save_appointment` and `delete_appointment`; the command layer rejects
+  overlapping open slots. Test `appointments_roundtrip_in_range_and_reject_overlaps`.
+- Textwerk-specific native dialogs (`textwerk_open_dialog`, `textwerk_save_dialog`) and four
+  additional de/en/fr/es key sets bring each pack to 678 identical keys.
+- External invoice-template, language-pack and flag folders are now real desktop flows instead of
+  database-only templates: `crates/app/src/external_assets.rs` resolves the environment, portable and
+  app-data locations, seeds the folders, lists and reads `.docx/.doc/.pdf/.json/.html/.htm`, validates
+  and saves flat or nested language JSON, and turns flag images into data URLs. Tauri commands
+  `list_external_templates`, `read_external_template`, `list_external_languages`,
+  `list_available_flags`, `save_external_language`, `external_folder_path` and `open_external_folder`
+  drive a three-column manager in the Templates tab, and external de/en/fr/es packs overlay the
+  embedded texts. Tests `external_folders_seed_list_and_read_templates`,
+  `external_languages_parse_flat_and_nested_packs_with_flags` and
+  `external_assets_validate_open_folder_and_path_overrides`; smoke `external_templates count=1`,
+  `external_languages count=1`, `external_flags count=1` and
+  `external_template_read filename=smoke-template.html success=true bytes=22`.
+- Native yes/no confirmations complete the dialog bridge: `DialogOutcome::Confirmed`/`Declined` and
+  `resolve_confirm`, the Tauri `confirm_message` command using
+  `MessageDialogButtons::YesNo`/`blocking_show`, and delete/storno actions in the webview now await
+  the native answer instead of `window.confirm`. Test
+  `a_confirmation_returns_yes_no_or_cancelled`; smoke `SOCDOF_DIALOG kind=confirm outcome=confirmed`
+  and `outcome=cancelled`.
+- The tray icon handles a completed left click through `on_tray_icon_event` and the same
+  `tray::icon_click()`/`run_tray_command` path as the menu; test
+  `a_left_click_on_the_icon_uses_the_show_command`. Linux status notifiers still cannot emit the
+  pointer event in the Xvfb smoke.
+- Restaurant receipts now print the active company name, street, postal code/city and tax id from
+  the company profile instead of a fixed restaurant name; the overview bridge carries
+  `RestaurantCompanyView`, with a unit test for both the configured profile and the default fallback.
+- The restaurant now plays the TypeScript Web Audio feedback for clicks, successful saves, cash
+  checkout and kitchen notifications (`crates/app/ui/src/sound.ts`), with the same muted/volume
+  localStorage keys and a sound toggle in the restaurant header. All four webview packs now contain
+  601 keys with identical sets, including the external-asset, sound, receipt-to-invoice, company-tax and hospitality labels.
+
+- The TypeScript `RestaurantModule` is fully ported: menu management, 13-table floor plan, table
+  orders, kitchen display, receipt archive, cash/card/NFC checkout, tips, split bills, GoBD
+  hospitality receipts, Z-report, ERP invoice/POS checkout and CSV export. `crates/core/src/domain/restaurant.rs`
+  holds the models, validation, cent/basis-point arithmetic, floor plan and default menu;
+  `crates/core/src/store/restaurant.rs` and schema v15 persist menu, orders and positions, seed the
+  eleven default dishes and book the paid order, POS receipt and invoice in one transaction.
+  `crates/app/src/restaurant_bridge.rs` exposes camelCase views/inputs, KPIs and the receipt CSV;
+  twelve Tauri commands drive the new Restaurant tab with four sub-tabs, all dialogs and filters.
+  All 125 restaurant strings exist in de/en/fr/es (601 keys per pack including the later external-asset, sound, receipt-to-invoice, company-tax and hospitality labels). The end-to-end tests
+  `restaurant_roundtrip_persists_calculates_and_checks_out` and
+  `restaurant_rejects_invalid_dish_order_and_checkout_values` and
+  `restaurant_receipt_number_considers_kept_pos_receipts` plus the core tests
+  `validates_the_dish_and_order_fields` and `adds_merges_and_recalculates_table_orders` cover CRUD,
+  persistence across a reopen, totals/tax/tip/change, checkout, CSV, validation and the shared
+  invoice/POS receipt number space. The native smoke
+  creates and edits a dish/order, lists it, checks persistence, exports, checks out and deletes it
+  (`SOCDOF_SMOKE restaurant_dish_saved mode=created|updated`, `restaurant_order_saved mode=created`,
+  `restaurant_order_updated`, `restaurant_order_status`, `restaurant_list`, `restaurant_persisted`,
+  `restaurant_checkout`, `export_restaurant_csv rows=1`, `restaurant_order_deleted`,
+  `restaurant_dish_deleted`, schema 15). `RUST_MIGRATION.md` marks RestaurantModule as done.
+- The TypeScript `ProjectsModule` is fully ported: portfolio cards, a four-column Kanban board,
+  projects and tasks with the same fields, filters, status transitions, KPI arithmetic, billing and
+  CSV export. `crates/core/src/domain/project.rs` holds the models, validation, default `PRJ-YYYY-NN`
+  codes, progress/revenue metrics and the BOM/`;` portfolio CSV; `crates/core/src/store/projects.rs`
+  and schema v14 (`projects`, `project_tasks`) persist them, including cascade delete and quick task
+  status moves. `crates/app/src/project_bridge.rs` exposes camelCase views/inputs and per-project
+  progress, logged hours and billable value; nine Tauri commands drive the new Projects tab with KPI
+  strip, search/status/category filters, project and task dialogs, CSV export and a real draft invoice
+  from all billable task hours. All 75 new strings exist in de/en/fr/es (460 keys per pack). The
+  end-to-end tests `projects_roundtrip_persist_bill_and_export` and
+  `projects_reject_invalid_modal_fields` plus the core tests `computes_portfolio_metrics_and_csv` and
+  `validates_the_modal_fields_and_normalizes_the_code` cover CRUD, persistence across a reopen,
+  Kanban status moves, metrics, CSV, billing and validation. The native smoke creates, edits, lists,
+  exports, bills and deletes a project with its task (`SOCDOF_SMOKE project_saved mode=created|updated`,
+  `project_task_saved mode=created|updated`, `project_task_status`, `project_list`, `project_persisted`,
+  `export_projects_csv rows=1`, `project_invoice`, `project_task_deleted`, `project_deleted`,
+  `NATIVE_SMOKE_OK chosen=0 cancel=0`, schema 14). `RUST_MIGRATION.md` marks ProjectsModule as done
+  and leaves only Restaurant and environment-bound work explicitly open.
+- The TypeScript `FleetModule` is fully ported: vehicles, logbook trips and fuel receipts with the
+  same fields, validation, 0.30 €/km allowance, metrics and logbook CSV. `crates/core/src/domain/fleet.rs`
+  holds the models, normalisation, validation, distance/allowance calculations, metrics and the
+  BOM/`;`-separated export; `crates/core/src/store/fleet.rs` and schema v13
+  (`fleet_vehicles`, `fleet_trips`, `fleet_fuel`) persist them, and a trip insert raises the
+  odometer in the same transaction. `crates/app/src/fleet_bridge.rs` exposes camelCase views and
+  inputs; eight Tauri commands drive the new Fleet tab with KPI strip, vehicle/logbook/fuel lists,
+  filters, create/edit/delete dialogs and CSV export. All 76 new strings exist in de/en/fr/es (385
+  keys per pack). The end-to-end tests `fleet_roundtrip_persists_and_calculates` and
+  `fleet_rejects_invalid_vehicle_trip_and_fuel` plus the core tests
+  `computes_distance_price_metrics_and_csv` and
+  `validates_the_modal_fields_and_normalizes_the_plate` cover CRUD, persistence across a reopen,
+  odometer and fuel-price arithmetic, CSV and validation. The native smoke creates, edits, lists,
+  exports and deletes a vehicle with trip and receipt (`SOCDOF_SMOKE fleet_vehicle_saved
+  mode=created|updated`, `fleet_trip_saved`, `fleet_fuel_saved`, `fleet_list`, `export_fleet_csv`,
+  `fleet_trip_deleted`, `fleet_fuel_deleted`, `fleet_vehicle_deleted`, `NATIVE_SMOKE_OK chosen=0
+  cancel=0`, schema 13). `RUST_MIGRATION.md` marks FleetModule as done and leaves Projects and
+  Restaurant explicitly open.
+- The contact e-mail draft and FatturaPA 1.2 generation now exist in Rust. `crates/core/src/domain/mail.rs`
+  builds the contact payload and the editable RFC 822 draft, exposed through `contact_mail_draft` and
+  `export_contact_eml`; every contact card opens the recipient/subject/body dialog and saves a real
+  `.eml`. `crates/core/src/domain/fattura.rs` generates the SdI XML with the standard file name,
+  FPR12/FPA12, TD01/TD04/TD24, RF01/RF19, recipient code/PEC, stamp duty, CUP/CIG, per-rate summaries,
+  payment codes and XML escaping; `invoice_fattura` and `export_invoice_fattura` expose it through an
+  inspector with live XML. Both flows are translated in de/en/fr/es (308 keys per pack), covered by
+  `contact_mail_and_fattura_are_generated` plus core tests, and proven in the native GUI smoke
+  (`SOCDOF_SMOKE contact_mail|export_contact_eml|fattura|export_fattura`,
+  `NATIVE_SMOKE_OK chosen=0 cancel=0`). `RUST_MIGRATION.md` marks both matrix entries as done and names
+  the still-open Fleet/Projects/Restaurant modules, installer/bundling, real GPU, native dialogs with a
+  real user choice and SdI transmission/signature.
+- - The Tauri webview now covers the invoice dunning letter, the invoice e-mail draft and payment
+  capture, which previously existed only in the core and the egui screens. New views and builders in
+  `crates/app/src/invoice_bridge.rs` (`InvoiceDunningView`, `InvoiceMailView`, `InvoicePaymentView`,
+  `dunning_view`, `mail_view`, `payment_view`), new `DesktopState` methods and the commands
+  `invoice_dunning`, `invoice_mail_draft`, `invoice_payment`, `record_invoice_payment` and
+  `export_invoice_eml`. The invoice cards open a dunning dialog (level, fee, deadline, live
+  subject/body), a mail draft dialog and a payment dialog (transfer, cash with TSE signature, card);
+  the EML export writes the real draft through the native save dialog. All 25 new strings exist in
+  de/en/fr/es, and the GUI smoke proves mail, dunning, both EML exports and a payment that flips the
+  invoice to `paid` (`SOCDOF_SMOKE invoice_dunning|invoice_mail|export_eml|record_payment`,
+  `NATIVE_SMOKE_OK chosen=0 cancel=0`). The new end-to-end test
+  `dunning_mail_and_payment_close_the_webview_gap` covers the overrides, claim arithmetic, EML
+  headers, stored payment and rejected level/method names. `RUST_MIGRATION.md` now carries the
+  TypeScript→Rust parity matrix with a status, evidence and reason for every screen group and every
+  Electron IPC channel; it names the remaining gaps (webview breadth, installer/bundling, real GPU,
+  native dialogs with a real user choice, tray click without a status-notifier host) instead of
+  claiming full parity.
+- - Invoice print templates (`invoice_template`): the validated template book is stored in the settings
+  table with a classic DIN 5008 default plus four alternative layouts. The invoices screen can
+  select, edit, duplicate, activate, delete and reset templates; the PDF dialog prints with the
+  active template's title, introduction, footer placeholders, accent color, payment term and fold
+  marks. Templates now carry a PNG, JPEG, GIF, WebP, BMP or ICO logo (path or persisted data URL,
+  left/center/right), PDF or PNG stationery as the page background, editable HTML with the TypeScript placeholders and a live
+  formatted preview, and per-template company details (address, contact, tax/VAT ID, bank and register)
+  that override the global profile. A bounded HTML renderer turns the free template into one shared document model: headings,
+  paragraphs, line breaks, lists, strong/em/underline, inline colours and sizes, tables, images and
+  explicit page breaks. The egui preview, PDF and DOCX consume that same structure, so a positions
+  table becomes real rows everywhere. The print dialog exports a real `.docx` through the existing
+  Word writer, using the same template values. An end-to-end test writes
+  `target/invoice-template-artifacts/rechnung.pdf` and `rechnung.docx` and verifies heading, table
+  rows and footer; the PDF carries a PNG logo and a PDF stationery background. The DOCX writer now
+  embeds both as real PNG parts (`word/media/logo.png`, `word/media/stationery.png`): a first-page
+  header holds the logo and the stationery, a default header repeats the stationery alone, and
+  `w:titlePg` plus `first`/`default` header references map them to the pages, so the logo no longer
+  appears on every page. Drawings are anchored to the page and painted behind the content, image
+  relationships live in each header part, and the stationery is cover-cropped to A4. Unreadable image
+  sources add no media or header parts, keeping the package valid. Stationery text tokens
+  (`stationeryTokens` with `tokenKey`, percentage position, optional width, CSS-pixel font size,
+  weight, colour and alignment) are stored with the template and exported as positioned text
+  overlays: the PDF draws them over the letterhead on the first page, the DOCX uses page-anchored
+  borderless text tables in the first-page header. Missing letterheads or an empty token list draw
+  nothing, out-of-range percentages clamp to the page, and unknown style values fall back to the
+  TypeScript defaults. The template dialog now offers the same placement studio: a scaled A4
+  canvas paints the stationery and every token with the export geometry, fields can be added from
+  all token keys, selected, dragged or clicked into place, edited (position, width, size, weight,
+  alignment, colour), deleted and filled with the seven TypeScript default fields, and the preview
+  resolves the same values the exports use. Long token values now share one Helvetica line layout
+  with the PDF and DOCX exports, including explicit line breaks and 1.4 line offsets. The editor and print dialog are translated in
+  de/en/fr/es (1,709 keys per language). Logo and stationery files now load through a native desktop picker and drop zones on the
+  template dialog, using the TypeScript filters and 2 MB logo limit. The chosen data URL is saved
+  with the template, so preview, PDF and DOCX read the same file. SVG logos are rasterized with the pure-Rust `resvg` crate in
+  native builds, so the same data URL reaches the dialog thumbnail, PDF and DOCX. Malformed SVGs
+  stay accepted like the TypeScript file input and are omitted from the artifacts without aborting
+  the export. The shared raster decoder reads PNG, JPEG, GIF, WebP, BMP and ICO. Vector-only PDF
+  stationery now stays vectorial in the PDF export: the first page's paths, curves, rectangles,
+  fills, strokes and device colours are copied with the TypeScript cover geometry, while text,
+  image and pattern operators are skipped. Image-based PDFs keep the existing largest-raster
+  extraction; preview and DOCX still need a raster stationery source. Flex and grid containers in a custom template now share one
+  layout plan between preview, PDF and DOCX: `display:flex` honours the direction, row-axis
+  `flex-wrap`/`wrap-reverse` with row gaps, `justify-content`, `align-items`, `flex`/`flex-basis`/
+  `flex-grow`, fixed and percentage widths, padding, item margins and nesting; `display:grid`
+  honours `repeat()`/`fr`/px/percentage/`auto` tracks and explicit `grid-template-rows` with
+  `auto`/`fr`/px/percentage heights, `grid-auto-rows` and row gaps. Block margins collapse to the
+  larger adjacent value, flex and grid item margins do not collapse, and an explicit zero removes
+  the implicit paragraph gap. The DOCX export writes the planned columns as borderless fixed-width
+  tables with row-height hints and explicit margins as spacer paragraphs; the PDF draws the same
+  slots, and missing declarations keep the CSS defaults while empty containers render nothing.
+- The Tauri webview now edits and prints the invoice template book through the same validated core
+  path as the egui screens. `crates/app/src/template_bridge.rs` translates between the core model
+  and the exact TypeScript field format (`presetType`, `isDefault`, `logoUrl`, the flat `company*`
+  fields, `primaryColor`, `fontFamily`, `headerTitle`, `headerText`, `footerText`, `taxNote`,
+  `dueDays`, `useCustomLayout`, `customBodyTemplate`, `showFoldMarks`, `stationeryMode`,
+  `stationeryPdfUrl`, `stationeryImageUrl`, `stationeryTokens`, `createdAt`), maps
+  `companyAddress` to the template street and follows the TypeScript
+  `stationeryImageUrl || stationeryPdfUrl` precedence. Missing fields take the TypeScript defaults,
+  unknown or core-only field names are rejected instead of being ignored, and a book without
+  templates fails validation instead of silently replacing the stored one. The core template gained
+  `presetType`, `fontFamily`, `createdAt` and `isDefault` (all optional in the stored JSON, so
+  existing books load unchanged); `fontFamily` selects the TypeScript sans, serif or mono stack of
+  the built-in HTML layout. The new commands `invoice_templates`, `save_invoice_templates`,
+  `template_token_keys` and `template_default_stationery_tokens` expose the bridge, and the webview
+  has a Templates tab with a form for every field, logo and letterhead inputs with the TypeScript
+  filters and 2 MB logo limit, template list actions (edit, activate, duplicate, delete) and the
+  stationery token editor with all 34 keys and the seven default fields, translated in de/en/fr/es.
+  Tests cover a full TypeScript payload in both directions, the round trip of every field, defaults
+  for missing fields, rejection of unknown fields, storage through `DesktopState`, and the effect of
+  the values in the HTML, the DIN 5008 PDF and the DOCX package.
+
+- The Tauri webview now runs the invoice workflow through the real commands. `crates/app/src/invoice_bridge.rs`
+  maps a stored invoice to the TypeScript names (`number`, `contact_name`, `contact_company`, `date`,
+  `due_date`, `payment_terms`, `currency_symbol`, `notes`, `items`) with every amount in integer cents,
+  validates the editor input (ISO dates, due date, customer, positions, quantities and tax rates),
+  accepts the TypeScript status `posted` as the stored `sent` state and rejects unknown fields instead
+  of ignoring them. `DesktopState` and the new commands `list_invoices`, `invoice_detail`,
+  `invoice_defaults`, `save_invoice`, `delete_invoice`, `set_invoice_status`, `invoice_preview` and
+  `export_invoice` cover search over number, customer, note and positions, status filters, the next
+  `YYYY-0001` number, template-aware previews and real PDF/DOCX exports with the chosen template.
+  The webview has an Invoices tab with list actions, an editor for all fields including editable
+  position rows with live net/tax/gross totals, a preview dialog with template switcher and an A4
+  stationery/token canvas, and PDF/DOCX buttons that use the native save dialog; the strings are
+  translated in de/en/fr/es. The GUI smoke run now creates, lists, details, changes, saves, previews,
+  exports and marks an invoice paid through `invoke`. Four end-to-end tests cover the list/search,
+  defaults, totals, updates, rejected input, template selection and the exported artifacts.
+  Deviations: `posted` maps to `sent`, `payment_terms` is a day count, manual recipients, per-item
+  discounts and the SdI/FatturaPA fields have no Rust model yet, the preview is a DOM plus stationery
+  canvas (the authoritative output stays PDF/DOCX), and payment, dunning and e-mail remain egui-only.
+  The Tauri v2 feature `custom-protocol` is now declared in `crates/app/src-tauri/Cargo.toml`; without
+  it `generate_context!` produced a dev context, so a plain release build embedded no frontend and the
+  webview fell back to the dev-server URL. The native GUI smoke run was executed in this environment
+  (Xvfb plus a root-free GTK/WebKit sysroot) and exits with 0: it creates, lists and details the
+  invoice, edits it through the real editor form, previews it and exports PDF and DOCX through the
+  real `invoke` path.
+  The native tray menu and the native file dialogs are part of the GUI smoke as well: the window
+  enables them through `smoke_options`, invokes `pick_folder`, `pick_open_file`, `pick_save_file`,
+  `show_message` and `smoke_tray_run`, and the runner proves the chosen and the cancelled dialog
+  paths plus the tray show/backup/quit actions (`NATIVE_SMOKE_OK chosen=0 cancel=0`). Exiting through
+  `app.exit` used to leave a fresh instance lock behind, so the next start failed with `lock_busy`;
+  the lock is now released on `RunEvent::Exit`, and a lock whose local pid is gone counts as
+  abandoned.
+
 ## [0.30.0] - 2026-11-08
 
 ### Added

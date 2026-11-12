@@ -18,6 +18,13 @@ use crate::domain::contact::Contact;
 use crate::domain::invoice::Invoice;
 use crate::domain::settings::CompanyProfile;
 use crate::error::CoreResult;
+use crate::invoice_template::{
+    asset_bytes, default_template, layout_stationery_token, InvoiceTemplate,
+};
+use crate::pdf::writer::BackgroundImage;
+use crate::rich_html::{
+    layout_container, layout_runs, line_height, run_width, Align, RichBlock, RichContainer, TextRun,
+};
 
 use crate::document_layout::{DocumentLayout, TokenAlign};
 
@@ -258,13 +265,44 @@ impl LetterGeometry {
     }
 }
 
-/// Renders one invoice as a DIN 5008 PDF.
+/// Renders one invoice as a DIN 5008 PDF with the classic default template.
 pub fn render_invoice_pdf(
     invoice: &Invoice,
     recipient: &Contact,
     company: &CompanyProfile,
 ) -> Vec<u8> {
-    render(invoice, recipient, company, None)
+    render_invoice_pdf_with_template(invoice, recipient, company, &default_template())
+}
+
+/// Renders one invoice with the given print template.
+pub fn render_invoice_pdf_with_template(
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    template: &InvoiceTemplate,
+) -> Vec<u8> {
+    let mut document = Document::new(&format!("{} {}", template.header_title, invoice.number));
+    let stationery = template.stationery_image();
+    let vector_stationery = if stationery.is_none() {
+        template.stationery_vector()
+    } else {
+        None
+    };
+    let has_stationery = stationery.is_some() || vector_stationery.is_some();
+    if let Some(image) = stationery {
+        document.set_background(image);
+    } else if let Some(background) = vector_stationery {
+        document.set_vector_background(background);
+    }
+    render_document(
+        document,
+        invoice,
+        recipient,
+        company,
+        None,
+        template,
+        has_stationery,
+    )
 }
 
 /// Renders one invoice with the stored letterhead background and placed tokens.
@@ -274,25 +312,46 @@ pub fn render_invoice_pdf_with_layout(
     company: &CompanyProfile,
     layout: &DocumentLayout,
 ) -> Vec<u8> {
-    let mut document = Document::new(&format!("Rechnung {}", invoice.number));
-    if let Some(image) = layout.background() {
-        document.set_background(image);
-    }
-    render_document(document, invoice, recipient, company, Some(layout))
-}
-
-fn render(
-    invoice: &Invoice,
-    recipient: &Contact,
-    company: &CompanyProfile,
-    layout: Option<&DocumentLayout>,
-) -> Vec<u8> {
-    render_document(
-        Document::new(&format!("Rechnung {}", invoice.number)),
+    render_invoice_pdf_with_layout_and_template(
         invoice,
         recipient,
         company,
         layout,
+        &default_template(),
+    )
+}
+
+/// Renders one invoice with a letterhead layout and an explicit print template.
+pub fn render_invoice_pdf_with_layout_and_template(
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: &DocumentLayout,
+    template: &InvoiceTemplate,
+) -> Vec<u8> {
+    let mut document = Document::new(&format!("{} {}", template.header_title, invoice.number));
+    let stationery = template.stationery_image();
+    let vector_stationery = if stationery.is_none() {
+        template.stationery_vector()
+    } else {
+        None
+    };
+    let has_stationery = stationery.is_some() || vector_stationery.is_some();
+    if let Some(image) = stationery {
+        document.set_background(image);
+    } else if let Some(background) = vector_stationery {
+        document.set_vector_background(background);
+    } else if let Some(image) = layout.background() {
+        document.set_background(image);
+    }
+    render_document(
+        document,
+        invoice,
+        recipient,
+        company,
+        Some(layout),
+        template,
+        has_stationery,
     )
 }
 
@@ -302,7 +361,21 @@ fn render_document(
     recipient: &Contact,
     company: &CompanyProfile,
     layout: Option<&DocumentLayout>,
+    template: &InvoiceTemplate,
+    has_stationery: bool,
 ) -> Vec<u8> {
+    let company = template.effective_company(company);
+    let company = &company;
+    if template.use_custom_layout && !template.custom_body_template.trim().is_empty() {
+        return render_custom_document(
+            document,
+            invoice,
+            recipient,
+            company,
+            template,
+            has_stationery,
+        );
+    }
     let geometry = LetterGeometry::form_b();
     let left = geometry.text_left();
     let right = geometry.text_right();
@@ -311,6 +384,11 @@ fn render_document(
     } else {
         company.currency.as_str()
     };
+    let logo = template.logo_image();
+    let logo_name = logo.map(|image| document.add_image(image));
+    let logo_size = logo_name
+        .as_deref()
+        .and_then(|name| document.image_size(name));
     let ranges = geometry.paginate(invoice.lines.len());
     let page_count = ranges.len();
 
@@ -319,9 +397,17 @@ fn render_document(
             document.new_page();
         }
         let page = document.page_mut();
-        draw_marks(page, &geometry);
+        if template.show_fold_marks {
+            draw_marks(page, &geometry);
+        }
+        if page_index == 0 && has_stationery {
+            draw_stationery_tokens(page, invoice, recipient, company, &geometry, template);
+        }
         if page_index == 0 {
-            draw_first_page_header(page, invoice, recipient, company, &geometry);
+            draw_first_page_header(page, invoice, recipient, company, &geometry, template);
+            if let (Some(name), Some((width, height))) = (logo_name.as_deref(), logo_size) {
+                draw_logo(page, &geometry, template, name, width, height);
+            }
         }
 
         let header_top = if page_index == 0 {
@@ -329,7 +415,7 @@ fn render_document(
         } else {
             geometry.continuation_table_top
         };
-        draw_table_header(page, &geometry, header_top);
+        draw_table_header(page, &geometry, header_top, template.color());
 
         let mut row_y = header_top + 8.0;
         for index in *start..*end {
@@ -346,16 +432,410 @@ fn render_document(
 
         if page_index + 1 == page_count {
             page.line(left, geometry.y(row_y + 1.0), right, 0.6);
-            draw_totals(page, invoice, currency, &geometry, row_y);
+            draw_totals(page, invoice, currency, &geometry, row_y, template);
         }
 
-        draw_footer(page, company, &geometry, page_index + 1, page_count);
+        draw_footer(
+            page,
+            company,
+            &geometry,
+            page_index + 1,
+            page_count,
+            template,
+        );
         if let Some(layout) = layout {
             draw_tokens(page, layout, company, invoice, &geometry);
         }
     }
 
     document.to_bytes()
+}
+
+fn render_custom_document(
+    mut document: Document,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    template: &InvoiceTemplate,
+    has_stationery: bool,
+) -> Vec<u8> {
+    let geometry = LetterGeometry::form_b();
+    let left = geometry.text_left();
+    let width = geometry.text_right() - left;
+    let currency = if company.currency.trim().is_empty() {
+        "€"
+    } else {
+        company.currency.as_str()
+    };
+    if has_stationery {
+        draw_stationery_tokens(
+            document.page_mut(),
+            invoice,
+            recipient,
+            company,
+            &geometry,
+            template,
+        );
+    }
+    let rendered = template.rendered_document(invoice, recipient, company, currency);
+    let mut distance = 24.0;
+    if let Some(logo) = template.logo_image() {
+        let name = document.add_image(logo);
+        if let Some((width, height)) = document.image_size(&name) {
+            draw_logo(
+                document.page_mut(),
+                &geometry,
+                template,
+                &name,
+                width,
+                height,
+            );
+            distance = 40.0;
+        }
+    }
+    draw_rich_blocks(
+        &mut document,
+        &geometry,
+        left,
+        width,
+        &mut distance,
+        &rendered.blocks,
+    );
+    document.to_bytes()
+}
+
+fn draw_rich_blocks(
+    document: &mut Document,
+    geometry: &LetterGeometry,
+    left: f64,
+    width: f64,
+    distance: &mut f64,
+    blocks: &[RichBlock],
+) {
+    let mut previous_bottom: Option<f32> = None;
+    for block in blocks {
+        let margins = crate::rich_html::block_margins(block);
+        let before = previous_bottom.map_or(margins.top(), |bottom| bottom.max(margins.top()));
+        *distance += f64::from(before);
+        match block {
+            RichBlock::Heading { runs, align, .. } => {
+                draw_rich_runs(
+                    document,
+                    geometry,
+                    (left, width),
+                    distance,
+                    runs,
+                    true,
+                    *align,
+                );
+            }
+            RichBlock::Paragraph { runs, align, .. } => {
+                draw_rich_runs(
+                    document,
+                    geometry,
+                    (left, width),
+                    distance,
+                    runs,
+                    false,
+                    *align,
+                );
+            }
+            RichBlock::Table(table) => {
+                draw_rich_table(document, geometry, left, width, distance, table);
+            }
+            RichBlock::Container(container) => {
+                draw_rich_container(document, geometry, left, width, distance, container);
+            }
+            RichBlock::Image {
+                source, width_pt, ..
+            } => {
+                let Some(bytes) = asset_bytes(source) else {
+                    previous_bottom = Some(
+                        margins
+                            .bottom
+                            .unwrap_or_else(|| crate::rich_html::default_block_gap(block)),
+                    );
+                    continue;
+                };
+                let Ok(image) = BackgroundImage::from_stationery_bytes(&bytes) else {
+                    previous_bottom = Some(
+                        margins
+                            .bottom
+                            .unwrap_or_else(|| crate::rich_html::default_block_gap(block)),
+                    );
+                    continue;
+                };
+                let max_width = width_pt
+                    .map(|value| mm(f64::from(value) * 0.3528))
+                    .unwrap_or(width);
+                let scale = (max_width / image.width as f64).min(mm(60.0) / image.height as f64);
+                let draw_width = image.width as f64 * scale;
+                let draw_height = image.height as f64 * scale;
+                if *distance + draw_height + 2.0 > 268.0 {
+                    document.new_page();
+                    *distance = 24.0;
+                }
+                let name = document.add_image(image);
+                document.page_mut().image(
+                    &name,
+                    left,
+                    geometry.y(*distance + draw_height / mm(1.0)),
+                    draw_width,
+                    draw_height,
+                );
+                *distance += draw_height;
+            }
+            RichBlock::PageBreak => {
+                document.new_page();
+                *distance = 24.0;
+                previous_bottom = None;
+                continue;
+            }
+            RichBlock::Rule { .. } => {
+                document
+                    .page_mut()
+                    .line(left, geometry.y(*distance), left + width, 0.4);
+            }
+        }
+        previous_bottom = Some(
+            margins
+                .bottom
+                .unwrap_or_else(|| crate::rich_html::default_block_gap(block)),
+        );
+    }
+    if let Some(bottom) = previous_bottom {
+        *distance += f64::from(bottom);
+    }
+}
+
+fn draw_rich_runs(
+    document: &mut Document,
+    geometry: &LetterGeometry,
+    column: (f64, f64),
+    distance: &mut f64,
+    runs: &[TextRun],
+    bold: bool,
+    align: Align,
+) {
+    let (left, width) = column;
+    for line in layout_runs(runs, width as f32, bold) {
+        let height = f64::from(line_height(&line));
+        if *distance + height > 270.0 {
+            document.new_page();
+            *distance = 24.0;
+        }
+        let total_width = line
+            .iter()
+            .map(|run| f64::from(run_width(run)))
+            .sum::<f64>();
+        let mut x = match align {
+            Align::Left => left,
+            Align::Center => left + (width - total_width) / 2.0,
+            Align::Right => left + width - total_width,
+        };
+        let y = geometry.y(*distance);
+        for run in &line {
+            let size = f64::from(run.size_pt);
+            let color = run.color.map(|[red, green, blue]| {
+                [
+                    f64::from(red) / 255.0,
+                    f64::from(green) / 255.0,
+                    f64::from(blue) / 255.0,
+                ]
+            });
+            if run.bold || bold {
+                match color {
+                    Some(color) => document
+                        .page_mut()
+                        .text_bold_color(x, y, size, &run.text, color),
+                    None => document.page_mut().text_bold(x, y, size, &run.text),
+                }
+            } else if let Some(color) = color {
+                document.page_mut().text_color(x, y, size, &run.text, color);
+            } else {
+                document.page_mut().text(x, y, size, &run.text);
+            }
+            let width = f64::from(run_width(run));
+            if run.underline {
+                document.page_mut().line(x, y - 1.2, x + width, 0.35);
+            }
+            x += width;
+        }
+        *distance += height;
+    }
+}
+
+/// Draws a flex/grid container on the slots of the shared layout plan.
+///
+/// Item padding insets the content, `align-items` shifts an item inside its line, and a row that
+/// does not fit on the page starts a new one. The line height comes from [`layout_container`], so
+/// the PDF uses the same geometry as the preview and the DOCX export.
+fn draw_rich_container(
+    document: &mut Document,
+    geometry: &LetterGeometry,
+    left: f64,
+    width: f64,
+    distance: &mut f64,
+    container: &RichContainer,
+) {
+    let layout = layout_container(container, width as f32);
+    for (row_index, row) in layout.rows.iter().enumerate() {
+        if row_index > 0 {
+            *distance += f64::from(container.row_gap);
+        }
+        let row_height = f64::from(row.height);
+        if *distance + row_height > 270.0 && row_height < 246.0 {
+            document.new_page();
+            *distance = 24.0;
+        }
+        for slot in &row.slots {
+            let Some(item) = container.items.get(slot.item) else {
+                continue;
+            };
+            let content_width = (slot.width - item.padding.left - item.padding.right).max(0.0);
+            let item_left = left + f64::from(slot.x) + f64::from(item.padding.left);
+            let mut item_distance = *distance + f64::from(slot.y) + f64::from(item.padding.top);
+            draw_rich_blocks(
+                document,
+                geometry,
+                item_left,
+                f64::from(content_width),
+                &mut item_distance,
+                &item.blocks,
+            );
+        }
+        *distance += row_height;
+    }
+}
+
+fn draw_rich_table(
+    document: &mut Document,
+    geometry: &LetterGeometry,
+    left: f64,
+    width: f64,
+    distance: &mut f64,
+    table: &crate::rich_html::RichTable,
+) {
+    let columns = table.rows.iter().map(Vec::len).max().unwrap_or(0);
+    if columns == 0 {
+        return;
+    }
+    let column_width = width / columns as f64;
+    for (row_index, row) in table.rows.iter().enumerate() {
+        let mut line_sets = Vec::new();
+        let mut row_height: f64 = 5.0;
+        for cell in row {
+            let lines = layout_runs(&cell.runs, (column_width - mm(3.0)) as f32, cell.header);
+            let height = lines
+                .iter()
+                .map(|line| {
+                    line.iter()
+                        .map(|run| f64::from(run.size_pt) * 0.3528 * 1.3)
+                        .fold(3.6, f64::max)
+                })
+                .sum::<f64>()
+                + 2.4;
+            row_height = row_height.max(height);
+            line_sets.push(lines);
+        }
+        if *distance + row_height > 270.0 {
+            document.new_page();
+            *distance = 24.0;
+        }
+        let top = geometry.y(*distance);
+        document.page_mut().line(left, top, left + width, 0.35);
+        for (column, lines) in line_sets.iter().enumerate() {
+            let x = left + column as f64 * column_width;
+            let mut y = *distance + 2.8;
+            for line in lines {
+                let total = line
+                    .iter()
+                    .map(|run| f64::from(run_width(run)))
+                    .sum::<f64>();
+                let mut draw_x = match row
+                    .get(column)
+                    .map(|cell| cell.align)
+                    .unwrap_or(Align::Left)
+                {
+                    Align::Left => x + mm(1.5),
+                    Align::Center => x + (column_width - total) / 2.0,
+                    Align::Right => x + column_width - total - mm(1.5),
+                };
+                for run in line {
+                    let size = f64::from(run.size_pt);
+                    let is_bold = run.bold || row.get(column).is_some_and(|cell| cell.header);
+                    if let Some([red, green, blue]) = run.color {
+                        let color = [
+                            f64::from(red) / 255.0,
+                            f64::from(green) / 255.0,
+                            f64::from(blue) / 255.0,
+                        ];
+                        if is_bold {
+                            document.page_mut().text_bold_color(
+                                draw_x,
+                                geometry.y(y),
+                                size,
+                                &run.text,
+                                color,
+                            );
+                        } else {
+                            document.page_mut().text_color(
+                                draw_x,
+                                geometry.y(y),
+                                size,
+                                &run.text,
+                                color,
+                            );
+                        }
+                    } else if is_bold {
+                        document
+                            .page_mut()
+                            .text_bold(draw_x, geometry.y(y), size, &run.text);
+                    } else {
+                        document
+                            .page_mut()
+                            .text(draw_x, geometry.y(y), size, &run.text);
+                    }
+                    draw_x += f64::from(run_width(run));
+                }
+                y += 4.0;
+            }
+        }
+        document
+            .page_mut()
+            .line(left, geometry.y(*distance + row_height), left + width, 0.25);
+        *distance += row_height;
+        if row_index == 0 {
+            *distance += 0.5;
+        }
+    }
+}
+
+fn draw_logo(
+    page: &mut Page,
+    geometry: &LetterGeometry,
+    template: &InvoiceTemplate,
+    name: &str,
+    width: u32,
+    height: u32,
+) {
+    if width == 0 || height == 0 {
+        return;
+    }
+    let max_width = mm(45.0);
+    let max_height = mm(20.0);
+    let scale = (max_width / width as f64).min(max_height / height as f64);
+    let logo_width = width as f64 * scale;
+    let logo_height = height as f64 * scale;
+    let left = geometry.text_left();
+    let right = geometry.text_right();
+    let x = match template.logo_position.as_str() {
+        "left" => left,
+        "center" => (left + right - logo_width) / 2.0,
+        _ => right - logo_width,
+    };
+    let top = geometry.y(12.0);
+    page.image(name, x, top - logo_height, logo_width, logo_height);
 }
 
 /// Draws the two fold marks and the hole mark inside the binding margin.
@@ -371,6 +851,7 @@ fn draw_first_page_header(
     recipient: &Contact,
     company: &CompanyProfile,
     geometry: &LetterGeometry,
+    template: &InvoiceTemplate,
 ) {
     let left = geometry.text_left();
     let right = geometry.text_right();
@@ -441,21 +922,20 @@ fn draw_first_page_header(
     }
 
     // Subject line.
-    page.text_bold(
+    page.text_bold_color(
         left,
         geometry.y(geometry.subject_top),
         12.0,
-        &format!("Rechnung Nr. {}", invoice.number),
+        &format!("{} Nr. {}", template.header_title, invoice.number),
+        template.color(),
     );
 
-    // Body: the note of the invoice, or a standard opening, wrapped inside the text margin.
+    // Body: the note of the invoice, or the template introduction.
     let intro = invoice
         .note
         .clone()
         .filter(|note| !note.trim().is_empty())
-        .unwrap_or_else(|| {
-            "Sehr geehrte Damen und Herren, vielen Dank für Ihren Auftrag.".to_string()
-        });
+        .unwrap_or_else(|| template.header_text.clone());
     let max_lines = ((geometry.table_top - geometry.body_top - 4.0) / 4.6).floor() as usize;
     for (index, line) in wrap(&intro, right - left, 10.0)
         .iter()
@@ -494,15 +974,15 @@ fn wrap(text: &str, max_width: f64, size: f64) -> Vec<String> {
     lines
 }
 
-fn draw_table_header(page: &mut Page, geometry: &LetterGeometry, top: f64) {
+fn draw_table_header(page: &mut Page, geometry: &LetterGeometry, top: f64, accent: [f64; 3]) {
     let left = geometry.text_left();
     let right = geometry.text_right();
     let y = geometry.y(top);
-    page.text_bold(left, y, 8.0, "Pos.");
-    page.text_bold(left + mm(10.0), y, 8.0, "Bezeichnung");
-    page.text_right_bold(right - mm(38.0), y, 8.0, "Menge");
-    page.text_right_bold(right - mm(22.0), y, 8.0, "Einzelpreis");
-    page.text_right_bold(right, y, 8.0, "Betrag");
+    page.text_bold_color(left, y, 8.0, "Pos.", accent);
+    page.text_bold_color(left + mm(10.0), y, 8.0, "Bezeichnung", accent);
+    page.text_right_bold_color(right - mm(38.0), y, 8.0, "Menge", accent);
+    page.text_right_bold_color(right - mm(22.0), y, 8.0, "Einzelpreis", accent);
+    page.text_right_bold_color(right, y, 8.0, "Betrag", accent);
     page.line(left, geometry.y(top + 2.0), right, 0.6);
 }
 
@@ -540,6 +1020,7 @@ fn draw_totals(
     currency: &str,
     geometry: &LetterGeometry,
     row_y: f64,
+    template: &InvoiceTemplate,
 ) {
     let left = geometry.text_left();
     let right = geometry.text_right();
@@ -560,23 +1041,30 @@ fn draw_totals(
         &invoice.total_tax().format_localized(currency),
     );
     totals_y += 5.5;
-    page.text_right_bold(right - mm(24.0), geometry.y(totals_y), 10.0, "Gesamtbetrag");
-    page.text_right_bold(
+    page.text_right_bold_color(
+        right - mm(24.0),
+        geometry.y(totals_y),
+        10.0,
+        "Gesamtbetrag",
+        template.color(),
+    );
+    page.text_right_bold_color(
         right,
         geometry.y(totals_y),
         10.0,
         &invoice.total_gross().format_localized(currency),
+        template.color(),
     );
 
-    page.text(
-        left,
-        geometry.y(totals_y + 12.0),
-        8.5,
-        &format!(
-            "Bitte überweisen Sie den Gesamtbetrag bis zum {}.",
-            format_date(invoice.due_at)
-        ),
-    );
+    let footer = template.footer_text_for(invoice);
+    for (index, line) in wrap(&footer, right - left, 8.5).iter().take(2).enumerate() {
+        page.text(
+            left,
+            geometry.y(totals_y + 12.0 + index as f64 * 4.2),
+            8.5,
+            line,
+        );
+    }
 }
 
 fn draw_footer(
@@ -585,6 +1073,7 @@ fn draw_footer(
     geometry: &LetterGeometry,
     page_number: usize,
     page_count: usize,
+    template: &InvoiceTemplate,
 ) {
     let left = geometry.text_left();
     let right = geometry.text_right();
@@ -602,22 +1091,50 @@ fn draw_footer(
         page.text(left, geometry.y(footer_top), 7.5, &footer);
     }
 
-    let contact_line = [company.phone.as_str(), company.email.as_str()]
-        .into_iter()
-        .filter(|part| !part.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join(" · ");
+    let contact_line = [
+        company.phone.as_str(),
+        company.email.as_str(),
+        template.company.website.as_str(),
+    ]
+    .into_iter()
+    .filter(|part| !part.trim().is_empty())
+    .collect::<Vec<_>>()
+    .join(" · ");
     if !contact_line.is_empty() {
         page.text(left, geometry.y(footer_top + 3.5), 7.5, &contact_line);
     }
 
-    if !company.tax_id.trim().is_empty() {
-        page.text(
-            left,
-            geometry.y(footer_top + 7.0),
-            7.5,
-            &format!("Steuernummer: {}", company.tax_id),
-        );
+    let tax_line = [
+        (!company.tax_id.trim().is_empty())
+            .then(|| format!("Steuernummer: {}", company.tax_id.trim())),
+        (!template.company.vat_id.trim().is_empty())
+            .then(|| format!("USt-IdNr.: {}", template.company.vat_id.trim())),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" · ");
+    if !tax_line.is_empty() {
+        page.text(left, geometry.y(footer_top + 7.0), 7.5, &tax_line);
+    }
+    let bank_line = [
+        company.bank_name.trim(),
+        company.iban.trim(),
+        company.bic.trim(),
+    ]
+    .into_iter()
+    .filter(|part| !part.is_empty())
+    .collect::<Vec<_>>()
+    .join(" · ");
+    if !bank_line.is_empty() {
+        page.text(left, geometry.y(footer_top + 14.0), 7.0, &bank_line);
+    }
+    if !template.tax_note.trim().is_empty() {
+        let note = wrap(template.tax_note.trim(), right - left, 7.0)
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+        page.text(left, geometry.y(footer_top + 10.5), 7.0, &note);
     }
     page.text_right(
         right,
@@ -658,6 +1175,43 @@ fn draw_tokens(
     }
 }
 
+/// Draws the TypeScript stationery tokens as percentage-positioned text over the letterhead.
+///
+/// Positions are percentages of the A4 page, the font size is CSS pixels at 96 dpi, and the text
+/// sits above the background but below the invoice body. Tokens belong to the letterhead sheet, so
+/// they are drawn on the first page only. Wrapping, alignment and line offsets come from
+/// [`layout_stationery_token`], the same function the template preview uses.
+fn draw_stationery_tokens(
+    page: &mut Page,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    geometry: &LetterGeometry,
+    template: &InvoiceTemplate,
+) {
+    let currency = if company.currency.trim().is_empty() {
+        "€"
+    } else {
+        company.currency.as_str()
+    };
+    for (token, text) in template.stationery_token_texts(invoice, recipient, company, currency) {
+        let layout = layout_stationery_token(&token, &text);
+        let size = layout.font_size_pt;
+        let color = token.color_rgb();
+        for line in layout.lines {
+            if line.text.is_empty() {
+                continue;
+            }
+            let y = geometry.y(line.baseline_mm);
+            if token.bold() {
+                page.text_bold_color(line.x_pt, y, size, &line.text, color);
+            } else {
+                page.text_color(line.x_pt, y, size, &line.text, color);
+            }
+        }
+    }
+}
+
 /// Renders an invoice with its layout and writes it to `path`.
 pub fn write_invoice_pdf_with_layout(
     path: &Path,
@@ -666,7 +1220,27 @@ pub fn write_invoice_pdf_with_layout(
     company: &CompanyProfile,
     layout: &DocumentLayout,
 ) -> CoreResult<()> {
-    let bytes = render_invoice_pdf_with_layout(invoice, recipient, company, layout);
+    write_invoice_pdf_with_layout_and_template(
+        path,
+        invoice,
+        recipient,
+        company,
+        layout,
+        &default_template(),
+    )
+}
+
+/// Renders an invoice with a letterhead layout and template and writes it to `path`.
+pub fn write_invoice_pdf_with_layout_and_template(
+    path: &Path,
+    invoice: &Invoice,
+    recipient: &Contact,
+    company: &CompanyProfile,
+    layout: &DocumentLayout,
+    template: &InvoiceTemplate,
+) -> CoreResult<()> {
+    let bytes =
+        render_invoice_pdf_with_layout_and_template(invoice, recipient, company, layout, template);
     std::fs::write(path, bytes)?;
     Ok(())
 }
@@ -1041,6 +1615,74 @@ mod tests {
     }
 
     #[test]
+    fn flex_and_grid_containers_print_on_the_planned_slots() {
+        let rendered = crate::rich_html::parse(
+            "<div style=\"display:flex;justify-content:space-between\">\
+               <div>Links</div><div>Rechts</div></div>\
+             <div style=\"display:grid;grid-template-columns:repeat(4, 1fr);gap:16px\">\
+               <div>Eins</div><div>Zwei</div><div>Drei</div><div>Vier</div></div>",
+        );
+        let geometry = LetterGeometry::form_b();
+        let left = geometry.text_left();
+        let width = geometry.text_right() - left;
+        let mut document = Document::new("Test");
+        let mut distance = 24.0;
+        draw_rich_blocks(
+            &mut document,
+            &geometry,
+            left,
+            width,
+            &mut distance,
+            &rendered.blocks,
+        );
+        let placed = placed_text(&document.to_bytes());
+
+        let RichBlock::Container(header) = &rendered.blocks[0] else {
+            panic!("flex header");
+        };
+        let header_layout = layout_container(header, width as f32);
+        let right_slot = &header_layout.rows[0].slots[1];
+        let link = find(&placed, "Links");
+        let right = find(&placed, "Rechts");
+        assert!(
+            close(
+                link.x,
+                to_mm(left + f64::from(header_layout.rows[0].slots[0].x))
+            ),
+            "{} vs {:?}",
+            link.x,
+            header_layout.rows[0].slots[0]
+        );
+        assert!(
+            close(right.x, to_mm(left + f64::from(right_slot.x))),
+            "{} vs {:?}",
+            right.x,
+            right_slot
+        );
+        assert!(close(link.y, right.y), "{} vs {}", link.y, right.y);
+
+        let RichBlock::Container(grid) = &rendered.blocks[1] else {
+            panic!("grid footer");
+        };
+        let grid_layout = layout_container(grid, width as f32);
+        let labels = ["Eins", "Zwei", "Drei", "Vier"];
+        for (index, label) in labels.iter().enumerate() {
+            let slot = &grid_layout.rows[0].slots[index];
+            let text = find(&placed, label);
+            assert!(
+                close(text.x, to_mm(left + f64::from(slot.x))),
+                "{label}: {} vs {:?}",
+                text.x,
+                slot
+            );
+            assert!(
+                close(text.y, find(&placed, "Eins").y),
+                "{label} must sit on the grid row"
+            );
+        }
+    }
+
+    #[test]
     fn draws_fold_and_hole_marks_in_the_binding_margin() {
         let geometry = LetterGeometry::form_b();
         let bytes = render_invoice_pdf(&sample_invoice(), &sample_recipient(), &sample_company());
@@ -1222,6 +1864,24 @@ mod tests {
     }
 
     #[test]
+    fn applies_the_print_template_to_the_document() {
+        let mut template = default_template();
+        template.header_title = "Honorar".to_string();
+        template.primary_color = "#ff0000".to_string();
+        template.footer_text = "Zahlbar bis {Faelligkeitsdatum}.".to_string();
+        let bytes = render_invoice_pdf_with_template(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &template,
+        );
+        let text = String::from_utf8(bytes).expect("pdf is ascii");
+        assert!(text.contains("Honorar Nr. 2026-0001"));
+        assert!(text.contains("1.000 0.000 0.000 rg"));
+        assert!(text.contains("Zahlbar bis"));
+    }
+
+    #[test]
     fn references_a_valid_xref_table() {
         let bytes = render_invoice_pdf(&sample_invoice(), &sample_recipient(), &sample_company());
         let text = String::from_utf8(bytes).expect("pdf is ascii");
@@ -1290,6 +1950,88 @@ mod tests {
         assert!(text.contains("M\\374ller & S\\366hne GmbH"));
         assert!(text.contains("Rechnung Nr. 2026-0001"));
         assert!(text.ends_with("%%EOF\n"));
+
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn embeds_template_logo_and_pdf_stationery() {
+        let directory = std::env::temp_dir().join(format!("socdof-template-{}", Uuid::new_v4()));
+        let logo = sample_png(&directory);
+        let logo_url = crate::invoice_template::file_to_data_url(&logo).expect("logo url");
+
+        let mut template = default_template();
+        template.logo = logo_url;
+        template.company.name = "Vorlagen GmbH".to_string();
+        template.company.vat_id = "DE123456789".to_string();
+        let first = render_invoice_pdf_with_template(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &template,
+        );
+        let first_text = String::from_utf8_lossy(&first);
+        assert!(first_text.contains("/Subtype /Image"));
+        assert!(first_text.contains("Vorlagen GmbH"));
+
+        // Use the embedded raster image of the first PDF as stationery for a second invoice.
+        let stationery_path = directory.join("stationery.pdf");
+        std::fs::write(&stationery_path, &first).expect("write stationery");
+        template.stationery_mode = true;
+        template.stationery_source =
+            crate::invoice_template::file_to_data_url(&stationery_path).expect("stationery url");
+        template.logo.clear();
+        let second = render_invoice_pdf_with_layout_and_template(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &DocumentLayout::default(),
+            &template,
+        );
+        let second_text = String::from_utf8_lossy(&second);
+        assert!(second_text.contains("/Subtype /Image"));
+        assert!(second_text.contains("/Bg Do"));
+        assert!(second_text.contains("Vorlagen GmbH"));
+
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn custom_html_renders_formatted_blocks_table_and_footer() {
+        let directory = std::env::temp_dir().join(format!("socdof-rich-{}", Uuid::new_v4()));
+        let logo_path = sample_png(&directory);
+        let logo_url = crate::invoice_template::file_to_data_url(&logo_path).expect("logo url");
+        let mut template = default_template();
+        template.logo = logo_url;
+        template.company.name = "Vorlagen GmbH".to_string();
+        let stationery_pdf = render_invoice_pdf_with_template(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &template,
+        );
+        let stationery_path = directory.join("stationery.pdf");
+        std::fs::write(&stationery_path, &stationery_pdf).expect("stationery");
+        template.stationery_mode = true;
+        template.stationery_source =
+            crate::invoice_template::file_to_data_url(&stationery_path).expect("stationery url");
+        template.use_custom_layout = true;
+        template.custom_body_template = "<h1 style=\"color:#2563eb\">Honorar</h1><p>Für <strong>{Kunde_Name}</strong></p>{Positionen_Tabelle}<p style=\"text-align:center;color:#64748b\">{Fusszeile}</p>"
+            .to_string();
+
+        let bytes = render_invoice_pdf_with_template(
+            &sample_invoice(),
+            &sample_recipient(),
+            &sample_company(),
+            &template,
+        );
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("/Subtype /Image"));
+        assert!(text.contains("/Bg Do"));
+        let placed = placed_text(&bytes);
+        assert!(placed.iter().any(|entry| entry.text.contains("Honorar")));
+        assert!(placed.iter().any(|entry| entry.text.contains("Beratung")));
+        assert!(placed.iter().any(|entry| entry.text.contains("Bitte")));
 
         let _ = std::fs::remove_dir_all(directory);
     }

@@ -42,6 +42,25 @@ impl DunningLevel {
         }
     }
 
+    /// Stable storage representation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DunningLevel::Reminder => "reminder",
+            DunningLevel::First => "first",
+            DunningLevel::Last => "last",
+        }
+    }
+
+    /// Parses the storage representation, the level number or the English name.
+    pub fn from_storage(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "reminder" | "1" => Some(DunningLevel::Reminder),
+            "first" | "2" => Some(DunningLevel::First),
+            "last" | "3" => Some(DunningLevel::Last),
+            _ => None,
+        }
+    }
+
     /// Default dunning fee of the level.
     pub fn fee_cents(self) -> i64 {
         match self {

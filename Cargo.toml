@@ -6,7 +6,7 @@ members = ["crates/core", "crates/app", "crates/ui", "crates/cli", "crates/web"]
 exclude = ["crates/app/src-tauri"]
 
 [workspace.package]
-version = "0.30.0"
+version = "26.0.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -26,6 +26,8 @@ egui = "0.27.2"
 eframe = "0.27.2"
 # Lossless PNG decoding for the bundled desktop wallpapers.
 png = "0.17"
+# Native file picker of the desktop window host (optional, only with the ui `window` feature).
+rfd = { version = "0.14.1", default-features = false, features = ["xdg-portal", "async-std"] }
 # Browser host: eframe's web runner plus the wasm-bindgen glue of the funded web target.
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

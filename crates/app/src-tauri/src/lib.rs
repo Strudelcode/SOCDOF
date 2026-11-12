@@ -17,10 +17,10 @@ use socdof_app::startup::{SplashAction, StartupHandshake};
 use socdof_app::tray::{self, TrayCommand};
 use socdof_app::window_state::{self, ScreenBounds, WindowGeometry};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder, Window,
-    WindowEvent,
+    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
 };
 
 /// Environment variable that marks a CI smoke run.
@@ -35,7 +35,7 @@ fn smoke_mode() -> bool {
 }
 
 /// Reads the current geometry of `window`, in physical pixels.
-fn geometry_of(window: &Window) -> Option<WindowGeometry> {
+fn geometry_of(window: &WebviewWindow) -> Option<WindowGeometry> {
     let size = window.inner_size().ok()?;
     let position = window.outer_position().ok()?;
     Some(WindowGeometry {
@@ -49,7 +49,7 @@ fn geometry_of(window: &Window) -> Option<WindowGeometry> {
 }
 
 /// Rectangle of the monitor the window currently sits on.
-fn screen_of(window: &Window) -> ScreenBounds {
+fn screen_of(window: &WebviewWindow) -> ScreenBounds {
     match window.current_monitor() {
         Ok(Some(monitor)) => ScreenBounds {
             x: monitor.position().x,
@@ -62,7 +62,7 @@ fn screen_of(window: &Window) -> ScreenBounds {
 }
 
 /// Applies a stored geometry to the window.
-fn apply_geometry(window: &Window, geometry: &WindowGeometry) {
+fn apply_geometry(window: &WebviewWindow, geometry: &WindowGeometry) {
     let _ = window.set_size(PhysicalSize::new(geometry.width, geometry.height));
     let _ = window.set_position(PhysicalPosition::new(geometry.x, geometry.y));
     if geometry.maximized {
@@ -97,7 +97,7 @@ fn show_splash(app: &AppHandle) {
 
 /// Closes the splash window and reports it once.
 fn close_splash(app: &AppHandle) {
-    if let Some(splash) = app.get_window("splash") {
+    if let Some(splash) = app.get_webview_window("splash") {
         if smoke_mode() {
             println!("SOCDOF_SPLASH splash_window=closed");
         }
@@ -107,7 +107,7 @@ fn close_splash(app: &AppHandle) {
 
 /// Shows and focuses the main window, optionally in its error state.
 fn show_main(app: &AppHandle, error: Option<&str>) {
-    if let Some(main) = app.get_window("main") {
+    if let Some(main) = app.get_webview_window("main") {
         if let Some(reason) = error {
             let _ = main.set_title(&format!("SOCDOF — start failed: {reason}"));
         }
@@ -142,7 +142,7 @@ fn apply_action(app: &AppHandle, action: SplashAction, handshake: &StartupHandsh
 }
 
 /// Writes the geometry of `window` to the state file next to the database.
-fn persist(window: &Window) {
+fn persist(window: &WebviewWindow) {
     let Ok(data_dir) = window.path().app_data_dir() else {
         return;
     };
@@ -232,6 +232,19 @@ fn create_tray(app: &AppHandle, locale: &str) -> tauri::Result<()> {
             if let Some(command) = tray::command_for(&id) {
                 run_tray_command(app, &id, command);
             }
+        })
+        .on_tray_icon_event(|tray, event| {
+            // Windows and macOS emit icon clicks; Linux status notifiers only provide the menu.
+            // Both paths use the same ShowWindow command as the menu entry.
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let (entry_id, command) = tray::icon_click();
+                run_tray_command(tray.app_handle(), entry_id, command);
+            }
         });
     if let Some(icon) = app.default_window_icon().cloned() {
         builder = builder.icon(icon);
@@ -284,7 +297,7 @@ pub fn run() {
 
             let path = window_state::state_path(&data_dir);
             let stored = window_state::load(&path);
-            if let Some(window) = app.get_window("main") {
+            if let Some(window) = app.get_webview_window("main") {
                 let geometry = stored
                     .clone()
                     .unwrap_or_default()
@@ -306,9 +319,6 @@ pub fn run() {
                     );
                 }
             }
-            if smoke_mode() && std::env::var_os("SOCDOF_SMOKE_DIALOGS").is_some() {
-                commands::dialog_smoke();
-            }
 
             let locale = system_locale();
             match create_tray(&handle, &locale) {
@@ -319,23 +329,80 @@ pub fn run() {
                 }
                 Err(error) => eprintln!("SOCDOF_TRAY tray_icon=failed {error}"),
             }
-            if smoke_mode() && std::env::var_os("SOCDOF_SMOKE_TRAY").is_some() {
-                commands::tray_smoke(&handle);
-            }
             Ok(())
         })
         .on_window_event(|window, event| {
             if matches!(event, WindowEvent::CloseRequested { .. }) {
-                persist(window);
+                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                    persist(&webview);
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
             commands::database_status,
+            commands::dashboard,
+            commands::users,
+            commands::save_user,
+            commands::delete_user,
+            commands::login_user,
+            commands::storage_inspector,
             commands::create_backup,
+            commands::backup_files,
+            commands::save_backup_to_disk,
+            commands::open_backup_folder,
+            commands::select_backup_folder,
+            commands::company_profile,
+            commands::save_company_profile,
+            commands::journal_entries,
+            commands::journal_summary,
+            commands::journal_cash_book,
+            commands::save_journal_entry,
+            commands::delete_journal_entry,
+            commands::export_journal_csv,
+            commands::purchase_orders,
+            commands::save_purchase_order,
+            commands::delete_purchase_order,
+            commands::set_purchase_order_status,
+            commands::receive_purchase_order,
+            commands::report,
+            commands::app_store_modules,
+            commands::app_store_set_active,
+            commands::verify_backup,
+            commands::restore_backup,
+            commands::appointments,
+            commands::save_appointment,
+            commands::delete_appointment,
+            commands::list_documents,
+            commands::save_document,
+            commands::delete_document,
+            commands::textwerk_open_dialog,
+            commands::textwerk_save_dialog,
+            commands::window_is_fullscreen,
+            commands::window_set_fullscreen,
+            commands::window_toggle_fullscreen,
+            commands::window_is_maximized,
+            commands::window_toggle_maximize,
+            commands::window_close,
+            commands::window_minimize,
+            commands::invoice_templates,
+            commands::save_invoice_templates,
+            commands::template_token_keys,
+            commands::template_default_stationery_tokens,
+            commands::list_invoices,
+            commands::invoice_detail,
+            commands::invoice_defaults,
+            commands::save_invoice,
+            commands::delete_invoice,
+            commands::set_invoice_status,
+            commands::invoice_preview,
+            commands::export_invoice,
             commands::list_contacts,
             commands::create_contact,
             commands::update_contact,
             commands::delete_contact,
+            commands::export_contacts_csv,
+            commands::import_contacts_csv,
+            commands::export_contacts_vcf,
             commands::search_countries,
             commands::product_label,
             commands::reorder_plan,
@@ -349,14 +416,70 @@ pub fn run() {
             commands::export_legacy_backup,
             commands::smoke_enabled,
             commands::smoke_idle,
+            commands::smoke_options,
+            commands::smoke_tray_run,
             commands::dispatch_shortcut,
             commands::pick_folder,
             commands::pick_open_file,
             commands::pick_save_file,
             commands::show_message,
+            commands::confirm_message,
+            commands::list_external_templates,
+            commands::read_external_template,
+            commands::list_external_languages,
+            commands::list_available_flags,
+            commands::save_external_language,
+            commands::external_folder_path,
+            commands::open_external_folder,
             commands::finish_smoke,
-            commands::abort_smoke
+            commands::smoke_ui_marker,
+            commands::abort_smoke,
+            commands::invoice_dunning,
+            commands::invoice_mail_draft,
+            commands::invoice_payment,
+            commands::record_invoice_payment,
+            commands::export_invoice_eml,
+            commands::contact_mail_draft,
+            commands::export_contact_eml,
+            commands::invoice_fattura,
+            commands::export_invoice_fattura,
+            commands::fleet_overview,
+            commands::save_fleet_vehicle,
+            commands::delete_fleet_vehicle,
+            commands::save_fleet_trip,
+            commands::delete_fleet_trip,
+            commands::save_fleet_fuel,
+            commands::delete_fleet_fuel,
+            commands::export_fleet_csv,
+            commands::project_overview,
+            commands::save_project,
+            commands::delete_project,
+            commands::save_project_task,
+            commands::set_project_task_status,
+            commands::delete_project_task,
+            commands::export_projects_csv,
+            commands::project_persistence,
+            commands::create_project_invoice,
+            commands::restaurant_overview,
+            commands::save_restaurant_menu_item,
+            commands::delete_restaurant_menu_item,
+            commands::add_restaurant_item,
+            commands::set_restaurant_order_item_qty,
+            commands::set_restaurant_order_item_notes,
+            commands::set_restaurant_order_server,
+            commands::set_restaurant_order_status,
+            commands::delete_restaurant_order,
+            commands::restaurant_checkout,
+            commands::export_restaurant_csv,
+            commands::restaurant_persistence
         ])
-        .run(tauri::generate_context!())
-        .expect("SOCDOF window failed to start");
+        .build(tauri::generate_context!())
+        .expect("SOCDOF window failed to start")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(state) = app.try_state::<DesktopState>() {
+                    state.release_lock();
+                }
+            }
+        });
 }

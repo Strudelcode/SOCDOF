@@ -100,6 +100,11 @@ impl Shell {
         self.started_at
     }
 
+    /// Removes the lock file before the process exits through a path that skips destructors.
+    pub fn release_lock(&self) {
+        self.lock.release();
+    }
+
     /// Refreshes the lock heartbeat; the window loop calls this periodically.
     pub fn heartbeat(&mut self) -> CoreResult<()> {
         self.lock.heartbeat(now_millis())

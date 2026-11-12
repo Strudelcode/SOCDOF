@@ -62,6 +62,10 @@ pub enum DialogOutcome {
     Acknowledged,
     /// The user cancelled or closed the dialog.
     Cancelled,
+    /// A yes/no confirmation was accepted.
+    Confirmed,
+    /// A yes/no confirmation was declined.
+    Declined,
 }
 
 /// Why a selection cannot be used.
@@ -158,6 +162,18 @@ pub fn resolve(
     }
 }
 
+/// Resolves the answer of a native yes/no confirmation.
+///
+/// `None` means the box was closed without an answer; `Some(true)` is the yes button. This is the
+/// only decision the caller sees, exactly like `confirm()` in the TypeScript webview.
+pub fn resolve_confirm(answer: Option<bool>) -> DialogOutcome {
+    match answer {
+        Some(true) => DialogOutcome::Confirmed,
+        Some(false) => DialogOutcome::Declined,
+        None => DialogOutcome::Cancelled,
+    }
+}
+
 /// Smoke marker for a dialog result, e.g.
 /// `SOCDOF_DIALOG kind=folder outcome=chosen path=/tmp/x`.
 pub fn marker(kind: &DialogKind, outcome: &Result<DialogOutcome, DialogError>) -> String {
@@ -172,6 +188,12 @@ pub fn marker(kind: &DialogKind, outcome: &Result<DialogOutcome, DialogError>) -
         }
         Ok(DialogOutcome::Cancelled) => {
             format!("SOCDOF_DIALOG kind={} outcome=cancelled", kind.as_str())
+        }
+        Ok(DialogOutcome::Confirmed) => {
+            format!("SOCDOF_DIALOG kind={} outcome=confirmed", kind.as_str())
+        }
+        Ok(DialogOutcome::Declined) => {
+            format!("SOCDOF_DIALOG kind={} outcome=declined", kind.as_str())
         }
         Err(error) => format!(
             "SOCDOF_DIALOG kind={} outcome=error reason={}",
@@ -284,6 +306,13 @@ mod tests {
             Err(DialogError::ParentMissing)
         );
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_confirmation_returns_yes_no_or_cancelled() {
+        assert_eq!(resolve_confirm(Some(true)), DialogOutcome::Confirmed);
+        assert_eq!(resolve_confirm(Some(false)), DialogOutcome::Declined);
+        assert_eq!(resolve_confirm(None), DialogOutcome::Cancelled);
     }
 
     #[test]

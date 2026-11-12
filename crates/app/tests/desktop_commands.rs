@@ -279,3 +279,72 @@ fn desktop_commands_report_schema_and_write_backup() {
 
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn desktop_commands_roundtrip_stationery_tokens() {
+    use socdof_core::invoice_template::default_stationery_tokens;
+
+    let dir = temp_dir("templates");
+    let state = DesktopState::open(dir.join("socdof.db")).expect("desktop state opens");
+
+    let mut book = state.invoice_templates().expect("load templates");
+    assert!(book
+        .templates
+        .iter()
+        .all(|template| template.stationery_tokens.is_empty()));
+
+    book.templates[0].stationery_tokens = default_stationery_tokens();
+    state.save_invoice_templates(&book).expect("save templates");
+
+    let loaded = state.invoice_templates().expect("reload templates");
+    assert_eq!(loaded, book);
+    assert_eq!(loaded.templates[0].stationery_tokens.len(), 7);
+    assert_eq!(
+        loaded.templates[0].stationery_tokens[0].token_key,
+        "{Rechnungsnummer}"
+    );
+    assert_eq!(
+        loaded.templates[0].stationery_tokens[5].width_pct,
+        Some(80.0)
+    );
+}
+
+#[test]
+fn desktop_commands_roundtrip_loaded_template_assets() {
+    use socdof_core::invoice_template::{
+        default_stationery_tokens, template_asset_from_bytes, TemplateAssetKind,
+    };
+
+    let dir = temp_dir("template-assets");
+    let state = DesktopState::open(dir.join("socdof.db")).expect("desktop state opens");
+    let png = {
+        let mut bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut bytes, 2, 2);
+            encoder.set_color(png::ColorType::Rgb);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().expect("png header");
+            writer.write_image_data(&[255u8; 12]).expect("png data");
+        }
+        bytes
+    };
+    let logo =
+        template_asset_from_bytes(TemplateAssetKind::Logo, "logo.png", &png).expect("logo asset");
+    let stationery =
+        template_asset_from_bytes(TemplateAssetKind::Stationery, "briefpapier.png", &png)
+            .expect("stationery asset");
+
+    let mut book = state.invoice_templates().expect("load templates");
+    book.templates[0].logo = logo.data_url;
+    book.templates[0].show_logo = true;
+    book.templates[0].stationery_source = stationery.data_url;
+    book.templates[0].stationery_mode = true;
+    book.templates[0].stationery_tokens = default_stationery_tokens();
+    state.save_invoice_templates(&book).expect("save templates");
+
+    let loaded = state.invoice_templates().expect("reload templates");
+    assert_eq!(loaded, book);
+    assert!(loaded.templates[0].logo_image().is_some());
+    assert!(loaded.templates[0].stationery_image().is_some());
+    let _ = std::fs::remove_dir_all(dir);
+}

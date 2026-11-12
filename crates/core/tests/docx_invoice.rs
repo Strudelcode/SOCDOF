@@ -11,6 +11,7 @@ use socdof_core::docx::{self, Block, DocxError};
 use socdof_core::domain::contact::{Contact, ContactKind};
 use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
 use socdof_core::domain::settings::CompanyProfile;
+use socdof_core::invoice_template::default_template;
 use socdof_core::money::Money;
 use uuid::Uuid;
 
@@ -232,6 +233,35 @@ fn a_long_invoice_keeps_every_position() {
     let positions = tables(&document)[0];
     assert_eq!(positions.rows.len(), 61, "one header plus sixty positions");
     assert_eq!(positions.cell(60, 1), "Posten 60");
+}
+
+#[test]
+fn template_word_export_uses_company_and_custom_html() {
+    let (invoice, recipient, company) = sample();
+    let mut template = default_template();
+    template.company.name = "Vorlagen GmbH".to_string();
+    template.company.vat_id = "DE123456789".to_string();
+    template.header_title = "Honorar".to_string();
+    template.use_custom_layout = true;
+    template.custom_body_template = "<h1>Honorar</h1><p><strong>{Firma_Name}</strong> · {Rechnungsnummer} · {Gesamtbetrag} · USt-IdNr.: {Firma_UStId}</p>{Positionen_Tabelle}<p>{Fusszeile}</p>"
+        .to_string();
+
+    let document = docx::invoice_document_with_template(&invoice, &recipient, &company, &template);
+    assert_eq!(document.metadata.creator, "Vorlagen GmbH");
+    assert_eq!(document.headings()[0].1, "Honorar");
+    let table = document.first_table().expect("positions table");
+    assert_eq!(table.rows.len(), 3, "one header plus two positions");
+    assert_eq!(table.cell(1, 1), "Beratung");
+    let text = document.plain_text();
+    assert!(text.contains("Vorlagen GmbH"), "{text}");
+    assert!(text.contains("2026-0001"), "{text}");
+    assert!(text.contains("USt-IdNr.: DE123456789"), "{text}");
+    assert!(text.contains("Bitte überweisen"), "{text}");
+
+    let bytes = docx::invoice_docx_bytes_with_template(&invoice, &recipient, &company, &template)
+        .expect("package");
+    let read = docx::read_docx(&bytes).expect("reads back");
+    assert_eq!(read.plain_text(), document.plain_text());
 }
 
 #[test]

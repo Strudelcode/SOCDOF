@@ -7,14 +7,21 @@ export type Language = "de" | "en" | "fr" | "es";
 export type TranslationKey = keyof typeof de;
 
 const packs: Record<Language, Record<TranslationKey, string>> = { de, en, fr, es };
+const externalPacks: Partial<Record<Language, Record<string, string>>> = {};
+
+/// Overlays a language pack read from the external `languages/` folder over the embedded texts.
+export function setExternalPack(language: Language, translations: Record<string, string>): void {
+  externalPacks[language] = translations;
+}
 
 export function detectLanguage(): Language {
-  const requested = (navigator.language || "en").slice(0, 2).toLowerCase();
-  return requested in packs ? (requested as Language) : "en";
+  const stored = (localStorage.getItem("socdof.language") || "").toLowerCase();
+  const requested = stored || "de";
+  return requested in packs ? (requested as Language) : "de";
 }
 
 export function translate(language: Language, key: TranslationKey): string {
-  return packs[language][key] ?? packs.en[key];
+  return externalPacks[language]?.[key] ?? packs[language][key] ?? packs.en[key];
 }
 
 export function format(template: string, values: Record<string, string>): string {

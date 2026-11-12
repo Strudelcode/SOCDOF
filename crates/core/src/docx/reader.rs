@@ -24,6 +24,9 @@ pub fn read(bytes: &[u8]) -> Result<Document, DocxError> {
     Ok(Document {
         blocks,
         metadata: metadata(bytes)?,
+        logo: None,
+        stationery: None,
+        tokens: Vec::new(),
     })
 }
 
