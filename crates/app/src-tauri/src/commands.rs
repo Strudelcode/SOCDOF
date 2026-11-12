@@ -13,8 +13,10 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use socdof_app::desktop::{
     AppStoreModuleView, AppointmentInput, BackupFileView, BackupReport, ContactInput, DesktopState,
-    DocumentInput, DashboardView, JournalInput, ProductInput, PurchaseInput, RestoreReport,
-    StorageInspectorView, UserInput, UserView,
+    DocumentInput, DashboardView, JournalInput, PosInput, PosOverviewView, PosView, ProductInput,
+    PurchaseInput, RestoreReport, StorageInspectorView, SupportTicketInput, SupportTimeInput,
+    TherapyClientInput, TherapySessionInput,
+    UserInput, UserView,
 };
 use socdof_app::dialogs::{self, DialogKind, DialogOutcome};
 use socdof_app::external_assets::{
@@ -114,6 +116,110 @@ pub fn dashboard(
     state
         .dashboard(from, to, now)
         .map_err(|error| error.to_string())
+}
+
+/// Lists POS receipts and summarizes the requested period.
+#[tauri::command]
+pub fn pos_overview(
+    state: tauri::State<'_, DesktopState>,
+    from: i64,
+    to: i64,
+    query: Option<String>,
+) -> Result<PosOverviewView, String> {
+    state
+        .pos_overview(from, to, query.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+/// Stores a POS receipt.
+#[tauri::command]
+pub fn save_pos(
+    state: tauri::State<'_, DesktopState>,
+    input: PosInput,
+) -> Result<PosView, String> {
+    state.save_pos(&input).map_err(|error| error.to_string())
+}
+
+/// Cancels a POS receipt.
+#[tauri::command]
+pub fn cancel_pos(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state.cancel_pos(id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn support_tickets(
+    state: tauri::State<'_, DesktopState>,
+    query: Option<String>,
+) -> Result<Vec<socdof_core::domain::support::SupportTicket>, String> {
+    state.support_tickets(query.as_deref()).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_support_ticket(
+    state: tauri::State<'_, DesktopState>,
+    input: SupportTicketInput,
+) -> Result<socdof_core::domain::support::SupportTicket, String> {
+    state.save_support_ticket(&input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_support_ticket_status(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+    status: String,
+) -> Result<socdof_core::domain::support::SupportTicket, String> {
+    state.set_support_ticket_status(id, &status).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_support_ticket(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state.delete_support_ticket(id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn support_time_entries(
+    state: tauri::State<'_, DesktopState>,
+    ticket_id: Uuid,
+) -> Result<Vec<socdof_core::domain::support::TimeEntry>, String> {
+    state.support_time_entries(ticket_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_support_time(
+    state: tauri::State<'_, DesktopState>,
+    input: SupportTimeInput,
+) -> Result<socdof_core::domain::support::TimeEntry, String> {
+    state.save_support_time(&input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn therapy_clients(state: tauri::State<'_, DesktopState>) -> Result<Vec<socdof_core::domain::therapy::TherapyClient>, String> {
+    state.therapy_clients().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_therapy_client(state: tauri::State<'_, DesktopState>, input: TherapyClientInput) -> Result<socdof_core::domain::therapy::TherapyClient, String> {
+    state.save_therapy_client(&input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn therapy_sessions(state: tauri::State<'_, DesktopState>, client_id: Uuid) -> Result<Vec<socdof_core::domain::therapy::TherapySession>, String> {
+    state.therapy_sessions(client_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_therapy_client(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state.delete_therapy_client(id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_therapy_session(state: tauri::State<'_, DesktopState>, input: TherapySessionInput) -> Result<socdof_core::domain::therapy::TherapySession, String> {
+    state.save_therapy_session(&input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_therapy_session(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state.delete_therapy_session(id).map_err(|error| error.to_string())
 }
 
 /// Returns the schema version, row counts and lock owner of the open database.

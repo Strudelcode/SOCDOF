@@ -20,6 +20,9 @@ import { initAccounting, loadAccounting } from "./accounting";
 import { initPurchases, loadPurchases } from "./purchases";
 import { initReports, loadReports } from "./reports";
 import { runRestaurantSmoke } from "./restaurant_smoke";
+import { sounds } from "./sound";
+import { initSupport, loadSupport } from "./support";
+import { initTherapy, loadTherapy } from "./therapy";
 import { runBackofficeSmoke } from "./backoffice_smoke";
 import { applyTranslations, detectLanguage, format, translate, type TranslationKey } from "./i18n";
 import { initExternalAssets, loadExternalAssets } from "./external_assets";
@@ -310,6 +313,39 @@ interface ProjectPersistenceView {
   code: string;
 }
 
+interface PosLineView {
+  description: string;
+  quantity_milli: number;
+  unit_price_cents: number;
+  gross_cents: number;
+}
+
+interface PosView {
+  id: string;
+  receipt_number: string;
+  payment_method: string;
+  paid_at: number;
+  note: string | null;
+  lines: PosLineView[];
+  net_cents: number;
+  tax_cents: number;
+  gross_cents: number;
+  cash_given_cents: number | null;
+  change_cents: number | null;
+}
+
+interface PosOverviewView {
+  receipts: PosView[];
+  summary: {
+    receipts: number;
+    net_cents: number;
+    tax_cents: number;
+    gross_cents: number;
+    cash_cents: number;
+    card_cents: number;
+  };
+}
+
 type View =
   | "dashboard"
   | "contacts"
@@ -319,7 +355,10 @@ type View =
   | "invoices"
   | "fleet"
   | "projects"
+  | "pos"
   | "restaurant"
+  | "support"
+  | "therapy"
   | "settings"
   | "documents"
   | "calendar"
@@ -547,7 +586,10 @@ const views: Record<View, HTMLElement> = {
   invoices: byId<HTMLElement>("view-invoices"),
   fleet: byId<HTMLElement>("view-fleet"),
   projects: byId<HTMLElement>("view-projects"),
+  pos: byId<HTMLElement>("view-pos"),
   restaurant: byId<HTMLElement>("view-restaurant"),
+  support: byId<HTMLElement>("view-support"),
+  therapy: byId<HTMLElement>("view-therapy"),
   settings: byId<HTMLElement>("view-settings"),
   documents: byId<HTMLElement>("view-documents"),
   calendar: byId<HTMLElement>("view-calendar"),
@@ -921,6 +963,329 @@ function updateViewHeader(view: View): void {
   }
 }
 
+async function loadPos(): Promise<void> {
+  const view = byId<HTMLElement>("view-pos");
+  const posT = (key: TranslationKey): string => translate(language, key);
+  view.innerHTML = `
+    <section class="pos-screen">
+      <div class="pos-mobile-tabs"><button id="pos-tab-catalog" class="pos-mobile-tab is-active" type="button">${posT("posCatalog")}</button><button id="pos-tab-cart" class="pos-mobile-tab" type="button">${posT("posCart")}</button></div>
+      <div class="pos-catalog">
+        <div class="pos-controls">
+          <label class="pos-search"><span aria-hidden="true">⌕</span><input id="pos-search" type="search" placeholder="${posT("posSearch")}"></label>
+          <form id="pos-scan-form" class="pos-scan"><input id="pos-barcode" type="search" placeholder="${posT("posScan")}"><button class="primary" type="submit">${posT("posScan")}</button></form>
+          <div id="pos-categories" class="pos-categories"></div>
+        </div>
+        <div id="pos-products" class="pos-products"></div>
+        <div id="pos-pos-message" class="message" role="status"></div>
+      </div>
+      <aside class="pos-cart">
+        <div class="pos-cart-head"><h2>${posT("posCart")}</h2><button id="pos-clear" class="link-button" type="button">${posT("posClear")}</button></div>
+        <label class="pos-customer"><span>${posT("posWalkIn")}</span><select id="pos-customer"><option value="">${posT("posWalkIn")}</option></select></label>
+        <div id="pos-cart-lines" class="pos-cart-lines"></div>
+        <div class="pos-totals"><div><span>${posT("posSubtotal")}</span><strong id="pos-subtotal"></strong></div><div><span>${posT("posTax")}</span><strong id="pos-tax"></strong></div><div class="pos-total"><span>${posT("posTotal")}</span><strong id="pos-total"></strong></div></div>
+        <button id="pos-checkout" class="pos-checkout" type="button" disabled>${posT("posCheckout")}</button>
+      </aside>
+    </section>
+    <section class="card pos-history"><div class="toolbar"><h2>${posT("posRecent")}</h2><button id="pos-refresh" class="secondary" type="button">${posT("posRefresh")}</button></div><div id="pos-receipts"></div></section>
+    <dialog id="pos-payment-dialog" class="editor"></dialog>
+    <dialog id="pos-receipt-dialog" class="editor"></dialog>`;
+  const [products, contacts, company] = await Promise.all([
+    invoke<Product[]>("list_products", { query: null }),
+    invoke<Contact[]>("list_contacts", { query: null }),
+    invoke<{ name?: string; street?: string; zip_city?: string; tax_id?: string; currency?: string }>("company_profile"),
+  ]);
+  const cart = new Map<string, { product: Product; quantity: number }>();
+  let category = "all";
+  let paymentMethod = "cash";
+  let selectedCash = 0;
+  const search = byId<HTMLInputElement>("pos-search");
+  const productArea = byId<HTMLElement>("pos-products");
+  const categoryArea = byId<HTMLElement>("pos-categories");
+  const cartArea = byId<HTMLElement>("pos-cart-lines");
+  const message = byId<HTMLElement>("pos-pos-message");
+  const customerSelect = byId<HTMLSelectElement>("pos-customer");
+  for (const contact of contacts) {
+    const option = document.createElement("option");
+    option.value = contact.id;
+    option.textContent = contact.name || contact.company_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email || contact.id;
+    customerSelect.append(option);
+  }
+
+  const categories = ["all", ...new Set(products.map((product) => product.category).filter(Boolean))];
+  categoryArea.replaceChildren();
+  for (const item of categories) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `pos-category${item === category ? " is-active" : ""}`;
+    button.textContent = item === "all" ? posT("posAllCategories") : item;
+    button.addEventListener("click", () => {
+      category = item;
+      renderProducts();
+    });
+    categoryArea.append(button);
+  }
+
+  function totals(): { net: number; tax: number; gross: number } {
+    let net = 0;
+    let tax = 0;
+    for (const { product, quantity } of cart.values()) {
+      const lineNet = product.price * quantity;
+      net += lineNet;
+      tax += Math.round((lineNet * product.tax_rate_bp) / 10_000);
+    }
+    return { net, tax, gross: net + tax };
+  }
+
+  function renderProducts(): void {
+    const query = search.value.trim().toLowerCase();
+    productArea.replaceChildren();
+    for (const button of categoryArea.querySelectorAll<HTMLButtonElement>(".pos-category")) {
+      button.classList.toggle("is-active", button.textContent === (category === "all" ? posT("posAllCategories") : category));
+    }
+    const filtered = products.filter((product) => {
+      const matchesCategory = category === "all" || product.category === category;
+      const haystack = `${product.name} ${product.sku} ${product.barcode ?? ""}`.toLowerCase();
+      return matchesCategory && haystack.includes(query);
+    });
+    if (filtered.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "pos-empty";
+      empty.textContent = posT("posEmptyProducts");
+      productArea.append(empty);
+      return;
+    }
+    for (const product of filtered) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pos-product-card";
+      const emoji = document.createElement("span");
+      emoji.className = "pos-product-emoji";
+      emoji.textContent = product.image_emoji || "📦";
+      const stock = document.createElement("span");
+      stock.className = `pos-stock${product.stock <= product.reorder_level ? " is-low" : ""}`;
+      stock.textContent = `${product.stock} ${product.unit}`;
+      const name = document.createElement("strong");
+      name.textContent = product.name;
+      const sku = document.createElement("small");
+      sku.textContent = product.sku;
+      const price = document.createElement("b");
+      price.textContent = formatMoney(product.price);
+      button.append(emoji, stock, name, sku, price);
+      button.addEventListener("click", () => {
+        sounds.playClick();
+        const current = cart.get(product.id);
+        cart.set(product.id, { product, quantity: (current?.quantity ?? 0) + 1 });
+        renderCart();
+      });
+      productArea.append(button);
+    }
+  }
+
+  function renderCart(): void {
+    cartArea.replaceChildren();
+    if (cart.size === 0) {
+      const empty = document.createElement("div");
+      empty.className = "pos-cart-empty";
+      const title = document.createElement("strong");
+      title.textContent = posT("posReady");
+      const hint = document.createElement("small");
+      hint.textContent = posT("posReadyHint");
+      empty.append(title, hint);
+      cartArea.append(empty);
+    }
+    for (const [id, item] of cart) {
+      const row = document.createElement("article");
+      row.className = "pos-cart-row";
+      const copy = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = item.product.name;
+      const unit = document.createElement("small");
+      unit.textContent = `${formatMoney(item.product.price)} / ${item.product.unit}`;
+      copy.append(name, unit);
+      const controls = document.createElement("div");
+      controls.className = "pos-quantity";
+      for (const [label, delta] of [["−", -1], ["+", 1]] as const) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", () => {
+          const next = item.quantity + delta;
+          if (next <= 0) cart.delete(id);
+          else cart.set(id, { ...item, quantity: next });
+          renderCart();
+        });
+        controls.append(button);
+        if (delta < 0) {
+          const count = document.createElement("span");
+          count.textContent = String(item.quantity);
+          controls.append(count);
+        }
+      }
+      const lineTotal = document.createElement("b");
+      lineTotal.textContent = formatMoney(item.product.price * item.quantity);
+      row.append(copy, controls, lineTotal);
+      cartArea.append(row);
+    }
+    const sum = totals();
+    byId("pos-subtotal").textContent = formatMoney(sum.net);
+    byId("pos-tax").textContent = formatMoney(sum.tax);
+    byId("pos-total").textContent = formatMoney(sum.gross);
+    byId<HTMLButtonElement>("pos-checkout").disabled = cart.size === 0;
+  }
+
+  function openPayment(): void {
+    const sum = totals();
+    const dialog = byId<HTMLDialogElement>("pos-payment-dialog");
+    selectedCash = Math.ceil(sum.gross / 100) * 100;
+    dialog.innerHTML = `<form method="dialog" class="pos-payment"><header><h2>${posT("posPaymentTitle")}</h2><button value="cancel" class="icon-button">×</button></header><div class="pos-payment-total"><small>${posT("posAmount")}</small><strong>${formatMoney(sum.gross)}</strong></div><div class="pos-payment-methods"><button type="button" data-method="cash">${posT("posCash")}</button><button type="button" data-method="card">${posT("posCard")}</button><button type="button" data-method="nfc">${posT("posNfc")}</button></div><label class="field pos-cash-field"><span>${posT("posCashReceived")}</span><input id="pos-cash-dialog" type="number" min="0" step="0.01" value="${(selectedCash / 100).toFixed(2)}"></label><p class="pos-change"></p><div class="dialog-actions"><button value="cancel" class="secondary">${posT("posClose")}</button><button id="pos-complete" value="default" class="primary">${posT("posComplete")}</button></div></form>`;
+    const change = dialog.querySelector<HTMLElement>(".pos-change")!;
+    const cashInput = dialog.querySelector<HTMLInputElement>("#pos-cash-dialog")!;
+    const updatePayment = (): void => {
+      const cash = Math.round(Number(cashInput.value || 0) * 100);
+      change.textContent = `${posT("posChange")}: ${formatMoney(Math.max(0, cash - sum.gross))}`;
+      dialog.querySelector(".pos-cash-field")?.toggleAttribute("hidden", paymentMethod !== "cash");
+    };
+    for (const button of dialog.querySelectorAll<HTMLButtonElement>("[data-method]")) {
+      button.addEventListener("click", () => {
+        paymentMethod = button.dataset.method ?? "cash";
+        dialog.querySelectorAll("[data-method]").forEach((item) => item.classList.toggle("is-active", item === button));
+        updatePayment();
+      });
+    }
+    cashInput.addEventListener("input", updatePayment);
+    dialog.querySelector("#pos-complete")?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const cash = Math.round(Number(cashInput.value || 0) * 100);
+      if (paymentMethod === "cash" && cash < sum.gross) {
+        message.textContent = posT("posInsufficient");
+        message.dataset.kind = "error";
+        return;
+      }
+      try {
+        const number = `POS-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+        const saved = await invoke<PosView>("save_pos", {
+          input: {
+            receipt_number: number,
+            payment_method: paymentMethod,
+            note: "",
+            cash_given_cents: paymentMethod === "cash" ? cash : null,
+            contact_id: customerSelect.value || null,
+            lines: [...cart.values()].map(({ product, quantity }) => ({
+              product_id: product.id,
+              description: product.name,
+              quantity_milli: quantity * 1000,
+              unit_price_cents: product.price,
+              tax_rate_bp: product.tax_rate_bp,
+            })),
+          },
+        });
+        dialog.close();
+        sounds.playKaching();
+        cart.clear();
+        renderCart();
+        openReceipt(saved);
+        await renderHistory();
+      } catch (error) {
+        message.textContent = describe(error);
+        message.dataset.kind = "error";
+      }
+    });
+    dialog.showModal();
+    updatePayment();
+  }
+
+  function openReceipt(receipt: PosView): void {
+    const dialog = byId<HTMLDialogElement>("pos-receipt-dialog");
+    const companyLines = [company.name, company.street, company.zip_city, company.tax_id ? `${posT("posTaxId")}: ${company.tax_id}` : ""].filter(Boolean);
+    const payment = receipt.payment_method === "nfc" ? posT("posNfc") : receipt.payment_method === "card" ? posT("posCard") : posT("posCash");
+    const tendered = receipt.cash_given_cents === null ? "" : `<div><span>${posT("posCashReceived")}</span><strong>${formatMoney(receipt.cash_given_cents)}</strong></div><div><span>${posT("posChange")}</span><strong>${formatMoney(receipt.change_cents ?? 0)}</strong></div>`;
+    dialog.innerHTML = `<div class="pos-receipt"><header><h2>${company.name || posT("posTitle")}</h2>${companyLines.slice(1).map((line) => `<small>${line}</small>`).join("<br>")}<small>${posT("posReceiptNumber")}: ${receipt.receipt_number} · ${new Date(receipt.paid_at).toLocaleTimeString(language)}</small></header><div class="pos-receipt-lines"></div><div class="pos-receipt-total"><span>${posT("posTotal")}</span><strong>${formatMoney(receipt.gross_cents)}</strong></div><div class="pos-receipt-meta"><div><span>${posT("posPayment")}</span><strong>${payment}</strong></div>${tendered}</div><div class="dialog-actions"><button id="pos-print" class="primary">${posT("posPrint")}</button><button id="pos-receipt-close" class="secondary">${posT("posClose")}</button></div></div>`;
+    const lines = dialog.querySelector<HTMLElement>(".pos-receipt-lines")!;
+    for (const line of receipt.lines) {
+      const row = document.createElement("div");
+      row.textContent = `${line.quantity_milli / 1000} × ${line.description} — ${formatMoney(line.gross_cents)}`;
+      lines.append(row);
+    }
+    dialog.querySelector("#pos-print")?.addEventListener("click", () => window.print());
+    dialog.querySelector("#pos-receipt-close")?.addEventListener("click", () => dialog.close());
+    dialog.showModal();
+  }
+
+  async function renderHistory(): Promise<void> {
+    const now = Date.now();
+    const overview = await invoke<PosOverviewView>("pos_overview", {
+      from: now - 24 * 60 * 60 * 1000,
+      to: now + 60 * 1000,
+      query: null,
+    });
+    const receipts = byId<HTMLElement>("pos-receipts");
+    receipts.replaceChildren();
+    if (overview.receipts.length === 0) {
+      receipts.textContent = posT("posEmpty");
+      return;
+    }
+    for (const receipt of overview.receipts) {
+      const row = document.createElement("article");
+      row.className = "list-row";
+      const title = document.createElement("strong");
+      title.textContent = receipt.receipt_number;
+      const meta = document.createElement("small");
+      meta.textContent = `${receipt.payment_method} · ${new Date(receipt.paid_at).toLocaleString(language)}`;
+      const amount = document.createElement("b");
+      amount.textContent = formatMoney(receipt.gross_cents);
+      const cancel = document.createElement("button");
+      cancel.className = "danger";
+      cancel.type = "button";
+      cancel.textContent = posT("posCancel");
+      cancel.addEventListener("click", async () => {
+        await invoke("cancel_pos", { id: receipt.id });
+        await renderHistory();
+      });
+      row.append(title, meta, amount, cancel);
+      receipts.append(row);
+    }
+  }
+
+  search.addEventListener("input", renderProducts);
+  byId("pos-clear").addEventListener("click", () => {
+    cart.clear();
+    renderCart();
+  });
+  byId("pos-checkout").addEventListener("click", openPayment);
+  byId("pos-refresh").addEventListener("click", () => void renderHistory());
+  byId("pos-scan-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const value = byId<HTMLInputElement>("pos-barcode").value.trim().toLowerCase();
+    const product = products.find((item) => item.sku.toLowerCase() === value || item.barcode?.toLowerCase() === value);
+    if (!product) {
+      message.textContent = posT("posNotFound").replace("{value}", value);
+      message.dataset.kind = "error";
+      return;
+    }
+    const current = cart.get(product.id);
+    cart.set(product.id, { product, quantity: (current?.quantity ?? 0) + 1 });
+    byId<HTMLInputElement>("pos-barcode").value = "";
+    message.textContent = "";
+    renderCart();
+  });
+  byId("pos-tab-catalog").addEventListener("click", () => view.classList.remove("pos-show-cart"));
+  byId("pos-tab-cart").addEventListener("click", () => view.classList.add("pos-show-cart"));
+  view.addEventListener("keydown", (event) => {
+    if (event.key === "F2") {
+      event.preventDefault();
+      search.focus();
+    } else if (event.key === "F4" && cart.size > 0) {
+      event.preventDefault();
+      openPayment();
+    } else if (event.key === "Escape" && byId<HTMLDialogElement>("pos-payment-dialog").open) {
+      byId<HTMLDialogElement>("pos-payment-dialog").close();
+    }
+  });
+  renderProducts();
+  renderCart();
+  await renderHistory();
+}
+
 async function showView(view: View): Promise<void> {
   activeView = view;
   updateViewHeader(view);
@@ -946,8 +1311,14 @@ async function showView(view: View): Promise<void> {
     await loadFleet();
   } else if (view === "projects") {
     await loadProjects();
+  } else if (view === "pos") {
+    await loadPos();
   } else if (view === "restaurant") {
     await loadRestaurant();
+  } else if (view === "support") {
+    await loadSupport();
+  } else if (view === "therapy") {
+    await loadTherapy();
   } else if (view === "settings") {
     await loadSettings();
   } else if (view === "documents") {
@@ -5562,6 +5933,8 @@ byId("invoice-contact-pick").addEventListener("click", () => {
 initTheme();
 initTaskbar();
 initRestaurant();
+initSupport();
+initTherapy();
 initDashboard();
 initSettings();
 initDocs();

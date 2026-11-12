@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use socdof_app::desktop::{ContactInput, DesktopState, ProductInput};
+use socdof_app::desktop::{ContactInput, DesktopState, PosInput, PosLineInput, ProductInput};
 use socdof_app::shell::Paths;
 use socdof_core::domain::contact::{ContactKind, ContactType};
 use socdof_core::error::CoreError;
@@ -66,6 +66,49 @@ fn product_input(name: &str, sku: &str) -> ProductInput {
         image_emoji: "☕".to_string(),
         exclude_from_reorder: false,
     }
+}
+
+#[test]
+fn desktop_commands_create_summarize_and_cancel_pos_receipts() {
+    let dir = temp_dir("pos");
+    let state = DesktopState::open(dir.join("socdof.db")).expect("desktop state opens");
+    let product = state
+        .create_product(&product_input("Espresso", "ESP-1"))
+        .expect("product is created");
+    let now = socdof_core::now_millis();
+    let receipt = state
+        .save_pos(&PosInput {
+            receipt_number: "POS-2026-0001".to_string(),
+            payment_method: "cash".to_string(),
+            note: "Theke".to_string(),
+            cash_given_cents: Some(1_000),
+            contact_id: None,
+            lines: vec![PosLineInput {
+                product_id: Some(product.id),
+                description: product.name.clone(),
+                quantity_milli: 1_000,
+                unit_price_cents: 500,
+                tax_rate_bp: 1900,
+            }],
+        })
+        .expect("receipt is saved");
+    assert_eq!(receipt.gross_cents, 595);
+    assert_eq!(receipt.change_cents, Some(405));
+
+    let overview = state
+        .pos_overview(now - 60_000, now + 60_000, None)
+        .expect("pos overview");
+    assert_eq!(overview.summary.receipts, 1);
+    assert_eq!(overview.summary.cash_cents, 595);
+    assert_eq!(overview.receipts[0].receipt_number, "POS-2026-0001");
+
+    state.cancel_pos(receipt.id).expect("receipt is cancelled");
+    assert!(state
+        .pos_overview(now - 60_000, now + 60_000, None)
+        .expect("empty overview")
+        .receipts
+        .is_empty());
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]

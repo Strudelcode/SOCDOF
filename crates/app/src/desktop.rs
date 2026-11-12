@@ -26,6 +26,8 @@ use socdof_core::domain::project;
 use socdof_core::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
 use socdof_core::domain::restaurant::{self, TableOrder};
 use socdof_core::domain::settings::CompanyProfile;
+use socdof_core::domain::support::{SupportTicket, TicketPriority, TicketStatus, TimeEntry};
+use socdof_core::domain::therapy::{TherapyClient, TherapySession};
 use socdof_core::domain::user::{User, UserRole};
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::invoice_template;
@@ -132,6 +134,184 @@ pub struct PurchaseInput {
     pub expected_at: Option<i64>,
     /// Positions.
     pub lines: Vec<PurchaseLineInput>,
+}
+
+/// One POS line received from the webview.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct PosLineInput {
+    /// Optional linked product.
+    pub product_id: Option<Uuid>,
+    /// Printed description.
+    pub description: String,
+    /// Quantity in thousandths.
+    pub quantity_milli: i64,
+    /// Net unit price in cents.
+    pub unit_price_cents: i64,
+    /// Tax rate in basis points.
+    pub tax_rate_bp: i64,
+}
+
+/// Editable support ticket received from the webview.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct SupportTicketInput {
+    /// Existing ticket id.
+    pub id: Option<Uuid>,
+    /// Linked contact.
+    pub contact_id: Option<Uuid>,
+    /// Short subject.
+    pub subject: String,
+    /// Ticket description.
+    pub description: String,
+    /// Lifecycle status.
+    pub status: String,
+    /// Urgency.
+    pub priority: String,
+}
+
+/// Time entry received from the webview.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct SupportTimeInput {
+    /// Existing entry id.
+    pub id: Option<Uuid>,
+    /// Linked ticket.
+    pub ticket_id: Option<Uuid>,
+    /// Work description.
+    pub description: String,
+    /// Duration in minutes.
+    pub minutes: i64,
+    /// Start timestamp.
+    pub started_at: i64,
+}
+
+/// Editable therapy client.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TherapyClientInput {
+    /// Existing client id.
+    pub id: Option<Uuid>,
+    /// Client name.
+    pub name: String,
+    /// E-mail.
+    pub email: String,
+    /// Phone.
+    pub phone: String,
+    /// Hourly rate in cents.
+    pub hourly_rate_cents: i64,
+    /// Kilometre rate in cents.
+    pub kilometer_rate_cents: i64,
+    /// Notes.
+    pub notes: String,
+    /// Active flag.
+    pub active: bool,
+}
+
+/// Editable therapy session.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TherapySessionInput {
+    /// Existing session id.
+    pub id: Option<Uuid>,
+    /// Client id.
+    pub client_id: Uuid,
+    /// Start timestamp.
+    pub started_at: i64,
+    /// Duration in minutes.
+    pub minutes: i64,
+    /// Driven distance in thousandths of a kilometre.
+    pub kilometers_milli: i64,
+    /// Session notes.
+    pub notes: String,
+}
+
+/// POS receipt received from the webview.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct PosInput {
+    /// Receipt number.
+    pub receipt_number: String,
+    /// Storage payment method.
+    pub payment_method: String,
+    /// Optional note.
+    pub note: String,
+    /// Cash handed over in cents.
+    pub cash_given_cents: Option<i64>,
+    /// Optional customer linked to the receipt.
+    pub contact_id: Option<Uuid>,
+    /// Receipt lines.
+    pub lines: Vec<PosLineInput>,
+}
+
+/// POS receipt exposed to the webview.
+#[derive(Debug, Clone, Serialize)]
+pub struct PosView {
+    /// Stable identifier.
+    pub id: Uuid,
+    /// Receipt number.
+    pub receipt_number: String,
+    /// Payment method.
+    pub payment_method: String,
+    /// Payment timestamp.
+    pub paid_at: i64,
+    /// Optional note.
+    pub note: Option<String>,
+    /// Lines.
+    pub lines: Vec<PosLineView>,
+    /// Net amount in cents.
+    pub net_cents: i64,
+    /// Tax amount in cents.
+    pub tax_cents: i64,
+    /// Gross amount in cents.
+    pub gross_cents: i64,
+    /// Cash handed over in cents.
+    pub cash_given_cents: Option<i64>,
+    /// Change in cents.
+    pub change_cents: Option<i64>,
+}
+
+/// One POS line exposed to the webview.
+#[derive(Debug, Clone, Serialize)]
+pub struct PosLineView {
+    /// Optional linked product.
+    pub product_id: Option<Uuid>,
+    /// Printed description.
+    pub description: String,
+    /// Quantity in thousandths.
+    pub quantity_milli: i64,
+    /// Net unit price in cents.
+    pub unit_price_cents: i64,
+    /// Tax rate in basis points.
+    pub tax_rate_bp: i64,
+    /// Gross line amount in cents.
+    pub gross_cents: i64,
+}
+
+/// POS daily summary exposed to the webview.
+#[derive(Debug, Clone, Serialize)]
+pub struct PosSummaryView {
+    /// Number of receipts.
+    pub receipts: usize,
+    /// Net amount in cents.
+    pub net_cents: i64,
+    /// Tax amount in cents.
+    pub tax_cents: i64,
+    /// Gross amount in cents.
+    pub gross_cents: i64,
+    /// Cash gross amount in cents.
+    pub cash_cents: i64,
+    /// Card gross amount in cents.
+    pub card_cents: i64,
+}
+
+/// POS screen payload.
+#[derive(Debug, Clone, Serialize)]
+pub struct PosOverviewView {
+    /// Receipts ordered newest first.
+    pub receipts: Vec<PosView>,
+    /// Summary for the requested period.
+    pub summary: PosSummaryView,
 }
 
 /// App-store catalogue entry sent to the webview.
@@ -839,6 +1019,258 @@ impl DesktopState {
     /// Deletes a product.
     pub fn delete_product(&self, id: Uuid) -> CoreResult<()> {
         self.shell()?.store().delete_product(id)
+    }
+
+    /// Lists POS receipts and summarizes the requested period.
+    pub fn pos_overview(
+        &self,
+        from: i64,
+        to: i64,
+        query: Option<&str>,
+    ) -> CoreResult<PosOverviewView> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let receipts = match query.map(str::trim).filter(|query| !query.is_empty()) {
+            Some(query) => store.search_pos_orders(query)?,
+            None => store.pos_orders_between(from, to)?,
+        };
+        let summary = socdof_core::domain::pos::summarize(&receipts);
+        Ok(PosOverviewView {
+            receipts: receipts.iter().map(pos_view).collect(),
+            summary: PosSummaryView {
+                receipts: summary.receipts,
+                net_cents: summary.net.cents(),
+                tax_cents: summary.tax.cents(),
+                gross_cents: summary.gross.cents(),
+                cash_cents: summary.cash.cents(),
+                card_cents: summary.card.cents(),
+            },
+        })
+    }
+
+    /// Stores one validated POS receipt and books linked products out of stock.
+    pub fn save_pos(&self, input: &PosInput) -> CoreResult<PosView> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let payment_method_name = if input.payment_method.trim() == "nfc" {
+            "card"
+        } else {
+            input.payment_method.trim()
+        };
+        let payment_method = PosPaymentMethod::from_storage(payment_method_name)
+            .ok_or_else(|| CoreError::Validation("pos_payment_invalid".to_string()))?;
+        let order = PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: input.receipt_number.trim().to_string(),
+            contact_id: input.contact_id,
+            payment_method,
+            paid_at: now_millis(),
+            currency_symbol: store.company_profile()?.currency,
+            note: (!input.note.trim().is_empty()).then(|| input.note.trim().to_string()),
+            cash_given: input.cash_given_cents.map(Money::from_cents),
+            lines: input
+                .lines
+                .iter()
+                .map(|line| PosOrderLine {
+                    product_id: line.product_id,
+                    description: line.description.trim().to_string(),
+                    quantity_milli: line.quantity_milli,
+                    unit_price: Money::from_cents(line.unit_price_cents),
+                    tax_rate_bp: line.tax_rate_bp,
+                })
+                .collect(),
+            legacy_id: None,
+        };
+        order.validate().map_err(CoreError::Validation)?;
+        store.insert_pos_order(&order, &order.stock_moves(order.paid_at))?;
+        Ok(pos_view(&order))
+    }
+
+    /// Cancels a POS receipt and returns linked stock to inventory.
+    pub fn cancel_pos(&self, id: Uuid) -> CoreResult<()> {
+        self.shell()?.store().cancel_pos_order(id, now_millis())
+    }
+
+    /// Lists support tickets, optionally searched by subject or description.
+    pub fn support_tickets(&self, query: Option<&str>) -> CoreResult<Vec<SupportTicket>> {
+        let tickets = self.shell()?.store().list_support_tickets()?;
+        Ok(
+            match query.map(str::trim).filter(|value| !value.is_empty()) {
+                Some(query) => tickets
+                    .into_iter()
+                    .filter(|ticket| {
+                        format!("{} {}", ticket.subject, ticket.description)
+                            .to_lowercase()
+                            .contains(&query.to_lowercase())
+                    })
+                    .collect(),
+                None => tickets,
+            },
+        )
+    }
+
+    /// Creates or updates a support ticket.
+    pub fn save_support_ticket(&self, input: &SupportTicketInput) -> CoreResult<SupportTicket> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let now = now_millis();
+        let existing = input
+            .id
+            .and_then(|id| store.find_support_ticket(id).ok().flatten());
+        let status = TicketStatus::from_storage(input.status.trim()).unwrap_or(TicketStatus::Open);
+        let priority =
+            TicketPriority::from_storage(input.priority.trim()).unwrap_or(TicketPriority::Normal);
+        let ticket = SupportTicket {
+            id: input.id.unwrap_or_else(Uuid::new_v4),
+            contact_id: input.contact_id,
+            subject: input.subject.trim().to_string(),
+            description: input.description.trim().to_string(),
+            status,
+            priority,
+            created_at: existing
+                .as_ref()
+                .map(|ticket| ticket.created_at)
+                .unwrap_or(now),
+            updated_at: now,
+            closed_at: if status == TicketStatus::Closed {
+                Some(
+                    existing
+                        .as_ref()
+                        .and_then(|ticket| ticket.closed_at)
+                        .unwrap_or(now),
+                )
+            } else {
+                None
+            },
+        };
+        ticket.validate().map_err(CoreError::Validation)?;
+        if existing.is_some() {
+            store.update_support_ticket(&ticket)?;
+        } else {
+            store.insert_support_ticket(&ticket)?;
+        }
+        Ok(ticket)
+    }
+
+    /// Changes a support ticket status.
+    pub fn set_support_ticket_status(&self, id: Uuid, status: &str) -> CoreResult<SupportTicket> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let status = TicketStatus::from_storage(status)
+            .ok_or_else(|| CoreError::Validation("support_status_invalid".to_string()))?;
+        store.set_support_ticket_status(id, status, now_millis())?;
+        store
+            .find_support_ticket(id)?
+            .ok_or(CoreError::NotFound(id.to_string()))
+    }
+
+    /// Deletes a support ticket.
+    pub fn delete_support_ticket(&self, id: Uuid) -> CoreResult<()> {
+        self.shell()?.store().delete_support_ticket(id)
+    }
+
+    /// Lists time entries for one ticket.
+    pub fn support_time_entries(&self, ticket_id: Uuid) -> CoreResult<Vec<TimeEntry>> {
+        self.shell()?.store().time_entries_for_ticket(ticket_id)
+    }
+
+    /// Adds a time entry to a ticket.
+    pub fn save_support_time(&self, input: &SupportTimeInput) -> CoreResult<TimeEntry> {
+        let now = now_millis();
+        let entry = TimeEntry {
+            id: input.id.unwrap_or_else(Uuid::new_v4),
+            ticket_id: input.ticket_id,
+            user_id: None,
+            description: input.description.trim().to_string(),
+            minutes: input.minutes,
+            started_at: input.started_at,
+            created_at: now,
+            updated_at: now,
+        };
+        entry.validate().map_err(CoreError::Validation)?;
+        self.shell()?.store().insert_time_entry(&entry)?;
+        Ok(entry)
+    }
+
+    /// Lists therapy clients.
+    pub fn therapy_clients(&self) -> CoreResult<Vec<TherapyClient>> {
+        self.shell()?.store().list_therapy_clients()
+    }
+
+    /// Creates or updates a therapy client.
+    pub fn save_therapy_client(&self, input: &TherapyClientInput) -> CoreResult<TherapyClient> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let now = now_millis();
+        let client = TherapyClient {
+            id: input.id.unwrap_or_else(Uuid::new_v4),
+            name: input.name.trim().to_string(),
+            email: input.email.trim().to_string(),
+            phone: input.phone.trim().to_string(),
+            hourly_rate: Money::from_cents(input.hourly_rate_cents),
+            kilometer_rate: Money::from_cents(input.kilometer_rate_cents),
+            notes: input.notes.trim().to_string(),
+            active: input.active,
+            created_at: input
+                .id
+                .and_then(|id| store.find_therapy_client(id).ok().flatten())
+                .map(|item| item.created_at)
+                .unwrap_or(now),
+            updated_at: now,
+        };
+        client.validate().map_err(CoreError::Validation)?;
+        if input.id.is_some() {
+            store.update_therapy_client(&client)?;
+        } else {
+            store.insert_therapy_client(&client)?;
+        }
+        Ok(client)
+    }
+
+    /// Lists sessions for one therapy client.
+    pub fn therapy_sessions(&self, client_id: Uuid) -> CoreResult<Vec<TherapySession>> {
+        self.shell()?.store().therapy_sessions_for_client(client_id)
+    }
+
+    /// Deletes a therapy client and its session history.
+    pub fn delete_therapy_client(&self, id: Uuid) -> CoreResult<()> {
+        self.shell()?.store().delete_therapy_client(id)
+    }
+
+    /// Creates or updates a therapy session.
+    pub fn save_therapy_session(&self, input: &TherapySessionInput) -> CoreResult<TherapySession> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let now = now_millis();
+        let existing = input.id.and_then(|id| {
+            store
+                .therapy_sessions_for_client(input.client_id)
+                .ok()
+                .and_then(|items| items.into_iter().find(|item| item.id == id))
+        });
+        let session = TherapySession {
+            id: input.id.unwrap_or_else(Uuid::new_v4),
+            client_id: input.client_id,
+            started_at: input.started_at,
+            minutes: input.minutes,
+            kilometers_milli: input.kilometers_milli,
+            notes: input.notes.trim().to_string(),
+            invoice_id: existing.as_ref().and_then(|item| item.invoice_id),
+            created_at: existing.as_ref().map(|item| item.created_at).unwrap_or(now),
+            updated_at: now,
+        };
+        session.validate().map_err(CoreError::Validation)?;
+        if existing.is_some() {
+            store.update_therapy_session(&session)?;
+        } else {
+            store.insert_therapy_session(&session)?;
+        }
+        Ok(session)
+    }
+
+    /// Deletes an unbilled therapy session.
+    pub fn delete_therapy_session(&self, id: Uuid) -> CoreResult<()> {
+        self.shell()?.store().delete_therapy_session(id)
     }
 
     /// Imports a legacy `.socdof.json` backup.
@@ -2343,6 +2775,33 @@ fn default_backup_dir(database: &Path) -> PathBuf {
 
 fn default_archive(database: &Path) -> PathBuf {
     default_backup_dir(database).join(format!("socdof-{}.socdofbak", now_millis()))
+}
+
+fn pos_view(order: &PosOrder) -> PosView {
+    PosView {
+        id: order.id,
+        receipt_number: order.receipt_number.clone(),
+        payment_method: order.payment_method.as_str().to_string(),
+        paid_at: order.paid_at,
+        note: order.note.clone(),
+        lines: order
+            .lines
+            .iter()
+            .map(|line| PosLineView {
+                product_id: line.product_id,
+                description: line.description.clone(),
+                quantity_milli: line.quantity_milli,
+                unit_price_cents: line.unit_price.cents(),
+                tax_rate_bp: line.tax_rate_bp,
+                gross_cents: line.gross().cents(),
+            })
+            .collect(),
+        net_cents: order.total_net().cents(),
+        tax_cents: order.total_tax().cents(),
+        gross_cents: order.total_gross().cents(),
+        cash_given_cents: order.cash_given.map(|money| money.cents()),
+        change_cents: order.change().map(|money| money.cents()),
+    }
 }
 
 #[cfg(test)]
