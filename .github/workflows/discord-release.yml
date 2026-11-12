@@ -1,8 +1,8 @@
 name: Discord release announcement
 
 on:
-  release:
-    types: [published]
+  # Automatic triggers are intentionally disabled while the Rust rewrite is
+  # merged. Run this workflow manually from the Actions tab when needed.
   workflow_dispatch:
     inputs:
       tag:
@@ -22,7 +22,7 @@ jobs:
     name: Send release notes to Discord
     # release.yml announces its own releases after publishing. Skip the
     # fallback for those release events so a release is only posted once.
-    if: github.event_name == 'workflow_dispatch' || github.event.release.author.login != 'github-actions[bot]'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

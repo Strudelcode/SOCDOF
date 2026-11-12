@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Automatic triggers are intentionally disabled while the Rust rewrite is
+  # merged. Run this workflow manually from the Actions tab when needed.
   workflow_dispatch:
     inputs:
       tag:

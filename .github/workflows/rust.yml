@@ -1,21 +1,8 @@
 name: Rust
 
 on:
-  push:
-    branches: [main, rust-rewrite]
-    paths:
-      - "crates/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/rust.yml"
-  pull_request:
-    paths:
-      - "crates/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/rust.yml"
+  # Automatic triggers are intentionally disabled while the Rust rewrite is
+  # merged. Run this workflow manually from the Actions tab when needed.
   workflow_dispatch:
 
 permissions:
