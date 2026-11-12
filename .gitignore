@@ -1,21 +1,11 @@
-/target
-/crates/app/src-tauri/target
-/crates/app/node_modules
-/crates/app/dist
-**/*.db
-**/*.db-journal
-**/*.db-wal
-**/*.db-shm
-*.pdb
-
-# Local scratch files
+node_modules/
+dist/
+release/
+release_notes.md
+coverage/
+.DS_Store
 *.log
-/crates/app/src-tauri/gen
-/crates/app/src-tauri/tauri.release.conf.json
-/release-notes.md
-
-# Trunk build output of the browser host
-/crates/web/dist
-
-# Local screenshots and scratch evidence from browser checks
-/artifacts/
+.env*
+!.env.example
+!build/
+!build/**

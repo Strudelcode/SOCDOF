@@ -1,0 +1,123 @@
+# SOCDOF Development & Agent Guidelines (Instructions)
+
+This document defines the core operational standards, versioning protocols, and development workflows for SOCDOF.
+
+---
+
+## 1. Language & Documentation Standards
+
+- **English by Default for Code & Documentation**: All development documentation, release notes under `versions/`, code comments, commit messages, and internal developer guides MUST be written in **English**.
+- **Mandatory User Documentation Updates (`DocumentationApp.tsx` & Docs)**:
+  - Whenever a new application/module is introduced or existing applications undergo significant functional modifications, a dedicated chapter **MUST ALWAYS** be added or updated in the in-app User Manual / Documentation module (`src/components/DocumentationApp.tsx`).
+  - The documentation chapter must clearly describe the module's core purpose, key workflows, button functions, integration options, and keyboard/UI shortcuts in both **German** and **English**.
+  - All documentation files (such as `versions/` notes and release overviews) must be kept synchronized with all active application features.
+- **Mandatory 4-Language UI (German, English, French, Spanish)**:
+  - Whenever any UI feature, screen, label, text, button, dialog, modal, placeholder, setting, toast, or notification is added or modified, it **MUST ALWAYS** be defined and translated across **ALL 4 supported languages** in `src/lib/i18n.ts` (`en` = English, `de` = German, `fr` = French, `es` = Spanish).
+  - Never leave untranslated, single-language, or hardcoded strings in newly modified user-facing interfaces.
+  - All components must reference translations using `t('key')` or `useTranslation()` from `src/lib/i18n.ts`.
+
+---
+
+## 2. No Mock / Placeholder Example Data Rule & User-Friendly Inputs
+
+- **Clean Real-World Apps & Pristine Defaults**: Do NOT pre-fill or inject artificial demo records, dummy contacts, fake support tickets, sample invoices, or dummy settings/company values (e.g. fake test companies like "Strudel's Test GmbH", dummy IBANs, fake bank names, or arbitrary default paths).
+- **Empty Settings & Profile Defaults**: All company profiles, letterhead configs, bank fields, tax numbers, and backup configurations must initialize with clean, empty strings (`''`) or neutral descriptive input placeholders (e.g. `placeholder="Firmenname eingeben"`).
+- **Empty States**: Every module must initialize with clean empty states (e.g. `[]`), clear onboarding guides, and intuitive creation action buttons.
+- **User-Friendly UI (No Path-Typing Barriers)**: Many end-users do not know technical file paths (e.g., `C:\SOCDOF\Backups`). Technical inputs such as directory paths must always be paired with intuitive folder/file pickers (`showDirectoryPicker` / native folder dialogs) and convenient 1-click location presets (e.g., `Documents`, `Downloads`, `Desktop`, `USB Drive`).
+- Users input their own genuine data in a clean, unpolluted workspace.
+
+---
+
+## 3. Versioning & Release Documentation Rules
+
+- **SemVer Format**: `v<Major>.<Minor>.<Patch>` (e.g., `v20.0.0`, `v20.1.0`).
+- **Flexible Minor & Patch Updates**: When adding new features, major UX improvements, or module integrations, increment to a clean minor version (e.g. `v20.1.0`, `v20.2.0`). For smaller enhancements and bug fixes, increment patch versions (e.g. `v20.0.1`, `v20.0.5`).
+- **Major Version Constraint**: A new major version (e.g., `v21.0.0`) **must never** be initiated automatically. It requires explicit user discussion and consent.
+- **Synchronized Version Declarations**: Every version increment must be updated across all designated locations simultaneously:
+  1. `package.json` (`"version": "20.x.x"`)
+  2. `src/lib/version.ts` (`APP_VERSION = '20.x.x'` and add entry to `VERSION_HISTORY`)
+  3. `versions/V<Major>.md` (e.g. `versions/V20.md` - detailed changelog notes in English)
+  4. `versions/releases/v<Major>-release.md` (e.g. `versions/releases/v20-release.md` - comprehensive release documentation and feature overview in English)
+  5. `todo/todo.md` and `todo/completed_todo.md`
+- **Release Documentation in `versions/releases/`**:
+  - Whenever new features or major capabilities are added, update the corresponding release document in `versions/releases/` (e.g., `versions/releases/v20-release.md`).
+  - This file serves as the official, comprehensive release overview detailing all functional capabilities, architecture updates, and user-facing features in English.
+- **Discord Release Webhook & `CHANGELOG.md` Automation (`.github/workflows/discord_release.yml` & `build-windows-exe.yml`)**:
+  - Pending updates across versions are accumulated in `CHANGELOG.md` using concise, high-level bullets:
+    - 🚀 **Neu / What's New**: Core new capabilities or modules
+    - 🔄 **Geändert / Improved**: What was changed, updated, or improved
+    - 🛠️ **Behoben / Fixed**: What bugs or issues were resolved
+  - **No Overly Detailed Visual Essays**: Keep notes punchy and user-centric; do not write exhaustive layout/styling breakdowns or descriptions of every UI element.
+  - **Accumulation & Anti-Spam Workflow**: Updates accumulate across intermediate versions/commits without triggering unnecessary Discord notifications.
+  - **Automatic Reset upon Broadcast**: When the Discord GitHub Action broadcasts to the community via `DISCORD_WEBHOOK`, `CHANGELOG.md` is automatically wiped clean and committed with `[skip ci]` so new versions can accumulate for the next announcement. If `CHANGELOG.md` has no pending updates, Discord broadcasting is skipped automatically to avoid channel spam.
+
+---
+
+## 4. Todo & Task Management Workflow
+
+- **Active Tasks**: `todo/todo.md` is strictly reserved for open, in-progress, and planned roadmap items.
+- **Completed Archive**: As soon as a task is completed, move it to `todo/completed_todo.md` with `[x]` and relevant implementation notes to keep the active todo list clean and manageable.
+- **100% Free, Offline & Feasibility Principle**:
+  - All features in SOCDOF must be 100% free, privacy-first, and work offline without requiring paid cloud subscriptions, proprietary API keys, or monthly infrastructure charges.
+  - If a task on the roadmap is identified as not relevant, infeasible, or requiring paid/cloud dependencies, it can be cancelled by moving it to `todo/completed_todo.md` marked with a strike-through (e.g. `~~[ ] Task name (Cancelled: reason)~~`) or removed from `todo/todo.md`.
+- Never delete completed tasks permanently; always archive them in `todo/completed_todo.md`.
+
+---
+
+## 5. Publisher & Desktop Branding Identity
+
+- **Independent Product Identity (No Copying / "Nicht nachmachen")**: SOCDOF is an independent offline ERP and productivity suite with its own distinct, native identity. Never brand features or UI elements as mere "clones" or "copies" of external operating systems (avoid framing features as "nachgemacht" or "Windows-Klon" in user-facing labels or documentation). All dialogs, update mechanisms, push notifications, and settings are first-class native SOCDOF components.
+- **Strict Secret Isolation & No Public UI Token Configuration**:
+  - Sensitive developer credentials such as Discord Bot Tokens, administrative webhook URLs, and internal distribution parameters must NEVER be exposed or editable inside end-user UI screens (such as Bug Reports, feedback dialogs, or user settings) where end-users, customers, or site managers (Bauleiter) could see or manipulate them.
+  - All secrets and tokens are loaded strictly from git-ignored local environment configuration (`.env` via `VITE_DISCORD_BOT_TOKEN`), preventing unauthorized access or accidental token leakage in public repositories.
+- **Publisher / Author**: The official publisher and author name for Windows binaries, packages, and certificates is strictly **`Yuri / Strudel`** (Organization: `Strudelcode`).
+- **Code Signing**: Binaries in `release/` are signed with the developer Authenticode certificate for `CN=Yuri / Strudel, O=Strudelcode` so that Windows SmartScreen and installer dialogs accurately present the publisher as **Yuri / Strudel**.
+- **No Intrusive Web Popups**: The web preview must remain clean and unobtrusive. Never attach aggressive auto-triggering mouseleave/exit-intent popups.
+
+---
+
+## 6. Architecture & Offline-First Principles
+
+- **Offline-First Storage**: Local database persistence via IndexedDB (`Dexie.js` in `src/lib/db.ts`) and `localStorage`.
+- **Privacy & GDPR Compliance**: No unsolicited remote tracking, no external database dependencies for core operations.
+- **Desktop Window Manager**: Windows 11 fluent desktop workspace with draggable, resizable, minimizable windows, taskbar, start menu, and calendar flyout.
+- **Electron Standalone Packaging**: Standalone `.exe` installer and portable builds via `electron-builder.json` and `electron/main.cjs`.
+
+---
+
+## 7. Dynamic UI Accent & Smart Anti-Clash Contrast System
+
+- **Single Source of Truth for Accent & Companion Colors**:
+  - Every application, module, modal, and widget must strictly derive its primary highlight from the user-selected accent color (`var(--accent)`, `var(--accent-light)`, `var(--accent-ring)`, `var(--accent-border)`).
+  - Comparative and dual-metric elements must derive their secondary highlight from the dynamically computed companion color (`var(--accent-companion)`, `var(--accent-companion-light)`, `var(--accent-companion-border)`).
+- **Anti-Clash Contrast Principle (No Identical Neighbor Colors)**:
+  - When displaying dual metrics, side-by-side comparison charts, adjacent status badges, or dual payment/category buttons (e.g. Revenue vs. Sessions, Invoiced vs. Paid, Net Revenue vs. Operating Profit, Cash vs. Card), secondary and companion metrics **MUST NEVER** collide with or duplicate the primary accent color.
+  - The contrast system uses mathematical hue calculation (`getContrastingCompanionColor` in `src/lib/accent.ts`):
+    - If the user selects a Green/Teal accent (Hue 65°–185°), the companion color automatically shifts to **Indigo/Purple** (`#6366f1`). They will never both appear green.
+    - If the user selects an Orange/Amber/Sunset Gold accent, the companion color shifts to **Cyan/Teal** (`#06b6d4`).
+    - If the user selects a Blue/Indigo accent, the companion color shifts to **Teal/Emerald** (`#0d9488`).
+    - If the user selects a Purple/Pink accent, the companion color shifts to **Emerald** (`#10b981`).
+- **Clean Ambient Glow on Cards (No Header Hazes)**:
+  - Cards, panels, tables, and container borders automatically receive a subtle accent tint (`--accent-border-subtle`) and gentle ambient shadow halo (`--accent-card-shadow`) without intrusive foggy radial gradients or blurred washes across titlebars.
+  - DIN 5008 print sheets and PDF exports are strictly protected from decorative glows.
+- **Mandatory Standard**: This rule applies consistently across **ALL** existing modules and any newly built modules.
+
+---
+
+## 8. Quality & Build Verification
+
+Before finishing any modification turn:
+1. Run `npm run lint` (`lint_applet` / TypeScript check) to ensure no type errors.
+2. Run `npm run build` (`compile_applet`) to verify successful production compilation.
+
+
+---
+
+## 9. Multi-User Data Merge (Portable / NAS)
+
+- **Shared data folder**: In portable mode, all workstations on a NAS or shared drive use the same `data` folder. Data is never overwritten blindly.
+- **Per-record merge, not whole-file overwrite**: Changes are merged record by record (like a Git merge), keyed by a stable record ID. Two users editing different records must both keep their changes.
+- **Conflict rule**: If two users change the same record, the newer change is kept and the older one is preserved as a conflict copy, so no data is silently lost.
+- **Critical operations are locked**: Operations that change shared state in bulk (backup restore, data import, year-end closing, database reset) require an exclusive lock. If another workstation holds it, the operation is refused with a clear message.
+- **Periodic merge**: Local changes are merged into the main shared data at a short interval (a few seconds), so everyone sees current data.
+- **Every new merge-related UI text** must be translated in all four languages via `src/lib/i18n.ts`, and documented in the in-app manual.

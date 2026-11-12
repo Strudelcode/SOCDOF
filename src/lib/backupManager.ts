@@ -1,0 +1,293 @@
+import { db, exportDatabaseToJson, importDatabaseFromJson } from './db';
+import { CompanyProfile } from '../types';
+import { sounds } from './sound';
+
+export interface BackupSnapshotMeta {
+  id: string;
+  timestamp: string;
+  sizeBytes: number;
+  totalRecords: number;
+  isAuto: boolean;
+  folderPath: string;
+  summary: {
+    contacts: number;
+    products: number;
+    invoices: number;
+    purchases: number;
+    posOrders: number;
+  };
+}
+
+export interface BackupSnapshot extends BackupSnapshotMeta {
+  dataJson: string;
+}
+
+const STORAGE_KEY_SNAPSHOTS_META = 'socdof_backup_snapshots_meta';
+const STORAGE_KEY_LAST_AUTO_BACKUP = 'socdof_last_auto_backup_ts';
+
+/**
+ * Retrieves the list of stored local backup snapshots (metadata only to keep memory fast)
+ */
+export function getStoredBackupSnapshots(): BackupSnapshotMeta[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    // Auto-clean legacy empty snapshots from pre-v20.0.8 tests
+    if (localStorage.getItem('socdof_snapshots_cleaned_v20_8') !== 'true') {
+      localStorage.setItem('socdof_snapshots_cleaned_v20_8', 'true');
+      const raw = localStorage.getItem(STORAGE_KEY_SNAPSHOTS_META);
+      if (raw) {
+        try {
+          const list = JSON.parse(raw) as BackupSnapshotMeta[];
+          for (const s of list) {
+            localStorage.removeItem(`socdof_backup_data_${s.id}`);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      localStorage.removeItem(STORAGE_KEY_SNAPSHOTS_META);
+      return [];
+    }
+
+    const raw = localStorage.getItem(STORAGE_KEY_SNAPSHOTS_META);
+    if (!raw) return [];
+    const list = JSON.parse(raw) as BackupSnapshotMeta[];
+    // Filter out zero-record placeholder snapshots
+    return list.filter(item => item && item.id);
+  } catch (err) {
+    console.warn('Could not read backup snapshots metadata:', err);
+    return [];
+  }
+}
+
+/**
+ * Saves the list of snapshot metadata
+ */
+function saveStoredBackupSnapshotsMeta(metas: BackupSnapshotMeta[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_SNAPSHOTS_META, JSON.stringify(metas));
+  } catch (err) {
+    console.warn('Could not save backup snapshots metadata:', err);
+  }
+}
+
+/**
+ * Creates a new full snapshot of the IndexedDB database
+ */
+export async function createDatabaseBackup(
+  isAuto: boolean,
+  company: CompanyProfile,
+  downloadDirectly: boolean = false
+): Promise<BackupSnapshotMeta> {
+  const jsonStr = await exportDatabaseToJson({
+    pretty: true,
+    owner: company.backup_owner || company.name || 'Administrator',
+    folder: company.backup_folder_path || ''
+  });
+
+  const parsed = JSON.parse(jsonStr);
+  const sizeBytes = new Blob([jsonStr]).size;
+  const nowIso = new Date().toISOString();
+  const id = `backup_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  const summary = {
+    contacts: parsed.contacts?.length || 0,
+    products: parsed.products?.length || 0,
+    invoices: parsed.invoices?.length || 0,
+    purchases: parsed.purchase_orders?.length || 0,
+    posOrders: parsed.pos_orders?.length || 0
+  };
+
+  const totalRecords = Object.values(summary).reduce((acc, v) => acc + v, 0);
+
+  const meta: BackupSnapshotMeta = {
+    id,
+    timestamp: nowIso,
+    sizeBytes,
+    totalRecords,
+    isAuto,
+    folderPath: company.backup_folder_path || '',
+    summary
+  };
+
+  // Store snapshot payload in localStorage with key prefix
+  try {
+    localStorage.setItem(`socdof_backup_data_${id}`, jsonStr);
+
+    // Update metadata index
+    const existing = getStoredBackupSnapshots();
+    const maxKeep = company.backup_max_keep_count || 10;
+    const updated = [meta, ...existing];
+
+    // Prune older backups exceeding max count
+    if (updated.length > maxKeep) {
+      const removed = updated.splice(maxKeep);
+      for (const rem of removed) {
+        localStorage.removeItem(`socdof_backup_data_${rem.id}`);
+      }
+    }
+
+    saveStoredBackupSnapshotsMeta(updated);
+    localStorage.setItem(STORAGE_KEY_LAST_AUTO_BACKUP, Date.now().toString());
+  } catch (err) {
+    console.warn('LocalStorage full or error storing snapshot payload:', err);
+  }
+
+  // If requested, download file directly to user's disk (browser)
+  if (downloadDirectly) {
+    downloadBackupFile(jsonStr, meta.timestamp, company);
+  }
+
+  // If running in Desktop / Electron, also automatically write file directly to disk in backup folder
+  if (typeof window !== 'undefined' && window.electronAPI?.saveBackupFileToDisk) {
+    try {
+      const dateFormatted = nowIso.split('T')[0];
+      const timeFormatted = nowIso.split('T')[1].replace(/:/g, '-').slice(0, 5);
+      const cleanName = (company.name || 'SOCDOF').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${cleanName}_Backup_${dateFormatted}_${timeFormatted}.socdof.json`;
+
+      await window.electronAPI.saveBackupFileToDisk({
+        folderPath: company.backup_folder_path,
+        fileName,
+        content: jsonStr
+      });
+    } catch (diskErr) {
+      console.warn('Could not save backup directly to disk in Electron:', diskErr);
+    }
+  }
+
+  return meta;
+}
+
+/**
+ * Downloads a backup JSON file to the user's Downloads / target folder
+ */
+export function downloadBackupFile(
+  jsonContent: string,
+  timestamp: string,
+  company: CompanyProfile
+) {
+  const dateFormatted = timestamp.split('T')[0];
+  const timeFormatted = timestamp.split('T')[1].replace(/:/g, '-').slice(0, 5);
+  const cleanName = (company.name || 'SOCDOF').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fileName = `${cleanName}_Backup_${dateFormatted}_${timeFormatted}.socdof.json`;
+
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 400);
+}
+
+/**
+ * Downloads a specific snapshot by ID
+ */
+export function downloadSnapshotById(id: string, company: CompanyProfile) {
+  try {
+    const raw = localStorage.getItem(`socdof_backup_data_${id}`);
+    if (!raw) {
+      throw new Error('Backup-Daten nicht gefunden.');
+    }
+    const meta = getStoredBackupSnapshots().find(m => m.id === id);
+    sounds.playSuccess();
+    downloadBackupFile(raw, meta?.timestamp || new Date().toISOString(), company);
+  } catch (err) {
+    console.error('Error downloading snapshot:', err);
+  }
+}
+
+/**
+ * Restores a stored snapshot by ID
+ */
+export async function restoreSnapshotById(id: string): Promise<boolean> {
+  const raw = localStorage.getItem(`socdof_backup_data_${id}`);
+  if (!raw) {
+    throw new Error('Backup-Snapshot nicht im lokalen Speicher gefunden.');
+  }
+
+  sounds.playSuccess();
+  return await importDatabaseFromJson(raw);
+}
+
+/**
+ * Deletes a stored snapshot by ID
+ */
+export function deleteSnapshotById(id: string): BackupSnapshotMeta[] {
+  try {
+    localStorage.removeItem(`socdof_backup_data_${id}`);
+    const existing = getStoredBackupSnapshots();
+    const updated = existing.filter(m => m.id !== id);
+    saveStoredBackupSnapshotsMeta(updated);
+    sounds.playPop();
+    return updated;
+  } catch (err) {
+    console.warn('Could not delete snapshot:', err);
+    return getStoredBackupSnapshots();
+  }
+}
+
+/**
+ * Deletes all stored snapshots and cleans localStorage
+ */
+export function clearAllSnapshots(): BackupSnapshotMeta[] {
+  try {
+    const existing = getStoredBackupSnapshots();
+    for (const snap of existing) {
+      localStorage.removeItem(`socdof_backup_data_${snap.id}`);
+    }
+    localStorage.removeItem(STORAGE_KEY_SNAPSHOTS_META);
+    sounds.playPop();
+    return [];
+  } catch (err) {
+    console.warn('Could not clear snapshots:', err);
+    return [];
+  }
+}
+
+/**
+ * Automatically checks whether an automatic backup is due based on CompanyProfile settings
+ */
+export async function checkAndRunAutoBackup(
+  company: CompanyProfile,
+  onSuccess?: (meta: BackupSnapshotMeta) => void
+): Promise<BackupSnapshotMeta | null> {
+  // If auto-backup is disabled, do nothing
+  if (company.auto_backup_enabled === false) {
+    return null;
+  }
+
+  const intervalMinutes = company.backup_interval_minutes || 120; // default 2 hours
+  const intervalMs = intervalMinutes * 60 * 1000;
+
+  const now = Date.now();
+  const lastBackupStr = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_LAST_AUTO_BACKUP) : null;
+
+  // On first startup without a timestamp, initialize it so it waits for the full interval
+  if (!lastBackupStr) {
+    localStorage.setItem(STORAGE_KEY_LAST_AUTO_BACKUP, now.toString());
+    return null;
+  }
+
+  const lastBackupTs = parseInt(lastBackupStr, 10) || 0;
+
+  if (now - lastBackupTs >= intervalMs) {
+    try {
+      const meta = await createDatabaseBackup(true, company, false);
+      if (onSuccess) {
+        onSuccess(meta);
+      }
+      return meta;
+    } catch (err) {
+      console.warn('Auto backup execution error:', err);
+    }
+  }
+
+  return null;
+}

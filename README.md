@@ -9,28 +9,6 @@
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Free-green)](#)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE%20%7C%20FR%20%7C%20ES-indigo)](#-vier-sprachen-von-anfang-an)
 
-
-
-> **Two implementations live in this repository.** The TypeScript/React/Electron
-> application is preserved in [`SOCDOF - TS`](SOCDOF%20-%20TS) (25.2.x line); the
-> native Rust/Tauri rebuild is in [`crates/`](crates) (26.0.0, migration in
-> progress). The Rust plan, gates and parity evidence are in
-> [`RUST_MIGRATION.md`](RUST_MIGRATION.md); the measured screenshots are in
-> [`docs/parity/`](docs/parity).
-
-## Repository layout
-
-```text
-SOCDOF/
-├── Cargo.toml               # Rust workspace (core, app, ui, web, cli)
-├── crates/                  # native Rust/Tauri rebuild (v26.0.0)
-├── docs/parity/             # ten TypeScript/Rust screenshot pairs + scores
-├── scripts/                 # Rust build, budget and release tooling
-├── RUST_MIGRATION.md        # migration plan, checklist, parity evidence
-├── SOCDOF - TS/             # complete TypeScript/React/Electron application
-└── CHANGELOG.md             # Rust changelog (TypeScript log in SOCDOF - TS/)
-```
-
 ---
 
 ## 🌟 Überblick
@@ -120,7 +98,7 @@ Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/S
 
 ---
 
-## 🛠️ TypeScript-Entwicklung (`SOCDOF - TS`)
+## 🛠️ Lokale Entwicklung
 
 ### Voraussetzungen
 - **Node.js** (v18 oder neuer)
@@ -131,7 +109,6 @@ Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/S
 # 1. Repository klonen
 git clone https://github.com/Strudelcode/SOCDOF.git
 cd SOCDOF
-cd "SOCDOF - TS"
 
 # 2. Abhängigkeiten installieren
 npm install
@@ -154,10 +131,10 @@ npm run build:exe
 
 ---
 
-## 📂 TypeScript-Projektstruktur
+## 📂 Projektstruktur
 
 ```text
-SOCDOF - TS/
+SOCDOF/
 ├── electron/              # Electron-Hauptprozess, IPC-Handler, Fensterverwaltung, Splash & Sitzungslogs
 ├── src/
 │   ├── components/        # UI-Module (Rechnungen, Kasse, Lager, Therapie, Einstellungen usw.)
@@ -173,64 +150,11 @@ SOCDOF - TS/
 
 ---
 
-## 🦀 Rust rewrite (`crates/`, v26.0.0)
-
-The native rebuild talks to one SQLite core through Tauri commands. It ships the
-Tauri webview in `crates/app/ui`, keeps a pure-Rust egui surface in `crates/ui`
-and a WebAssembly host in `crates/web`, and has no second database layer.
-
-### Build and gates
-
-Requirements: stable Rust (pinned in `rust-toolchain.toml`) and a C toolchain for
-the bundled SQLite.
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo run -p socdof-cli -- ./socdof.db
-```
-
-Desktop prerequisites (Ubuntu/Debian):
-
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-  libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-  librsvg2-dev libxdo-dev libssl-dev patchelf
-```
-
-```bash
-cd crates/app
-npm ci
-npm run build
-npm run tauri build
-```
-
-### Visual parity
-
-`docs/parity/` holds the ten 1440×900 pairs (Dashboard, Invoices, Contacts,
-Settings and Command Palette, light and dark) captured from the TypeScript app
-and the Rust webview. `python3 docs/parity/parity_diff.py` recomputes the window
-pixel score and SSIM and writes `diff.csv` / `diff.json`. The remaining gaps are
-documented in `RUST_MIGRATION.md` §15.7; the dense Settings text and the dark
-Spotlight panel are still below the SSIM target because of WebKitGTK/Chromium
-text rasterization and the backdrop, not a different layout.
-
-### CI
-
-The workflows in `.github/workflows/` are **manual only** while the rewrite is
-merged: `rust.yml` (format, clippy, tests, desktop bundles, GUI smoke) and
-`release.yml` (signed release) plus the Discord announcement only run through
-**Run workflow**. Pushing to `main` triggers no build, release or Discord post.
-
----
-
 ## 🤝 Community & Support
 
 - **Discord**: Diskussionen, Funktionswünsche und Hilfe auf dem [Discord-Server](https://discord.gg/QW85EaXTgB).
 - **Fehlerberichte**: Über die [GitHub Issues](https://github.com/Strudelcode/SOCDOF/issues).
-- **Changelog**: [CHANGELOG.md](./CHANGELOG.md) für den Rust-Zweig, [`SOCDOF - TS/CHANGELOG.md`](SOCDOF%20-%20TS/CHANGELOG.md) für die TypeScript-App.
+- **Changelog**: [CHANGELOG.md](./CHANGELOG.md) und [`versions/`](./versions/) enthalten die vollständige Versionshistorie.
 
 ---
 

@@ -1,0 +1,64 @@
+{
+  "appId": "de.strudelcode.socdof",
+  "productName": "SOCDOF",
+  "copyright": "Copyright © 2026 Strudelcode - Yuri / Strudel",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "public/**/*",
+    "languages/**/*",
+    "THIRD_PARTY_NOTICES.md",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "languages",
+      "to": "languages",
+      "filter": [
+        "**/*"
+      ]
+    }
+  ],
+  "win": {
+    "icon": "public/socdof_icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "SOCDOF Desktop",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "runAfterFinish": true,
+    "deleteAppDataOnUninstall": false,
+    "installerIcon": "public/socdof_icon.ico",
+    "uninstallerIcon": "public/socdof_icon.ico",
+    "installerHeaderIcon": "public/socdof_icon.ico",
+    "uninstallerSidebar": "public/uninstallerSidebar.bmp",
+    "installerSidebar": "public/installerSidebar.bmp",
+    "installerHeader": "public/installerHeader.bmp",
+    "displayLanguageSelector": true,
+    "installerLanguages": ["de_DE", "en_US", "fr_FR", "es_ES"]
+  }
+}
