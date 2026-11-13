@@ -45,10 +45,12 @@ pub enum AppModule {
     Projects,
     /// Vehicle fleet, digital logbook and fuel records.
     Fleet,
+    /// Restaurant floor plan, kitchen and hospitality checkout.
+    Restaurant,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 17] = [
+pub const ALL_MODULES: [AppModule; 18] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -66,6 +68,7 @@ pub const ALL_MODULES: [AppModule; 17] = [
     AppModule::Documentation,
     AppModule::Projects,
     AppModule::Fleet,
+    AppModule::Restaurant,
 ];
 
 impl AppModule {
@@ -89,6 +92,7 @@ impl AppModule {
             AppModule::Documentation => "documentation",
             AppModule::Projects => "projects",
             AppModule::Fleet => "fleet",
+            AppModule::Restaurant => "restaurant",
         }
     }
 
@@ -230,6 +234,7 @@ impl Role {
             (AppModule::Documentation, PermissionLevel::View),
             (AppModule::Projects, PermissionLevel::Edit),
             (AppModule::Fleet, PermissionLevel::Edit),
+            (AppModule::Restaurant, PermissionLevel::Edit),
         ];
 
         Role {
@@ -305,6 +310,7 @@ mod tests {
         assert!(role.allows(AppModule::Reports, PermissionLevel::View));
         assert!(role.allows(AppModule::Projects, PermissionLevel::Edit));
         assert!(role.allows(AppModule::Fleet, PermissionLevel::Edit));
+        assert!(role.allows(AppModule::Restaurant, PermissionLevel::Edit));
     }
 
     #[test]
