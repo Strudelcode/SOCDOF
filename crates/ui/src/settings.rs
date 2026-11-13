@@ -1039,6 +1039,7 @@ fn module_label_key(module: AppModule) -> &'static str {
         AppModule::Therapy => "settings_module_therapy",
         AppModule::Editor => "settings_module_editor",
         AppModule::Documentation => "settings_module_documentation",
+        AppModule::Projects => "settings_module_projects",
     }
 }
 
