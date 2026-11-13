@@ -2133,3 +2133,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
   persisted amount, while ordinary invoices continue to calculate VAT from their own lines.
   The integration test checks two 0.07 EUR / 7% items produce 0.14 EUR net, 0.01 EUR VAT and
   0.15 EUR gross both before and after reopening the SQLite database.
+
+
+- 2026-11-13 (POS ledger VAT parity) — extended the same persisted tax override to
+  `PosOrder`, not only the restaurant order and ERP invoice. Schema migration v17 adds the
+  nullable override to `pos_orders`; normal counter sales keep line-based tax calculation, while
+  restaurant checkouts carry their grouped VAT into the POS ledger and Z-report summaries.
+  The restaurant checkout/reopen integration test now verifies the POS summary retains the same
+  one-cent VAT and 15-cent gross total.
