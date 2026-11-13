@@ -95,7 +95,7 @@ impl ProjectsState {
 
     /// Starts a new project with the same suggested code and hourly rate as the legacy module.
     pub fn start_new(&mut self, now: i64) {
-        let year = now.div_euclid(31_536_000_000) + 1970;
+        let year = iso_date(now).split('-').next().and_then(|value| value.parse::<i64>().ok()).unwrap_or(1970);
         self.draft = Some(Project {
             id: Uuid::new_v4(),
             title: String::new(),
@@ -296,6 +296,18 @@ pub fn projects(
 
     let currency = store.company_profile().map(|p| p.currency).unwrap_or_else(|_| "EUR".to_string());
     let stats = metrics(&state.projects, &state.tasks);
+    let mut new_project = false;
+    let mut edit_project = false;
+    let mut cancel_project = false;
+    let mut save_project = false;
+    let mut delete_project = false;
+    let mut new_task = false;
+    let mut cancel_task = false;
+    let mut save_task = false;
+    let mut edit_task: Option<Uuid> = None;
+    let mut delete_task: Option<Uuid> = None;
+    let mut change_task: Option<(Uuid, &'static str)> = None;
+
     let filtered: Vec<Project> = state.projects.iter().filter(|project| {
         let query = state.query.trim().to_lowercase();
         query.is_empty()
@@ -529,12 +541,6 @@ pub fn projects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use socdof_core::domain::settings::Language;
-
-    fn texts() -> UiTexts {
-        UiTexts::embedded(Language::En).expect("catalogue")
-    }
-
     #[test]
     fn project_and_task_crud_persist_through_the_store() {
         let store = Store::open_in_memory().expect("store");
@@ -583,6 +589,5 @@ mod tests {
         let mut state = ProjectsState::new();
         state.refresh(&store).expect("refresh");
         assert_eq!(metrics(&state.projects, &state.tasks).total_tasks_count, 0);
-        let _ = texts();
     }
 }
