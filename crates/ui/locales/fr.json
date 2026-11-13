@@ -1947,5 +1947,6 @@
   "therapie_session_date": "Date de la séance",
   "therapie_session_time": "Heure de début",
   "therapie_error_date": "Saisissez une date et une heure de début valides.",
-  "pos_payment_nfc": "NFC / portefeuille mobile"
+  "pos_payment_nfc": "NFC / portefeuille mobile",
+  "pos_summary_nfc": "NFC / mobile"
 }
