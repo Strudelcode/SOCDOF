@@ -1,4 +1,5 @@
 {
+  "projects_color": "Color del proyecto",
   "projects_contact": "Vincular contacto",
   "projects_no_contact": "Sin contacto",
   "projects_bill_project": "Crear factura",
