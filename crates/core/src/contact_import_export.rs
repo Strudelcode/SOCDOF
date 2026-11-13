@@ -313,7 +313,7 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
                     .then(|| unescape_vcard(value))
             })
         };
-        let fn_name = property("FN").unwrap_or_default();
+        let fn_name = property("FN").unwrap_or_default().trim().to_string();
         let n = property("N").unwrap_or_default();
         let n_parts: Vec<&str> = n.split(';').collect();
         let first = n_parts.get(1).copied().unwrap_or("").trim();
@@ -327,15 +327,19 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
                 .collect::<Vec<_>>()
                 .join(" ")
         };
-        let company = property("ORG").unwrap_or_default().replace(';', " ");
+        let company = property("ORG")
+            .unwrap_or_default()
+            .replace(';', " ")
+            .trim()
+            .to_string();
         let name = if name.is_empty() {
             company.clone()
         } else {
             name
         };
-        let email = property("EMAIL").unwrap_or_default();
+        let email = property("EMAIL").unwrap_or_default().trim().to_string();
         let clean_email = (!email.is_empty() && valid_email(&email)).then_some(email);
-        let phone = property("TEL").unwrap_or_default();
+        let phone = property("TEL").unwrap_or_default().trim().to_string();
         if name.is_empty() && clean_email.is_none() && phone.is_empty() {
             continue;
         }
