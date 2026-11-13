@@ -16,7 +16,8 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook.
 - Ledger sources: recorded invoice payments (actual payment date/method), completed POS receipts, non-draft purchases, manually entered journal bookings and business fleet mileage allowances. Unpaid invoices remain receivables and are not incorrectly treated as cash received.
 - Current-year initial cash/bank balances are read from the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
-- Native Accounting toolbar now offers the tax-advisor workbook through a save dialog; all four languages have the new label.
+- Native Accounting toolbar now offers the 12-sheet workbook and a selected-month CSV through native save dialogs; all four languages have the new labels.
+- Opening cash and bank balances can be edited in the Accounting screen and persist in the existing settings table per year.
 - Unit and store-to-UI regression coverage for cross-module aggregation, VAT, receivables, POS tender totals, date ranges, draft exclusion, company currency and cash/bank ledger totals.
 
 ## Remaining parity checks
@@ -27,7 +28,8 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - [ ] Verify open-item behavior for all legacy invoice states and any partial-payment representation.
 - [ ] Verify local-timezone boundaries against the legacy browser implementation, then review the UI side by side in DE/EN/FR/ES and both themes.
 - [x] Add the native 12-sheet monthly tax-advisor Excel export and sequential cash/bank carry-over.
-- [ ] Add UI controls to edit the opening cash/bank balances and persistent manual ledger rows; current export uses existing Accounting journal entries and a stored opening balance (zero by default).
+- [x] Add UI controls to edit and persist the opening cash/bank balances; existing Accounting journal entries are included as manual ledger transactions.
+- [ ] Add dedicated manual tax-ledger rows if required beyond the existing journal form.
 - [ ] Compare exact Excel XML layout, formula behavior, filenames, monthly CSV bytes and locale/date formatting against the TypeScript reference.
 - [ ] Add equivalent therapy practice billing/trip integration where source data maps without double-counting invoices.
 
