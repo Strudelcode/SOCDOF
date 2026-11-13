@@ -192,6 +192,7 @@ pub struct ContactsState {
     pub back: bool,
     loaded_query: String,
     reload: bool,
+    legacy_sanitized: bool,
 }
 
 impl ContactsState {
@@ -205,6 +206,11 @@ impl ContactsState {
 
     /// Reloads the list when the query changed or a write invalidated it.
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        if !self.legacy_sanitized {
+            store.sanitize_legacy_contact_emails()?;
+            self.legacy_sanitized = true;
+            self.reload = true;
+        }
         if !self.reload && self.loaded_query == self.query {
             return Ok(());
         }
@@ -1669,6 +1675,27 @@ mod tests {
         assert_eq!(contacts[1].contact_type, ContactType::Vendor);
         assert!(!state.batch_open);
         assert!(state.batch_drafts.is_empty());
+    }
+
+    #[test]
+    fn refresh_removes_only_legacy_placeholder_emails() {
+        let store = Store::open_in_memory().expect("store");
+        let mut legacy = Contact::new(ContactKind::Person, 1);
+        legacy.name = Some("Legacy contact".to_string());
+        legacy.email = Some("old@import.local".to_string());
+        store.insert_contact(&legacy).expect("legacy insert");
+        let mut valid = Contact::new(ContactKind::Person, 2);
+        valid.name = Some("Real contact".to_string());
+        valid.email = Some("real@example.org".to_string());
+        store.insert_contact(&valid).expect("valid insert");
+
+        let mut state = ContactsState::new();
+        state.refresh(&store).expect("refresh");
+
+        let stored_legacy = store.find_contact(legacy.id).expect("find").expect("legacy");
+        let stored_valid = store.find_contact(valid.id).expect("find").expect("valid");
+        assert_eq!(stored_legacy.email, None);
+        assert_eq!(stored_valid.email.as_deref(), Some("real@example.org"));
     }
 
     #[test]
