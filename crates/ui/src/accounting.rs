@@ -20,7 +20,8 @@ use socdof_core::domain::accounting::{
     cash_book, export_csv, summarize, BookingChannel, JournalEntry, JournalKind,
 };
 use socdof_core::domain::accounting_report::{
-    build_business_accounting_report, BusinessAccountingReport, ReportRange,
+    build_business_accounting_report, export_business_accounting_csv, BusinessAccountingReport,
+    ReportRange,
 };
 use socdof_core::money::Money;
 use socdof_core::store::Store;
@@ -228,6 +229,10 @@ fn money(amount: Money) -> String {
     amount.format_localized("€")
 }
 
+fn money_in_currency(amount: Money, currency: &str) -> String {
+    amount.format_localized(currency)
+}
+
 fn kind_key(kind: JournalKind) -> &'static str {
     match kind {
         JournalKind::Income => "accounting_kind_income",
@@ -262,6 +267,10 @@ pub struct AccountingState {
     pub entries: Vec<JournalEntry>,
     /// Cross-module invoice, purchase and POS aggregates for the legacy Accounting dashboard.
     pub business_report: BusinessAccountingReport,
+    /// Company name used in the business report export.
+    pub company_name: String,
+    /// Company currency used by the cross-module report.
+    pub currency_symbol: String,
     /// Selected entry, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -295,6 +304,8 @@ impl Default for AccountingState {
             query: String::new(),
             entries: Vec::new(),
             business_report: BusinessAccountingReport::default(),
+            company_name: String::new(),
+            currency_symbol: "€".to_string(),
             selected: None,
             view: AccountingView::List,
             draft: AccountingDraft::default(),
@@ -345,6 +356,14 @@ impl AccountingState {
         }
 
         self.entries = entries;
+
+        let company = store.company_profile()?;
+        self.company_name = company.name;
+        self.currency_symbol = if company.currency.trim().is_empty() {
+            "€".to_string()
+        } else {
+            company.currency
+        };
 
         let invoices = store.list_invoices()?;
         let purchases = store.list_purchase_orders()?;
@@ -623,7 +642,17 @@ pub fn accounting(
         });
 
     if state.export {
-        let csv = export_csv(&state.entries);
+        let csv = if state.tab == AccountingTab::BusinessReport {
+            export_business_accounting_csv(
+                &state.business_report,
+                &state.company_name,
+                texts.get(state.period.label_key()),
+                &format_date(now),
+                &state.currency_symbol,
+            )
+        } else {
+            export_csv(&state.entries)
+        };
         ctx.output_mut(|output| output.copied_text = csv);
         state.export = false;
         state.error = None;
@@ -997,7 +1026,7 @@ fn business_report_view(
                         .size(FONT_SMALL)
                         .color(theme.palette.text_muted),
                 );
-                badge(ui, theme, &money(value), tone);
+                badge(ui, theme, &money_in_currency(value, &state.currency_symbol), tone);
             });
         }
     });
@@ -1025,13 +1054,13 @@ fn business_report_view(
                 ui.end_row();
                 for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
                     ui.label(rate);
-                    ui.label(money(bucket.net));
-                    ui.label(money(bucket.tax));
+                    ui.label(money_in_currency(bucket.net, &state.currency_symbol));
+                    ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
                     ui.end_row();
                 }
                 ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
-                ui.label(money(report.output_vat));
-                ui.label(RichText::new(money(report.vat_liability)).strong());
+                ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
+                ui.label(RichText::new(money_in_currency(report.vat_liability, &state.currency_symbol)).strong());
                 ui.end_row();
             });
         ui.add_space(4.0);
@@ -1039,7 +1068,7 @@ fn business_report_view(
             RichText::new(format!(
                 "{}: {}",
                 texts.get("accounting_expense"),
-                money(report.purchase_tax)
+                money_in_currency(report.purchase_tax, &state.currency_symbol)
             ))
             .size(FONT_SMALL)
             .color(theme.palette.text_muted),
@@ -1056,7 +1085,7 @@ fn business_report_view(
                 &format!(
                     "{} · {}",
                     report.open_receivables.len(),
-                    money(report.open_receivables_total)
+                    money_in_currency(report.open_receivables_total, &state.currency_symbol)
                 ),
                 if report.open_receivables.is_empty() {
                     Tone::Success
@@ -1094,7 +1123,7 @@ fn business_report_view(
                     for item in &report.open_receivables {
                         ui.label(format_date(item.due_at));
                         ui.label(&item.number);
-                        ui.label(RichText::new(money(item.amount)).strong());
+                        ui.label(RichText::new(money_in_currency(item.amount, &state.currency_symbol)).strong());
                         ui.end_row();
                     }
                 });
@@ -1118,7 +1147,7 @@ fn business_report_view(
                         .size(FONT_SMALL)
                         .color(theme.palette.text_muted),
                 );
-                ui.label(RichText::new(money(value)).strong());
+                ui.label(RichText::new(money_in_currency(value, &state.currency_symbol)).strong());
             });
         }
         ui.label(
