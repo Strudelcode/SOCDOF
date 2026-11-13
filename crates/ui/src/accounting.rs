@@ -1584,4 +1584,93 @@ mod tests {
         assert!(csv.contains(texts.get("accounting_sample_income")));
         assert_eq!(csv.lines().count(), 5);
     }
+
+    #[test]
+    fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
+        use socdof_core::domain::contact::{Contact, ContactKind};
+        use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use socdof_core::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
+        use socdof_core::domain::purchase::{
+            PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus,
+        };
+
+        let store = Store::open_in_memory().expect("store");
+        let now = SAMPLE_NOW_MS;
+        let mut contact = Contact::new(ContactKind::Person, now);
+        contact.name = Some("Accounting Customer".to_string());
+        store.insert_contact(&contact).expect("contact");
+
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-001".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: now,
+            due_at: now + DAY_MS,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+
+        let purchase = PurchaseOrder {
+            id: Uuid::new_v4(),
+            number: "PUR-REPORT-001".to_string(),
+            vendor_id: contact.id,
+            status: PurchaseOrderStatus::Received,
+            order_date: now,
+            expected_at: None,
+            currency_symbol: "€".to_string(),
+            note: None,
+            lines: vec![PurchaseOrderLine {
+                product_id: None,
+                description: "Supplies".to_string(),
+                quantity_milli: 1_000,
+                unit_cost: Money::from_cents(2_000),
+                tax_rate_bp: 1_900,
+            }],
+            legacy_id: None,
+            created_at: now,
+            updated_at: now,
+        };
+        store
+            .insert_purchase_order(&purchase)
+            .expect("purchase");
+
+        let pos = PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: "POS-REPORT-001".to_string(),
+            contact_id: None,
+            payment_method: PaymentMethod::Nfc,
+            paid_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            cash_given: None,
+            lines: vec![PosOrderLine {
+                product_id: None,
+                description: "Coffee".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(5_000),
+                tax_rate_bp: 700,
+            }],
+            legacy_id: None,
+        };
+        store.insert_pos_order(&pos, &[]).expect("POS receipt");
+
+        let mut state = AccountingState::new();
+        state.refresh(&store, now).expect("refresh business report");
+        assert_eq!(state.business_report.invoice_net.cents(), 10_000);
+        assert_eq!(state.business_report.purchase_net.cents(), 2_000);
+        assert_eq!(state.business_report.pos_net.cents(), 5_000);
+        assert_eq!(state.business_report.open_receivables.len(), 1);
+        assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
+    }
+
 }
