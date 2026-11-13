@@ -376,8 +376,8 @@ jobs:
         working-directory: crates/app
         run: npm run build
 
-      - name: Build native Rust desktop host
-        run: cargo check -p socdof-ui --features window --bin socdof-ui-desktop
+      - name: Build native Rust desktop host (release)
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
       - name: Build Tauri binary
         working-directory: crates/app
@@ -400,7 +400,7 @@ jobs:
           export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
-          export APP_BIN="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+          export APP_BIN="$PWD/target/release/socdof-ui-desktop"
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
