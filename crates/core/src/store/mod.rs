@@ -53,7 +53,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 15;
+pub const SCHEMA_VERSION: i64 = 16;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -739,6 +739,11 @@ impl Store {
         if version < 15 {
             self.conn.execute_batch(SCHEMA_V15)?;
             version = 15;
+        }
+
+        if version < 16 {
+            self.conn.execute_batch(SCHEMA_V16)?;
+            version = 16;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -2121,6 +2126,7 @@ mod tests {
             due_at: 86_400_000,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2187,6 +2193,7 @@ mod tests {
             due_at: now_millis(),
             currency_symbol: "€".to_string(),
             note: Some("Danke für den Auftrag".to_string()),
+            tax_total_override_cents: None,
             lines: vec![
                 InvoiceLine {
                     description: "Beratung".to_string(),
@@ -2237,6 +2244,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: Vec::new(),
         };
 
@@ -2487,6 +2495,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2720,3 +2729,9 @@ mod tests {
         assert_eq!(store.company_profile().expect("profile"), profile);
     }
 }
+
+
+/// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
+const SCHEMA_V16: &str = r#"
+ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
+"#;
