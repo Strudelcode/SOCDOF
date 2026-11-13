@@ -374,6 +374,9 @@ jobs:
         working-directory: crates/app
         run: npm run build
 
+      - name: Build native Rust desktop host
+        run: cargo check -p socdof-ui --features window --bin socdof-ui-desktop
+
       - name: Build Tauri binary
         working-directory: crates/app
         run: npm run tauri -- build --no-bundle
