@@ -1960,5 +1960,9 @@
   "contacts_batch_title": "Create multiple contacts",
   "contacts_batch_hint": "Fill in the contacts you want to save together.",
   "contacts_batch_row": "Contact",
-  "contacts_batch_add_row": "Add row"
+  "contacts_batch_add_row": "Add row",
+  "contacts_import_preview_title": "Review import",
+  "contacts_import_category": "Category for imported contacts",
+  "contacts_import_remove": "Remove",
+  "contacts_import_confirm": "Import contacts"
 }
