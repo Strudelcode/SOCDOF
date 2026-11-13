@@ -18,14 +18,14 @@ use crate::money::Money;
 pub struct ReportRange {
     /// First included timestamp in milliseconds since the Unix epoch.
     pub from: Option<i64>,
-    /// Last included timestamp in milliseconds since the Unix epoch.
+    /// First excluded timestamp in milliseconds since the Unix epoch.
     pub to: Option<i64>,
 }
 
 impl ReportRange {
     fn contains(self, timestamp: i64) -> bool {
         self.from.map_or(true, |from| timestamp >= from)
-            && self.to.map_or(true, |to| timestamp <= to)
+            && self.to.map_or(true, |to| timestamp < to)
     }
 }
 
