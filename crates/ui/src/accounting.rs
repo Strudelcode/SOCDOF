@@ -1269,6 +1269,7 @@ fn list_view(
                 .map(|year| year.to_string())
                 .collect();
             let year_labels: Vec<&str> = year_values.iter().map(String::as_str).collect();
+            ui.label(texts.get("accounting_tax_advisor_year"));
             let mut year_index = state
                 .tax_advisor_year
                 .saturating_sub(current_year - 5)
@@ -2403,6 +2404,26 @@ mod tests {
             .transactions
             .iter()
             .any(|transaction| transaction.description == "Rechnung 2026-REPORT-001"));
+    }
+
+    #[test]
+    fn tax_advisor_ledger_can_load_a_previous_year() {
+        let store = Store::open_in_memory().expect("store");
+        store
+            .put_setting(
+                "tax_advisor_ledger_initial_carryover_2025",
+                &serde_json::json!({
+                    "cash_cents": 2_500,
+                    "bank_cents": 7_500
+                }),
+            )
+            .expect("save prior-year opening balances");
+        let mut state = AccountingState::new();
+        state.tax_advisor_year = 2025;
+        state.refresh(&store, SAMPLE_NOW_MS).expect("refresh prior year");
+        assert_eq!(state.tax_advisor_year, 2025);
+        assert_eq!(state.tax_advisor_months[0].year, 2025);
+        assert_eq!(state.tax_advisor_months[0].carry_over_total().cents(), 10_000);
     }
 
     #[test]
