@@ -1948,5 +1948,12 @@
   "therapie_session_time": "Start time",
   "therapie_error_date": "Enter a valid session date and start time.",
   "pos_payment_nfc": "NFC / Mobile wallet",
-  "pos_summary_nfc": "NFC / Mobile"
+  "pos_summary_nfc": "NFC / Mobile",
+  "contacts_import": "Import CSV / vCard",
+  "contacts_export_csv": "Export CSV",
+  "contacts_export_vcard": "Export vCard",
+  "contacts_imported": "Contacts imported",
+  "contacts_exported": "Contacts exported",
+  "contacts_import_empty": "No valid contacts are available to import or export.",
+  "contacts_error_picker": "File selection is unavailable in this window."
 }
