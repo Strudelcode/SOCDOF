@@ -2300,6 +2300,35 @@ mod tests {
             ))
             .expect("record payment");
 
+        let linked_invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-003".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Paid,
+            issued_at: now,
+            due_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Linked service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(2_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store
+            .insert_invoice(&linked_invoice)
+            .expect("linked invoice");
+        store
+            .record_invoice_payment(&InvoicePayment::new(
+                linked_invoice.id,
+                InvoicePaymentMethod::Card,
+                now,
+                "card receipt".to_string(),
+            ))
+            .expect("record linked invoice payment");
+
         let purchase = PurchaseOrder {
             id: Uuid::new_v4(),
             number: "PUR-REPORT-001".to_string(),
@@ -2371,6 +2400,24 @@ mod tests {
         };
         store.insert_billing_item(&billing).expect("practice billing");
 
+        let linked_billing = BillingItem {
+            id: Uuid::new_v4(),
+            contact_id: contact.id,
+            invoice_id: Some(linked_invoice.id),
+            kind: BillingKind::Service,
+            code: "LINKED".to_string(),
+            description: "Linked practice service".to_string(),
+            service_date: now,
+            quantity_milli: 1_000,
+            unit_price: Money::from_cents(2_380),
+            tax_rate_bp: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        store
+            .insert_billing_item(&linked_billing)
+            .expect("linked practice billing");
+
         state.invalidate();
         state.refresh(&store, now).expect("refresh business report");
         assert_eq!(state.company_name, "Accounting GmbH");
@@ -2382,7 +2429,7 @@ mod tests {
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
         let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
         assert_eq!(month.income_cash.cents(), 5_760);
-        assert_eq!(month.income_bank.cents(), 6_350);
+        assert_eq!(month.income_bank.cents(), 8_730);
         assert_eq!(month.expense_bank.cents(), 2_380);
         assert!(month
             .transactions
@@ -2396,6 +2443,14 @@ mod tests {
             .transactions
             .iter()
             .any(|transaction| transaction.description == "Praxis-Honorar – Praxis consultation"));
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Praxis-Honorar – Linked practice service"));
+        assert!(!month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-003"));
         assert!(!month
             .transactions
             .iter()
