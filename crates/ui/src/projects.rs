@@ -516,8 +516,16 @@ pub fn projects(
                         }
                     }
                     ui.separator();
+                    egui::ComboBox::from_id_source("projects-filter-project")
+                        .selected_text(state.selected.and_then(|id| state.projects.iter().find(|project| project.id == id).map(|project| project.title.clone())).unwrap_or_else(|| texts.get("projects_filter_all_projects").to_string()))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut state.selected, None, texts.get("projects_filter_all_projects"));
+                            for project in &state.projects {
+                                ui.selectable_value(&mut state.selected, Some(project.id), &project.title);
+                            }
+                        });
                     egui::ComboBox::from_id_source("projects-filter-status")
-                        .selected_text(texts.get(status_label(&state.status_filter)))
+                        .selected_text(if state.status_filter == "all" { texts.get("projects_filter_all") } else { texts.get(status_label(&state.status_filter)) })
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut state.status_filter, "all".to_string(), texts.get("projects_filter_all"));
                             for (value, key) in [
@@ -532,7 +540,7 @@ pub fn projects(
                             }
                         });
                     egui::ComboBox::from_id_source("projects-filter-category")
-                        .selected_text(texts.get(category_key(&state.category_filter)))
+                        .selected_text(if state.category_filter == "all" { texts.get("projects_filter_all") } else { texts.get(category_key(&state.category_filter)) })
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut state.category_filter, "all".to_string(), texts.get("projects_filter_all"));
                             for value in ["client_work", "internal", "maintenance", "development", "marketing"] {
@@ -765,7 +773,7 @@ pub fn projects(
                     });
                     card(ui, theme, |ui| {
                         egui::Grid::new("projects-all-tasks").striped(true).num_columns(5).show(ui, |ui| {
-                            for heading in ["projects_task_edit", "projects_tasks", "projects_client", "projects_status", "projects_logged_hours"] {
+                            for heading in ["projects_task_title", "projects_client", "projects_assignee", "projects_status", "projects_logged_hours"] {
                                 ui.label(RichText::new(texts.get(heading)).strong());
                             }
                             ui.end_row();
