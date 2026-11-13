@@ -949,7 +949,7 @@ fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
     }
 
     card(ui, theme, |ui| {
-        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.label(RichText::new(texts.get("accounting_tab_business")).strong());
         ui.add_space(6.0);
         for (label, value, tone) in [
             ("accounting_revenue", summary.revenue_net, Tone::Success),
@@ -1040,9 +1040,9 @@ fn business_report_view(
             .spacing(egui::vec2(16.0, 6.0))
             .show(ui, |ui| {
                 for label in [
-                    "accounting_tax",
-                    "accounting_revenue",
-                    "pos_summary_tax",
+                    "accounting_business_tax_rate",
+                    "accounting_business_taxable_basis",
+                    "accounting_business_vat_amount",
                 ] {
                     ui.label(
                         RichText::new(texts.get(label))
@@ -1058,16 +1058,22 @@ fn business_report_view(
                     ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
                     ui.end_row();
                 }
-                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
                 ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
-                ui.label(RichText::new(money_in_currency(report.vat_liability, &state.currency_symbol)).strong());
+                ui.label(
+                    RichText::new(money_in_currency(
+                        report.vat_liability,
+                        &state.currency_symbol,
+                    ))
+                    .strong(),
+                );
                 ui.end_row();
             });
         ui.add_space(4.0);
         ui.label(
             RichText::new(format!(
                 "{}: {}",
-                texts.get("accounting_expense"),
+                texts.get("accounting_business_input_vat"),
                 money_in_currency(report.purchase_tax, &state.currency_symbol)
             ))
             .size(FONT_SMALL)
@@ -1123,7 +1129,13 @@ fn business_report_view(
                     for item in &report.open_receivables {
                         ui.label(format_date(item.due_at));
                         ui.label(&item.number);
-                        ui.label(RichText::new(money_in_currency(item.amount, &state.currency_symbol)).strong());
+                        ui.label(
+                            RichText::new(money_in_currency(
+                                item.amount,
+                                &state.currency_symbol,
+                            ))
+                            .strong(),
+                        );
                         ui.end_row();
                     }
                 });
@@ -1153,7 +1165,7 @@ fn business_report_view(
         ui.label(
             RichText::new(format!(
                 "{}: {}",
-                texts.get("pos_summary_title"),
+                texts.get("accounting_business_receipts"),
                 report.z_report.receipts
             ))
             .size(FONT_SMALL)
