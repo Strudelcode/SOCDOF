@@ -18,6 +18,9 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   receipts, matching the TypeScript module. The persistence integration test now covers this.
 - Restaurant VAT parity: native order totals now aggregate net amounts by tax rate before rounding,
   matching the TypeScript calculation. A cent-level regression test covers two small 7% lines.
+- Restaurant invoice parity: the v16 SQLite migration stores an optional invoice VAT override, so
+  the paid ERP invoice and receipt retain the same grouped tax total after reload. Added a checkout
+  integration test for the one-cent rounding case.
 
 
 ### Known issues
