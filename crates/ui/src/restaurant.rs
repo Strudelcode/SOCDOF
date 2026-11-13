@@ -30,6 +30,7 @@ pub struct RestaurantState {
     pub payment_method: String,
     pub tip_cents: i64,
     pub cash_given_cents: i64,
+    pub split_count: i64,
     pub hospitality: bool,
     pub hospitality_host: String,
     pub hospitality_occasion: String,
@@ -49,7 +50,7 @@ impl Default for RestaurantState {
             tables, view: RestaurantView::Tables, area_filter: "all".into(),
             query: String::new(), category_filter: "all".into(), dish_draft: None,
             dish_is_new: false, payment_method: "cash".into(), tip_cents: 0,
-            cash_given_cents: 0, hospitality: false, hospitality_host: String::new(),
+            cash_given_cents: 0, split_count: 1, hospitality: false, hospitality_host: String::new(),
             hospitality_occasion: String::new(), hospitality_guests: String::new(),
             last_receipt: None, error: None, status: None, back: false,
         }
@@ -106,6 +107,12 @@ impl RestaurantState {
         if order.status == "paid" { return Err(socdof_core::CoreError::Validation("restaurant_order_already_paid".into())); }
         if !order.set_item_qty(item_id, qty, now) { store.delete_restaurant_order(order_id)?; }
         else { store.update_restaurant_order(&order)?; }
+        self.refresh(store)
+    }
+    pub fn set_notes(&mut self, store: &Store, order_id: Uuid, item_id: Uuid, notes: &str, now: i64) -> socdof_core::CoreResult<()> {
+        let mut order = store.restaurant_order(order_id)?.ok_or_else(|| socdof_core::CoreError::NotFound(order_id.to_string()))?;
+        if !order.set_item_notes(item_id, notes, now) { return Err(socdof_core::CoreError::NotFound(item_id.to_string())); }
+        store.update_restaurant_order(&order)?;
         self.refresh(store)
     }
     pub fn set_status(&mut self, store: &Store, id: Uuid, status: &str, now: i64) -> socdof_core::CoreResult<()> {
@@ -181,6 +188,8 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
     egui::CentralPanel::default().frame(egui::Frame::none().fill(theme.palette.background).inner_margin(egui::Margin::same(24.0))).show(ctx,|ui|{
         egui::ScrollArea::vertical().show(ui,|ui|{
             crate::chrome::module_header(ui,theme,texts,focus,crate::chrome::ModuleHeader{app:crate::chrome::app_chrome("restaurant"),title:texts.get("restaurant_title"),subtitle:texts.get("restaurant_subtitle"),status:None},&mut state.back);
+            #[cfg(feature = "dialogs")]
+            if button(ui,theme,focus,texts.get("restaurant_export"),ButtonVariant::Secondary).activated { match export_csv(store) { Ok(Some(path)) => state.status=Some(format!("{}: {}",texts.get("restaurant_exported"),path)), Ok(None)=>{}, Err(error)=>state.error=Some(error.to_string()) } }
             let open=state.orders.iter().filter(|o|o.status!="paid").count();
             let kitchen=state.orders.iter().filter(|o|o.status=="preparing").count();
             let revenue:i64=state.orders.iter().filter(|o|o.status=="paid").map(|o|o.total_cents+o.tip_cents).sum();
@@ -224,12 +233,21 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
                                 if ui.small_button("−").clicked(){if let Err(e)=state.set_quantity(store,order.id,item.id,item.qty-1,now){state.error=Some(e.to_string());}}
                                 if ui.small_button("+").clicked(){if let Err(e)=state.set_quantity(store,order.id,item.id,item.qty+1,now){state.error=Some(e.to_string());}}
                             });
+                            let mut notes=item.notes.clone();
+                            ui.horizontal(|ui|{
+                                ui.label(texts.get("restaurant_item_note"));
+                                if ui.add(egui::TextEdit::singleline(&mut notes).desired_width(260.0)).lost_focus() {
+                                    if let Err(e)=state.set_notes(store,order.id,item.id,&notes,now){state.error=Some(e.to_string());}
+                                }
+                            });
                         }
                         ui.label(format!("{}: {}",texts.get("restaurant_total"),money(order.total_cents,&currency)));
+                        ui.label(format!("{}: {}",texts.get("restaurant_per_person"),money((order.total_cents+state.tip_cents.max(0))/state.split_count.max(1),&currency)));
                         ui.horizontal_wrapped(|ui|{
                             ui.label(texts.get("restaurant_payment"));
                             egui::ComboBox::from_id_source("restaurant-payment").selected_text(state.payment_method.clone()).show_ui(ui,|ui|{for method in ["cash","card","nfc"]{ui.selectable_value(&mut state.payment_method,method.into(),method);}});
                             ui.label(texts.get("restaurant_tip_cents"));ui.add(egui::DragValue::new(&mut state.tip_cents).clamp_range(0..=10_000_000));
+                            ui.label(texts.get("restaurant_split_count"));ui.add(egui::DragValue::new(&mut state.split_count).clamp_range(1..=50));
                             if state.payment_method=="cash"{ui.label(texts.get("restaurant_cash_given"));ui.add(egui::DragValue::new(&mut state.cash_given_cents).clamp_range(0..=100_000_000));}
                         });
                         ui.checkbox(&mut state.hospitality,texts.get("restaurant_hospitality"));
@@ -286,6 +304,29 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
             }
         });
     });
+}
+
+#[cfg(feature = "dialogs")]
+fn export_csv(store: &Store) -> socdof_core::CoreResult<Option<String>> {
+    let orders=store.restaurant_orders()?;
+    let mut csv=String::from("\u{feff}receipt_number;table;status;opened_at;paid_at;server;positions;net_cents;tax_cents;tip_cents;total_cents;payment_method\r\n");
+    for order in orders {
+        let fields=[
+            order.receipt_number.unwrap_or_default(),order.table_number,order.status,
+            order.opened_at.to_string(),order.paid_at.unwrap_or_default().to_string(),
+            order.server_name,order.item_quantity().to_string(),order.subtotal_cents.to_string(),
+            order.tax_total_cents.to_string(),order.tip_cents.to_string(),order.total_cents.to_string(),
+            order.payment_method.unwrap_or_default()
+        ];
+        csv.push_str(&fields.iter().map(|field|format!("\"{}\"",field.replace('"',"\"\""))).collect::<Vec<_>>().join(";"));
+        csv.push_str("\r\n");
+    }
+    let year=socdof_core::date::civil_from_millis(socdof_core::now_millis()).0;
+    let name=format!("SOCDOF-Restaurant-{year}.csv");
+    if let Some(path)=rfd::FileDialog::new().set_file_name(&name).save_file() {
+        std::fs::write(&path,csv.as_bytes())?;
+        Ok(Some(path.display().to_string()))
+    } else { Ok(None) }
 }
 
 #[cfg(test)]
