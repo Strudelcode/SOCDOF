@@ -1,13 +1,14 @@
-//! Accounting module screen: journal, cash book, BWA and CSV export.
+//! Accounting module screen: journal, cash book, journal BWA, cross-module business report and CSV export.
 //!
 //! The screen works on the core store and the core accounting aggregate:
 //! [`Store::journal_entries_between`]/[`Store::search_journal_entries`] load the entries,
 //! [`Store::insert_journal_entry`], [`Store::update_journal_entry`] and
 //! [`Store::delete_journal_entry`] write them, while
 //! [`socdof_core::domain::accounting::summarize`] builds the BWA,
-//! [`socdof_core::domain::accounting::cash_book`] the running cash balance and
-//! [`socdof_core::domain::accounting::export_csv`] the export. No business logic lives in the
-//! screen.
+//! [`socdof_core::domain::accounting::cash_book`] the running cash balance,
+//! [`socdof_core::domain::accounting_report::build_business_accounting_report`] the legacy-style
+//! invoice/POS/purchase report and [`socdof_core::domain::accounting::export_csv`] the journal
+//! export. No business logic lives in the screen.
 //!
 //! Views are list (journal, cash book or BWA), detail and form. Every control registers in the
 //! shared [`FocusState`], every visible string comes from the catalogue and all painting uses the
