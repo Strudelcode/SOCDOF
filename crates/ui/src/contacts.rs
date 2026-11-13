@@ -928,12 +928,7 @@ fn list_view(
 
     if export_csv || export_vcard {
         #[cfg(feature = "dialogs")]
-        if !state.contacts.is_empty() {
-            let (name, extension, filter) = if export_csv {
-                ("kontakte_export.csv", "csv", "CSV")
-            } else {
-                ("kontakte_export.vcf", "vcf", "vCard")
-            };
+        {
             let contacts_to_export = if state.export_filtered {
                 state.contacts.clone()
             } else {
@@ -945,7 +940,15 @@ fn list_view(
                     }
                 }
             };
-            if !contacts_to_export.is_empty() {
+            if contacts_to_export.is_empty() {
+                state.error = Some("contacts_import_empty");
+                state.status = None;
+            } else {
+                let (extension, filter) = if export_csv {
+                    ("csv", "CSV")
+                } else {
+                    ("vcf", "vCard")
+                };
                 let (year, month, day) = socdof_core::date::civil_from_millis(now);
                 let filename = format!("kontakte_export_{year:04}-{month:02}-{day:02}.{extension}");
                 if let Some(path) = rfd::FileDialog::new()
@@ -967,9 +970,6 @@ fn list_view(
                     }
                 }
             }
-        } else {
-            state.error = Some("contacts_import_empty");
-            state.status = None;
         }
         #[cfg(not(feature = "dialogs"))]
         {
