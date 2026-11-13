@@ -1650,7 +1650,7 @@ mod tests {
 
     #[test]
     fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
-        use socdof_core::domain::contact::{Contact, ContactKind};
+        use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
         use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
         use socdof_core::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
         use socdof_core::domain::purchase::{
@@ -1667,6 +1667,7 @@ mod tests {
         state.refresh(&store, now).expect("initial refresh");
         let mut contact = Contact::new(ContactKind::Person, now);
         contact.name = Some("Accounting Customer".to_string());
+        contact.contact_type = ContactType::Both;
         store.insert_contact(&contact).expect("contact");
 
         let invoice = Invoice {
