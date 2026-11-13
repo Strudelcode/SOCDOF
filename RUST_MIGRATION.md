@@ -5,9 +5,9 @@
 
 | | |
 |---|---|
-| **Branch** | `freebuff/socdof-rust-rewrite` (uncommitted working tree) |
+| **Branch** | `feature/rust-native-desktop-host` |
 | **Started** | 2026-11-07 |
-| **State** | 2026-11-12, final visual-parity evidence captured from the v26 release binary. The feature migration and all gates are green; the visual gate stays **open** because Settings (both themes) and the dark palette remain below the SSIM target. See §15.7. |
+| **State** | 2026-11-13, a persistent native egui desktop host is now wired to the real SQLite store and authentication flow. The Tauri webview remains the packaged default until native parity, shell integrations and packaging are verified. The visual gate stays **open**; see §15.7. |
 | **Current phase** | Phase 9 — implementation complete, **visual gate open**. Final ten pairs: eight reach window ≥98, five reach SSIM ≥0.90. Dashboard/Invoices/Contacts and the light palette meet their targets; Settings stays at 0.7251/0.7072 SSIM and the dark palette at 0.8778. Remaining: the Settings icon/text rendering, the dark palette backdrop and the installer/bundling plus environment-bound integrations in §18.4. |
 | **Overall progress** | ~99 % (feature surfaces, data layer, Tauri shell, FatturaPA import, batch contacts, v26 versioning, 1,011-key i18n packs and all gates are implemented; the open work is the last visual residual in §15.7, installer/bundling and environment-bound integrations) |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
@@ -1256,6 +1256,7 @@ listed as the next work in 18.5, not as an open parity gap.
 
 ### 18.5 Next locally implementable work (not environment-blocked)
 
+- **Native Rust desktop host (first integration pass, 2026-11-13):** `cargo run -p socdof-ui --features window --bin socdof-ui-desktop` now starts the egui shell with the persistent SQLite database, the shared `network_session.lock`, saved language/theme/accent and real setup/login. `GalleryState::from_store` deliberately skips all sample records and demo credentials; `GalleryState::new` remains the isolated fixture path for visual tests. Lock/sign-out/account-switch actions return to the authentication screen. The Tauri webview and its installer are retained until native parity and OS integrations are proven.
 - The remaining TypeScript components in the egui/webview split: TaskViewModal/Appointments,
   SupportServicesModule, TherapyPracticeModule, StudioDrawer/AccountScopedWorkspace and
   the DocumentationApp/StorageInspector screens.
@@ -1318,6 +1319,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 | Date | Phase | Note |
 |---|---|---|
+| 2026-11-13 | 9 | Added the first persistent native egui desktop host on `feature/rust-native-desktop-host`: real SQLite path, legacy-compatible instance lock and heartbeat, saved profile language/theme/accent, first-run setup or login, and no demo data. The fixture gallery remains unchanged as a separate development path. The Tauri frontend is not removed until native parity, platform integrations and installer verification pass. |
 | 2026-11-11 | 18 | Webview parity pass: contact detail + customer picker, calculator/history and widgets, command palette, task view with virtual desktops, login gate and user management, language modal, documentation browser and storage inspector; 984 identical de/en/fr/es keys and new tests. Real TS/Rust screenshot pairs in `docs/parity/`. |
 | 2026-11-12 | 18 | Final visual evidence from the v26 binary: eight of ten pairs pass the ≥98 pixel target, five pass SSIM ≥0.90; Settings and the dark palette remain open. Added the real FatturaPA XML import, sequential contact creation and v26 version alignment; all gates incl. the Xvfb GUI smoke pass. |
 | 2026-11-12 | 18 | Ported the POS flow into the Tauri webview: receipt overview, daily totals, validated receipt creation, payment/change handling and cancellation with stock reversal; added a focused command-layer regression test. |
