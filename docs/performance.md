@@ -92,8 +92,8 @@ fails). So the four artifact budgets are measured where those exist, and both pl
 - `.github/workflows/rust.yml`, job `desktop`, step **Frame budget (50k contacts, 100k invoices)** →
   the benchmark above in release mode.
 - `.github/workflows/rust.yml`, job `gui-smoke`, step **Idle RAM/CPU budget** → starts the built app
-  under `Xvfb :99`, finds the real `socdof-desktop` pid with `scripts/idle-app-pid.py`, waits 15 s and
-  runs `node scripts/check-budgets.mjs --scope=runtime --pid <pid>`; limits 122,880 KiB and 0.5 %.
+  under `Xvfb :99`, finds the native `socdof-ui-desktop` pid with `scripts/idle-app-pid.py`, waits 15 s and
+  runs `node scripts/check-budgets.mjs --scope=runtime --pid <pid>`; limits 122,880 KiB and 0.5 %. Tauri remains a separately tested transition fallback.
 
 ## History
 
