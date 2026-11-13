@@ -180,7 +180,7 @@ fn app_store_lists_and_persists_activation() {
     let dir = temp_dir("app-store");
     let state = DesktopState::open(dir.join("socdof.db")).expect("desktop state opens");
     let modules = state.app_store_modules().expect("catalogue");
-    assert_eq!(modules.len(), 15);
+    assert_eq!(modules.len(), 16);
     let contacts = modules
         .iter()
         .find(|module| module.id == "contacts")
