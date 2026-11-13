@@ -303,6 +303,8 @@ mod tests {
         assert!(role.allows(AppModule::Invoices, PermissionLevel::Edit));
         assert!(!role.allows(AppModule::Invoices, PermissionLevel::Manage));
         assert!(role.allows(AppModule::Reports, PermissionLevel::View));
+        assert!(role.allows(AppModule::Projects, PermissionLevel::Edit));
+        assert!(role.allows(AppModule::Fleet, PermissionLevel::Edit));
     }
 
     #[test]
