@@ -422,11 +422,11 @@ pub fn fleet(
                                 for value in ["diesel","petrol","electric","hybrid","cng"] { ui.selectable_value(&mut vehicle.fuel_type,value.to_string(),value); }
                             }); ui.end_row();
                             ui.label(texts.get("fleet_vin")); ui.text_edit_singleline(&mut vehicle.vin); ui.end_row();
-                            ui.label(texts.get("fleet_odometer")); ui.add(egui::DragValue::new(&mut vehicle.current_odometer).range(0..=i64::MAX)); ui.end_row();
+                            ui.label(texts.get("fleet_odometer")); ui.add(egui::DragValue::new(&mut vehicle.current_odometer).clamp_range(0..=i64::MAX)); ui.end_row();
                             ui.label(texts.get("fleet_driver")); ui.text_edit_singleline(&mut vehicle.assigned_driver); ui.end_row();
                             ui.label(texts.get("fleet_year"));
                             let mut year = vehicle.year.unwrap_or(2026);
-                            if ui.add(egui::DragValue::new(&mut year).range(1900..=2100)).changed() { vehicle.year = Some(year); }
+                            if ui.add(egui::DragValue::new(&mut year).clamp_range(1900..=2100)).changed() { vehicle.year = Some(year); }
                             ui.end_row();
                             ui.label(texts.get("fleet_inspection")); ui.text_edit_singleline(&mut vehicle.next_inspection_due); ui.end_row();
                             ui.label(texts.get("fleet_vehicle_status"));
@@ -462,8 +462,8 @@ pub fn fleet(
                             }); ui.end_row();
                             ui.label(texts.get("fleet_reason")); ui.text_edit_singleline(&mut trip.reason); ui.end_row();
                             ui.label(texts.get("fleet_customer")); ui.text_edit_singleline(&mut trip.customer_name); ui.end_row();
-                            ui.label(texts.get("fleet_start_km")); ui.add(egui::DragValue::new(&mut trip.start_km).range(0..=i64::MAX)); ui.end_row();
-                            ui.label(texts.get("fleet_end_km")); ui.add(egui::DragValue::new(&mut trip.end_km).range(0..=i64::MAX)); ui.end_row();
+                            ui.label(texts.get("fleet_start_km")); ui.add(egui::DragValue::new(&mut trip.start_km).clamp_range(0..=i64::MAX)); ui.end_row();
+                            ui.label(texts.get("fleet_end_km")); ui.add(egui::DragValue::new(&mut trip.end_km).clamp_range(0..=i64::MAX)); ui.end_row();
                             ui.label(texts.get("fleet_distance")); ui.label(km(FleetTrip::distance(trip.start_km,trip.end_km))); ui.end_row();
                             ui.label(texts.get("fleet_notes")); ui.text_edit_multiline(&mut trip.notes); ui.end_row();
                         });
@@ -483,7 +483,7 @@ pub fn fleet(
                                 for vehicle in &state.vehicles { ui.selectable_value(&mut entry.vehicle_id,vehicle.id,vehicle.license_plate.clone()); }
                             }); ui.end_row();
                             ui.label(texts.get("fleet_date")); ui.text_edit_singleline(&mut entry.date); ui.end_row();
-                            ui.label(texts.get("fleet_odometer")); ui.add(egui::DragValue::new(&mut entry.odometer).range(0..=i64::MAX)); ui.end_row();
+                            ui.label(texts.get("fleet_odometer")); ui.add(egui::DragValue::new(&mut entry.odometer).clamp_range(0..=i64::MAX)); ui.end_row();
                             ui.label(texts.get("fleet_units"));
                             let mut units = format!("{:.3}",entry.units_milli as f64/1000.0);
                             if ui.text_edit_singleline(&mut units).changed() { entry.units_milli=(units.replace(',',".").parse::<f64>().unwrap_or(0.0).max(0.0)*1000.0).round() as i64; }
