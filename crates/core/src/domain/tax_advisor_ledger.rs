@@ -318,7 +318,8 @@ struct LedgerExportTexts {
     cash: &'static str,
     bank: &'static str,
     total: &'static str,
-    carry_over: &'static str,
+    carry_over_year: &'static str,
+    carry_over_month: &'static str,
     income: &'static str,
     expense: &'static str,
     balance: &'static str,
@@ -338,7 +339,8 @@ fn ledger_export_texts(language: &str) -> LedgerExportTexts {
             cash: "Cash",
             bank: "Bank",
             total: "Total",
-            carry_over: "Previous balance",
+            carry_over_year: "Opening balance",
+            carry_over_month: "Previous month",
             income: "Total income",
             expense: "Total expenses",
             balance: "Current balance",
@@ -355,7 +357,8 @@ fn ledger_export_texts(language: &str) -> LedgerExportTexts {
             cash: "Espèces",
             bank: "Banque",
             total: "Total",
-            carry_over: "Report précédent",
+            carry_over_year: "Solde d'ouverture",
+            carry_over_month: "Report précédent",
             income: "Total des recettes",
             expense: "Total des dépenses",
             balance: "Solde actuel",
@@ -372,7 +375,8 @@ fn ledger_export_texts(language: &str) -> LedgerExportTexts {
             cash: "Efectivo",
             bank: "Banco",
             total: "Total",
-            carry_over: "Saldo anterior",
+            carry_over_year: "Saldo inicial",
+            carry_over_month: "Saldo anterior",
             income: "Total de ingresos",
             expense: "Total de gastos",
             balance: "Saldo actual",
@@ -389,7 +393,8 @@ fn ledger_export_texts(language: &str) -> LedgerExportTexts {
             cash: "Kassa",
             bank: "Bank",
             total: "Gesamt",
-            carry_over: "Übertrag Vormonat",
+            carry_over_year: "Übertrag Vorjahr",
+            carry_over_month: "Übertrag Vormonat",
             income: "Summe Einnahmen",
             expense: "Summe Ausgaben",
             balance: "Aktueller Kassastand",
@@ -456,7 +461,7 @@ pub fn export_tax_advisor_excel_xml(
             push_row_with_formulas(
                 &mut rows,
                 &[
-                    (labels.carry_over, "String", ""),
+                    (labels.carry_over_year, "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
@@ -1028,6 +1033,10 @@ mod tests {
         assert!(xml.contains("&apos;M1&apos;!R8C5"));
         let english = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "en", &months);
         assert!(english.contains("Income and Expenses"));
-        assert!(english.contains("Previous balance"));
+        assert!(english.contains("Opening balance"));
+        let french = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "fr", &months);
+        let spanish = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "es", &months);
+        assert!(french.contains("Recettes et dépenses"));
+        assert!(spanish.contains("Ingresos y gastos"));
     }
 }
