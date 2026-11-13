@@ -210,6 +210,7 @@
   "accounting_expense": "Dépenses",
   "accounting_export": "Exporter",
   "accounting_exported": "Export copié dans le presse-papiers",
+  "accounting_saved": "Fichier d’exportation enregistré.",
   "accounting_form_title": "Modifier l'écriture",
   "accounting_kind": "Type",
   "accounting_kind_expense": "Dépense",
