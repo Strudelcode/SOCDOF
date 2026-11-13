@@ -418,15 +418,8 @@ fn render_document(
         draw_table_header(page, &geometry, header_top, template.color());
 
         let mut row_y = header_top + 8.0;
-        for index in *start..*end {
-            draw_row(
-                page,
-                &invoice.lines[index],
-                index + 1,
-                &geometry,
-                row_y,
-                currency,
-            );
+        for (index, line) in invoice.lines.iter().enumerate().take(*end).skip(*start) {
+            draw_row(page, line, index + 1, &geometry, row_y, currency);
             row_y += geometry.row_height;
         }
 
