@@ -1022,7 +1022,9 @@ mod tests {
 
     #[test]
     fn workbook_contains_twelve_sheets_and_escapes_user_text() {
-        let names = (1..=12).map(|month| format!("M{month}")).collect::<Vec<_>>();
+        let names = (1..=12)
+            .map(|month| format!("M{month}"))
+            .collect::<Vec<_>>();
         let months = build_yearly_ledger(2026, &[], &names, Money::ZERO, Money::ZERO);
         let xml = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "de", &months);
         assert_eq!(xml.matches("<Worksheet ").count(), 12);
