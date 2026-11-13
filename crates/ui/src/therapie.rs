@@ -1003,8 +1003,24 @@ fn detail_view(
         ui.add_space(10.0);
         let mut add = false;
         ui.horizontal(|ui| {
-            text_field(ui, theme, focus, &mut state.session_date, texts.get("therapie_session_date"), "YYYY-MM-DD", None);
-            text_field(ui, theme, focus, &mut state.session_time, texts.get("therapie_session_time"), "HH:MM", None);
+            text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.session_date,
+                texts.get("therapie_session_date"),
+                "YYYY-MM-DD",
+                None,
+            );
+            text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.session_time,
+                texts.get("therapie_session_time"),
+                "HH:MM",
+                None,
+            );
         });
         text_field(
             ui,
@@ -1389,7 +1405,10 @@ mod tests {
             .into_iter()
             .find(|session| session.id == open.id)
             .expect("updated session");
-        assert_eq!(updated.started_at, socdof_core::date::parse_iso8601("2026-11-12T09:45:00Z").unwrap());
+        assert_eq!(
+            updated.started_at,
+            socdof_core::date::parse_iso8601("2026-11-12T09:45:00Z").unwrap()
+        );
         assert_eq!(updated.minutes, 75);
         assert_eq!(updated.kilometers_milli, 14_250);
         assert_eq!(updated.notes, "Updated treatment note");
