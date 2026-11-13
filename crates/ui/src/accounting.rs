@@ -453,6 +453,8 @@ pub struct AccountingState {
     pub tax_advisor_year_popup: PopupState,
     /// Owner or company name printed on the tax-advisor workbook.
     pub tax_advisor_owner: String,
+    /// Language used for the tax-advisor workbook labels.
+    pub tax_advisor_language: String,
     /// Twelve monthly cash/bank ledgers for the current year.
     pub tax_advisor_months: Vec<MonthlyLedgerData>,
     /// Set when the twelve-sheet Excel export is requested.
@@ -510,6 +512,7 @@ impl Default for AccountingState {
             tax_advisor_year: 0,
             tax_advisor_year_popup: PopupState::default(),
             tax_advisor_owner: String::new(),
+            tax_advisor_language: "de".to_string(),
             tax_advisor_months: Vec::new(),
             tax_advisor_export: false,
             tax_advisor_month_index: 0,
@@ -591,6 +594,7 @@ impl AccountingState {
         } else {
             company.bank_account_holder.clone()
         };
+        self.tax_advisor_language = company.language.as_str().to_string();
 
         let invoices = store.list_invoices()?;
         let purchases = store.list_purchase_orders()?;
@@ -963,6 +967,7 @@ pub fn accounting(
             state.tax_advisor_year,
             &state.tax_advisor_owner,
             &state.currency_symbol,
+            &state.tax_advisor_language,
             &state.tax_advisor_months,
         );
         let safe_owner = state
