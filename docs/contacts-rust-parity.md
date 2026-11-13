@@ -10,7 +10,7 @@ This checklist tracks the native Rust port against:
 - Multi-row creation with row validation and one SQLite transaction.
 - CSV import with comma, semicolon and tab delimiter detection, quoted values, escaped quotes and embedded newlines.
 - Header matching for common German, English, French, Spanish, Outlook, Google Contacts and Apple Contacts labels, including tax-ID aliases and multiple business/home/other address columns with first-non-empty fallback.
-- vCard 2.1/3.0/4.0 import with grouped property names, folded-line unfolding, URI telephone normalization, truncated-final-card recovery and malformed email rejection with folded lines and escaped text values.
+- vCard 2.1/3.0/4.0 import with grouped property names, folded-line unfolding, URI telephone normalization, truncated-final-card recovery, malformed email rejection and escaped text values.
 - Import preview with row removal and one category applied to all selected rows.
 - CSV export with UTF-8 BOM, semicolon delimiter, quoted fields and CRLF records.
 - vCard 3.0 export with UTF-8-safe 75-octet line folding.
@@ -22,7 +22,8 @@ This checklist tracks the native Rust port against:
 - [x] Multiple business/home/other address columns fall back to the first non-empty value; legacy "Buch" category text maps to Guest.
 - [x] CSV export preserves embedded line breaks inside quoted fields; vCard cards with no valid e-mail do not store empty/dummy e-mail values.
 - [ ] Verify duplicate/empty rows and malformed quoted CSV input.
-- [ ] Verify vCard 2.1/3.0/4.0 variants, multiple EMAIL/TEL properties, escaped separators and quoted-printable values.
+- [x] Verify vCard 2.1/3.0/4.0 variants, grouped property names, URI telephone values, folded lines and escaped text.
+- [ ] Support quoted-printable/charset decoding and scan alternative/duplicate EMAIL/TEL properties.
 - [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
 - [x] Export scope supports all contacts or the current filtered view, with a date-stamped filename.
 - [ ] Compare exact filenames, MIME types and output bytes against the TypeScript reference.
