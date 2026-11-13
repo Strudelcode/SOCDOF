@@ -192,7 +192,7 @@ impl FleetState {
             driver: vehicle.assigned_driver.clone(),
             date: socdof_core::domain::project::iso_date(now),
             start_time: "08:30".to_string(),
-            end_time: "09:30".to_string(),
+            end_time: "09:45".to_string(),
             start_location: String::new(),
             end_location: String::new(),
             purpose: "business".to_string(),
@@ -375,8 +375,8 @@ pub fn fleet(
     let visible_trips: Vec<FleetTrip> = state.trips.iter().filter(|trip| {
         state.selected_vehicle_filter.map_or(true, |id| trip.vehicle_id == id)
             && (state.purpose_filter == "all" || trip.purpose == state.purpose_filter)
-            && (state.date_from.is_empty() || trip.date >= state.date_from)
-            && (state.date_to.is_empty() || trip.date <= state.date_to)
+            && (state.date_from.is_empty() || trip.date.as_str() >= state.date_from.as_str())
+            && (state.date_to.is_empty() || trip.date.as_str() <= state.date_to.as_str())
             && (query.is_empty() || trip.vehicle_plate.to_lowercase().contains(&query) || trip.driver.to_lowercase().contains(&query) || trip.start_location.to_lowercase().contains(&query) || trip.end_location.to_lowercase().contains(&query) || trip.reason.to_lowercase().contains(&query) || trip.customer_name.to_lowercase().contains(&query))
     }).cloned().collect();
     let stats = metrics(&visible_trips, &state.fuel, &state.vehicles);
