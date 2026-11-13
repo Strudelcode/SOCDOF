@@ -334,8 +334,9 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
             name
         };
         let email = property("EMAIL").unwrap_or_default();
+        let clean_email = (!email.is_empty() && valid_email(&email)).then_some(email);
         let phone = property("TEL").unwrap_or_default();
-        if name.is_empty() && email.is_empty() && phone.is_empty() {
+        if name.is_empty() && clean_email.is_none() && phone.is_empty() {
             continue;
         }
         let mut contact = Contact::new(
@@ -352,7 +353,7 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
             name
         });
         contact.company_name = non_empty(&company);
-        contact.email = (!email.is_empty() && valid_email(&email)).then_some(email);
+        contact.email = clean_email;
         contact.phone = non_empty(&phone);
         if let Some(address) = property("ADR") {
             let parts: Vec<&str> = address.split(';').collect();
@@ -689,4 +690,12 @@ mod tests {
         assert_eq!(parsed[0].zip.as_deref(), Some("N1 1AA"));
         assert_eq!(parsed[0].country.as_deref(), Some("United Kingdom"));
     }
+
+    #[test]
+    fn skips_vcard_with_only_a_legacy_dummy_email() {
+        let vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nEMAIL:legacy@import.local\r\nEND:VCARD";
+        let parsed = parse_contacts_vcard(vcf, ContactType::Guest, 1);
+        assert!(parsed.is_empty());
+    }
+
 }
