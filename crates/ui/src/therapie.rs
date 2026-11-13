@@ -336,9 +336,8 @@ impl TherapieState {
             }
         };
 
-        let started_at = if self.session_date.trim().is_empty()
-            && self.session_time.trim().is_empty()
-        {
+        let started_at =
+            if self.session_date.trim().is_empty() && self.session_time.trim().is_empty() {
             if self.editing_session.is_some() {
                 self.sessions
                     .iter()
