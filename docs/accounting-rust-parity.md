@@ -12,7 +12,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - POS Z-report receipt count and cash/card/NFC/other tender totals.
 - Date filtering against each source document's own date field.
 - Native Accounting UI Business Report tab backed by the core aggregate, refreshed whenever the app is reopened.
-- Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability.
+- Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability, saved through a native file dialog.
 - Unit and store-to-UI regression coverage for cross-module aggregation, VAT, receivables, POS tender totals, date ranges, draft exclusion and company currency.
 
 ## Remaining parity checks
