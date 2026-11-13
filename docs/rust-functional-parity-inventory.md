@@ -184,6 +184,8 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | Fleet | TS vehicle/trip/fuel save/edit/delete, filters, metrics and CSV vs Rust | Confirmed filter scope and historical-record retention; regression test added for vehicle deletion | All form edge cases, invoice handoff, translation coverage and full CSV edge cases |
 | Restaurant | TS tax grouping, order totals and paid invoice vs Rust domain/store | Fixed VAT aggregation and added persisted invoice/POS VAT overrides (schemas v16–v17); cent-level checkout/reopen regression test added | Full order/kitchen workflow, checkout side effects, receipt rendering and export parity |
 | Therapy | TS client/session billing flow vs Rust UI/domain/store | Added edit flow for unbilled sessions, persists minutes/distance/notes and blocks edits after invoice linking; regression test added | Session date editing, mileage ledger/export, invoice generation/print details and full TS workflow comparison |
+| Contacts | `ContactsModule.tsx` and `contactImportExport.ts` vs Rust contacts UI/domain/store | CRUD, company contact persons, search and persistence exist | TS batch creation, CSV/Outlook/Google/Apple import, CSV and vCard export are not yet ported to the native screen |
+| Accounting | `AccountingModule.tsx` vs Rust journal/accounting UI and invoice/POS/purchase stores | Native journal, cash book, BWA and journal CSV exist | TS UStVA, invoice open-items list, POS Z-report, invoice/POS/purchase aggregation and custom date-range filters are still missing |
 
 These are focused findings, not full module acceptance. Keep each row open until the remaining behaviors are audited and the workspace CI passes.
 
