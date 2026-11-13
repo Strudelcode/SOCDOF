@@ -105,7 +105,7 @@ pub use invoices::{
 };
 pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
-pub use projects::{projects, ProjectsState};
+pub use projects::{projects, ProjectsState, ProjectsView};
 pub use purchases::{
     purchases, seed_purchases, PurchaseDraft, PurchaseLineDraft, PurchasesState, PurchasesView,
 };
