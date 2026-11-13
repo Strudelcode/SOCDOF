@@ -1,4 +1,7 @@
 {
+  "projects_kpi_logged": "Erfasste Stunden",
+  "projects_kpi_estimated": "Geplante Stunden",
+  "projects_kpi_completion": "Fortschritt",
   "app_fleet": "Fuhrpark",
   "app_store_desc_fleet": "Fahrzeuge, digitales Fahrtenbuch, Tank- und Ladebelege sowie Auswertungen.",
   "settings_module_fleet": "Fuhrpark",
