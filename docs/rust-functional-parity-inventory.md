@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-13
 
-**Audit update:** 2026-11-13 — POS receipt VAT totals now persist through schema v17 as well. — Projects, Fleet and Restaurant have focused parity findings recorded below; the full workspace gate remains open.  
+**Audit update:** 2026-11-13 — POS receipt VAT totals now persist through schema v17; Therapy now supports editing unbilled sessions and protects invoice-linked history. Projects, Fleet, Restaurant and Therapy have focused parity findings recorded below; the full workspace gate remains open.  
 **Reference branch:** `feature/rust-native-desktop-host`  
 **Reference application:** `SOCDOF - TS/`  
 **Rust implementation:** `crates/`
@@ -40,7 +40,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/support/ProjectsModule.tsx` | `crates/ui/src/projects.rs`, `crates/app/src/project_bridge.rs`, `crates/core/src/domain/project.rs`, `crates/core/src/store/projects.rs` | Port exists; behavior-by-behavior audit required |
 | `components/sales/RestaurantModule.tsx` | `crates/ui/src/restaurant.rs`, `crates/app/src/restaurant_bridge.rs`, `crates/core/src/domain/restaurant.rs`, `crates/core/src/store/restaurant.rs` | Port exists; behavior-by-behavior audit required |
 | `components/sales/InvoicesModule.tsx`, `InvoiceTemplateModal.tsx`, `InvoicePrintModal.tsx` | `crates/ui/src/invoices.rs`, `invoice_templates.rs`, `invoice_tokens.rs`; `crates/app/src/invoice_bridge.rs`; `crates/core/src/store/invoices.rs`, `invoice_template.rs`, `pdf/` | Existing Rust surface; full parity audit required |
-| `components/therapy/*` | `crates/ui/src/therapie.rs`, `crates/core/src/domain/therapy.rs`, `crates/core/src/store/therapy.rs` | Partial/uncertain; audit every sub-workflow |
+| `components/therapy/*` | `crates/ui/src/therapie.rs`, `crates/core/src/domain/therapy.rs`, `crates/core/src/store/therapy.rs` | Partial port; session create/edit/delete and invoice-link protections now covered; full sub-workflow audit remains open |
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
 | `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Existing Rust surface; map each TS screen and action |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
@@ -183,6 +183,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | Projects | TS portfolio metrics vs Rust domain/store/bridge/tests | Fixed task denominator to ignore orphan tasks; regression test added | Filters, task transitions, CSV formatting, invoice numbering and complete UI workflows |
 | Fleet | TS vehicle/trip/fuel save/edit/delete, filters, metrics and CSV vs Rust | Confirmed filter scope and historical-record retention; regression test added for vehicle deletion | All form edge cases, invoice handoff, translation coverage and full CSV edge cases |
 | Restaurant | TS tax grouping, order totals and paid invoice vs Rust domain/store | Fixed VAT aggregation and added persisted invoice/POS VAT overrides (schemas v16–v17); cent-level checkout/reopen regression test added | Full order/kitchen workflow, checkout side effects, receipt rendering and export parity |
+| Therapy | TS client/session billing flow vs Rust UI/domain/store | Added edit flow for unbilled sessions, persists minutes/distance/notes and blocks edits after invoice linking; regression test added | Session date editing, mileage ledger/export, invoice generation/print details and full TS workflow comparison |
 
 These are focused findings, not full module acceptance. Keep each row open until the remaining behaviors are audited and the workspace CI passes.
 
