@@ -51,6 +51,8 @@ pub enum AccountingTab {
     CashBook,
     /// Revenue and expenses grouped by account.
     Bwa,
+    /// Cross-module BWA, VAT, open receivables and POS close.
+    BusinessReport,
 }
 
 impl AccountingTab {
@@ -60,6 +62,7 @@ impl AccountingTab {
             AccountingTab::Journal => 0,
             AccountingTab::CashBook => 1,
             AccountingTab::Bwa => 2,
+            AccountingTab::BusinessReport => 3,
         }
     }
 
@@ -68,6 +71,7 @@ impl AccountingTab {
         match index {
             1 => AccountingTab::CashBook,
             2 => AccountingTab::Bwa,
+            3 => AccountingTab::BusinessReport,
             _ => AccountingTab::Journal,
         }
     }
@@ -78,6 +82,7 @@ impl AccountingTab {
             AccountingTab::Journal => "accounting_tab_journal",
             AccountingTab::CashBook => "accounting_tab_cash",
             AccountingTab::Bwa => "accounting_tab_bwa",
+            AccountingTab::BusinessReport => "accounting_bwa_title",
         }
     }
 }
@@ -707,6 +712,7 @@ fn list_view(
         AccountingTab::Journal,
         AccountingTab::CashBook,
         AccountingTab::Bwa,
+        AccountingTab::BusinessReport,
     ]
     .iter()
     .map(|tab| texts.get(tab.label_key()))
@@ -757,6 +763,7 @@ fn list_view(
         AccountingTab::Journal => journal_table(ui, theme, texts, focus, state),
         AccountingTab::CashBook => cash_book_view(ui, theme, texts, state),
         AccountingTab::Bwa => bwa_view(ui, theme, texts, state),
+        AccountingTab::BusinessReport => business_report_view(ui, theme, texts, state),
     }
 }
 
@@ -958,6 +965,165 @@ fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
                     ui.end_row();
                 }
             });
+    });
+}
+
+fn business_report_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &AccountingState,
+) {
+    let report = &state.business_report;
+
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.add_space(8.0);
+        for (label, value, tone) in [
+            ("accounting_revenue", report.revenue_net, Tone::Success),
+            ("accounting_expense", report.purchase_net, Tone::Warning),
+            ("accounting_result", report.operating_profit_net, Tone::Accent),
+            ("accounting_tax_balance", report.vat_liability, Tone::Neutral),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                badge(ui, theme, &money(value), tone);
+            });
+        }
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("pos_summary_tax")).strong());
+        ui.add_space(6.0);
+        egui::Grid::new("socdof-business-vat")
+            .num_columns(3)
+            .spacing(egui::vec2(16.0, 6.0))
+            .show(ui, |ui| {
+                for label in [
+                    "accounting_tax",
+                    "accounting_revenue",
+                    "pos_summary_tax",
+                ] {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .strong()
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                ui.end_row();
+                for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
+                    ui.label(rate);
+                    ui.label(money(bucket.net));
+                    ui.label(money(bucket.tax));
+                    ui.end_row();
+                }
+                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label(money(report.output_vat));
+                ui.label(RichText::new(money(report.vat_liability)).strong());
+                ui.end_row();
+            });
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(format!(
+                "{}: {}",
+                texts.get("accounting_expense"),
+                money(report.purchase_tax)
+            ))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(texts.get("accounting_open_button")).strong());
+            badge(
+                ui,
+                theme,
+                &format!(
+                    "{} · {}",
+                    report.open_receivables.len(),
+                    money(report.open_receivables_total)
+                ),
+                if report.open_receivables.is_empty() {
+                    Tone::Success
+                } else {
+                    Tone::Warning
+                },
+            );
+        });
+        if report.open_receivables.is_empty() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("accounting_no_results"),
+                texts.get("accounting_empty_hint"),
+            );
+        } else {
+            ui.add_space(6.0);
+            egui::Grid::new("socdof-business-open-items")
+                .num_columns(3)
+                .spacing(egui::vec2(16.0, 6.0))
+                .show(ui, |ui| {
+                    for label in [
+                        "accounting_col_date",
+                        "accounting_col_description",
+                        "accounting_col_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(label))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    ui.end_row();
+                    for item in &report.open_receivables {
+                        ui.label(format_date(item.due_at));
+                        ui.label(&item.number);
+                        ui.label(RichText::new(money(item.amount)).strong());
+                        ui.end_row();
+                    }
+                });
+        }
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("pos_summary_title")).strong());
+        ui.add_space(6.0);
+        for (label, value) in [
+            ("pos_payment_cash", report.z_report.cash),
+            ("pos_payment_card", report.z_report.card),
+            ("pos_payment_nfc", report.z_report.nfc),
+            ("pos_payment_other", report.z_report.other),
+            ("pos_total_gross", report.z_report.gross),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(RichText::new(money(value)).strong());
+            });
+        }
+        ui.label(
+            RichText::new(format!(
+                "{}: {}",
+                texts.get("pos_summary_title"),
+                report.z_report.receipts
+            ))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
     });
 }
 
