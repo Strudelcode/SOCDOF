@@ -24,8 +24,8 @@ pub struct ReportRange {
 
 impl ReportRange {
     fn contains(self, timestamp: i64) -> bool {
-        self.from.is_none_or(|from| timestamp >= from)
-            && self.to.is_none_or(|to| timestamp <= to)
+        self.from.map_or(true, |from| timestamp >= from)
+            && self.to.map_or(true, |to| timestamp <= to)
     }
 }
 
