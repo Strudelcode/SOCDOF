@@ -191,9 +191,23 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
             #[cfg(feature = "dialogs")]
             if button(ui,theme,focus,texts.get("restaurant_export"),ButtonVariant::Secondary).activated { match export_csv(store) { Ok(Some(path)) => state.status=Some(format!("{}: {}",texts.get("restaurant_exported"),path)), Ok(None)=>{}, Err(error)=>state.error=Some(error.to_string()) } }
             let open=state.orders.iter().filter(|o|o.status!="paid").count();
-            let kitchen=state.orders.iter().filter(|o|o.status=="preparing").count();
-            let revenue:i64=state.orders.iter().filter(|o|o.status=="paid").map(|o|o.total_cents+o.tip_cents).sum();
-            ui.horizontal_wrapped(|ui|{for (label,value) in [(texts.get("restaurant_kpi_open"),open.to_string()),(texts.get("restaurant_kpi_kitchen"),kitchen.to_string()),(texts.get("restaurant_kpi_revenue"),money(revenue,&currency)),(texts.get("restaurant_kpi_menu"),state.menu.len().to_string())]{
+            let kitchen=state.orders.iter().filter(|o|o.status=="ordered"||o.status=="preparing").count();
+            let today_key=socdof_core::date::civil_from_millis(now);
+            let today_paid:Vec<&TableOrder>=state.orders.iter().filter(|o|o.status=="paid"&&o.paid_at.is_some_and(|at|socdof_core::date::civil_from_millis(at)==today_key)).collect();
+            let revenue:i64=today_paid.iter().map(|o|o.total_cents).sum();
+            let cash_sales:i64=today_paid.iter().filter(|o|o.payment_method.as_deref()==Some("cash")).map(|o|o.total_cents).sum();
+            let card_sales=revenue-cash_sales;
+            let tax_total:i64=today_paid.iter().map(|o|o.tax_total_cents).sum();
+            ui.horizontal_wrapped(|ui|{for (label,value) in [
+                (texts.get("restaurant_kpi_open"),open.to_string()),
+                (texts.get("restaurant_kpi_kitchen"),kitchen.to_string()),
+                (texts.get("restaurant_kpi_revenue"),money(revenue,&currency)),
+                (texts.get("restaurant_kpi_menu"),state.menu.len().to_string()),
+                (texts.get("restaurant_kpi_today_orders"),today_paid.len().to_string()),
+                (texts.get("restaurant_kpi_cash"),money(cash_sales,&currency)),
+                (texts.get("restaurant_kpi_card"),money(card_sales,&currency)),
+                (texts.get("restaurant_kpi_tax"),money(tax_total,&currency))
+            ]{
                 crate::components::card(ui,theme,|ui|{ui.label(RichText::new(label).size(FONT_SMALL).color(theme.palette.text_muted));ui.heading(value);});
             }});
             feedback(ui,theme,texts,state);
@@ -307,26 +321,47 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
 }
 
 #[cfg(feature = "dialogs")]
-fn export_csv(store: &Store) -> socdof_core::CoreResult<Option<String>> {
-    let orders=store.restaurant_orders()?;
-    let mut csv=String::from("\u{feff}receipt_number;table;status;opened_at;paid_at;server;positions;net_cents;tax_cents;tip_cents;total_cents;payment_method\r\n");
-    for order in orders {
-        let fields=[
-            order.receipt_number.unwrap_or_default(),order.table_number,order.status,
-            order.opened_at.to_string(),order.paid_at.unwrap_or_default().to_string(),
-            order.server_name,order.item_quantity().to_string(),order.subtotal_cents.to_string(),
-            order.tax_total_cents.to_string(),order.tip_cents.to_string(),order.total_cents.to_string(),
-            order.payment_method.unwrap_or_default()
-        ];
-        csv.push_str(&fields.iter().map(|field|format!("\"{}\"",field.replace('"',"\"\""))).collect::<Vec<_>>().join(";"));
-        csv.push_str("\r\n");
+fn csv_field(value: &str) -> String {
+    if value.contains(';') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
     }
-    let year=socdof_core::date::civil_from_millis(socdof_core::now_millis()).0;
-    let name=format!("SOCDOF-Restaurant-{year}.csv");
-    if let Some(path)=rfd::FileDialog::new().set_file_name(&name).save_file() {
-        std::fs::write(&path,csv.as_bytes())?;
+}
+
+#[cfg(feature = "dialogs")]
+fn export_csv(store: &Store) -> socdof_core::CoreResult<Option<String>> {
+    let orders = store.restaurant_orders()?;
+    let mut output = String::from("\u{feff}");
+    output.push_str("Belegnummer;Tisch;Datum;Zahlart;Artikel;Positionen;Netto;MwSt;Trinkgeld;Gesamt;Gesamt inkl. Trinkgeld\n");
+    for order in orders.iter().filter(|order| order.status == "paid") {
+        let articles = order.items.iter()
+            .map(|item| format!("{}× {}", item.qty, item.name))
+            .collect::<Vec<_>>().join(", ");
+        output.push_str(&format!(
+            "{};{};{};{};{};{};{};{};{};{};{}\n",
+            csv_field(order.receipt_number.as_deref().unwrap_or("")),
+            csv_field(&order.table_number),
+            order.paid_at.map(socdof_core::date::format_iso8601)
+                .unwrap_or_else(|| socdof_core::date::format_iso8601(order.opened_at)),
+            csv_field(order.payment_method.as_deref().unwrap_or("")),
+            csv_field(&articles),
+            order.line_count(),
+            Money::from_cents(order.subtotal_cents).to_decimal_string(),
+            Money::from_cents(order.tax_total_cents).to_decimal_string(),
+            Money::from_cents(order.tip_cents).to_decimal_string(),
+            Money::from_cents(order.total_cents).to_decimal_string(),
+            Money::from_cents(order.total_cents + order.tip_cents).to_decimal_string(),
+        ));
+    }
+    let (year, month, day) = socdof_core::date::civil_from_millis(socdof_core::now_millis());
+    let suggested = format!("restaurant-belege-{year:04}-{month:02}-{day:02}.csv");
+    if let Some(path) = rfd::FileDialog::new().set_file_name(&suggested).save_file() {
+        std::fs::write(&path, output.as_bytes())?;
         Ok(Some(path.display().to_string()))
-    } else { Ok(None) }
+    } else {
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
