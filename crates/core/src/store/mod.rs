@@ -2680,7 +2680,7 @@ mod tests {
             .expect("standard role exists");
         standard
             .permissions
-            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
+            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet | AppModule::Restaurant));
         store.conn.execute(
             "UPDATE roles SET permissions = ?1 WHERE id = ?2",
             rusqlite::params![
