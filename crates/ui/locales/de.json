@@ -1931,5 +1931,10 @@
   "restaurant_dish_deleted": "Gericht gelöscht.",
   "restaurant_order_saved": "Bestellung gespeichert.",
   "restaurant_order_deleted": "Bestellung gelöscht.",
-  "restaurant_checkout_saved": "Abrechnung erfolgreich gespeichert."
+  "restaurant_checkout_saved": "Abrechnung erfolgreich gespeichert.",
+  "restaurant_item_note": "Hinweis für die Küche",
+  "restaurant_split_count": "Personen teilen",
+  "restaurant_per_person": "Pro Person",
+  "restaurant_export": "CSV exportieren",
+  "restaurant_exported": "CSV exportiert"
 }
