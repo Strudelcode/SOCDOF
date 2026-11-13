@@ -1608,6 +1608,8 @@ mod tests {
 
         let store = Store::open_in_memory().expect("store");
         let now = SAMPLE_NOW_MS;
+        let mut state = AccountingState::new();
+        state.refresh(&store, now).expect("initial refresh");
         let mut contact = Contact::new(ContactKind::Person, now);
         contact.name = Some("Accounting Customer".to_string());
         store.insert_contact(&contact).expect("contact");
@@ -1674,7 +1676,7 @@ mod tests {
         };
         store.insert_pos_order(&pos, &[]).expect("POS receipt");
 
-        let mut state = AccountingState::new();
+        state.invalidate();
         state.refresh(&store, now).expect("refresh business report");
         assert_eq!(state.business_report.invoice_net.cents(), 10_000);
         assert_eq!(state.business_report.purchase_net.cents(), 2_000);
