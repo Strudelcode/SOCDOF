@@ -1645,9 +1645,7 @@ mod tests {
             created_at: now,
             updated_at: now,
         };
-        store
-            .insert_purchase_order(&purchase)
-            .expect("purchase");
+        store.insert_purchase_order(&purchase).expect("purchase");
 
         let pos = PosOrder {
             id: Uuid::new_v4(),
