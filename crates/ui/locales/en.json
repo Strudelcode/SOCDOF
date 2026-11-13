@@ -229,6 +229,7 @@
   "accounting_business_output_vat": "Output VAT",
   "accounting_business_input_vat": "Input VAT",
   "accounting_business_receipts": "Receipts",
+  "accounting_business_overdue": "Overdue",
   "accounting_reference": "Reference",
   "accounting_reference_hint": "Receipt or invoice number",
   "accounting_result": "Result",
