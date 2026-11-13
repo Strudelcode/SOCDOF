@@ -653,10 +653,35 @@ pub fn accounting(
         } else {
             export_csv(&state.entries)
         };
-        ctx.output_mut(|output| output.copied_text = csv);
+        #[cfg(feature = "dialogs")]
+        {
+            let (year, month, day) = date::civil_from_millis(now);
+            let filename = if state.tab == AccountingTab::BusinessReport {
+                format!("buchhaltung_bericht_{year:04}-{month:02}-{day:02}.csv")
+            } else {
+                format!("buchhaltung_buchungen_{year:04}-{month:02}-{day:02}.csv")
+            };
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter("CSV", &["csv"])
+                .save_file()
+            {
+                if std::fs::write(path, csv).is_ok() {
+                    state.status = Some("accounting_saved");
+                    state.error = None;
+                } else {
+                    state.error = Some("accounting_error_save");
+                    state.status = None;
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            ctx.output_mut(|output| output.copied_text = csv);
+            state.error = None;
+            state.status = Some("accounting_exported");
+        }
         state.export = false;
-        state.error = None;
-        state.status = Some("accounting_exported");
     }
 
     let mut open = state.confirm_delete;
