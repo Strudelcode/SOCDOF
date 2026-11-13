@@ -806,6 +806,7 @@ fn list_view(
                 ("pos_summary_gross", money("€", day.gross)),
                 ("pos_summary_cash", money("€", day.cash)),
                 ("pos_summary_card", money("€", day.card)),
+                ("pos_summary_nfc", money("€", day.nfc)),
             ] {
                 ui.vertical(|ui| {
                     ui.label(
