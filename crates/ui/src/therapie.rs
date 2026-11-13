@@ -283,7 +283,10 @@ impl TherapieState {
             return;
         }
         self.session_minutes = session.minutes.to_string();
-        self.session_kilometers = format!("{:.3}", session.kilometers()).trim_end_matches('0').trim_end_matches('.').to_string();
+        self.session_kilometers = format!("{:.3}", session.kilometers())
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string();
         self.session_notes = session.notes.clone();
         self.editing_session = Some(id);
         self.error = None;
@@ -322,7 +325,12 @@ impl TherapieState {
         };
 
         let mut session = if let Some(id) = self.editing_session {
-            let Some(existing) = self.sessions.iter().find(|session| session.id == id).cloned() else {
+            let Some(existing) = self
+                .sessions
+                .iter()
+                .find(|session| session.id == id)
+                .cloned()
+            else {
                 self.error = Some("therapie_error_session");
                 return Ok(());
             };
@@ -1309,7 +1317,9 @@ mod tests {
         state.session_minutes = "75".to_string();
         state.session_kilometers = "14,25".to_string();
         state.session_notes = "Updated treatment note".to_string();
-        state.add_session(&store, SAMPLE_NOW_MS + 1).expect("update");
+        state
+            .add_session(&store, SAMPLE_NOW_MS + 1)
+            .expect("update");
 
         let updated = store
             .therapy_sessions_for_client(client_id)
