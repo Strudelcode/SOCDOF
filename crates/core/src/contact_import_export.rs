@@ -573,6 +573,11 @@ fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
             _ => value.push(ch),
         }
     }
+    // An unmatched quote makes the trailing record ambiguous. Keep complete rows and
+    // discard only the malformed tail instead of merging the rest of the file into one contact.
+    if quoted {
+        return rows;
+    }
     if !value.is_empty() || !row.is_empty() {
         row.push(value.trim().to_string());
         if row.iter().any(|v| !v.is_empty()) {
@@ -765,6 +770,45 @@ mod tests {
         let expected = "Ä".repeat(100);
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].name.as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn skips_malformed_unclosed_csv_tail_without_losing_complete_rows() {
+        let csv = concat!(
+            "First Name;E-mail Address\r\n",
+            "Ada;ada@example.org\r\n",
+            "Grace;\"unterminated value"
+        );
+        let parsed = parse_contacts_csv(csv, ContactType::Guest, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name.as_deref(), Some("Ada"));
+    }
+
+    #[test]
+    fn ignores_blank_csv_rows_but_preserves_duplicate_contacts() {
+        let csv = concat!(
+            "Name;E-mail Address\r\n",
+            "Ada;ada@example.org\r\n",
+            "\r\n",
+            "Ada;ada@example.org\r\n"
+        );
+        let parsed = parse_contacts_csv(csv, ContactType::Guest, 1);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].email, parsed[1].email);
+    }
+
+    #[test]
+    fn parses_large_contact_csv_without_dropping_rows() {
+        use std::fmt::Write as _;
+
+        let mut csv = String::from("First Name;E-mail Address\r\n");
+        for index in 0..5_000 {
+            writeln!(&mut csv, "Contact {index};contact{index}@example.org")
+                .expect("write CSV row");
+        }
+        let parsed = parse_contacts_csv(&csv, ContactType::Customer, 1);
+        assert_eq!(parsed.len(), 5_000);
+        assert_eq!(parsed[4_999].name.as_deref(), Some("Contact 4999"));
     }
 
     #[test]
