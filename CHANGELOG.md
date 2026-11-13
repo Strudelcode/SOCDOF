@@ -17,7 +17,7 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ### Added
 
-- Native Contacts workflow: batch creation with atomic multi-row persistence, CSV import with an editable preview and category assignment, Outlook/Google/Apple-style header recognition, vCard import, and CSV/vCard export through native file dialogs. The import/export engine is in the Rust core with parser and round-trip tests; all new UI labels are translated in DE/EN/FR/ES.
+- Native Contacts workflow: batch creation with atomic multi-row persistence, CSV import with an editable preview and category assignment, Outlook/Google/Apple-style header recognition, vCard 2.1/3.0/4.0 import, and CSV/vCard export through native file dialogs. vCard parsing now handles grouped properties, URI telephone values, truncated final cards and malformed email rejection; export folds long UTF-8 lines safely. The import/export engine is in the Rust core with parser and round-trip tests; all new UI labels are translated in DE/EN/FR/ES.
 
 ### Fixed
 
