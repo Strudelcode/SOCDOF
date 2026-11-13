@@ -1,4 +1,7 @@
 {
+  "projects_kpi_logged": "Horas registradas",
+  "projects_kpi_estimated": "Horas estimadas",
+  "projects_kpi_completion": "Progreso",
   "app_fleet": "Flota",
   "app_store_desc_fleet": "Vehículos, libro de rutas digital, recibos de combustible y análisis.",
   "settings_module_fleet": "Flota",
