@@ -2081,6 +2081,7 @@ CREATE INDEX IF NOT EXISTS therapy_sessions_client
 mod tests {
     use super::*;
     use crate::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
+    use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::appointment::{Appointment, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
@@ -2651,6 +2652,38 @@ mod tests {
         };
         assert!(store.adjust_stock(&too_much).is_err());
         assert_eq!(store.list_products().expect("list")[0].stock, 6);
+    }
+
+    #[test]
+    fn built_in_roles_gain_new_modules_without_losing_existing_grants() {
+        let store = Store::open_in_memory().expect("store");
+        let mut administrator = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("administrator")
+            .expect("administrator exists");
+        let original_contacts = administrator
+            .level(AppModule::Contacts);
+        administrator
+            .permissions
+            .retain(|grant| grant.module != AppModule::Projects);
+        store.update_role(&administrator).expect("simulate old admin role");
+
+        let mut standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("standard role")
+            .expect("standard role exists");
+        standard
+            .permissions
+            .retain(|grant| grant.module != AppModule::Projects);
+        store.update_role(&standard).expect("simulate old standard role");
+
+        permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
+
+        let upgraded_admin = store.find_role(ADMIN_ROLE_ID).expect("find").expect("admin");
+        let upgraded_standard = store.find_role(USER_ROLE_ID).expect("find").expect("standard");
+        assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
+        assert_eq!(upgraded_admin.level(AppModule::Projects), PermissionLevel::Manage);
+        assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::None);
     }
 
     #[test]
