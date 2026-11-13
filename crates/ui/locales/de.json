@@ -1989,5 +1989,6 @@
   "accounting_tax_advisor_opening_title": "Anfangsbestand festlegen",
   "accounting_tax_advisor_cash_start": "Kassa Anfangsbestand",
   "accounting_tax_advisor_bank_start": "Bank Anfangsbestand",
-  "accounting_tax_advisor_balance_invalid": "Bitte gültige, nicht negative Beträge eingeben."
+  "accounting_tax_advisor_balance_invalid": "Bitte gültige, nicht negative Beträge eingeben.",
+  "accounting_tax_advisor_year": "Jahr"
 }
