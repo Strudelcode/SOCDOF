@@ -331,7 +331,7 @@ pub fn set_active(store: &Store, id: &str, active: bool) -> CoreResult<()> {
 }
 
 /// Catalogue definitions are kept in sync with the permission matrix.
-pub fn catalogue_modules() -> [AppModule; 17] {
+pub fn catalogue_modules() -> [AppModule; 18] {
     ALL_MODULES
 }
 
