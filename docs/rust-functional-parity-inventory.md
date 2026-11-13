@@ -15,6 +15,7 @@ The snapshot contains **126 TypeScript/JavaScript source files** under `SOCDOF -
 
 | Source area | Files |
 |---|---:|
+| Root entry points and shared types | 4 |
 | `components/apps` | 12 |
 | `components/auth` | 7 |
 | `components/contacts` | 5 |
@@ -24,42 +25,10 @@ The snapshot contains **126 TypeScript/JavaScript source files** under `SOCDOF -
 | `components/support` | 6 |
 | `components/therapy` | 14 |
 | `components/ui` | 3 |
-| `lib/accent.ts` | 1 |
-| `lib/auth.ts` | 1 |
-| `lib/backupManager.ts` | 1 |
-| `lib/botghostTranslator.ts` | 1 |
-| `lib/contactImportExport.ts` | 1 |
-| `lib/countries.ts` | 1 |
-| `lib/db.ts` | 1 |
-| `lib/desktopDownloadStatus.ts` | 1 |
-| `lib/discordFeedback.ts` | 1 |
-| `lib/displayManager.ts` | 1 |
-| `lib/emlGenerator.ts` | 1 |
-| `lib/fatturaPaGenerator.ts` | 1 |
-| `lib/fatturaPaParser.ts` | 1 |
-| `lib/formatters.ts` | 1 |
-| `lib/googleCalendar.ts` | 1 |
-| `lib/i18n.ts` | 1 |
-| `lib/ical.ts` | 1 |
-| `lib/invoiceTemplateManager.ts` | 1 |
-| `lib/ledgerTemplates.ts` | 1 |
-| `lib/mobileCompanionTypes.ts` | 1 |
-| `lib/platform.ts` | 1 |
-| `lib/productLinkExtractor.ts` | 1 |
-| `lib/sdiReceiptParser.ts` | 1 |
-| `lib/sound.ts` | 1 |
-| `lib/spellcheck.ts` | 1 |
-| `lib/storageAssets.ts` | 1 |
-| `lib/storageInspector.ts` | 1 |
-| `lib/taxAdvisorLedgerManager.ts` | 1 |
-| `lib/therapyInvoiceTemplateManager.ts` | 1 |
-| `lib/updateChecker.ts` | 1 |
-| `lib/vcardGenerator.ts` | 1 |
-| `lib/version.ts` | 1 |
-| `lib/versionArchive.ts` | 1 |
-| `lib/windowsExeDownloader.ts` | 1 |
-| `root` | 4 |
+| `lib` (shared services and utilities) | 34 |
 | **Total** | **126** |
+
+The current Rust tree contains 183 `.rs` source/test files under `crates/`. This count is only a size indicator: it includes domain, persistence, bridge, UI, CLI, web and test code, and must not be interpreted as 183 completed ports.
 
 ## Rust coverage map (candidate modules only)
 
