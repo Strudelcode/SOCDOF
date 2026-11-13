@@ -147,20 +147,60 @@ fn safe_file_component(value: &str) -> String {
 fn ledger_month_names(language: &str) -> Vec<String> {
     let names = match language {
         "en" => [
-            "January", "February", "March", "April", "May", "June", "July", "August",
-            "September", "October", "November", "December",
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
         ],
         "fr" => [
-            "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août",
-            "Septembre", "Octobre", "Novembre", "Décembre",
+            "Janvier",
+            "Février",
+            "Mars",
+            "Avril",
+            "Mai",
+            "Juin",
+            "Juillet",
+            "Août",
+            "Septembre",
+            "Octobre",
+            "Novembre",
+            "Décembre",
         ],
         "es" => [
-            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
-            "Septiembre", "Octubre", "Noviembre", "Diciembre",
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre",
         ],
         _ => [
-            "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
-            "September", "Oktober", "November", "Dezember",
+            "Januar",
+            "Februar",
+            "März",
+            "April",
+            "Mai",
+            "Juni",
+            "Juli",
+            "August",
+            "September",
+            "Oktober",
+            "November",
+            "Dezember",
         ],
     };
     names.iter().map(|name| (*name).to_string()).collect()
@@ -940,10 +980,7 @@ pub fn accounting(
         } else {
             safe_owner
         };
-        let filename = format!(
-            "Ein_und_Ausgaben_{}_{}.xls",
-            owner, state.tax_advisor_year
-        );
+        let filename = format!("Ein_und_Ausgaben_{}_{}.xls", owner, state.tax_advisor_year);
         #[cfg(feature = "dialogs")]
         {
             if let Some(path) = rfd::FileDialog::new()
@@ -2228,12 +2265,10 @@ mod tests {
 
     #[test]
     fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
-        use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
         use socdof_core::domain::billing::{BillingItem, BillingKind};
+        use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
         use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
-        use socdof_core::domain::payment::{
-            InvoicePayment, PaymentMethod as InvoicePaymentMethod,
-        };
+        use socdof_core::domain::payment::{InvoicePayment, PaymentMethod as InvoicePaymentMethod};
         use socdof_core::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
         use socdof_core::domain::purchase::{
             PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus,
@@ -2398,7 +2433,9 @@ mod tests {
             created_at: now,
             updated_at: now,
         };
-        store.insert_billing_item(&billing).expect("practice billing");
+        store
+            .insert_billing_item(&billing)
+            .expect("practice billing");
 
         let linked_billing = BillingItem {
             id: Uuid::new_v4(),
@@ -2443,10 +2480,9 @@ mod tests {
             .transactions
             .iter()
             .any(|transaction| transaction.description == "Praxis-Honorar – Praxis consultation"));
-        assert!(month
-            .transactions
-            .iter()
-            .any(|transaction| transaction.description == "Praxis-Honorar – Linked practice service"));
+        assert!(month.transactions.iter().any(
+            |transaction| transaction.description == "Praxis-Honorar – Linked practice service"
+        ));
         assert!(!month
             .transactions
             .iter()
@@ -2471,10 +2507,15 @@ mod tests {
             .expect("save prior-year opening balances");
         let mut state = AccountingState::new();
         state.tax_advisor_year = 2025;
-        state.refresh(&store, SAMPLE_NOW_MS).expect("refresh prior year");
+        state
+            .refresh(&store, SAMPLE_NOW_MS)
+            .expect("refresh prior year");
         assert_eq!(state.tax_advisor_year, 2025);
         assert_eq!(state.tax_advisor_months[0].year, 2025);
-        assert_eq!(state.tax_advisor_months[0].carry_over_total().cents(), 10_000);
+        assert_eq!(
+            state.tax_advisor_months[0].carry_over_total().cents(),
+            10_000
+        );
     }
 
     #[test]
