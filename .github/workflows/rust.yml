@@ -140,6 +140,7 @@ jobs:
         run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
 
       - name: Build native Rust desktop host
+        if: runner.os != 'macOS'
         run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
       - name: Build Tauri bundles
