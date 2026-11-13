@@ -1,4 +1,10 @@
 {
+  "projects_status_active": "Activo",
+  "projects_status_planning": "Planificación",
+  "projects_status_review": "Revisión",
+  "projects_status_completed": "Completado",
+  "projects_status_on_hold": "En pausa",
+  "projects_status_cancelled": "Cancelado",
   "app_projects": "Proyectos",
   "app_store_desc_projects": "Cartera de proyectos, tareas, tiempo, presupuestos y trabajo facturable.",
   "settings_module_projects": "Proyectos",
