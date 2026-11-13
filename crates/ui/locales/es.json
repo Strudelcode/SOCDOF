@@ -210,7 +210,7 @@
   "accounting_expense": "Gastos",
   "accounting_export": "Exportar",
   "accounting_exported": "Exportación copiada al portapapeles",
-  "accounting_saved": "Archivo de exportación guardado.",
+  "accounting_saved": "Asiento guardado",
   "accounting_period_today": "Hoy",
   "accounting_period_custom": "Personalizado",
   "accounting_period_from": "Desde",
@@ -250,7 +250,6 @@
   "accounting_sample_material": "Compra de material",
   "accounting_sample_rent": "Alquiler",
   "accounting_save": "Guardar",
-  "accounting_saved": "Asiento guardado",
   "accounting_search": "Buscar asientos",
   "accounting_subtitle": "Asientos, caja y BWA de un vistazo",
   "accounting_tab_bwa": "BWA",
@@ -1983,5 +1982,6 @@
   "contacts_import_remove": "Eliminar",
   "contacts_import_confirm": "Importar contactos",
   "contacts_export_all": "Todos los contactos",
-  "contacts_export_filtered": "Vista filtrada"
+  "contacts_export_filtered": "Vista filtrada",
+  "accounting_tax_advisor_export": "Libro de caja (Excel)"
 }
