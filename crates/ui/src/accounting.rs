@@ -1607,7 +1607,7 @@ mod tests {
         state.tab = AccountingTab::BusinessReport;
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("accounting_bwa_title")));
-        assert!(painted.contains(texts.get("pos_summary_title")));
+        assert!(painted.contains(texts.get("accounting_business_pos_close")));
         assert!(painted.contains(texts.get("accounting_business_open_items")));
     }
 
