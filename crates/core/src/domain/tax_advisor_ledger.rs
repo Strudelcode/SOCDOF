@@ -310,6 +310,97 @@ pub fn build_yearly_ledger(
     months
 }
 
+struct LedgerExportTexts {
+    title: &'static str,
+    legend: &'static str,
+    period: &'static str,
+    summary: &'static str,
+    cash: &'static str,
+    bank: &'static str,
+    total: &'static str,
+    carry_over: &'static str,
+    income: &'static str,
+    expense: &'static str,
+    balance: &'static str,
+    number: &'static str,
+    method: &'static str,
+    date: &'static str,
+    description: &'static str,
+}
+
+fn ledger_export_texts(language: &str) -> LedgerExportTexts {
+    match language {
+        "en" => LedgerExportTexts {
+            title: "Income and Expenses",
+            legend: "K = Cash, B = Bank",
+            period: "Period:",
+            summary: "Summary",
+            cash: "Cash",
+            bank: "Bank",
+            total: "Total",
+            carry_over: "Previous balance",
+            income: "Total income",
+            expense: "Total expenses",
+            balance: "Current balance",
+            number: "No.",
+            method: "Cash/Bank",
+            date: "Date",
+            description: "Description",
+        },
+        "fr" => LedgerExportTexts {
+            title: "Recettes et dépenses",
+            legend: "K = Espèces, B = Banque",
+            period: "Période :",
+            summary: "Aperçu",
+            cash: "Espèces",
+            bank: "Banque",
+            total: "Total",
+            carry_over: "Report précédent",
+            income: "Total des recettes",
+            expense: "Total des dépenses",
+            balance: "Solde actuel",
+            number: "N°",
+            method: "Espèces/Banque",
+            date: "Date",
+            description: "Description",
+        },
+        "es" => LedgerExportTexts {
+            title: "Ingresos y gastos",
+            legend: "K = Efectivo, B = Banco",
+            period: "Período:",
+            summary: "Resumen",
+            cash: "Efectivo",
+            bank: "Banco",
+            total: "Total",
+            carry_over: "Saldo anterior",
+            income: "Total de ingresos",
+            expense: "Total de gastos",
+            balance: "Saldo actual",
+            number: "N.º",
+            method: "Efectivo/Banco",
+            date: "Fecha",
+            description: "Descripción",
+        },
+        _ => LedgerExportTexts {
+            title: "Ein- und Ausgaben",
+            legend: "K = Kassa, B = Bank",
+            period: "Zeitraum:",
+            summary: "Übersicht",
+            cash: "Kassa",
+            bank: "Bank",
+            total: "Gesamt",
+            carry_over: "Übertrag Vormonat",
+            income: "Summe Einnahmen",
+            expense: "Summe Ausgaben",
+            balance: "Aktueller Kassastand",
+            number: "Nr.",
+            method: "Kassa/Bank",
+            date: "Datum",
+            description: "Beschreibung",
+        },
+    }
+}
+
 /// Excel R1C1 formula for the running balance in the transaction table.
 const LEDGER_BALANCE_FORMULA: &str = "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)";
 
@@ -318,6 +409,7 @@ pub fn export_tax_advisor_excel_xml(
     year: i32,
     owner_name: &str,
     currency: &str,
+    language: &str,
     months: &[MonthlyLedgerData],
 ) -> String {
     let owner = if owner_name.trim().is_empty() {
@@ -325,7 +417,12 @@ pub fn export_tax_advisor_excel_xml(
     } else {
         owner_name.trim()
     };
-    let title = format!("Ein- und Ausgaben – {owner}");
+    let labels = ledger_export_texts(language);
+    let title = if owner_name.trim().is_empty() {
+        labels.title.to_string()
+    } else {
+        format!("{} – {owner}", labels.title)
+    };
     let mut worksheets = String::new();
 
     for (month_index, month) in months.iter().enumerate() {
@@ -334,24 +431,24 @@ pub fn export_tax_advisor_excel_xml(
         let last_row = 10 + transaction_rows;
 
         push_text_row(&mut rows, &title, "MainTitle", 6);
-        push_text_row(&mut rows, "K = Kassa, B = Bank", "LegendCell", 6);
+        push_text_row(&mut rows, labels.legend, "LegendCell", 6);
         push_row(
             &mut rows,
             &[
-                ("Zeitraum:", "String", ""),
+                (labels.period, "String", ""),
                 (&format!("{} {}", month.month_name, year), "String", ""),
             ],
         );
         push_row(
             &mut rows,
             &[
-                ("Übersicht", "String", ""),
+                (labels.summary, "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
-                ("Kassa", "String", ""),
-                ("Bank", "String", ""),
-                ("Gesamt", "String", ""),
+                (labels.cash, "String", ""),
+                (labels.bank, "String", ""),
+                (labels.total, "String", ""),
             ],
         );
 
@@ -359,7 +456,7 @@ pub fn export_tax_advisor_excel_xml(
             push_row_with_formulas(
                 &mut rows,
                 &[
-                    ("Übertrag Vormonat", "String", ""),
+                    (labels.carry_over, "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
@@ -417,7 +514,7 @@ pub fn export_tax_advisor_excel_xml(
         push_row_with_formulas(
             &mut rows,
             &[
-                ("Summe Einnahmen", "String", ""),
+                (labels.income, "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
@@ -446,7 +543,7 @@ pub fn export_tax_advisor_excel_xml(
         push_row_with_formulas(
             &mut rows,
             &[
-                ("Summe Ausgaben", "String", ""),
+                (labels.expense, "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
@@ -471,7 +568,7 @@ pub fn export_tax_advisor_excel_xml(
         push_row_with_formulas(
             &mut rows,
             &[
-                ("Aktueller Kassastand", "String", ""),
+                (labels.balance, "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
                 ("", "String", ""),
@@ -496,13 +593,13 @@ pub fn export_tax_advisor_excel_xml(
         push_row(
             &mut rows,
             &[
-                ("Nr.", "String", ""),
-                ("Kassa/Bank", "String", ""),
-                ("Datum", "String", ""),
-                ("Beschreibung", "String", ""),
-                ("Einnahmen", "String", ""),
-                ("Ausgaben", "String", ""),
-                ("Saldo", "String", ""),
+                (labels.number, "String", ""),
+                (labels.method, "String", ""),
+                (labels.date, "String", ""),
+                (labels.description, "String", ""),
+                (labels.income, "String", ""),
+                (labels.expense, "String", ""),
+                (labels.balance, "String", ""),
             ],
         );
 
@@ -916,12 +1013,15 @@ mod tests {
     fn workbook_contains_twelve_sheets_and_escapes_user_text() {
         let names = (1..=12).map(|month| format!("M{month}")).collect::<Vec<_>>();
         let months = build_yearly_ledger(2026, &[], &names, Money::ZERO, Money::ZERO);
-        let xml = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", &months);
+        let xml = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "de", &months);
         assert_eq!(xml.matches("<Worksheet ").count(), 12);
         assert!(xml.contains("Muster &amp; Partner"));
         assert!(xml.contains("€"));
         assert!(xml.contains("ss:Formula"));
         assert!(xml.contains("SUMIF"));
         assert!(xml.contains("&apos;M1&apos;!R8C5"));
+        let english = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "en", &months);
+        assert!(english.contains("Income and Expenses"));
+        assert!(english.contains("Previous balance"));
     }
 }
