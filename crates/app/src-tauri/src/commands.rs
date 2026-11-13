@@ -140,6 +140,7 @@ pub fn cancel_pos(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(),
     state.cancel_pos(id).map_err(|error| error.to_string())
 }
 
+/// Lists support tickets, optionally filtered by the supplied search term.
 #[tauri::command]
 pub fn support_tickets(
     state: tauri::State<'_, DesktopState>,
@@ -150,6 +151,7 @@ pub fn support_tickets(
         .map_err(|error| error.to_string())
 }
 
+/// Creates or updates a support ticket from the supplied form values.
 #[tauri::command]
 pub fn save_support_ticket(
     state: tauri::State<'_, DesktopState>,
@@ -160,6 +162,7 @@ pub fn save_support_ticket(
         .map_err(|error| error.to_string())
 }
 
+/// Changes the status of a support ticket.
 #[tauri::command]
 pub fn set_support_ticket_status(
     state: tauri::State<'_, DesktopState>,
@@ -171,6 +174,7 @@ pub fn set_support_ticket_status(
         .map_err(|error| error.to_string())
 }
 
+/// Deletes a support ticket by its identifier.
 #[tauri::command]
 pub fn delete_support_ticket(
     state: tauri::State<'_, DesktopState>,
@@ -181,6 +185,7 @@ pub fn delete_support_ticket(
         .map_err(|error| error.to_string())
 }
 
+/// Lists recorded time entries for a support ticket.
 #[tauri::command]
 pub fn support_time_entries(
     state: tauri::State<'_, DesktopState>,
@@ -191,6 +196,7 @@ pub fn support_time_entries(
         .map_err(|error| error.to_string())
 }
 
+/// Creates or updates a support time entry.
 #[tauri::command]
 pub fn save_support_time(
     state: tauri::State<'_, DesktopState>,
@@ -201,6 +207,7 @@ pub fn save_support_time(
         .map_err(|error| error.to_string())
 }
 
+/// Lists all therapy clients.
 #[tauri::command]
 pub fn therapy_clients(
     state: tauri::State<'_, DesktopState>,
@@ -208,6 +215,7 @@ pub fn therapy_clients(
     state.therapy_clients().map_err(|error| error.to_string())
 }
 
+/// Creates or updates a therapy client.
 #[tauri::command]
 pub fn save_therapy_client(
     state: tauri::State<'_, DesktopState>,
@@ -218,6 +226,7 @@ pub fn save_therapy_client(
         .map_err(|error| error.to_string())
 }
 
+/// Lists therapy sessions belonging to a client.
 #[tauri::command]
 pub fn therapy_sessions(
     state: tauri::State<'_, DesktopState>,
@@ -228,6 +237,7 @@ pub fn therapy_sessions(
         .map_err(|error| error.to_string())
 }
 
+/// Deletes a therapy client by its identifier.
 #[tauri::command]
 pub fn delete_therapy_client(
     state: tauri::State<'_, DesktopState>,
@@ -238,6 +248,7 @@ pub fn delete_therapy_client(
         .map_err(|error| error.to_string())
 }
 
+/// Creates or updates a therapy session.
 #[tauri::command]
 pub fn save_therapy_session(
     state: tauri::State<'_, DesktopState>,
@@ -248,6 +259,7 @@ pub fn save_therapy_session(
         .map_err(|error| error.to_string())
 }
 
+/// Deletes a therapy session by its identifier.
 #[tauri::command]
 pub fn delete_therapy_session(
     state: tauri::State<'_, DesktopState>,
