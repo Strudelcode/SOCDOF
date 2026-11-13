@@ -174,6 +174,16 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 - `src/types.ts`
 - `src/vite-env.d.ts`
 
+## Audits completed so far (partial, not parity sign-off)
+
+| Area | Comparison performed | Result | Still open |
+|---|---|---|---|
+| Projects | TS portfolio metrics vs Rust domain/store/bridge/tests | Fixed task denominator to ignore orphan tasks; regression test added | Filters, task transitions, CSV formatting, invoice numbering and complete UI workflows |
+| Fleet | TS vehicle/trip/fuel save/edit/delete, filters, metrics and CSV vs Rust | Confirmed filter scope and historical-record retention; regression test added for vehicle deletion | All form edge cases, invoice handoff, translation coverage and full CSV edge cases |
+| Restaurant | TS tax grouping and order totals vs Rust domain | Fixed VAT calculation to aggregate by tax rate before rounding; cent-level regression test added | Full order/kitchen workflow, checkout side effects, receipt rendering and export parity |
+
+These are focused findings, not full module acceptance. Keep each row open until the remaining behaviors are audited and the workspace CI passes.
+
 ## Required audit record per workflow
 
 For each module and supporting service, record:
