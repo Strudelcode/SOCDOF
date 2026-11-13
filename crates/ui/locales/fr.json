@@ -229,6 +229,7 @@
   "accounting_business_output_vat": "TVA collectée",
   "accounting_business_input_vat": "TVA déductible",
   "accounting_business_receipts": "Tickets",
+  "accounting_business_overdue": "En retard",
   "accounting_reference": "Référence",
   "accounting_reference_hint": "Justificatif ou numéro de facture",
   "accounting_result": "Résultat",
