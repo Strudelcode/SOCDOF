@@ -10,6 +10,7 @@
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
 use egui::{Context, RichText};
+#[cfg(feature = "dialogs")]
 use socdof_core::contact_import_export::{
     export_contacts_csv, export_contacts_vcard, parse_contacts_csv, parse_contacts_vcard,
 };
@@ -767,6 +768,7 @@ fn list_view(
     store: &Store,
     now: i64,
 ) {
+    let _ = (store, now);
     let subtitle = format!(
         "{} · {}",
         state.contacts.len(),
