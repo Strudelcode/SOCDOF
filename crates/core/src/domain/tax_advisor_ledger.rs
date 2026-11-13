@@ -887,5 +887,8 @@ mod tests {
         assert_eq!(xml.matches("<Worksheet ").count(), 12);
         assert!(xml.contains("Muster &amp; Partner"));
         assert!(xml.contains("€"));
+        assert!(xml.contains("ss:Formula"));
+        assert!(xml.contains("SUMIF"));
+        assert!(xml.contains("&apos;M1&apos;!R8C5"));
     }
 }
