@@ -9,7 +9,7 @@ This checklist tracks the native Rust port against:
 
 - Multi-row creation with row validation and one SQLite transaction.
 - CSV import with comma, semicolon and tab delimiter detection, quoted values, escaped quotes and embedded newlines.
-- Header matching for common German, English, French, Spanish, Outlook, Google Contacts and Apple Contacts labels.
+- Header matching for common German, English, French, Spanish, Outlook, Google Contacts and Apple Contacts labels, including tax-ID aliases and multiple business/home/other address columns with first-non-empty fallback.
 - vCard import with folded lines and escaped text values.
 - Import preview with row removal and one category applied to all selected rows.
 - CSV export with UTF-8 BOM, semicolon delimiter, quoted fields and CRLF records.
@@ -19,6 +19,8 @@ This checklist tracks the native Rust port against:
 ## Required acceptance checks
 
 - [x] Multiple e-mail and phone columns are scanned in the legacy mobile/primary/business/home/general priority order; first/middle/last names are combined before falling back to a full-name column.
+- [x] Multiple business/home/other address columns fall back to the first non-empty value; legacy "Buch" category text maps to Guest.
+- [x] CSV export preserves embedded line breaks inside quoted fields; vCard cards with no valid e-mail do not store empty/dummy e-mail values.
 - [ ] Verify duplicate/empty rows and malformed quoted CSV input.
 - [ ] Verify vCard 2.1/3.0/4.0 variants, multiple EMAIL/TEL properties, escaped separators and quoted-printable values.
 - [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
