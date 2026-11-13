@@ -37,6 +37,7 @@ use crate::icons::Icon;
 use crate::invoices::{invoices, seed_invoices, InvoicesState};
 use crate::pos::{pos, seed_pos, PosState};
 use crate::products::{products, seed_products, ProductsState};
+use crate::projects::{projects, ProjectsState};
 use crate::purchases::{purchases, seed_purchases, PurchasesState};
 use crate::reports::{reports as reports_screen, ReportsState};
 use crate::settings::{seed_settings, settings, SettingsState};
@@ -127,6 +128,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Dashboard, "dashboard"),
         (AppModule::Contacts, "contacts"),
         (AppModule::Products, "products"),
+        (AppModule::Projects, "projects"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -240,6 +242,10 @@ pub struct GalleryState {
     pub products: ProductsState,
     /// Whether the products screen is shown instead of the gallery.
     pub products_open: bool,
+    /// Project portfolio and task management state.
+    pub projects: ProjectsState,
+    /// Whether the project management screen is open.
+    pub projects_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -353,6 +359,8 @@ impl GalleryState {
         contacts_state.refresh(&store)?;
         let mut products_state = ProductsState::new();
         products_state.refresh(&store)?;
+        let mut projects_state = ProjectsState::new();
+        projects_state.refresh(&store)?;
         let mut invoices_state = InvoicesState::new();
         invoices_state.refresh(&store)?;
         let mut accounting_state = AccountingState::new();
@@ -429,6 +437,8 @@ impl GalleryState {
             contacts_open: false,
             products: products_state,
             products_open: false,
+            projects: projects_state,
+            projects_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -495,6 +505,10 @@ impl GalleryState {
             "products" => {
                 self.products.refresh(&self.store)?;
                 self.products_open = true;
+            }
+            "projects" => {
+                self.projects.reset_for_open(&self.store)?;
+                self.projects_open = true;
             }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
@@ -802,6 +816,27 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             state.products_open = false;
             state.products.back = false;
             state.desktop_windows.close(AppId::new("products"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.projects_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "projects", |focus| {
+            projects(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.projects,
+                &state.store,
+                now,
+            );
+        });
+        if closed || state.projects.back {
+            state.projects_open = false;
+            state.projects.back = false;
+            state.desktop_windows.close(AppId::new("projects"), now);
         }
         state.focus.finish_frame();
         return;
