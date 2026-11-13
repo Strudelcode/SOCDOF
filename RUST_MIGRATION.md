@@ -2078,3 +2078,22 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
     `export_restaurant_csv rows=1 bytes=232` and schema 15.
   - Still open: only the environment-bound list in 18.4. The locally implementable breadth and
     installer work is scheduled in 18.5.
+
+
+- 2026-11-13 (functional parity inventory and Projects KPI audit) — captured the complete
+  TypeScript/JavaScript source baseline in `docs/rust-functional-parity-inventory.md`: 126 source
+  files across app screens, shell, auth, documents, therapy, shared libraries, types and entry
+  points. The Rust tree currently contains 183 Rust source/test files; file counts are inventory
+  metadata only and are not counted as parity evidence. The README links the inventory.
+  - First focused comparison: `SOCDOF - TS/src/components/support/ProjectsModule.tsx` against
+    `crates/ui/src/projects.rs`, `crates/app/src/project_bridge.rs`,
+    `crates/core/src/domain/project.rs`, `crates/core/src/store/projects.rs` and
+    `crates/app/tests/projects.rs`.
+  - Found and corrected a KPI edge-case mismatch: the TypeScript metrics loop counts tasks only
+    through the listed projects, while Rust previously used `tasks.len()` for the denominator.
+    Rust now counts only tasks attached to the supplied project set; a regression test covers an
+    unrelated/orphan task so completion percentage and totals cannot drift.
+  - Verification remains pending: this environment has no Rust/Cargo toolchain. The latest commit
+    has no GitHub check runs or status contexts yet. Do not mark this audit or the full workspace
+    green until `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`
+    and `cargo test --workspace` have actually completed.
