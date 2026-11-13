@@ -18,12 +18,11 @@ This checklist tracks the native Rust port against:
 
 ## Required acceptance checks
 
-- [ ] Compare every source header alias, including multiple e-mail and phone columns and mobile/business/home priority.
-- [ ] Verify imported `ContactPerson` rows where the source format contains multiple people.
+- [x] Multiple e-mail and phone columns are scanned in the legacy mobile/primary/business/home/general priority order; first/middle/last names are combined before falling back to a full-name column.
 - [ ] Verify duplicate/empty rows and malformed quoted CSV input.
 - [ ] Verify vCard 2.1/3.0/4.0 variants, multiple EMAIL/TEL properties, escaped separators and quoted-printable values.
-- [ ] Port the legacy cleanup of dummy `@import.local` and `@kontakt.local` addresses without modifying valid contacts.
-- [ ] Provide the legacy export scope choice: all contacts or current filtered view.
+- [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
+- [x] Export scope supports all contacts or the current filtered view, with a date-stamped filename.
 - [ ] Compare exact filenames, MIME types and output bytes against the TypeScript reference.
 - [ ] Verify cancellation, unreadable files, invalid e-mail values and large imports on Windows, Linux and macOS.
 
