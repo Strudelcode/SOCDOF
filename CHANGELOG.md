@@ -12,7 +12,7 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ### Added
 
-- Native Accounting business report: invoice/POS revenue and VAT, purchase input tax and expenses, operating result, 7%/19% VAT bases, open receivables and POS Z-report tender totals. Core aggregation is date-range aware and covered by regression tests; remaining parity checks are tracked in `docs/accounting-rust-parity.md`.
+- Native Accounting business report: invoice/POS revenue and VAT, purchase input tax and expenses, operating result, 7%/19% VAT bases, open receivables and POS Z-report tender totals. The report refreshes on reopen, uses the company currency and exports the financial summary as CSV. Core aggregation and store-to-UI loading are covered by regression tests; remaining parity checks are tracked in `docs/accounting-rust-parity.md`.
 
 
 ### Added
