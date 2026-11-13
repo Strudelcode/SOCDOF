@@ -287,6 +287,7 @@ impl ProjectsState {
             due_at: now + template.due_days.max(0) * 86_400_000,
             currency_symbol: company.currency,
             note: Some(format!("Projekt {} - {}", project.code, project.title)),
+            tax_total_override_cents: None,
             lines: billable
                 .iter()
                 .map(|task| InvoiceLine {
