@@ -838,6 +838,7 @@ fn list_view(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut AccountingState,
+    now: i64,
 ) {
     let subtitle = format!(
         "{} · {}",
