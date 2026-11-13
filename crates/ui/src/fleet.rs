@@ -42,6 +42,14 @@ pub struct FleetState {
     pub view: FleetView,
     /// Search text.
     pub query: String,
+    /// Optional vehicle filter for the logbook and analytics.
+    pub selected_vehicle_filter: Option<Uuid>,
+    /// Purpose filter (`all`, `business`, `private`, `commute`).
+    pub purpose_filter: String,
+    /// Inclusive ISO start date filter.
+    pub date_from: String,
+    /// Inclusive ISO end date filter.
+    pub date_to: String,
     /// Vehicle editor.
     pub vehicle_draft: Option<FleetVehicle>,
     /// Whether the vehicle draft is new.
@@ -73,6 +81,10 @@ impl Default for FleetState {
             selected_vehicle: None,
             view: FleetView::Logbook,
             query: String::new(),
+            selected_vehicle_filter: None,
+            purpose_filter: "all".to_string(),
+            date_from: String::new(),
+            date_to: String::new(),
             vehicle_draft: None,
             vehicle_is_new: false,
             trip_draft: None,
@@ -106,6 +118,10 @@ impl FleetState {
     pub fn reset_for_open(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         self.view = FleetView::Logbook;
         self.query.clear();
+        self.selected_vehicle_filter = None;
+        self.purpose_filter = "all".to_string();
+        self.date_from.clear();
+        self.date_to.clear();
         self.vehicle_draft = None;
         self.trip_draft = None;
         self.fuel_draft = None;
@@ -339,7 +355,6 @@ pub fn fleet(
     if let Err(error) = state.refresh(store) { state.error = Some(error.to_string()); }
 
     let currency = store.company_profile().map(|profile| profile.currency).unwrap_or_else(|_| "EUR".to_string());
-    let stats = metrics(&state.trips, &state.fuel, &state.vehicles);
     let query = state.query.trim().to_lowercase();
     let mut add_vehicle = false;
     let mut add_trip = false;
@@ -357,7 +372,14 @@ pub fn fleet(
     let mut request_delete: Option<(&'static str, Uuid)> = None;
     let mut cancel_delete = false;
     let visible_vehicles: Vec<FleetVehicle> = state.vehicles.iter().filter(|v| query.is_empty() || v.license_plate.to_lowercase().contains(&query) || v.make.to_lowercase().contains(&query) || v.model.to_lowercase().contains(&query) || v.assigned_driver.to_lowercase().contains(&query)).cloned().collect();
-    let visible_trips: Vec<FleetTrip> = state.trips.iter().filter(|trip| query.is_empty() || trip.vehicle_plate.to_lowercase().contains(&query) || trip.driver.to_lowercase().contains(&query) || trip.start_location.to_lowercase().contains(&query) || trip.end_location.to_lowercase().contains(&query) || trip.customer_name.to_lowercase().contains(&query)).cloned().collect();
+    let visible_trips: Vec<FleetTrip> = state.trips.iter().filter(|trip| {
+        state.selected_vehicle_filter.map_or(true, |id| trip.vehicle_id == id)
+            && (state.purpose_filter == "all" || trip.purpose == state.purpose_filter)
+            && (state.date_from.is_empty() || trip.date >= state.date_from)
+            && (state.date_to.is_empty() || trip.date <= state.date_to)
+            && (query.is_empty() || trip.vehicle_plate.to_lowercase().contains(&query) || trip.driver.to_lowercase().contains(&query) || trip.start_location.to_lowercase().contains(&query) || trip.end_location.to_lowercase().contains(&query) || trip.reason.to_lowercase().contains(&query) || trip.customer_name.to_lowercase().contains(&query))
+    }).cloned().collect();
+    let stats = metrics(&visible_trips, &state.fuel, &state.vehicles);
     let visible_fuel: Vec<FleetFuel> = state.fuel.iter().filter(|entry| query.is_empty() || entry.vehicle_plate.to_lowercase().contains(&query) || entry.fuel_station.to_lowercase().contains(&query)).cloned().collect();
 
     egui::CentralPanel::default()
@@ -403,6 +425,31 @@ pub fn fleet(
                         if ui.selectable_label(state.view == view, texts.get(key)).clicked() { state.view = view; }
                     }
                     ui.separator();
+                    egui::ComboBox::from_id_source("fleet-filter-vehicle")
+                        .selected_text(state.selected_vehicle_filter.and_then(|id| state.vehicles.iter().find(|vehicle| vehicle.id == id).map(|vehicle| vehicle.license_plate.clone())).unwrap_or_else(|| texts.get("fleet_filter_all").to_string()))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut state.selected_vehicle_filter, None, texts.get("fleet_filter_all"));
+                            for vehicle in &state.vehicles {
+                                ui.selectable_value(&mut state.selected_vehicle_filter, Some(vehicle.id), &vehicle.license_plate);
+                            }
+                        });
+                    egui::ComboBox::from_id_source("fleet-filter-purpose")
+                        .selected_text(texts.get(match state.purpose_filter.as_str() {
+                            "business" => "fleet_purpose_business",
+                            "private" => "fleet_purpose_private",
+                            "commute" => "fleet_purpose_commute",
+                            _ => "fleet_filter_all",
+                        }))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut state.purpose_filter, "all".to_string(), texts.get("fleet_filter_all"));
+                            for (value, key) in [("business","fleet_purpose_business"),("private","fleet_purpose_private"),("commute","fleet_purpose_commute")] {
+                                ui.selectable_value(&mut state.purpose_filter, value.to_string(), texts.get(key));
+                            }
+                        });
+                    ui.label(texts.get("fleet_filter_from"));
+                    ui.add(egui::TextEdit::singleline(&mut state.date_from).desired_width(92.0).hint_text("YYYY-MM-DD"));
+                    ui.label(texts.get("fleet_filter_to"));
+                    ui.add(egui::TextEdit::singleline(&mut state.date_to).desired_width(92.0).hint_text("YYYY-MM-DD"));
                     ui.label(texts.get("fleet_search"));
                     ui.text_edit_singleline(&mut state.query);
                 });
