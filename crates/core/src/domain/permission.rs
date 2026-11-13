@@ -43,10 +43,12 @@ pub enum AppModule {
     Documentation,
     /// Project portfolio and task management.
     Projects,
+    /// Vehicle fleet, digital logbook and fuel records.
+    Fleet,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 16] = [
+pub const ALL_MODULES: [AppModule; 17] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -63,6 +65,7 @@ pub const ALL_MODULES: [AppModule; 16] = [
     AppModule::Editor,
     AppModule::Documentation,
     AppModule::Projects,
+    AppModule::Fleet,
 ];
 
 impl AppModule {
@@ -85,6 +88,7 @@ impl AppModule {
             AppModule::Editor => "editor",
             AppModule::Documentation => "documentation",
             AppModule::Projects => "projects",
+            AppModule::Fleet => "fleet",
         }
     }
 
