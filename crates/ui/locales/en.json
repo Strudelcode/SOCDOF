@@ -1983,5 +1983,11 @@
   "contacts_import_confirm": "Import contacts",
   "contacts_export_all": "All contacts",
   "contacts_export_filtered": "Filtered view",
-  "accounting_tax_advisor_export": "Cash book (Excel)"
+  "accounting_tax_advisor_export": "Cash book (Excel)",
+  "accounting_tax_advisor_opening_balance": "Opening balance",
+  "accounting_tax_advisor_csv_month": "Monthly CSV",
+  "accounting_tax_advisor_opening_title": "Set opening balance",
+  "accounting_tax_advisor_cash_start": "Opening cash balance",
+  "accounting_tax_advisor_bank_start": "Opening bank balance",
+  "accounting_tax_advisor_balance_invalid": "Enter valid, non-negative amounts."
 }
