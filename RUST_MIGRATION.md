@@ -2123,3 +2123,13 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
   TypeScript-compatible order totals are 0.14 EUR net, 0.01 EUR VAT and 0.15 EUR gross. Restaurant
   parity remains under review for receipt rendering, checkout persistence side effects, and the
   complete kitchen/order state workflow.
+
+
+- 2026-11-13 (restaurant invoice VAT persistence) — the grouped-tax correction revealed a second
+  parity requirement: the legacy POS checkout stores its calculated order tax total on the invoice,
+  while the Rust invoice model previously recalculated tax per line. Added optional
+  `tax_total_override_cents` to the invoice domain and schema migration v16. Restaurant checkout
+  now sets the override from the paid order; invoice reads, totals and PDF/template views use that
+  persisted amount, while ordinary invoices continue to calculate VAT from their own lines.
+  The integration test checks two 0.07 EUR / 7% items produce 0.14 EUR net, 0.01 EUR VAT and
+  0.15 EUR gross both before and after reopening the SQLite database.
