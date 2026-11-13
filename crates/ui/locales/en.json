@@ -1940,5 +1940,6 @@
   "restaurant_kpi_today_orders": "Receipts today",
   "restaurant_kpi_cash": "Cash sales",
   "restaurant_kpi_card": "Card / NFC",
-  "restaurant_kpi_tax": "Tax today"
+  "restaurant_kpi_tax": "Tax today",
+  "restaurant_all": "All"
 }
