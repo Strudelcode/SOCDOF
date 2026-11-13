@@ -101,6 +101,7 @@ pub fn update(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
             invoice.due_at,
             invoice.currency_symbol,
             invoice.note,
+            invoice.tax_total_override_cents,
         ],
     )?;
     if changed == 0 {
