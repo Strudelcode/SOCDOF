@@ -963,6 +963,7 @@
   "pos_payment_card",
   "pos_payment_cash",
   "pos_payment_invoice",
+  "pos_payment_nfc",
   "pos_payment_other",
   "pos_sample_note",
   "pos_sample_product_a",
