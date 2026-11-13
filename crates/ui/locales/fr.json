@@ -210,7 +210,7 @@
   "accounting_expense": "Dépenses",
   "accounting_export": "Exporter",
   "accounting_exported": "Export copié dans le presse-papiers",
-  "accounting_saved": "Fichier d’exportation enregistré.",
+  "accounting_saved": "Écriture enregistrée",
   "accounting_period_today": "Aujourd’hui",
   "accounting_period_custom": "Personnalisé",
   "accounting_period_from": "Du",
@@ -250,7 +250,6 @@
   "accounting_sample_material": "Achat de matériel",
   "accounting_sample_rent": "Loyer",
   "accounting_save": "Enregistrer",
-  "accounting_saved": "Écriture enregistrée",
   "accounting_search": "Rechercher des écritures",
   "accounting_subtitle": "Écritures, caisse et BWA en un coup d'œil",
   "accounting_tab_bwa": "BWA",
@@ -1983,5 +1982,6 @@
   "contacts_import_remove": "Supprimer",
   "contacts_import_confirm": "Importer les contacts",
   "contacts_export_all": "Tous les contacts",
-  "contacts_export_filtered": "Vue filtrée"
+  "contacts_export_filtered": "Vue filtrée",
+  "accounting_tax_advisor_export": "Livre de caisse (Excel)"
 }
