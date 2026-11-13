@@ -368,15 +368,15 @@ impl TherapieState {
                 self.status = None;
                 return Ok(());
             }
-            match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
-                Some(value) => value,
-                None => {
-                    self.error = Some("therapie_error_date");
-                    self.status = None;
-                    return Ok(());
+                match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
+                    Some(value) => value,
+                    None => {
+                        self.error = Some("therapie_error_date");
+                        self.status = None;
+                        return Ok(());
+                    }
                 }
-            }
-        };
+            };
 
         let mut session = if let Some(id) = self.editing_session {
             let Some(existing) = self
