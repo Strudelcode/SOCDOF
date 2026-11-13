@@ -565,14 +565,14 @@ impl AccountingState {
             }
         }
         let journal_entries = store.list_journal_entries()?;
-        let fleet_trips = store.fleet_trips()?;
+        let billing_items = store.list_billing_items()?;
         let ledger_transactions = build_tax_advisor_transactions(
             &invoices,
             &payments,
             &purchases,
             &pos_orders,
             &journal_entries,
-            &fleet_trips,
+            &billing_items,
         );
         let (current_year, _, _) = date::civil_from_millis(now);
         if self.tax_advisor_year == 0 {
@@ -2229,6 +2229,7 @@ mod tests {
     #[test]
     fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
         use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
+        use socdof_core::domain::billing::{BillingItem, BillingKind};
         use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
         use socdof_core::domain::payment::{
             InvoicePayment, PaymentMethod as InvoicePaymentMethod,
@@ -2354,26 +2355,21 @@ mod tests {
             .insert_journal_entry(&journal)
             .expect("manual journal entry");
 
-        let trip = socdof_core::domain::fleet::FleetTrip {
+        let billing = BillingItem {
             id: Uuid::new_v4(),
-            vehicle_id: Uuid::new_v4(),
-            vehicle_plate: "AA-123".to_string(),
-            driver: "Test Driver".to_string(),
-            date: date::format_iso8601(now)[..10].to_string(),
-            start_time: "09:00".to_string(),
-            end_time: "09:30".to_string(),
-            start_location: "Start".to_string(),
-            end_location: "Destination".to_string(),
-            purpose: "business".to_string(),
-            reason: "Customer visit".to_string(),
-            customer_name: "Customer".to_string(),
-            start_km: 100,
-            end_km: 110,
-            distance_km: 10,
-            notes: String::new(),
+            contact_id: contact.id,
+            invoice_id: None,
+            kind: BillingKind::TherapySession,
+            code: "THERAPY".to_string(),
+            description: "Praxis consultation".to_string(),
+            service_date: now,
+            quantity_milli: 1_000,
+            unit_price: Money::from_cents(1_000),
+            tax_rate_bp: 0,
             created_at: now,
+            updated_at: now,
         };
-        store.insert_fleet_trip(&trip).expect("business trip");
+        store.insert_billing_item(&billing).expect("practice billing");
 
         state.invalidate();
         state.refresh(&store, now).expect("refresh business report");
@@ -2386,8 +2382,8 @@ mod tests {
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
         let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
         assert_eq!(month.income_cash.cents(), 5_760);
-        assert_eq!(month.income_bank.cents(), 5_350);
-        assert_eq!(month.expense_bank.cents(), 2_680);
+        assert_eq!(month.income_bank.cents(), 6_350);
+        assert_eq!(month.expense_bank.cents(), 2_380);
         assert!(month
             .transactions
             .iter()
@@ -2399,7 +2395,7 @@ mod tests {
         assert!(month
             .transactions
             .iter()
-            .any(|transaction| transaction.description.contains("Kilometergeld AA-123")));
+            .any(|transaction| transaction.description == "Praxis-Honorar – Praxis consultation"));
         assert!(!month
             .transactions
             .iter()
