@@ -9,6 +9,7 @@ pub mod backup;
 pub mod backup_scheduler;
 pub mod barcode;
 pub mod csv;
+pub mod contact_import_export;
 pub mod date;
 pub mod document_layout;
 pub mod docx;
