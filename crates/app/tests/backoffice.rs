@@ -181,6 +181,11 @@ fn app_store_lists_and_persists_activation() {
     let state = DesktopState::open(dir.join("socdof.db")).expect("desktop state opens");
     let modules = state.app_store_modules().expect("catalogue");
     assert_eq!(modules.len(), 18);
+    let restaurant = modules
+        .iter()
+        .find(|module| module.id == "restaurant")
+        .expect("restaurant module");
+    assert!(restaurant.active);
     let contacts = modules
         .iter()
         .find(|module| module.id == "contacts")
