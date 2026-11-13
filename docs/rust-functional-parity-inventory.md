@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-13
 
-**Audit update:** 2026-11-13 — Projects, Fleet and Restaurant have focused parity findings recorded below; the full workspace gate remains open.  
+**Audit update:** 2026-11-13 — POS receipt VAT totals now persist through schema v17 as well. — Projects, Fleet and Restaurant have focused parity findings recorded below; the full workspace gate remains open.  
 **Reference branch:** `feature/rust-native-desktop-host`  
 **Reference application:** `SOCDOF - TS/`  
 **Rust implementation:** `crates/`
