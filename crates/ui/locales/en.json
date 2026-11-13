@@ -210,7 +210,7 @@
   "accounting_expense": "Expenses",
   "accounting_export": "Export",
   "accounting_exported": "Export copied to the clipboard",
-  "accounting_saved": "Export file saved.",
+  "accounting_saved": "Booking saved",
   "accounting_period_today": "Today",
   "accounting_period_custom": "Custom",
   "accounting_period_from": "From",
@@ -250,7 +250,6 @@
   "accounting_sample_material": "Material purchase",
   "accounting_sample_rent": "Rent",
   "accounting_save": "Save",
-  "accounting_saved": "Booking saved",
   "accounting_search": "Search bookings",
   "accounting_subtitle": "Bookings, cash book and BWA at a glance",
   "accounting_tab_bwa": "BWA",
@@ -1983,5 +1982,6 @@
   "contacts_import_remove": "Remove",
   "contacts_import_confirm": "Import contacts",
   "contacts_export_all": "All contacts",
-  "contacts_export_filtered": "Filtered view"
+  "contacts_export_filtered": "Filtered view",
+  "accounting_tax_advisor_export": "Cash book (Excel)"
 }
