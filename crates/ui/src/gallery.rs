@@ -297,8 +297,33 @@ pub struct GalleryState {
 }
 
 impl GalleryState {
-    /// Builds the initial state for a language, appearance and accent.
+    /// Builds the sample state used by the component gallery and visual snapshots.
     pub fn new(language: Language, appearance: Appearance, accent_id: &str) -> CoreResult<Self> {
+        let store = Store::open_in_memory()?;
+        Self::build(language, appearance, accent_id, store, true)
+    }
+
+    /// Builds the real application state around an existing persistent database.
+    ///
+    /// Unlike GalleryState::new, this constructor never inserts sample business records or
+    /// demo credentials. Existing accounts are shown at the login screen; a new database starts
+    /// in the first-run setup flow.
+    pub fn from_store(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+    ) -> CoreResult<Self> {
+        Self::build(language, appearance, accent_id, store, false)
+    }
+
+    fn build(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+        seed_demo_data: bool,
+    ) -> CoreResult<Self> {
         let texts = load_texts(language)?;
         let form = FormState::new(vec![
             Field::new(texts.get("field_company"), texts.get("field_company_hint"))
@@ -308,54 +333,70 @@ impl GalleryState {
                 .required()
                 .email(),
         ]);
-        let store = Store::open_in_memory()?;
-        seed_sample(&store, &texts)?;
-        seed_products(&store, &texts)?;
+
+        if seed_demo_data {
+            seed_sample(&store, &texts)?;
+            seed_products(&store, &texts)?;
+            seed_invoices(&store, &texts)?;
+            seed_accounting(&store, &texts)?;
+            seed_purchases(&store, &texts)?;
+            seed_pos(&store, &texts)?;
+            seed_appointments(&store, &texts)?;
+            UsersState::seed(&store)?;
+            seed_settings(&store, &texts)?;
+            seed_documents(&store, &texts)?;
+            seed_support(&store, &texts)?;
+            seed_therapie(&store, &texts)?;
+        }
+
         let mut contacts_state = ContactsState::new();
         contacts_state.refresh(&store)?;
         let mut products_state = ProductsState::new();
         products_state.refresh(&store)?;
-        seed_invoices(&store, &texts)?;
         let mut invoices_state = InvoicesState::new();
         invoices_state.refresh(&store)?;
-        seed_accounting(&store, &texts)?;
         let mut accounting_state = AccountingState::new();
         accounting_state.refresh(&store, now_millis())?;
-        seed_purchases(&store, &texts)?;
         let mut purchases_state = PurchasesState::new();
         purchases_state.refresh(&store)?;
-        seed_pos(&store, &texts)?;
         let mut pos_state = PosState::new();
         pos_state.refresh(&store)?;
-        seed_appointments(&store, &texts)?;
         let mut appointments_state = AppointmentsState::new();
         appointments_state.refresh(&store)?;
-        UsersState::seed(&store)?;
         let mut users_state = UsersState::new();
         users_state.refresh(&store)?;
-        seed_settings(&store, &texts)?;
         let mut settings_state = SettingsState::new();
         settings_state.refresh(&store)?;
-        let auth_state = AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?;
-        seed_documents(&store, &texts)?;
+        let auth_state = if seed_demo_data {
+            AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?
+        } else {
+            AuthState::new(&store, now_millis())?
+        };
         let mut editor_state = EditorState::new();
         editor_state.reset_for_open(&store)?;
+
         let mut active_modules = app_store::active_modules(&store)?;
         if active_modules.is_empty() {
             active_modules = socdof_core::domain::permission::ALL_MODULES.to_vec();
         }
         let desktop_icons = desktop_icons(&texts, &active_modules);
-        let mut dashboard = DashboardState::new(DashboardData::sample(&texts));
+        let dashboard_data = if seed_demo_data {
+            DashboardData::sample(&texts)
+        } else {
+            let (company, counts, invoices, low_stock) = store.dashboard_snapshot(now_millis())?;
+            DashboardData::new(company, counts, invoices, low_stock)
+        };
+        let mut dashboard = DashboardState::new(dashboard_data);
         dashboard.set_active_modules(active_modules);
+
         let mut app_store_state = AppStoreState::new();
         app_store_state.refresh(&store)?;
-        seed_support(&store, &texts)?;
         let mut support_state = SupportState::new();
         support_state.refresh(&store)?;
         let reports_state = ReportsState::new();
-        seed_therapie(&store, &texts)?;
         let mut therapie_state = TherapieState::new();
         therapie_state.refresh(&store)?;
+
         Ok(Self {
             language,
             appearance,
@@ -413,7 +454,7 @@ impl GalleryState {
             therapie: therapie_state,
             therapie_open: false,
             auth: auth_state,
-            auth_open: false,
+            auth_open: !seed_demo_data,
             store,
         })
     }
@@ -564,6 +605,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.take_wizard_completed() {
             apply_setup_template(state);
         }
+        if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
+            state.auth_open = false;
+            state.desktop_open = true;
+        }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
             state.auth.back = false;
@@ -593,14 +638,17 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if outcome.lock {
             state.auth.lock(now);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.sign_out {
             let _ = state.auth.sign_out(&state.store, now);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if let Some(username) = outcome.switch_account.clone() {
             state.auth.begin_switch(&username);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.toggle_theme {
             state.appearance = if state.appearance.is_dark() {
@@ -2095,6 +2143,26 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn persistent_state_uses_the_supplied_store_without_demo_records() {
+        let store = Store::open_in_memory().expect("store");
+        let state = GalleryState::from_store(
+            Language::De,
+            Appearance::Dark,
+            "indigo",
+            store,
+        )
+        .expect("persistent state");
+
+        assert!(state.auth_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Setup);
+        assert_eq!(state.store.contact_count().expect("contacts"), 0);
+        assert_eq!(state.store.product_count().expect("products"), 0);
+        assert_eq!(state.store.invoice_count().expect("invoices"), 0);
+        assert_eq!(state.store.user_count().expect("users"), 0);
+    }
+
 
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
         let ctx = crate::theme::headless_context();
