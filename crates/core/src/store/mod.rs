@@ -2087,6 +2087,16 @@ CREATE INDEX IF NOT EXISTS therapy_sessions_client
     ON therapy_sessions (client_id, started_at);
 "#;
 
+/// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
+const SCHEMA_V16: &str = r#"
+ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v17: preserve grouped VAT totals on POS receipts.
+const SCHEMA_V17: &str = r#"
+ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
