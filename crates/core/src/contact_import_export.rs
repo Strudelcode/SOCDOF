@@ -145,12 +145,16 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             let middle_name = value(middle);
             let last_name = value(last);
             let company_name = value(company);
-            let mut name = if !first_name.is_empty() || !last_name.is_empty() {
+            let mut name = if !first_name.is_empty() && !last_name.is_empty() {
                 [first_name, middle_name, last_name]
                     .into_iter()
                     .filter(|part| !part.is_empty())
                     .collect::<Vec<_>>()
                     .join(" ")
+            } else if !first_name.is_empty() {
+                first_name
+            } else if !last_name.is_empty() {
+                last_name
             } else {
                 value(full)
             };
