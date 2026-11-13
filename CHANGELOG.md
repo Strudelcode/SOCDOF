@@ -10,6 +10,14 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ## [26.0.0] - unreleased
 
+### Fixed
+
+- Projects KPI parity: native Rust counts only tasks attached to the listed projects, matching
+  the TypeScript portfolio calculation. A regression test covers unrelated task records.
+- Fleet deletion parity: deleting a vehicle preserves its historical logbook trips and fuel
+  receipts, matching the TypeScript module. The persistence integration test now covers this.
+
+
 ### Known issues
 
 - Visual parity is **not fully accepted**. The final ten pairs (Dashboard, Invoices, Contacts,
