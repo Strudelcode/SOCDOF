@@ -20,7 +20,7 @@
     "runs": 5,
     "note": "The windowed desktop adds only the Tauri window creation on top of this path; CI measures that in the gui-smoke job."
   },
-  "installer": {
+  "native_binary": {
     "context": "Native Rust desktop executable `target/release/socdof-ui-desktop`; Tauri remains a migration fallback and is reported separately.",
     "max_bytes": 15728640,
     "note": "Only measurable where GTK/WebKit and the Tauri toolchain exist (CI desktop job). The script reports `not built here` instead of guessing."
