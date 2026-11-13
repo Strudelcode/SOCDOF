@@ -1081,7 +1081,6 @@ pub const UI_KEYS: &[&str] = &[
     "accounting_period_today",
     "accounting_deleted",
     "accounting_exported",
-    "accounting_saved",
     "accounting_cash_title",
     "accounting_cash_balance",
     "accounting_cash_empty",
