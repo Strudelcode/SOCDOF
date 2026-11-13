@@ -96,6 +96,9 @@ pub struct PosOrder {
     pub currency_symbol: String,
     /// Free text note.
     pub note: Option<String>,
+    /// Optional stored VAT override for grouped-tax legacy checkouts.
+    #[serde(default)]
+    pub tax_total_override_cents: Option<i64>,
     /// Cash handed over by the customer, when the order was paid in cash.
     #[serde(default)]
     pub cash_given: Option<Money>,
@@ -113,7 +116,9 @@ impl PosOrder {
 
     /// Sum of the tax amounts of all positions.
     pub fn total_tax(&self) -> Money {
-        self.lines.iter().map(PosOrderLine::tax).sum()
+        self.tax_total_override_cents
+            .map(Money::from_cents)
+            .unwrap_or_else(|| self.lines.iter().map(PosOrderLine::tax).sum())
     }
 
     /// Net plus tax, the amount the customer paid.
@@ -173,6 +178,9 @@ impl PosOrder {
         }
         if self.lines.is_empty() {
             return Err("lines_required".to_string());
+        }
+        if self.tax_total_override_cents.is_some_and(|amount| amount < 0) {
+            return Err("tax_total_override_negative".to_string());
         }
         if let Some(cash_given) = self.cash_given {
             if cash_given.cents() < 0 {
@@ -285,6 +293,7 @@ mod tests {
             paid_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             cash_given: None,
             legacy_id: None,
             lines: vec![
