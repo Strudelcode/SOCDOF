@@ -321,11 +321,13 @@ mod tests {
             resolve(&DialogKind::Message, Some(PathBuf::from("/ignored"))),
             Ok(DialogOutcome::Acknowledged)
         );
-        let chosen = resolve(&DialogKind::Folder, Some(PathBuf::from("/tmp")));
+        let dir = scratch();
+        let chosen = resolve(&DialogKind::Folder, Some(dir.clone()));
         assert_eq!(
             marker(&DialogKind::Folder, &chosen),
-            "SOCDOF_DIALOG kind=folder outcome=chosen path=/tmp"
+            format!("SOCDOF_DIALOG kind=folder outcome=chosen path={}", dir.display())
         );
+        std::fs::remove_dir_all(&dir).ok();
         let cancelled = resolve(&DialogKind::Folder, None);
         assert_eq!(
             marker(&DialogKind::Folder, &cancelled),
