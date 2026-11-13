@@ -693,6 +693,7 @@ mod tests {
         vehicle.license_plate="M-SO 2026".to_string();
         vehicle.make="VW".to_string();
         vehicle.model="ID.4".to_string();
+        vehicle.assigned_driver="Yuri".to_string();
         vehicle.vehicle_type="electric".to_string();
         vehicle.fuel_type="electric".to_string();
         vehicle.current_odometer=12_000;
