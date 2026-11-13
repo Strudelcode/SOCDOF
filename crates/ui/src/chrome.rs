@@ -149,6 +149,12 @@ pub const APPS: [AppChrome; 17] = [
         icon: Icon::Car,
         tint: 0x0d9488,
     },
+    AppChrome {
+        slug: "restaurant",
+        title_key: "app_restaurant",
+        icon: Icon::Bag,
+        tint: 0xea580c,
+    },
 ];
 
 /// Chrome of the given app slug, falling back to the settings app for unknown slugs.
