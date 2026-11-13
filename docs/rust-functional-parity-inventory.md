@@ -182,7 +182,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 |---|---|---|---|
 | Projects | TS portfolio metrics vs Rust domain/store/bridge/tests | Fixed task denominator to ignore orphan tasks; regression test added | Filters, task transitions, CSV formatting, invoice numbering and complete UI workflows |
 | Fleet | TS vehicle/trip/fuel save/edit/delete, filters, metrics and CSV vs Rust | Confirmed filter scope and historical-record retention; regression test added for vehicle deletion | All form edge cases, invoice handoff, translation coverage and full CSV edge cases |
-| Restaurant | TS tax grouping, order totals and paid invoice vs Rust domain/store | Fixed VAT aggregation and added persisted invoice tax override (schema v16); cent-level checkout/reopen regression test added | Full order/kitchen workflow, checkout side effects, receipt rendering and export parity |
+| Restaurant | TS tax grouping, order totals and paid invoice vs Rust domain/store | Fixed VAT aggregation and added persisted invoice/POS VAT overrides (schemas v16–v17); cent-level checkout/reopen regression test added | Full order/kitchen workflow, checkout side effects, receipt rendering and export parity |
 
 These are focused findings, not full module acceptance. Keep each row open until the remaining behaviors are audited and the workspace CI passes.
 
