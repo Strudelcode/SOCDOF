@@ -1,4 +1,10 @@
 {
+  "projects_contact": "Kontakt verknüpfen",
+  "projects_no_contact": "Kein Kontakt",
+  "projects_bill_project": "Rechnung erstellen",
+  "projects_export": "CSV exportieren",
+  "projects_exported": "Projektübersicht exportiert.",
+  "projects_invoice_created": "Rechnungsentwurf wurde erstellt.",
   "projects_status_active": "Aktiv",
   "projects_status_planning": "Planung",
   "projects_status_review": "Review",
