@@ -1652,9 +1652,7 @@ mod tests {
         let mut company = store.company_profile().expect("company profile");
         company.name = "Accounting GmbH".to_string();
         company.currency = "$".to_string();
-        store
-            .save_company_profile(&company)
-            .expect("save company profile");
+        store.save_company_profile(&company).expect("save company profile");
         let mut state = AccountingState::new();
         state.refresh(&store, now).expect("initial refresh");
         let mut contact = Contact::new(ContactKind::Person, now);
