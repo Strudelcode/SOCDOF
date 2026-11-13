@@ -332,7 +332,7 @@ impl ProjectsState {
     }
 
     /// Saves a task after core validation.
-    pub fn save_task(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+    pub fn save_task(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
         let Some(mut task) = self.task_draft.clone() else { return Ok(()); };
         task.normalize();
         task.validate().map_err(socdof_core::CoreError::Validation)?;
@@ -341,6 +341,7 @@ impl ProjectsState {
         } else {
             store.update_project_task(&task)?;
         }
+        touch_project(store, task.project_id, now)?;
         self.task_draft = None;
         self.status = Some("projects_task_saved".to_string());
         self.refresh(store)
@@ -355,6 +356,7 @@ impl ProjectsState {
     ) -> socdof_core::CoreResult<()> {
         let Some(project_id) = self.selected else { return Ok(()); };
         store.set_project_task_status(project_id, task_id, status)?;
+        touch_project(store, project_id, socdof_core::now_millis())?;
         self.refresh(store)
     }
 
@@ -362,9 +364,18 @@ impl ProjectsState {
     pub fn delete_task(&mut self, store: &Store, task_id: Uuid) -> socdof_core::CoreResult<()> {
         let Some(project_id) = self.selected else { return Ok(()); };
         store.delete_project_task(project_id, task_id)?;
+        touch_project(store, project_id, socdof_core::now_millis())?;
         self.status = Some("projects_task_deleted".to_string());
         self.refresh(store)
     }
+}
+
+fn touch_project(store: &Store, project_id: Uuid, now: i64) -> socdof_core::CoreResult<()> {
+    let mut project = store
+        .project(project_id)?
+        .ok_or_else(|| socdof_core::CoreError::NotFound(project_id.to_string()))?;
+    project.updated_at = now;
+    store.update_project(&project)
 }
 
 fn money(cents: i64, currency: &str) -> String {
@@ -448,6 +459,7 @@ pub fn projects(
 
     let currency = store.company_profile().map(|p| p.currency).unwrap_or_else(|_| "EUR".to_string());
     let contacts = state.contacts.clone();
+    let project_options = state.projects.clone();
     let stats = metrics(&state.projects, &state.tasks);
     let mut new_project = false;
     let mut edit_project = false;
@@ -562,6 +574,13 @@ pub fn projects(
                 if let Some(task) = state.task_draft.as_mut() {
                     card(ui, theme, |ui| {
                         ui.heading(texts.get("projects_task_edit"));
+                        egui::ComboBox::from_id_source("projects-task-project")
+                            .selected_text(project_options.iter().find(|project| project.id == task.project_id).map(|project| project.title.clone()).unwrap_or_default())
+                            .show_ui(ui, |ui| {
+                                for project in &project_options {
+                                    ui.selectable_value(&mut task.project_id, project.id, &project.title);
+                                }
+                            });
                         ui.text_edit_singleline(&mut task.title);
                         ui.text_edit_multiline(&mut task.description);
                         ui.horizontal(|ui| {
@@ -813,7 +832,7 @@ pub fn projects(
     if new_task { state.start_task(now); }
     if cancel_task { state.task_draft = None; }
     if save_task {
-        if let Err(error) = state.save_task(store) { state.error = Some(error.to_string()); }
+        if let Err(error) = state.save_task(store, now) { state.error = Some(error.to_string()); }
     }
     if let Some(id) = edit_task { state.edit_task(id); }
     if let Some(id) = delete_task {
@@ -860,7 +879,7 @@ mod tests {
         task.title = "Port the portfolio".to_string();
         task.logged_hours_milli = 1_500;
         state.task_draft = Some(task);
-        state.save_task(&store).expect("save task");
+        state.save_task(&store, 1_800_000_000_002).expect("save task");
         assert_eq!(store.project_tasks(project_id).expect("tasks").len(), 1);
         assert_eq!(metrics(&state.projects, &state.tasks).total_logged_hours_milli, 1_500);
 
