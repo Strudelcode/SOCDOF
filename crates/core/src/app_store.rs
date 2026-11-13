@@ -104,7 +104,7 @@ const fn definition(
 }
 
 /// The catalogue, in the same order as the permission matrix.
-const MODULES: [ModuleDefinition; 17] = [
+const MODULES: [ModuleDefinition; 18] = [
     definition(
         AppModule::Dashboard,
         "settings_module_dashboard",
@@ -221,6 +221,13 @@ const MODULES: [ModuleDefinition; 17] = [
         AppModule::Fleet,
         "settings_module_fleet",
         "app_store_desc_fleet",
+        ModuleLicense::Trial,
+        false,
+    ),
+    definition(
+        AppModule::Restaurant,
+        "settings_module_restaurant",
+        "app_store_desc_restaurant",
         ModuleLicense::Trial,
         false,
     ),
