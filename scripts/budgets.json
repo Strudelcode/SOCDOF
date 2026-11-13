@@ -21,12 +21,12 @@
     "note": "The windowed desktop adds only the Tauri window creation on top of this path; CI measures that in the gui-smoke job."
   },
   "installer": {
-    "context": "Tauri bundle in crates/app/src-tauri/target/release/bundle (AppImage, deb, NSIS, MSI, DMG).",
+    "context": "Native Rust desktop executable `target/release/socdof-ui-desktop`; Tauri remains a migration fallback and is reported separately.",
     "max_bytes": 15728640,
     "note": "Only measurable where GTK/WebKit and the Tauri toolchain exist (CI desktop job). The script reports `not built here` instead of guessing."
   },
   "installed": {
-    "context": "Unpacked application directory of that bundle.",
+    "context": "Current native portable distribution footprint (single executable); platform installer payloads will receive a separate measurement when native installers are added.",
     "max_bytes": 41943040
   },
   "idle_ram": {
