@@ -21,6 +21,8 @@ struct DesktopApp {
     state: GalleryState,
     lock: InstanceLock,
     last_heartbeat: Instant,
+    follow_system_theme: bool,
+    system_theme_initialized: bool,
 }
 
 impl DesktopApp {
@@ -41,6 +43,7 @@ impl DesktopApp {
             ThemeMode::Dark => Appearance::Dark,
             ThemeMode::Light | ThemeMode::System => Appearance::Light,
         };
+        let follow_system_theme = profile.theme_mode == ThemeMode::System;
         let accent = if profile.accent_color.trim().is_empty() {
             "indigo"
         } else {
@@ -54,12 +57,22 @@ impl DesktopApp {
             state,
             lock,
             last_heartbeat: Instant::now(),
+            follow_system_theme,
+            system_theme_initialized: false,
         })
     }
 }
 
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.follow_system_theme && !self.system_theme_initialized {
+            self.state.appearance = if ctx.style().visuals.dark_mode {
+                Appearance::Dark
+            } else {
+                Appearance::Light
+            };
+            self.system_theme_initialized = true;
+        }
         if self.last_heartbeat.elapsed() >= Duration::from_secs(5) {
             if let Err(error) = self.lock.heartbeat(now_millis()) {
                 eprintln!("SOCDOF lock heartbeat failed: {error}");
@@ -109,6 +122,7 @@ fn database_path() -> Result<PathBuf, Box<dyn Error>> {
     Ok(root.join("com.strudelcode.socdof").join("socdof.db"))
 }
 
+#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() -> Result<(), Box<dyn Error>> {
     let app = DesktopApp::new()?;
     let options = eframe::NativeOptions {
