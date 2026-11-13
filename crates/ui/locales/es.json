@@ -1989,5 +1989,6 @@
   "accounting_tax_advisor_opening_title": "Establecer saldo inicial",
   "accounting_tax_advisor_cash_start": "Saldo inicial de caja",
   "accounting_tax_advisor_bank_start": "Saldo inicial bancario",
-  "accounting_tax_advisor_balance_invalid": "Introduce importes válidos y no negativos."
+  "accounting_tax_advisor_balance_invalid": "Introduce importes válidos y no negativos.",
+  "accounting_tax_advisor_year": "Año"
 }
