@@ -327,6 +327,11 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   the lock is now released on `RunEvent::Exit`, and a lock whose local pid is gone counts as
   abandoned.
 
+### Fixed
+
+- Projects KPI parity: native Rust now counts only tasks attached to the listed projects, matching
+  the TypeScript portfolio calculation. Added a regression test for unrelated task records.
+
 ## [0.30.0] - 2026-11-08
 
 ### Added
