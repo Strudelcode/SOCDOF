@@ -5,14 +5,14 @@
 //! mirror the legacy manager, journal entries supply manual cash/bank bookings, and business fleet
 //! trips use the configured mileage allowance. No source record is changed.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::date;
 use crate::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
-use crate::domain::fleet::FleetTrip;
+use crate::domain::billing::BillingItem;
 use crate::domain::invoice::{Invoice, InvoiceStatus};
 use crate::domain::payment::{InvoicePayment, PaymentMethod};
 use crate::domain::pos::{PaymentMethod as PosPaymentMethod, PosOrder};
@@ -125,23 +125,44 @@ impl MonthlyLedgerData {
 
 /// Builds normalized ledger transactions from persisted SOCDOF modules.
 ///
-/// Unpaid invoices are deliberately excluded: they are receivables, not cash movements. Purchases
-/// in every state except Draft are included to match the legacy tax-advisor ledger behavior.
+/// Practice billable items are included before invoices; linked invoices are skipped to prevent
+/// double counting. Unpaid invoices without a practice billing item are excluded as receivables.
+/// Purchases in every state except Draft match the legacy tax-advisor ledger behavior.
 pub fn build_tax_advisor_transactions(
     invoices: &[Invoice],
     payments: &[InvoicePayment],
     purchases: &[PurchaseOrder],
     pos_orders: &[PosOrder],
     journal_entries: &[JournalEntry],
-    fleet_trips: &[FleetTrip],
+    billing_items: &[BillingItem],
 ) -> Vec<LedgerTransaction> {
     let payments_by_invoice: HashMap<Uuid, &InvoicePayment> =
         payments.iter().map(|payment| (payment.invoice_id, payment)).collect();
+    let mut represented_invoices = HashSet::new();
     let mut transactions = Vec::new();
+
+    // Legacy practice billings are inserted before invoices; an invoice already represented by
+    // one or more billable positions is skipped to prevent the same service being counted twice.
+    for item in billing_items {
+        if let Some(invoice_id) = item.invoice_id {
+            represented_invoices.insert(invoice_id);
+        }
+        if item.gross().cents() > 0 {
+            transactions.push(LedgerTransaction::new(
+                item.service_date,
+                format!("Praxis-Honorar – {}", item.description),
+                item.gross(),
+                LedgerKind::Income,
+                LedgerChannel::Bank,
+            ));
+        }
+    }
 
     for invoice in invoices
         .iter()
-        .filter(|invoice| invoice.status == InvoiceStatus::Paid)
+        .filter(|invoice| {
+            invoice.status == InvoiceStatus::Paid && !represented_invoices.contains(&invoice.id)
+        })
     {
         let Some(payment) = payments_by_invoice.get(&invoice.id) else {
             continue;
@@ -204,24 +225,6 @@ pub fn build_tax_advisor_transactions(
                 BookingChannel::Bank => LedgerChannel::Bank,
             },
         ));
-    }
-
-    for trip in fleet_trips.iter().filter(|trip| trip.purpose == "business") {
-        let allowance = Money::from_cents(trip.allowance_cents());
-        if allowance.cents() > 0 {
-            let timestamp = date::parse_iso8601(&format!("{}T00:00:00Z", trip.date))
-                .unwrap_or(trip.created_at);
-            transactions.push(LedgerTransaction::new(
-                timestamp,
-                format!(
-                    "Kilometergeld {} – {} km",
-                    trip.vehicle_plate, trip.distance_km
-                ),
-                allowance,
-                LedgerKind::Expense,
-                LedgerChannel::Bank,
-            ));
-        }
     }
 
     transactions.sort_by(|left, right| {
