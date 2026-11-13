@@ -222,7 +222,9 @@ fn restaurant_checkout_keeps_grouped_vat_on_the_paid_invoice() {
     second.name = "Kleiner Artikel B".to_string();
     second.price = 0.07;
     second.tax_rate = 7;
-    let second = state.save_restaurant_menu_item(&second).expect("second dish");
+    let second = state
+        .save_restaurant_menu_item(&second)
+        .expect("second dish");
 
     let table = "Tisch 1 (Fenster)";
     let opened = state
@@ -253,7 +255,9 @@ fn restaurant_checkout_keeps_grouped_vat_on_the_paid_invoice() {
     drop(state);
 
     let reopened = DesktopState::open(&database).expect("reopen");
-    let persisted = reopened.invoice(checkout.invoice_id).expect("persisted invoice");
+    let persisted = reopened
+        .invoice(checkout.invoice_id)
+        .expect("persisted invoice");
     assert_eq!(persisted.tax_total_cents, 1);
     assert_eq!(persisted.total_cents, 15);
     reopened.release_lock();

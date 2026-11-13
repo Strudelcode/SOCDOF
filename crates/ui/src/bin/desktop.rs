@@ -50,7 +50,10 @@ impl DesktopApp {
             profile.accent_color.trim()
         };
         let mut state = GalleryState::from_store(profile.language, appearance, accent, store)?;
-        state.invoices.templates.set_asset_picker(native_asset_picker());
+        state
+            .invoices
+            .templates
+            .set_asset_picker(native_asset_picker());
         lock.heartbeat(now_millis())?;
 
         Ok(Self {
@@ -131,10 +134,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             .with_min_inner_size([760.0, 560.0]),
         ..Default::default()
     };
-    eframe::run_native(
-        "SOCDOF",
-        options,
-        Box::new(move |_creation| Box::new(app)),
-    )?;
+    eframe::run_native("SOCDOF", options, Box::new(move |_creation| Box::new(app)))?;
     Ok(())
 }

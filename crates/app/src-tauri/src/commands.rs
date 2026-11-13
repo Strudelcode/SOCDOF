@@ -12,11 +12,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use socdof_app::desktop::{
-    AppStoreModuleView, AppointmentInput, BackupFileView, BackupReport, ContactInput, DesktopState,
-    DocumentInput, DashboardView, JournalInput, PosInput, PosOverviewView, PosView, ProductInput,
-    PurchaseInput, RestoreReport, StorageInspectorView, SupportTicketInput, SupportTimeInput,
-    TherapyClientInput, TherapySessionInput,
-    UserInput, UserView,
+    AppStoreModuleView, AppointmentInput, BackupFileView, BackupReport, ContactInput,
+    DashboardView, DesktopState, DocumentInput, JournalInput, PosInput, PosOverviewView, PosView,
+    ProductInput, PurchaseInput, RestoreReport, StorageInspectorView, SupportTicketInput,
+    SupportTimeInput, TherapyClientInput, TherapySessionInput, UserInput, UserView,
 };
 use socdof_app::dialogs::{self, DialogKind, DialogOutcome};
 use socdof_app::external_assets::{
@@ -40,16 +39,16 @@ use socdof_core::backup::BackupMetadata;
 use socdof_core::domain::accounting::{CashBookRow, JournalEntry, JournalSummary};
 use socdof_core::domain::appointment::Appointment;
 use socdof_core::domain::contact::Contact;
-use socdof_core::domain::purchase::PurchaseOrder;
-use socdof_core::store::reports::Report;
 use socdof_core::domain::countries::{self as countries, Country};
 use socdof_core::domain::document::Document;
 use socdof_core::domain::label::{LabelFormat, ProductLabel};
 use socdof_core::domain::product::Product;
+use socdof_core::domain::purchase::PurchaseOrder;
 use socdof_core::domain::reorder::{self, ReorderPlan, Threshold};
 use socdof_core::domain::settings::{CompanyProfile, Language};
 use socdof_core::invoice_template::{StationeryToken, STATIONERY_TOKEN_KEYS};
 use socdof_core::legacy::{LegacyExportReport, LegacyImportReport};
+use socdof_core::store::reports::Report;
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use uuid::Uuid;
@@ -100,9 +99,7 @@ pub fn login_user(
 pub fn storage_inspector(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<StorageInspectorView, String> {
-    state
-        .storage_inspector()
-        .map_err(|error| error.to_string())
+    state.storage_inspector().map_err(|error| error.to_string())
 }
 
 /// Dashboard key figures and the lists shown on the first screen.
@@ -133,10 +130,7 @@ pub fn pos_overview(
 
 /// Stores a POS receipt.
 #[tauri::command]
-pub fn save_pos(
-    state: tauri::State<'_, DesktopState>,
-    input: PosInput,
-) -> Result<PosView, String> {
+pub fn save_pos(state: tauri::State<'_, DesktopState>, input: PosInput) -> Result<PosView, String> {
     state.save_pos(&input).map_err(|error| error.to_string())
 }
 
@@ -151,7 +145,9 @@ pub fn support_tickets(
     state: tauri::State<'_, DesktopState>,
     query: Option<String>,
 ) -> Result<Vec<socdof_core::domain::support::SupportTicket>, String> {
-    state.support_tickets(query.as_deref()).map_err(|error| error.to_string())
+    state
+        .support_tickets(query.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -159,7 +155,9 @@ pub fn save_support_ticket(
     state: tauri::State<'_, DesktopState>,
     input: SupportTicketInput,
 ) -> Result<socdof_core::domain::support::SupportTicket, String> {
-    state.save_support_ticket(&input).map_err(|error| error.to_string())
+    state
+        .save_support_ticket(&input)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -168,12 +166,19 @@ pub fn set_support_ticket_status(
     id: Uuid,
     status: String,
 ) -> Result<socdof_core::domain::support::SupportTicket, String> {
-    state.set_support_ticket_status(id, &status).map_err(|error| error.to_string())
+    state
+        .set_support_ticket_status(id, &status)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn delete_support_ticket(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
-    state.delete_support_ticket(id).map_err(|error| error.to_string())
+pub fn delete_support_ticket(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
+    state
+        .delete_support_ticket(id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -181,7 +186,9 @@ pub fn support_time_entries(
     state: tauri::State<'_, DesktopState>,
     ticket_id: Uuid,
 ) -> Result<Vec<socdof_core::domain::support::TimeEntry>, String> {
-    state.support_time_entries(ticket_id).map_err(|error| error.to_string())
+    state
+        .support_time_entries(ticket_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -189,37 +196,66 @@ pub fn save_support_time(
     state: tauri::State<'_, DesktopState>,
     input: SupportTimeInput,
 ) -> Result<socdof_core::domain::support::TimeEntry, String> {
-    state.save_support_time(&input).map_err(|error| error.to_string())
+    state
+        .save_support_time(&input)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn therapy_clients(state: tauri::State<'_, DesktopState>) -> Result<Vec<socdof_core::domain::therapy::TherapyClient>, String> {
+pub fn therapy_clients(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<socdof_core::domain::therapy::TherapyClient>, String> {
     state.therapy_clients().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn save_therapy_client(state: tauri::State<'_, DesktopState>, input: TherapyClientInput) -> Result<socdof_core::domain::therapy::TherapyClient, String> {
-    state.save_therapy_client(&input).map_err(|error| error.to_string())
+pub fn save_therapy_client(
+    state: tauri::State<'_, DesktopState>,
+    input: TherapyClientInput,
+) -> Result<socdof_core::domain::therapy::TherapyClient, String> {
+    state
+        .save_therapy_client(&input)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn therapy_sessions(state: tauri::State<'_, DesktopState>, client_id: Uuid) -> Result<Vec<socdof_core::domain::therapy::TherapySession>, String> {
-    state.therapy_sessions(client_id).map_err(|error| error.to_string())
+pub fn therapy_sessions(
+    state: tauri::State<'_, DesktopState>,
+    client_id: Uuid,
+) -> Result<Vec<socdof_core::domain::therapy::TherapySession>, String> {
+    state
+        .therapy_sessions(client_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn delete_therapy_client(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
-    state.delete_therapy_client(id).map_err(|error| error.to_string())
+pub fn delete_therapy_client(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
+    state
+        .delete_therapy_client(id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn save_therapy_session(state: tauri::State<'_, DesktopState>, input: TherapySessionInput) -> Result<socdof_core::domain::therapy::TherapySession, String> {
-    state.save_therapy_session(&input).map_err(|error| error.to_string())
+pub fn save_therapy_session(
+    state: tauri::State<'_, DesktopState>,
+    input: TherapySessionInput,
+) -> Result<socdof_core::domain::therapy::TherapySession, String> {
+    state
+        .save_therapy_session(&input)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn delete_therapy_session(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
-    state.delete_therapy_session(id).map_err(|error| error.to_string())
+pub fn delete_therapy_session(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
+    state
+        .delete_therapy_session(id)
+        .map_err(|error| error.to_string())
 }
 
 /// Returns the schema version, row counts and lock owner of the open database.
@@ -257,11 +293,12 @@ pub fn backup_files(state: tauri::State<'_, DesktopState>) -> Result<Vec<BackupF
     if smoke_report_path().is_some() {
         smoke_log("SOCDOF_SMOKE backup_files_enter");
     }
-    let files = state
-        .backup_files()
-        .map_err(|error| error.to_string())?;
+    let files = state.backup_files().map_err(|error| error.to_string())?;
     if smoke_report_path().is_some() {
-        smoke_log(&format!("SOCDOF_SMOKE backup_files_count count={}", files.len()));
+        smoke_log(&format!(
+            "SOCDOF_SMOKE backup_files_count count={}",
+            files.len()
+        ));
     }
     Ok(files)
 }
@@ -356,10 +393,10 @@ pub fn journal_summary(state: tauri::State<'_, DesktopState>) -> Result<JournalS
 
 /// Builds the cash book with its running balance.
 #[tauri::command]
-pub fn journal_cash_book(state: tauri::State<'_, DesktopState>) -> Result<Vec<CashBookRow>, String> {
-    state
-        .journal_cash_book()
-        .map_err(|error| error.to_string())
+pub fn journal_cash_book(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<CashBookRow>, String> {
+    state.journal_cash_book().map_err(|error| error.to_string())
 }
 
 /// Creates or updates a journal entry.
@@ -416,7 +453,10 @@ pub fn save_purchase_order(
 
 /// Deletes a purchase order.
 #[tauri::command]
-pub fn delete_purchase_order(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+pub fn delete_purchase_order(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
     state
         .delete_purchase_order(id)
         .map_err(|error| error.to_string())
@@ -436,7 +476,10 @@ pub fn set_purchase_order_status(
 
 /// Books a purchase order into stock.
 #[tauri::command]
-pub fn receive_purchase_order(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+pub fn receive_purchase_order(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
     state
         .receive_purchase_order(id)
         .map_err(|error| error.to_string())
@@ -444,11 +487,7 @@ pub fn receive_purchase_order(state: tauri::State<'_, DesktopState>, id: Uuid) -
 
 /// Builds the invoice report for a period.
 #[tauri::command]
-pub fn report(
-    state: tauri::State<'_, DesktopState>,
-    from: i64,
-    to: i64,
-) -> Result<Report, String> {
+pub fn report(state: tauri::State<'_, DesktopState>, from: i64, to: i64) -> Result<Report, String> {
     state.report(from, to).map_err(|error| error.to_string())
 }
 
@@ -457,9 +496,7 @@ pub fn report(
 pub fn app_store_modules(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<Vec<AppStoreModuleView>, String> {
-    state
-        .app_store_modules()
-        .map_err(|error| error.to_string())
+    state.app_store_modules().map_err(|error| error.to_string())
 }
 
 /// Activates or deactivates one AppStore module.
@@ -516,9 +553,7 @@ pub fn save_document(
 /// Deletes a document.
 #[tauri::command]
 pub fn delete_document(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
-    state
-        .delete_document(id)
-        .map_err(|error| error.to_string())
+    state.delete_document(id).map_err(|error| error.to_string())
 }
 
 /// Textwerk open dialog with the document extensions.
@@ -2164,7 +2199,10 @@ pub fn delete_fleet_fuel(state: tauri::State<'_, DesktopState>, id: Uuid) -> Res
 
 /// Exports all contacts as the legacy-compatible semicolon CSV.
 #[tauri::command]
-pub fn export_contacts_csv(state: tauri::State<'_, DesktopState>, path: String) -> Result<usize, String> {
+pub fn export_contacts_csv(
+    state: tauri::State<'_, DesktopState>,
+    path: String,
+) -> Result<usize, String> {
     state
         .export_contacts_csv(std::path::Path::new(&path))
         .map_err(|error| error.to_string())
@@ -2183,7 +2221,10 @@ pub fn import_contacts_csv(
 
 /// Exports all contacts as vCard 3.0.
 #[tauri::command]
-pub fn export_contacts_vcf(state: tauri::State<'_, DesktopState>, path: String) -> Result<usize, String> {
+pub fn export_contacts_vcf(
+    state: tauri::State<'_, DesktopState>,
+    path: String,
+) -> Result<usize, String> {
     state
         .export_contacts_vcf(std::path::Path::new(&path))
         .map_err(|error| error.to_string())

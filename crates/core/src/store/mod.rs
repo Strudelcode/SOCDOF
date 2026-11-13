@@ -2086,10 +2086,10 @@ CREATE INDEX IF NOT EXISTS therapy_sessions_client
 mod tests {
     use super::*;
     use crate::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
-    use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::appointment::{Appointment, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
+    use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
     use crate::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
     use crate::domain::settings::ThemeMode;
@@ -2670,45 +2670,81 @@ mod tests {
             .find_role(ADMIN_ROLE_ID)
             .expect("administrator")
             .expect("administrator exists");
-        let original_contacts = administrator
-            .level(AppModule::Contacts);
-        administrator
-            .permissions
-            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet | AppModule::Restaurant));
-        store.conn.execute(
-            "UPDATE roles SET permissions = ?1 WHERE id = ?2",
-            rusqlite::params![
-                serde_json::to_string(&administrator.permissions).expect("serialize old grants"),
-                administrator.id.to_string(),
-            ],
-        ).expect("simulate old admin role");
+        let original_contacts = administrator.level(AppModule::Contacts);
+        administrator.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&administrator.permissions)
+                        .expect("serialize old grants"),
+                    administrator.id.to_string(),
+                ],
+            )
+            .expect("simulate old admin role");
 
         let mut standard = store
             .find_role(USER_ROLE_ID)
             .expect("standard role")
             .expect("standard role exists");
-        standard
-            .permissions
-            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet | AppModule::Restaurant));
-        store.conn.execute(
-            "UPDATE roles SET permissions = ?1 WHERE id = ?2",
-            rusqlite::params![
-                serde_json::to_string(&standard.permissions).expect("serialize old grants"),
-                standard.id.to_string(),
-            ],
-        ).expect("simulate old standard role");
+        standard.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&standard.permissions).expect("serialize old grants"),
+                    standard.id.to_string(),
+                ],
+            )
+            .expect("simulate old standard role");
 
         permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
 
-        let upgraded_admin = store.find_role(ADMIN_ROLE_ID).expect("find").expect("admin");
-        let upgraded_standard = store.find_role(USER_ROLE_ID).expect("find").expect("standard");
+        let upgraded_admin = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("find")
+            .expect("admin");
+        let upgraded_standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("find")
+            .expect("standard");
         assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
-        assert_eq!(upgraded_admin.level(AppModule::Projects), PermissionLevel::Manage);
-        assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::Edit);
-        assert_eq!(upgraded_admin.level(AppModule::Fleet), PermissionLevel::Manage);
-        assert_eq!(upgraded_standard.level(AppModule::Fleet), PermissionLevel::Edit);
-        assert_eq!(upgraded_admin.level(AppModule::Restaurant), PermissionLevel::Manage);
-        assert_eq!(upgraded_standard.level(AppModule::Restaurant), PermissionLevel::Edit);
+        assert_eq!(
+            upgraded_admin.level(AppModule::Projects),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Projects),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Fleet),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Fleet),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Restaurant),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Restaurant),
+            PermissionLevel::Edit
+        );
     }
 
     #[test]
@@ -2729,7 +2765,6 @@ mod tests {
         assert_eq!(store.company_profile().expect("profile"), profile);
     }
 }
-
 
 /// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
 const SCHEMA_V16: &str = r#"

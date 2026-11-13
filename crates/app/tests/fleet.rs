@@ -131,7 +131,9 @@ fn fleet_roundtrip_persists_and_calculates() {
     reopened
         .delete_fleet_vehicle(created.id)
         .expect("delete vehicle");
-    let without_vehicle = reopened.fleet_overview().expect("history after vehicle deletion");
+    let without_vehicle = reopened
+        .fleet_overview()
+        .expect("history after vehicle deletion");
     assert!(without_vehicle.vehicles.is_empty());
     assert_eq!(without_vehicle.trips.len(), 1);
     assert_eq!(without_vehicle.fuel.len(), 1);

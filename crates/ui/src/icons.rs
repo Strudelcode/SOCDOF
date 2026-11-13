@@ -445,7 +445,12 @@ impl Icon {
                     p(0.08, 0.78),
                     p(0.1, 0.62),
                 ]);
-                polyline(vec![p(0.3, 0.27), p(0.27, 0.58), p(0.73, 0.58), p(0.7, 0.27)]);
+                polyline(vec![
+                    p(0.3, 0.27),
+                    p(0.27, 0.58),
+                    p(0.73, 0.58),
+                    p(0.7, 0.27),
+                ]);
                 painter.circle_stroke(p(0.27, 0.78), rect.width() * 0.09, stroke);
                 painter.circle_stroke(p(0.73, 0.78), rect.width() * 0.09, stroke);
             }

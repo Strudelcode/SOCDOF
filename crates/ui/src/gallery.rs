@@ -30,8 +30,8 @@ use crate::controls::{
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
 use crate::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
-use crate::focus::FocusState;
 use crate::fleet::{fleet, FleetState};
+use crate::focus::FocusState;
 use crate::form::{CloseDecision, Field, FormState, UnsavedGuard};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
@@ -903,17 +903,24 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     }
 
     if state.restaurant_open {
-        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "restaurant", |focus| {
-            crate::restaurant::restaurant(
-                ctx,
-                &theme,
-                &texts,
-                focus,
-                &mut state.restaurant,
-                &state.store,
-                now,
-            );
-        });
+        let closed = app_view(
+            ctx,
+            &theme,
+            &texts,
+            &mut state.focus,
+            "restaurant",
+            |focus| {
+                crate::restaurant::restaurant(
+                    ctx,
+                    &theme,
+                    &texts,
+                    focus,
+                    &mut state.restaurant,
+                    &state.store,
+                    now,
+                );
+            },
+        );
         if closed || state.restaurant.back {
             state.restaurant_open = false;
             state.restaurant.back = false;
@@ -2263,13 +2270,8 @@ mod tests {
     #[test]
     fn persistent_state_uses_the_supplied_store_without_demo_records() {
         let store = Store::open_in_memory().expect("store");
-        let state = GalleryState::from_store(
-            Language::De,
-            Appearance::Dark,
-            "indigo",
-            store,
-        )
-        .expect("persistent state");
+        let state = GalleryState::from_store(Language::De, Appearance::Dark, "indigo", store)
+            .expect("persistent state");
 
         assert!(state.auth_open);
         assert_eq!(state.auth.view, crate::auth::AuthView::Setup);

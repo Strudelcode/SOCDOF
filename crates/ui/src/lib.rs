@@ -34,8 +34,8 @@ pub mod controls;
 pub mod dashboard;
 pub mod desktop;
 pub mod editor;
-pub mod focus;
 pub mod fleet;
+pub mod focus;
 pub mod form;
 pub mod gallery;
 pub mod i18n;
@@ -96,9 +96,9 @@ pub use desktop::{
 pub use editor::{
     editor, seed_documents, DocumentDraft, EditorState, SAMPLE_NOW_MS as EDITOR_SAMPLE_NOW_MS,
 };
+pub use fleet::{fleet, FleetState, FleetView};
 pub use focus::{focus_ring, FocusState};
 pub use form::{CloseDecision, Field, FormState, UnsavedGuard};
-pub use fleet::{fleet, FleetState, FleetView};
 pub use gallery::{gallery, GalleryState};
 pub use i18n::{UiTexts, UI_KEYS};
 pub use icons::{Icon, ALL_ICONS};
