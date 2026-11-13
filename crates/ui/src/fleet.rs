@@ -1,9 +1,9 @@
 //! Native fleet management: vehicles, digital logbook, fuel receipts and analytics.
 
 use egui::{Context, RichText};
-use socdof_core::domain::fleet::{
-    csv, csv_file_name, metrics, FleetFuel, FleetTrip, FleetVehicle, COST_PER_KM_CENTS,
-};
+use socdof_core::domain::fleet::{csv, metrics, FleetFuel, FleetTrip, FleetVehicle, COST_PER_KM_CENTS};
+#[cfg(feature = "dialogs")]
+use socdof_core::domain::fleet::csv_file_name;
 use socdof_core::store::Store;
 use uuid::Uuid;
 
@@ -348,6 +348,7 @@ pub fn fleet(
     let mut save_trip = false;
     let mut save_fuel = false;
     let mut cancel_form = false;
+    #[cfg(feature = "dialogs")]
     let mut export_clicked = false;
     let mut edit_vehicle: Option<Uuid> = None;
     let mut edit_trip: Option<Uuid> = None;
