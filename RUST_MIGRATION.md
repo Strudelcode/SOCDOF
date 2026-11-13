@@ -2097,3 +2097,18 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
     has no GitHub check runs or status contexts yet. Do not mark this audit or the full workspace
     green until `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`
     and `cargo test --workspace` have actually completed.
+
+
+- 2026-11-13 (Fleet side-by-side audit, first pass) — compared the complete TypeScript
+  `FleetModule.tsx` save, edit, delete, filtering, analytics and CSV paths with the native
+  `crates/ui/src/fleet.rs`, `crates/core/src/domain/fleet.rs`, the SQLite store, desktop bridge
+  and integration tests.
+  - Confirmed that the native analytics receives filtered trips while fuel costs and active
+    vehicle counts remain global, matching the TypeScript `useMemo` behavior.
+  - Confirmed that editing a trip does not retroactively change the vehicle odometer and deleting
+    a vehicle keeps historical trip and fuel records. Added an integration assertion for the
+    latter behavior.
+  - Confirmed that the native CSV writer includes the UTF-8 BOM and the same semicolon columns;
+    Rust additionally escapes embedded quotes safely.
+  - The audit is still partial: keyboard/form edge cases, all translation labels, invoice handoff
+    and native dialog behavior need further comparison. The Fleet module is not declared complete.
