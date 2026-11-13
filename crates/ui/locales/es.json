@@ -1931,5 +1931,10 @@
   "restaurant_dish_deleted": "Artículo eliminado.",
   "restaurant_order_saved": "Pedido guardado.",
   "restaurant_order_deleted": "Pedido eliminado.",
-  "restaurant_checkout_saved": "Cobro guardado correctamente."
+  "restaurant_checkout_saved": "Cobro guardado correctamente.",
+  "restaurant_item_note": "Nota para cocina",
+  "restaurant_split_count": "Dividir entre",
+  "restaurant_per_person": "Por persona",
+  "restaurant_export": "Exportar CSV",
+  "restaurant_exported": "CSV exportado"
 }
