@@ -34,6 +34,7 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "first name",
         "vorname",
         "given name",
+        "given yomi",
         "prénom",
         "nombre",
         "nome",
@@ -44,6 +45,7 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "nachname",
         "family name",
         "surname",
+        "surname yomi",
         "nom",
         "apellido",
         "cognome",
@@ -57,6 +59,7 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "contact name",
         "name",
         "kontakt",
+        "contact",
     ]);
     let company = find(&[
         "company",
@@ -71,11 +74,11 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "azienda",
     ]);
     let emails = find_all(&[
+        "e-mail address",
+        "email address",
         "e-mail 1 address",
         "e-mail 2 address",
         "e-mail 3 address",
-        "e-mail address",
-        "email address",
         "e-mail",
         "email",
         "e mail",
@@ -90,34 +93,78 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "mobiltelefon",
         "mobil",
         "handy",
-        "cellular",
         "cell",
+        "cellular",
+        "mobile",
         "primary phone",
         "main phone",
+        "company main phone",
         "haupttelefon",
+        "business phone 2",
         "business phone",
         "work phone",
+        "telefon geschäftlich",
         "geschäftlich",
+        "home phone 2",
         "home phone",
+        "telefon privat",
         "privattelefon",
+        "privat",
         "phone",
         "telefon",
         "tel",
+        "telefono",
+        "téléphone",
     ]);
-    let street = find(&[
-        "street", "straße", "strasse", "address", "adresse", "via", "calle",
+    let street = find_all(&[
+        "business street",
+        "home street",
+        "other street",
+        "street",
+        "strasse",
+        "straße",
+        "adresse",
+        "address",
+        "calle",
+        "via",
     ]);
-    let zip = find(&[
+    let zip = find_all(&[
+        "business postal code",
+        "home postal code",
+        "other postal code",
         "postal code",
         "zip",
         "plz",
         "postleitzahl",
         "code postal",
+        "código postal",
         "cap",
     ]);
-    let city = find(&["city", "stadt", "ort", "ville", "ciudad", "comune"]);
-    let country = find(&["country", "land", "pays", "país", "stato", "nazione"]);
-    let tax = find(&[
+    let city = find_all(&[
+        "business city",
+        "home city",
+        "other city",
+        "city",
+        "stadt",
+        "ort",
+        "ville",
+        "ciudad",
+        "comune",
+        "località",
+    ]);
+    let country = find_all(&[
+        "business country/region",
+        "home country/region",
+        "other country/region",
+        "country/region",
+        "country",
+        "land",
+        "pays",
+        "país",
+        "stato",
+        "nazione",
+    ]);
+    let tax = find_all(&[
         "tax id",
         "vat",
         "ustid",
@@ -128,7 +175,7 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "cif",
         "nif",
     ]);
-    let notes = find(&[
+    let notes = find_all(&[
         "notes",
         "notizen",
         "bemerkungen",
@@ -149,6 +196,15 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
                     .and_then(|i| row.get(i))
                     .map(|s| s.trim().to_string())
                     .unwrap_or_default()
+            };
+            let value_all = |indices: &[usize]| {
+                indices
+                    .iter()
+                    .filter_map(|index| row.get(*index))
+                    .map(|item| item.trim())
+                    .find(|item| !item.is_empty())
+                    .unwrap_or("")
+                    .to_string()
             };
             let first_name = value(first);
             let middle_name = value(middle);
@@ -207,12 +263,12 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
                 })
                 .unwrap_or("");
             contact.phone = non_empty(phone_value);
-            contact.street = non_empty(&value(street));
-            contact.zip = non_empty(&value(zip));
-            contact.city = non_empty(&value(city));
-            contact.country = non_empty(&value(country));
-            contact.tax_id = non_empty(&value(tax));
-            contact.notes = non_empty(&value(notes));
+            contact.street = non_empty(&value_all(&street));
+            contact.zip = non_empty(&value_all(&zip));
+            contact.city = non_empty(&value_all(&city));
+            contact.country = non_empty(&value_all(&country));
+            contact.tax_id = non_empty(&value_all(&tax));
+            contact.notes = non_empty(&value_all(&notes));
             contact.contact_type = kind
                 .map(|i| {
                     parse_contact_type(row.get(i).map(String::as_str).unwrap_or(""), default_type)
