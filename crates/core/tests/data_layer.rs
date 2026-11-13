@@ -68,6 +68,7 @@ fn invoice(number: &str, buyer: &Contact) -> Invoice {
         due_at: NOW,
         currency_symbol: "€".to_string(),
         note: Some("Danke".to_string()),
+        tax_total_override_cents: None,
         lines: vec![InvoiceLine {
             description: "Beratung".to_string(),
             quantity_milli: 1_000,
