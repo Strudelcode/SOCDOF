@@ -1,4 +1,10 @@
 {
+  "projects_contact": "Link contact",
+  "projects_no_contact": "No contact",
+  "projects_bill_project": "Create invoice",
+  "projects_export": "Export CSV",
+  "projects_exported": "Project portfolio exported.",
+  "projects_invoice_created": "Draft invoice created.",
   "projects_status_active": "Active",
   "projects_status_planning": "Planning",
   "projects_status_review": "Review",
