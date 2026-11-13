@@ -757,10 +757,11 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
       budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on the built bundle (limit
       15,728,640 B) and on its extracted tree (limit 41,943,040 B, `dpkg-deb -x` or
       `--appimage-extract`); a violation exits 1 and fails the job
-- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — not built here for the same reason; additionally
-      `command -v Xvfb` prints nothing, so no window can exist.
+- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — the previous measurement belongs to the Tauri
+      transition fallback. The CI gate now builds and measures the native `socdof-ui-desktop`
+      executable; a current-head result is still pending.
       Measurement: `.github/workflows/rust.yml`, job `gui-smoke`, step **Idle RAM/CPU budget**
-      starts the built app under `Xvfb :99`, resolves the real process with
+      starts the native Rust host under `Xvfb :99`, resolves its process with
       `scripts/idle-app-pid.py` and runs `node scripts/check-budgets.mjs --scope=runtime --pid <pid>`,
       which reads `VmRSS` and `utime+stime` from `/proc/<pid>` over five quiet seconds (limits
       122,880 KiB and 0.5 %, exit 1 on a violation). The same sampler ran here against a live
@@ -768,7 +769,7 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 - [x] Cold start < 800 ms: 248 ms median of five runs of the release `socdof-app` on a fresh
       database (instance lock, schema migration, status) measured 2026-11-10 with
       `scripts/check-budgets.mjs`; 59 ms more than the 2026-11-09 pass because schema v9 rebuilds the
-      invoice FTS index once on first open. The windowed desktop only adds the Tauri window on top
+      invoice FTS index once on first open. The native egui desktop host is measured separately in gui-smoke
 - [x] Large dataset test: 50k contacts, 100k invoices — `crates/ui/tests/performance.rs` seeds an
       in-memory store through `Store::insert_contacts`/`Store::insert_invoices` (18.5 s), runs the
       real `contacts()` and `invoices()` screens with `egui::Context::run` at 1280×900 (3 warm-up +
@@ -782,7 +783,7 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 - [x] Memory profiling report attached to this file — `docs/performance.md` §"Memory report" holds
       the measured `VmRSS`/`VmHWM` of the benchmark process after both screens rendered (196.9 MiB
       for the seeded 50k/100k dataset including the in-memory SQLite store) and the CI path that
-      samples the real app: job `gui-smoke`, step **Idle RAM/CPU budget** against the 120 MB limit
+      samples the native Rust desktop host: job `gui-smoke`, step **Idle RAM/CPU budget** against the 120 MB limit
 - [x] UI bundle ≤ 1.5 MB (≤ 400 KB gz): the desktop frontend built by `npm run build` is 52,305 B
       raw and 15,535 B gzip against 1,572,864 B / 409,600 B. The separate browser bundle (6,415,465 B
       raw, 2,991,359 B gzip) is documented in §14 and guarded by its own regression limit
