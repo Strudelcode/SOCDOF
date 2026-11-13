@@ -1787,6 +1787,12 @@ pub const UI_KEYS: &[&str] = &[
     "projects_priority_medium",
     "projects_priority_high",
     "projects_priority_urgent",
+    "projects_contact",
+    "projects_no_contact",
+    "projects_bill_project",
+    "projects_export",
+    "projects_exported",
+    "projects_invoice_created",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
