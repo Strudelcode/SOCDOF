@@ -1749,6 +1749,8 @@
   "therapie_session_notes": "Notiz zur Sitzung",
   "therapie_session_notes_hint": "Behandlung, Verlauf, Vereinbarungen",
   "therapie_session_saved": "Sitzung gebucht",
+  "therapie_session_update": "Änderungen speichern",
+  "therapie_error_session_billed": "Abgerechnete Sitzungen können nicht bearbeitet werden.",
   "therapie_sessions_empty": "Noch keine Sitzung gebucht.",
   "therapie_sessions_title": "Sitzungen",
   "therapie_state_active": "Aktiv",
