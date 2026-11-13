@@ -1290,6 +1290,48 @@ mod tests {
     }
 
     #[test]
+    fn edits_open_sessions_and_keeps_billed_sessions_locked() {
+        let (store, mut state, _texts) = seeded();
+        let client_id = state.clients[0].id;
+        state.select(&store, client_id).expect("select");
+        let open = state
+            .sessions
+            .iter()
+            .find(|session| !session.is_billed())
+            .expect("open session")
+            .clone();
+
+        state.start_edit_session(open.id);
+        assert_eq!(state.editing_session, Some(open.id));
+        state.session_minutes = "75".to_string();
+        state.session_kilometers = "14,25".to_string();
+        state.session_notes = "Updated treatment note".to_string();
+        state.add_session(&store, SAMPLE_NOW_MS + 1).expect("update");
+
+        let updated = store
+            .therapy_sessions_for_client(client_id)
+            .expect("sessions")
+            .into_iter()
+            .find(|session| session.id == open.id)
+            .expect("updated session");
+        assert_eq!(updated.minutes, 75);
+        assert_eq!(updated.kilometers_milli, 14_250);
+        assert_eq!(updated.notes, "Updated treatment note");
+        assert_eq!(updated.updated_at, SAMPLE_NOW_MS + 1);
+        assert_eq!(state.editing_session, None);
+
+        let billed = state
+            .sessions
+            .iter()
+            .find(|session| session.is_billed())
+            .expect("billed session")
+            .clone();
+        state.start_edit_session(billed.id);
+        assert_eq!(state.editing_session, None);
+        assert_eq!(state.error, Some("therapie_error_session_billed"));
+    }
+
+    #[test]
     fn rejects_invalid_session_input() {
         let (store, mut state, _texts) = seeded();
         let id = state.clients[0].id;
