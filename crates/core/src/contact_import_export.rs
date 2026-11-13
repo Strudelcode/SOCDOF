@@ -557,6 +557,16 @@ mod tests {
         assert_eq!(parsed[0].notes.as_deref(), Some("Line one\r\nLine two"));
     }
     #[test]
+    fn prioritizes_first_and_last_name_and_mobile_phone_columns() {
+        let csv = "First Name;Last Name;E-mail 1 Address;E-mail 2 Address;Mobile Phone;Business Phone;Home Phone\\r\\nAda;Lovelace;;ada@example.org;+44 123;020 111;020 222";
+        let parsed = parse_contacts_csv(csv, ContactType::Guest, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name.as_deref(), Some("Ada Lovelace"));
+        assert_eq!(parsed[0].email.as_deref(), Some("ada@example.org"));
+        assert_eq!(parsed[0].phone.as_deref(), Some("+44 123"));
+    }
+
+    #[test]
     fn parses_vcard_and_round_trips_address_and_notes() {
         let vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Grace Hopper\r\nN:Hopper;Grace;;;\r\nEMAIL;TYPE=INTERNET:grace@example.org\r\nADR;TYPE=HOME:;;Navy Street 1;Arlington;;22201;USA\r\nNOTE:First line\\nSecond line\r\nEND:VCARD";
         let parsed = parse_contacts_vcard(vcf, ContactType::Customer, 5);
