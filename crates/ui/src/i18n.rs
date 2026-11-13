@@ -1011,6 +1011,7 @@ pub const UI_KEYS: &[&str] = &[
     "accounting_business_output_vat",
     "accounting_business_input_vat",
     "accounting_business_receipts",
+    "accounting_business_overdue",
     "accounting_empty_title",
     "accounting_empty_hint",
     "accounting_no_results",
