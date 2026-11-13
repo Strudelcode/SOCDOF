@@ -1960,5 +1960,9 @@
   "contacts_batch_title": "Créer plusieurs contacts",
   "contacts_batch_hint": "Renseignez les contacts à enregistrer ensemble.",
   "contacts_batch_row": "Contact",
-  "contacts_batch_add_row": "Ajouter une ligne"
+  "contacts_batch_add_row": "Ajouter une ligne",
+  "contacts_import_preview_title": "Vérifier l’importation",
+  "contacts_import_category": "Catégorie des contacts importés",
+  "contacts_import_remove": "Supprimer",
+  "contacts_import_confirm": "Importer les contacts"
 }
