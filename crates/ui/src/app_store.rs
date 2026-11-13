@@ -369,8 +369,8 @@ mod tests {
         let store = Store::open_in_memory().expect("store");
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
-        assert_eq!(state.modules.len(), 16);
-        assert_eq!(state.active_count(), 16);
+        assert_eq!(state.modules.len(), 17);
+        assert_eq!(state.active_count(), 17);
         let mut texts = texts();
         state.query = "therapie".to_string();
         let filtered = state.filtered(&texts);
