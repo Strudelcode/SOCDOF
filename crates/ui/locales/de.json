@@ -1,4 +1,11 @@
 {
+  "projects_view_portfolio": "Portfolio",
+  "projects_view_kanban": "Kanban",
+  "projects_view_tasks": "Aufgaben",
+  "projects_filter_all": "Alle",
+  "projects_filter_project": "Projekt",
+  "projects_filter_all_projects": "Alle Projekte",
+  "projects_task_title": "Aufgabe",
   "projects_color": "Projektfarbe",
   "projects_contact": "Kontakt verknüpfen",
   "projects_no_contact": "Kein Kontakt",
