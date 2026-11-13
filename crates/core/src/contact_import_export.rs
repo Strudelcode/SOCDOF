@@ -701,5 +701,4 @@ mod tests {
         let parsed = parse_contacts_vcard(vcf, ContactType::Guest, 1);
         assert!(parsed.is_empty());
     }
-
 }
