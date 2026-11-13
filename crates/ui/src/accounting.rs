@@ -1985,6 +1985,9 @@ mod tests {
     fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
         use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
         use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use socdof_core::domain::payment::{
+            InvoicePayment, PaymentMethod as InvoicePaymentMethod,
+        };
         use socdof_core::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
         use socdof_core::domain::purchase::{
             PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus,
@@ -2023,6 +2026,33 @@ mod tests {
             }],
         };
         store.insert_invoice(&invoice).expect("invoice");
+
+        let paid_invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-002".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Paid,
+            issued_at: now - DAY_MS,
+            due_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Paid service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(4_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store.insert_invoice(&paid_invoice).expect("paid invoice");
+        store
+            .record_invoice_payment(&InvoicePayment::new(
+                paid_invoice.id,
+                InvoicePaymentMethod::Cash,
+                now,
+                "cash receipt".to_string(),
+            ))
+            .expect("record payment");
 
         let purchase = PurchaseOrder {
             id: Uuid::new_v4(),
@@ -2076,6 +2106,18 @@ mod tests {
         assert_eq!(state.business_report.pos_net.cents(), 5_000);
         assert_eq!(state.business_report.open_receivables.len(), 1);
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
+        let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
+        assert_eq!(month.income_cash.cents(), 4_760);
+        assert_eq!(month.income_bank.cents(), 0);
+        assert_eq!(month.expense_bank.cents(), 2_380);
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-002"));
+        assert!(!month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-001"));
     }
 
     #[test]
