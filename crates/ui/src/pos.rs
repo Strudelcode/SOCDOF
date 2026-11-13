@@ -1584,6 +1584,7 @@ mod tests {
         assert!(painted.contains(texts.get("pos_title")));
         assert!(painted.contains("BON-2026-0001"));
         assert!(painted.contains(texts.get("pos_summary_title")));
+        assert!(painted.contains(texts.get("pos_summary_nfc")));
         assert!(painted.contains(texts.get("pos_payment_cash")));
         assert!(painted.contains("40,16 €"));
 
