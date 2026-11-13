@@ -97,22 +97,41 @@ pub fn delete(conn: &Connection, id: Uuid) -> CoreResult<()> {
 
 /// Writes both built-in roles if they are missing. Safe to call on every start.
 pub fn seed_builtin(conn: &Connection, now: i64) -> CoreResult<()> {
-    for role in [Role::administrator(now), Role::standard_user(now)] {
-        conn.execute(
-            "INSERT INTO roles (id, name, description, is_builtin, permissions, created_at,
-                updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT(id) DO NOTHING",
-            params![
-                role.id.to_string(),
-                role.name,
-                role.description,
-                role.is_builtin,
-                serde_json::to_string(&role.permissions)?,
-                role.created_at,
-                role.updated_at,
-            ],
-        )?;
+    for defaults in [Role::administrator(now), Role::standard_user(now)] {
+        if let Some(mut existing) = find(conn, defaults.id)? {
+            // New modules are appended to the permission matrix over time. Bring built-in roles
+            // forward without resetting grants that an older installation already stored.
+            let mut changed = false;
+            for grant in defaults.permissions {
+                if !existing
+                    .permissions
+                    .iter()
+                    .any(|current| current.module == grant.module)
+                {
+                    existing.permissions.push(grant);
+                    changed = true;
+                }
+            }
+            if changed {
+                existing.updated_at = now;
+                update(conn, &existing)?;
+            }
+        } else {
+            conn.execute(
+                "INSERT INTO roles (id, name, description, is_builtin, permissions, created_at,
+                    updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    defaults.id.to_string(),
+                    defaults.name,
+                    defaults.description,
+                    defaults.is_builtin,
+                    serde_json::to_string(&defaults.permissions)?,
+                    defaults.created_at,
+                    defaults.updated_at,
+                ],
+            )?;
+        }
     }
     Ok(())
 }
