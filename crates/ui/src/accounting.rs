@@ -615,6 +615,7 @@ impl AccountingState {
             &billing_items,
         );
         let (current_year, _, _) = date::civil_from_millis(now);
+        let current_year = i32::try_from(current_year).unwrap_or(1970);
         if self.tax_advisor_year == 0 {
             self.tax_advisor_year = current_year;
         }
@@ -1302,6 +1303,7 @@ fn list_view(
         }
         if state.tab == AccountingTab::BusinessReport {
             let (current_year, _, _) = date::civil_from_millis(now);
+            let current_year = i32::try_from(current_year).unwrap_or(1970);
             let year_values: Vec<String> = (current_year - 5..=current_year + 1)
                 .map(|year| year.to_string())
                 .collect();
