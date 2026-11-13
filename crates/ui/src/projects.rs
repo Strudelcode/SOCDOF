@@ -107,21 +107,22 @@ impl ProjectsState {
     /// Starts a new project with the same suggested code and hourly rate as the legacy module.
     pub fn start_new(&mut self, now: i64) {
         let year = iso_date(now).split('-').next().and_then(|value| value.parse::<i64>().ok()).unwrap_or(1970);
+        let contact = self.contacts.first();
         self.draft = Some(Project {
             id: Uuid::new_v4(),
             title: String::new(),
             code: default_code(year, self.projects.len()),
             description: String::new(),
-            contact_id: None,
-            client_name: String::new(),
+            contact_id: contact.map(|contact| contact.id),
+            client_name: contact.map(Contact::display_name).unwrap_or_default(),
             category: "client_work".to_string(),
-            status: "planning".to_string(),
+            status: "active".to_string(),
             priority: "medium".to_string(),
-            budget_cents: 0,
+            budget_cents: 250_000,
             hourly_rate_cents: DEFAULT_HOURLY_RATE_CENTS,
             start_date: iso_date(now),
             deadline: String::new(),
-            color: "#6366f1".to_string(),
+            color: "#4f46e5".to_string(),
             created_at: now,
             updated_at: now,
         });
@@ -286,7 +287,7 @@ impl ProjectsState {
             status: "todo".to_string(),
             priority: "medium".to_string(),
             assignee: String::new(),
-            estimated_hours_milli: 0,
+            estimated_hours_milli: 2_000,
             logged_hours_milli: 0,
             due_date: String::new(),
             billable: true,
@@ -566,6 +567,7 @@ pub fn projects(
                             ui.end_row();
                             ui.label(texts.get("projects_start_date")); ui.text_edit_singleline(&mut project.start_date); ui.end_row();
                             ui.label(texts.get("projects_deadline")); ui.text_edit_singleline(&mut project.deadline); ui.end_row();
+                            ui.label(texts.get("projects_color")); ui.text_edit_singleline(&mut project.color); ui.end_row();
                         });
                         ui.horizontal(|ui| {
                             if button(ui, theme, focus, texts.get("projects_save"), ButtonVariant::Primary).activated { save_project = true; }
