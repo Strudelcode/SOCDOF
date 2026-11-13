@@ -1,4 +1,7 @@
 {
+  "projects_kpi_logged": "Heures enregistrées",
+  "projects_kpi_estimated": "Heures estimées",
+  "projects_kpi_completion": "Avancement",
   "app_fleet": "Flotte",
   "app_store_desc_fleet": "Véhicules, carnet de route numérique, reçus de carburant et analyses.",
   "settings_module_fleet": "Flotte",
