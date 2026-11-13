@@ -833,6 +833,18 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
+        if let Some(invoice_id) = state.projects.created_invoice.take() {
+            state.projects_open = false;
+            state.desktop_windows.close(AppId::new("projects"), now);
+            state.invoices.invalidate();
+            match state.invoices.refresh(&state.store) {
+                Ok(()) => {
+                    state.invoices.select(invoice_id);
+                    state.invoices_open = true;
+                }
+                Err(error) => state.projects.error = Some(error.to_string()),
+            }
+        }
         if closed || state.projects.back {
             state.projects_open = false;
             state.projects.back = false;
