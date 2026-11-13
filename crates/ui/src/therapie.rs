@@ -1415,14 +1415,19 @@ mod tests {
         assert_eq!(updated.updated_at, SAMPLE_NOW_MS + 1);
         assert_eq!(state.editing_session, None);
 
-        let billed = state
-            .sessions
-            .iter()
-            .find(|session| session.is_billed())
-            .expect("billed session")
-            .clone();
+        let mut billed = updated.clone();
+        billed.id = Uuid::new_v4();
+        billed.invoice_id = Some(Uuid::new_v4());
+        state.sessions.push(billed.clone());
         state.start_edit_session(billed.id);
         assert_eq!(state.editing_session, None);
+        assert_eq!(state.error, Some("therapie_error_session_billed"));
+
+        state.editing_session = Some(billed.id);
+        state.session_minutes = "30".to_string();
+        state.session_kilometers = "0".to_string();
+        state.add_session(&store, SAMPLE_NOW_MS + 2)
+            .expect("billed sessions stay locked");
         assert_eq!(state.error, Some("therapie_error_session_billed"));
     }
 
