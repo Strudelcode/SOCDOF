@@ -734,7 +734,7 @@ pub fn accounting(
         )
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                AccountingView::List => list_view(ui, theme, texts, focus, state),
+                AccountingView::List => list_view(ui, theme, texts, focus, state, now),
                 AccountingView::Detail => detail_view(ui, theme, texts, focus, state),
                 AccountingView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
