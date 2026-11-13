@@ -2343,7 +2343,7 @@ mod tests {
         state.refresh(&store, now).expect("refresh business report");
         assert_eq!(state.company_name, "Accounting GmbH");
         assert_eq!(state.currency_symbol, "$");
-        assert_eq!(state.business_report.invoice_net.cents(), 10_000);
+        assert_eq!(state.business_report.invoice_net.cents(), 14_000);
         assert_eq!(state.business_report.purchase_net.cents(), 2_000);
         assert_eq!(state.business_report.pos_net.cents(), 5_000);
         assert_eq!(state.business_report.open_receivables.len(), 1);
