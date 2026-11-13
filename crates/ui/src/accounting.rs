@@ -1556,6 +1556,12 @@ mod tests {
         assert!(painted.contains(texts.get("accounting_bwa_title")));
         assert!(painted.contains(texts.get("accounting_sample_account_revenue")));
         assert!(painted.contains(texts.get("accounting_result")));
+
+        state.tab = AccountingTab::BusinessReport;
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("accounting_bwa_title")));
+        assert!(painted.contains(texts.get("pos_summary_title")));
+        assert!(painted.contains(texts.get("accounting_open_button")));
     }
 
     #[test]
