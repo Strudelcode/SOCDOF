@@ -1989,5 +1989,6 @@
   "accounting_tax_advisor_opening_title": "Set opening balance",
   "accounting_tax_advisor_cash_start": "Opening cash balance",
   "accounting_tax_advisor_bank_start": "Opening bank balance",
-  "accounting_tax_advisor_balance_invalid": "Enter valid, non-negative amounts."
+  "accounting_tax_advisor_balance_invalid": "Enter valid, non-negative amounts.",
+  "accounting_tax_advisor_year": "Year"
 }
