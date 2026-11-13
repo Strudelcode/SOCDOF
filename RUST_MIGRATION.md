@@ -2093,10 +2093,10 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
     through the listed projects, while Rust previously used `tasks.len()` for the denominator.
     Rust now counts only tasks attached to the supplied project set; a regression test covers an
     unrelated/orphan task so completion percentage and totals cannot drift.
-  - Verification remains pending: this environment has no Rust/Cargo toolchain. The latest commit
-    has no GitHub check runs or status contexts yet. Do not mark this audit or the full workspace
-    green until `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`
-    and `cargo test --workspace` have actually completed.
+  - Verification is now running in GitHub Actions on pull requests and migration-branch pushes.
+    The first run exposed workspace rustfmt drift and one pre-existing Clippy range-loop warning in
+    `crates/core/src/pdf/din5008.rs`; the Clippy issue is fixed and a one-time rustfmt pass is being
+    prepared. No full test-suite success is claimed until the complete jobs finish.
 
 
 - 2026-11-13 (Fleet side-by-side audit, first pass) — compared the complete TypeScript
@@ -2112,3 +2112,14 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
     Rust additionally escapes embedded quotes safely.
   - The audit is still partial: keyboard/form edge cases, all translation labels, invoice handoff
     and native dialog behavior need further comparison. The Fleet module is not declared complete.
+
+
+- 2026-11-13 (Restaurant tax rounding audit) — compared the TypeScript order calculations in
+  `RestaurantModule.tsx` with `TableOrder::recalculate`. The legacy UI first groups net line
+  amounts by tax rate (7% and 19%), then calculates VAT for each group. Rust previously rounded
+  every line's VAT separately and summed those rounded values, which can differ by one cent for
+  small or numerous positions. The Rust calculation now groups by basis-point rate before applying
+  the shared half-up money rounding. Added a regression case with two 0.07 EUR lines at 7%:
+  TypeScript-compatible order totals are 0.14 EUR net, 0.01 EUR VAT and 0.15 EUR gross. Restaurant
+  parity remains under review for receipt rendering, checkout persistence side effects, and the
+  complete kitchen/order state workflow.
