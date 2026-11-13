@@ -542,6 +542,7 @@ impl GalleryState {
                 self.invoices_open = true;
             }
             "accounting" => {
+                self.accounting.invalidate();
                 self.accounting.refresh(&self.store, now)?;
                 self.accounting_open = true;
             }
@@ -741,6 +742,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 DashboardAction::OpenAccounting => {
                     state.dashboard_open = false;
                     state.dashboard.back = false;
+                    state.accounting.invalidate();
                     state.accounting_open = true;
                 }
                 DashboardAction::OpenPurchases => {
@@ -1436,6 +1438,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     )
                     .activated
                     {
+                        state.accounting.invalidate();
                         state.accounting_open = true;
                         state.accounting.view = crate::accounting::AccountingView::List;
                     }
