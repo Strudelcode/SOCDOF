@@ -210,7 +210,7 @@
   "accounting_expense": "Ausgaben",
   "accounting_export": "Export",
   "accounting_exported": "Export in die Zwischenablage kopiert",
-  "accounting_saved": "Exportdatei gespeichert.",
+  "accounting_saved": "Buchung gespeichert",
   "accounting_period_today": "Heute",
   "accounting_period_custom": "Benutzerdefiniert",
   "accounting_period_from": "Von",
@@ -250,7 +250,6 @@
   "accounting_sample_material": "Materialeinkauf",
   "accounting_sample_rent": "Miete",
   "accounting_save": "Speichern",
-  "accounting_saved": "Buchung gespeichert",
   "accounting_search": "Buchung durchsuchen",
   "accounting_subtitle": "Buchungen, Kassenbuch und BWA im Blick",
   "accounting_tab_bwa": "BWA",
@@ -1983,5 +1982,6 @@
   "contacts_import_remove": "Entfernen",
   "contacts_import_confirm": "Kontakte importieren",
   "contacts_export_all": "Alle Kontakte",
-  "contacts_export_filtered": "Gefilterte Ansicht"
+  "contacts_export_filtered": "Gefilterte Ansicht",
+  "accounting_tax_advisor_export": "Kassenbuch (Excel)"
 }
