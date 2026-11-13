@@ -403,8 +403,10 @@ mod tests {
         let mut outside = draft.clone();
         outside.status = InvoiceStatus::Paid;
         outside.issued_at = 10_000;
+        let mut at_end = outside.clone();
+        at_end.issued_at = 5_000;
         let report = build_business_accounting_report(
-            &[draft, outside],
+            &[draft, outside, at_end],
             &[],
             &[],
             ReportRange {
