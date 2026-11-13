@@ -1900,4 +1900,28 @@ mod tests {
         assert_eq!(state.business_report.open_receivables.len(), 1);
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
     }
+
+    #[test]
+    fn accounting_periods_cover_today_and_custom_inclusive_dates() {
+        let now = date::days_from_civil(2026, 11, 13) * DAY_MS + 14 * 60 * 60 * 1_000;
+        let today_start = date::days_from_civil(2026, 11, 13) * DAY_MS;
+        assert_eq!(
+            AccountingPeriod::Today.range(now, "", ""),
+            Some((today_start, today_start + DAY_MS))
+        );
+
+        let from = date::days_from_civil(2026, 11, 1) * DAY_MS;
+        let to_exclusive = date::days_from_civil(2026, 11, 4) * DAY_MS;
+        assert_eq!(
+            AccountingPeriod::Custom.range(now, "2026-11-01", "2026-11-03"),
+            Some((from, to_exclusive))
+        );
+        assert!(AccountingPeriod::Custom
+            .range(now, "2026-11-04", "2026-11-03")
+            .is_none());
+        assert!(AccountingPeriod::Custom
+            .range(now, "2026-02-31", "2026-03-01")
+            .is_none());
+    }
+
 }
