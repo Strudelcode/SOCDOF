@@ -186,6 +186,7 @@ impl TherapieState {
 
     /// Opens the detail view of a client.
     pub fn select(&mut self, store: &Store, id: Uuid) -> socdof_core::CoreResult<()> {
+        self.cancel_session_edit();
         self.selected = Some(id);
         self.view = TherapieView::Detail;
         self.error = None;
@@ -273,6 +274,7 @@ impl TherapieState {
 
     /// Starts editing an unbilled session.
     pub fn start_edit_session(&mut self, id: Uuid) {
+        self.cancel_session_edit();
         let Some(session) = self.sessions.iter().find(|session| session.id == id) else {
             return;
         };
@@ -408,6 +410,7 @@ impl TherapieState {
         self.error = None;
         self.status = None;
         self.confirm_delete = false;
+        self.cancel_session_edit();
         self.view = TherapieView::List;
         self.selected = None;
         self.sessions.clear();
