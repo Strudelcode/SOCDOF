@@ -1749,6 +1749,8 @@
   "therapie_session_notes": "Note de séance",
   "therapie_session_notes_hint": "Traitement, évolution, accords",
   "therapie_session_saved": "Séance saisie",
+  "therapie_session_update": "Enregistrer les modifications",
+  "therapie_error_session_billed": "Les séances facturées ne peuvent pas être modifiées.",
   "therapie_sessions_empty": "Aucune séance saisie pour le moment.",
   "therapie_sessions_title": "Séances",
   "therapie_state_active": "Actif",
