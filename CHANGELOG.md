@@ -22,6 +22,7 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   `RUST_MIGRATION.md` §2.1.
 
 ### Added
+- Native Rust Projects app: persistent project/customer linking, project/task CRUD, task status transitions, billable-hour calculations, project KPIs, CSV export and draft invoice generation through the shared invoice templates. Registered in the module catalogue and role permissions; translated in DE/EN/FR/ES.
 
 - First persistent native egui desktop host: `socdof-ui-desktop` opens the real SQLite database,
   acquires the legacy-compatible single-instance lock, restores the saved language/theme/accent and
