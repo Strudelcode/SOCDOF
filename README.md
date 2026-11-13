@@ -191,6 +191,17 @@ cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
 ```
 
+The first native Rust desktop host is available separately from the Tauri transition build:
+
+```bash
+cargo run -p socdof-ui --features window --bin socdof-ui-desktop
+```
+
+It opens the persistent SQLite database under the operating-system application-data folder
+(Windows: `%APPDATA%\\SOCDOF\\socdof.db`). Use `--database <path>` to select another file.
+Unlike the component gallery, the desktop host does not seed example customers, invoices or
+demo accounts; it starts with first-run setup or the existing local login.
+
 Desktop prerequisites (Ubuntu/Debian):
 
 ```bash
