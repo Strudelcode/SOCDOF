@@ -325,7 +325,10 @@ mod tests {
         let chosen = resolve(&DialogKind::Folder, Some(dir.clone()));
         assert_eq!(
             marker(&DialogKind::Folder, &chosen),
-            format!("SOCDOF_DIALOG kind=folder outcome=chosen path={}", dir.display())
+            format!(
+                "SOCDOF_DIALOG kind=folder outcome=chosen path={}",
+                dir.display()
+            )
         );
         std::fs::remove_dir_all(&dir).ok();
         let cancelled = resolve(&DialogKind::Folder, None);
