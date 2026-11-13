@@ -1946,5 +1946,6 @@
   "restaurant_all": "Alle",
   "therapie_session_date": "Sitzungsdatum",
   "therapie_session_time": "Beginn (Uhrzeit)",
-  "therapie_error_date": "Bitte ein gültiges Datum und eine gültige Uhrzeit eingeben."
+  "therapie_error_date": "Bitte ein gültiges Datum und eine gültige Uhrzeit eingeben.",
+  "pos_payment_nfc": "NFC / Mobil"
 }
