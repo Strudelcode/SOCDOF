@@ -229,6 +229,7 @@
   "accounting_business_output_vat": "IVA repercutido",
   "accounting_business_input_vat": "IVA soportado",
   "accounting_business_receipts": "Tickets",
+  "accounting_business_overdue": "Vencida",
   "accounting_reference": "Referencia",
   "accounting_reference_hint": "Justificante o número de factura",
   "accounting_result": "Resultado",
