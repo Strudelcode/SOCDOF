@@ -916,8 +916,8 @@ fn detail_view(
                         });
                         ui.horizontal(|ui| {
                             ui.label(&session.notes);
-                            if !session.is_billed() {
-                                if button(
+                            if !session.is_billed()
+                                && button(
                                     ui,
                                     theme,
                                     focus,
@@ -925,9 +925,8 @@ fn detail_view(
                                     ButtonVariant::Ghost,
                                 )
                                 .activated
-                                {
-                                    edit_session = Some(session.id);
-                                }
+                            {
+                                edit_session = Some(session.id);
                             }
                         });
                         ui.end_row();
