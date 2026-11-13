@@ -1953,6 +1953,10 @@ pub const UI_KEYS: &[&str] = &[
     "restaurant_per_person",
     "restaurant_export",
     "restaurant_exported",
+    "restaurant_kpi_today_orders",
+    "restaurant_kpi_cash",
+    "restaurant_kpi_card",
+    "restaurant_kpi_tax",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
