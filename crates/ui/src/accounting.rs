@@ -2306,6 +2306,39 @@ mod tests {
         };
         store.insert_pos_order(&pos, &[]).expect("POS receipt");
 
+        let mut journal = JournalEntry::new(now);
+        journal.description = "Manual cash entry".to_string();
+        journal.account = "Kassa".to_string();
+        journal.counter_account = "Erlöse".to_string();
+        journal.amount = Money::from_cents(1_000);
+        journal.tax_rate_bp = 0;
+        journal.kind = JournalKind::Income;
+        journal.channel = BookingChannel::Cash;
+        store
+            .insert_journal_entry(&journal)
+            .expect("manual journal entry");
+
+        let trip = socdof_core::domain::fleet::FleetTrip {
+            id: Uuid::new_v4(),
+            vehicle_id: Uuid::new_v4(),
+            vehicle_plate: "AA-123".to_string(),
+            driver: "Test Driver".to_string(),
+            date: date::format_iso8601(now)[..10].to_string(),
+            start_time: "09:00".to_string(),
+            end_time: "09:30".to_string(),
+            start_location: "Start".to_string(),
+            end_location: "Destination".to_string(),
+            purpose: "business".to_string(),
+            reason: "Customer visit".to_string(),
+            customer_name: "Customer".to_string(),
+            start_km: 100,
+            end_km: 110,
+            distance_km: 10,
+            notes: String::new(),
+            created_at: now,
+        };
+        store.insert_fleet_trip(&trip).expect("business trip");
+
         state.invalidate();
         state.refresh(&store, now).expect("refresh business report");
         assert_eq!(state.company_name, "Accounting GmbH");
@@ -2316,13 +2349,21 @@ mod tests {
         assert_eq!(state.business_report.open_receivables.len(), 1);
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
         let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
-        assert_eq!(month.income_cash.cents(), 4_760);
+        assert_eq!(month.income_cash.cents(), 5_760);
         assert_eq!(month.income_bank.cents(), 5_350);
-        assert_eq!(month.expense_bank.cents(), 2_380);
+        assert_eq!(month.expense_bank.cents(), 2_680);
         assert!(month
             .transactions
             .iter()
             .any(|transaction| transaction.description == "Rechnung 2026-REPORT-002"));
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Manual cash entry"));
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description.contains("Kilometergeld AA-123")));
         assert!(!month
             .transactions
             .iter()
