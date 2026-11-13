@@ -1983,5 +1983,11 @@
   "contacts_import_confirm": "Kontakte importieren",
   "contacts_export_all": "Alle Kontakte",
   "contacts_export_filtered": "Gefilterte Ansicht",
-  "accounting_tax_advisor_export": "Kassenbuch (Excel)"
+  "accounting_tax_advisor_export": "Kassenbuch (Excel)",
+  "accounting_tax_advisor_opening_balance": "Startbestand",
+  "accounting_tax_advisor_csv_month": "Monats-CSV",
+  "accounting_tax_advisor_opening_title": "Anfangsbestand festlegen",
+  "accounting_tax_advisor_cash_start": "Kassa Anfangsbestand",
+  "accounting_tax_advisor_bank_start": "Bank Anfangsbestand",
+  "accounting_tax_advisor_balance_invalid": "Bitte gültige, nicht negative Beträge eingeben."
 }
