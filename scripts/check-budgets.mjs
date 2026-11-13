@@ -2,9 +2,9 @@
 // Phase 9 budget check: measures the artifacts this checkout actually builds.
 //
 // Every limit and its measurement context live in scripts/budgets.json. The script exits with 1
-// when a measurable budget is exceeded, so CI and a local run fail the same way. Artifacts that
-// need a display or the Tauri toolchain (installer, installed size, idle RAM/CPU) are reported as
-// "not built here" instead of being guessed; the desktop and gui-smoke CI jobs run them.
+// when a measurable budget is exceeded, so CI and a local run fail the same way. The native
+// executable is measured in the desktop job; idle RAM/CPU requires a display and is measured by
+// gui-smoke. The retained Tauri fallback is built and uploaded separately.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
