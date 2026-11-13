@@ -1127,7 +1127,17 @@ fn business_report_view(
                     }
                     ui.end_row();
                     for item in &report.open_receivables {
-                        ui.label(format_date(item.due_at));
+                        ui.horizontal(|ui| {
+                            ui.label(format_date(item.due_at));
+                            if item.overdue {
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get("accounting_business_overdue"),
+                                    Tone::Warning,
+                                );
+                            }
+                        });
                         ui.label(&item.number);
                         ui.label(
                             RichText::new(money_in_currency(
