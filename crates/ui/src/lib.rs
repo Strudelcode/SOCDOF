@@ -50,6 +50,7 @@ pub mod products;
 pub mod projects;
 pub mod purchases;
 pub mod reports;
+pub mod restaurant;
 pub mod richtext;
 pub mod settings;
 pub mod shell;
@@ -112,6 +113,7 @@ pub use purchases::{
     purchases, seed_purchases, PurchaseDraft, PurchaseLineDraft, PurchasesState, PurchasesView,
 };
 pub use reports::{reports, ReportsState};
+pub use restaurant::{restaurant, RestaurantState, RestaurantView};
 pub use settings::{
     seed_settings, settings, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
 };
