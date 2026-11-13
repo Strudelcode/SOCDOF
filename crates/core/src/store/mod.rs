@@ -2665,7 +2665,7 @@ mod tests {
             .level(AppModule::Contacts);
         administrator
             .permissions
-            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
+            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet | AppModule::Restaurant));
         store.conn.execute(
             "UPDATE roles SET permissions = ?1 WHERE id = ?2",
             rusqlite::params![
@@ -2698,6 +2698,8 @@ mod tests {
         assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::Edit);
         assert_eq!(upgraded_admin.level(AppModule::Fleet), PermissionLevel::Manage);
         assert_eq!(upgraded_standard.level(AppModule::Fleet), PermissionLevel::Edit);
+        assert_eq!(upgraded_admin.level(AppModule::Restaurant), PermissionLevel::Manage);
+        assert_eq!(upgraded_standard.level(AppModule::Restaurant), PermissionLevel::Edit);
     }
 
     #[test]
