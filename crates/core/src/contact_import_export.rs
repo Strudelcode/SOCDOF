@@ -64,6 +64,8 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "organization",
         "organisation",
         "unternehmen",
+        "unternehm",
+        "org",
         "société",
         "empresa",
         "azienda",
@@ -77,8 +79,10 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "e-mail",
         "email",
         "e mail",
+        "mail",
         "courriel",
         "correo",
+        "posta elettronica",
     ]);
     let phones = find_all(&[
         "mobile phone",
@@ -120,14 +124,19 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "ust-idnr",
         "partita iva",
         "steuernummer",
+        "fiscal code",
+        "cif",
+        "nif",
     ]);
     let notes = find(&[
         "notes",
         "notizen",
         "bemerkungen",
+        "anmerkungen",
         "kommentar",
         "remarques",
         "notas",
+        "note",
     ]);
     let kind = find(&["contact type", "kontakt-typ", "type", "typ"]);
 
@@ -287,7 +296,7 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
             name
         });
         contact.company_name = non_empty(&company);
-        contact.email = valid_email(&email).then_some(email);
+        contact.email = (!email.is_empty() && valid_email(&email)).then_some(email);
         contact.phone = non_empty(&phone);
         if let Some(address) = property("ADR") {
             let parts: Vec<&str> = address.split(';').collect();
@@ -482,7 +491,7 @@ fn parse_contact_type(value: &str, fallback: ContactType) -> ContactType {
     let v = value.to_lowercase();
     if v.contains("vendor") || v.contains("lieferant") {
         ContactType::Vendor
-    } else if v.contains("guest") || v.contains("gast") || v.contains("privat") {
+    } else if v.contains("guest") || v.contains("gast") || v.contains("buch") || v.contains("privat") {
         ContactType::Guest
     } else if v.contains("both") || v.contains("beide") || v.contains("partner") {
         ContactType::Both
@@ -508,14 +517,8 @@ fn opt(value: Option<&str>) -> String {
 fn field(value: Option<&str>) -> String {
     escape_vcard(value.unwrap_or(""))
 }
-fn csv_escape(value: &str, delimiter: char) -> String {
-    format!(
-        "\"{}\"",
-        value
-            .replace('"', "\"\"")
-            .replace(['\r', '\n'], " ")
-            .replace(delimiter, &delimiter.to_string())
-    )
+fn csv_escape(value: &str, _delimiter: char) -> String {
+    format!("\"{}\", value.replace('"', "\"\""))
 }
 fn escape_vcard(value: &str) -> String {
     value
