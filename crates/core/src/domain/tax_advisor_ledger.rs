@@ -328,50 +328,175 @@ pub fn export_tax_advisor_excel_xml(
     let title = format!("Ein- und Ausgaben – {owner}");
     let mut worksheets = String::new();
 
-    for month in months {
+    for (month_index, month) in months.iter().enumerate() {
         let mut rows = String::new();
-        push_text_row(&mut rows, &title, "MainTitle");
-        push_text_row(
+        let transaction_rows = 50_usize.max(month.transactions.len() + 15);
+        let last_row = 10 + transaction_rows;
+
+        push_text_row(&mut rows, &title, "MainTitle", 6);
+        push_text_row(&mut rows, "K = Kassa, B = Bank", "LegendCell", 6);
+        push_row(
             &mut rows,
-            &format!("Zeitraum: {} {}", month.month_name, year),
-            "Period",
+            &[
+                ("Zeitraum:", "String", ""),
+                (&format!("{} {}", month.month_name, year), "String", ""),
+            ],
         );
         push_row(
             &mut rows,
             &[
-                ("Übertrag Vormonat", "String", ""),
-                ("Kassa", "Number", &month.carry_over_cash.to_decimal_string()),
-                ("Bank", "Number", &month.carry_over_bank.to_decimal_string()),
-                ("Gesamt", "Number", &month.carry_over_total().to_decimal_string()),
+                ("Übersicht", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                ("Kassa", "String", ""),
+                ("Bank", "String", ""),
+                ("Gesamt", "String", ""),
             ],
         );
-        push_row(
+
+        if month_index == 0 {
+            push_row(
+                &mut rows,
+                &[
+                    ("Übertrag Vormonat", "String", ""),
+                    ("", "String", ""),
+                    ("", "String", ""),
+                    ("", "String", ""),
+                    (
+                        &month.carry_over_cash.to_decimal_string(),
+                        "Number",
+                        &month.carry_over_cash.to_decimal_string(),
+                    ),
+                    (
+                        &month.carry_over_bank.to_decimal_string(),
+                        "Number",
+                        &month.carry_over_bank.to_decimal_string(),
+                    ),
+                    (
+                        &month.carry_over_total().to_decimal_string(),
+                        "Formula",
+                        "=RC[-2]+RC[-1]",
+                    ),
+                ],
+            );
+        } else {
+            let previous_sheet = months[month_index - 1].month_name.replace('\'', "''");
+            let cash_formula = format!("=&apos;{previous_sheet}&apos;!R8C5");
+            let bank_formula = format!("=&apos;{previous_sheet}&apos;!R8C6");
+            push_row_with_formulas(
+                &mut rows,
+                &[
+                    ("Übertrag Vormonat", "String", ""),
+                    ("", "String", ""),
+                    ("", "String", ""),
+                    ("", "String", ""),
+                    (
+                        &month.carry_over_cash.to_decimal_string(),
+                        "Number",
+                        &cash_formula,
+                    ),
+                    (
+                        &month.carry_over_bank.to_decimal_string(),
+                        "Number",
+                        &bank_formula,
+                    ),
+                    (
+                        &month.carry_over_total().to_decimal_string(),
+                        "Formula",
+                        "=RC[-2]+RC[-1]",
+                    ),
+                ],
+            );
+        }
+
+        let income_cash_formula = format!(
+            "=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C5:R{last_row}C5)"
+        );
+        let income_bank_formula = format!(
+            "=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C5:R{last_row}C5)"
+        );
+        push_row_with_formulas(
             &mut rows,
             &[
                 ("Summe Einnahmen", "String", ""),
-                ("Kassa", "Number", &month.income_cash.to_decimal_string()),
-                ("Bank", "Number", &month.income_bank.to_decimal_string()),
-                ("Gesamt", "Number", &month.total_income().to_decimal_string()),
+                ("", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                (
+                    &month.income_cash.to_decimal_string(),
+                    "Formula",
+                    &income_cash_formula,
+                ),
+                (
+                    &month.income_bank.to_decimal_string(),
+                    "Formula",
+                    &income_bank_formula,
+                ),
+                (
+                    &month.total_income().to_decimal_string(),
+                    "Formula",
+                    "=RC[-2]+RC[-1]",
+                ),
             ],
         );
-        push_row(
+
+        let expense_cash_formula = format!(
+            "=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C6:R{last_row}C6)"
+        );
+        let expense_bank_formula = format!(
+            "=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C6:R{last_row}C6)"
+        );
+        push_row_with_formulas(
             &mut rows,
             &[
                 ("Summe Ausgaben", "String", ""),
-                ("Kassa", "Number", &month.expense_cash.to_decimal_string()),
-                ("Bank", "Number", &month.expense_bank.to_decimal_string()),
-                ("Gesamt", "Number", &month.total_expense().to_decimal_string()),
+                ("", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                (
+                    &month.expense_cash.to_decimal_string(),
+                    "Formula",
+                    &expense_cash_formula,
+                ),
+                (
+                    &month.expense_bank.to_decimal_string(),
+                    "Formula",
+                    &expense_bank_formula,
+                ),
+                (
+                    &month.total_expense().to_decimal_string(),
+                    "Formula",
+                    "=RC[-2]+RC[-1]",
+                ),
             ],
         );
-        push_row(
+
+        push_row_with_formulas(
             &mut rows,
             &[
-                ("Endstand", "String", ""),
-                ("Kassa", "Number", &month.current_balance_cash.to_decimal_string()),
-                ("Bank", "Number", &month.current_balance_bank.to_decimal_string()),
-                ("Gesamt", "Number", &month.current_balance_total().to_decimal_string()),
+                ("Aktueller Kassastand", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                ("", "String", ""),
+                (
+                    &month.current_balance_cash.to_decimal_string(),
+                    "Formula",
+                    "=R5C5+R6C5-R7C5",
+                ),
+                (
+                    &month.current_balance_bank.to_decimal_string(),
+                    "Formula",
+                    "=R5C6+R6C6-R7C6",
+                ),
+                (
+                    &month.current_balance_total().to_decimal_string(),
+                    "Formula",
+                    "=RC[-2]+RC[-1]",
+                ),
             ],
         );
+        rows.push_str("<Row ss:Height=\"12\"/>");
         push_row(
             &mut rows,
             &[
@@ -381,42 +506,87 @@ pub fn export_tax_advisor_excel_xml(
                 ("Beschreibung", "String", ""),
                 ("Einnahmen", "String", ""),
                 ("Ausgaben", "String", ""),
+                ("Saldo", "String", ""),
             ],
         );
 
-        for (index, transaction) in month.transactions.iter().enumerate() {
-            let method = match transaction.channel {
-                LedgerChannel::Cash => "K",
-                LedgerChannel::Bank => "B",
-            };
-            let date = format_short_date(&transaction.date);
-            let income = if transaction.kind == LedgerKind::Income {
-                transaction.amount.to_decimal_string()
+        let mut running_balance = month.carry_over_total();
+        for row_index in 1..=transaction_rows {
+            let zebra = row_index % 2 == 0;
+            let center_style = if zebra { "GridCenterZebra" } else { "GridCenter" };
+            let left_style = if zebra { "GridLeftZebra" } else { "GridLeft" };
+            let money_style = if zebra { "GridCurrencyZebra" } else { "GridCurrency" };
+
+            if let Some(transaction) = month.transactions.get(row_index - 1) {
+                let method = match transaction.channel {
+                    LedgerChannel::Cash => "K",
+                    LedgerChannel::Bank => "B",
+                };
+                let date = format_short_date(&transaction.date);
+                let income = if transaction.kind == LedgerKind::Income {
+                    transaction.amount.to_decimal_string()
+                } else {
+                    String::new()
+                };
+                let expense = if transaction.kind == LedgerKind::Expense {
+                    transaction.amount.to_decimal_string()
+                } else {
+                    String::new()
+                };
+                running_balance = match transaction.kind {
+                    LedgerKind::Income => {
+                        Money::from_cents(running_balance.cents() + transaction.amount.cents())
+                    }
+                    LedgerKind::Expense => {
+                        Money::from_cents(running_balance.cents() - transaction.amount.cents())
+                    }
+                };
+                let balance_formula = format!(
+                    "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)"
+                );
+                push_transaction_row(
+                    &mut rows,
+                    row_index,
+                    method,
+                    &date,
+                    &transaction.description,
+                    &income,
+                    &expense,
+                    &running_balance.to_decimal_string(),
+                    &balance_formula,
+                    center_style,
+                    left_style,
+                    money_style,
+                );
             } else {
-                String::new()
-            };
-            let expense = if transaction.kind == LedgerKind::Expense {
-                transaction.amount.to_decimal_string()
-            } else {
-                String::new()
-            };
-            let number = (index + 1).to_string();
-            push_row(
-                &mut rows,
-                &[
-                    (&number, "Number", &number),
-                    (method, "String", ""),
-                    (&date, "String", ""),
-                    (&transaction.description, "String", ""),
-                    (&income, "Number", &income),
-                    (&expense, "Number", &expense),
-                ],
-            );
+                push_transaction_row(
+                    &mut rows,
+                    row_index,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)",
+                    center_style,
+                    left_style,
+                    money_style,
+                );
+            }
         }
 
         worksheets.push_str(&format!(
-            "<Worksheet ss:Name=\"{}\"><Table>{}</Table></Worksheet>",
+            "<Worksheet ss:Name=\"{}\"><Table ss:ExpandedColumnCount=\"7\" ss:ExpandedRowCount=\"{}\" ss:DefaultColumnWidth=\"90\">\
+             <Column ss:Index=\"1\" ss:Width=\"42\"/><Column ss:Index=\"2\" ss:Width=\"85\"/>\
+             <Column ss:Index=\"3\" ss:Width=\"80\"/><Column ss:Index=\"4\" ss:Width=\"250\"/>\
+             <Column ss:Index=\"5\" ss:Width=\"105\"/><Column ss:Index=\"6\" ss:Width=\"105\"/>\
+             <Column ss:Index=\"7\" ss:Width=\"110\"/>{}</Table>\
+             <WorksheetOptions xmlns=\"urn:schemas-microsoft-com:office:excel\"><DoNotDisplayGridlines/>\
+             <ProtectObjects>False</ProtectObjects><ProtectScenarios>False</ProtectScenarios>\
+             </WorksheetOptions></Worksheet>",
             xml_escape(&month.month_name),
+            10 + transaction_rows,
             rows
         ));
     }
@@ -431,11 +601,122 @@ pub fn export_tax_advisor_excel_xml(
          <Title>{}</Title><Author>SOCDOF</Author></DocumentProperties>\
          <Styles>\
          <Style ss:ID=\"MainTitle\"><Font ss:Bold=\"1\" ss:Size=\"16\" ss:Color=\"#1B365D\"/></Style>\
+         <Style ss:ID=\"LegendCell\"><Font ss:Italic=\"1\" ss:Size=\"9\" ss:Color=\"#64748B\"/></Style>\
          <Style ss:ID=\"Period\"><Font ss:Bold=\"1\"/></Style>\
+         <Style ss:ID=\"SummaryNavyHeader\"><Font ss:Bold=\"1\" ss:Color=\"#FFFFFF\"/><Interior ss:Color=\"#1B365D\" ss:Pattern=\"Solid\"/></Style>\
+         <Style ss:ID=\"SummaryNavyAmount\"><Font ss:Bold=\"1\" ss:Color=\"#FFFFFF\"/><Interior ss:Color=\"#1B365D\" ss:Pattern=\"Solid\"/><NumberFormat ss:Format=\"#,##0.00\"/></Style>\
+         <Style ss:ID=\"SummaryLightLabel\"><Font ss:Bold=\"1\"/><Interior ss:Color=\"#E2E8F0\" ss:Pattern=\"Solid\"/></Style>\
+         <Style ss:ID=\"SummaryLightAmount\"><Interior ss:Color=\"#E2E8F0\" ss:Pattern=\"Solid\"/><NumberFormat ss:Format=\"#,##0.00\"/></Style>\
+         <Style ss:ID=\"ColHeader\"><Font ss:Bold=\"1\" ss:Color=\"#FFFFFF\"/><Interior ss:Color=\"#1B365D\" ss:Pattern=\"Solid\"/></Style>\
+         <Style ss:ID=\"GridCenter\"><Alignment ss:Horizontal=\"Center\"/><Borders><Border ss:Position=\"Bottom\" ss:LineStyle=\"Continuous\" ss:Weight=\"1\" ss:Color=\"#CBD5E1\"/></Borders></Style>\
+         <Style ss:ID=\"GridCenterZebra\"><Alignment ss:Horizontal=\"Center\"/><Interior ss:Color=\"#F1F5F9\" ss:Pattern=\"Solid\"/></Style>\
+         <Style ss:ID=\"GridLeft\"><Alignment ss:Horizontal=\"Left\"/></Style>\
+         <Style ss:ID=\"GridLeftZebra\"><Alignment ss:Horizontal=\"Left\"/><Interior ss:Color=\"#F1F5F9\" ss:Pattern=\"Solid\"/></Style>\
+         <Style ss:ID=\"GridCurrency\"><Alignment ss:Horizontal=\"Right\"/><NumberFormat ss:Format=\"#,##0.00\"/></Style>\
+         <Style ss:ID=\"GridCurrencyZebra\"><Alignment ss:Horizontal=\"Right\"/><Interior ss:Color=\"#F1F5F9\" ss:Pattern=\"Solid\"/><NumberFormat ss:Format=\"#,##0.00\"/></Style>\
          </Styles>{}</Workbook>",
         xml_escape(&format!("{title} ({currency})")),
         worksheets
     )
+}
+
+fn push_text_row(output: &mut String, text: &str, style: &str, merge_across: usize) {
+    output.push_str(&format!(
+        "<Row><Cell ss:MergeAcross=\"{merge_across}\" ss:StyleID=\"{style}\"><Data ss:Type=\"String\">{}</Data></Cell></Row>",
+        xml_escape(text)
+    ));
+}
+
+fn push_row(output: &mut String, fields: &[(&str, &str, &str)]) {
+    output.push_str("<Row>");
+    for (text, kind, value) in fields {
+        if *kind == "Number" && !value.is_empty() {
+            output.push_str(&format!(
+                "<Cell><Data ss:Type=\"Number\">{}</Data></Cell>",
+                xml_escape(value)
+            ));
+        } else {
+            output.push_str(&format!(
+                "<Cell><Data ss:Type=\"String\">{}</Data></Cell>",
+                xml_escape(text)
+            ));
+        }
+    }
+    output.push_str("</Row>");
+}
+
+fn push_row_with_formulas(output: &mut String, fields: &[(&str, &str, &str)]) {
+    output.push_str("<Row>");
+    for (text, kind, value) in fields {
+        if *kind == "Formula" {
+            output.push_str(&format!(
+                "<Cell ss:Formula=\"{}\"><Data ss:Type=\"Number\">{}</Data></Cell>",
+                value,
+                xml_escape(text)
+            ));
+        } else if *kind == "Number" {
+            output.push_str(&format!(
+                "<Cell><Data ss:Type=\"Number\">{}</Data></Cell>",
+                xml_escape(value)
+            ));
+        } else {
+            output.push_str(&format!(
+                "<Cell><Data ss:Type=\"String\">{}</Data></Cell>",
+                xml_escape(text)
+            ));
+        }
+    }
+    output.push_str("</Row>");
+}
+
+fn push_transaction_row(
+    output: &mut String,
+    index: usize,
+    method: &str,
+    date: &str,
+    description: &str,
+    income: &str,
+    expense: &str,
+    balance: &str,
+    balance_formula: &str,
+    center_style: &str,
+    left_style: &str,
+    money_style: &str,
+) {
+    output.push_str("<Row ss:Height=\"19\">");
+    output.push_str(&format!(
+        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"Number\">{index}</Data></Cell>"
+    ));
+    output.push_str(&format!(
+        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        xml_escape(method)
+    ));
+    output.push_str(&format!(
+        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        xml_escape(date)
+    ));
+    output.push_str(&format!(
+        "<Cell ss:StyleID=\"{left_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        xml_escape(description)
+    ));
+    for amount in [income, expense] {
+        if amount.is_empty() {
+            output.push_str(&format!(
+                "<Cell ss:StyleID=\"{money_style}\"><Data ss:Type=\"String\"></Data></Cell>"
+            ));
+        } else {
+            output.push_str(&format!(
+                "<Cell ss:StyleID=\"{money_style}\"><Data ss:Type=\"Number\">{}</Data></Cell>",
+                xml_escape(amount)
+            ));
+        }
+    }
+    output.push_str(&format!(
+        "<Cell ss:Formula=\"{balance_formula}\" ss:StyleID=\"{money_style}\"><Data ss:Type=\"{}\">{}</Data></Cell>",
+        if balance.is_empty() { "String" } else { "Number" },
+        xml_escape(balance)
+    ));
+    output.push_str("</Row>");
 }
 
 /// Exports one monthly sheet as UTF-8 BOM semicolon-separated CSV.
