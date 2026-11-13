@@ -491,7 +491,11 @@ fn parse_contact_type(value: &str, fallback: ContactType) -> ContactType {
     let v = value.to_lowercase();
     if v.contains("vendor") || v.contains("lieferant") {
         ContactType::Vendor
-    } else if v.contains("guest") || v.contains("gast") || v.contains("buch") || v.contains("privat") {
+    } else if v.contains("guest")
+        || v.contains("gast")
+        || v.contains("buch")
+        || v.contains("privat")
+    {
         ContactType::Guest
     } else if v.contains("both") || v.contains("beide") || v.contains("partner") {
         ContactType::Both
@@ -518,7 +522,7 @@ fn field(value: Option<&str>) -> String {
     escape_vcard(value.unwrap_or(""))
 }
 fn csv_escape(value: &str, _delimiter: char) -> String {
-    format!("\"{}\", value.replace('"', "\"\""))
+    format!("\"{}\"", value.replace('"', "\"\""))
 }
 fn escape_vcard(value: &str) -> String {
     value
