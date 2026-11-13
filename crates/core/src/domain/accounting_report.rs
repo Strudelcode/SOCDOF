@@ -221,6 +221,72 @@ pub fn build_business_accounting_report(
     report
 }
 
+/// Exports the cross-module dashboard using the legacy semicolon-separated report layout.
+pub fn export_business_accounting_csv(
+    report: &BusinessAccountingReport,
+    company_name: &str,
+    period: &str,
+    date_label: &str,
+    currency: &str,
+) -> String {
+    let mut rows = vec![
+        vec!["Accounting, Financials & P&L".to_string(), company_name.to_string()],
+        vec!["Period".to_string(), period.to_string()],
+        vec!["Date".to_string(), date_label.to_string()],
+        Vec::new(),
+        vec![
+            "Item".to_string(),
+            format!("Net ({currency})"),
+            format!("VAT ({currency})"),
+            format!("Gross ({currency})"),
+        ],
+        vec![
+            "Invoice Revenues".to_string(),
+            report.invoice_net.to_decimal_string(),
+            report.invoice_tax.to_decimal_string(),
+            report.invoice_gross.to_decimal_string(),
+        ],
+        vec![
+            "POS Cash Register Revenues".to_string(),
+            report.pos_net.to_decimal_string(),
+            report.pos_tax.to_decimal_string(),
+            report.pos_gross.to_decimal_string(),
+        ],
+        vec![
+            "Total Revenue".to_string(),
+            report.revenue_net.to_decimal_string(),
+            report.output_vat.to_decimal_string(),
+            report.revenue_gross.to_decimal_string(),
+        ],
+        vec![
+            "Cost of Goods & Purchases".to_string(),
+            report.purchase_net.to_decimal_string(),
+            report.purchase_tax.to_decimal_string(),
+            report.purchase_gross.to_decimal_string(),
+        ],
+        vec![
+            "Operating Gross Profit".to_string(),
+            report.operating_profit_net.to_decimal_string(),
+            "-".to_string(),
+            "-".to_string(),
+        ],
+        vec![
+            "VAT Liability (VAT - Input Tax)".to_string(),
+            "-".to_string(),
+            "-".to_string(),
+            report.vat_liability.to_decimal_string(),
+        ],
+    ];
+    rows.drain(..)
+        .map(|row| row.iter().map(|field| csv_field(field)).collect::<Vec<_>>().join(";"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn csv_field(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
 fn add(left: Money, right: Money) -> Money {
     Money::from_cents(left.cents() + right.cents())
 }
@@ -349,4 +415,24 @@ mod tests {
         assert_eq!(report.invoice_net.cents(), 0);
         assert!(report.open_receivables.is_empty());
     }
+
+    #[test]
+    fn exports_business_report_with_company_period_and_currency_headers() {
+        let report = BusinessAccountingReport {
+            revenue_net: Money::from_cents(10_000),
+            revenue_gross: Money::from_cents(11_900),
+            ..BusinessAccountingReport::default()
+        };
+        let csv = export_business_accounting_csv(
+            &report,
+            "Example GmbH",
+            "Current month",
+            "13.11.2026",
+            "€",
+        );
+        assert!(csv.contains("\"Example GmbH\""));
+        assert!(csv.contains("\"Net (€)\""));
+        assert!(csv.contains("\"Total Revenue\";\"100.00\""));
+    }
+
 }
