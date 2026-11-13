@@ -1943,5 +1943,8 @@
   "restaurant_kpi_cash": "Barumsatz",
   "restaurant_kpi_card": "Karte / NFC",
   "restaurant_kpi_tax": "MwSt. heute",
-  "restaurant_all": "Alle"
+  "restaurant_all": "Alle",
+  "therapie_session_date": "Sitzungsdatum",
+  "therapie_session_time": "Beginn (Uhrzeit)",
+  "therapie_error_date": "Bitte ein gültiges Datum und eine gültige Uhrzeit eingeben."
 }
