@@ -2675,7 +2675,7 @@ mod tests {
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
         assert!(state.app_store_open, "App Store did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
-        assert_eq!(state.app_store.modules.len(), 15);
+        assert_eq!(state.app_store.modules.len(), 16);
     }
 
     #[test]
