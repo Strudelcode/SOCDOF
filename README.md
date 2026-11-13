@@ -198,7 +198,7 @@ cargo run -p socdof-ui --features window --bin socdof-ui-desktop
 ```
 
 It opens the persistent SQLite database under the operating-system application-data folder
-(Windows: `%APPDATA%\\SOCDOF\\socdof.db`). Use `--database <path>` to select another file.
+(Windows: `%APPDATA%\\com.strudelcode.socdof\\socdof.db`, matching the existing Tauri data folder). Use `--database <path>` to select another file.
 Unlike the component gallery, the desktop host does not seed example customers, invoices or
 demo accounts; it starts with first-run setup or the existing local login.
 
