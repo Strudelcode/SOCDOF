@@ -472,6 +472,7 @@ impl AccountingState {
             now,
         );
 
+        self.error = None;
         self.loaded_query = self.query.clone();
         self.loaded_period = self.period;
         self.reload = false;
