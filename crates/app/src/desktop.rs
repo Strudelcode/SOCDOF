@@ -1067,6 +1067,7 @@ impl DesktopState {
             paid_at: now_millis(),
             currency_symbol: store.company_profile()?.currency,
             note: (!input.note.trim().is_empty()).then(|| input.note.trim().to_string()),
+            tax_total_override_cents: None,
             cash_given: input.cash_given_cents.map(Money::from_cents),
             lines: input
                 .lines
@@ -2209,6 +2210,7 @@ impl DesktopState {
                 paid_at: now,
                 currency_symbol: currency,
                 note: Some(note),
+                tax_total_override_cents: None,
                 cash_given: if input.payment_method == "cash" {
                     cash_tendered.map(Money::from_cents)
                 } else {
