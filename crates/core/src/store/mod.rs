@@ -1075,6 +1075,11 @@ impl Store {
         search::contacts(&self.conn, query)
     }
 
+    /// Removes legacy placeholder e-mail addresses created by flawed older imports.
+    pub fn sanitize_legacy_contact_emails(&self) -> CoreResult<usize> {
+        contacts::sanitize_legacy_emails(&self.conn)
+    }
+
     // --- Text editor documents -------------------------------------------------------------
 
     /// Inserts a document.
