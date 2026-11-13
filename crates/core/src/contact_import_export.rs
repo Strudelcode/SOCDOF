@@ -168,7 +168,7 @@ fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
 }
 
 fn normalize_header(value: &str) -> String {
-    value.trim().trim_matches('"').to_lowercase().replace(['_', '-'], " ")
+    value.trim().trim_matches('"').to_lowercase().replace('_', " ").replace('-', " ")
 }
 fn parse_contact_type(value: &str, fallback: ContactType) -> ContactType {
     let v = value.to_lowercase();
