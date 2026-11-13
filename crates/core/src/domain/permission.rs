@@ -228,6 +228,8 @@ impl Role {
             (AppModule::Therapy, PermissionLevel::Edit),
             (AppModule::Editor, PermissionLevel::Edit),
             (AppModule::Documentation, PermissionLevel::View),
+            (AppModule::Projects, PermissionLevel::Edit),
+            (AppModule::Fleet, PermissionLevel::Edit),
         ];
 
         Role {
