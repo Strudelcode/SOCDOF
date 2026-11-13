@@ -31,7 +31,7 @@ use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, tabs, ButtonVariant, Tone,
 };
 use crate::controls::{select, text_field, PopupState};
-use crate::dashboard::Period;
+use crate::dashboard::Period as DashboardPeriod;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -42,6 +42,88 @@ pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
 
 /// Length of one day in milliseconds.
 const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+
+/// Date period used by the Accounting module, including its legacy custom range.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AccountingPeriod {
+    /// Every stored document.
+    #[default]
+    All,
+    /// Current UTC calendar day.
+    Today,
+    /// Current calendar month.
+    Month,
+    /// Current calendar quarter.
+    Quarter,
+    /// Current calendar year.
+    Year,
+    /// User-selected inclusive date range.
+    Custom,
+}
+
+impl AccountingPeriod {
+    /// Periods in display order.
+    pub const ALL: [AccountingPeriod; 6] = [
+        AccountingPeriod::All,
+        AccountingPeriod::Today,
+        AccountingPeriod::Month,
+        AccountingPeriod::Quarter,
+        AccountingPeriod::Year,
+        AccountingPeriod::Custom,
+    ];
+
+    /// Position in the period tab bar.
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|period| *period == self).unwrap_or(0)
+    }
+
+    /// Period from a tab position, falling back to all documents.
+    pub fn from_index(index: usize) -> Self {
+        Self::ALL.get(index).copied().unwrap_or(AccountingPeriod::All)
+    }
+
+    /// Catalogue key of the period label.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            AccountingPeriod::All => "dashboard_period_all",
+            AccountingPeriod::Today => "accounting_period_today",
+            AccountingPeriod::Month => "dashboard_period_month",
+            AccountingPeriod::Quarter => "dashboard_period_quarter",
+            AccountingPeriod::Year => "dashboard_period_year",
+            AccountingPeriod::Custom => "accounting_period_custom",
+        }
+    }
+
+    /// Half-open timestamp range for the selected period.
+    pub fn range(self, now: i64, custom_from: &str, custom_to: &str) -> Option<(i64, i64)> {
+        match self {
+            AccountingPeriod::All => Some((i64::MIN, i64::MAX)),
+            AccountingPeriod::Today => {
+                let (year, month, day) = date::civil_from_millis(now);
+                let start = date::days_from_civil(year, month, day) * DAY_MS;
+                Some((start, start + DAY_MS))
+            }
+            AccountingPeriod::Month => Some(DashboardPeriod::Month.range(now)),
+            AccountingPeriod::Quarter => Some(DashboardPeriod::Quarter.range(now)),
+            AccountingPeriod::Year => Some(DashboardPeriod::Year.range(now)),
+            AccountingPeriod::Custom => {
+                let from = parse_date_start(custom_from)?;
+                let to = parse_date_start(custom_to)?.checked_add(DAY_MS)?;
+                (from < to).then_some((from, to))
+            }
+        }
+    }
+}
+
+fn parse_date_start(value: &str) -> Option<i64> {
+    let value = value.trim();
+    if value.len() != 10 {
+        return None;
+    }
+    let timestamp = date::parse_iso8601(value)?;
+    let (year, month, day) = date::civil_from_millis(timestamp);
+    Some(date::days_from_civil(year, month, day) * DAY_MS)
+}
 
 /// Section of the accounting screen.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -260,7 +342,11 @@ pub struct AccountingState {
     /// Selected section.
     pub tab: AccountingTab,
     /// Selected period.
-    pub period: Period,
+    pub period: AccountingPeriod,
+    /// Custom range start (`YYYY-MM-DD`).
+    pub custom_from: String,
+    /// Custom range end (`YYYY-MM-DD`, inclusive).
+    pub custom_to: String,
     /// Search text; empty lists every entry of the period.
     pub query: String,
     /// Entries of the loaded period and query.
@@ -300,7 +386,9 @@ impl Default for AccountingState {
     fn default() -> Self {
         Self {
             tab: AccountingTab::Journal,
-            period: Period::All,
+            period: AccountingPeriod::All,
+            custom_from: String::new(),
+            custom_to: String::new(),
             query: String::new(),
             entries: Vec::new(),
             business_report: BusinessAccountingReport::default(),
@@ -340,7 +428,12 @@ impl AccountingState {
             return Ok(());
         }
 
-        let (from, to) = self.period.range(now);
+        let Some((from, to)) = self.period.range(now, &self.custom_from, &self.custom_to) else {
+            self.entries.clear();
+            self.business_report = BusinessAccountingReport::default();
+            self.error = Some("accounting_error_period");
+            return Ok(());
+        };
         let mut entries = store.journal_entries_between(from, to)?;
         let term = self.query.trim().to_lowercase();
         if !term.is_empty() {
@@ -759,12 +852,51 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut period_index = state.period.index();
-    let period_labels: Vec<&str> = Period::ALL
+    let period_labels: Vec<&str> = AccountingPeriod::ALL
         .iter()
         .map(|period| texts.get(period.label_key()))
         .collect();
     if tabs(ui, theme, focus, &period_labels, &mut period_index) {
-        state.period = Period::from_index(period_index);
+        state.period = AccountingPeriod::from_index(period_index);
+        if state.period == AccountingPeriod::Custom {
+            let today = date::format_iso8601(now)[..10].to_string();
+            if state.custom_from.is_empty() {
+                state.custom_from = today.clone();
+            }
+            if state.custom_to.is_empty() {
+                state.custom_to = today;
+            }
+        }
+        state.reload = true;
+    }
+    if state.period == AccountingPeriod::Custom {
+        ui.horizontal(|ui| {
+            let from_changed = text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.custom_from,
+                texts.get("accounting_period_from"),
+                "YYYY-MM-DD",
+                None,
+            )
+            .response
+            .changed();
+            let to_changed = text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.custom_to,
+                texts.get("accounting_period_to"),
+                "YYYY-MM-DD",
+                None,
+            )
+            .response
+            .changed();
+            if from_changed || to_changed {
+                state.reload = true;
+            }
+        });
     }
     ui.add_space(4.0);
     let mut tab_index = state.tab.index();
@@ -1601,7 +1733,7 @@ mod tests {
         assert_eq!(state.entries.len(), 1);
 
         state.query.clear();
-        state.period = Period::Month;
+        state.period = AccountingPeriod::Month;
         state.refresh(&store, SAMPLE_NOW_MS).expect("period");
         assert_eq!(state.entries.len(), 4);
     }
