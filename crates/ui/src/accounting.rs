@@ -407,8 +407,10 @@ pub struct AccountingState {
     pub company_name: String,
     /// Company currency used by the cross-module report.
     pub currency_symbol: String,
-    /// Current calendar year used for the monthly tax-advisor ledger.
+    /// Selected calendar year used for the monthly tax-advisor ledger.
     pub tax_advisor_year: i32,
+    /// Dropdown state of the ledger year selector.
+    pub tax_advisor_year_popup: PopupState,
     /// Owner or company name printed on the tax-advisor workbook.
     pub tax_advisor_owner: String,
     /// Twelve monthly cash/bank ledgers for the current year.
@@ -449,6 +451,7 @@ pub struct AccountingState {
     pub back: bool,
     loaded_query: String,
     loaded_period: AccountingPeriod,
+    loaded_tax_advisor_year: i32,
     reload: bool,
 }
 
@@ -465,6 +468,7 @@ impl Default for AccountingState {
             company_name: String::new(),
             currency_symbol: "€".to_string(),
             tax_advisor_year: 0,
+            tax_advisor_year_popup: PopupState::default(),
             tax_advisor_owner: String::new(),
             tax_advisor_months: Vec::new(),
             tax_advisor_export: false,
@@ -486,6 +490,7 @@ impl Default for AccountingState {
             back: false,
             loaded_query: String::new(),
             loaded_period: AccountingPeriod::All,
+            loaded_tax_advisor_year: 0,
             reload: true,
         }
     }
@@ -504,7 +509,11 @@ impl AccountingState {
 
     /// Reloads the entries when the period, the query or a write changed them.
     pub fn refresh(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if !self.reload && self.loaded_period == self.period && self.loaded_query == self.query {
+        if !self.reload
+            && self.loaded_period == self.period
+            && self.loaded_query == self.query
+            && self.loaded_tax_advisor_year == self.tax_advisor_year
+        {
             return Ok(());
         }
 
@@ -565,8 +574,11 @@ impl AccountingState {
             &journal_entries,
             &fleet_trips,
         );
-        let (ledger_year, _, _) = date::civil_from_millis(now);
-        self.tax_advisor_year = ledger_year;
+        let (current_year, _, _) = date::civil_from_millis(now);
+        if self.tax_advisor_year == 0 {
+            self.tax_advisor_year = current_year;
+        }
+        let ledger_year = self.tax_advisor_year;
         let month_names = ledger_month_names(company.language.as_str());
         let carryover_key = format!("tax_advisor_ledger_initial_carryover_{ledger_year}");
         let carryover = store.get_setting(&carryover_key)?;
@@ -603,6 +615,7 @@ impl AccountingState {
         self.error = None;
         self.loaded_query = self.query.clone();
         self.loaded_period = self.period;
+        self.loaded_tax_advisor_year = self.tax_advisor_year;
         self.reload = false;
         Ok(())
     }
@@ -1251,6 +1264,28 @@ fn list_view(
             }
         }
         if state.tab == AccountingTab::BusinessReport {
+            let (current_year, _, _) = date::civil_from_millis(now);
+            let year_values: Vec<String> = (current_year - 5..=current_year + 1)
+                .map(|year| year.to_string())
+                .collect();
+            let year_labels: Vec<&str> = year_values.iter().map(String::as_str).collect();
+            let mut year_index = state
+                .tax_advisor_year
+                .saturating_sub(current_year - 5)
+                .clamp(0, 6) as usize;
+            if select(
+                ui,
+                theme,
+                focus,
+                &mut state.tax_advisor_year_popup,
+                "accounting-tax-advisor-year",
+                &mut year_index,
+                &year_labels,
+            ) {
+                state.tax_advisor_year = current_year - 5 + year_index as i32;
+                state.reload = true;
+            }
+
             let month_labels: Vec<&str> = state
                 .tax_advisor_months
                 .iter()
