@@ -1794,6 +1794,13 @@ pub const UI_KEYS: &[&str] = &[
     "projects_exported",
     "projects_invoice_created",
     "projects_color",
+    "projects_view_portfolio",
+    "projects_view_kanban",
+    "projects_view_tasks",
+    "projects_filter_all",
+    "projects_filter_project",
+    "projects_filter_all_projects",
+    "projects_task_title",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
