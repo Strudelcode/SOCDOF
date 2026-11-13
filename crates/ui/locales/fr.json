@@ -1940,5 +1940,6 @@
   "restaurant_kpi_today_orders": "Reçus du jour",
   "restaurant_kpi_cash": "Ventes en espèces",
   "restaurant_kpi_card": "Carte / NFC",
-  "restaurant_kpi_tax": "Taxes du jour"
+  "restaurant_kpi_tax": "Taxes du jour",
+  "restaurant_all": "Tout"
 }
