@@ -19,6 +19,17 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             .iter()
             .find_map(|name| headers.iter().position(|h| h == name || h.contains(name)))
     };
+    let find_all = |names: &[&str]| -> Vec<usize> {
+        let mut matches = Vec::new();
+        for name in names {
+            for (index, header) in headers.iter().enumerate() {
+                if (header == name || header.contains(name)) && !matches.contains(&index) {
+                    matches.push(index);
+                }
+            }
+        }
+        matches
+    };
     let first = find(&[
         "first name",
         "vorname",
@@ -27,6 +38,7 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "nombre",
         "nome",
     ]);
+    let middle = find(&["middle name", "zweiter vorname", "segundo nombre"]);
     let last = find(&[
         "last name",
         "nachname",
@@ -56,7 +68,10 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "empresa",
         "azienda",
     ]);
-    let email = find(&[
+    let emails = find_all(&[
+        "e-mail 1 address",
+        "e-mail 2 address",
+        "e-mail 3 address",
         "e-mail address",
         "email address",
         "e-mail",
@@ -65,12 +80,22 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
         "courriel",
         "correo",
     ]);
-    let phone = find(&[
+    let phones = find_all(&[
         "mobile phone",
         "cell phone",
         "mobiltelefon",
-        "mobile",
+        "mobil",
         "handy",
+        "cellular",
+        "cell",
+        "primary phone",
+        "main phone",
+        "haupttelefon",
+        "business phone",
+        "work phone",
+        "geschäftlich",
+        "home phone",
+        "privattelefon",
         "phone",
         "telefon",
         "tel",
@@ -117,21 +142,26 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
                     .unwrap_or_default()
             };
             let first_name = value(first);
+            let middle_name = value(middle);
             let last_name = value(last);
             let company_name = value(company);
-            let mut name = value(full);
-            if name.is_empty() {
-                name = [first_name, last_name]
+            let mut name = if !first_name.is_empty() || !last_name.is_empty() {
+                [first_name, middle_name, last_name]
                     .into_iter()
-                    .filter(|s| !s.is_empty())
+                    .filter(|part| !part.is_empty())
                     .collect::<Vec<_>>()
-                    .join(" ");
-            }
+                    .join(" ")
+            } else {
+                value(full)
+            };
             if name.is_empty() {
                 name = company_name.clone();
             }
             if name.is_empty() {
-                return None;
+                if row.iter().all(|cell| cell.trim().is_empty()) {
+                    return None;
+                }
+                name = format!("Kontakt {}", row_index + 1);
             }
             let mut contact = Contact::new(
                 if company_name.is_empty() {
@@ -143,9 +173,27 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             );
             contact.name = Some(name);
             contact.company_name = non_empty(&company_name);
-            let email_value = value(email);
-            contact.email = valid_email(&email_value).then_some(email_value);
-            contact.phone = non_empty(&value(phone));
+            let email_value = emails
+                .iter()
+                .filter_map(|index| row.get(*index))
+                .map(|value| value.trim())
+                .find(|value| valid_email(value) && value.contains('@'))
+                .unwrap_or("")
+                .to_string();
+            contact.email = non_empty(&email_value);
+            let phone_value = phones
+                .iter()
+                .filter_map(|index| row.get(*index))
+                .map(|value| value.trim())
+                .find(|value| {
+                    value
+                        .chars()
+                        .filter(|ch| ch.is_ascii_digit() || *ch == '+')
+                        .count()
+                        >= 3
+                })
+                .unwrap_or("");
+            contact.phone = non_empty(phone_value);
             contact.street = non_empty(&value(street));
             contact.zip = non_empty(&value(zip));
             contact.city = non_empty(&value(city));
