@@ -2184,7 +2184,7 @@ impl DesktopState {
                 due_at: now,
                 currency_symbol: currency.clone(),
                 note: Some(note.clone()),
-                tax_total_override_cents: None,
+                tax_total_override_cents: Some(paid.tax_total_cents),
                 lines: paid
                     .items
                     .iter()
