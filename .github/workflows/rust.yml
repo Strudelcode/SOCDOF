@@ -139,6 +139,9 @@ jobs:
       - name: Format desktop crate
         run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
 
+      - name: Build native Rust desktop host
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+
       - name: Build Tauri bundles
         working-directory: crates/app
         shell: bash
@@ -168,14 +171,14 @@ jobs:
           sha256sum artifacts/SOCDOF-* > artifacts/SHA256SUMS-linux.txt
           ls -lh artifacts
 
-      - name: Check installer size budgets
+      - name: Check native Rust desktop size budgets
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
           node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/installer-budgets.txt
           {
-            echo '### Installer size budgets'
+            echo '### Native Rust desktop size budgets'
             echo '```text'
             cat artifacts/installer-budgets.txt
             echo '```'
