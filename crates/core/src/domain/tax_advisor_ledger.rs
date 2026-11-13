@@ -547,32 +547,34 @@ pub fn export_tax_advisor_excel_xml(
                 };
                 push_transaction_row(
                     &mut rows,
-                    row_index,
-                    method,
-                    &date,
-                    &transaction.description,
-                    &income,
-                    &expense,
-                    &running_balance.to_decimal_string(),
-                    LEDGER_BALANCE_FORMULA,
-                    center_style,
-                    left_style,
-                    money_style,
+                    LedgerTransactionRow {
+                        index: row_index,
+                        method,
+                        date: &date,
+                        description: &transaction.description,
+                        income: &income,
+                        expense: &expense,
+                        balance: &running_balance.to_decimal_string(),
+                        center_style,
+                        left_style,
+                        money_style,
+                    },
                 );
             } else {
                 push_transaction_row(
                     &mut rows,
-                    row_index,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    LEDGER_BALANCE_FORMULA,
-                    center_style,
-                    left_style,
-                    money_style,
+                    LedgerTransactionRow {
+                        index: row_index,
+                        method: "",
+                        date: "",
+                        description: "",
+                        income: "",
+                        expense: "",
+                        balance: "",
+                        center_style,
+                        left_style,
+                        money_style,
+                    },
                 );
             }
         }
@@ -670,52 +672,60 @@ fn push_row_with_formulas(output: &mut String, fields: &[(&str, &str, &str)]) {
     output.push_str("</Row>");
 }
 
-fn push_transaction_row(
-    output: &mut String,
+struct LedgerTransactionRow<'a> {
     index: usize,
-    method: &str,
-    date: &str,
-    description: &str,
-    income: &str,
-    expense: &str,
-    balance: &str,
-    balance_formula: &str,
-    center_style: &str,
-    left_style: &str,
-    money_style: &str,
-) {
+    method: &'a str,
+    date: &'a str,
+    description: &'a str,
+    income: &'a str,
+    expense: &'a str,
+    balance: &'a str,
+    center_style: &'a str,
+    left_style: &'a str,
+    money_style: &'a str,
+}
+
+fn push_transaction_row(output: &mut String, row: LedgerTransactionRow<'_>) {
     output.push_str("<Row ss:Height=\"19\">");
     output.push_str(&format!(
-        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"Number\">{index}</Data></Cell>"
+        "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"Number\">{}</Data></Cell>",
+        row.center_style, row.index
     ));
     output.push_str(&format!(
-        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
-        xml_escape(method)
+        "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        row.center_style,
+        xml_escape(row.method)
     ));
     output.push_str(&format!(
-        "<Cell ss:StyleID=\"{center_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
-        xml_escape(date)
+        "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        row.center_style,
+        xml_escape(row.date)
     ));
     output.push_str(&format!(
-        "<Cell ss:StyleID=\"{left_style}\"><Data ss:Type=\"String\">{}</Data></Cell>",
-        xml_escape(description)
+        "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"String\">{}</Data></Cell>",
+        row.left_style,
+        xml_escape(row.description)
     ));
-    for amount in [income, expense] {
+    for amount in [row.income, row.expense] {
         if amount.is_empty() {
             output.push_str(&format!(
-                "<Cell ss:StyleID=\"{money_style}\"><Data ss:Type=\"String\"></Data></Cell>"
+                "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"String\"></Data></Cell>",
+                row.money_style
             ));
         } else {
             output.push_str(&format!(
-                "<Cell ss:StyleID=\"{money_style}\"><Data ss:Type=\"Number\">{}</Data></Cell>",
+                "<Cell ss:StyleID=\"{}\"><Data ss:Type=\"Number\">{}</Data></Cell>",
+                row.money_style,
                 xml_escape(amount)
             ));
         }
     }
     output.push_str(&format!(
-        "<Cell ss:Formula=\"{balance_formula}\" ss:StyleID=\"{money_style}\"><Data ss:Type=\"{}\">{}</Data></Cell>",
-        if balance.is_empty() { "String" } else { "Number" },
-        xml_escape(balance)
+        "<Cell ss:Formula=\"{}\" ss:StyleID=\"{}\"><Data ss:Type=\"{}\">{}</Data></Cell>",
+        LEDGER_BALANCE_FORMULA,
+        row.money_style,
+        if row.balance.is_empty() { "String" } else { "Number" },
+        xml_escape(row.balance)
     ));
     output.push_str("</Row>");
 }
