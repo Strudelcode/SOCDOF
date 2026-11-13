@@ -1425,7 +1425,8 @@ mod tests {
         state.editing_session = Some(billed.id);
         state.session_minutes = "30".to_string();
         state.session_kilometers = "0".to_string();
-        state.add_session(&store, SAMPLE_NOW_MS + 2)
+        state
+            .add_session(&store, SAMPLE_NOW_MS + 2)
             .expect("billed sessions stay locked");
         assert_eq!(state.error, Some("therapie_error_session_billed"));
     }
