@@ -353,6 +353,8 @@ pub fn fleet(
     let mut edit_trip: Option<Uuid> = None;
     let mut edit_fuel: Option<Uuid> = None;
     let mut delete_action: Option<(&'static str, Uuid)> = None;
+    let mut request_delete: Option<(&'static str, Uuid)> = None;
+    let mut cancel_delete = false;
     let visible_vehicles: Vec<FleetVehicle> = state.vehicles.iter().filter(|v| query.is_empty() || v.license_plate.to_lowercase().contains(&query) || v.make.to_lowercase().contains(&query) || v.model.to_lowercase().contains(&query) || v.assigned_driver.to_lowercase().contains(&query)).cloned().collect();
     let visible_trips: Vec<FleetTrip> = state.trips.iter().filter(|trip| query.is_empty() || trip.vehicle_plate.to_lowercase().contains(&query) || trip.driver.to_lowercase().contains(&query) || trip.start_location.to_lowercase().contains(&query) || trip.end_location.to_lowercase().contains(&query) || trip.customer_name.to_lowercase().contains(&query)).cloned().collect();
     let visible_fuel: Vec<FleetFuel> = state.fuel.iter().filter(|entry| query.is_empty() || entry.vehicle_plate.to_lowercase().contains(&query) || entry.fuel_station.to_lowercase().contains(&query)).cloned().collect();
@@ -519,7 +521,7 @@ pub fn fleet(
                                     ui.label(format!("{}: {}",texts.get("fleet_inspection"),if vehicle.next_inspection_due.is_empty(){"—"}else{&vehicle.next_inspection_due}));
                                     ui.horizontal(|ui| {
                                         if button(ui,theme,focus,texts.get("fleet_edit"),ButtonVariant::Secondary).activated { edit_vehicle=Some(vehicle.id); }
-                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { delete_action=Some(("vehicle",vehicle.id)); }
+                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { request_delete=Some(("vehicle",vehicle.id)); }
                                     });
                                 });
                             }
@@ -543,7 +545,7 @@ pub fn fleet(
                                     if !trip.customer_name.is_empty(){ui.label(format!("{}: {}",texts.get("fleet_customer"),trip.customer_name));}
                                     ui.horizontal(|ui| {
                                         if button(ui,theme,focus,texts.get("fleet_edit"),ButtonVariant::Secondary).activated { edit_trip=Some(trip.id); }
-                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { delete_action=Some(("trip",trip.id)); }
+                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { request_delete=Some(("trip",trip.id)); }
                                     });
                                 });
                             }
@@ -564,7 +566,7 @@ pub fn fleet(
                                     ui.label(format!("{}: {:.3} {}",texts.get("fleet_price_per_unit"),entry.price_per_unit_milli as f64/1000.0,currency));
                                     ui.horizontal(|ui| {
                                         if button(ui,theme,focus,texts.get("fleet_edit"),ButtonVariant::Secondary).activated { edit_fuel=Some(entry.id); }
-                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { delete_action=Some(("fuel",entry.id)); }
+                                        if button(ui,theme,focus,texts.get("fleet_delete"),ButtonVariant::Danger).activated { request_delete=Some(("fuel",entry.id)); }
                                     });
                                 });
                             }
@@ -590,12 +592,14 @@ pub fn fleet(
                     card(ui,theme,|ui|{
                         ui.label(texts.get("fleet_delete_confirm"));
                         if button(ui,theme,focus,texts.get("fleet_delete_yes"),ButtonVariant::Danger).activated { delete_action=Some((kind,id)); }
-                        if button(ui,theme,focus,texts.get("fleet_cancel"),ButtonVariant::Ghost).activated { state.confirm_delete=None; }
+                        if button(ui,theme,focus,texts.get("fleet_cancel"),ButtonVariant::Ghost).activated { cancel_delete=true; }
                     });
                 }
             });
         });
 
+    if let Some(pending) = request_delete { state.confirm_delete = Some(pending); }
+    if cancel_delete { state.confirm_delete = None; }
     if add_vehicle { state.start_vehicle(now); }
     if add_trip { state.start_trip(now); }
     if add_fuel { state.start_fuel(now); }
