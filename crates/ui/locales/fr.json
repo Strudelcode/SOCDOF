@@ -1936,5 +1936,9 @@
   "restaurant_split_count": "Partager entre",
   "restaurant_per_person": "Par personne",
   "restaurant_export": "Exporter CSV",
-  "restaurant_exported": "CSV exporté"
+  "restaurant_exported": "CSV exporté",
+  "restaurant_kpi_today_orders": "Reçus du jour",
+  "restaurant_kpi_cash": "Ventes en espèces",
+  "restaurant_kpi_card": "Carte / NFC",
+  "restaurant_kpi_tax": "Taxes du jour"
 }
