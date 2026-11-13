@@ -821,7 +821,11 @@ fn push_transaction_row(output: &mut String, row: LedgerTransactionRow<'_>) {
         "<Cell ss:Formula=\"{}\" ss:StyleID=\"{}\"><Data ss:Type=\"{}\">{}</Data></Cell>",
         LEDGER_BALANCE_FORMULA,
         row.money_style,
-        if row.balance.is_empty() { "String" } else { "Number" },
+        if row.balance.is_empty() {
+            "String"
+        } else {
+            "Number"
+        },
         xml_escape(row.balance)
     ));
     output.push_str("</Row>");
@@ -988,7 +992,9 @@ mod tests {
 
     #[test]
     fn monthly_csv_quotes_fields_and_preserves_german_excel_encoding() {
-        let names = (1..=12).map(|month| format!("M{month}")).collect::<Vec<_>>();
+        let names = (1..=12)
+            .map(|month| format!("M{month}"))
+            .collect::<Vec<_>>();
         let months = build_yearly_ledger(
             2026,
             &[tx(
