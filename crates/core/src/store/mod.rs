@@ -2665,7 +2665,7 @@ mod tests {
             .level(AppModule::Contacts);
         administrator
             .permissions
-            .retain(|grant| grant.module != AppModule::Projects);
+            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
         store.update_role(&administrator).expect("simulate old admin role");
 
         let mut standard = store
@@ -2674,7 +2674,7 @@ mod tests {
             .expect("standard role exists");
         standard
             .permissions
-            .retain(|grant| grant.module != AppModule::Projects);
+            .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
         store.update_role(&standard).expect("simulate old standard role");
 
         permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
@@ -2684,6 +2684,8 @@ mod tests {
         assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
         assert_eq!(upgraded_admin.level(AppModule::Projects), PermissionLevel::Manage);
         assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::None);
+        assert_eq!(upgraded_admin.level(AppModule::Fleet), PermissionLevel::Manage);
+        assert_eq!(upgraded_standard.level(AppModule::Fleet), PermissionLevel::None);
     }
 
     #[test]
