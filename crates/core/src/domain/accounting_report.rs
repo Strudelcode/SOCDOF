@@ -197,9 +197,8 @@ pub fn build_business_accounting_report(
     report.revenue_net = add(report.invoice_net, report.pos_net);
     report.output_vat = add(report.invoice_tax, report.pos_tax);
     report.revenue_gross = add(report.invoice_gross, report.pos_gross);
-    report.operating_profit_net = Money::from_cents(
-        report.revenue_net.cents() - report.purchase_net.cents(),
-    );
+    report.operating_profit_net =
+        Money::from_cents(report.revenue_net.cents() - report.purchase_net.cents());
     report.vat_liability =
         Money::from_cents(report.output_vat.cents() - report.purchase_tax.cents());
 
@@ -230,7 +229,10 @@ pub fn export_business_accounting_csv(
     currency: &str,
 ) -> String {
     let rows = vec![
-        vec!["Accounting, Financials & P&L".to_string(), company_name.to_string()],
+        vec![
+            "Accounting, Financials & P&L".to_string(),
+            company_name.to_string(),
+        ],
         vec!["Period".to_string(), period.to_string()],
         vec!["Date".to_string(), date_label.to_string()],
         Vec::new(),
@@ -278,7 +280,12 @@ pub fn export_business_accounting_csv(
         ],
     ];
     rows.into_iter()
-        .map(|row| row.iter().map(|field| csv_field(field)).collect::<Vec<_>>().join(";"))
+        .map(|row| {
+            row.iter()
+                .map(|field| csv_field(field))
+                .collect::<Vec<_>>()
+                .join(";")
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
