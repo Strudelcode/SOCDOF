@@ -1882,6 +1882,9 @@ pub const UI_KEYS: &[&str] = &[
     "projects_kpi_logged",
     "projects_kpi_estimated",
     "projects_kpi_completion",
+    "fleet_filter_all",
+    "fleet_filter_from",
+    "fleet_filter_to",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
