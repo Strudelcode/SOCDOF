@@ -25,8 +25,8 @@ use socdof_core::domain::accounting_report::{
 };
 use socdof_core::domain::invoice::InvoiceStatus;
 use socdof_core::domain::tax_advisor_ledger::{
-    build_tax_advisor_transactions, build_yearly_ledger, export_tax_advisor_excel_xml,
-    MonthlyLedgerData,
+    build_tax_advisor_transactions, build_yearly_ledger, export_monthly_ledger_csv,
+    export_tax_advisor_excel_xml, MonthlyLedgerData,
 };
 use socdof_core::money::Money;
 use socdof_core::store::Store;
@@ -123,6 +123,24 @@ impl AccountingPeriod {
                 (from < to).then_some((from, to))
             }
         }
+    }
+}
+
+fn safe_file_component(value: &str) -> String {
+    let cleaned = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if cleaned.trim_matches('_').is_empty() {
+        "Praxis".to_string()
+    } else {
+        cleaned
     }
 }
 
@@ -397,6 +415,18 @@ pub struct AccountingState {
     pub tax_advisor_months: Vec<MonthlyLedgerData>,
     /// Set when the twelve-sheet Excel export is requested.
     pub tax_advisor_export: bool,
+    /// Selected month for the single-month CSV export.
+    pub tax_advisor_month_index: usize,
+    /// Popup state of the monthly CSV selector.
+    pub tax_advisor_month_popup: PopupState,
+    /// Set when the selected month CSV export is requested.
+    pub tax_advisor_month_csv_export: bool,
+    /// Whether the opening cash/bank balance editor is open.
+    pub tax_advisor_carryover_open: bool,
+    /// Editable opening cash balance.
+    pub tax_advisor_cash_input: String,
+    /// Editable opening bank balance.
+    pub tax_advisor_bank_input: String,
     /// Selected entry, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -438,6 +468,12 @@ impl Default for AccountingState {
             tax_advisor_owner: String::new(),
             tax_advisor_months: Vec::new(),
             tax_advisor_export: false,
+            tax_advisor_month_index: 0,
+            tax_advisor_month_popup: PopupState::default(),
+            tax_advisor_month_csv_export: false,
+            tax_advisor_carryover_open: false,
+            tax_advisor_cash_input: "0.00".to_string(),
+            tax_advisor_bank_input: "0.00".to_string(),
             selected: None,
             view: AccountingView::List,
             draft: AccountingDraft::default(),
@@ -544,6 +580,8 @@ impl AccountingState {
             .and_then(|value| value.get("bank_cents"))
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0);
+        self.tax_advisor_cash_input = Money::from_cents(initial_cash).to_decimal_string();
+        self.tax_advisor_bank_input = Money::from_cents(initial_bank).to_decimal_string();
         self.tax_advisor_months = build_yearly_ledger(
             ledger_year,
             &ledger_transactions,
@@ -825,6 +863,47 @@ pub fn accounting(
             });
         });
 
+    if state.tax_advisor_month_csv_export {
+        if let Some(month) = state
+            .tax_advisor_months
+            .get(state.tax_advisor_month_index.min(11))
+        {
+            let csv = export_monthly_ledger_csv(month, &state.tax_advisor_owner);
+            let safe_owner = safe_file_component(&state.tax_advisor_owner);
+            let filename = format!(
+                "Kassenbuch_{}_{}_{}_{}.csv",
+                safe_owner,
+                month.year,
+                month.month + 1,
+                safe_file_component(&month.month_name)
+            );
+            #[cfg(feature = "dialogs")]
+            {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_file_name(&filename)
+                    .add_filter("CSV", &["csv"])
+                    .save_file()
+                {
+                    if std::fs::write(path, csv.as_bytes()).is_ok() {
+                        state.status = Some("accounting_saved");
+                        state.error = None;
+                    } else {
+                        state.error = Some("accounting_error_save");
+                        state.status = None;
+                    }
+                }
+            }
+            #[cfg(not(feature = "dialogs"))]
+            {
+                let _ = filename;
+                ctx.output_mut(|output| output.copied_text = csv);
+                state.error = None;
+                state.status = Some("accounting_exported");
+            }
+        }
+        state.tax_advisor_month_csv_export = false;
+    }
+
     if state.tax_advisor_export {
         let workbook = export_tax_advisor_excel_xml(
             state.tax_advisor_year,
@@ -965,6 +1044,96 @@ pub fn accounting(
     }
     state.confirm_delete = open;
 
+    let mut carryover_open = state.tax_advisor_carryover_open;
+    let mut save_carryover = false;
+    {
+        let focus = &mut *focus;
+        modal(
+            ctx,
+            theme,
+            &mut carryover_open,
+            texts.get("accounting_tax_advisor_opening_title"),
+            |ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_cash_input,
+                    texts.get("accounting_tax_advisor_cash_start"),
+                    "0.00",
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_bank_input,
+                    texts.get("accounting_tax_advisor_bank_start"),
+                    "0.00",
+                    None,
+                );
+                ui.add_space(10.0);
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("accounting_save"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        save_carryover = true;
+                        close = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("accounting_cancel"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        close = true;
+                    }
+                });
+                close
+            },
+        );
+    }
+    state.tax_advisor_carryover_open = carryover_open;
+
+    if save_carryover {
+        let cash = Money::parse(&state.tax_advisor_cash_input);
+        let bank = Money::parse(&state.tax_advisor_bank_input);
+        match (cash, bank) {
+            (Some(cash), Some(bank)) if cash.cents() >= 0 && bank.cents() >= 0 => {
+                let key = format!(
+                    "tax_advisor_ledger_initial_carryover_{}",
+                    state.tax_advisor_year
+                );
+                let value = serde_json::json!({
+                    "cash_cents": cash.cents(),
+                    "bank_cents": bank.cents()
+                });
+                if store.put_setting(&key, &value).is_ok() {
+                    state.invalidate();
+                    if state.refresh(store, now).is_ok() {
+                        state.status = Some("accounting_saved");
+                        state.error = None;
+                    } else {
+                        state.error = Some("accounting_error_save");
+                    }
+                } else {
+                    state.error = Some("accounting_error_save");
+                }
+            }
+            _ => state.error = Some("accounting_tax_advisor_balance_invalid"),
+        }
+    }
+
     if confirm && state.delete_selected(store, now).is_err() {
         state.error = Some("accounting_error_delete");
     }
@@ -1081,17 +1250,57 @@ fn list_view(
                 state.start_new();
             }
         }
-        if state.tab == AccountingTab::BusinessReport
-            && button(
+        if state.tab == AccountingTab::BusinessReport {
+            let month_labels: Vec<&str> = state
+                .tax_advisor_months
+                .iter()
+                .map(|month| month.month_name.as_str())
+                .collect();
+            let mut month_index = state.tax_advisor_month_index.min(11);
+            if select(
+                ui,
+                theme,
+                focus,
+                &mut state.tax_advisor_month_popup,
+                "accounting-tax-advisor-month",
+                &mut month_index,
+                &month_labels,
+            ) {
+                state.tax_advisor_month_index = month_index;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_csv_month"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                state.tax_advisor_month_csv_export = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_opening_balance"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                state.tax_advisor_carryover_open = true;
+            }
+            if button(
                 ui,
                 theme,
                 focus,
                 texts.get("accounting_tax_advisor_export"),
-                ButtonVariant::Secondary,
+                ButtonVariant::Primary,
             )
             .activated
-        {
-            state.tax_advisor_export = true;
+            {
+                state.tax_advisor_export = true;
+            }
         }
         if button(
             ui,
