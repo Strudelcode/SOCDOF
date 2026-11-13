@@ -27,6 +27,8 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 - Therapy date parity: open sessions can now update their session date and start time as well as
   duration, distance and notes. Invalid civil dates/times are rejected without overwriting the
   stored session; the new fields are translated in DE/EN/FR/ES.
+- POS payment parity: NFC/mobile-wallet is now a distinct payment method, persists as `nfc`,
+  appears in the checkout selector and contributes to its own daily-close total. Added DE/EN/FR/ES labels and storage/summary tests.
 
 
 ### Known issues
