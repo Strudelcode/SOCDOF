@@ -1061,7 +1061,15 @@ fn business_report_view(
                     ui.end_row();
                 }
                 ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
+                ui.label(money_in_currency(report.revenue_net, &state.currency_symbol));
                 ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
+                ui.end_row();
+                ui.label(texts.get("accounting_business_input_vat"));
+                ui.label(money_in_currency(report.purchase_net, &state.currency_symbol));
+                ui.label(money_in_currency(report.purchase_tax, &state.currency_symbol));
+                ui.end_row();
+                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label("-");
                 ui.label(
                     RichText::new(money_in_currency(
                         report.vat_liability,
@@ -1071,16 +1079,6 @@ fn business_report_view(
                 );
                 ui.end_row();
             });
-        ui.add_space(4.0);
-        ui.label(
-            RichText::new(format!(
-                "{}: {}",
-                texts.get("accounting_business_input_vat"),
-                money_in_currency(report.purchase_tax, &state.currency_symbol)
-            ))
-            .size(FONT_SMALL)
-            .color(theme.palette.text_muted),
-        );
     });
 
     ui.add_space(10.0);
