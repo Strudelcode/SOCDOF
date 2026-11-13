@@ -393,12 +393,12 @@ pub fn export_tax_advisor_excel_xml(
                     ("", "String", ""),
                     (
                         &month.carry_over_cash.to_decimal_string(),
-                        "Number",
+                        "Formula",
                         &cash_formula,
                     ),
                     (
                         &month.carry_over_bank.to_decimal_string(),
-                        "Number",
+                        "Formula",
                         &bank_formula,
                     ),
                     (
@@ -798,31 +798,6 @@ pub fn export_monthly_ledger_csv(month: &MonthlyLedgerData, owner_name: &str) ->
         .collect::<Vec<_>>()
         .join("\r\n");
     format!("\u{feff}{body}\r\n")
-}
-
-fn push_text_row(output: &mut String, text: &str, style: &str) {
-    output.push_str(&format!(
-        "<Row><Cell ss:MergeAcross=\"3\" ss:StyleID=\"{style}\"><Data ss:Type=\"String\">{}</Data></Cell></Row>",
-        xml_escape(text)
-    ));
-}
-
-fn push_row(output: &mut String, fields: &[(&str, &str, &str)]) {
-    output.push_str("<Row>");
-    for (text, kind, value) in fields {
-        if *kind == "Number" && !value.is_empty() {
-            output.push_str(&format!(
-                "<Cell><Data ss:Type=\"Number\">{}</Data></Cell>",
-                xml_escape(value)
-            ));
-        } else {
-            output.push_str(&format!(
-                "<Cell><Data ss:Type=\"String\">{}</Data></Cell>",
-                xml_escape(text)
-            ));
-        }
-    }
-    output.push_str("</Row>");
 }
 
 fn csv_field(value: &str) -> String {
