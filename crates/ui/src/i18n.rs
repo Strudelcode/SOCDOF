@@ -1948,6 +1948,11 @@ pub const UI_KEYS: &[&str] = &[
     "restaurant_order_saved",
     "restaurant_order_deleted",
     "restaurant_checkout_saved",
+    "restaurant_item_note",
+    "restaurant_split_count",
+    "restaurant_per_person",
+    "restaurant_export",
+    "restaurant_exported",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
