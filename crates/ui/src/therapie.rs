@@ -113,8 +113,10 @@ pub struct TherapieState {
     pub session_minutes: String,
     /// Driven kilometres of the session being booked, as typed.
     pub session_kilometers: String,
-    /// Notes of the session being booked.
+    /// Notes of the session being booked or edited.
     pub session_notes: String,
+    /// Existing open session being edited, if any.
+    pub editing_session: Option<Uuid>,
     /// Invoice number typed to bill the open sessions.
     pub invoice_number: String,
     /// Whether the delete confirmation is open.
@@ -269,7 +271,33 @@ impl TherapieState {
         Ok(())
     }
 
-    /// Books the typed session on the selected client.
+    /// Starts editing an unbilled session.
+    pub fn start_edit_session(&mut self, id: Uuid) {
+        let Some(session) = self.sessions.iter().find(|session| session.id == id) else {
+            return;
+        };
+        if session.is_billed() {
+            self.error = Some("therapie_error_session_billed");
+            return;
+        }
+        self.session_minutes = session.minutes.to_string();
+        self.session_kilometers = format!("{:.3}", session.kilometers()).trim_end_matches('0').trim_end_matches('.').to_string();
+        self.session_notes = session.notes.clone();
+        self.editing_session = Some(id);
+        self.error = None;
+        self.status = None;
+    }
+
+    /// Leaves the session editor without writing.
+    pub fn cancel_session_edit(&mut self) {
+        self.editing_session = None;
+        self.session_minutes.clear();
+        self.session_kilometers.clear();
+        self.session_notes.clear();
+        self.error = None;
+    }
+
+    /// Saves a new session or updates the currently edited unbilled session.
     pub fn add_session(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
         let Some(client_id) = self.selected else {
             return Ok(());
@@ -291,10 +319,23 @@ impl TherapieState {
             }
         };
 
-        let mut session = TherapySession::new(client_id, now);
+        let mut session = if let Some(id) = self.editing_session {
+            let Some(existing) = self.sessions.iter().find(|session| session.id == id).cloned() else {
+                self.error = Some("therapie_error_session");
+                return Ok(());
+            };
+            if existing.is_billed() || existing.client_id != client_id {
+                self.error = Some("therapie_error_session_billed");
+                return Ok(());
+            }
+            existing
+        } else {
+            TherapySession::new(client_id, now)
+        };
         session.minutes = minutes;
         session.kilometers_milli = kilometers_milli;
         session.notes = self.session_notes.trim().to_string();
+        session.updated_at = now;
 
         if let Err(code) = session.validate() {
             self.error = Some(validation_key(&code));
@@ -302,12 +343,18 @@ impl TherapieState {
             return Ok(());
         }
 
-        store.insert_therapy_session(&session)?;
+        if self.editing_session.is_some() {
+            store.update_therapy_session(&session)?;
+            self.status = Some("therapie_session_updated");
+        } else {
+            store.insert_therapy_session(&session)?;
+            self.status = Some("therapie_session_saved");
+        }
+        self.editing_session = None;
         self.session_minutes.clear();
         self.session_kilometers.clear();
         self.session_notes.clear();
         self.error = None;
-        self.status = Some("therapie_session_saved");
         self.load_sessions(store)?;
         Ok(())
     }
@@ -816,6 +863,7 @@ fn detail_view(
             );
         } else {
             let mut remove = None;
+            let mut edit_session = None;
             egui::Grid::new("socdof-therapie-sessions")
                 .num_columns(5)
                 .spacing(egui::vec2(16.0, 8.0))
@@ -855,11 +903,29 @@ fn detail_view(
                                 remove = Some(session.id);
                             }
                         });
-                        ui.label(&session.notes);
+                        ui.horizontal(|ui| {
+                            ui.label(&session.notes);
+                            if !session.is_billed() {
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("therapie_edit"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    edit_session = Some(session.id);
+                                }
+                            }
+                        });
                         ui.end_row();
                     }
                 });
 
+            if let Some(id) = edit_session {
+                state.start_edit_session(id);
+            }
             if let Some(id) = remove {
                 if state.delete_session(store, id).is_err() {
                     state.error = Some("therapie_error_session");
@@ -899,17 +965,35 @@ fn detail_view(
             None,
         );
         ui.add_space(8.0);
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("therapie_session_add"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            add = true;
-        }
+        ui.horizontal(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get(if state.editing_session.is_some() {
+                    "therapie_session_update"
+                } else {
+                    "therapie_session_add"
+                }),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                add = true;
+            }
+            if state.editing_session.is_some()
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("therapie_cancel"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+            {
+                state.cancel_session_edit();
+            }
+        });
         if add && state.add_session(store, now).is_err() {
             state.error = Some("therapie_error_session");
         }
