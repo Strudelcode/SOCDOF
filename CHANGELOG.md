@@ -23,6 +23,11 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ### Added
 
+- First persistent native egui desktop host: `socdof-ui-desktop` opens the real SQLite database,
+  acquires the legacy-compatible single-instance lock, restores the saved language/theme/accent and
+  enters the real first-run setup or local login flow. It does not insert gallery fixtures or demo
+  credentials; the component gallery remains a separate development tool.
+
 - FatturaPA XML import in the invoice screen: `fattura_import.ts` parses FatturaPA 1.2 documents
   (seller, buyer, document type, lines, VAT, due date, IBAN, CUP/CIG and bollo), reuses or creates
   the vendor contact and stores a draft invoice through the normal commands. Invalid XML reports a
