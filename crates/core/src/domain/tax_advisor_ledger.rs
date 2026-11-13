@@ -489,7 +489,7 @@ pub fn export_tax_advisor_excel_xml(
             push_row_with_formulas(
                 &mut rows,
                 &[
-                    ("Übertrag Vormonat", "String", ""),
+                    (labels.carry_over_month, "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
                     ("", "String", ""),
