@@ -2210,7 +2210,7 @@ impl DesktopState {
                 paid_at: now,
                 currency_symbol: currency,
                 note: Some(note),
-                tax_total_override_cents: None,
+                tax_total_override_cents: Some(paid.tax_total_cents),
                 cash_given: if input.payment_method == "cash" {
                     cash_tendered.map(Money::from_cents)
                 } else {
