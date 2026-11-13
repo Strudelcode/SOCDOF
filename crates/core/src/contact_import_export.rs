@@ -389,7 +389,7 @@ pub fn export_contacts_csv(contacts: &[Contact], delimiter: char) -> String {
     out.push_str(&headers.join(&delimiter.to_string()));
     for contact in contacts {
         let name = contact.name.as_deref().unwrap_or("");
-        let parts: Vec<&str> = name.split_whitespace().collect();
+        let parts: Vec<&str> = name.trim().split(' ').collect();
         let (first, last) = if parts.len() > 1 {
             (
                 parts[..parts.len() - 1].join(" "),
@@ -674,7 +674,6 @@ mod tests {
         assert_eq!(parsed[0].notes.as_deref(), Some("first line\nsecond line"));
     }
 
-
     #[test]
     fn falls_back_to_non_empty_home_address_columns_and_maps_legacy_guest_type() {
         let csv = concat!(
@@ -690,5 +689,4 @@ mod tests {
         assert_eq!(parsed[0].zip.as_deref(), Some("N1 1AA"));
         assert_eq!(parsed[0].country.as_deref(), Some("United Kingdom"));
     }
-
 }
