@@ -749,8 +749,9 @@ mod tests {
         state.task_draft = Some(task);
         state.save_task(&store).expect("save task");
 
+        let project_id = state.selected.expect("project");
         let invoice_id = state
-            .create_invoice(&store, state.selected.expect("project"), 1_800_000_000_003)
+            .create_invoice(&store, project_id, 1_800_000_000_003)
             .expect("create invoice");
         let invoice = store.find_invoice(invoice_id).expect("find").expect("invoice");
         assert_eq!(invoice.contact_id, contact.id);
