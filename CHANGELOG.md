@@ -24,6 +24,9 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 - Therapy session parity: the native practice screen can now edit open sessions, persists the
   changes through the existing SQLite update path, and prevents edits to sessions already linked
   to an invoice. Added a regression test and DE/EN/FR/ES labels.
+- Therapy date parity: open sessions can now update their session date and start time as well as
+  duration, distance and notes. Invalid civil dates/times are rejected without overwriting the
+  stored session; the new fields are translated in DE/EN/FR/ES.
 
 
 ### Known issues
