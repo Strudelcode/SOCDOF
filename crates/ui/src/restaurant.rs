@@ -347,6 +347,7 @@ impl RestaurantState {
             due_at: now,
             currency_symbol: currency.clone(),
             note: Some(note.clone()),
+            tax_total_override_cents: Some(paid.tax_total_cents),
             lines: paid
                 .items
                 .iter()
@@ -871,7 +872,7 @@ pub fn restaurant(
                             .filter(|o| o.status != "paid")
                             .cloned()
                             .collect();
-                        for order in orders {
+                        for order in &orders {
                             crate::components::card(ui, theme, |ui| {
                                 ui.heading(&order.table_number);
                                 ui.label(format!(
@@ -937,12 +938,14 @@ pub fn restaurant(
                                     }
                                 });
                         });
+                        let mut save_dish = false;
+                        let mut cancel_dish = false;
                         if let Some(dish) = state.dish_draft.as_mut() {
                             crate::components::card(ui, theme, |ui| {
                                 ui.heading(texts.get("restaurant_dish_editor"));
-                                egui::Grid::new("restaurant-dish-form").num_columns(2).show(
-                                    ui,
-                                    |ui| {
+                                egui::Grid::new("restaurant-dish-form")
+                                    .num_columns(2)
+                                    .show(ui, |ui| {
                                         ui.label(texts.get("restaurant_name"));
                                         ui.text_edit_singleline(&mut dish.name);
                                         ui.end_row();
@@ -979,8 +982,8 @@ pub fn restaurant(
                                         if ui.text_edit_singleline(&mut allergens).changed() {
                                             dish.allergens = allergens
                                                 .split(',')
-                                                .map(|s| s.trim().to_string())
-                                                .filter(|s| !s.is_empty())
+                                                .map(|value| value.trim().to_string())
+                                                .filter(|value| !value.is_empty())
                                                 .collect();
                                         }
                                         ui.end_row();
@@ -993,8 +996,7 @@ pub fn restaurant(
                                         ui.label(texts.get("restaurant_available"));
                                         ui.checkbox(&mut dish.is_available, "");
                                         ui.end_row();
-                                    },
-                                );
+                                    });
                                 ui.horizontal(|ui| {
                                     if button(
                                         ui,
@@ -1005,9 +1007,7 @@ pub fn restaurant(
                                     )
                                     .activated
                                     {
-                                        if let Err(e) = state.save_dish(store) {
-                                            state.error = Some(e.to_string());
-                                        }
+                                        save_dish = true;
                                     }
                                     if button(
                                         ui,
@@ -1018,10 +1018,18 @@ pub fn restaurant(
                                     )
                                     .activated
                                     {
-                                        state.dish_draft = None;
+                                        cancel_dish = true;
                                     }
                                 });
                             });
+                        }
+                        if save_dish {
+                            if let Err(error) = state.save_dish(store) {
+                                state.error = Some(error.to_string());
+                            }
+                        }
+                        if cancel_dish {
+                            state.dish_draft = None;
                         }
                         let dishes: Vec<_> = state
                             .menu
