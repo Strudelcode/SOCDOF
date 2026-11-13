@@ -15,7 +15,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability, saved through a native file dialog.
 - Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook.
 - Ledger sources: recorded invoice payments (actual payment date/method), completed POS receipts, non-draft purchases, manually entered journal bookings and business fleet mileage allowances. Unpaid invoices remain receivables and are not incorrectly treated as cash received.
-- Current-year initial cash/bank balances are read from the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
+- The year selector covers the current year, the previous five years and the next year. Per-year opening cash/bank balances are read from and saved to the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
 - Native Accounting toolbar now offers the 12-sheet workbook and a selected-month CSV through native save dialogs; all four languages have the new labels.
 - Opening cash and bank balances can be edited in the Accounting screen and persist in the existing settings table per year.
 - Unit and store-to-UI regression coverage for cross-module aggregation, VAT, receivables, POS tender totals, date ranges, draft exclusion, company currency and cash/bank ledger totals.
