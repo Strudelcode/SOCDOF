@@ -287,7 +287,9 @@ impl TherapieState {
             return;
         }
         let timestamp = socdof_core::date::format_iso8601(session.started_at);
-        let (date, time) = timestamp.split_once('T').unwrap_or((&timestamp, "00:00:00.000Z"));
+        let (date, time) = timestamp
+            .split_once('T')
+            .unwrap_or((&timestamp, "00:00:00.000Z"));
         self.session_date = date.to_string();
         self.session_time = time.get(..5).unwrap_or("00:00").to_string();
         self.session_minutes = session.minutes.to_string();
@@ -334,17 +336,33 @@ impl TherapieState {
             }
         };
 
-        let started_at = if self.session_date.trim().is_empty() && self.session_time.trim().is_empty() {
+        let started_at = if self.session_date.trim().is_empty()
+            && self.session_time.trim().is_empty()
+        {
             if self.editing_session.is_some() {
-                self.sessions.iter().find(|session| Some(session.id) == self.editing_session).map(|session| session.started_at).unwrap_or(now)
+                self.sessions
+                    .iter()
+                    .find(|session| Some(session.id) == self.editing_session)
+                    .map(|session| session.started_at)
+                    .unwrap_or(now)
             } else {
                 now
             }
         } else {
             let now_iso = socdof_core::date::format_iso8601(now);
-            let (now_date, now_time) = now_iso.split_once('T').unwrap_or((&now_iso, "00:00:00.000Z"));
-            let date = if self.session_date.trim().is_empty() { now_date } else { self.session_date.trim() };
-            let time = if self.session_time.trim().is_empty() { &now_time[..5] } else { self.session_time.trim() };
+            let (now_date, now_time) = now_iso
+                .split_once('T')
+                .unwrap_or((&now_iso, "00:00:00.000Z"));
+            let date = if self.session_date.trim().is_empty() {
+                now_date
+            } else {
+                self.session_date.trim()
+            };
+            let time = if self.session_time.trim().is_empty() {
+                &now_time[..5]
+            } else {
+                self.session_time.trim()
+            };
             if time.len() != 5 || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':') {
                 self.error = Some("therapie_error_date");
                 self.status = None;
@@ -398,6 +416,8 @@ impl TherapieState {
             self.status = Some("therapie_session_saved");
         }
         self.editing_session = None;
+        self.session_date.clear();
+        self.session_time.clear();
         self.session_minutes.clear();
         self.session_kilometers.clear();
         self.session_notes.clear();
@@ -1392,13 +1412,23 @@ mod tests {
         let (store, mut state, _texts) = seeded();
         let client_id = state.clients[0].id;
         state.select(&store, client_id).expect("select");
-        let session = state.sessions.iter().find(|session| !session.is_billed()).expect("open").clone();
+        let session = state
+            .sessions
+            .iter()
+            .find(|session| !session.is_billed())
+            .expect("open")
+            .clone();
         state.start_edit_session(session.id);
         state.session_date = "2026-02-31".to_string();
         state.session_time = "10:30".to_string();
         state.add_session(&store, SAMPLE_NOW_MS).expect("validate");
         assert_eq!(state.error, Some("therapie_error_date"));
-        let saved = store.therapy_sessions_for_client(client_id).expect("sessions").into_iter().find(|item| item.id == session.id).unwrap();
+        let saved = store
+            .therapy_sessions_for_client(client_id)
+            .expect("sessions")
+            .into_iter()
+            .find(|item| item.id == session.id)
+            .unwrap();
         assert_eq!(saved.started_at, session.started_at);
     }
 
