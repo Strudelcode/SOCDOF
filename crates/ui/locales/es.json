@@ -1,4 +1,7 @@
 {
+  "fleet_filter_all": "Todos",
+  "fleet_filter_from": "Desde",
+  "fleet_filter_to": "Hasta",
   "projects_kpi_logged": "Horas registradas",
   "projects_kpi_estimated": "Horas estimadas",
   "projects_kpi_completion": "Progreso",
