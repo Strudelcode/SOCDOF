@@ -2108,7 +2108,7 @@ mod tests {
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
         let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
         assert_eq!(month.income_cash.cents(), 4_760);
-        assert_eq!(month.income_bank.cents(), 0);
+        assert_eq!(month.income_bank.cents(), 5_350);
         assert_eq!(month.expense_bank.cents(), 2_380);
         assert!(month
             .transactions
