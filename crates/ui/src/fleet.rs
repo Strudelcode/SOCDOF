@@ -183,7 +183,8 @@ impl FleetState {
 
     /// Starts a trip form for the selected or first registered vehicle.
     pub fn start_trip(&mut self, now: i64) {
-        let Some(vehicle) = self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle)
+        let Some(vehicle) = self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle_filter)
+            .or_else(|| self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle))
             .or_else(|| self.vehicles.first()) else {
                 self.error = Some("fleet_vehicle_required".to_string());
                 return;
@@ -255,7 +256,8 @@ impl FleetState {
 
     /// Starts a fuel or charging receipt.
     pub fn start_fuel(&mut self, now: i64) {
-        let Some(vehicle) = self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle)
+        let Some(vehicle) = self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle_filter)
+            .or_else(|| self.vehicles.iter().find(|vehicle| Some(vehicle.id) == self.selected_vehicle))
             .or_else(|| self.vehicles.first()) else {
                 self.error = Some("fleet_vehicle_required".to_string());
                 return;
