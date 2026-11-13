@@ -274,6 +274,7 @@ impl InvoiceInput {
             due_at,
             currency_symbol,
             note: match self.notes.trim() {
+            tax_total_override_cents: None,
                 "" => None,
                 note => Some(note.to_string()),
             },
