@@ -21,7 +21,7 @@ This checklist tracks the native Rust port against:
 - [x] Multiple e-mail and phone columns are scanned in the legacy mobile/primary/business/home/general priority order; first/middle/last names are combined before falling back to a full-name column.
 - [x] Multiple business/home/other address columns fall back to the first non-empty value; legacy "Buch" category text maps to Guest.
 - [x] CSV export preserves embedded line breaks inside quoted fields; vCard cards with no valid e-mail do not store empty/dummy e-mail values.
-- [ ] Verify duplicate/empty rows and malformed quoted CSV input.
+- [x] Blank CSV rows are ignored, duplicate contacts are preserved, and an unmatched quoted tail is discarded without losing complete rows; a 5,000-contact parser regression covers larger imports.
 - [x] Verify vCard 2.1/3.0/4.0 variants, grouped property names, URI telephone values, folded lines and escaped text.
 - [ ] Support quoted-printable/charset decoding and scan alternative/duplicate EMAIL/TEL properties.
 - [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
