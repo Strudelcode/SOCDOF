@@ -394,6 +394,11 @@ mod tests {
         assert!(!app_store::is_active(&store, AppModule::Contacts).expect("state"));
         assert!(state.toggle(&store, AppModule::Contacts));
         assert!(app_store::is_active(&store, AppModule::Contacts).expect("state"));
+
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(!app_store::is_active(&store, AppModule::Restaurant).expect("restaurant inactive"));
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(app_store::is_active(&store, AppModule::Restaurant).expect("restaurant active"));
     }
 
     #[test]
