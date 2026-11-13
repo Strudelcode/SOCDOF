@@ -318,6 +318,11 @@ impl AccountingState {
         Self::default()
     }
 
+    /// Marks journal and cross-module document aggregates stale before the screen is reopened.
+    pub fn invalidate(&mut self) {
+        self.reload = true;
+    }
+
     /// Reloads the entries when the period, the query or a write changed them.
     pub fn refresh(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
         if !self.reload && self.loaded_period == self.period && self.loaded_query == self.query {
