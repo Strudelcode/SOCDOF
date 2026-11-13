@@ -20,6 +20,18 @@ use crate::i18n::UiTexts;
 use crate::theme::Theme;
 use crate::tokens::FONT_SMALL;
 
+/// Main view of the project portfolio.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ProjectsView {
+    /// Project list with selected project details.
+    #[default]
+    Portfolio,
+    /// Tasks grouped by Kanban status.
+    Kanban,
+    /// Flat task list across projects.
+    Tasks,
+}
+
 /// Editable state of the project portfolio.
 #[derive(Debug, Clone)]
 pub struct ProjectsState {
@@ -33,6 +45,12 @@ pub struct ProjectsState {
     pub selected: Option<Uuid>,
     /// Search filter.
     pub query: String,
+    /// Selected portfolio view.
+    pub view: ProjectsView,
+    /// Optional project status filter (`all` disables it).
+    pub status_filter: String,
+    /// Optional project category filter (`all` disables it).
+    pub category_filter: String,
     /// Project form draft.
     pub draft: Option<Project>,
     /// Whether the current project draft is a new record.
@@ -61,6 +79,9 @@ impl Default for ProjectsState {
             contacts: Vec::new(),
             selected: None,
             query: String::new(),
+            view: ProjectsView::Portfolio,
+            status_filter: "all".to_string(),
+            category_filter: "all".to_string(),
             draft: None,
             draft_is_new: false,
             task_draft: None,
@@ -94,6 +115,9 @@ impl ProjectsState {
     /// Clears transient state and reloads the current portfolio.
     pub fn reset_for_open(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         self.query.clear();
+        self.view = ProjectsView::Portfolio;
+        self.status_filter = "all".to_string();
+        self.category_filter = "all".to_string();
         self.draft = None;
         self.task_draft = None;
         self.confirm_delete = false;
@@ -278,7 +302,8 @@ impl ProjectsState {
 
     /// Starts a task draft for the selected project.
     pub fn start_task(&mut self, now: i64) {
-        let Some(project_id) = self.selected else { return; };
+        let Some(project_id) = self.selected.or_else(|| self.projects.first().map(|project| project.id)) else { return; };
+        self.selected = Some(project_id);
         self.task_draft = Some(ProjectTask {
             id: Uuid::new_v4(),
             project_id,
@@ -429,12 +454,19 @@ pub fn projects(
     let mut bill_project: Option<Uuid> = None;
     let mut export_csv = false;
 
+    let query = state.query.trim().to_lowercase();
     let filtered: Vec<Project> = state.projects.iter().filter(|project| {
-        let query = state.query.trim().to_lowercase();
-        query.is_empty()
-            || project.title.to_lowercase().contains(&query)
-            || project.code.to_lowercase().contains(&query)
-            || project.client_name.to_lowercase().contains(&query)
+        (state.status_filter == "all" || project.status == state.status_filter)
+            && (state.category_filter == "all" || project.category == state.category_filter)
+            && (query.is_empty()
+                || project.title.to_lowercase().contains(&query)
+                || project.code.to_lowercase().contains(&query)
+                || project.client_name.to_lowercase().contains(&query)
+                || project.description.to_lowercase().contains(&query))
+    }).cloned().collect();
+    let visible_tasks: Vec<ProjectTask> = state.tasks.iter().filter(|task| {
+        state.selected.is_none_or(|project_id| task.project_id == project_id)
+            && (query.is_empty() || task.title.to_lowercase().contains(&query) || task.assignee.to_lowercase().contains(&query))
     }).cloned().collect();
 
     egui::CentralPanel::default()
@@ -473,6 +505,41 @@ pub fn projects(
                 });
                 ui.add_space(10.0);
                 messages(ui, theme, texts, state);
+                ui.horizontal_wrapped(|ui| {
+                    for (view, key) in [
+                        (ProjectsView::Portfolio, "projects_view_portfolio"),
+                        (ProjectsView::Kanban, "projects_view_kanban"),
+                        (ProjectsView::Tasks, "projects_view_tasks"),
+                    ] {
+                        if ui.selectable_label(state.view == view, texts.get(key)).clicked() {
+                            state.view = view;
+                        }
+                    }
+                    ui.separator();
+                    egui::ComboBox::from_id_source("projects-filter-status")
+                        .selected_text(texts.get(status_label(&state.status_filter)))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut state.status_filter, "all".to_string(), texts.get("projects_filter_all"));
+                            for (value, key) in [
+                                ("active", "projects_status_active"),
+                                ("planning", "projects_status_planning"),
+                                ("review", "projects_status_review"),
+                                ("completed", "projects_status_completed"),
+                                ("on_hold", "projects_status_on_hold"),
+                                ("cancelled", "projects_status_cancelled"),
+                            ] {
+                                ui.selectable_value(&mut state.status_filter, value.to_string(), texts.get(key));
+                            }
+                        });
+                    egui::ComboBox::from_id_source("projects-filter-category")
+                        .selected_text(texts.get(category_key(&state.category_filter)))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut state.category_filter, "all".to_string(), texts.get("projects_filter_all"));
+                            for value in ["client_work", "internal", "maintenance", "development", "marketing"] {
+                                ui.selectable_value(&mut state.category_filter, value.to_string(), texts.get(category_key(value)));
+                            }
+                        });
+                });
 
                 if let Some(task) = state.task_draft.as_mut() {
                     card(ui, theme, |ui| {
@@ -574,7 +641,7 @@ pub fn projects(
                             if button(ui, theme, focus, texts.get("projects_cancel"), ButtonVariant::Ghost).activated { cancel_project = true; }
                         });
                     });
-                } else {
+                } else if state.view == ProjectsView::Portfolio {
                     ui.horizontal(|ui| {
                         ui.heading(texts.get("projects_portfolio"));
                         #[cfg(feature = "dialogs")]
@@ -643,6 +710,82 @@ pub fn projects(
                                 }
                             } else {
                                 ui.label(texts.get("projects_select"));
+                            }
+                        });
+                    });
+                } else if state.view == ProjectsView::Kanban {
+                    ui.horizontal(|ui| {
+                        ui.heading(texts.get("projects_view_kanban"));
+                        ui.label(texts.get("projects_search"));
+                        ui.text_edit_singleline(&mut state.query);
+                        if button(ui, theme, focus, texts.get("projects_new_task"), ButtonVariant::Primary).activated { new_task = true; }
+                    });
+                    ui.columns(4, |columns| {
+                        for (index, (status, key)) in [
+                            ("todo", "projects_task_todo"),
+                            ("in_progress", "projects_task_progress"),
+                            ("review", "projects_task_review"),
+                            ("done", "projects_task_done"),
+                        ].iter().enumerate() {
+                            card(&mut columns[index], theme, |ui| {
+                                ui.heading(texts.get(key));
+                                for task in visible_tasks.iter().filter(|task| task.status == *status) {
+                                    ui.separator();
+                                    ui.label(RichText::new(&task.title).strong());
+                                    if let Some(project) = state.projects.iter().find(|project| project.id == task.project_id) {
+                                        ui.label(RichText::new(&project.code).size(FONT_SMALL).color(theme.palette.text_muted));
+                                    }
+                                    ui.label(format!("{} · {}", task.assignee, hours(task.logged_hours_milli)));
+                                    ui.horizontal_wrapped(|ui| {
+                                        if button(ui, theme, focus, texts.get("projects_task_edit"), ButtonVariant::Ghost).activated { edit_task = Some(task.id); }
+                                        if button(ui, theme, focus, texts.get("projects_task_delete"), ButtonVariant::Ghost).activated { delete_task = Some(task.id); }
+                                    });
+                                    ui.horizontal_wrapped(|ui| {
+                                        for (next_status, next_key) in [
+                                            ("todo", "projects_task_todo"),
+                                            ("in_progress", "projects_task_progress"),
+                                            ("review", "projects_task_review"),
+                                            ("done", "projects_task_done"),
+                                        ] {
+                                            if task.status != next_status && button(ui, theme, focus, texts.get(next_key), ButtonVariant::Ghost).activated {
+                                                change_task = Some((task.id, next_status));
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    ui.horizontal(|ui| {
+                        ui.heading(texts.get("projects_view_tasks"));
+                        ui.label(texts.get("projects_search"));
+                        ui.text_edit_singleline(&mut state.query);
+                        if button(ui, theme, focus, texts.get("projects_new_task"), ButtonVariant::Primary).activated { new_task = true; }
+                    });
+                    card(ui, theme, |ui| {
+                        egui::Grid::new("projects-all-tasks").striped(true).num_columns(5).show(ui, |ui| {
+                            for heading in ["projects_task_edit", "projects_tasks", "projects_client", "projects_status", "projects_logged_hours"] {
+                                ui.label(RichText::new(texts.get(heading)).strong());
+                            }
+                            ui.end_row();
+                            for task in &visible_tasks {
+                                ui.label(&task.title);
+                                let project_name = state.projects.iter().find(|project| project.id == task.project_id).map(|project| project.title.as_str()).unwrap_or("—");
+                                ui.label(project_name);
+                                ui.label(&task.assignee);
+                                ui.label(texts.get(match task.status.as_str() {
+                                    "in_progress" => "projects_task_progress",
+                                    "review" => "projects_task_review",
+                                    "done" => "projects_task_done",
+                                    _ => "projects_task_todo",
+                                }));
+                                ui.horizontal(|ui| {
+                                    ui.label(hours(task.logged_hours_milli));
+                                    if button(ui, theme, focus, texts.get("projects_task_edit"), ButtonVariant::Ghost).activated { edit_task = Some(task.id); }
+                                    if button(ui, theme, focus, texts.get("projects_task_delete"), ButtonVariant::Ghost).activated { delete_task = Some(task.id); }
+                                });
+                                ui.end_row();
                             }
                         });
                     });
