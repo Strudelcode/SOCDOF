@@ -269,7 +269,14 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
                         if button(ui,theme,focus,texts.get("restaurant_checkout"),ButtonVariant::Primary).activated{match state.checkout(store,order.id,now){Ok(_)=>{},Err(e)=>state.error=Some(e.to_string())}}
                     }else{ui.label(texts.get("restaurant_no_order"));}
                     ui.separator();ui.heading(texts.get("restaurant_quick_menu"));
-                    ui.horizontal_wrapped(|ui|{for dish in state.menu.iter().filter(|d|d.is_available).cloned().collect::<Vec<_>>(){if ui.button(format!("{} {} · {}",dish.emoji,dish.name,money(dish.gross().cents(),&currency))).clicked(){if let Err(e)=state.add_item(store,dish.id,now){state.error=Some(e.to_string());}}}});
+                    ui.horizontal_wrapped(|ui|{
+                        ui.label(texts.get("restaurant_search"));ui.text_edit_singleline(&mut state.query);
+                        egui::ComboBox::from_id_source("restaurant-quick-category").selected_text(if state.category_filter=="all"{texts.get("restaurant_all").to_string()}else{state.category_filter.clone()}).show_ui(ui,|ui|{
+                            ui.selectable_value(&mut state.category_filter,"all".to_string(),texts.get("restaurant_all"));
+                            for category in restaurant::CATEGORIES {ui.selectable_value(&mut state.category_filter,category.to_string(),category);}
+                        });
+                    });
+                    ui.horizontal_wrapped(|ui|{for dish in state.menu.iter().filter(|d|d.is_available&&(state.query.is_empty()||d.name.to_lowercase().contains(&state.query.to_lowercase()))&&(state.category_filter=="all"||d.category==state.category_filter)).cloned().collect::<Vec<_>>(){if ui.button(format!("{} {} · {}",dish.emoji,dish.name,money(dish.gross().cents(),&currency))).clicked(){if let Err(e)=state.add_item(store,dish.id,now){state.error=Some(e.to_string());}}}});
                 }
                 RestaurantView::Kitchen=>{
                     let orders:Vec<_>=state.orders.iter().filter(|o|o.status!="paid").cloned().collect();
@@ -283,7 +290,7 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
                     if orders.is_empty(){ui.label(texts.get("restaurant_kitchen_empty"));}
                 }
                 RestaurantView::Menu=>{
-                    ui.horizontal_wrapped(|ui|{ui.label(texts.get("restaurant_search"));ui.text_edit_singleline(&mut state.query);});
+                    ui.horizontal_wrapped(|ui|{ui.label(texts.get("restaurant_search"));ui.text_edit_singleline(&mut state.query);egui::ComboBox::from_id_source("restaurant-menu-category").selected_text(if state.category_filter=="all"{texts.get("restaurant_all").to_string()}else{state.category_filter.clone()}).show_ui(ui,|ui|{ui.selectable_value(&mut state.category_filter,"all".to_string(),texts.get("restaurant_all"));for category in restaurant::CATEGORIES{ui.selectable_value(&mut state.category_filter,category.to_string(),category);}});});
                     if let Some(dish)=state.dish_draft.as_mut(){crate::components::card(ui,theme,|ui|{
                         ui.heading(texts.get("restaurant_dish_editor"));
                         egui::Grid::new("restaurant-dish-form").num_columns(2).show(ui,|ui|{
@@ -299,7 +306,7 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
                         ui.horizontal(|ui|{if button(ui,theme,focus,texts.get("restaurant_save"),ButtonVariant::Primary).activated{if let Err(e)=state.save_dish(store){state.error=Some(e.to_string());}}
                             if button(ui,theme,focus,texts.get("restaurant_cancel"),ButtonVariant::Ghost).activated{state.dish_draft=None;}});
                     });}
-                    let dishes:Vec<_>=state.menu.iter().filter(|d|state.query.is_empty()||d.name.to_lowercase().contains(&state.query.to_lowercase())||d.ingredients.to_lowercase().contains(&state.query.to_lowercase())).cloned().collect();
+                    let dishes:Vec<_>=state.menu.iter().filter(|d|state.query.is_empty()||d.name.to_lowercase().contains(&state.query.to_lowercase())||d.ingredients.to_lowercase().contains(&state.query.to_lowercase()))&&(state.category_filter=="all"||d.category==state.category_filter)).cloned().collect();
                     for dish in dishes{ui.horizontal_wrapped(|ui|{
                         ui.label(format!("{} {} · {}",dish.emoji,dish.name,money(dish.gross().cents(),&currency)));
                         if ui.button(if dish.is_available{texts.get("restaurant_available")}else{texts.get("restaurant_unavailable")}).clicked(){let mut changed=dish.clone();changed.is_available=!changed.is_available;if let Err(e)=store.update_restaurant_menu_item(&changed){state.error=Some(e.to_string());}else{let _=state.refresh(store);}}
@@ -379,6 +386,41 @@ mod tests {
         assert!(!number.is_empty());assert_eq!(store.restaurant_order(order.id).unwrap().unwrap().status,"paid");
         assert_eq!(store.pos_order_count().unwrap(),1);assert_eq!(store.list_invoices().unwrap().len(),1);
     }
+    #[test]
+    fn order_notes_server_status_and_cash_checkout_are_preserved() {
+        let store=Store::open_in_memory().expect("store");
+        let mut state=RestaurantState::new();state.refresh(&store).expect("refresh");
+        let dish=state.menu.iter().find(|d|d.is_available).unwrap().id;
+        state.add_item(&store,dish,1_800_000_000_000).expect("add");
+        let order=state.active_order().unwrap().clone();
+        let item=order.items[0].id;
+        state.set_quantity(&store,order.id,item,2,1_800_000_000_001).expect("quantity");
+        state.set_notes(&store,order.id,item," ohne Zwiebeln ",1_800_000_000_002).expect("notes");
+        state.set_server(&store,order.id," Service ",1_800_000_000_003).expect("server");
+        state.set_status(&store,order.id,"preparing",1_800_000_000_004).expect("status");
+        let stored=store.restaurant_order(order.id).unwrap().unwrap();
+        assert_eq!(stored.items[0].qty,2);
+        assert_eq!(stored.items[0].notes,"ohne Zwiebeln");
+        assert_eq!(stored.server_name,"Service");
+        assert_eq!(stored.status,"preparing");
+        state.payment_method="cash".into();
+        state.cash_given_cents=0;
+        assert!(state.checkout(&store,order.id,1_800_000_000_005).is_err());
+        state.cash_given_cents=stored.total_cents+200;
+        state.tip_cents=100;
+        state.hospitality=true;
+        state.hospitality_host="SOCDOF".into();
+        state.hospitality_occasion="Geschäftsessen".into();
+        state.hospitality_guests="2 Personen".into();
+        state.checkout(&store,order.id,1_800_000_000_006).expect("cash checkout");
+        let paid=store.restaurant_order(order.id).unwrap().unwrap();
+        assert_eq!(paid.status,"paid");
+        assert_eq!(paid.tip_cents,100);
+        assert!(paid.is_hospitality_receipt);
+        assert_eq!(paid.hospitality_host,"SOCDOF");
+        assert!(paid.cash_change_cents.unwrap()>=0);
+    }
+
     #[test]
     fn invalid_menu_dish_is_not_saved() {
         let store=Store::open_in_memory().expect("store");let mut state=RestaurantState::new();state.refresh(&store).expect("refresh");
