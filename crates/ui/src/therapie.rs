@@ -109,6 +109,10 @@ pub struct TherapieState {
     pub draft: ClientDraft,
     /// Sessions of the selected client, newest first.
     pub sessions: Vec<TherapySession>,
+    /// Date of the session as an ISO date.
+    pub session_date: String,
+    /// Start time of the session as HH:MM.
+    pub session_time: String,
     /// Minutes of the session being booked, as typed.
     pub session_minutes: String,
     /// Driven kilometres of the session being booked, as typed.
@@ -282,6 +286,10 @@ impl TherapieState {
             self.error = Some("therapie_error_session_billed");
             return;
         }
+        let timestamp = socdof_core::date::format_iso8601(session.started_at);
+        let (date, time) = timestamp.split_once('T').unwrap_or((&timestamp, "00:00:00.000Z"));
+        self.session_date = date.to_string();
+        self.session_time = time.get(..5).unwrap_or("00:00").to_string();
         self.session_minutes = session.minutes.to_string();
         self.session_kilometers = format!("{:.3}", session.kilometers())
             .trim_end_matches('0')
@@ -296,6 +304,8 @@ impl TherapieState {
     /// Leaves the session editor without writing.
     pub fn cancel_session_edit(&mut self) {
         self.editing_session = None;
+        self.session_date.clear();
+        self.session_time.clear();
         self.session_minutes.clear();
         self.session_kilometers.clear();
         self.session_notes.clear();
@@ -324,6 +334,32 @@ impl TherapieState {
             }
         };
 
+        let started_at = if self.session_date.trim().is_empty() && self.session_time.trim().is_empty() {
+            if self.editing_session.is_some() {
+                self.sessions.iter().find(|session| Some(session.id) == self.editing_session).map(|session| session.started_at).unwrap_or(now)
+            } else {
+                now
+            }
+        } else {
+            let now_iso = socdof_core::date::format_iso8601(now);
+            let (now_date, now_time) = now_iso.split_once('T').unwrap_or((&now_iso, "00:00:00.000Z"));
+            let date = if self.session_date.trim().is_empty() { now_date } else { self.session_date.trim() };
+            let time = if self.session_time.trim().is_empty() { &now_time[..5] } else { self.session_time.trim() };
+            if time.len() != 5 || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':') {
+                self.error = Some("therapie_error_date");
+                self.status = None;
+                return Ok(());
+            }
+            match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
+                Some(value) => value,
+                None => {
+                    self.error = Some("therapie_error_date");
+                    self.status = None;
+                    return Ok(());
+                }
+            }
+        };
+
         let mut session = if let Some(id) = self.editing_session {
             let Some(existing) = self
                 .sessions
@@ -342,6 +378,7 @@ impl TherapieState {
         } else {
             TherapySession::new(client_id, now)
         };
+        session.started_at = started_at;
         session.minutes = minutes;
         session.kilometers_milli = kilometers_milli;
         session.notes = self.session_notes.trim().to_string();
@@ -945,6 +982,10 @@ fn detail_view(
 
         ui.add_space(10.0);
         let mut add = false;
+        ui.horizontal(|ui| {
+            text_field(ui, theme, focus, &mut state.session_date, texts.get("therapie_session_date"), "YYYY-MM-DD", None);
+            text_field(ui, theme, focus, &mut state.session_time, texts.get("therapie_session_time"), "HH:MM", None);
+        });
         text_field(
             ui,
             theme,
@@ -1313,6 +1354,8 @@ mod tests {
 
         state.start_edit_session(open.id);
         assert_eq!(state.editing_session, Some(open.id));
+        state.session_date = "2026-11-12".to_string();
+        state.session_time = "09:45".to_string();
         state.session_minutes = "75".to_string();
         state.session_kilometers = "14,25".to_string();
         state.session_notes = "Updated treatment note".to_string();
@@ -1326,6 +1369,7 @@ mod tests {
             .into_iter()
             .find(|session| session.id == open.id)
             .expect("updated session");
+        assert_eq!(updated.started_at, socdof_core::date::parse_iso8601("2026-11-12T09:45:00Z").unwrap());
         assert_eq!(updated.minutes, 75);
         assert_eq!(updated.kilometers_milli, 14_250);
         assert_eq!(updated.notes, "Updated treatment note");
@@ -1341,6 +1385,21 @@ mod tests {
         state.start_edit_session(billed.id);
         assert_eq!(state.editing_session, None);
         assert_eq!(state.error, Some("therapie_error_session_billed"));
+    }
+
+    #[test]
+    fn rejects_invalid_session_date_without_changing_the_saved_session() {
+        let (store, mut state, _texts) = seeded();
+        let client_id = state.clients[0].id;
+        state.select(&store, client_id).expect("select");
+        let session = state.sessions.iter().find(|session| !session.is_billed()).expect("open").clone();
+        state.start_edit_session(session.id);
+        state.session_date = "2026-02-31".to_string();
+        state.session_time = "10:30".to_string();
+        state.add_session(&store, SAMPLE_NOW_MS).expect("validate");
+        assert_eq!(state.error, Some("therapie_error_date"));
+        let saved = store.therapy_sessions_for_client(client_id).expect("sessions").into_iter().find(|item| item.id == session.id).unwrap();
+        assert_eq!(saved.started_at, session.started_at);
     }
 
     #[test]
