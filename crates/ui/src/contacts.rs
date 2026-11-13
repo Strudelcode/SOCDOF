@@ -184,6 +184,8 @@ pub struct ContactsState {
     pub import_target_type: usize,
     /// Original filename shown in the preview.
     pub import_file_name: String,
+    /// Whether exports should use the currently filtered view instead of every contact.
+    pub export_filtered: bool,
     /// Catalogue key of the validation or storage error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last success message.
@@ -830,6 +832,24 @@ fn list_view(
         {
             import = true;
         }
+        egui::ComboBox::from_id_source("contacts-export-scope")
+            .selected_text(if state.export_filtered {
+                texts.get("contacts_export_filtered")
+            } else {
+                texts.get("contacts_export_all")
+            })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut state.export_filtered,
+                    false,
+                    texts.get("contacts_export_all"),
+                );
+                ui.selectable_value(
+                    &mut state.export_filtered,
+                    true,
+                    texts.get("contacts_export_filtered"),
+                );
+            });
         if button(
             ui,
             theme,
@@ -914,22 +934,37 @@ fn list_view(
             } else {
                 ("kontakte_export.vcf", "vcf", "vCard")
             };
-            if let Some(path) = rfd::FileDialog::new()
-                .set_file_name(name)
-                .add_filter(filter, &[extension])
-                .save_file()
-            {
-                let content = if export_csv {
-                    export_contacts_csv(&state.contacts, ';')
-                } else {
-                    export_contacts_vcard(&state.contacts)
-                };
-                if std::fs::write(path, content).is_ok() {
-                    state.status = Some("contacts_exported");
-                    state.error = None;
-                } else {
-                    state.error = Some("contacts_error_save");
-                    state.status = None;
+            let contacts_to_export = if state.export_filtered {
+                state.contacts.clone()
+            } else {
+                match store.list_contacts() {
+                    Ok(contacts) => contacts,
+                    Err(_) => {
+                        state.error = Some("contacts_error_load");
+                        Vec::new()
+                    }
+                }
+            };
+            if !contacts_to_export.is_empty() {
+                let (year, month, day) = socdof_core::date::civil_from_millis(now);
+                let filename = format!("kontakte_export_{year:04}-{month:02}-{day:02}.{extension}");
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_file_name(&filename)
+                    .add_filter(filter, &[extension])
+                    .save_file()
+                {
+                    let content = if export_csv {
+                        export_contacts_csv(&contacts_to_export, ';')
+                    } else {
+                        export_contacts_vcard(&contacts_to_export)
+                    };
+                    if std::fs::write(path, content).is_ok() {
+                        state.status = Some("contacts_exported");
+                        state.error = None;
+                    } else {
+                        state.error = Some("contacts_error_save");
+                        state.status = None;
+                    }
                 }
             }
         } else {
