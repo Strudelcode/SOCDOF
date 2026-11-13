@@ -2666,7 +2666,13 @@ mod tests {
         administrator
             .permissions
             .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
-        store.update_role(&administrator).expect("simulate old admin role");
+        store.conn.execute(
+            "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+            rusqlite::params![
+                serde_json::to_string(&administrator.permissions).expect("serialize old grants"),
+                administrator.id.to_string(),
+            ],
+        ).expect("simulate old admin role");
 
         let mut standard = store
             .find_role(USER_ROLE_ID)
@@ -2675,7 +2681,13 @@ mod tests {
         standard
             .permissions
             .retain(|grant| !matches!(grant.module, AppModule::Projects | AppModule::Fleet));
-        store.update_role(&standard).expect("simulate old standard role");
+        store.conn.execute(
+            "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+            rusqlite::params![
+                serde_json::to_string(&standard.permissions).expect("serialize old grants"),
+                standard.id.to_string(),
+            ],
+        ).expect("simulate old standard role");
 
         permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
 
