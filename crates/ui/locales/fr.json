@@ -1,4 +1,10 @@
 {
+  "projects_status_active": "Actif",
+  "projects_status_planning": "Planification",
+  "projects_status_review": "Révision",
+  "projects_status_completed": "Terminé",
+  "projects_status_on_hold": "En pause",
+  "projects_status_cancelled": "Annulé",
   "app_projects": "Projets",
   "app_store_desc_projects": "Portefeuille de projets, tâches, temps, budgets et prestations facturables.",
   "settings_module_projects": "Projets",
