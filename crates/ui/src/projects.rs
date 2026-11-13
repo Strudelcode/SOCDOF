@@ -5,9 +5,12 @@
 //! business values through floating point.
 
 use egui::{Context, RichText};
+use socdof_core::domain::contact::Contact;
+use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
 use socdof_core::domain::project::{
     default_code, iso_date, metrics, Project, ProjectTask, DEFAULT_HOURLY_RATE_CENTS,
 };
+use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
 
@@ -24,6 +27,8 @@ pub struct ProjectsState {
     pub projects: Vec<Project>,
     /// Tasks currently loaded from SQLite.
     pub tasks: Vec<ProjectTask>,
+    /// Contacts available for linking a customer to a project.
+    pub contacts: Vec<Contact>,
     /// Selected project.
     pub selected: Option<Uuid>,
     /// Search filter.
@@ -42,6 +47,8 @@ pub struct ProjectsState {
     pub error: Option<String>,
     /// Last success message.
     pub status: Option<String>,
+    /// Invoice created from billable project tasks; the host opens it in Invoices.
+    pub created_invoice: Option<Uuid>,
     /// Request to return to the desktop.
     pub back: bool,
 }
@@ -51,6 +58,7 @@ impl Default for ProjectsState {
         Self {
             projects: Vec::new(),
             tasks: Vec::new(),
+            contacts: Vec::new(),
             selected: None,
             query: String::new(),
             draft: None,
@@ -60,6 +68,7 @@ impl Default for ProjectsState {
             confirm_delete: false,
             error: None,
             status: None,
+            created_invoice: None,
             back: false,
         }
     }
@@ -75,6 +84,7 @@ impl ProjectsState {
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         self.projects = store.projects()?;
         self.tasks = store.project_tasks_all()?;
+        self.contacts = store.list_contacts()?;
         if self.selected.is_some_and(|id| !self.projects.iter().any(|p| p.id == id)) {
             self.selected = None;
         }
@@ -89,6 +99,7 @@ impl ProjectsState {
         self.confirm_delete = false;
         self.error = None;
         self.status = None;
+        self.created_invoice = None;
         self.back = false;
         self.refresh(store)
     }
@@ -163,6 +174,88 @@ impl ProjectsState {
         self.confirm_delete = false;
         self.status = Some("projects_deleted".to_string());
         self.refresh(store)
+    }
+
+    /// Exports the complete portfolio using the shared core CSV format.
+    pub fn export_csv(&self, path: &std::path::Path) -> socdof_core::CoreResult<u64> {
+        let content = socdof_core::domain::project::csv(&self.projects, &self.tasks);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, content.as_bytes())?;
+        Ok(content.len() as u64)
+    }
+
+    /// Creates a draft invoice from billable, logged tasks using the same template defaults
+    /// and tax calculation as the desktop command path.
+    pub fn create_invoice(
+        &mut self,
+        store: &Store,
+        project_id: Uuid,
+        now: i64,
+    ) -> socdof_core::CoreResult<Uuid> {
+        let project = store
+            .project(project_id)?
+            .ok_or_else(|| socdof_core::CoreError::NotFound(project_id.to_string()))?;
+        let contact_id = project.contact_id.ok_or_else(|| {
+            socdof_core::CoreError::Validation("project_contact_required".to_string())
+        })?;
+        if store.find_contact(contact_id)?.is_none() {
+            return Err(socdof_core::CoreError::Validation(
+                "project_contact_unknown".to_string(),
+            ));
+        }
+        let tasks = store.project_tasks(project_id)?;
+        let billable: Vec<_> = tasks
+            .into_iter()
+            .filter(|task| task.billable && task.logged_hours_milli > 0)
+            .collect();
+        if billable.is_empty() {
+            return Err(socdof_core::CoreError::Validation(
+                "project_billable_tasks_required".to_string(),
+            ));
+        }
+
+        let company = store.company_profile()?;
+        let template = socdof_core::invoice_template::active(store)?;
+        let existing = store.list_invoices()?;
+        let year = socdof_core::date::civil_from_millis(now).0;
+        let prefix = format!("{year}-");
+        let next_number = existing
+            .iter()
+            .filter_map(|invoice| invoice.number.strip_prefix(&prefix))
+            .filter_map(|suffix| suffix.parse::<u32>().ok())
+            .max()
+            .unwrap_or(0) + 1;
+        let rate = if project.hourly_rate_cents == 0 {
+            DEFAULT_HOURLY_RATE_CENTS
+        } else {
+            project.hourly_rate_cents
+        };
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: format!("{prefix}{next_number:04}"),
+            contact_id,
+            status: InvoiceStatus::Draft,
+            issued_at: now,
+            due_at: now + template.due_days.max(0) * 86_400_000,
+            currency_symbol: company.currency,
+            note: Some(format!("Projekt {} - {}", project.code, project.title)),
+            lines: billable
+                .iter()
+                .map(|task| InvoiceLine {
+                    description: format!("{} - {}", project.code, task.title),
+                    quantity_milli: task.logged_hours_milli,
+                    unit_price: Money::from_cents(rate),
+                    tax_rate_bp: 1900,
+                })
+                .collect(),
+        };
+        invoice.validate().map_err(socdof_core::CoreError::Validation)?;
+        store.insert_invoice(&invoice)?;
+        self.created_invoice = Some(invoice.id);
+        self.status = Some("projects_invoice_created".to_string());
+        Ok(invoice.id)
     }
 
     /// Selected project.
