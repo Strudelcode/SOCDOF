@@ -14,6 +14,8 @@ pub enum PaymentMethod {
     Cash,
     /// Card payment at the terminal.
     Card,
+    /// Contactless NFC or mobile wallet payment.
+    Nfc,
     /// Bank transfer after the sale (B2B).
     BankTransfer,
     /// Put on the customer's account as an invoice.
@@ -28,6 +30,7 @@ impl PaymentMethod {
         match self {
             PaymentMethod::Cash => "cash",
             PaymentMethod::Card => "card",
+            PaymentMethod::Nfc => "nfc",
             PaymentMethod::BankTransfer => "bank_transfer",
             PaymentMethod::Invoice => "invoice",
             PaymentMethod::Other => "other",
@@ -39,6 +42,7 @@ impl PaymentMethod {
         match value {
             "cash" => Some(PaymentMethod::Cash),
             "card" => Some(PaymentMethod::Card),
+            "nfc" => Some(PaymentMethod::Nfc),
             "bank_transfer" => Some(PaymentMethod::BankTransfer),
             "invoice" => Some(PaymentMethod::Invoice),
             "other" => Some(PaymentMethod::Other),
@@ -226,6 +230,8 @@ pub struct PosSummary {
     pub cash: Money,
     /// Gross amount paid by card.
     pub card: Money,
+    /// Gross amount paid by NFC or mobile wallet.
+    pub nfc: Money,
     /// Gross amount paid by bank transfer.
     pub bank_transfer: Money,
     /// Gross amount put on an invoice.
@@ -247,6 +253,7 @@ impl Default for PosSummary {
             gross: Money::ZERO,
             cash: Money::ZERO,
             card: Money::ZERO,
+            nfc: Money::ZERO,
             bank_transfer: Money::ZERO,
             invoice: Money::ZERO,
             other: Money::ZERO,
@@ -267,6 +274,7 @@ pub fn summarize(orders: &[PosOrder]) -> PosSummary {
         match order.payment_method {
             PaymentMethod::Cash => summary.cash = summary.cash + order.total_gross(),
             PaymentMethod::Card => summary.card = summary.card + order.total_gross(),
+            PaymentMethod::Nfc => summary.nfc = summary.nfc + order.total_gross(),
             PaymentMethod::BankTransfer => {
                 summary.bank_transfer = summary.bank_transfer + order.total_gross()
             }
