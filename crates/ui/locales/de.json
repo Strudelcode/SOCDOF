@@ -1,4 +1,10 @@
 {
+  "projects_status_active": "Aktiv",
+  "projects_status_planning": "Planung",
+  "projects_status_review": "Review",
+  "projects_status_completed": "Abgeschlossen",
+  "projects_status_on_hold": "Pausiert",
+  "projects_status_cancelled": "Storniert",
   "app_projects": "Projekte",
   "app_store_desc_projects": "Projektportfolio, Aufgaben, Zeitaufwand und abrechenbare Leistungen.",
   "settings_module_projects": "Projekte",
