@@ -1940,5 +1940,6 @@
   "restaurant_kpi_today_orders": "Belege heute",
   "restaurant_kpi_cash": "Barumsatz",
   "restaurant_kpi_card": "Karte / NFC",
-  "restaurant_kpi_tax": "MwSt. heute"
+  "restaurant_kpi_tax": "MwSt. heute",
+  "restaurant_all": "Alle"
 }
