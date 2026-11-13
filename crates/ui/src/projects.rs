@@ -407,6 +407,7 @@ pub fn projects(
     }
 
     let currency = store.company_profile().map(|p| p.currency).unwrap_or_else(|_| "EUR".to_string());
+    let contacts = state.contacts.clone();
     let stats = metrics(&state.projects, &state.tasks);
     let mut new_project = false;
     let mut edit_project = false;
@@ -419,6 +420,8 @@ pub fn projects(
     let mut edit_task: Option<Uuid> = None;
     let mut delete_task: Option<Uuid> = None;
     let mut change_task: Option<(Uuid, &'static str)> = None;
+    let mut bill_project: Option<Uuid> = None;
+    let mut export_csv = false;
 
     let filtered: Vec<Project> = state.projects.iter().filter(|project| {
         let query = state.query.trim().to_lowercase();
@@ -521,6 +524,16 @@ pub fn projects(
                             ui.label(texts.get("projects_name")); ui.text_edit_singleline(&mut project.title); ui.end_row();
                             ui.label(texts.get("projects_code")); ui.text_edit_singleline(&mut project.code); ui.end_row();
                             ui.label(texts.get("projects_client")); ui.text_edit_singleline(&mut project.client_name); ui.end_row();
+                            ui.label(texts.get("projects_contact"));
+                            egui::ComboBox::from_id_source("projects-contact")
+                                .selected_text(project.contact_id.and_then(|id| contacts.iter().find(|contact| contact.id == id).map(|contact| contact.display_name())).unwrap_or_else(|| texts.get("projects_no_contact").to_string()))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut project.contact_id, None, texts.get("projects_no_contact"));
+                                    for contact in &contacts {
+                                        ui.selectable_value(&mut project.contact_id, Some(contact.id), contact.display_name());
+                                    }
+                                });
+                            ui.end_row();
                             ui.label(texts.get("projects_description")); ui.text_edit_multiline(&mut project.description); ui.end_row();
                             ui.label(texts.get("projects_category"));
                             egui::ComboBox::from_id_source("projects-category").selected_text(texts.get(category_key(&project.category))).show_ui(ui, |ui| {
@@ -557,6 +570,8 @@ pub fn projects(
                 } else {
                     ui.horizontal(|ui| {
                         ui.heading(texts.get("projects_portfolio"));
+                        #[cfg(feature = "dialogs")]
+                        if button(ui, theme, focus, texts.get("projects_export"), ButtonVariant::Secondary).activated { export_csv = true; }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if button(ui, theme, focus, texts.get("projects_new"), ButtonVariant::Primary).activated { new_project = true; }
                         });
@@ -589,6 +604,7 @@ pub fn projects(
                                 ui.horizontal(|ui| {
                                     if button(ui, theme, focus, texts.get("projects_edit"), ButtonVariant::Secondary).activated { edit_project = true; }
                                     if button(ui, theme, focus, texts.get("projects_new_task"), ButtonVariant::Primary).activated { new_task = true; }
+                                    if button(ui, theme, focus, texts.get("projects_bill_project"), ButtonVariant::Secondary).activated { bill_project = Some(project.id); }
                                     if button(ui, theme, focus, texts.get("projects_delete"), ButtonVariant::Danger).activated { state.confirm_delete = true; }
                                 });
                                 if state.confirm_delete {
@@ -647,6 +663,20 @@ pub fn projects(
     }
     if let Some((id, status)) = change_task {
         if let Err(error) = state.set_task_status(store, id, status) { state.error = Some(error.to_string()); }
+    }
+    if let Some(project_id) = bill_project {
+        if let Err(error) = state.create_invoice(store, project_id, now) { state.error = Some(error.to_string()); }
+    }
+    #[cfg(feature = "dialogs")]
+    if export_csv {
+        let company = store.company_profile().map(|profile| profile.name).unwrap_or_default();
+        let suggested = socdof_core::domain::project::csv_file_name(&company, now);
+        if let Some(path) = rfd::FileDialog::new().set_file_name(&suggested).save_file() {
+            match state.export_csv(&path) {
+                Ok(_) => state.status = Some("projects_exported".to_string()),
+                Err(error) => state.error = Some(error.to_string()),
+            }
+        }
     }
 }
 
