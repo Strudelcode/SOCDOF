@@ -336,10 +336,18 @@ impl ProjectsState {
         let Some(mut task) = self.task_draft.clone() else { return Ok(()); };
         task.normalize();
         task.validate().map_err(socdof_core::CoreError::Validation)?;
+        let previous_project_id = if self.task_is_new {
+            None
+        } else {
+            store.project_task(task.id)?.map(|existing| existing.project_id)
+        };
         if self.task_is_new {
             store.insert_project_task(&task)?;
         } else {
             store.update_project_task(&task)?;
+        }
+        if let Some(previous_id) = previous_project_id.filter(|id| *id != task.project_id) {
+            touch_project(store, previous_id, now)?;
         }
         touch_project(store, task.project_id, now)?;
         self.task_draft = None;
