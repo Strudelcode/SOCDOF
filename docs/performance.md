@@ -34,7 +34,7 @@ Node v26.13.0; release profile; dates in UTC.
 | Web bundle raw | 6,415,465 B | ≤ 7,340,032 B (regression guard) |
 | Web bundle gzip | 2,991,359 B | ≤ 3,670,016 B (regression guard) |
 | Cold start median (5 runs) | 248 ms | < 800 ms |
-| Installer / installed / idle RAM / idle CPU | not built here | measured by CI, see below |
+| Native desktop binary / footprint / idle RAM / idle CPU | not yet remeasured on the latest native host | measured by CI, see below |
 
 The browser bundle is the egui UI plus SQLite as WebAssembly, not the desktop UI bundle the Phase 9
 table names; §14 already records its size. Its limits are regression guards, not the 1.5 MB target.
@@ -86,9 +86,10 @@ The Tauri desktop cannot be built here: there is no GTK/WebKit development stack
 install it, and no `Xvfb`/display (`crates/app/src-tauri/target` does not exist, `sudo -n true`
 fails). So the four artifact budgets are measured where those exist, and both places fail the job:
 
-- `.github/workflows/rust.yml`, job `desktop`, step **Check installer size budgets** →
-  `node scripts/check-budgets.mjs --scope=artifacts` on the built `.deb`/`.AppImage` (bundle size) and
-  its extracted tree (installed size); limits 15,728,640 B and 41,943,040 B.
+- `.github/workflows/rust.yml`, job `desktop`, step **Check native Rust desktop size budgets** →
+  `node scripts/check-budgets.mjs --scope=artifacts` measures `target/release/socdof-ui-desktop` against
+  the 15,728,640 B executable and 41,943,040 B portable-footprint limits. The Tauri fallback bundles
+  are still built and uploaded but are not used as the native release-size measurement.
 - `.github/workflows/rust.yml`, job `desktop`, step **Frame budget (50k contacts, 100k invoices)** →
   the benchmark above in release mode.
 - `.github/workflows/rust.yml`, job `gui-smoke`, step **Idle RAM/CPU budget** → starts the built app
