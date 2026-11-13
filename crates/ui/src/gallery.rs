@@ -131,6 +131,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Products, "products"),
         (AppModule::Projects, "projects"),
         (AppModule::Fleet, "fleet"),
+        (AppModule::Restaurant, "restaurant"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -250,8 +251,12 @@ pub struct GalleryState {
     pub projects_open: bool,
     /// Vehicle fleet, logbook and fuel state.
     pub fleet: FleetState,
+    /// Restaurant floor plan, menu, kitchen and checkout state.
+    pub restaurant: crate::restaurant::RestaurantState,
     /// Whether the fleet screen is open.
     pub fleet_open: bool,
+    /// Whether the restaurant screen is open.
+    pub restaurant_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -369,6 +374,8 @@ impl GalleryState {
         projects_state.refresh(&store)?;
         let mut fleet_state = FleetState::new();
         fleet_state.refresh(&store)?;
+        let mut restaurant_state = crate::restaurant::RestaurantState::new();
+        restaurant_state.refresh(&store)?;
         let mut invoices_state = InvoicesState::new();
         invoices_state.refresh(&store)?;
         let mut accounting_state = AccountingState::new();
@@ -449,6 +456,8 @@ impl GalleryState {
             projects_open: false,
             fleet: fleet_state,
             fleet_open: false,
+            restaurant: restaurant_state,
+            restaurant_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -523,6 +532,10 @@ impl GalleryState {
             "fleet" => {
                 self.fleet.reset_for_open(&self.store)?;
                 self.fleet_open = true;
+            }
+            "restaurant" => {
+                self.restaurant.reset_for_open(&self.store)?;
+                self.restaurant_open = true;
             }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
@@ -884,6 +897,27 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             state.fleet_open = false;
             state.fleet.back = false;
             state.desktop_windows.close(AppId::new("fleet"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.restaurant_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "restaurant", |focus| {
+            crate::restaurant::restaurant(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.restaurant,
+                &state.store,
+                now,
+            );
+        });
+        if closed || state.restaurant.back {
+            state.restaurant_open = false;
+            state.restaurant.back = false;
+            state.desktop_windows.close(AppId::new("restaurant"), now);
         }
         state.focus.finish_frame();
         return;
