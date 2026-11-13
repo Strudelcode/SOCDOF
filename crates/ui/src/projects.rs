@@ -152,6 +152,11 @@ impl ProjectsState {
             return Ok(());
         };
         project.normalize();
+        if let Some(contact_id) = project.contact_id {
+            if let Some(contact) = self.contacts.iter().find(|contact| contact.id == contact_id) {
+                project.client_name = contact.display_name();
+            }
+        }
         project.updated_at = now;
         project.validate().map_err(socdof_core::CoreError::Validation)?;
         if self.draft_is_new {
