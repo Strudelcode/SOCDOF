@@ -406,6 +406,11 @@ impl InvoicesState {
         Ok(())
     }
 
+    /// Marks the list dirty after another module creates an invoice.
+    pub fn invalidate(&mut self) {
+        self.reload = true;
+    }
+
     /// Selected invoice, if it is still part of the loaded list.
     pub fn current(&self) -> Option<&Invoice> {
         self.selected
