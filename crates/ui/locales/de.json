@@ -1936,5 +1936,9 @@
   "restaurant_split_count": "Personen teilen",
   "restaurant_per_person": "Pro Person",
   "restaurant_export": "CSV exportieren",
-  "restaurant_exported": "CSV exportiert"
+  "restaurant_exported": "CSV exportiert",
+  "restaurant_kpi_today_orders": "Belege heute",
+  "restaurant_kpi_cash": "Barumsatz",
+  "restaurant_kpi_card": "Karte / NFC",
+  "restaurant_kpi_tax": "MwSt. heute"
 }
