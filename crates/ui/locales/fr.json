@@ -1964,5 +1964,7 @@
   "contacts_import_preview_title": "Vérifier l’importation",
   "contacts_import_category": "Catégorie des contacts importés",
   "contacts_import_remove": "Supprimer",
-  "contacts_import_confirm": "Importer les contacts"
+  "contacts_import_confirm": "Importer les contacts",
+  "contacts_export_all": "Tous les contacts",
+  "contacts_export_filtered": "Vue filtrée"
 }
