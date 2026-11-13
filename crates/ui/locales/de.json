@@ -1960,5 +1960,9 @@
   "contacts_batch_title": "Mehrere Kontakte anlegen",
   "contacts_batch_hint": "Fülle die Kontakte aus, die du gemeinsam speichern möchtest.",
   "contacts_batch_row": "Kontakt",
-  "contacts_batch_add_row": "Weitere Zeile"
+  "contacts_batch_add_row": "Weitere Zeile",
+  "contacts_import_preview_title": "Import prüfen",
+  "contacts_import_category": "Kategorie für importierte Kontakte",
+  "contacts_import_remove": "Entfernen",
+  "contacts_import_confirm": "Kontakte importieren"
 }
