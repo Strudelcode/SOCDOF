@@ -250,6 +250,11 @@ fn restaurant_checkout_keeps_grouped_vat_on_the_paid_invoice() {
     assert_eq!(invoice.subtotal_cents, 14);
     assert_eq!(invoice.tax_total_cents, 1);
     assert_eq!(invoice.total_cents, 15);
+    let pos = state
+        .pos_overview(0, i64::MAX, None)
+        .expect("POS overview");
+    assert_eq!(pos.summary.tax_cents, 1);
+    assert_eq!(pos.summary.gross_cents, 15);
 
     state.release_lock();
     drop(state);
@@ -260,6 +265,11 @@ fn restaurant_checkout_keeps_grouped_vat_on_the_paid_invoice() {
         .expect("persisted invoice");
     assert_eq!(persisted.tax_total_cents, 1);
     assert_eq!(persisted.total_cents, 15);
+    let persisted_pos = reopened
+        .pos_overview(0, i64::MAX, None)
+        .expect("persisted POS overview");
+    assert_eq!(persisted_pos.summary.tax_cents, 1);
+    assert_eq!(persisted_pos.summary.gross_cents, 15);
     reopened.release_lock();
 }
 
