@@ -1261,9 +1261,7 @@ listed as the next work in 18.5, not as an open parity gap.
 - **Fleet module (second functional app port, 2026-11-13):** registered `AppModule::Fleet` in the 18-module permission/App Store catalogue and native desktop launcher. The native egui app now manages vehicles, trips and fuel/charging receipts with the shared SQLite APIs and core validation, automatically advances vehicle odometers for new trips, computes business/private/commute kilometres and the €0.30/km allowance, and exports the logbook CSV with a native save dialog. CRUD, validation and persistence regression tests are included; DE/EN/FR/ES labels are present. Vehicle, purpose and inclusive date filters are now present; remaining work is side-by-side verification of filter behavior, edit edge cases and CSV output.
 
 - **Native Rust desktop host (first integration pass, 2026-11-13):** `cargo run -p socdof-ui --features window --bin socdof-ui-desktop` now starts the egui shell with the persistent SQLite database, the shared `network_session.lock`, saved language/theme/accent and real setup/login. `GalleryState::from_store` deliberately skips all sample records and demo credentials; `GalleryState::new` remains the isolated fixture path for visual tests. Lock/sign-out/account-switch actions return to the authentication screen. The Tauri webview and its installer are retained until native parity and OS integrations are proven.
-- The remaining TypeScript components in the egui/webview split: TaskViewModal/Appointments,
-  SupportServicesModule, TherapyPracticeModule, StudioDrawer/AccountScopedWorkspace and
-  the DocumentationApp/StorageInspector screens.
+- The remaining TypeScript components in the egui/webview split: TaskViewModal/Appointments, SupportServicesModule, TherapyPracticeModule, StudioDrawer/AccountScopedWorkspace and the DocumentationApp/StorageInspector screens. Restaurant now has a native functional screen; its TS reference remains for side-by-side parity checks until acceptance.
 - Closed in the backoffice pass: Accounting, Purchases, Reports, Restore/Verify and AppStore are
   now real Tauri webview modules; the earlier Settings profile/backup, Textwerk and Calendar
   screens remain in place. The Xvfb smoke now drives the real navigation to accounting, purchases,
@@ -1283,8 +1281,7 @@ listed as the next work in 18.5, not as an open parity gap.
 
 ### 18.6 Open TODO list
 
-The feature surfaces are closed; the visual-parity gate and the release environment are open. No
-requested surface is a placeholder, but “implemented” is not the same as “visually accepted”.
+Functional parity is being completed before GUI polish. The native Restaurant, Projects and Fleet screens are new ports and still need side-by-side edge-case verification; the visual-parity gate and release environment remain open.
 
 - [x] Contacts: detail modal, customer picker and delete-confirmation parity.
 - [x] Dashboard calculator and widget layer, including calculator history and visibility settings.
@@ -1324,6 +1321,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 | Date | Phase | Note |
 |---|---|---|
 | 2026-11-13 | 9 | Added the first persistent native egui desktop host on `feature/rust-native-desktop-host`: real SQLite path, legacy-compatible instance lock and heartbeat, saved profile language/theme/accent, first-run setup or login, and no demo data. The fixture gallery remains unchanged as a separate development path. The Tauri frontend is not removed until native parity, platform integrations and installer verification pass. |
+| 2026-11-13 | 10 | Added native Projects and Fleet to the egui desktop: project/task portfolio and billing, vehicle register/logbook/fuel records, odometer updates, analytics, CSV exports, 18-module permissions/App Store catalogue, legacy built-in-role upgrades and DE/EN/FR/ES labels. Added persistence, validation and billing regression tests. |
 | 2026-11-13 | 10 | Added native Restaurant to the egui desktop and 18-module permission/App Store matrix: 13-table floor plan, table orders, menu CRUD/availability, kitchen statuses, notes, server, cash/card/NFC checkout, tips/split, hospitality receipts, atomic invoice/POS posting, daily Z-report and GoBD CSV. Added DE/EN/FR/ES labels and native persistence/checkout tests. |
 | 2026-11-11 | 18 | Webview parity pass: contact detail + customer picker, calculator/history and widgets, command palette, task view with virtual desktops, login gate and user management, language modal, documentation browser and storage inspector; 984 identical de/en/fr/es keys and new tests. Real TS/Rust screenshot pairs in `docs/parity/`. |
 | 2026-11-12 | 18 | Final visual evidence from the v26 binary: eight of ten pairs pass the ≥98 pixel target, five pass SSIM ≥0.90; Settings and the dark palette remain open. Added the real FatturaPA XML import, sequential contact creation and v26 version alignment; all gates incl. the Xvfb GUI smoke pass. |
