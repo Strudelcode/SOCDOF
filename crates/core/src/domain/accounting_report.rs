@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn applies_period_range_and_excludes_draft_documents() {
-        let mut draft = Invoice {
+        let draft = Invoice {
             id: uuid::Uuid::new_v4(),
             number: "D-001".into(),
             contact_id: uuid::Uuid::new_v4(),
@@ -336,12 +336,14 @@ mod tests {
         let mut outside = draft.clone();
         outside.status = InvoiceStatus::Paid;
         outside.issued_at = 10_000;
-        draft.status = InvoiceStatus::Draft;
         let report = build_business_accounting_report(
             &[draft, outside],
             &[],
             &[],
-            ReportRange { from: Some(0), to: Some(5_000) },
+            ReportRange {
+                from: Some(0),
+                to: Some(5_000),
+            },
             5_000,
         );
         assert_eq!(report.invoice_net.cents(), 0);
