@@ -674,4 +674,21 @@ mod tests {
         assert_eq!(parsed[0].notes.as_deref(), Some("first line\nsecond line"));
     }
 
+
+    #[test]
+    fn falls_back_to_non_empty_home_address_columns_and_maps_legacy_guest_type() {
+        let csv = concat!(
+            "Type;Business Street;Home Street;Business City;Home City;",
+            "Business Postal Code;Home Postal Code;Business Country/Region;Home Country/Region\r\n",
+            "Buch;;Home Lane;;London;;N1 1AA;;United Kingdom"
+        );
+        let parsed = parse_contacts_csv(csv, ContactType::Customer, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].contact_type, ContactType::Guest);
+        assert_eq!(parsed[0].street.as_deref(), Some("Home Lane"));
+        assert_eq!(parsed[0].city.as_deref(), Some("London"));
+        assert_eq!(parsed[0].zip.as_deref(), Some("N1 1AA"));
+        assert_eq!(parsed[0].country.as_deref(), Some("United Kingdom"));
+    }
+
 }
