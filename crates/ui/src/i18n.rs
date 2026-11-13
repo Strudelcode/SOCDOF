@@ -1879,6 +1879,9 @@ pub const UI_KEYS: &[&str] = &[
     "fleet_private_km",
     "fleet_commute_km",
     "fleet_allowance_rate",
+    "projects_kpi_logged",
+    "projects_kpi_estimated",
+    "projects_kpi_completion",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
