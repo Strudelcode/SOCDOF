@@ -10,6 +10,7 @@
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
 use egui::{Context, RichText};
+use socdof_core::contact_import_export::{export_contacts_csv, export_contacts_vcard, parse_contacts_csv, parse_contacts_vcard};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::domain::countries::{search_countries, Country};
 use socdof_core::domain::settings::Language;
@@ -435,7 +436,7 @@ pub fn contacts(
         )
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                ContactsView::List => list_view(ui, theme, texts, focus, state),
+                ContactsView::List => list_view(ui, theme, texts, focus, state, store, now),
                 ContactsView::Detail => detail_view(ui, theme, texts, focus, state),
                 ContactsView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
@@ -496,6 +497,8 @@ fn list_view(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut ContactsState,
+    store: &Store,
+    now: i64,
 ) {
     let subtitle = format!(
         "{} · {}",
@@ -516,7 +519,10 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut create = false;
-    ui.horizontal(|ui| {
+    let mut import = false;
+    let mut export_csv = false;
+    let mut export_vcard = false;
+    ui.horizontal_wrapped(|ui| {
         search_field_reserved(
             ui,
             theme,
@@ -525,21 +531,98 @@ fn list_view(
             texts.get("contacts_search"),
             150.0,
         );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
+        if button(ui, theme, focus, texts.get("contacts_new"), ButtonVariant::Primary).activated {
             create = true;
+        }
+        if button(ui, theme, focus, texts.get("contacts_import"), ButtonVariant::Secondary).activated {
+            import = true;
+        }
+        if button(ui, theme, focus, texts.get("contacts_export_csv"), ButtonVariant::Secondary).activated {
+            export_csv = true;
+        }
+        if button(ui, theme, focus, texts.get("contacts_export_vcard"), ButtonVariant::Secondary).activated {
+            export_vcard = true;
         }
     });
     if create {
         state.start_new();
         return;
+    }
+
+    // Native file pickers are enabled by the desktop host. The headless gallery remains portable.
+    if import {
+        #[cfg(feature = "dialogs")]
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("Contacts", &["csv", "vcf", "vcard"])
+            .pick_file()
+        {
+            match std::fs::read_to_string(&path) {
+                Ok(contents) => {
+                    let is_vcard = path.extension().and_then(|v| v.to_str())
+                        .is_some_and(|v| v.eq_ignore_ascii_case("vcf") || v.eq_ignore_ascii_case("vcard"));
+                    let parsed = if is_vcard {
+                        parse_contacts_vcard(&contents, ContactType::Guest, now)
+                    } else {
+                        parse_contacts_csv(&contents, ContactType::Guest, now)
+                    };
+                    if parsed.is_empty() {
+                        state.error = Some("contacts_import_empty");
+                        state.status = None;
+                    } else if store.insert_contacts(&parsed).is_ok() {
+                        state.reload = true;
+                        state.status = Some("contacts_imported");
+                        state.error = None;
+                    } else {
+                        state.error = Some("contacts_error_save");
+                        state.status = None;
+                    }
+                }
+                Err(_) => {
+                    state.error = Some("contacts_error_load");
+                    state.status = None;
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            state.error = Some("contacts_error_picker");
+        }
+    }
+
+    if export_csv || export_vcard {
+        #[cfg(feature = "dialogs")]
+        if !state.contacts.is_empty() {
+            let (name, extension, filter) = if export_csv {
+                ("kontakte_export.csv", "csv", "CSV")
+            } else {
+                ("kontakte_export.vcf", "vcf", "vCard")
+            };
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(name)
+                .add_filter(filter, &[extension])
+                .save_file()
+            {
+                let content = if export_csv {
+                    export_contacts_csv(&state.contacts, ';')
+                } else {
+                    export_contacts_vcard(&state.contacts)
+                };
+                if std::fs::write(path, content).is_ok() {
+                    state.status = Some("contacts_exported");
+                    state.error = None;
+                } else {
+                    state.error = Some("contacts_error_save");
+                    state.status = None;
+                }
+            }
+        } else {
+            state.error = Some("contacts_import_empty");
+            state.status = None;
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            state.error = Some("contacts_error_picker");
+        }
     }
 
     ui.add_space(12.0);
