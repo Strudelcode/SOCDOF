@@ -191,6 +191,7 @@ impl InvoiceDraft {
                 due_at: now + DUE_DAYS * DAY_MS,
                 currency_symbol: "€".to_string(),
                 note: None,
+                tax_total_override_cents: None,
                 lines: Vec::new(),
             },
         };
@@ -573,6 +574,7 @@ fn sample_invoice(
         due_at: issued_at + DUE_DAYS * DAY_MS,
         currency_symbol: "€".to_string(),
         note,
+        tax_total_override_cents: None,
         lines,
     }
 }
