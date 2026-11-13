@@ -985,6 +985,7 @@ pub const UI_KEYS: &[&str] = &[
     "pos_summary_cash",
     "pos_summary_gross",
     "pos_summary_net",
+    "pos_summary_nfc",
     "pos_summary_receipts",
     "pos_summary_tax",
     "pos_summary_title",
