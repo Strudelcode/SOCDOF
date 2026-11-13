@@ -13,7 +13,7 @@ use crate::domain::pos::{PaymentMethod, PosOrder};
 use crate::domain::purchase::{PurchaseOrder, PurchaseOrderStatus};
 use crate::money::Money;
 
-/// Optional inclusive timestamp range for a report.
+/// Optional half-open timestamp range (`from <= timestamp < to`) for a report.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ReportRange {
     /// First included timestamp in milliseconds since the Unix epoch.
