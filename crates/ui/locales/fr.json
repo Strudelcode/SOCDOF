@@ -1,4 +1,10 @@
 {
+  "projects_contact": "Lier un contact",
+  "projects_no_contact": "Aucun contact",
+  "projects_bill_project": "Créer une facture",
+  "projects_export": "Exporter CSV",
+  "projects_exported": "Portefeuille de projets exporté.",
+  "projects_invoice_created": "Brouillon de facture créé.",
   "projects_status_active": "Actif",
   "projects_status_planning": "Planification",
   "projects_status_review": "Révision",
