@@ -1943,5 +1943,8 @@
   "restaurant_kpi_cash": "Ventas en efectivo",
   "restaurant_kpi_card": "Tarjeta / NFC",
   "restaurant_kpi_tax": "Impuestos de hoy",
-  "restaurant_all": "Todas"
+  "restaurant_all": "Todas",
+  "therapie_session_date": "Fecha de la sesión",
+  "therapie_session_time": "Hora de inicio",
+  "therapie_error_date": "Introduce una fecha y hora de inicio válidas."
 }
