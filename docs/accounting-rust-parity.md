@@ -13,7 +13,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - Date filtering against each source document's own date field, with All/Today/Month/Quarter/Year and inclusive custom start/end dates mapped to half-open timestamp ranges. Today currently follows the native UTC date helpers; local-timezone parity still needs a side-by-side check.
 - Native Accounting UI Business Report tab backed by the core aggregate, refreshed whenever the app is reopened.
 - Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability, saved through a native file dialog.
-- Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook.
+- Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook. The workbook includes Excel formulas for income/expense totals, cash/bank balances, transaction running balance and cross-sheet monthly carry-over.
 - Ledger sources: practice billable items, recorded invoice payments (actual payment date/method), completed POS receipts, non-draft purchases and manually entered journal bookings. Linked invoices are skipped when their billable positions are already represented, preventing duplicate income. Unpaid invoices without a billing item remain receivables.
 - The year selector covers the current year, the previous five years and the next year. Per-year opening cash/bank balances are read from and saved to the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
 - Native Accounting toolbar now offers the 12-sheet workbook and a selected-month CSV through native save dialogs; all four languages have the new labels.
@@ -30,7 +30,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - [x] Add the native 12-sheet monthly tax-advisor Excel export and sequential cash/bank carry-over.
 - [x] Add UI controls to edit and persist the opening cash/bank balances; existing Accounting journal entries are included as manual ledger transactions.
 - [ ] Add dedicated manual tax-ledger rows if required beyond the existing journal form.
-- [ ] Compare exact Excel XML layout, formula behavior, filenames, monthly CSV bytes and locale/date formatting against the TypeScript reference.
+- [ ] Compare exact Excel XML layout, formula ranges/behavior, filenames, monthly CSV bytes and locale/date formatting against the TypeScript reference.
 - [x] Include practice billing items and suppress linked invoice duplicates.
 - [ ] Port therapy practice trips with their per-trip mileage rate; the generic fleet logbook uses a different fixed allowance and is intentionally not substituted.
 
