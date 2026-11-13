@@ -71,33 +71,25 @@ function coldStart() {
 }
 
 function installerBudgets() {
-  const dir = join(root, "crates/app/src-tauri/target/release/bundle");
-  const artifacts = files(dir).filter((file) => /\.(AppImage|deb|msi|exe|dmg)$/i.test(file));
-  if (!artifacts.length) {
-    rows.push({ label: "installer", value: "not built here (needs Tauri + GTK/WebKit)", cap: "", unit: "", ok: true });
-    rows.push({ label: "installed", value: "not built here (needs Tauri + GTK/WebKit)", cap: "", unit: "", ok: true });
+  // The Tauri bundle is a migration fallback and intentionally remains available until parity is
+  // accepted. The native Rust host is the release target for the new size gates.
+  const binary = join(root, "target/release/socdof-ui-desktop");
+  if (!existsSync(binary)) {
+    rows.push({ label: "native desktop binary", value: "not built here", cap: "", unit: "", ok: true });
+    rows.push({ label: "native installed footprint", value: "not built here", cap: "", unit: "", ok: true });
     return;
   }
-  const largest = artifacts
-    .map((file) => ({ file, bytes: statSync(file).size }))
-    .sort((a, b) => b.bytes - a.bytes)[0];
-  measure(`installer ${basename(largest.file)}`, largest.bytes, limit("installer_bytes", budgets.installer.max_bytes), "bytes");
-
-  const target = join(tmpdir(), `socdof-installed-${process.pid}`);
-  rmSync(target, { recursive: true, force: true });
-  mkdirSync(target, { recursive: true });
-  try {
-    if (largest.file.endsWith(".deb")) {
-      execFileSync("dpkg-deb", ["-x", largest.file, target]);
-    } else if (largest.file.endsWith(".AppImage")) {
-      execFileSync("chmod", ["+x", largest.file]);
-      execFileSync(largest.file, ["--appimage-extract"], { cwd: target });
-    }
-    const bytes = files(target).reduce((sum, file) => sum + statSync(file).size, 0);
-    if (bytes > 0) measure("installed", bytes, limit("installed_bytes", budgets.installed.max_bytes), "bytes");
-  } finally {
-    rmSync(target, { recursive: true, force: true });
-  }
+  const bytes = statSync(binary).size;
+  measure("native desktop binary", bytes, limit("installer_bytes", budgets.installer.max_bytes), "bytes");
+  // The current native distribution is a single executable plus OS-provided shared libraries.
+  // Its unpacked application footprint is therefore the executable itself; the installer cap is
+  // intentionally kept separate for a future platform installer.
+  measure(
+    "native installed footprint",
+    bytes,
+    limit("installed_bytes", budgets.installed.max_bytes),
+    "bytes",
+  );
 }
 
 function runtimeBudgets() {
