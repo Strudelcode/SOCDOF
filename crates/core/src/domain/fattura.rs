@@ -385,6 +385,7 @@ mod tests {
             due_at: 1_762_592_000_000,
             currency_symbol: "€".to_string(),
             note: Some("Beratung <&> Service".to_string()),
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 2_000,
