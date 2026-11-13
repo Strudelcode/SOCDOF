@@ -174,6 +174,14 @@ pub struct ContactsState {
     pub batch_open: bool,
     /// Rows in the batch creation dialog.
     pub batch_drafts: Vec<ContactDraft>,
+    /// Whether the contact import preview is open.
+    pub import_open: bool,
+    /// Parsed contacts awaiting confirmation.
+    pub import_preview: Vec<Contact>,
+    /// Selected category for imported contacts.
+    pub import_target_type: usize,
+    /// Original filename shown in the preview.
+    pub import_file_name: String,
     /// Catalogue key of the validation or storage error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last success message.
@@ -590,6 +598,79 @@ pub fn contacts(
         state.batch_open = false;
     }
 
+    let mut import_open = state.import_open;
+    let mut confirm_import = false;
+    let mut cancel_import = false;
+    egui::Window::new(texts.get("contacts_import_preview_title"))
+        .open(&mut import_open)
+        .collapsible(false)
+        .resizable(true)
+        .default_width(640.0)
+        .show(ctx, |ui| {
+            ui.label(format!("{} · {}", state.import_file_name, state.import_preview.len()));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.label(texts.get("contacts_import_category"));
+                egui::ComboBox::from_id_source("contacts-import-type")
+                    .selected_text(texts.get(TYPE_KEYS[state.import_target_type.min(3)]))
+                    .show_ui(ui, |ui| {
+                        for (value, key) in TYPE_KEYS.iter().enumerate() {
+                            if ui.selectable_value(&mut state.import_target_type, value, texts.get(key)).changed() {
+                                for contact in &mut state.import_preview {
+                                    contact.contact_type = type_from_index(value);
+                                }
+                            }
+                        }
+                    });
+            });
+            ui.separator();
+            let mut remove = Vec::new();
+            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                for (index, contact) in state.import_preview.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.label(contact.display_name());
+                        ui.label(contact.email.as_deref().unwrap_or(""));
+                        ui.label(contact.phone.as_deref().unwrap_or(""));
+                        if button(ui, theme, focus, texts.get("contacts_import_remove"), ButtonVariant::Ghost).activated {
+                            remove.push(index);
+                        }
+                    });
+                }
+            });
+            for index in remove.into_iter().rev() {
+                state.import_preview.remove(index);
+            }
+            ui.separator();
+            ui.horizontal(|ui| {
+                if button(ui, theme, focus, texts.get("contacts_import_confirm"), ButtonVariant::Primary).activated {
+                    confirm_import = true;
+                }
+                if button(ui, theme, focus, texts.get("contacts_cancel"), ButtonVariant::Secondary).activated {
+                    cancel_import = true;
+                }
+            });
+        });
+    state.import_open = import_open && !cancel_import;
+    if confirm_import {
+        if state.import_preview.is_empty() {
+            state.error = Some("contacts_import_empty");
+        } else if store.insert_contacts(&state.import_preview).is_ok() {
+            state.import_preview.clear();
+            state.import_open = false;
+            state.reload = true;
+            state.status = Some("contacts_imported");
+            state.error = None;
+            let _ = state.refresh(store);
+        } else {
+            state.error = Some("contacts_error_save");
+            state.status = None;
+        }
+    }
+    if cancel_import {
+        state.import_preview.clear();
+        state.import_open = false;
+    }
+
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("contacts_error_delete");
     }
@@ -679,12 +760,12 @@ fn list_view(
                     if parsed.is_empty() {
                         state.error = Some("contacts_import_empty");
                         state.status = None;
-                    } else if store.insert_contacts(&parsed).is_ok() {
-                        state.reload = true;
-                        state.status = Some("contacts_imported");
-                        state.error = None;
                     } else {
-                        state.error = Some("contacts_error_save");
+                        state.import_preview = parsed;
+                        state.import_file_name = path.file_name().and_then(|v| v.to_str()).unwrap_or("").to_string();
+                        state.import_target_type = 3;
+                        state.import_open = true;
+                        state.error = None;
                         state.status = None;
                     }
                 }
