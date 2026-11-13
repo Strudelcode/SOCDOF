@@ -28,6 +28,11 @@ path = "src/bin/gallery.rs"
 required-features = ["window"]
 
 [[bin]]
+name = "socdof-ui-desktop"
+path = "src/bin/desktop.rs"
+required-features = ["window"]
+
+[[bin]]
 name = "socdof-ui-preview"
 path = "src/bin/preview.rs"
 
