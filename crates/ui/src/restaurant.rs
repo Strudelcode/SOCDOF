@@ -306,7 +306,7 @@ pub fn restaurant(ctx:&Context,theme:&Theme,texts:&UiTexts,focus:&mut FocusState
                         ui.horizontal(|ui|{if button(ui,theme,focus,texts.get("restaurant_save"),ButtonVariant::Primary).activated{if let Err(e)=state.save_dish(store){state.error=Some(e.to_string());}}
                             if button(ui,theme,focus,texts.get("restaurant_cancel"),ButtonVariant::Ghost).activated{state.dish_draft=None;}});
                     });}
-                    let dishes:Vec<_>=state.menu.iter().filter(|d|state.query.is_empty()||d.name.to_lowercase().contains(&state.query.to_lowercase())||d.ingredients.to_lowercase().contains(&state.query.to_lowercase()))&&(state.category_filter=="all"||d.category==state.category_filter)).cloned().collect();
+                    let dishes:Vec<_>=state.menu.iter().filter(|d|(state.query.is_empty()||d.name.to_lowercase().contains(&state.query.to_lowercase())||d.ingredients.to_lowercase().contains(&state.query.to_lowercase()))&&(state.category_filter=="all"||d.category==state.category_filter)).cloned().collect();
                     for dish in dishes{ui.horizontal_wrapped(|ui|{
                         ui.label(format!("{} {} · {}",dish.emoji,dish.name,money(dish.gross().cents(),&currency)));
                         if ui.button(if dish.is_available{texts.get("restaurant_available")}else{texts.get("restaurant_unavailable")}).clicked(){let mut changed=dish.clone();changed.is_available=!changed.is_available;if let Err(e)=store.update_restaurant_menu_item(&changed){state.error=Some(e.to_string());}else{let _=state.refresh(store);}}
