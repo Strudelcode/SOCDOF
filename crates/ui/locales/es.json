@@ -1,4 +1,11 @@
 {
+  "projects_view_portfolio": "Cartera",
+  "projects_view_kanban": "Kanban",
+  "projects_view_tasks": "Tareas",
+  "projects_filter_all": "Todos",
+  "projects_filter_project": "Proyecto",
+  "projects_filter_all_projects": "Todos los proyectos",
+  "projects_task_title": "Tarea",
   "projects_color": "Color del proyecto",
   "projects_contact": "Vincular contacto",
   "projects_no_contact": "Sin contacto",
