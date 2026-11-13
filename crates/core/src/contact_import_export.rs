@@ -598,4 +598,24 @@ mod tests {
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].email.as_deref(), Some("ada@example.org"));
     }
+
+    #[test]
+    fn vcard_without_email_keeps_email_absent() {
+        let vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:No Email\r\nTEL;TYPE=CELL:123456\r\nEND:VCARD";
+        let parsed = parse_contacts_vcard(vcf, ContactType::Guest, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].email, None);
+    }
+
+    #[test]
+    fn csv_export_preserves_quoted_embedded_newlines() {
+        let mut contact = Contact::new(ContactKind::Person, 1);
+        contact.name = Some("Ada Lovelace".to_string());
+        contact.notes = Some("first line\nsecond line".to_string());
+        let csv = export_contacts_csv(&[contact], ';');
+        let parsed = parse_contacts_csv(&csv, ContactType::Guest, 2);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].notes.as_deref(), Some("first line\nsecond line"));
+    }
+
 }
