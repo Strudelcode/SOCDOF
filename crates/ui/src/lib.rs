@@ -13,8 +13,8 @@
 //! stylesheet, the appearance/theme engine, the Rust-drawn icon set, the component kit with the
 //! input controls, keyboard focus with token focus rings, a small form framework, the
 //! four-language UI catalogue and the component gallery that renders every state. With the `window`
-//! feature the gallery also runs as a real eframe window (`socdof-ui-gallery`); the default build
-//! stays window free so tests need no desktop libraries.
+//! feature the component gallery runs as `socdof-ui-gallery` and the persistent application runs as
+//! `socdof-ui-desktop`; the default build stays window free so tests need no desktop libraries.
 //!
 //! The primitives are pinned by deterministic snapshots ([`snapshot::capture`]): paint commands are
 //! reduced to stable text and compared with golden files, so a geometry, color or text change is
