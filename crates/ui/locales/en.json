@@ -1,4 +1,7 @@
 {
+  "fleet_filter_all": "All",
+  "fleet_filter_from": "From",
+  "fleet_filter_to": "To",
   "projects_kpi_logged": "Logged hours",
   "projects_kpi_estimated": "Estimated hours",
   "projects_kpi_completion": "Completion",
