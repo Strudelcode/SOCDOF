@@ -1,4 +1,7 @@
 {
+  "fleet_filter_all": "Tous",
+  "fleet_filter_from": "Du",
+  "fleet_filter_to": "Au",
   "projects_kpi_logged": "Heures enregistrées",
   "projects_kpi_estimated": "Heures estimées",
   "projects_kpi_completion": "Avancement",
