@@ -23,6 +23,11 @@ use socdof_core::domain::accounting_report::{
     build_business_accounting_report, export_business_accounting_csv, BusinessAccountingReport,
     ReportRange,
 };
+use socdof_core::domain::invoice::InvoiceStatus;
+use socdof_core::domain::tax_advisor_ledger::{
+    build_tax_advisor_transactions, build_yearly_ledger, export_tax_advisor_excel_xml,
+    MonthlyLedgerData,
+};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -119,6 +124,28 @@ impl AccountingPeriod {
             }
         }
     }
+}
+
+fn ledger_month_names(language: &str) -> Vec<String> {
+    let names = match language {
+        "en" => [
+            "January", "February", "March", "April", "May", "June", "July", "August",
+            "September", "October", "November", "December",
+        ],
+        "fr" => [
+            "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août",
+            "Septembre", "Octobre", "Novembre", "Décembre",
+        ],
+        "es" => [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
+            "Septiembre", "Octubre", "Noviembre", "Diciembre",
+        ],
+        _ => [
+            "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
+            "September", "Oktober", "November", "Dezember",
+        ],
+    };
+    names.iter().map(|name| (*name).to_string()).collect()
 }
 
 fn parse_date_start(value: &str) -> Option<i64> {
@@ -362,6 +389,14 @@ pub struct AccountingState {
     pub company_name: String,
     /// Company currency used by the cross-module report.
     pub currency_symbol: String,
+    /// Current calendar year used for the monthly tax-advisor ledger.
+    pub tax_advisor_year: i32,
+    /// Owner or company name printed on the tax-advisor workbook.
+    pub tax_advisor_owner: String,
+    /// Twelve monthly cash/bank ledgers for the current year.
+    pub tax_advisor_months: Vec<MonthlyLedgerData>,
+    /// Set when the twelve-sheet Excel export is requested.
+    pub tax_advisor_export: bool,
     /// Selected entry, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -399,6 +434,10 @@ impl Default for AccountingState {
             business_report: BusinessAccountingReport::default(),
             company_name: String::new(),
             currency_symbol: "€".to_string(),
+            tax_advisor_year: 0,
+            tax_advisor_owner: String::new(),
+            tax_advisor_months: Vec::new(),
+            tax_advisor_export: false,
             selected: None,
             view: AccountingView::List,
             draft: AccountingDraft::default(),
@@ -456,16 +495,62 @@ impl AccountingState {
         self.entries = entries;
 
         let company = store.company_profile()?;
-        self.company_name = company.name;
+        self.company_name = company.name.clone();
         self.currency_symbol = if company.currency.trim().is_empty() {
             "€".to_string()
         } else {
-            company.currency
+            company.currency.clone()
+        };
+        self.tax_advisor_owner = if company.bank_account_holder.trim().is_empty() {
+            company.name.clone()
+        } else {
+            company.bank_account_holder.clone()
         };
 
         let invoices = store.list_invoices()?;
         let purchases = store.list_purchase_orders()?;
         let pos_orders = store.list_pos_orders()?;
+        let mut payments = Vec::new();
+        for invoice in invoices
+            .iter()
+            .filter(|invoice| invoice.status == InvoiceStatus::Paid)
+        {
+            if let Some(payment) = store.invoice_payment(invoice.id)? {
+                payments.push(payment);
+            }
+        }
+        let journal_entries = store.list_journal_entries()?;
+        let fleet_trips = store.fleet_trips()?;
+        let ledger_transactions = build_tax_advisor_transactions(
+            &invoices,
+            &payments,
+            &purchases,
+            &pos_orders,
+            &journal_entries,
+            &fleet_trips,
+        );
+        let (ledger_year, _, _) = date::civil_from_millis(now);
+        self.tax_advisor_year = ledger_year;
+        let month_names = ledger_month_names(company.language.as_str());
+        let carryover_key = format!("tax_advisor_ledger_initial_carryover_{ledger_year}");
+        let carryover = store.get_setting(&carryover_key)?;
+        let initial_cash = carryover
+            .as_ref()
+            .and_then(|value| value.get("cash_cents"))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0);
+        let initial_bank = carryover
+            .as_ref()
+            .and_then(|value| value.get("bank_cents"))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0);
+        self.tax_advisor_months = build_yearly_ledger(
+            ledger_year,
+            &ledger_transactions,
+            &month_names,
+            Money::from_cents(initial_cash),
+            Money::from_cents(initial_bank),
+        );
         self.business_report = build_business_accounting_report(
             &invoices,
             &purchases,
@@ -740,6 +825,59 @@ pub fn accounting(
             });
         });
 
+    if state.tax_advisor_export {
+        let workbook = export_tax_advisor_excel_xml(
+            state.tax_advisor_year,
+            &state.tax_advisor_owner,
+            &state.currency_symbol,
+            &state.tax_advisor_months,
+        );
+        let safe_owner = state
+            .tax_advisor_owner
+            .chars()
+            .map(|character| {
+                if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                    character
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        let owner = if safe_owner.trim_matches('_').is_empty() {
+            "Praxis".to_string()
+        } else {
+            safe_owner
+        };
+        let filename = format!(
+            "Ein_und_Ausgaben_{}_{}.xls",
+            owner, state.tax_advisor_year
+        );
+        #[cfg(feature = "dialogs")]
+        {
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter("Excel SpreadsheetML", &["xls"])
+                .save_file()
+            {
+                if std::fs::write(path, workbook.as_bytes()).is_ok() {
+                    state.status = Some("accounting_saved");
+                    state.error = None;
+                } else {
+                    state.error = Some("accounting_error_save");
+                    state.status = None;
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            let _ = filename;
+            ctx.output_mut(|output| output.copied_text = workbook);
+            state.error = None;
+            state.status = Some("accounting_exported");
+        }
+        state.tax_advisor_export = false;
+    }
+
     if state.export {
         let csv = if state.tab == AccountingTab::BusinessReport {
             export_business_accounting_csv(
@@ -942,6 +1080,18 @@ fn list_view(
             {
                 state.start_new();
             }
+        }
+        if state.tab == AccountingTab::BusinessReport
+            && button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_export"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+        {
+            state.tax_advisor_export = true;
         }
         if button(
             ui,
