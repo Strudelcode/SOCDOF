@@ -434,5 +434,4 @@ mod tests {
         assert!(csv.contains("\"Net (€)\""));
         assert!(csv.contains("\"Total Revenue\";\"100.00\""));
     }
-
 }
