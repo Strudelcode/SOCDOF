@@ -21,6 +21,9 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 - Restaurant invoice parity: the v16 SQLite migration stores an optional invoice VAT override, so
   the paid ERP invoice and POS ledger receipt retain the same grouped tax total after reload. Added a checkout
   integration test for the one-cent rounding case (invoice schema v16, POS schema v17).
+- Therapy session parity: the native practice screen can now edit open sessions, persists the
+  changes through the existing SQLite update path, and prevents edits to sessions already linked
+  to an invoice. Added a regression test and DE/EN/FR/ES labels.
 
 
 ### Known issues
