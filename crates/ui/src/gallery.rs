@@ -292,7 +292,7 @@ pub struct GalleryState {
     pub auth: AuthState,
     /// Whether the authentication screen is shown instead of the gallery.
     pub auth_open: bool,
-    /// In-memory database behind the sample screens.
+    /// Database backing the UI; in-memory for gallery fixtures and persistent for the desktop host.
     pub store: Store,
 }
 
@@ -2162,7 +2162,6 @@ mod tests {
         assert_eq!(state.store.invoice_count().expect("invoices"), 0);
         assert_eq!(state.store.user_count().expect("users"), 0);
     }
-
 
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
         let ctx = crate::theme::headless_context();
