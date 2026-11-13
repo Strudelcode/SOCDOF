@@ -1731,5 +1731,4 @@ mod tests {
         assert_eq!(state.business_report.open_receivables.len(), 1);
         assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
     }
-
 }
