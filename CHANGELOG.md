@@ -16,6 +16,8 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   the TypeScript portfolio calculation. A regression test covers unrelated task records.
 - Fleet deletion parity: deleting a vehicle preserves its historical logbook trips and fuel
   receipts, matching the TypeScript module. The persistence integration test now covers this.
+- Restaurant VAT parity: native order totals now aggregate net amounts by tax rate before rounding,
+  matching the TypeScript calculation. A cent-level regression test covers two small 7% lines.
 
 
 ### Known issues
