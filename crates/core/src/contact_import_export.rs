@@ -762,8 +762,9 @@ mod tests {
             assert!(line.len() <= 75 || line.starts_with(' '));
         }
         let parsed = parse_contacts_vcard(&exported, ContactType::Guest, 2);
+        let expected = "Ä".repeat(100);
         assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed[0].name.as_deref(), Some("Ä".repeat(100).as_str()));
+        assert_eq!(parsed[0].name.as_deref(), Some(expected.as_str()));
     }
 
     #[test]
