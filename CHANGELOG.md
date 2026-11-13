@@ -22,6 +22,7 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   `RUST_MIGRATION.md` §2.1.
 
 ### Added
+- Native Rust Fleet app: vehicle register, trip logbook, business/private/commute mileage, fuel and charging receipts, odometer updates, tax allowance metrics and GoBD-style CSV export. Registered in the App Store and role permissions with DE/EN/FR/ES translations.
 - Native Rust Projects app: persistent project/customer linking, project/task CRUD, task status transitions, billable-hour calculations, project KPIs, CSV export and draft invoice generation through the shared invoice templates. Registered in the module catalogue and role permissions; translated in DE/EN/FR/ES.
 
 - First persistent native egui desktop host: `socdof-ui-desktop` opens the real SQLite database,
