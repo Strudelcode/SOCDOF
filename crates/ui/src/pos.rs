@@ -1576,6 +1576,7 @@ mod tests {
 
     #[test]
     fn renders_the_list_the_detail_and_the_form() {
+        assert_eq!(payment_key(PaymentMethod::Nfc), "pos_payment_nfc");
         let (store, mut state, texts) = seeded();
 
         let painted = render(&mut state, &store);
