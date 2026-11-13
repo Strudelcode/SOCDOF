@@ -1701,12 +1701,21 @@ mod tests {
         state.batch_drafts[1].contact_type = 1;
         state.batch_drafts[2].phone = "+441234567".to_string();
 
-        state.save_batch(&store, SAMPLE_NOW_MS).expect("batch insert");
+        state
+            .save_batch(&store, SAMPLE_NOW_MS)
+            .expect("batch insert");
 
         let contacts = store.list_contacts().expect("contacts");
-        assert_eq!(contacts.len(), 2, "a row without name or company is skipped");
+        assert_eq!(
+            contacts.len(),
+            2,
+            "a row without name or company is skipped"
+        );
         assert_eq!(contacts[0].display_name(), "Ada Lovelace");
-        assert_eq!(contacts[1].company_name.as_deref(), Some("Analytical Engines"));
+        assert_eq!(
+            contacts[1].company_name.as_deref(),
+            Some("Analytical Engines")
+        );
         assert_eq!(contacts[1].contact_type, ContactType::Vendor);
         assert!(!state.batch_open);
         assert!(state.batch_drafts.is_empty());
@@ -1727,7 +1736,10 @@ mod tests {
         let mut state = ContactsState::new();
         state.refresh(&store).expect("refresh");
 
-        let stored_legacy = store.find_contact(legacy.id).expect("find").expect("legacy");
+        let stored_legacy = store
+            .find_contact(legacy.id)
+            .expect("find")
+            .expect("legacy");
         let stored_valid = store.find_contact(valid.id).expect("find").expect("valid");
         assert_eq!(stored_legacy.email, None);
         assert_eq!(stored_valid.email.as_deref(), Some("real@example.org"));
