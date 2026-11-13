@@ -1946,5 +1946,6 @@
   "restaurant_all": "All",
   "therapie_session_date": "Session date",
   "therapie_session_time": "Start time",
-  "therapie_error_date": "Enter a valid session date and start time."
+  "therapie_error_date": "Enter a valid session date and start time.",
+  "pos_payment_nfc": "NFC / Mobile wallet"
 }
