@@ -136,8 +136,10 @@ pub fn build_tax_advisor_transactions(
     journal_entries: &[JournalEntry],
     billing_items: &[BillingItem],
 ) -> Vec<LedgerTransaction> {
-    let payments_by_invoice: HashMap<Uuid, &InvoicePayment> =
-        payments.iter().map(|payment| (payment.invoice_id, payment)).collect();
+    let payments_by_invoice: HashMap<Uuid, &InvoicePayment> = payments
+        .iter()
+        .map(|payment| (payment.invoice_id, payment))
+        .collect();
     let mut represented_invoices = HashSet::new();
     let mut transactions = Vec::new();
 
@@ -158,12 +160,9 @@ pub fn build_tax_advisor_transactions(
         }
     }
 
-    for invoice in invoices
-        .iter()
-        .filter(|invoice| {
-            invoice.status == InvoiceStatus::Paid && !represented_invoices.contains(&invoice.id)
-        })
-    {
+    for invoice in invoices.iter().filter(|invoice| {
+        invoice.status == InvoiceStatus::Paid && !represented_invoices.contains(&invoice.id)
+    }) {
         let Some(payment) = payments_by_invoice.get(&invoice.id) else {
             continue;
         };
@@ -284,12 +283,10 @@ pub fn build_yearly_ledger(
             }
         }
 
-        cash_balance = Money::from_cents(
-            carry_over_cash.cents() + income_cash.cents() - expense_cash.cents(),
-        );
-        bank_balance = Money::from_cents(
-            carry_over_bank.cents() + income_bank.cents() - expense_bank.cents(),
-        );
+        cash_balance =
+            Money::from_cents(carry_over_cash.cents() + income_cash.cents() - expense_cash.cents());
+        bank_balance =
+            Money::from_cents(carry_over_bank.cents() + income_bank.cents() - expense_bank.cents());
 
         months.push(MonthlyLedgerData {
             month,
@@ -413,12 +410,10 @@ pub fn export_tax_advisor_excel_xml(
             );
         }
 
-        let income_cash_formula = format!(
-            "=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C5:R{last_row}C5)"
-        );
-        let income_bank_formula = format!(
-            "=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C5:R{last_row}C5)"
-        );
+        let income_cash_formula =
+            format!("=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C5:R{last_row}C5)");
+        let income_bank_formula =
+            format!("=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C5:R{last_row}C5)");
         push_row_with_formulas(
             &mut rows,
             &[
@@ -444,12 +439,10 @@ pub fn export_tax_advisor_excel_xml(
             ],
         );
 
-        let expense_cash_formula = format!(
-            "=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C6:R{last_row}C6)"
-        );
-        let expense_bank_formula = format!(
-            "=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C6:R{last_row}C6)"
-        );
+        let expense_cash_formula =
+            format!("=SUMIF(R11C2:R{last_row}C2,&quot;K*&quot;,R11C6:R{last_row}C6)");
+        let expense_bank_formula =
+            format!("=SUMIF(R11C2:R{last_row}C2,&quot;B*&quot;,R11C6:R{last_row}C6)");
         push_row_with_formulas(
             &mut rows,
             &[
@@ -516,9 +509,17 @@ pub fn export_tax_advisor_excel_xml(
         let mut running_balance = month.carry_over_total();
         for row_index in 1..=transaction_rows {
             let zebra = row_index % 2 == 0;
-            let center_style = if zebra { "GridCenterZebra" } else { "GridCenter" };
+            let center_style = if zebra {
+                "GridCenterZebra"
+            } else {
+                "GridCenter"
+            };
             let left_style = if zebra { "GridLeftZebra" } else { "GridLeft" };
-            let money_style = if zebra { "GridCurrencyZebra" } else { "GridCurrency" };
+            let money_style = if zebra {
+                "GridCurrencyZebra"
+            } else {
+                "GridCurrency"
+            };
 
             if let Some(transaction) = month.transactions.get(row_index - 1) {
                 let method = match transaction.channel {
@@ -839,12 +840,29 @@ mod tests {
     #[test]
     fn monthly_balances_carry_cash_and_bank_forward_separately() {
         let transactions = vec![
-            tx("2026-01-03", 10_000, LedgerKind::Income, LedgerChannel::Cash),
-            tx("2026-01-04", 2_500, LedgerKind::Expense, LedgerChannel::Bank),
-            tx("2026-02-01", 1_000, LedgerKind::Expense, LedgerChannel::Cash),
+            tx(
+                "2026-01-03",
+                10_000,
+                LedgerKind::Income,
+                LedgerChannel::Cash,
+            ),
+            tx(
+                "2026-01-04",
+                2_500,
+                LedgerKind::Expense,
+                LedgerChannel::Bank,
+            ),
+            tx(
+                "2026-02-01",
+                1_000,
+                LedgerKind::Expense,
+                LedgerChannel::Cash,
+            ),
             tx("2026-02-05", 4_000, LedgerKind::Income, LedgerChannel::Bank),
         ];
-        let names = (1..=12).map(|month| format!("M{month}")).collect::<Vec<_>>();
+        let names = (1..=12)
+            .map(|month| format!("M{month}"))
+            .collect::<Vec<_>>();
         let months = build_yearly_ledger(
             2026,
             &transactions,
@@ -866,7 +884,12 @@ mod tests {
         let names = (1..=12).map(|month| format!("M{month}")).collect::<Vec<_>>();
         let months = build_yearly_ledger(
             2026,
-            &[tx("2026-03-04", 12_345, LedgerKind::Income, LedgerChannel::Cash)],
+            &[tx(
+                "2026-03-04",
+                12_345,
+                LedgerKind::Income,
+                LedgerChannel::Cash,
+            )],
             &names,
             Money::ZERO,
             Money::ZERO,
