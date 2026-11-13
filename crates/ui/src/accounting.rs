@@ -74,12 +74,18 @@ impl AccountingPeriod {
 
     /// Position in the period tab bar.
     pub fn index(self) -> usize {
-        Self::ALL.iter().position(|period| *period == self).unwrap_or(0)
+        Self::ALL
+            .iter()
+            .position(|period| *period == self)
+            .unwrap_or(0)
     }
 
     /// Period from a tab position, falling back to all documents.
     pub fn from_index(index: usize) -> Self {
-        Self::ALL.get(index).copied().unwrap_or(AccountingPeriod::All)
+        Self::ALL
+            .get(index)
+            .copied()
+            .unwrap_or(AccountingPeriod::All)
     }
 
     /// Catalogue key of the period label.
@@ -1177,8 +1183,16 @@ fn business_report_view(
         for (label, value, tone) in [
             ("accounting_revenue", report.revenue_net, Tone::Success),
             ("accounting_expense", report.purchase_net, Tone::Warning),
-            ("accounting_result", report.operating_profit_net, Tone::Accent),
-            ("accounting_tax_balance", report.vat_liability, Tone::Neutral),
+            (
+                "accounting_result",
+                report.operating_profit_net,
+                Tone::Accent,
+            ),
+            (
+                "accounting_tax_balance",
+                report.vat_liability,
+                Tone::Neutral,
+            ),
         ] {
             ui.horizontal(|ui| {
                 ui.label(
@@ -1186,7 +1200,12 @@ fn business_report_view(
                         .size(FONT_SMALL)
                         .color(theme.palette.text_muted),
                 );
-                badge(ui, theme, &money_in_currency(value, &state.currency_symbol), tone);
+                badge(
+                    ui,
+                    theme,
+                    &money_in_currency(value, &state.currency_symbol),
+                    tone,
+                );
             });
         }
     });
@@ -1219,12 +1238,21 @@ fn business_report_view(
                     ui.end_row();
                 }
                 ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
-                ui.label(money_in_currency(report.revenue_net, &state.currency_symbol));
+                ui.label(money_in_currency(
+                    report.revenue_net,
+                    &state.currency_symbol,
+                ));
                 ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
                 ui.end_row();
                 ui.label(texts.get("accounting_business_input_vat"));
-                ui.label(money_in_currency(report.purchase_net, &state.currency_symbol));
-                ui.label(money_in_currency(report.purchase_tax, &state.currency_symbol));
+                ui.label(money_in_currency(
+                    report.purchase_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(
+                    report.purchase_tax,
+                    &state.currency_symbol,
+                ));
                 ui.end_row();
                 ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
                 ui.label("-");
@@ -1298,11 +1326,8 @@ fn business_report_view(
                         });
                         ui.label(&item.number);
                         ui.label(
-                            RichText::new(money_in_currency(
-                                item.amount,
-                                &state.currency_symbol,
-                            ))
-                            .strong(),
+                            RichText::new(money_in_currency(item.amount, &state.currency_symbol))
+                                .strong(),
                         );
                         ui.end_row();
                     }
@@ -1820,7 +1845,9 @@ mod tests {
         let mut company = store.company_profile().expect("company profile");
         company.name = "Accounting GmbH".to_string();
         company.currency = "$".to_string();
-        store.save_company_profile(&company).expect("save company profile");
+        store
+            .save_company_profile(&company)
+            .expect("save company profile");
         let mut state = AccountingState::new();
         state.refresh(&store, now).expect("initial refresh");
         let mut contact = Contact::new(ContactKind::Person, now);
@@ -1923,5 +1950,4 @@ mod tests {
             .range(now, "2026-02-31", "2026-03-01")
             .is_none());
     }
-
 }
