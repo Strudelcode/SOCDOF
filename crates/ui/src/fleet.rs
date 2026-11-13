@@ -111,6 +111,9 @@ impl FleetState {
         if self.selected_vehicle.is_some_and(|id| !self.vehicles.iter().any(|vehicle| vehicle.id == id)) {
             self.selected_vehicle = None;
         }
+        if self.selected_vehicle_filter.is_some_and(|id| !self.vehicles.iter().any(|vehicle| vehicle.id == id)) {
+            self.selected_vehicle_filter = None;
+        }
         Ok(())
     }
 
