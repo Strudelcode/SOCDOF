@@ -972,6 +972,7 @@ pub const UI_KEYS: &[&str] = &[
     "pos_payment_cash",
     "pos_payment_invoice",
     "pos_payment_other",
+    "pos_payment_nfc",
     "pos_sample_note",
     "pos_sample_product_a",
     "pos_sample_product_b",
