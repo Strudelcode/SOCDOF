@@ -191,6 +191,8 @@ cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
 ```
 
+The native launcher now includes the Restaurant module alongside the existing business apps; its menu, table orders, kitchen flow and checkout use the shared SQLite store.
+
 The first native Rust desktop host is available separately from the Tauri transition build:
 
 ```bash
