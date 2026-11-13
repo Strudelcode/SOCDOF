@@ -53,7 +53,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 16;
+pub const SCHEMA_VERSION: i64 = 17;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -744,6 +744,11 @@ impl Store {
         if version < 16 {
             self.conn.execute_batch(SCHEMA_V16)?;
             version = 16;
+        }
+
+        if version < 17 {
+            self.conn.execute_batch(SCHEMA_V17)?;
+            version = 17;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -2349,6 +2354,7 @@ mod tests {
             paid_at: 10,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             cash_given: Some(Money::from_cents(1_000)),
             lines: vec![PosOrderLine {
                 product_id: Some(product.id),
@@ -2769,4 +2775,10 @@ mod tests {
 /// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
 const SCHEMA_V16: &str = r#"
 ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+
+/// Schema v17: preserve grouped VAT totals on POS receipts.
+const SCHEMA_V17: &str = r#"
+ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 "#;
