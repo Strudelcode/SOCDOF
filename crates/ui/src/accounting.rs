@@ -2330,6 +2330,28 @@ mod tests {
     }
 
     #[test]
+    fn tax_advisor_opening_balances_load_from_persistent_settings() {
+        let store = Store::open_in_memory().expect("store");
+        let (year, _, _) = date::civil_from_millis(SAMPLE_NOW_MS);
+        store
+            .put_setting(
+                &format!("tax_advisor_ledger_initial_carryover_{year}"),
+                &serde_json::json!({
+                    "cash_cents": 12_345,
+                    "bank_cents": 67_890
+                }),
+            )
+            .expect("save opening balances");
+        let mut state = AccountingState::new();
+        state.refresh(&store, SAMPLE_NOW_MS).expect("refresh");
+        let month = &state.tax_advisor_months[0];
+        assert_eq!(month.carry_over_cash.cents(), 12_345);
+        assert_eq!(month.carry_over_bank.cents(), 67_890);
+        assert_eq!(state.tax_advisor_cash_input, "123.45");
+        assert_eq!(state.tax_advisor_bank_input, "678.90");
+    }
+
+    #[test]
     fn accounting_periods_cover_today_and_custom_inclusive_dates() {
         let now = date::days_from_civil(2026, 11, 13) * DAY_MS + 14 * 60 * 60 * 1_000;
         let today_start = date::days_from_civil(2026, 11, 13) * DAY_MS;
