@@ -27,6 +27,7 @@ pub mod restaurant;
 pub mod session;
 pub mod settings;
 pub mod stock;
+pub mod tax_advisor_ledger;
 pub mod support;
 pub mod therapy;
 pub mod user;
