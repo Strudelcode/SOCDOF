@@ -1021,6 +1021,7 @@ pub const UI_KEYS: &[&str] = &[
     "accounting_tab_bwa",
     "accounting_tab_business",
     "accounting_tax_advisor_export",
+    "accounting_tax_advisor_year",
     "accounting_tax_advisor_opening_balance",
     "accounting_tax_advisor_csv_month",
     "accounting_tax_advisor_opening_title",
