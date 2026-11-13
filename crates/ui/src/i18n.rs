@@ -1793,6 +1793,7 @@ pub const UI_KEYS: &[&str] = &[
     "projects_export",
     "projects_exported",
     "projects_invoice_created",
+    "projects_color",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
