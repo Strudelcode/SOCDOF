@@ -170,6 +170,10 @@ pub struct ContactsState {
     pub country_active: usize,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
+    /// Whether the multi-contact creation dialog is open.
+    pub batch_open: bool,
+    /// Rows in the batch creation dialog.
+    pub batch_drafts: Vec<ContactDraft>,
     /// Catalogue key of the validation or storage error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last success message.
@@ -227,6 +231,44 @@ impl ContactsState {
         self.error = None;
         self.status = None;
         self.view = ContactsView::Form;
+    }
+
+    /// Opens the legacy-style multi-contact creation dialog with three editable rows.
+    pub fn start_batch(&mut self) {
+        self.batch_drafts = vec![ContactDraft::default(); 3];
+        for draft in &mut self.batch_drafts {
+            draft.country = DEFAULT_COUNTRY.to_string();
+        }
+        self.batch_open = true;
+        self.error = None;
+        self.status = None;
+    }
+
+    /// Validates and inserts every non-empty batch row atomically.
+    pub fn save_batch(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        let contacts: Vec<Contact> = self.batch_drafts.iter()
+            .filter(|draft| !draft.name.trim().is_empty() || !draft.company.trim().is_empty())
+            .enumerate()
+            .map(|(index, draft)| draft.to_contact(None, now + index as i64))
+            .collect();
+        if contacts.is_empty() {
+            self.error = Some("contacts_error_name");
+            return Ok(());
+        }
+        for contact in &contacts {
+            if let Err(code) = contact.validate() {
+                self.error = Some(validation_key(&code));
+                return Ok(());
+            }
+        }
+        store.insert_contacts(&contacts)?;
+        self.batch_open = false;
+        self.batch_drafts.clear();
+        self.error = None;
+        self.status = Some("contacts_imported");
+        self.reload = true;
+        self.refresh(store)?;
+        Ok(())
     }
 
     /// Opens the form with the selected contact.
@@ -486,6 +528,68 @@ pub fn contacts(
     }
     state.confirm_delete = open;
 
+    let mut batch_open = state.batch_open;
+    let mut save_batch = false;
+    let mut cancel_batch = false;
+    egui::Window::new(texts.get("contacts_batch_title"))
+        .open(&mut batch_open)
+        .collapsible(false)
+        .resizable(true)
+        .default_width(720.0)
+        .show(ctx, |ui| {
+            ui.label(texts.get("contacts_batch_hint"));
+            ui.add_space(8.0);
+            for (index, draft) in state.batch_drafts.iter_mut().enumerate() {
+                ui.group(|ui| {
+                    ui.label(format!("{} {}", texts.get("contacts_batch_row"), index + 1));
+                    egui::Grid::new(("contacts-batch", index)).num_columns(2).show(ui, |ui| {
+                        ui.label(texts.get("contacts_name"));
+                        ui.text_edit_singleline(&mut draft.name);
+                        ui.end_row();
+                        ui.label(texts.get("contacts_company"));
+                        ui.text_edit_singleline(&mut draft.company);
+                        ui.end_row();
+                        ui.label(texts.get("contacts_email"));
+                        ui.text_edit_singleline(&mut draft.email);
+                        ui.end_row();
+                        ui.label(texts.get("contacts_phone"));
+                        ui.text_edit_singleline(&mut draft.phone);
+                        ui.end_row();
+                        ui.label(texts.get("contacts_type"));
+                        egui::ComboBox::from_id_source(("contacts-batch-type", index))
+                            .selected_text(texts.get(TYPE_KEYS[draft.contact_type.min(3)]))
+                            .show_ui(ui, |ui| {
+                                for (value, key) in TYPE_KEYS.iter().enumerate() {
+                                    ui.selectable_value(&mut draft.contact_type, value, texts.get(key));
+                                }
+                            });
+                        ui.end_row();
+                    });
+                });
+                ui.add_space(6.0);
+            }
+            ui.horizontal(|ui| {
+                if button(ui, theme, focus, texts.get("contacts_batch_add_row"), ButtonVariant::Ghost).activated {
+                    state.batch_drafts.push(ContactDraft { country: DEFAULT_COUNTRY.to_string(), ..ContactDraft::default() });
+                }
+                if button(ui, theme, focus, texts.get("contacts_save"), ButtonVariant::Primary).activated {
+                    save_batch = true;
+                }
+                if button(ui, theme, focus, texts.get("contacts_cancel"), ButtonVariant::Secondary).activated {
+                    cancel_batch = true;
+                }
+            });
+        });
+    state.batch_open = batch_open && !cancel_batch;
+    if save_batch {
+        if state.save_batch(store, now).is_err() {
+            state.error = Some("contacts_error_save");
+        }
+    }
+    if cancel_batch {
+        state.batch_open = false;
+    }
+
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("contacts_error_delete");
     }
@@ -519,6 +623,7 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut create = false;
+    let mut batch = false;
     let mut import = false;
     let mut export_csv = false;
     let mut export_vcard = false;
@@ -534,6 +639,9 @@ fn list_view(
         if button(ui, theme, focus, texts.get("contacts_new"), ButtonVariant::Primary).activated {
             create = true;
         }
+        if button(ui, theme, focus, texts.get("contacts_batch"), ButtonVariant::Secondary).activated {
+            batch = true;
+        }
         if button(ui, theme, focus, texts.get("contacts_import"), ButtonVariant::Secondary).activated {
             import = true;
         }
@@ -547,6 +655,9 @@ fn list_view(
     if create {
         state.start_new();
         return;
+    }
+    if batch {
+        state.start_batch();
     }
 
     // Native file pickers are enabled by the desktop host. The headless gallery remains portable.
