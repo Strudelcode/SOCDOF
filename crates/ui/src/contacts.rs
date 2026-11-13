@@ -10,7 +10,9 @@
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
 use egui::{Context, RichText};
-use socdof_core::contact_import_export::{export_contacts_csv, export_contacts_vcard, parse_contacts_csv, parse_contacts_vcard};
+use socdof_core::contact_import_export::{
+    export_contacts_csv, export_contacts_vcard, parse_contacts_csv, parse_contacts_vcard,
+};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::domain::countries::{search_countries, Country};
 use socdof_core::domain::settings::Language;
@@ -254,7 +256,9 @@ impl ContactsState {
 
     /// Validates and inserts every non-empty batch row atomically.
     pub fn save_batch(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        let contacts: Vec<Contact> = self.batch_drafts.iter()
+        let contacts: Vec<Contact> = self
+            .batch_drafts
+            .iter()
             .filter(|draft| !draft.name.trim().is_empty() || !draft.company.trim().is_empty())
             .enumerate()
             .map(|(index, draft)| draft.to_contact(None, now + index as i64))
@@ -550,40 +554,73 @@ pub fn contacts(
             for (index, draft) in state.batch_drafts.iter_mut().enumerate() {
                 ui.group(|ui| {
                     ui.label(format!("{} {}", texts.get("contacts_batch_row"), index + 1));
-                    egui::Grid::new(("contacts-batch", index)).num_columns(2).show(ui, |ui| {
-                        ui.label(texts.get("contacts_name"));
-                        ui.text_edit_singleline(&mut draft.name);
-                        ui.end_row();
-                        ui.label(texts.get("contacts_company"));
-                        ui.text_edit_singleline(&mut draft.company);
-                        ui.end_row();
-                        ui.label(texts.get("contacts_email"));
-                        ui.text_edit_singleline(&mut draft.email);
-                        ui.end_row();
-                        ui.label(texts.get("contacts_phone"));
-                        ui.text_edit_singleline(&mut draft.phone);
-                        ui.end_row();
-                        ui.label(texts.get("contacts_type"));
-                        egui::ComboBox::from_id_source(("contacts-batch-type", index))
-                            .selected_text(texts.get(TYPE_KEYS[draft.contact_type.min(3)]))
-                            .show_ui(ui, |ui| {
-                                for (value, key) in TYPE_KEYS.iter().enumerate() {
-                                    ui.selectable_value(&mut draft.contact_type, value, texts.get(key));
-                                }
-                            });
-                        ui.end_row();
-                    });
+                    egui::Grid::new(("contacts-batch", index))
+                        .num_columns(2)
+                        .show(ui, |ui| {
+                            ui.label(texts.get("contacts_name"));
+                            ui.text_edit_singleline(&mut draft.name);
+                            ui.end_row();
+                            ui.label(texts.get("contacts_company"));
+                            ui.text_edit_singleline(&mut draft.company);
+                            ui.end_row();
+                            ui.label(texts.get("contacts_email"));
+                            ui.text_edit_singleline(&mut draft.email);
+                            ui.end_row();
+                            ui.label(texts.get("contacts_phone"));
+                            ui.text_edit_singleline(&mut draft.phone);
+                            ui.end_row();
+                            ui.label(texts.get("contacts_type"));
+                            egui::ComboBox::from_id_source(("contacts-batch-type", index))
+                                .selected_text(texts.get(TYPE_KEYS[draft.contact_type.min(3)]))
+                                .show_ui(ui, |ui| {
+                                    for (value, key) in TYPE_KEYS.iter().enumerate() {
+                                        ui.selectable_value(
+                                            &mut draft.contact_type,
+                                            value,
+                                            texts.get(key),
+                                        );
+                                    }
+                                });
+                            ui.end_row();
+                        });
                 });
                 ui.add_space(6.0);
             }
             ui.horizontal(|ui| {
-                if button(ui, theme, focus, texts.get("contacts_batch_add_row"), ButtonVariant::Ghost).activated {
-                    state.batch_drafts.push(ContactDraft { country: DEFAULT_COUNTRY.to_string(), ..ContactDraft::default() });
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_batch_add_row"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+                {
+                    state.batch_drafts.push(ContactDraft {
+                        country: DEFAULT_COUNTRY.to_string(),
+                        ..ContactDraft::default()
+                    });
                 }
-                if button(ui, theme, focus, texts.get("contacts_save"), ButtonVariant::Primary).activated {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_save"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
                     save_batch = true;
                 }
-                if button(ui, theme, focus, texts.get("contacts_cancel"), ButtonVariant::Secondary).activated {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_cancel"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
                     cancel_batch = true;
                 }
             });
@@ -607,7 +644,11 @@ pub fn contacts(
         .resizable(true)
         .default_width(640.0)
         .show(ctx, |ui| {
-            ui.label(format!("{} · {}", state.import_file_name, state.import_preview.len()));
+            ui.label(format!(
+                "{} · {}",
+                state.import_file_name,
+                state.import_preview.len()
+            ));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.label(texts.get("contacts_import_category"));
@@ -615,7 +656,14 @@ pub fn contacts(
                     .selected_text(texts.get(TYPE_KEYS[state.import_target_type.min(3)]))
                     .show_ui(ui, |ui| {
                         for (value, key) in TYPE_KEYS.iter().enumerate() {
-                            if ui.selectable_value(&mut state.import_target_type, value, texts.get(key)).changed() {
+                            if ui
+                                .selectable_value(
+                                    &mut state.import_target_type,
+                                    value,
+                                    texts.get(key),
+                                )
+                                .changed()
+                            {
                                 for contact in &mut state.import_preview {
                                     contact.contact_type = type_from_index(value);
                                 }
@@ -625,27 +673,53 @@ pub fn contacts(
             });
             ui.separator();
             let mut remove = Vec::new();
-            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                for (index, contact) in state.import_preview.iter().enumerate() {
-                    ui.horizontal(|ui| {
-                        ui.label(contact.display_name());
-                        ui.label(contact.email.as_deref().unwrap_or(""));
-                        ui.label(contact.phone.as_deref().unwrap_or(""));
-                        if button(ui, theme, focus, texts.get("contacts_import_remove"), ButtonVariant::Ghost).activated {
-                            remove.push(index);
-                        }
-                    });
-                }
-            });
+            egui::ScrollArea::vertical()
+                .max_height(360.0)
+                .show(ui, |ui| {
+                    for (index, contact) in state.import_preview.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label(contact.display_name());
+                            ui.label(contact.email.as_deref().unwrap_or(""));
+                            ui.label(contact.phone.as_deref().unwrap_or(""));
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("contacts_import_remove"),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
+                                remove.push(index);
+                            }
+                        });
+                    }
+                });
             for index in remove.into_iter().rev() {
                 state.import_preview.remove(index);
             }
             ui.separator();
             ui.horizontal(|ui| {
-                if button(ui, theme, focus, texts.get("contacts_import_confirm"), ButtonVariant::Primary).activated {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_import_confirm"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
                     confirm_import = true;
                 }
-                if button(ui, theme, focus, texts.get("contacts_cancel"), ButtonVariant::Secondary).activated {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("contacts_cancel"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
                     cancel_import = true;
                 }
             });
@@ -717,19 +791,59 @@ fn list_view(
             texts.get("contacts_search"),
             150.0,
         );
-        if button(ui, theme, focus, texts.get("contacts_new"), ButtonVariant::Primary).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_new"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
             create = true;
         }
-        if button(ui, theme, focus, texts.get("contacts_batch"), ButtonVariant::Secondary).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_batch"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
             batch = true;
         }
-        if button(ui, theme, focus, texts.get("contacts_import"), ButtonVariant::Secondary).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_import"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
             import = true;
         }
-        if button(ui, theme, focus, texts.get("contacts_export_csv"), ButtonVariant::Secondary).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_export_csv"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
             export_csv = true;
         }
-        if button(ui, theme, focus, texts.get("contacts_export_vcard"), ButtonVariant::Secondary).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("contacts_export_vcard"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
             export_vcard = true;
         }
     });
@@ -750,8 +864,9 @@ fn list_view(
         {
             match std::fs::read_to_string(&path) {
                 Ok(contents) => {
-                    let is_vcard = path.extension().and_then(|v| v.to_str())
-                        .is_some_and(|v| v.eq_ignore_ascii_case("vcf") || v.eq_ignore_ascii_case("vcard"));
+                    let is_vcard = path.extension().and_then(|v| v.to_str()).is_some_and(|v| {
+                        v.eq_ignore_ascii_case("vcf") || v.eq_ignore_ascii_case("vcard")
+                    });
                     let parsed = if is_vcard {
                         parse_contacts_vcard(&contents, ContactType::Guest, now)
                     } else {
@@ -762,7 +877,11 @@ fn list_view(
                         state.status = None;
                     } else {
                         state.import_preview = parsed;
-                        state.import_file_name = path.file_name().and_then(|v| v.to_str()).unwrap_or("").to_string();
+                        state.import_file_name = path
+                            .file_name()
+                            .and_then(|v| v.to_str())
+                            .unwrap_or("")
+                            .to_string();
                         state.import_target_type = 3;
                         state.import_open = true;
                         state.error = None;
