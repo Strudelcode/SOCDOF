@@ -1,8 +1,10 @@
 name: Rust
 
 on:
-  # Automatic triggers are intentionally disabled while the Rust rewrite is
-  # merged. Run this workflow manually from the Actions tab when needed.
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
