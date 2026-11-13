@@ -356,7 +356,7 @@ pub fn export_tax_advisor_excel_xml(
         );
 
         if month_index == 0 {
-            push_row(
+            push_row_with_formulas(
                 &mut rows,
                 &[
                     ("Übertrag Vormonat", "String", ""),
