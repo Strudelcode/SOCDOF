@@ -944,9 +944,9 @@ pub fn restaurant(
                         if let Some(dish) = state.dish_draft.as_mut() {
                             crate::components::card(ui, theme, |ui| {
                                 ui.heading(texts.get("restaurant_dish_editor"));
-                                egui::Grid::new("restaurant-dish-form")
-                                    .num_columns(2)
-                                    .show(ui, |ui| {
+                                egui::Grid::new("restaurant-dish-form").num_columns(2).show(
+                                    ui,
+                                    |ui| {
                                         ui.label(texts.get("restaurant_name"));
                                         ui.text_edit_singleline(&mut dish.name);
                                         ui.end_row();
@@ -997,7 +997,8 @@ pub fn restaurant(
                                         ui.label(texts.get("restaurant_available"));
                                         ui.checkbox(&mut dish.is_available, "");
                                         ui.end_row();
-                                    });
+                                    },
+                                );
                                 ui.horizontal(|ui| {
                                     if button(
                                         ui,

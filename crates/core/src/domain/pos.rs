@@ -179,7 +179,10 @@ impl PosOrder {
         if self.lines.is_empty() {
             return Err("lines_required".to_string());
         }
-        if self.tax_total_override_cents.is_some_and(|amount| amount < 0) {
+        if self
+            .tax_total_override_cents
+            .is_some_and(|amount| amount < 0)
+        {
             return Err("tax_total_override_negative".to_string());
         }
         if let Some(cash_given) = self.cash_given {
