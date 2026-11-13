@@ -1955,5 +1955,10 @@
   "contacts_imported": "Contacts importés",
   "contacts_exported": "Contacts exportés",
   "contacts_import_empty": "Aucun contact valide à importer ou exporter.",
-  "contacts_error_picker": "La sélection de fichiers n’est pas disponible dans cette fenêtre."
+  "contacts_error_picker": "La sélection de fichiers n’est pas disponible dans cette fenêtre.",
+  "contacts_batch": "Créer plusieurs",
+  "contacts_batch_title": "Créer plusieurs contacts",
+  "contacts_batch_hint": "Renseignez les contacts à enregistrer ensemble.",
+  "contacts_batch_row": "Contact",
+  "contacts_batch_add_row": "Ajouter une ligne"
 }
