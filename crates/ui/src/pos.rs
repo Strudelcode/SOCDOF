@@ -39,9 +39,10 @@ const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 const HOUR_MS: i64 = 60 * 60 * 1_000;
 
 /// Payment methods in display and storage order.
-const PAYMENTS: [PaymentMethod; 5] = [
+const PAYMENTS: [PaymentMethod; 6] = [
     PaymentMethod::Cash,
     PaymentMethod::Card,
+    PaymentMethod::Nfc,
     PaymentMethod::BankTransfer,
     PaymentMethod::Invoice,
     PaymentMethod::Other,
@@ -269,6 +270,7 @@ fn payment_key(method: PaymentMethod) -> &'static str {
     match method {
         PaymentMethod::Cash => "pos_payment_cash",
         PaymentMethod::Card => "pos_payment_card",
+        PaymentMethod::Nfc => "pos_payment_nfc",
         PaymentMethod::BankTransfer => "pos_payment_bank_transfer",
         PaymentMethod::Invoice => "pos_payment_invoice",
         PaymentMethod::Other => "pos_payment_other",
@@ -279,6 +281,7 @@ fn payment_tone(method: PaymentMethod) -> Tone {
     match method {
         PaymentMethod::Cash => Tone::Success,
         PaymentMethod::Card => Tone::Accent,
+        PaymentMethod::Nfc => Tone::Accent,
         PaymentMethod::BankTransfer => Tone::Neutral,
         PaymentMethod::Invoice => Tone::Warning,
         PaymentMethod::Other => Tone::Neutral,
