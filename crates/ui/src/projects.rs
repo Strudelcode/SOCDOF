@@ -251,6 +251,25 @@ fn hours(milli: i64) -> String {
     format!("{:.1} h", milli as f64 / 1_000.0)
 }
 
+fn category_key(category: &str) -> &'static str {
+    match category {
+        "client_work" => "projects_category_client_work",
+        "internal" => "projects_category_internal",
+        "maintenance" => "projects_category_maintenance",
+        "development" => "projects_category_development",
+        _ => "projects_category_marketing",
+    }
+}
+
+fn priority_key(priority: &str) -> &'static str {
+    match priority {
+        "low" => "projects_priority_low",
+        "medium" => "projects_priority_medium",
+        "high" => "projects_priority_high",
+        _ => "projects_priority_urgent",
+    }
+}
+
 fn status_label(status: &str) -> &'static str {
     match status {
         "active" => "projects_status_active",
@@ -372,10 +391,10 @@ pub fn projects(
                                 }
                             });
                         egui::ComboBox::from_id_source("projects-task-priority")
-                            .selected_text(task.priority.clone())
+                            .selected_text(texts.get(priority_key(&task.priority)))
                             .show_ui(ui, |ui| {
                                 for value in ["low", "medium", "high", "urgent"] {
-                                    ui.selectable_value(&mut task.priority, value.to_string(), value);
+                                    ui.selectable_value(&mut task.priority, value.to_string(), texts.get(priority_key(value)));
                                 }
                             });
                         ui.horizontal(|ui| {
@@ -411,9 +430,9 @@ pub fn projects(
                             ui.label(texts.get("projects_client")); ui.text_edit_singleline(&mut project.client_name); ui.end_row();
                             ui.label(texts.get("projects_description")); ui.text_edit_multiline(&mut project.description); ui.end_row();
                             ui.label(texts.get("projects_category"));
-                            egui::ComboBox::from_id_source("projects-category").selected_text(project.category.clone()).show_ui(ui, |ui| {
+                            egui::ComboBox::from_id_source("projects-category").selected_text(texts.get(category_key(&project.category))).show_ui(ui, |ui| {
                                 for value in ["client_work", "internal", "maintenance", "development", "marketing"] {
-                                    ui.selectable_value(&mut project.category, value.to_string(), value);
+                                    ui.selectable_value(&mut project.category, value.to_string(), texts.get(category_key(value)));
                                 }
                             }); ui.end_row();
                             ui.label(texts.get("projects_status"));
@@ -423,8 +442,8 @@ pub fn projects(
                                 }
                             }); ui.end_row();
                             ui.label(texts.get("projects_priority"));
-                            egui::ComboBox::from_id_source("projects-priority").selected_text(project.priority.clone()).show_ui(ui, |ui| {
-                                for value in ["low", "medium", "high"] { ui.selectable_value(&mut project.priority, value.to_string(), value); }
+                            egui::ComboBox::from_id_source("projects-priority").selected_text(texts.get(priority_key(&project.priority))).show_ui(ui, |ui| {
+                                for value in ["low", "medium", "high"] { ui.selectable_value(&mut project.priority, value.to_string(), texts.get(priority_key(value))); }
                             }); ui.end_row();
                             ui.label(texts.get("projects_budget"));
                             let mut budget = format!("{:.2}", project.budget_cents as f64 / 100.0);
