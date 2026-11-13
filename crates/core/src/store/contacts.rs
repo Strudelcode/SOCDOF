@@ -301,7 +301,6 @@ fn map_person(row: &Row<'_>) -> rusqlite::Result<ContactPerson> {
     })
 }
 
-
 /// Removes the dummy e-mail addresses left by older imports without touching real addresses.
 pub fn sanitize_legacy_emails(conn: &Connection) -> CoreResult<usize> {
     Ok(conn.execute(
