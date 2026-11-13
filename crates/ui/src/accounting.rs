@@ -83,7 +83,7 @@ impl AccountingTab {
             AccountingTab::Journal => "accounting_tab_journal",
             AccountingTab::CashBook => "accounting_tab_cash",
             AccountingTab::Bwa => "accounting_tab_bwa",
-            AccountingTab::BusinessReport => "accounting_bwa_title",
+            AccountingTab::BusinessReport => "accounting_tab_business",
         }
     }
 }
@@ -1004,7 +1004,7 @@ fn business_report_view(
 
     ui.add_space(10.0);
     card(ui, theme, |ui| {
-        ui.label(RichText::new(texts.get("pos_summary_tax")).strong());
+        ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
         ui.add_space(6.0);
         egui::Grid::new("socdof-business-vat")
             .num_columns(3)
@@ -1049,7 +1049,7 @@ fn business_report_view(
     ui.add_space(10.0);
     card(ui, theme, |ui| {
         ui.horizontal(|ui| {
-            ui.label(RichText::new(texts.get("accounting_open_button")).strong());
+            ui.label(RichText::new(texts.get("accounting_business_open_items")).strong());
             badge(
                 ui,
                 theme,
@@ -1103,7 +1103,7 @@ fn business_report_view(
 
     ui.add_space(10.0);
     card(ui, theme, |ui| {
-        ui.label(RichText::new(texts.get("pos_summary_title")).strong());
+        ui.label(RichText::new(texts.get("accounting_business_pos_close")).strong());
         ui.add_space(6.0);
         for (label, value) in [
             ("pos_payment_cash", report.z_report.cash),
@@ -1559,7 +1559,7 @@ mod tests {
 
         state.tab = AccountingTab::Bwa;
         let painted = render(&mut state, &store);
-        assert!(painted.contains(texts.get("accounting_bwa_title")));
+        assert!(painted.contains(texts.get("accounting_tab_business")));
         assert!(painted.contains(texts.get("accounting_sample_account_revenue")));
         assert!(painted.contains(texts.get("accounting_result")));
 
@@ -1567,7 +1567,7 @@ mod tests {
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("accounting_bwa_title")));
         assert!(painted.contains(texts.get("pos_summary_title")));
-        assert!(painted.contains(texts.get("accounting_open_button")));
+        assert!(painted.contains(texts.get("accounting_business_open_items")));
     }
 
     #[test]
