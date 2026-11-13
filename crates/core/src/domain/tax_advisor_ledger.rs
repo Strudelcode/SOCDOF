@@ -313,6 +313,9 @@ pub fn build_yearly_ledger(
     months
 }
 
+/// Excel R1C1 formula for the running balance in the transaction table.
+const LEDGER_BALANCE_FORMULA: &str = "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)";
+
 /// Exports the twelve monthly sheets as Excel-compatible SpreadsheetML (.xls).
 pub fn export_tax_advisor_excel_xml(
     year: i32,
@@ -541,9 +544,6 @@ pub fn export_tax_advisor_excel_xml(
                         Money::from_cents(running_balance.cents() - transaction.amount.cents())
                     }
                 };
-                let balance_formula = format!(
-                    "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)"
-                );
                 push_transaction_row(
                     &mut rows,
                     row_index,
@@ -553,7 +553,7 @@ pub fn export_tax_advisor_excel_xml(
                     &income,
                     &expense,
                     &running_balance.to_decimal_string(),
-                    &balance_formula,
+                    LEDGER_BALANCE_FORMULA,
                     center_style,
                     left_style,
                     money_style,
@@ -568,7 +568,7 @@ pub fn export_tax_advisor_excel_xml(
                     "",
                     "",
                     "",
-                    "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)",
+                    LEDGER_BALANCE_FORMULA,
                     center_style,
                     left_style,
                     money_style,
