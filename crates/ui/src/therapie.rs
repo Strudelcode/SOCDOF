@@ -338,35 +338,35 @@ impl TherapieState {
 
         let started_at =
             if self.session_date.trim().is_empty() && self.session_time.trim().is_empty() {
-            if self.editing_session.is_some() {
-                self.sessions
-                    .iter()
-                    .find(|session| Some(session.id) == self.editing_session)
-                    .map(|session| session.started_at)
-                    .unwrap_or(now)
+                if self.editing_session.is_some() {
+                    self.sessions
+                        .iter()
+                        .find(|session| Some(session.id) == self.editing_session)
+                        .map(|session| session.started_at)
+                        .unwrap_or(now)
+                } else {
+                    now
+                }
             } else {
-                now
-            }
-        } else {
-            let now_iso = socdof_core::date::format_iso8601(now);
-            let (now_date, now_time) = now_iso
-                .split_once('T')
-                .unwrap_or((&now_iso, "00:00:00.000Z"));
-            let date = if self.session_date.trim().is_empty() {
-                now_date
-            } else {
-                self.session_date.trim()
-            };
-            let time = if self.session_time.trim().is_empty() {
-                &now_time[..5]
-            } else {
-                self.session_time.trim()
-            };
-            if time.len() != 5 || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':') {
-                self.error = Some("therapie_error_date");
-                self.status = None;
-                return Ok(());
-            }
+                let now_iso = socdof_core::date::format_iso8601(now);
+                let (now_date, now_time) = now_iso
+                    .split_once('T')
+                    .unwrap_or((&now_iso, "00:00:00.000Z"));
+                let date = if self.session_date.trim().is_empty() {
+                    now_date
+                } else {
+                    self.session_date.trim()
+                };
+                let time = if self.session_time.trim().is_empty() {
+                    &now_time[..5]
+                } else {
+                    self.session_time.trim()
+                };
+                if time.len() != 5 || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':') {
+                    self.error = Some("therapie_error_date");
+                    self.status = None;
+                    return Ok(());
+                }
                 match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
                     Some(value) => value,
                     None => {
