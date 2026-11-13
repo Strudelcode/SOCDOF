@@ -723,6 +723,44 @@ mod tests {
     }
 
     #[test]
+    fn project_billing_creates_a_real_invoice_from_billable_logged_tasks() {
+        use socdof_core::domain::contact::{Contact, ContactKind};
+
+        let store = Store::open_in_memory().expect("store");
+        let mut contact = Contact::new(ContactKind::Company, 1_800_000_000_000);
+        contact.company_name = Some("Beispiel GmbH".to_string());
+        store.insert_contact(&contact).expect("contact");
+
+        let mut state = ProjectsState::new();
+        state.refresh(&store).expect("refresh");
+        state.start_new(1_800_000_000_000);
+        let mut project = state.draft.clone().expect("draft");
+        project.title = "Beratung".to_string();
+        project.contact_id = Some(contact.id);
+        project.client_name = contact.display_name();
+        state.draft = Some(project);
+        state.save(&store, 1_800_000_000_001).expect("save project");
+
+        state.start_task(1_800_000_000_002);
+        let mut task = state.task_draft.clone().expect("task");
+        task.title = "Konzept".to_string();
+        task.logged_hours_milli = 2_500;
+        task.billable = true;
+        state.task_draft = Some(task);
+        state.save_task(&store).expect("save task");
+
+        let invoice_id = state
+            .create_invoice(&store, state.selected.expect("project"), 1_800_000_000_003)
+            .expect("create invoice");
+        let invoice = store.find_invoice(invoice_id).expect("find").expect("invoice");
+        assert_eq!(invoice.contact_id, contact.id);
+        assert_eq!(invoice.lines.len(), 1);
+        assert_eq!(invoice.lines[0].quantity_milli, 2_500);
+        assert_eq!(invoice.total_gross().cents(), 28_263);
+        assert_eq!(state.created_invoice, Some(invoice_id));
+    }
+
+    #[test]
     fn invalid_project_does_not_write_to_store() {
         let store = Store::open_in_memory().expect("store");
         let mut state = ProjectsState::new();
