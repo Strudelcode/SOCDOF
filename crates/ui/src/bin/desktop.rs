@@ -14,6 +14,7 @@ use socdof_core::lock::{InstanceLock, LOCK_FILE_NAME};
 use socdof_core::now_millis;
 use socdof_core::store::Store;
 use socdof_ui::gallery::{gallery, GalleryState};
+use socdof_ui::invoice_templates::native_asset_picker;
 use socdof_ui::theme::Appearance;
 
 struct DesktopApp {
@@ -45,7 +46,8 @@ impl DesktopApp {
         } else {
             profile.accent_color.trim()
         };
-        let state = GalleryState::from_store(profile.language, appearance, accent, store)?;
+        let mut state = GalleryState::from_store(profile.language, appearance, accent, store)?;
+        state.invoices.templates.set_asset_picker(native_asset_picker());
         lock.heartbeat(now_millis())?;
 
         Ok(Self {
@@ -104,7 +106,7 @@ fn database_path() -> Result<PathBuf, Box<dyn Error>> {
         })
         .unwrap_or(std::env::current_dir()?);
 
-    Ok(root.join("SOCDOF").join("socdof.db"))
+    Ok(root.join("com.strudelcode.socdof").join("socdof.db"))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
