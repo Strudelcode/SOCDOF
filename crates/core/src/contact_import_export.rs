@@ -243,7 +243,7 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
         let property = |wanted: &str| -> Option<String> {
             lines.iter().find_map(|line| {
                 let (name, value) = line.split_once(':')?;
-                let key = name.split(';').next()?.split('.').last()?;
+                let key = name.split(';').next()?.split('.').next_back()?;
                 key.eq_ignore_ascii_case(wanted)
                     .then(|| unescape_vcard(value))
             })
@@ -476,8 +476,7 @@ fn normalize_header(value: &str) -> String {
         .trim()
         .trim_matches('"')
         .to_lowercase()
-        .replace('_', " ")
-        .replace('-', " ")
+        .replace(['_', '-'], " ")
 }
 fn parse_contact_type(value: &str, fallback: ContactType) -> ContactType {
     let v = value.to_lowercase();
@@ -514,8 +513,7 @@ fn csv_escape(value: &str, delimiter: char) -> String {
         "\"{}\"",
         value
             .replace('"', "\"\"")
-            .replace('\r', " ")
-            .replace('\n', " ")
+            .replace(['\r', '\n'], " ")
             .replace(delimiter, &delimiter.to_string())
     )
 }
@@ -562,7 +560,7 @@ mod tests {
     }
     #[test]
     fn prioritizes_first_and_last_name_and_mobile_phone_columns() {
-        let csv = "First Name;Last Name;E-mail 1 Address;E-mail 2 Address;Mobile Phone;Business Phone;Home Phone\\r\\nAda;Lovelace;;ada@example.org;+44 123;020 111;020 222";
+        let csv = "First Name;Last Name;E-mail 1 Address;E-mail 2 Address;Mobile Phone;Business Phone;Home Phone\r\nAda;Lovelace;;ada@example.org;+44 123;020 111;020 222";
         let parsed = parse_contacts_csv(csv, ContactType::Guest, 1);
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].name.as_deref(), Some("Ada Lovelace"));
