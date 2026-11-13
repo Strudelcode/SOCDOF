@@ -532,6 +532,18 @@ pub fn projects(
                         ui.label(RichText::new(texts.get("projects_kpi_billable")).size(FONT_SMALL).color(theme.palette.text_muted));
                         ui.heading(money(stats.billable_revenue_cents, &currency));
                     });
+                    card(ui, theme, |ui| {
+                        ui.label(RichText::new(texts.get("projects_kpi_logged")).size(FONT_SMALL).color(theme.palette.text_muted));
+                        ui.heading(hours(stats.total_logged_hours_milli));
+                    });
+                    card(ui, theme, |ui| {
+                        ui.label(RichText::new(texts.get("projects_kpi_estimated")).size(FONT_SMALL).color(theme.palette.text_muted));
+                        ui.heading(hours(stats.total_estimated_hours_milli));
+                    });
+                    card(ui, theme, |ui| {
+                        ui.label(RichText::new(texts.get("projects_kpi_completion")).size(FONT_SMALL).color(theme.palette.text_muted));
+                        ui.heading(format!("{}%", stats.completion_rate));
+                    });
                 });
                 ui.add_space(10.0);
                 messages(ui, theme, texts, state);
