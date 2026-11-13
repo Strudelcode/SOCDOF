@@ -1948,5 +1948,12 @@
   "therapie_session_time": "Beginn (Uhrzeit)",
   "therapie_error_date": "Bitte ein gültiges Datum und eine gültige Uhrzeit eingeben.",
   "pos_payment_nfc": "NFC / Mobil",
-  "pos_summary_nfc": "NFC / Mobil"
+  "pos_summary_nfc": "NFC / Mobil",
+  "contacts_import": "Import CSV / vCard",
+  "contacts_export_csv": "CSV exportieren",
+  "contacts_export_vcard": "vCard exportieren",
+  "contacts_imported": "Kontakte importiert",
+  "contacts_exported": "Kontakte exportiert",
+  "contacts_import_empty": "Keine gültigen Kontakte zum Importieren oder Exportieren vorhanden.",
+  "contacts_error_picker": "Dateiauswahl ist in diesem Fenster nicht verfügbar."
 }
