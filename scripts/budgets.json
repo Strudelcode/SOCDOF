@@ -30,12 +30,12 @@
     "max_bytes": 41943040
   },
   "idle_ram": {
-    "context": "Resident memory of the running desktop application sampled from /proc/<pid>/status (VmRSS) after five seconds without input.",
+    "context": "Resident memory of the native Rust `socdof-ui-desktop` process sampled from /proc/<pid>/status (VmRSS) after five seconds without input.",
     "max_kib": 122880,
     "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
   },
   "idle_cpu": {
-    "context": "CPU time of the running desktop application from /proc/<pid>/stat over a five second quiet interval.",
+    "context": "CPU time of the native Rust `socdof-ui-desktop` process from /proc/<pid>/stat over a five second quiet interval.",
     "max_percent": 0.5,
     "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
   },
