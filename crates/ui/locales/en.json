@@ -1,4 +1,10 @@
 {
+  "projects_status_active": "Active",
+  "projects_status_planning": "Planning",
+  "projects_status_review": "Review",
+  "projects_status_completed": "Completed",
+  "projects_status_on_hold": "On hold",
+  "projects_status_cancelled": "Cancelled",
   "app_projects": "Projects",
   "app_store_desc_projects": "Project portfolio, tasks, time tracking, budgets and billable work.",
   "settings_module_projects": "Projects",
