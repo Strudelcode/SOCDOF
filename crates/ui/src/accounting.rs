@@ -758,24 +758,26 @@ fn list_view(
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("accounting_search"),
-            150.0,
-        );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("accounting_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            state.start_new();
+        if state.tab != AccountingTab::BusinessReport {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("accounting_search"),
+                150.0,
+            );
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                state.start_new();
+            }
         }
         if button(
             ui,
