@@ -13,37 +13,65 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Active screen in the native restaurant module.
 pub enum RestaurantView {
     #[default]
+    /// Floor plan and active table orders.
     Tables,
+    /// Open orders grouped for kitchen preparation.
     Kitchen,
+    /// Menu search and dish management.
     Menu,
+    /// Paid orders and receipt history.
     History,
 }
 
 #[derive(Debug, Clone)]
+/// Mutable UI state for the native restaurant screens.
 pub struct RestaurantState {
+    /// Available menu items.
     pub menu: Vec<MenuItem>,
+    /// Persisted table orders.
     pub orders: Vec<TableOrder>,
+    /// Configured floor-plan tables.
     pub tables: Vec<RestaurantTable>,
+    /// Currently selected restaurant screen.
     pub view: RestaurantView,
+    /// Name of the selected table.
     pub selected_table: String,
+    /// Active floor-plan area filter.
     pub area_filter: String,
+    /// Menu search query.
     pub query: String,
+    /// Active menu category filter.
     pub category_filter: String,
+    /// Dish currently being created or edited.
     pub dish_draft: Option<MenuItem>,
+    /// Whether the current dish draft is new.
     pub dish_is_new: bool,
+    /// Selected checkout payment method.
     pub payment_method: String,
+    /// Tip amount in cents.
     pub tip_cents: i64,
+    /// Cash tendered in cents.
     pub cash_given_cents: i64,
+    /// Number of payment splits.
     pub split_count: i64,
+    /// Whether hospitality receipt details are enabled.
     pub hospitality: bool,
+    /// Host name printed on hospitality receipts.
     pub hospitality_host: String,
+    /// Business occasion printed on hospitality receipts.
     pub hospitality_occasion: String,
+    /// Guest list printed on hospitality receipts.
     pub hospitality_guests: String,
+    /// Most recently created receipt number.
     pub last_receipt: Option<String>,
+    /// Most recent user-facing error.
     pub error: Option<String>,
+    /// Most recent success/status message key.
     pub status: Option<String>,
+    /// Whether the shell should navigate back.
     pub back: bool,
 }
 
@@ -81,9 +109,11 @@ impl Default for RestaurantState {
 }
 
 impl RestaurantState {
+    /// Creates an empty restaurant UI state.
     pub fn new() -> Self {
         Self::default()
     }
+    /// Reloads menu items, orders and table selection from SQLite.
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         self.menu = store.restaurant_menu()?;
         self.orders = store.restaurant_orders()?;
@@ -100,6 +130,7 @@ impl RestaurantState {
         }
         Ok(())
     }
+    /// Resets transient filters and reloads state when the app is opened.
     pub fn reset_for_open(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         self.view = RestaurantView::Tables;
         self.area_filter = "all".into();
@@ -110,11 +141,13 @@ impl RestaurantState {
         self.status = None;
         self.refresh(store)
     }
+    /// Returns the unpaid order for the selected table, if any.
     pub fn active_order(&self) -> Option<&TableOrder> {
         self.orders
             .iter()
             .find(|order| order.table_number == self.selected_table && order.status != "paid")
     }
+    /// Starts a new menu-item draft with legacy-compatible defaults.
     pub fn start_new_dish(&mut self, now: i64) {
         self.dish_draft = Some(MenuItem {
             id: Uuid::new_v4(),
@@ -132,11 +165,13 @@ impl RestaurantState {
         self.dish_is_new = true;
         self.error = None;
     }
+    /// Loads an existing menu item into the editor.
     pub fn edit_dish(&mut self, id: Uuid) {
         self.dish_draft = self.menu.iter().find(|dish| dish.id == id).cloned();
         self.dish_is_new = false;
         self.error = None;
     }
+    /// Validates and persists the current menu-item draft.
     pub fn save_dish(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         let Some(mut dish) = self.dish_draft.clone() else {
             return Ok(());
@@ -153,11 +188,13 @@ impl RestaurantState {
         self.status = Some("restaurant_dish_saved".into());
         self.refresh(store)
     }
+    /// Deletes a menu item and refreshes the menu.
     pub fn delete_dish(&mut self, store: &Store, id: Uuid) -> socdof_core::CoreResult<()> {
         store.delete_restaurant_menu_item(id)?;
         self.status = Some("restaurant_dish_deleted".into());
         self.refresh(store)
     }
+    /// Adds one menu item to the selected table's open order.
     pub fn add_item(&mut self, store: &Store, id: Uuid, now: i64) -> socdof_core::CoreResult<()> {
         let dish = store
             .restaurant_menu_item(id)?
@@ -174,6 +211,7 @@ impl RestaurantState {
         store.save_restaurant_order(&order)?;
         self.refresh(store)
     }
+    /// Changes a line quantity, removing the order if its final line is deleted.
     pub fn set_quantity(
         &mut self,
         store: &Store,
@@ -197,6 +235,7 @@ impl RestaurantState {
         }
         self.refresh(store)
     }
+    /// Updates kitchen notes on an order line.
     pub fn set_notes(
         &mut self,
         store: &Store,
@@ -214,6 +253,7 @@ impl RestaurantState {
         store.update_restaurant_order(&order)?;
         self.refresh(store)
     }
+    /// Advances an unpaid order through the kitchen workflow.
     pub fn set_status(
         &mut self,
         store: &Store,
@@ -239,6 +279,7 @@ impl RestaurantState {
         store.update_restaurant_order(&order)?;
         self.refresh(store)
     }
+    /// Assigns the serving employee to an unpaid order.
     pub fn set_server(
         &mut self,
         store: &Store,
@@ -259,6 +300,7 @@ impl RestaurantState {
         store.update_restaurant_order(&order)?;
         self.refresh(store)
     }
+    /// Deletes an unpaid order.
     pub fn cancel_order(&mut self, store: &Store, id: Uuid) -> socdof_core::CoreResult<()> {
         let order = store
             .restaurant_order(id)?
@@ -272,6 +314,7 @@ impl RestaurantState {
         self.status = Some("restaurant_order_deleted".into());
         self.refresh(store)
     }
+    /// Posts a paid order, invoice and POS receipt atomically.
     pub fn checkout(
         &mut self,
         store: &Store,
@@ -427,6 +470,7 @@ fn feedback(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Restauran
     }
 }
 
+/// Renders the native restaurant module and processes its UI actions.
 pub fn restaurant(
     ctx: &Context,
     theme: &Theme,
