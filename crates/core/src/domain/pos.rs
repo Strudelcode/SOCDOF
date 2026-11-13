@@ -361,14 +361,17 @@ mod tests {
         cash.cash_given = Some(Money::from_cents(1_000));
         let mut card = sample();
         card.payment_method = PaymentMethod::Card;
+        let mut nfc = sample();
+        nfc.payment_method = PaymentMethod::Nfc;
 
-        let summary = summarize(&[cash, card]);
-        assert_eq!(summary.receipts, 2);
-        assert_eq!(summary.net, Money::from_cents(1_050));
-        assert_eq!(summary.tax, Money::from_cents(80));
-        assert_eq!(summary.gross, Money::from_cents(1_130));
+        let summary = summarize(&[cash, card, nfc]);
+        assert_eq!(summary.receipts, 3);
+        assert_eq!(summary.net, Money::from_cents(1_575));
+        assert_eq!(summary.tax, Money::from_cents(120));
+        assert_eq!(summary.gross, Money::from_cents(1_695));
         assert_eq!(summary.cash, Money::from_cents(565));
         assert_eq!(summary.card, Money::from_cents(565));
+        assert_eq!(summary.nfc, Money::from_cents(565));
         assert_eq!(summary.change, Money::from_cents(435));
     }
 
@@ -390,6 +393,7 @@ mod tests {
         for method in [
             PaymentMethod::Cash,
             PaymentMethod::Card,
+            PaymentMethod::Nfc,
             PaymentMethod::BankTransfer,
             PaymentMethod::Invoice,
             PaymentMethod::Other,
