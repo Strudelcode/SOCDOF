@@ -18,6 +18,9 @@ use socdof_core::date;
 use socdof_core::domain::accounting::{
     cash_book, export_csv, summarize, BookingChannel, JournalEntry, JournalKind,
 };
+use socdof_core::domain::accounting_report::{
+    build_business_accounting_report, BusinessAccountingReport, ReportRange,
+};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -251,6 +254,8 @@ pub struct AccountingState {
     pub query: String,
     /// Entries of the loaded period and query.
     pub entries: Vec<JournalEntry>,
+    /// Cross-module invoice, purchase and POS aggregates for the legacy Accounting dashboard.
+    pub business_report: BusinessAccountingReport,
     /// Selected entry, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -283,6 +288,7 @@ impl Default for AccountingState {
             period: Period::All,
             query: String::new(),
             entries: Vec::new(),
+            business_report: BusinessAccountingReport::default(),
             selected: None,
             view: AccountingView::List,
             draft: AccountingDraft::default(),
@@ -328,6 +334,21 @@ impl AccountingState {
         }
 
         self.entries = entries;
+
+        let invoices = store.list_invoices()?;
+        let purchases = store.list_purchase_orders()?;
+        let pos_orders = store.list_pos_orders()?;
+        self.business_report = build_business_accounting_report(
+            &invoices,
+            &purchases,
+            &pos_orders,
+            ReportRange {
+                from: Some(from),
+                to: Some(to),
+            },
+            now,
+        );
+
         self.loaded_query = self.query.clone();
         self.loaded_period = self.period;
         self.reload = false;
