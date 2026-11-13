@@ -126,9 +126,8 @@ fn parse_date_start(value: &str) -> Option<i64> {
     if value.len() != 10 {
         return None;
     }
-    let timestamp = date::parse_iso8601(value)?;
-    let (year, month, day) = date::civil_from_millis(timestamp);
-    Some(date::days_from_civil(year, month, day) * DAY_MS)
+    let iso = format!("{value}T00:00:00Z");
+    date::parse_iso8601(&iso)
 }
 
 /// Section of the accounting screen.
