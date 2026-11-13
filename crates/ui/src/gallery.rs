@@ -31,6 +31,7 @@ use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState
 use crate::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
 use crate::focus::FocusState;
+use crate::fleet::{fleet, FleetState};
 use crate::form::{CloseDecision, Field, FormState, UnsavedGuard};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
@@ -129,6 +130,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Contacts, "contacts"),
         (AppModule::Products, "products"),
         (AppModule::Projects, "projects"),
+        (AppModule::Fleet, "fleet"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -246,6 +248,10 @@ pub struct GalleryState {
     pub projects: ProjectsState,
     /// Whether the project management screen is open.
     pub projects_open: bool,
+    /// Vehicle fleet, logbook and fuel state.
+    pub fleet: FleetState,
+    /// Whether the fleet screen is open.
+    pub fleet_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -361,6 +367,8 @@ impl GalleryState {
         products_state.refresh(&store)?;
         let mut projects_state = ProjectsState::new();
         projects_state.refresh(&store)?;
+        let mut fleet_state = FleetState::new();
+        fleet_state.refresh(&store)?;
         let mut invoices_state = InvoicesState::new();
         invoices_state.refresh(&store)?;
         let mut accounting_state = AccountingState::new();
@@ -439,6 +447,8 @@ impl GalleryState {
             products_open: false,
             projects: projects_state,
             projects_open: false,
+            fleet: fleet_state,
+            fleet_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -509,6 +519,10 @@ impl GalleryState {
             "projects" => {
                 self.projects.reset_for_open(&self.store)?;
                 self.projects_open = true;
+            }
+            "fleet" => {
+                self.fleet.reset_for_open(&self.store)?;
+                self.fleet_open = true;
             }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
@@ -849,6 +863,27 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             state.projects_open = false;
             state.projects.back = false;
             state.desktop_windows.close(AppId::new("projects"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.fleet_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "fleet", |focus| {
+            fleet(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.fleet,
+                &state.store,
+                now,
+            );
+        });
+        if closed || state.fleet.back {
+            state.fleet_open = false;
+            state.fleet.back = false;
+            state.desktop_windows.close(AppId::new("fleet"), now);
         }
         state.focus.finish_frame();
         return;
