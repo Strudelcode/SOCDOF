@@ -635,10 +635,8 @@ pub fn contacts(
             });
         });
     state.batch_open = batch_open && !cancel_batch;
-    if save_batch {
-        if state.save_batch(store, now).is_err() {
-            state.error = Some("contacts_error_save");
-        }
+    if save_batch && state.save_batch(store, now).is_err() {
+        state.error = Some("contacts_error_save");
     }
     if cancel_batch {
         state.batch_open = false;
