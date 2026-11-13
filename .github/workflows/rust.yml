@@ -176,11 +176,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/installer-budgets.txt
+          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/native-size-budgets.txt
           {
             echo '### Native Rust desktop size budgets'
             echo '```text'
-            cat artifacts/installer-budgets.txt
+            cat artifacts/native-size-budgets.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
