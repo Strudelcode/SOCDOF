@@ -378,7 +378,7 @@ pub struct AccountingState {
     /// Set when the back button was activated.
     pub back: bool,
     loaded_query: String,
-    loaded_period: Period,
+    loaded_period: AccountingPeriod,
     reload: bool,
 }
 
@@ -405,7 +405,7 @@ impl Default for AccountingState {
             status: None,
             back: false,
             loaded_query: String::new(),
-            loaded_period: Period::All,
+            loaded_period: AccountingPeriod::All,
             reload: true,
         }
     }
