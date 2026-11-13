@@ -1650,6 +1650,28 @@ mod tests {
     }
 
     #[test]
+    fn batch_creation_inserts_only_named_rows_atomically() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = ContactsState::new();
+        state.start_batch();
+        state.batch_drafts[0].name = "Ada Lovelace".to_string();
+        state.batch_drafts[0].email = "ada@example.org".to_string();
+        state.batch_drafts[1].company = "Analytical Engines".to_string();
+        state.batch_drafts[1].contact_type = 1;
+        state.batch_drafts[2].phone = "+441234567".to_string();
+
+        state.save_batch(&store, SAMPLE_NOW_MS).expect("batch insert");
+
+        let contacts = store.list_contacts().expect("contacts");
+        assert_eq!(contacts.len(), 2, "a row without name or company is skipped");
+        assert_eq!(contacts[0].display_name(), "Ada Lovelace");
+        assert_eq!(contacts[1].company_name.as_deref(), Some("Analytical Engines"));
+        assert_eq!(contacts[1].contact_type, ContactType::Vendor);
+        assert!(!state.batch_open);
+        assert!(state.batch_drafts.is_empty());
+    }
+
+    #[test]
     fn keeps_the_address_through_the_draft() {
         let mut contact = Contact::new(ContactKind::Company, 0);
         contact.company_name = Some("AlpenTech".to_string());
