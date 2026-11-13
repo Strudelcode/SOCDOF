@@ -394,6 +394,15 @@ fn priority_key(priority: &str) -> &'static str {
     }
 }
 
+fn task_status_key(status: &str) -> &'static str {
+    match status {
+        "in_progress" => "projects_task_progress",
+        "review" => "projects_task_review",
+        "done" => "projects_task_done",
+        _ => "projects_task_todo",
+    }
+}
+
 fn status_label(status: &str) -> &'static str {
     match status {
         "active" => "projects_status_active",
@@ -465,7 +474,7 @@ pub fn projects(
                 || project.description.to_lowercase().contains(&query))
     }).cloned().collect();
     let visible_tasks: Vec<ProjectTask> = state.tasks.iter().filter(|task| {
-        state.selected.is_none_or(|project_id| task.project_id == project_id)
+        state.selected.map_or(true, |project_id| task.project_id == project_id)
             && (query.is_empty() || task.title.to_lowercase().contains(&query) || task.assignee.to_lowercase().contains(&query))
     }).cloned().collect();
 
@@ -561,7 +570,7 @@ pub fn projects(
                             ui.text_edit_singleline(&mut task.due_date);
                         });
                         egui::ComboBox::from_id_source("projects-task-status")
-                            .selected_text(texts.get(status_label(&task.status)))
+                            .selected_text(texts.get(task_status_key(&task.status)))
                             .show_ui(ui, |ui| {
                                 for (value, key) in [("todo", "projects_task_todo"), ("in_progress", "projects_task_progress"), ("review", "projects_task_review"), ("done", "projects_task_done")] {
                                     ui.selectable_value(&mut task.status, value.to_string(), texts.get(key));
@@ -578,12 +587,12 @@ pub fn projects(
                             ui.label(texts.get("projects_estimated_hours"));
                             let mut estimated = (task.estimated_hours_milli as f64 / 1_000.0).to_string();
                             if ui.text_edit_singleline(&mut estimated).changed() {
-                                task.estimated_hours_milli = ((estimated.parse::<f64>().unwrap_or(0.0).max(0.0)) * 1_000.0).round() as i64;
+                                task.estimated_hours_milli = ((estimated.replace(',', ".").parse::<f64>().unwrap_or(0.0).max(0.0)) * 1_000.0).round() as i64;
                             }
                             ui.label(texts.get("projects_logged_hours"));
                             let mut logged = (task.logged_hours_milli as f64 / 1_000.0).to_string();
                             if ui.text_edit_singleline(&mut logged).changed() {
-                                task.logged_hours_milli = ((logged.parse::<f64>().unwrap_or(0.0).max(0.0)) * 1_000.0).round() as i64;
+                                task.logged_hours_milli = ((logged.replace(',', ".").parse::<f64>().unwrap_or(0.0).max(0.0)) * 1_000.0).round() as i64;
                             }
                             ui.checkbox(&mut task.billable, texts.get("projects_billable"));
                         });
@@ -698,12 +707,7 @@ pub fn projects(
                                 for task in state.current_tasks() {
                                     ui.horizontal_wrapped(|ui| {
                                         ui.label(RichText::new(&task.title).strong());
-                                        badge(ui, theme, texts.get(match task.status.as_str() {
-                                            "in_progress" => "projects_task_progress",
-                                            "review" => "projects_task_review",
-                                            "done" => "projects_task_done",
-                                            _ => "projects_task_todo",
-                                        }), Tone::Neutral);
+                                        badge(ui, theme, texts.get(task_status_key(&task.status)), Tone::Neutral);
                                         ui.label(format!("{} · {}", task.assignee, hours(task.logged_hours_milli)));
                                         if button(ui, theme, focus, texts.get("projects_task_edit"), ButtonVariant::Ghost).activated { edit_task = Some(task.id); }
                                         if button(ui, theme, focus, texts.get("projects_task_delete"), ButtonVariant::Ghost).activated { delete_task = Some(task.id); }
@@ -782,12 +786,7 @@ pub fn projects(
                                 let project_name = state.projects.iter().find(|project| project.id == task.project_id).map(|project| project.title.as_str()).unwrap_or("—");
                                 ui.label(project_name);
                                 ui.label(&task.assignee);
-                                ui.label(texts.get(match task.status.as_str() {
-                                    "in_progress" => "projects_task_progress",
-                                    "review" => "projects_task_review",
-                                    "done" => "projects_task_done",
-                                    _ => "projects_task_todo",
-                                }));
+                                ui.label(texts.get(task_status_key(&task.status)));
                                 ui.horizontal(|ui| {
                                     ui.label(hours(task.logged_hours_milli));
                                     if button(ui, theme, focus, texts.get("projects_task_edit"), ButtonVariant::Ghost).activated { edit_task = Some(task.id); }
