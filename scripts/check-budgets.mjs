@@ -70,7 +70,7 @@ function coldStart() {
   measure("cold start (median)", median, limit("cold_start_ms", budget.median_ms), "ms");
 }
 
-function installerBudgets() {
+function nativeDesktopBudgets() {
   // The Tauri bundle is a migration fallback and intentionally remains available until parity is
   // accepted. The native Rust host is the release target for the new size gates.
   const binary = join(root, "target/release/socdof-ui-desktop");
@@ -80,7 +80,7 @@ function installerBudgets() {
     return;
   }
   const bytes = statSync(binary).size;
-  measure("native desktop binary", bytes, limit("installer_bytes", budgets.installer.max_bytes), "bytes");
+  measure("native desktop binary", bytes, limit("native_binary_bytes", budgets.native_binary.max_bytes), "bytes");
   // The current native distribution is a single executable plus OS-provided shared libraries.
   // Its unpacked application footprint is therefore the executable itself; the installer cap is
   // intentionally kept separate for a future platform installer.
@@ -116,7 +116,7 @@ if (!only || only === "bundles") {
   bundle("web bundle", join(root, budgets.web_bundle.path), "wasm_raw_bytes", "wasm_gzip_bytes");
 }
 if (!only || only === "cold_start") coldStart();
-if (!only || only === "artifacts") installerBudgets();
+if (!only || only === "artifacts") nativeDesktopBudgets();
 if (!only || only === "runtime") runtimeBudgets();
 if (!only || only === "bundles") {
   rows.push({ label: "large dataset (50k/100k frames)", value: "cargo test -p socdof-ui --test performance", cap: "", unit: "", ok: true });
