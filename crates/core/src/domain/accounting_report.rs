@@ -203,7 +203,7 @@ pub fn build_business_accounting_report(
     report.vat_liability =
         Money::from_cents(report.output_vat.cents() - report.purchase_tax.cents());
 
-    for (rate in [700_i64, 1900_i64]) {
+    for rate in [700_i64, 1900_i64] {
         let net = Money::from_cents(*vat_bases.get(&rate).unwrap_or(&0));
         let bucket = VatBucket {
             net,
