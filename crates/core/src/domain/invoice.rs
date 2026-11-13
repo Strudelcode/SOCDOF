@@ -95,6 +95,9 @@ pub struct Invoice {
     pub currency_symbol: String,
     /// Free text note printed above the totals.
     pub note: Option<String>,
+    /// Optional stored VAT override for legacy POS/restaurant checkouts.
+    #[serde(default)]
+    pub tax_total_override_cents: Option<i64>,
     /// Positions of the invoice.
     pub lines: Vec<InvoiceLine>,
 }
@@ -107,7 +110,9 @@ impl Invoice {
 
     /// Sum of the tax amounts of all positions.
     pub fn total_tax(&self) -> Money {
-        self.lines.iter().map(InvoiceLine::tax).sum()
+        self.tax_total_override_cents
+            .map(Money::from_cents)
+            .unwrap_or_else(|| self.lines.iter().map(InvoiceLine::tax).sum())
     }
 
     /// Net plus tax.
@@ -122,6 +127,9 @@ impl Invoice {
         }
         if self.lines.is_empty() {
             return Err("lines_required".to_string());
+        }
+        if self.tax_total_override_cents.is_some_and(|amount| amount < 0) {
+            return Err("tax_total_override_negative".to_string());
         }
         for line in &self.lines {
             if line.description.trim().is_empty() {
@@ -155,6 +163,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![
                 InvoiceLine {
                     description: "Beratung".to_string(),
@@ -170,6 +179,14 @@ mod tests {
                 },
             ],
         }
+    }
+
+    #[test]
+    fn stored_tax_override_preserves_legacy_pos_totals() {
+        let mut invoice = sample_invoice();
+        invoice.tax_total_override_cents = Some(3_889);
+        assert_eq!(invoice.total_tax(), Money::from_cents(3_889));
+        assert_eq!(invoice.total_gross(), Money::from_cents(25_139));
     }
 
     #[test]
