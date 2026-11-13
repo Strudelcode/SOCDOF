@@ -23,7 +23,7 @@
   "native_binary": {
     "context": "Native Rust desktop executable `target/release/socdof-ui-desktop`; Tauri remains a migration fallback and is reported separately.",
     "max_bytes": 15728640,
-    "note": "Built in the desktop CI matrix on Linux, Windows and macOS; the Linux native executable is checked against this byte limit."
+    "note": "Built in the desktop CI matrix on Linux and Windows; the Linux native executable is checked against this byte limit. macOS host compilation is gated pending an eframe/winit/objc2 dependency update."
   },
   "installed": {
     "context": "Current native portable distribution footprint (single executable); platform installer payloads will receive a separate measurement when native installers are added.",
