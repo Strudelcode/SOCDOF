@@ -229,6 +229,7 @@
   "accounting_business_output_vat": "Umsatzsteuer",
   "accounting_business_input_vat": "Vorsteuer",
   "accounting_business_receipts": "Belege",
+  "accounting_business_overdue": "Überfällig",
   "accounting_reference": "Referenz",
   "accounting_reference_hint": "Beleg oder Rechnungsnummer",
   "accounting_result": "Ergebnis",
