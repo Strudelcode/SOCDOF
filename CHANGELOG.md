@@ -10,6 +10,10 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ## [26.0.0] - unreleased
 
+### Added
+
+- Native Contacts workflow: batch creation with atomic multi-row persistence, CSV import with an editable preview and category assignment, Outlook/Google/Apple-style header recognition, vCard import, and CSV/vCard export through native file dialogs. The import/export engine is in the Rust core with parser and round-trip tests; all new UI labels are translated in DE/EN/FR/ES.
+
 ### Fixed
 
 - Projects KPI parity: native Rust counts only tasks attached to the listed projects, matching
