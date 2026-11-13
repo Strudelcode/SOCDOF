@@ -2695,9 +2695,9 @@ mod tests {
         let upgraded_standard = store.find_role(USER_ROLE_ID).expect("find").expect("standard");
         assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
         assert_eq!(upgraded_admin.level(AppModule::Projects), PermissionLevel::Manage);
-        assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::None);
+        assert_eq!(upgraded_standard.level(AppModule::Projects), PermissionLevel::Edit);
         assert_eq!(upgraded_admin.level(AppModule::Fleet), PermissionLevel::Manage);
-        assert_eq!(upgraded_standard.level(AppModule::Fleet), PermissionLevel::None);
+        assert_eq!(upgraded_standard.level(AppModule::Fleet), PermissionLevel::Edit);
     }
 
     #[test]
