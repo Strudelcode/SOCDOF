@@ -374,6 +374,7 @@ mod tests {
         assert_eq!(report.vat_19.net.cents(), 10_000);
         assert_eq!(report.vat_7.net.cents(), 5_000);
         assert_eq!(report.open_receivables.len(), 1);
+        assert!(report.open_receivables[0].overdue);
         assert_eq!(report.open_receivables_total.cents(), 11_900);
         assert_eq!(report.z_report.receipts, 1);
         assert_eq!(report.z_report.nfc.cents(), 5_350);
