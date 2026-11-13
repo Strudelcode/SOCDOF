@@ -1989,5 +1989,6 @@
   "accounting_tax_advisor_opening_title": "Définir le solde initial",
   "accounting_tax_advisor_cash_start": "Solde initial en espèces",
   "accounting_tax_advisor_bank_start": "Solde initial bancaire",
-  "accounting_tax_advisor_balance_invalid": "Saisissez des montants valides et non négatifs."
+  "accounting_tax_advisor_balance_invalid": "Saisissez des montants valides et non négatifs.",
+  "accounting_tax_advisor_year": "Année"
 }
