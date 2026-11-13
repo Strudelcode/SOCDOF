@@ -829,6 +829,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Users, "users"),
         (AppModule::Settings, "settings"),
         (AppModule::Editor, "editor"),
+        (AppModule::Projects, "projects"),
     ] {
         if !active.contains(&module) {
             continue;
