@@ -283,16 +283,26 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
 pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) -> Vec<Contact> {
     let mut cards: Vec<Vec<String>> = Vec::new();
     let mut current: Vec<String> = Vec::new();
+    let mut in_card = false;
     for raw in input.lines() {
         let line = raw.trim_end_matches('\r');
         if line.eq_ignore_ascii_case("BEGIN:VCARD") {
+            if in_card && !current.is_empty() {
+                cards.push(std::mem::take(&mut current));
+            }
             current.clear();
+            in_card = true;
             continue;
         }
         if line.eq_ignore_ascii_case("END:VCARD") {
-            if !current.is_empty() {
+            if in_card && !current.is_empty() {
                 cards.push(std::mem::take(&mut current));
             }
+            current.clear();
+            in_card = false;
+            continue;
+        }
+        if !in_card {
             continue;
         }
         if line.starts_with(' ') || line.starts_with('\t') {
@@ -302,6 +312,10 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
         } else if !line.is_empty() {
             current.push(line.to_string());
         }
+    }
+    // A truncated final card is still useful when its properties are complete.
+    if in_card && !current.is_empty() {
+        cards.push(current);
     }
     let mut contacts = Vec::new();
     for (index, lines) in cards.iter().enumerate() {
@@ -338,8 +352,16 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
             name
         };
         let email = property("EMAIL").unwrap_or_default().trim().to_string();
-        let clean_email = (!email.is_empty() && valid_email(&email)).then_some(email);
-        let phone = property("TEL").unwrap_or_default().trim().to_string();
+        let clean_email =
+            (!email.is_empty() && email.contains('@') && valid_email(&email)).then_some(email);
+        let raw_phone = property("TEL").unwrap_or_default();
+        let raw_phone = raw_phone.trim();
+        let phone = raw_phone
+            .strip_prefix("tel:")
+            .or_else(|| raw_phone.strip_prefix("TEL:"))
+            .unwrap_or(raw_phone)
+            .trim()
+            .to_string();
         if name.is_empty() && clean_email.is_none() && phone.is_empty() {
             continue;
         }
@@ -484,10 +506,29 @@ pub fn export_contacts_vcard(contacts: &[Contact]) -> String {
                 lines.push(format!("NOTE:{}", escape_vcard(v)));
             }
             lines.push("END:VCARD".to_string());
-            lines.join("\r\n")
+            lines
+                .iter()
+                .map(|line| fold_vcard_line(line))
+                .collect::<Vec<_>>()
+                .join("\r\n")
         })
         .collect::<Vec<_>>()
         .join("\r\n\r\n")
+}
+
+fn fold_vcard_line(line: &str) -> String {
+    let mut output = String::new();
+    let mut column = 0;
+    for character in line.chars() {
+        let width = character.len_utf8();
+        if column + width > 75 {
+            output.push_str("\r\n ");
+            column = 1;
+        }
+        output.push(character);
+        column += width;
+    }
+    output
 }
 
 fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
@@ -693,6 +734,36 @@ mod tests {
         assert_eq!(parsed[0].city.as_deref(), Some("London"));
         assert_eq!(parsed[0].zip.as_deref(), Some("N1 1AA"));
         assert_eq!(parsed[0].country.as_deref(), Some("United Kingdom"));
+    }
+
+    #[test]
+    fn supports_vcard_21_40_grouped_properties_and_uri_phones() {
+        let vcf = concat!(
+            "BEGIN:VCARD\r\nVERSION:2.1\r\n",
+            "item1.EMAIL;TYPE=INTERNET:old@example.org\r\n",
+            "FN:First Card\r\nTEL;HOME;VOICE:12345\r\nEND:VCARD\r\n",
+            "BEGIN:VCARD\nVERSION:4.0\nFN:Second Card\n",
+            "EMAIL;TYPE=work:not-an-email\nTEL;VALUE=uri:tel:+49-123\n"
+        );
+        let parsed = parse_contacts_vcard(vcf, ContactType::Guest, 10);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].email.as_deref(), Some("old@example.org"));
+        assert_eq!(parsed[1].email, None);
+        assert_eq!(parsed[1].phone.as_deref(), Some("+49-123"));
+    }
+
+    #[test]
+    fn vcard_export_folds_long_utf8_lines_without_splitting_characters() {
+        let mut contact = Contact::new(ContactKind::Person, 1);
+        contact.name = Some("Ä".repeat(100));
+        let exported = export_contacts_vcard(&[contact]);
+        assert!(exported.contains("\r\n "));
+        for line in exported.split("\r\n") {
+            assert!(line.len() <= 75 || line.starts_with(' '));
+        }
+        let parsed = parse_contacts_vcard(&exported, ContactType::Guest, 2);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name.as_deref(), Some("Ä".repeat(100).as_str()));
     }
 
     #[test]
