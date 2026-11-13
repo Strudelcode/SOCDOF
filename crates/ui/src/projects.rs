@@ -925,7 +925,7 @@ mod tests {
         task.logged_hours_milli = 2_500;
         task.billable = true;
         state.task_draft = Some(task);
-        state.save_task(&store).expect("save task");
+        state.save_task(&store, 1_800_000_000_002).expect("save task");
 
         let project_id = state.selected.expect("project");
         let invoice_id = state
