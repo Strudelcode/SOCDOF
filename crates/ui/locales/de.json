@@ -1,4 +1,7 @@
 {
+  "fleet_filter_all": "Alle",
+  "fleet_filter_from": "Von",
+  "fleet_filter_to": "Bis",
   "projects_kpi_logged": "Erfasste Stunden",
   "projects_kpi_estimated": "Geplante Stunden",
   "projects_kpi_completion": "Fortschritt",
