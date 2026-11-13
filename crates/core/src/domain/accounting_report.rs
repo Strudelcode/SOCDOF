@@ -229,7 +229,7 @@ pub fn export_business_accounting_csv(
     date_label: &str,
     currency: &str,
 ) -> String {
-    let mut rows = vec![
+    let rows = vec![
         vec!["Accounting, Financials & P&L".to_string(), company_name.to_string()],
         vec!["Period".to_string(), period.to_string()],
         vec!["Date".to_string(), date_label.to_string()],
@@ -277,7 +277,7 @@ pub fn export_business_accounting_csv(
             report.vat_liability.to_decimal_string(),
         ],
     ];
-    rows.drain(..)
+    rows.into_iter()
         .map(|row| row.iter().map(|field| csv_field(field)).collect::<Vec<_>>().join(";"))
         .collect::<Vec<_>>()
         .join("\n")
