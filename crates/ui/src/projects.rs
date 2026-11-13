@@ -461,6 +461,7 @@ pub fn projects(
     let mut delete_task: Option<Uuid> = None;
     let mut change_task: Option<(Uuid, &'static str)> = None;
     let mut bill_project: Option<Uuid> = None;
+    #[cfg(feature = "dialogs")]
     let mut export_csv = false;
 
     let query = state.query.trim().to_lowercase();
