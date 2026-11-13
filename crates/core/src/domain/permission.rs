@@ -41,10 +41,12 @@ pub enum AppModule {
     Editor,
     /// Documentation and changelog.
     Documentation,
+    /// Project portfolio and task management.
+    Projects,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 15] = [
+pub const ALL_MODULES: [AppModule; 16] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -60,6 +62,7 @@ pub const ALL_MODULES: [AppModule; 15] = [
     AppModule::Therapy,
     AppModule::Editor,
     AppModule::Documentation,
+    AppModule::Projects,
 ];
 
 impl AppModule {
@@ -81,6 +84,7 @@ impl AppModule {
             AppModule::Therapy => "therapy",
             AppModule::Editor => "editor",
             AppModule::Documentation => "documentation",
+            AppModule::Projects => "projects",
         }
     }
 
