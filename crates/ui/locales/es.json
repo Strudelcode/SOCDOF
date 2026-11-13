@@ -1983,5 +1983,11 @@
   "contacts_import_confirm": "Importar contactos",
   "contacts_export_all": "Todos los contactos",
   "contacts_export_filtered": "Vista filtrada",
-  "accounting_tax_advisor_export": "Libro de caja (Excel)"
+  "accounting_tax_advisor_export": "Libro de caja (Excel)",
+  "accounting_tax_advisor_opening_balance": "Saldo inicial",
+  "accounting_tax_advisor_csv_month": "CSV mensual",
+  "accounting_tax_advisor_opening_title": "Establecer saldo inicial",
+  "accounting_tax_advisor_cash_start": "Saldo inicial de caja",
+  "accounting_tax_advisor_bank_start": "Saldo inicial bancario",
+  "accounting_tax_advisor_balance_invalid": "Introduce importes válidos y no negativos."
 }
