@@ -1,4 +1,7 @@
 {
+  "projects_kpi_logged": "Logged hours",
+  "projects_kpi_estimated": "Estimated hours",
+  "projects_kpi_completion": "Completion",
   "app_fleet": "Fleet",
   "app_store_desc_fleet": "Vehicles, digital logbook, fuel and charging receipts, and analytics.",
   "settings_module_fleet": "Fleet",
