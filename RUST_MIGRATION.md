@@ -749,14 +749,15 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 
 ## 12. Phase 9 — Performance & size budget
 
-- [ ] Installer ≤ 15 MB, installed ≤ 40 MB — not built here. Observed 2026-11-10:
+- [ ] Native executable ≤ 15 MB, portable footprint ≤ 40 MB — current native host measurement pending. Observed 2026-11-10:
       `cargo check --manifest-path crates/app/src-tauri/Cargo.toml` exits 101 with
       `error: failed to run custom build command for gio-sys v0.18.1` /
       `Package 'gio-2.0' … not found`, and there is no `crates/app/src-tauri/target`.
-      Measurement: `.github/workflows/rust.yml`, job `desktop`, step **Check installer size
-      budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on the built bundle (limit
-      15,728,640 B) and on its extracted tree (limit 41,943,040 B, `dpkg-deb -x` or
-      `--appimage-extract`); a violation exits 1 and fails the job
+      Measurement: `.github/workflows/rust.yml`, job `desktop`, step **Check native Rust desktop size
+      budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on
+      `target/release/socdof-ui-desktop` (limit 15,728,640 B) and its current single-executable
+      portable footprint (limit 41,943,040 B); a violation exits 1 and fails the job. The Tauri
+      transition fallback remains built/uploaded separately and is not the native release target.
 - [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — the previous measurement belongs to the Tauri
       transition fallback. The CI gate now builds and measures the native `socdof-ui-desktop`
       executable; a current-head result is still pending.
