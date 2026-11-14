@@ -658,7 +658,9 @@ fn is_quoted_printable_property(line: &str) -> bool {
         return false;
     };
     name.split(';').skip(1).any(|parameter| {
-        parameter.trim().eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
+        parameter
+            .trim()
+            .eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
             || parameter.trim().eq_ignore_ascii_case("ENCODING=QP")
     })
 }
@@ -712,12 +714,11 @@ fn hex_digit(value: u8) -> Option<u8> {
 
 fn decode_windows_1252(bytes: &[u8]) -> String {
     const EXTENDED: [char; 32] = [
-        '\u{20ac}', '\u{0081}', '\u{201a}', '\u{0192}', '\u{201e}', '\u{2026}',
-        '\u{2020}', '\u{2021}', '\u{02c6}', '\u{2030}', '\u{0160}', '\u{2039}',
-        '\u{0152}', '\u{008d}', '\u{017d}', '\u{008f}', '\u{0090}', '\u{2018}',
-        '\u{2019}', '\u{201c}', '\u{201d}', '\u{2022}', '\u{2013}', '\u{2014}',
-        '\u{02dc}', '\u{2122}', '\u{0161}', '\u{203a}', '\u{0153}', '\u{009d}',
-        '\u{017e}', '\u{0178}',
+        '\u{20ac}', '\u{0081}', '\u{201a}', '\u{0192}', '\u{201e}', '\u{2026}', '\u{2020}',
+        '\u{2021}', '\u{02c6}', '\u{2030}', '\u{0160}', '\u{2039}', '\u{0152}', '\u{008d}',
+        '\u{017d}', '\u{008f}', '\u{0090}', '\u{2018}', '\u{2019}', '\u{201c}', '\u{201d}',
+        '\u{2022}', '\u{2013}', '\u{2014}', '\u{02dc}', '\u{2122}', '\u{0161}', '\u{203a}',
+        '\u{0153}', '\u{009d}', '\u{017e}', '\u{0178}',
     ];
     bytes
         .iter()
