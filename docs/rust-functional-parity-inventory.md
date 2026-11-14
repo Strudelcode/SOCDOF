@@ -44,7 +44,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
 | `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Existing Rust surface; map each TS screen and action |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
-| `components/shell/*` | `crates/ui/src/shell.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Shell exists; workflow and OS integration audit required |
+| `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager and per-user icon layout persistence exist; independent module rendering inside multiple simultaneous windows, persisted window geometry, tray/startup/shortcut OS integration and workflow parity remain open |
 | `src/lib/*` | `crates/core/src/*`, `crates/app/src/*`, `crates/ui/src/*` | Cross-cutting; map every exported function and side effect |
 
 ## Full TypeScript source inventory
