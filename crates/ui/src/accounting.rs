@@ -1403,7 +1403,13 @@ fn list_view(
                 state.tax_advisor_export = true;
             }
         }
-        if button(
+        if matches!(
+            state.tab,
+            AccountingTab::Journal
+                | AccountingTab::CashBook
+                | AccountingTab::Bwa
+                | AccountingTab::BusinessReport
+        ) && button(
             ui,
             theme,
             focus,
@@ -2724,6 +2730,25 @@ mod tests {
         assert_eq!(month.carry_over_bank.cents(), 67_890);
         assert_eq!(state.tax_advisor_cash_input, "123.45");
         assert_eq!(state.tax_advisor_bank_input, "678.90");
+    }
+
+    #[test]
+    fn accounting_tabs_expose_the_legacy_vat_open_items_and_z_report_views() {
+        let tabs = [
+            AccountingTab::Journal,
+            AccountingTab::CashBook,
+            AccountingTab::Bwa,
+            AccountingTab::BusinessReport,
+            AccountingTab::VatReturn,
+            AccountingTab::OpenItems,
+            AccountingTab::ZReport,
+        ];
+        for (index, tab) in tabs.into_iter().enumerate() {
+            assert_eq!(tab.index(), index);
+            assert_eq!(AccountingTab::from_index(index), tab);
+            assert!(!tab.label_key().is_empty());
+        }
+        assert_eq!(AccountingTab::from_index(99), AccountingTab::Journal);
     }
 
     #[test]
