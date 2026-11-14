@@ -31,7 +31,7 @@ use crate::tokens::{
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
-type DesktopWindowRenderer<'a> = dyn FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool
+type DesktopWindowRenderer<'a> = dyn FnMut(AppId, bool, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool
     + 'a;
 
 /// Height of the taskbar at the bottom of the screen.
@@ -808,6 +808,7 @@ pub fn desktop_with_content(
     now: i64,
     mut render_window: impl FnMut(
         AppId,
+        bool,
         &mut Ui,
         &Context,
         &Theme,
@@ -1155,7 +1156,7 @@ fn desktop_impl(
                         Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
                     );
                     ui.allocate_ui_at_rect(content_rect, |ui| {
-                        app_back = render_window(app, ui, ctx, theme, texts, focus, store, now);
+                        app_back = render_window(app, is_active, ui, ctx, theme, texts, focus, store, now);
                     });
                 } else {
                     let hint = painter.layout_no_wrap(
@@ -2548,7 +2549,7 @@ mod tests {
                 &mut icons,
                 &mut windows,
                 1_000,
-                |app, ui, _ctx, _theme, _texts, _focus, _store, _now| {
+                |app, _is_active, ui, _ctx, _theme, _texts, _focus, _store, _now| {
                     rendered_apps.push(app.as_str());
                     ui.label(format!("native content: {}", app.as_str()));
                     app.as_str() == "contacts"
