@@ -92,7 +92,7 @@ pub use dashboard::{
     dashboard, DashboardAction, DashboardData, DashboardState, Period, SAMPLE_NOW_MS,
 };
 pub use desktop::{
-    default_window_rect, desktop, format_clock, work_area, AppId, DesktopFrame, DesktopIcon,
+    default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId, DesktopFrame, DesktopIcon,
     DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window, WindowManager,
 };
 pub use editor::{
