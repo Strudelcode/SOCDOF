@@ -704,7 +704,7 @@ pub fn invoices(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            invoices_window(ctx, ui, theme, texts, focus, state, store, now);
+            invoices_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
 
@@ -712,6 +712,7 @@ pub fn invoices(
 #[allow(clippy::too_many_arguments)]
 pub fn invoices_window(
     ctx: &Context,
+    active: bool,
     ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
@@ -720,7 +721,7 @@ pub fn invoices_window(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete
+    if active && !state.confirm_delete
         && !state.templates.open
         && ctx.input(|input| input.key_pressed(egui::Key::Escape))
     {
