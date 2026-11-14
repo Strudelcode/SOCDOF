@@ -128,7 +128,7 @@ impl eframe::App for DesktopApp {
 }
 
 fn database_path() -> Result<PathBuf, Box<dyn Error>> {
-    database_path_from_args(std::env::args_os().skip(1), default_data_root()?)
+    database_path_from_args(\n        std::env::args_os().skip(1),\n        default_data_root()?,\n    )
 }
 
 fn database_path_from_args<I>(
