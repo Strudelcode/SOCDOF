@@ -849,20 +849,37 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_windows,
             now,
         );
-        if outcome.icon_positions_changed {
+        if outcome.icon_positions_changed || outcome.window_layout_changed {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
                 let mut layout =
                     settings_service::desktop_layout(&state.store, user_id).unwrap_or_default();
-                layout.icon_positions = state
-                    .desktop_icons
-                    .positions()
-                    .into_iter()
-                    .map(|(app, cell)| (app.as_str().to_string(), cell))
-                    .collect();
+                if outcome.icon_positions_changed {
+                    layout.icon_positions = state
+                        .desktop_icons
+                        .positions()
+                        .into_iter()
+                        .map(|(app, cell)| (app.as_str().to_string(), cell))
+                        .collect();
+                }
+                if outcome.window_layout_changed {
+                    for window in state.desktop_windows.windows() {
+                        let rect = window.normal_rect();
+                        layout.window_states.insert(
+                            window.app().as_str().to_string(),
+                            settings_service::DesktopWindowLayout {
+                                x: rect.min.x.round() as i32,
+                                y: rect.min.y.round() as i32,
+                                width: rect.width().round().max(320.0) as u32,
+                                height: rect.height().round().max(220.0) as u32,
+                                maximized: window.is_maximized(),
+                            },
+                        );
+                    }
+                }
                 if let Err(error) =
                     settings_service::save_desktop_layout(&state.store, user_id, &layout)
                 {
-                    eprintln!("SOCDOF could not save desktop icon layout: {error}");
+                    eprintln!("SOCDOF could not save desktop layout: {error}");
                 }
             }
         }
