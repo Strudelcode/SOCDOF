@@ -675,14 +675,6 @@ impl SettingsState {
             self.error = Some("settings_error_user_save");
             return false;
         }
-        if base.is_some()
-            && !draft.password.is_empty()
-            && store.set_password(user.id, &user.password_hash).is_err()
-        {
-            self.error = Some("settings_error_password");
-            return false;
-        }
-
         self.user_editor = None;
         self.active_user.get_or_insert(user.id);
         self.error = None;
