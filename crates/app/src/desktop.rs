@@ -1241,7 +1241,8 @@ impl DesktopState {
     /// Creates or updates a practice trip, preserving the caller's per-trip rate.
     pub fn save_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<TherapyTrip> {
         trip.validate().map_err(CoreError::Validation)?;
-        let store = self.shell()?.store();
+        let shell = self.shell()?;
+        let store = shell.store();
         if store.therapy_trips()?.iter().any(|item| item.id == trip.id) {
             store.update_therapy_trip(trip)?;
         } else {
