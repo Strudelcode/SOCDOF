@@ -2027,5 +2027,6 @@
   "therapie_trip_values_invalid": "Bitte gültige, nicht negative Kilometerstände und einen Kilometersatz eingeben.",
   "therapie_trip_delete_title": "Fahrt löschen",
   "therapie_trip_delete_body": "Möchtest du diese Fahrt wirklich dauerhaft löschen?",
-  "therapie_trip_delete_confirm": "Fahrt löschen"
+  "therapie_trip_delete_confirm": "Fahrt löschen",
+  "projects_task_project_mismatch": "Aufgabe gehört nicht zum ausgewählten Projekt."
 }
