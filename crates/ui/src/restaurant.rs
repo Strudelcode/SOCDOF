@@ -1300,9 +1300,10 @@ mod tests {
         let paid = store.restaurant_order(order.id).unwrap().unwrap();
         assert_eq!(paid.status, "paid");
         assert_eq!(paid.tip_cents, 100);
-        assert!(state
-            .cancel_order(&store, order.id)
-            .is_err(), "paid receipts must remain in the archive");
+        assert!(
+            state.cancel_order(&store, order.id).is_err(),
+            "paid receipts must remain in the archive"
+        );
         assert!(store.restaurant_order(order.id).unwrap().is_some());
         assert!(paid.is_hospitality_receipt);
         assert_eq!(paid.hospitality_host, "SOCDOF");
