@@ -81,7 +81,7 @@ pub use components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
     Activated, ButtonVariant, SortState, Toast, Toasts, Tone,
 };
-pub use contacts::{contacts, seed_sample, ContactDraft, ContactsState, ContactsView};
+pub use contacts::{contacts, contacts_content, seed_sample, ContactDraft, ContactsState, ContactsView};
 pub use controls::{
     calendar, checkbox, drawer, drop_zone, menu, password_field, select, switch, text_field,
     CalendarLabels, DrawerLabels, PopupState,
@@ -104,7 +104,7 @@ pub use i18n::{UiTexts, UI_KEYS};
 pub use icons::{Icon, ALL_ICONS};
 pub use invoice_templates::{templates_modal, InvoiceTemplatesState};
 pub use invoices::{
-    invoices, seed_invoices, InvoiceDraft, InvoiceLineDraft, InvoicesState, InvoicesView,
+    invoices, invoices_content, seed_invoices, InvoiceDraft, InvoiceLineDraft, InvoicesState, InvoicesView,
 };
 pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
@@ -115,7 +115,7 @@ pub use purchases::{
 pub use reports::{reports, ReportsState};
 pub use restaurant::{restaurant, RestaurantState, RestaurantView};
 pub use settings::{
-    seed_settings, settings, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
+    seed_settings, settings, settings_content, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
 };
 pub use shell::{
     command_palette, onboarding, start_menu, tray_flyout, Command, CommandPalette, Onboarding,
