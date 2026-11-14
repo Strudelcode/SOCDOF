@@ -3,7 +3,9 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use crate::domain::permission::{AppModule, PermissionLevel, Role};
+use crate::domain::permission::{
+    AppModule, PermissionLevel, Role, ADMIN_ROLE_ID, USER_ROLE_ID,
+};
 use crate::domain::user::User;
 use crate::error::{CoreError, CoreResult};
 use crate::now_millis;
@@ -219,7 +221,6 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Role> {
 mod tests {
     use super::*;
     use crate::domain::permission::{AppModule, PermissionLevel};
-    use crate::domain::user::UserRole;
 
     fn role_store() -> Connection {
         let conn = Connection::open_in_memory().expect("database");
