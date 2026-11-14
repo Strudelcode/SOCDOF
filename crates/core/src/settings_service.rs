@@ -254,7 +254,8 @@ pub fn resolve_language(store: &Store, user_id: Option<Uuid>) -> CoreResult<Lang
 
 /// Removes the preferences of a user, for example when the account is deleted.
 pub fn delete_preferences(store: &Store, user_id: Uuid) -> CoreResult<()> {
-    store.remove_setting(&preferences_key(user_id))
+    store.remove_setting(&preferences_key(user_id))?;
+    delete_desktop_layout(store, user_id)
 }
 
 /// Loads the update policy (defaults before the first save).
