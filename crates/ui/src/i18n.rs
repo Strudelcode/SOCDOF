@@ -762,6 +762,8 @@ pub const UI_KEYS: &[&str] = &[
     "invoices_payment_date",
     "invoices_payment_reference",
     "invoices_payment_confirm",
+    "invoices_payment_error_cash",
+    "invoices_payment_error_card",
     "invoices_close",
     "invoices_title",
     "invoices_subtitle",
