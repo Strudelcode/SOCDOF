@@ -1432,6 +1432,54 @@ mod tests {
     }
 
     #[test]
+    fn logbook_filters_match_vehicle_purpose_date_and_search() {
+        let first_vehicle = Uuid::new_v4();
+        let second_vehicle = Uuid::new_v4();
+        let make_trip = |vehicle_id, date: &str, purpose: &str, reason: &str| FleetTrip {
+            id: Uuid::new_v4(),
+            vehicle_id,
+            vehicle_plate: if vehicle_id == first_vehicle {
+                "M-SO 2026".to_string()
+            } else {
+                "BZ-AB 123".to_string()
+            },
+            driver: "Yuri".to_string(),
+            date: date.to_string(),
+            start_time: "08:30".to_string(),
+            end_time: "09:30".to_string(),
+            start_location: "Bozen".to_string(),
+            end_location: "Meran".to_string(),
+            purpose: purpose.to_string(),
+            reason: reason.to_string(),
+            customer_name: "Beispiel GmbH".to_string(),
+            start_km: 100,
+            end_km: 130,
+            distance_km: 30,
+            notes: String::new(),
+            created_at: 1_800_000_000_000,
+        };
+        let mut state = FleetState::new();
+        state.trips = vec![
+            make_trip(first_vehicle, "2026-11-10", "business", "Kundentermin"),
+            make_trip(first_vehicle, "2026-11-12", "private", "Privat"),
+            make_trip(second_vehicle, "2026-11-12", "business", "Werkstatt"),
+        ];
+
+        state.selected_vehicle_filter = Some(first_vehicle);
+        state.purpose_filter = "business".to_string();
+        state.date_from = "2026-11-10".to_string();
+        state.date_to = "2026-11-11".to_string();
+        state.query = "kund".to_string();
+
+        let filtered = state.filtered_trips();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].reason, "Kundentermin");
+
+        state.query = "nicht vorhanden".to_string();
+        assert!(state.filtered_trips().is_empty());
+    }
+
+    #[test]
     fn invalid_fleet_records_do_not_persist() {
         let store = Store::open_in_memory().expect("store");
         let mut state = FleetState::new();
