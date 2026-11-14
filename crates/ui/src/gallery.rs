@@ -622,8 +622,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     // Authentication remains active while the desktop is visible. The login renderer cannot
     // own the idle timer because it is not called during normal desktop frames.
     if !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked {
-        let interacting =
-            ctx.input(|input| input.pointer.any_down() || !input.events.is_empty());
+        let interacting = ctx.input(|input| input.pointer.any_down() || !input.events.is_empty());
         if interacting {
             state.auth.note_activity(now);
         }
@@ -2933,10 +2932,16 @@ mod tests {
         };
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
 
-        assert!(!state.desktop_open, "desktop remained visible after idle timeout");
+        assert!(
+            !state.desktop_open,
+            "desktop remained visible after idle timeout"
+        );
         assert!(state.auth_open, "lock screen was not shown");
         assert_eq!(state.auth.view, crate::auth::AuthView::Locked);
-        assert!(state.auth.session.is_some(), "locking revoked the active session");
+        assert!(
+            state.auth.session.is_some(),
+            "locking revoked the active session"
+        );
     }
 
     #[test]
