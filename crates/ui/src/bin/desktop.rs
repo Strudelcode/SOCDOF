@@ -39,7 +39,7 @@ impl DesktopApp {
         // Preserve databases created by earlier native builds. Hold the legacy instance lock
         // while copying so an older running process cannot modify the database or its WAL.
         let legacy_lock = if !database.exists() {
-            legacy_database_path()
+            legacy_database_path(&database)
                 .filter(|legacy| legacy.exists())
                 .map(|legacy| {
                     let legacy_parent = legacy
@@ -194,8 +194,12 @@ fn default_data_root() -> Result<PathBuf, Box<dyn Error>> {
     Ok(root)
 }
 
-fn legacy_database_path() -> Option<PathBuf> {
+fn legacy_database_path(database: &Path) -> Option<PathBuf> {
     let root = default_data_root().ok()?;
+    let current_default = root.join("SOCDOF").join("SOCDOF.db");
+    if database != current_default {
+        return None;
+    }
     Some(root.join("com.strudelcode.socdof").join("socdof.db"))
 }
 
