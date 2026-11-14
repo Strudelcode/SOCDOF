@@ -398,6 +398,7 @@ mod tests {
         .expect("legacy layout");
         assert!(!legacy.open);
         assert!(!legacy.minimized);
+        assert_eq!(legacy.z_order, 0);
 
         let store = Store::open_in_memory().expect("store");
         let user_id = Uuid::new_v4();
