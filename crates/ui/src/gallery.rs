@@ -801,12 +801,9 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 state.desktop_icons = IconGrid::new(Vec::new());
                 state.dashboard.set_active_modules(Vec::new());
             }
-            if let Some(app) = startup_module.filter(|app| {
-                state
-                    .desktop_icons
-                    .index_of(*app)
-                    .is_some()
-            }) {
+            if let Some(app) =
+                startup_module.filter(|app| state.desktop_icons.index_of(*app).is_some())
+            {
                 // A stale or disabled start-up module falls back to the desktop instead of
                 // leaving the user on a blank screen.
                 if state.open_desktop_app(app, now).is_err() {
@@ -2584,9 +2581,8 @@ mod tests {
             updated_at: now_millis(),
         };
         store.insert_user(&user).expect("insert standard user");
-        let mut state =
-            GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
-                .expect("persistent state");
+        let mut state = GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+            .expect("persistent state");
         state.auth.user = Some(user);
 
         state.sync_module_navigation().expect("filter launcher");
@@ -2599,10 +2595,7 @@ mod tests {
             .desktop_icons
             .index_of(AppId::new("settings"))
             .is_none());
-        assert!(state
-            .desktop_icons
-            .index_of(AppId::new("users"))
-            .is_none());
+        assert!(state.desktop_icons.index_of(AppId::new("users")).is_none());
         assert!(state
             .open_desktop_app(AppId::new("settings"), now_millis())
             .is_err());
