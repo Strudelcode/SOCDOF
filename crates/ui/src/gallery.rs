@@ -681,7 +681,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     let _ = state.set_language(preferences.language);
                     state.appearance = match preferences.theme_mode {
                         ThemeMode::Dark => Appearance::Dark,
-                        ThemeMode::Light | ThemeMode::System => Appearance::Light,
+                        ThemeMode::Light => Appearance::Light,
+                        ThemeMode::System => state.appearance,
                     };
                     state.accent_id = preferences.accent_color;
                 }
@@ -1241,6 +1242,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
+        if let Some(preferences) = state.settings.take_saved_preferences() {
+            let _ = state.set_language(preferences.language);
+            state.appearance = match preferences.theme_mode {
+                ThemeMode::Dark => Appearance::Dark,
+                ThemeMode::Light => Appearance::Light,
+                ThemeMode::System => state.appearance,
+            };
+            state.accent_id = preferences.accent_color;
+        }
         if closed || state.settings.back {
             state.settings_open = false;
             state.settings.back = false;
