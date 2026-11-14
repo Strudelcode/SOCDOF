@@ -619,6 +619,21 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     let texts = state.texts.clone();
     let now = now_millis();
 
+    // Authentication remains active while the desktop is visible. The login renderer cannot
+    // own the idle timer because it is not called during normal desktop frames.
+    if state.desktop_open && state.auth.view == crate::auth::AuthView::Unlocked {
+        let interacting =
+            ctx.input(|input| input.pointer.any_down() || !input.events.is_empty());
+        if interacting {
+            state.auth.note_activity(now);
+        }
+        state.auth.tick(now);
+        if state.auth.view == crate::auth::AuthView::Locked {
+            state.desktop_open = false;
+            state.auth_open = true;
+        }
+    }
+
     if state.auth_open {
         if state.auth.import_pending {
             let _ = state.auth.run_pending_import(&state.store);
@@ -2891,6 +2906,31 @@ mod tests {
         assert!(state.settings_open, "settings did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
         assert_eq!(state.settings.tab(), crate::settings::SettingsTab::General);
+    }
+
+    #[test]
+    fn desktop_idle_timeout_returns_to_the_locked_authentication_screen() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.desktop_open = true;
+        state.auth_open = false;
+        state.auth.idle_timeout_ms = 1_000;
+        state.auth.last_activity_ms = now_millis() - 1_001;
+
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(1280.0, 800.0),
+            )),
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
+
+        assert!(!state.desktop_open, "desktop remained visible after idle timeout");
+        assert!(state.auth_open, "lock screen was not shown");
+        assert_eq!(state.auth.view, crate::auth::AuthView::Locked);
+        assert!(state.auth.session.is_some(), "locking revoked the active session");
     }
 
     #[test]
