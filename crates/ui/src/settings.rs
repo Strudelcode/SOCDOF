@@ -1208,6 +1208,7 @@ pub fn settings_content(
 
 /// Renders the full-screen settings workflow, including refresh and destructive-action dialogs.
 /// Renders settings in a native desktop window, including refresh and confirmation dialogs.
+#[allow(clippy::too_many_arguments)]
 pub fn settings_window(
     ctx: &Context,
     ui: &mut egui::Ui,
