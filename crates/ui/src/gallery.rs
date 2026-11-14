@@ -213,6 +213,9 @@ fn restore_native_windows(
         if saved.maximized {
             state.desktop_windows.toggle_maximize(app, area);
         }
+        if saved.minimized {
+            state.desktop_windows.minimize(app);
+        }
     }
 }
 
@@ -970,6 +973,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 height: rect.height().round().max(220.0) as u32,
                                 maximized: window.is_maximized(),
                                 open: true,
+                                minimized: window.is_minimized(),
                             },
                         );
                     }
@@ -3377,7 +3381,8 @@ mod tests {
                 width: 1000,
                 height: 700,
                 maximized: false,
-                open: false,
+                open: true,
+                minimized: true,
             },
         );
 
@@ -3400,7 +3405,12 @@ mod tests {
         assert!(normal.min.y >= work_area(screen).top());
         assert_eq!(normal.width(), 900.0);
         assert_eq!(normal.height(), 600.0);
-        assert!(!state.desktop_windows.is_open(AppId::new("invoices")));
+        assert!(state.desktop_windows.is_open(AppId::new("invoices")));
+        assert!(state
+            .desktop_windows
+            .window(AppId::new("invoices"))
+            .expect("restored minimized invoices window")
+            .is_minimized());
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
