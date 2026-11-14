@@ -1990,5 +1990,8 @@
   "accounting_tax_advisor_cash_start": "Saldo inicial de caja",
   "accounting_tax_advisor_bank_start": "Saldo inicial bancario",
   "accounting_tax_advisor_balance_invalid": "Introduce importes válidos y no negativos.",
-  "accounting_tax_advisor_year": "Año"
+  "accounting_tax_advisor_year": "Año",
+  "accounting_tab_ustva": "Declaración IVA",
+  "accounting_tab_open_items": "Facturas pendientes",
+  "accounting_tab_z_report": "Informe Z"
 }
