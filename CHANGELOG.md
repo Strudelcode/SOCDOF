@@ -6,7 +6,11 @@
   route/purpose/date, odometer readings, an individually stored cents-per-kilometre rate and
   cent-rounded reimbursement. Added Store CRUD, DesktopState/Tauri commands, reset handling and
   regression tests for custom rates, updates, validation and retaining trip history when a client
-  is deleted. The native egui mileage screen and tax-advisor-ledger integration remain open.
+  is deleted. Therapy mileage is now included in the monthly tax-advisor ledger as a bank expense
+  using each trip's own rate. The native egui mileage screen and exact TypeScript rate/preset parity
+  remain open.
+- Aligned the tax-advisor workbook's running-balance and current-balance formulas with the legacy
+  TypeScript R1C1 expressions; Rust keeps dynamically sized SUMIF ranges to avoid truncating large months.
 
 
 All notable changes to SOCDOF are documented here. The release workflow reads
