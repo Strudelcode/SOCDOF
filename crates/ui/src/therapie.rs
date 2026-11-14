@@ -115,6 +115,8 @@ pub struct TherapieState {
     pub trips: Vec<TherapyTrip>,
     /// Search query for the mileage logbook.
     pub trip_query: String,
+    /// Optional client linked to the mileage trip.
+    pub trip_client_id: Option<Uuid>,
     /// Date of the mileage trip.
     pub trip_date: String,
     /// Starting point of the mileage trip.
@@ -312,6 +314,7 @@ impl TherapieState {
     /// Clears the mileage editor without changing stored records.
     pub fn clear_trip_draft(&mut self) {
         self.editing_trip = None;
+        self.trip_client_id = self.selected;
         self.trip_date = socdof_core::date::format_iso8601(socdof_core::now_millis())
             .split('T')
             .next()
@@ -338,6 +341,7 @@ impl TherapieState {
             return;
         };
         self.editing_trip = Some(id);
+        self.trip_client_id = trip.client_id;
         self.trip_date = trip.date.clone();
         self.trip_departure = trip.departure.clone();
         self.trip_destination = trip.destination.clone();
@@ -377,7 +381,7 @@ impl TherapieState {
         });
         let trip = TherapyTrip {
             id: existing.as_ref().map(|trip| trip.id).unwrap_or_else(Uuid::new_v4),
-            client_id: existing.as_ref().and_then(|trip| trip.client_id).or(self.selected),
+            client_id: self.trip_client_id.or(self.selected),
             date: self.trip_date.trim().to_string(),
             departure: self.trip_departure.trim().to_string(),
             destination: self.trip_destination.trim().to_string(),
@@ -788,6 +792,29 @@ fn mileage_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("therapie_mileage_editor")).strong());
         text_field(ui, theme, focus, &mut state.trip_date, texts.get("therapie_trip_date"), "", None);
+        ui.label(RichText::new(texts.get("therapie_trip_client")).size(FONT_SMALL).color(theme.palette.text_muted));
+        egui::ComboBox::from_id_source("therapy-mileage-client")
+            .selected_text(
+                state
+                    .trip_client_id
+                    .and_then(|id| state.clients.iter().find(|client| client.id == id))
+                    .map(|client| client.name.as_str())
+                    .unwrap_or(texts.get("therapie_trip_no_client")),
+            )
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut state.trip_client_id,
+                    None,
+                    texts.get("therapie_trip_no_client"),
+                );
+                for client in &state.clients {
+                    ui.selectable_value(
+                        &mut state.trip_client_id,
+                        Some(client.id),
+                        &client.name,
+                    );
+                }
+            });
         text_field(ui, theme, focus, &mut state.trip_departure, texts.get("therapie_trip_departure"), "", None);
         text_field(ui, theme, focus, &mut state.trip_destination, texts.get("therapie_trip_destination"), "", None);
         text_field(ui, theme, focus, &mut state.trip_purpose, texts.get("therapie_trip_purpose"), "", None);
