@@ -21,6 +21,9 @@
 - Restaurant paid receipts are read-only in the native history, matching the TypeScript archive.
   Added a checkout regression assertion that paid receipts cannot be cancelled or removed through
   the normal UI workflow.
+- Restaurant NFC/mobile-wallet checkout now posts `nfc` to the POS ledger instead of
+  incorrectly downgrading it to `card`. Added an end-to-end checkout regression test for both the
+  restaurant order and linked POS receipt.
 
 
 All notable changes to SOCDOF are documented here. The release workflow reads
