@@ -894,6 +894,23 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             } else {
                 Appearance::Dark
             };
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                match settings_service::preferences(&state.store, user_id) {
+                    Ok(mut preferences) => {
+                        preferences.theme_mode = if state.appearance.is_dark() {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::Light
+                        };
+                        if let Err(error) =
+                            settings_service::save_preferences(&state.store, user_id, &preferences)
+                        {
+                            eprintln!("SOCDOF could not persist desktop theme: {error}");
+                        }
+                    }
+                    Err(error) => eprintln!("SOCDOF could not load desktop theme preferences: {error}"),
+                }
+            }
         }
         if let Some(app) = outcome.open_app {
             if state.open_desktop_app(app, now).is_err() {
