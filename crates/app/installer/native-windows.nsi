@@ -50,7 +50,8 @@ Section "Install"
   SetShellVarContext current
   SetOutPath "$INSTDIR"
   nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
-  File "${SOURCE_DIR}\${APP_EXE}"
+  SetOverwrite on
+  File /oname=${APP_EXE} "${SOURCE_DIR}\${APP_EXE}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   CreateDirectory "$SMPROGRAMS\SOCDOF"
@@ -72,7 +73,7 @@ SectionEnd
 Section /o "Start SOCDOF when I sign in" SecStartup
   SetShellVarContext current
   CreateDirectory "$SMSTARTUP"
-  CreateShortCut "$SMSTARTUP\\SOCDOF.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${APP_EXE}" 0
+  CreateShortCut "$SMSTARTUP\SOCDOF.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
 SectionEnd
 
 Function .onInstSuccess
@@ -81,7 +82,7 @@ Function .onInstSuccess
   IntOp $0 $0 & ${SF_SELECTED}
   ${If} $0 == 0
     SetShellVarContext current
-    Delete "$SMSTARTUP\\SOCDOF.lnk"
+    Delete "$SMSTARTUP\SOCDOF.lnk"
   ${EndIf}
 FunctionEnd
 
