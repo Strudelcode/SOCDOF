@@ -35,7 +35,8 @@ pub fn insert(conn: &Connection, role: &Role) -> CoreResult<()> {
 pub fn update(conn: &Connection, role: &Role) -> CoreResult<()> {
     role.validate().map_err(CoreError::Validation)?;
 
-    let changed = conn.execute(
+    let transaction = conn.unchecked_transaction()?;
+    let changed = transaction.execute(
         "UPDATE roles SET name = ?2, description = ?3, permissions = ?4, updated_at = ?5
          WHERE id = ?1",
         params![
@@ -51,6 +52,21 @@ pub fn update(conn: &Connection, role: &Role) -> CoreResult<()> {
         return Err(CoreError::NotFound(role.id.to_string()));
     }
 
+    // Existing sessions must not retain a cached permission set after a role is edited.
+    let user_filter = if role.id == USER_ROLE_ID {
+        "role_id = ?1 OR (role_id IS NULL AND role = 'user')"
+    } else if role.id == ADMIN_ROLE_ID {
+        "role_id = ?1 OR (role_id IS NULL AND role = 'admin')"
+    } else {
+        "role_id = ?1"
+    };
+    let revoke_sql = format!(
+        "UPDATE auth_sessions SET revoked_at = ?2
+         WHERE revoked_at IS NULL AND user_id IN (SELECT id FROM users WHERE {user_filter})"
+    );
+    transaction.execute(&revoke_sql, params![role.id.to_string(), now_millis()])?;
+
+    transaction.commit()?;
     Ok(())
 }
 
@@ -89,7 +105,20 @@ pub fn delete(conn: &Connection, id: Uuid) -> CoreResult<()> {
         None => Err(CoreError::NotFound(id.to_string())),
         Some(true) => Err(CoreError::Validation("role_builtin".to_string())),
         Some(false) => {
-            conn.execute("DELETE FROM roles WHERE id = ?1", params![id.to_string()])?;
+            let transaction = conn.unchecked_transaction()?;
+            transaction.execute(
+                "UPDATE auth_sessions SET revoked_at = ?2
+                 WHERE revoked_at IS NULL AND user_id IN
+                    (SELECT id FROM users WHERE role_id = ?1)",
+                params![id.to_string(), now_millis()],
+            )?;
+            // Preserve the account as a standard user when its custom role is removed.
+            transaction.execute(
+                "UPDATE users SET role_id = NULL, updated_at = ?2 WHERE role_id = ?1",
+                params![id.to_string(), now_millis()],
+            )?;
+            transaction.execute("DELETE FROM roles WHERE id = ?1", params![id.to_string()])?;
+            transaction.commit()?;
             Ok(())
         }
     }
