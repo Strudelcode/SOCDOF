@@ -3371,6 +3371,7 @@ mod tests {
                 height: 600,
                 maximized: true,
                 open: true,
+                minimized: false,
             },
         );
         layout.window_states.insert(
