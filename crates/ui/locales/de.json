@@ -2031,5 +2031,6 @@
   "window_reopen_confirm": "Öffnen",
   "window_reopen_title": "Erneut öffnen?",
   "window_restore": "Wiederherstellen",
-  "auth_session_expired": "Deine Sitzung wurde beendet. Bitte melde dich erneut an."
+  "auth_session_expired": "Deine Sitzung wurde beendet. Bitte melde dich erneut an.",
+  "restaurant_paid": "Bezahlt"
 }
