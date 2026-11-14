@@ -824,7 +824,8 @@ pub fn desktop(
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
             paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
-            let mut blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+            let mut blocked =
+                windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
             if !blocked {
                 let (cycle_windows, close_active, snap_left, snap_right, maximize_active) = ui
