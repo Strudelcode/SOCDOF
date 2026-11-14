@@ -803,7 +803,7 @@ pub fn desktop_with_content(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: impl FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64),
+    mut render_window: impl FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool,
 ) -> DesktopOutcome {
     desktop_impl(ctx, frame, focus, icons, windows, now, Some(&mut render_window))
 }
@@ -1066,6 +1066,7 @@ fn desktop_impl(
         let mut minimize = false;
         let mut toggle = false;
         let mut close = false;
+        let mut app_back = false;
 
         egui::Area::new(Id::new(("socdof-window", app.as_str())))
             .order(egui::Order::Middle)
@@ -1134,7 +1135,7 @@ fn desktop_impl(
                         Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
                     );
                     ui.allocate_ui_at_rect(content_rect, |ui| {
-                        render_window(app, ui, ctx, theme, texts, focus, store, now);
+                        app_back = render_window(app, ui, ctx, theme, texts, focus, store, now);
                     });
                 } else {
                     let hint = painter.layout_no_wrap(
@@ -1226,7 +1227,10 @@ fn desktop_impl(
                 }
             });
 
-        if close {
+        if app_back {
+            windows.close(app, now);
+            outcome.window_layout_changed = true;
+        } else if close {
             windows.request_close(app);
         }
         if minimize {
@@ -2527,6 +2531,7 @@ mod tests {
                 |app, ui, _ctx, _theme, _texts, _focus, _store, _now| {
                     rendered_apps.push(app.as_str());
                     ui.label(format!("native content: {}", app.as_str()));
+                    false
                 },
             );
             assert!(!outcome.back);
