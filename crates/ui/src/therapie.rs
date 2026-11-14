@@ -10,7 +10,7 @@
 //! sessions. Linking puts every still open session of the client on one invoice by number.
 
 use egui::{Context, RichText};
-use socdof_core::domain::therapy::{self, TherapyClient, TherapySession, TherapySummary};
+use socdof_core::domain::therapy::{self, TherapyClient, TherapySession, TherapySummary, TherapyTrip};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -41,6 +41,8 @@ pub enum TherapieView {
     Detail,
     /// Create or edit form.
     Form,
+    /// Practice mileage logbook.
+    Mileage,
 }
 
 /// Editable values of one client.
@@ -109,6 +111,24 @@ pub struct TherapieState {
     pub draft: ClientDraft,
     /// Sessions of the selected client, newest first.
     pub sessions: Vec<TherapySession>,
+    /// Persisted practice mileage trips, newest first.
+    pub trips: Vec<TherapyTrip>,
+    /// Date of the mileage trip.
+    pub trip_date: String,
+    /// Starting point of the mileage trip.
+    pub trip_departure: String,
+    /// Destination of the mileage trip.
+    pub trip_destination: String,
+    /// Purpose of the mileage trip.
+    pub trip_purpose: String,
+    /// Odometer start value in kilometres.
+    pub trip_start_km: String,
+    /// Odometer end value in kilometres.
+    pub trip_end_km: String,
+    /// Individually selected reimbursement rate in currency per kilometre.
+    pub trip_rate: String,
+    /// Existing trip being edited.
+    pub editing_trip: Option<Uuid>,
     /// Date of the session as an ISO date.
     pub session_date: String,
     /// Start time of the session as HH:MM.
@@ -159,6 +179,7 @@ impl TherapieState {
             });
         }
         self.clients = clients;
+        self.trips = store.therapy_trips()?;
         self.loaded_query = self.query.clone();
         self.reload = false;
         self.load_sessions(store)?;
@@ -273,6 +294,119 @@ impl TherapieState {
         self.status = Some("therapie_deleted");
         self.reload = true;
         self.refresh(store)?;
+        Ok(())
+    }
+
+    /// Opens the practice mileage logbook.
+    pub fn open_mileage(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        self.clear_trip_draft();
+        self.trips = store.therapy_trips()?;
+        self.view = TherapieView::Mileage;
+        self.error = None;
+        self.status = None;
+        Ok(())
+    }
+
+    /// Clears the mileage editor without changing stored records.
+    pub fn clear_trip_draft(&mut self) {
+        self.editing_trip = None;
+        self.trip_date = socdof_core::date::format_iso8601(SAMPLE_NOW_MS)
+            .split('T')
+            .next()
+            .unwrap_or("2026-01-01")
+            .to_string();
+        self.trip_departure.clear();
+        self.trip_destination.clear();
+        self.trip_purpose.clear();
+        self.trip_start_km.clear();
+        self.trip_end_km.clear();
+        self.trip_rate = "0,30".to_string();
+    }
+
+    /// Loads one persisted trip into the mileage editor.
+    pub fn edit_trip(&mut self, id: Uuid) {
+        let Some(trip) = self.trips.iter().find(|trip| trip.id == id) else {
+            return;
+        };
+        self.editing_trip = Some(id);
+        self.trip_date = trip.date.clone();
+        self.trip_departure = trip.departure.clone();
+        self.trip_destination = trip.destination.clone();
+        self.trip_purpose = trip.purpose.clone();
+        self.trip_start_km = format!("{:.3}", trip.start_km_milli as f64 / 1000.0)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string();
+        self.trip_end_km = format!("{:.3}", trip.end_km_milli as f64 / 1000.0)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string();
+        self.trip_rate = format!("{:.2}", trip.rate_cents_per_km as f64 / 100.0);
+        self.trip_rate = self.trip_rate.replace('.', ",");
+        self.error = None;
+        self.status = None;
+    }
+
+    /// Validates and persists the current mileage trip.
+    pub fn save_trip(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        let start = parse_kilometers(&self.trip_start_km);
+        let end = parse_kilometers(&self.trip_end_km);
+        let rate = {
+            let value = self.trip_rate.trim().replace(',', ".");
+            value.parse::<f64>().ok().filter(|value| value.is_finite() && *value >= 0.0)
+                .map(|value| (value * 100.0).round() as i64)
+        };
+        let (Some(start_km_milli), Some(end_km_milli), Some(rate_cents_per_km)) =
+            (start, end, rate)
+        else {
+            self.error = Some("therapie_trip_values_invalid");
+            self.status = None;
+            return Ok(());
+        };
+        let existing = self.editing_trip.and_then(|id| {
+            self.trips.iter().find(|trip| trip.id == id).cloned()
+        });
+        let trip = TherapyTrip {
+            id: existing.as_ref().map(|trip| trip.id).unwrap_or_else(Uuid::new_v4),
+            client_id: existing.as_ref().and_then(|trip| trip.client_id).or(self.selected),
+            date: self.trip_date.trim().to_string(),
+            departure: self.trip_departure.trim().to_string(),
+            destination: self.trip_destination.trim().to_string(),
+            purpose: self.trip_purpose.trim().to_string(),
+            start_km_milli,
+            end_km_milli,
+            rate_cents_per_km,
+        };
+        if let Err(code) = trip.validate() {
+            self.error = Some(match code.as_str() {
+                "trip_date_invalid" => "therapie_trip_date_invalid",
+                "trip_route_required" => "therapie_trip_route_required",
+                _ => "therapie_trip_values_invalid",
+            });
+            self.status = None;
+            return Ok(());
+        }
+        if existing.is_some() {
+            store.update_therapy_trip(&trip)?;
+        } else {
+            store.insert_therapy_trip(&trip)?;
+        }
+        self.trips = store.therapy_trips()?;
+        self.clear_trip_draft();
+        self.error = None;
+        self.status = Some("therapie_trip_saved");
+        Ok(())
+    }
+
+    /// Deletes one practice mileage trip.
+    pub fn delete_trip(&mut self, store: &Store, id: Uuid) -> socdof_core::CoreResult<()> {
+        store.delete_therapy_trip(id)?;
+        self.trips = store.therapy_trips()?;
+        if self.editing_trip == Some(id) {
+            self.clear_trip_draft();
+        }
+        self.status = Some("therapie_trip_deleted");
+        self.error = None;
         Ok(())
     }
 
@@ -600,6 +734,116 @@ fn kpi(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str) {
     });
 }
 
+fn mileage_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut TherapieState,
+    store: &Store,
+) {
+    let subtitle = format!("{} · {}", state.trips.len(), texts.get("therapie_mileage_subtitle"));
+    screen_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        state,
+        texts.get("therapie_mileage_title"),
+        &subtitle,
+    );
+    ui.add_space(8.0);
+    messages(ui, theme, texts, state);
+    ui.add_space(6.0);
+
+    let mut save = false;
+    let mut clear = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("therapie_mileage_editor")).strong());
+        text_field(ui, theme, focus, &mut state.trip_date, texts.get("therapie_trip_date"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_departure, texts.get("therapie_trip_departure"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_destination, texts.get("therapie_trip_destination"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_purpose, texts.get("therapie_trip_purpose"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_start_km, texts.get("therapie_trip_start_km"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_end_km, texts.get("therapie_trip_end_km"), "", None);
+        text_field(ui, theme, focus, &mut state.trip_rate, texts.get("therapie_trip_rate"), "", None);
+        ui.horizontal(|ui| {
+            if button(ui, theme, focus, texts.get("therapie_trip_save"), ButtonVariant::Primary).activated {
+                save = true;
+            }
+            if button(ui, theme, focus, texts.get("therapie_trip_clear"), ButtonVariant::Secondary).activated {
+                clear = true;
+            }
+        });
+    });
+    if save {
+        if let Err(error) = state.save_trip(store) {
+            state.error = Some("therapie_error_load");
+            log::error!("Could not save therapy mileage trip: {error}");
+        }
+    }
+    if clear {
+        state.clear_trip_draft();
+        state.error = None;
+        state.status = None;
+    }
+
+    ui.add_space(12.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("therapie_mileage_history")).strong());
+        if state.trips.is_empty() {
+            empty_state(ui, theme, texts.get("therapie_mileage_empty"), texts.get("therapie_mileage_empty_hint"));
+        } else {
+            let trips = state.trips.clone();
+            let mut edit = None;
+            let mut delete = None;
+            egui::Grid::new("socdof-therapy-mileage")
+                .num_columns(7)
+                .spacing(egui::vec2(12.0, 8.0))
+                .show(ui, |ui| {
+                    for key in [
+                        "therapie_trip_date",
+                        "therapie_trip_departure",
+                        "therapie_trip_destination",
+                        "therapie_trip_distance",
+                        "therapie_trip_rate",
+                        "therapie_trip_amount",
+                        "therapie_trip_actions",
+                    ] {
+                        ui.label(RichText::new(texts.get(key)).strong().size(FONT_SMALL));
+                    }
+                    ui.end_row();
+                    for trip in &trips {
+                        ui.label(&trip.date);
+                        ui.label(&trip.departure);
+                        ui.label(&trip.destination);
+                        ui.label(format!("{:.2} km", trip.distance_km_milli() as f64 / 1000.0));
+                        ui.label(format!("{:.2}", trip.rate_cents_per_km as f64 / 100.0));
+                        ui.label(money(trip.reimbursement()));
+                        ui.horizontal(|ui| {
+                            if button(ui, theme, focus, texts.get("therapie_edit"), ButtonVariant::Ghost).activated {
+                                edit = Some(trip.id);
+                            }
+                            if button(ui, theme, focus, texts.get("therapie_session_delete"), ButtonVariant::Ghost).activated {
+                                delete = Some(trip.id);
+                            }
+                        });
+                        ui.end_row();
+                    }
+                });
+            if let Some(id) = edit {
+                state.edit_trip(id);
+            }
+            if let Some(id) = delete {
+                if let Err(error) = state.delete_trip(store, id) {
+                    state.error = Some("therapie_error_load");
+                    log::error!("Could not delete therapy mileage trip: {error}");
+                }
+            }
+        }
+    });
+}
+
 /// Renders the therapy screen into the context.
 pub fn therapie(
     ctx: &Context,
@@ -615,6 +859,7 @@ pub fn therapie(
             TherapieView::List => state.back = true,
             TherapieView::Detail => state.view = TherapieView::List,
             TherapieView::Form => state.cancel_edit(),
+            TherapieView::Mileage => state.view = TherapieView::List,
         }
     }
 
@@ -633,6 +878,7 @@ pub fn therapie(
                 TherapieView::List => list_view(ui, theme, texts, focus, state, store),
                 TherapieView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
                 TherapieView::Form => form_view(ui, theme, texts, focus, state, store, now),
+                TherapieView::Mileage => mileage_view(ui, theme, texts, focus, state, store),
             });
         });
 
@@ -721,6 +967,17 @@ fn list_view(
             texts.get("therapie_search"),
             170.0,
         );
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("therapie_mileage_open"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            let _ = state.open_mileage(store);
+        }
         if button(
             ui,
             theme,
