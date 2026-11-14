@@ -2031,5 +2031,6 @@
   "window_reopen_confirm": "Abrir",
   "window_reopen_title": "¿Volver a abrir?",
   "window_restore": "Restaurar",
-  "auth_session_expired": "Tu sesión ha finalizado. Vuelve a iniciar sesión."
+  "auth_session_expired": "Tu sesión ha finalizado. Vuelve a iniciar sesión.",
+  "restaurant_paid": "Pagado"
 }
