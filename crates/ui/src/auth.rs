@@ -1539,7 +1539,9 @@ mod tests {
         let user_id = state.user.as_ref().expect("user").id;
         store.sign_out_all(user_id, NOW + 1).expect("revoke all");
 
-        state.tick_with_store(&store, NOW + 2).expect("validate session");
+        state
+            .tick_with_store(&store, NOW + 2)
+            .expect("validate session");
 
         assert_eq!(state.view, AuthView::Login);
         assert!(state.user.is_none());
