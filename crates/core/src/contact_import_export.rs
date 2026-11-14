@@ -305,6 +305,13 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
         if !in_card {
             continue;
         }
+        if let Some(last) = current.last_mut() {
+            if is_quoted_printable_property(last) && last.ends_with('=') {
+                last.pop();
+                last.push_str(line.trim_start());
+                continue;
+            }
+        }
         if line.starts_with(' ') || line.starts_with('\t') {
             if let Some(last) = current.last_mut() {
                 last.push_str(line.trim_start());
@@ -322,9 +329,13 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
         let property = |wanted: &str| -> Option<String> {
             lines.iter().find_map(|line| {
                 let (name, value) = line.split_once(':')?;
-                let key = name.split(';').next()?.split('.').next_back()?;
-                key.eq_ignore_ascii_case(wanted)
-                    .then(|| unescape_vcard(value))
+                let mut parts = name.split(';');
+                let key = parts.next()?.split('.').next_back()?;
+                if !key.eq_ignore_ascii_case(wanted) {
+                    return None;
+                }
+                let parameters = parts.collect::<Vec<_>>();
+                Some(unescape_vcard(&decode_vcard_value(value, &parameters)))
             })
         };
         let fn_name = property("FN").unwrap_or_default().trim().to_string();
@@ -639,6 +650,78 @@ fn escape_vcard(value: &str) -> String {
         .replace('\r', "")
         .replace('\n', "\\n")
 }
+fn is_quoted_printable_property(line: &str) -> bool {
+    let Some((name, _)) = line.split_once(':') else {
+        return false;
+    };
+    name.split(';').skip(1).any(|parameter| {
+        parameter.trim().eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
+            || parameter.trim().eq_ignore_ascii_case("ENCODING=QP")
+    })
+}
+
+fn decode_vcard_value(value: &str, parameters: &[&str]) -> String {
+    let quoted_printable = parameters.iter().any(|parameter| {
+        parameter.trim().eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
+            || parameter.trim().eq_ignore_ascii_case("ENCODING=QP")
+    });
+    if !quoted_printable {
+        return value.to_string();
+    }
+    let charset = parameters.iter().find_map(|parameter| {
+        let (key, value) = parameter.trim().split_once('=')?;
+        key.eq_ignore_ascii_case("CHARSET")
+            .then(|| value.trim_matches('"').to_ascii_lowercase())
+    });
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'=' && index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+            {
+                decoded.push((high << 4) | low);
+                index += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+    match charset.as_deref() {
+        Some("iso-8859-1") | Some("latin1") | Some("latin-1") => {
+            decoded.into_iter().map(char::from).collect()
+        }
+        Some("windows-1252") | Some("cp1252") => decode_windows_1252(&decoded),
+        _ => String::from_utf8_lossy(&decoded).into_owned(),
+    }
+}
+
+fn hex_digit(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn decode_windows_1252(bytes: &[u8]) -> String {
+    const EXTENDED: [char; 32] = [
+        '\u{20ac}', '\u{0081}', '\u{201a}', '\u{0192}', '\u{201e}', '\u{2026}',
+        '\u{2020}', '\u{2021}', '\u{02c6}', '\u{2030}', '\u{0160}', '\u{2039}',
+        '\u{0152}', '\u{008d}', '\u{017d}', '\u{008f}', '\u{0090}', '\u{2018}',
+        '\u{2019}', '\u{201c}', '\u{201d}', '\u{2022}', '\u{2013}', '\u{2014}',
+        '\u{02dc}', '\u{2122}', '\u{0161}', '\u{203a}', '\u{0153}', '\u{009d}',
+        '\u{017e}', '\u{0178}',
+    ];
+    bytes.iter().map(|byte| match *byte {
+        0x80..=0x9f => EXTENDED[usize::from(*byte - 0x80)],
+        value => char::from(value),
+    }).collect()
+}
+
 fn unescape_vcard(value: &str) -> String {
     let mut out = String::new();
     let mut chars = value.chars();
@@ -755,6 +838,20 @@ mod tests {
         assert_eq!(parsed[0].email.as_deref(), Some("old@example.org"));
         assert_eq!(parsed[1].email, None);
         assert_eq!(parsed[1].phone.as_deref(), Some("+49-123"));
+    }
+
+    #[test]
+    fn decodes_vcard_21_quoted_printable_and_soft_line_breaks() {
+        let vcf = concat!(
+            "BEGIN:VCARD\r\nVERSION:2.1\r\n",
+            "FN;CHARSET=ISO-8859-1;ENCODING=QUOTED-PRINTABLE:J=F6rg M=FCller\r\n",
+            "NOTE;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Gr=C3=BC=C3=9Fe =\r\n",
+            "an die Welt\r\nEND:VCARD"
+        );
+        let parsed = parse_contacts_vcard(vcf, ContactType::Customer, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name.as_deref(), Some("Jörg Müller"));
+        assert_eq!(parsed[0].notes.as_deref(), Some("Grüße an die Welt"));
     }
 
     #[test]
