@@ -711,6 +711,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.view != crate::auth::AuthView::Unlocked {
             state.desktop_open = false;
             state.auth_open = true;
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
         }
         if state.auth.view == crate::auth::AuthView::Locked {
             state.desktop_open = false;
@@ -792,6 +794,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;
             state.close_module_views();
+            state.desktop_windows = WindowManager::new();
             state.desktop_open = true;
             if state.sync_module_navigation().is_err() {
                 // A permission lookup failure must never expose the previous account's launcher.
@@ -844,11 +847,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         }
         if outcome.sign_out {
             let _ = state.auth.sign_out(&state.store, now);
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
             state.desktop_open = false;
             state.auth_open = true;
         }
         if let Some(username) = outcome.switch_account.clone() {
             state.auth.begin_switch(&username);
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
             state.desktop_open = false;
             state.auth_open = true;
         }
