@@ -824,7 +824,7 @@ pub fn desktop(
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
             paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
-            let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+            let mut blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
             if !blocked {
                 let (cycle_windows, close_active, snap_left, snap_right, maximize_active) = ui
@@ -857,15 +857,19 @@ pub fn desktop(
                         outcome.window_layout_changed = true;
                     }
                 }
+                // A keyboard shortcut can open a modal confirmation. Recompute this before
+                // processing desktop icons so the same key event cannot activate background UI.
+                blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
             }
 
             if !blocked {
                 let (left, right, up, down) = ui.input(|input| {
+                    let plain_keys = !input.modifiers.any();
                     (
-                        input.key_pressed(Key::ArrowLeft),
-                        input.key_pressed(Key::ArrowRight),
-                        input.key_pressed(Key::ArrowUp),
-                        input.key_pressed(Key::ArrowDown),
+                        plain_keys && input.key_pressed(Key::ArrowLeft),
+                        plain_keys && input.key_pressed(Key::ArrowRight),
+                        plain_keys && input.key_pressed(Key::ArrowUp),
+                        plain_keys && input.key_pressed(Key::ArrowDown),
                     )
                 });
                 if left {
