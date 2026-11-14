@@ -131,7 +131,8 @@ pub fn set_status(conn: &Connection, id: Uuid, status: InvoiceStatus) -> CoreRes
 
 /// Records the payment of an invoice and marks it paid in the same transaction.
 pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult<()> {
-    let changed = conn.execute(
+    let transaction = conn.unchecked_transaction()?;
+    let changed = transaction.execute(
         "UPDATE invoices SET status = ?2 WHERE id = ?1",
         params![payment.invoice_id.to_string(), InvoiceStatus::Paid.as_str()],
     )?;
@@ -139,7 +140,7 @@ pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult
         return Err(CoreError::NotFound(payment.invoice_id.to_string()));
     }
 
-    conn.execute(
+    transaction.execute(
         "INSERT INTO invoice_payments (invoice_id, paid_at, method, reference, tse_signature)
          VALUES (?1, ?2, ?3, ?4, ?5)
          ON CONFLICT(invoice_id) DO UPDATE SET paid_at = excluded.paid_at,
@@ -153,6 +154,7 @@ pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult
             payment.tse_signature,
         ],
     )?;
+    transaction.commit()?;
     Ok(())
 }
 
