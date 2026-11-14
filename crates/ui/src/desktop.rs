@@ -2096,7 +2096,10 @@ mod tests {
 
         manager.toggle_maximize(AppId::new("contacts"), area());
         assert_eq!(
-            manager.window(AppId::new("contacts")).expect("window").rect(),
+            manager
+                .window(AppId::new("contacts"))
+                .expect("window")
+                .rect(),
             saved
         );
     }
