@@ -2507,10 +2507,11 @@ mod tests {
             time: Some(1.0),
             ..Default::default()
         };
+        let mut rendered_apps = Vec::new();
         let output = ctx.run(input, |ctx| {
             focus.begin_frame(ctx);
             theme.apply(ctx);
-            let outcome = desktop(
+            let outcome = desktop_with_content(
                 ctx,
                 DesktopFrame {
                     theme: &theme,
@@ -2523,10 +2524,16 @@ mod tests {
                 &mut icons,
                 &mut windows,
                 1_000,
+                |app, ui, _theme, _texts, _focus, _store, _now| {
+                    rendered_apps.push(app.as_str());
+                    ui.label(format!("native content: {}", app.as_str()));
+                },
             );
             assert!(!outcome.back);
             focus.finish_frame();
         });
         assert!(output.shapes.len() > 40, "desktop drew little");
+        assert!(rendered_apps.contains(&"contacts"));
+        assert!(rendered_apps.contains(&"invoices"));
     }
 }
