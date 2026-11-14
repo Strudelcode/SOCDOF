@@ -212,7 +212,6 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Session> {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
