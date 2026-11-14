@@ -364,8 +364,7 @@ impl FleetState {
                 self.selected_vehicle_filter
                     .map_or(true, |id| trip.vehicle_id == id)
                     && (self.purpose_filter == "all" || trip.purpose == self.purpose_filter)
-                    && (self.date_from.is_empty()
-                        || trip.date.as_str() >= self.date_from.as_str())
+                    && (self.date_from.is_empty() || trip.date.as_str() >= self.date_from.as_str())
                     && (self.date_to.is_empty() || trip.date.as_str() <= self.date_to.as_str())
                     && (query.is_empty()
                         || trip.vehicle_plate.to_lowercase().contains(&query)
