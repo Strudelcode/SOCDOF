@@ -760,6 +760,8 @@
   "invoices_payment_change",
   "invoices_payment_confirm",
   "invoices_payment_date",
+  "invoices_payment_error_card",
+  "invoices_payment_error_cash",
   "invoices_payment_given",
   "invoices_payment_reference",
   "invoices_payment_title",
