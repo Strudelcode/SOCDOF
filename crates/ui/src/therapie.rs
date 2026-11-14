@@ -10,7 +10,9 @@
 //! sessions. Linking puts every still open session of the client on one invoice by number.
 
 use egui::{Context, RichText};
-use socdof_core::domain::therapy::{self, TherapyClient, TherapySession, TherapySummary, TherapyTrip};
+use socdof_core::domain::therapy::{
+    self, TherapyClient, TherapySession, TherapySummary, TherapyTrip,
+};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -786,7 +788,11 @@ fn mileage_view(
     ui.add_space(6.0);
 
     let total_km_milli: i64 = state.trips.iter().map(TherapyTrip::distance_km_milli).sum();
-    let total_cents: i64 = state.trips.iter().map(|trip| trip.reimbursement().cents()).sum();
+    let total_cents: i64 = state
+        .trips
+        .iter()
+        .map(|trip| trip.reimbursement().cents())
+        .sum();
     ui.columns(2, |columns| {
         kpi(
             &mut columns[0],
@@ -836,11 +842,7 @@ fn mileage_view(
                     texts.get("therapie_trip_no_client"),
                 );
                 for client in &state.clients {
-                    ui.selectable_value(
-                        &mut state.trip_client_id,
-                        Some(client.id),
-                        &client.name,
-                    );
+                    ui.selectable_value(&mut state.trip_client_id, Some(client.id), &client.name);
                 }
             });
         text_field(
@@ -922,10 +924,8 @@ fn mileage_view(
             }
         });
     });
-    if save {
-        if state.save_trip(store).is_err() {
-            state.error = Some("therapie_error_load");
-        }
+    if save && state.save_trip(store).is_err() {
+        state.error = Some("therapie_error_load");
     }
     if clear {
         state.clear_trip_draft();
@@ -996,7 +996,10 @@ fn mileage_view(
                             trip.start_km_milli as f64 / 1000.0,
                             trip.end_km_milli as f64 / 1000.0
                         ));
-                        ui.label(format!("{:.1} km", trip.distance_km_milli() as f64 / 1000.0));
+                        ui.label(format!(
+                            "{:.1} km",
+                            trip.distance_km_milli() as f64 / 1000.0
+                        ));
                         ui.label(format!("{:.2}", trip.rate_cents_per_km as f64 / 100.0));
                         ui.label(money(trip.reimbursement()));
                         ui.horizontal(|ui| {
