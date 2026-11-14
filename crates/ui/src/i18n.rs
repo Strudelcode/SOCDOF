@@ -1491,6 +1491,7 @@ pub const UI_KEYS: &[&str] = &[
     "auth_setup_done",
     "auth_unlocked",
     "auth_signed_out",
+    "auth_session_expired",
     "auth_auto_locked",
     "auth_setup_title",
     "auth_setup_badge",
