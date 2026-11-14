@@ -848,7 +848,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_icons,
             &mut state.desktop_windows,
             now,
-            |app, ui, theme, texts, focus, store, now| match app.as_str() {
+            |app, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
                 "contacts" => crate::contacts::contacts_content(
                     ui,
                     theme,
@@ -867,7 +867,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     store,
                     now,
                 ),
-                "settings" => crate::settings::settings_content(
+                "settings" => crate::settings::settings_window(
+                    ctx,
                     ui,
                     theme,
                     texts,
