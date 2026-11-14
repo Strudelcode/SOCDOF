@@ -2278,7 +2278,7 @@ mod tests {
     #[test]
     fn persistent_state_uses_the_supplied_store_without_demo_records() {
         let store = Store::open_in_memory().expect("store");
-        let state = GalleryState::from_store(Language::De, Appearance::Dark, "indigo", store)
+        let mut state = GalleryState::from_store(Language::De, Appearance::Dark, "indigo", store)
             .expect("persistent state");
 
         assert!(state.auth_open);
