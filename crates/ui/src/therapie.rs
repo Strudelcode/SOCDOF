@@ -777,9 +777,8 @@ fn mileage_view(
         });
     });
     if save {
-        if let Err(error) = state.save_trip(store) {
+        if state.save_trip(store).is_err() {
             state.error = Some("therapie_error_load");
-            log::error!("Could not save therapy mileage trip: {error}");
         }
     }
     if clear {
@@ -835,9 +834,8 @@ fn mileage_view(
                 state.edit_trip(id);
             }
             if let Some(id) = delete {
-                if let Err(error) = state.delete_trip(store, id) {
+                if state.delete_trip(store, id).is_err() {
                     state.error = Some("therapie_error_load");
-                    log::error!("Could not delete therapy mileage trip: {error}");
                 }
             }
         }
