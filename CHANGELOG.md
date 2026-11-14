@@ -12,6 +12,15 @@
   rounding are aligned with the legacy TherapyMileage screen and tax-ledger source.
 - Aligned the tax-advisor workbook's running-balance and current-balance formulas with the legacy
   TypeScript R1C1 expressions; Rust keeps dynamically sized SUMIF ranges to avoid truncating large months.
+- Fleet logbook CSV export now uses the same vehicle, purpose, date and text-search filters as
+  the visible trip list. The filter is shared by the UI and exporter; tests cover combined filters
+  and quoted multiline CSV values.
+- Projects task status changes and deletion now resolve each task's owning project from SQLite,
+  so actions also work in the all-projects/Kanban view. A regression test creates tasks in multiple
+  projects and updates/deletes one without a selected project.
+- Restaurant paid receipts are read-only in the native history, matching the TypeScript archive.
+  Added a checkout regression assertion that paid receipts cannot be cancelled or removed through
+  the normal UI workflow.
 
 
 All notable changes to SOCDOF are documented here. The release workflow reads
