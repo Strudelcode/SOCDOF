@@ -422,7 +422,8 @@ impl AuthState {
         Ok(())
     }
 
-    /// Advances session expiry and idle-lock state for the supplied timestamp.\n    pub fn tick(&mut self, now: i64) {
+    /// Advances session expiry and idle-lock state for the supplied timestamp.
+    pub fn tick(&mut self, now: i64) {
         if !matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
             return;
         }
