@@ -103,16 +103,15 @@ fn app_view(
     focus: &mut FocusState,
     slug: &str,
     body: impl FnOnce(&mut FocusState),
-) -> bool {
-    let action = crate::chrome::app_window(
+) -> crate::chrome::WindowAction {
+    crate::chrome::app_window(
         ctx,
         theme,
         texts,
         focus,
         crate::chrome::app_chrome(slug),
         body,
-    );
-    action.close || action.minimize
+    )
 }
 
 /// Translated label of a desktop app.
@@ -960,10 +959,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
             }
         }
-        if closed || state.dashboard.back {
+        if closed.close || closed.minimize || state.dashboard.back {
             state.dashboard_open = false;
             state.dashboard.back = false;
-            state.desktop_windows.close(AppId::new("dashboard"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("dashboard"));
+            } else {
+                state.desktop_windows.close(AppId::new("dashboard"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -981,10 +985,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.contacts.back {
+        if closed.close || closed.minimize || state.contacts.back {
             state.contacts_open = false;
             state.contacts.back = false;
-            state.desktop_windows.close(AppId::new("contacts"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("contacts"));
+            } else {
+                state.desktop_windows.close(AppId::new("contacts"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1002,10 +1011,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.products.back {
+        if closed.close || closed.minimize || state.products.back {
             state.products_open = false;
             state.products.back = false;
-            state.desktop_windows.close(AppId::new("products"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("products"));
+            } else {
+                state.desktop_windows.close(AppId::new("products"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1035,10 +1049,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 Err(error) => state.projects.error = Some(error.to_string()),
             }
         }
-        if closed || state.projects.back {
+        if closed.close || closed.minimize || state.projects.back {
             state.projects_open = false;
             state.projects.back = false;
-            state.desktop_windows.close(AppId::new("projects"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("projects"));
+            } else {
+                state.desktop_windows.close(AppId::new("projects"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1056,10 +1075,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.fleet.back {
+        if closed.close || closed.minimize || state.fleet.back {
             state.fleet_open = false;
             state.fleet.back = false;
-            state.desktop_windows.close(AppId::new("fleet"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("fleet"));
+            } else {
+                state.desktop_windows.close(AppId::new("fleet"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1084,10 +1108,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 );
             },
         );
-        if closed || state.restaurant.back {
+        if closed.close || closed.minimize || state.restaurant.back {
             state.restaurant_open = false;
             state.restaurant.back = false;
-            state.desktop_windows.close(AppId::new("restaurant"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("restaurant"));
+            } else {
+                state.desktop_windows.close(AppId::new("restaurant"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1105,10 +1134,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.invoices.back {
+        if closed.close || closed.minimize || state.invoices.back {
             state.invoices_open = false;
             state.invoices.back = false;
-            state.desktop_windows.close(AppId::new("invoices"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("invoices"));
+            } else {
+                state.desktop_windows.close(AppId::new("invoices"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1133,10 +1167,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 );
             },
         );
-        if closed || state.accounting.back {
+        if closed.close || closed.minimize || state.accounting.back {
             state.accounting_open = false;
             state.accounting.back = false;
-            state.desktop_windows.close(AppId::new("accounting"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("accounting"));
+            } else {
+                state.desktop_windows.close(AppId::new("accounting"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1161,10 +1200,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 );
             },
         );
-        if closed || state.purchases.back {
+        if closed.close || closed.minimize || state.purchases.back {
             state.purchases_open = false;
             state.purchases.back = false;
-            state.desktop_windows.close(AppId::new("purchases"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("purchases"));
+            } else {
+                state.desktop_windows.close(AppId::new("purchases"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1182,10 +1226,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.pos.back {
+        if closed.close || closed.minimize || state.pos.back {
             state.pos_open = false;
             state.pos.back = false;
-            state.desktop_windows.close(AppId::new("pos"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("pos"));
+            } else {
+                state.desktop_windows.close(AppId::new("pos"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1203,10 +1252,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.appointments.back {
+        if closed.close || closed.minimize || state.appointments.back {
             state.appointments_open = false;
             state.appointments.back = false;
-            state.desktop_windows.close(AppId::new("calendar"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("calendar"));
+            } else {
+                state.desktop_windows.close(AppId::new("calendar"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1224,10 +1278,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.users.back {
+        if closed.close || closed.minimize || state.users.back {
             state.users_open = false;
             state.users.back = false;
-            state.desktop_windows.close(AppId::new("users"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("users"));
+            } else {
+                state.desktop_windows.close(AppId::new("users"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1245,10 +1304,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.editor.back {
+        if closed.close || closed.minimize || state.editor.back {
             state.editor_open = false;
             state.editor.back = false;
-            state.desktop_windows.close(AppId::new("editor"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("editor"));
+            } else {
+                state.desktop_windows.close(AppId::new("editor"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1278,10 +1342,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 state.app_store.error = Some("app_store_error_storage");
             }
         }
-        if closed || state.app_store.back {
+        if closed.close || closed.minimize || state.app_store.back {
             state.app_store_open = false;
             state.app_store.back = false;
-            state.desktop_windows.close(AppId::new("app-store"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("app-store"));
+            } else {
+                state.desktop_windows.close(AppId::new("app-store"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1299,10 +1368,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.support.back {
+        if closed.close || closed.minimize || state.support.back {
             state.support_open = false;
             state.support.back = false;
-            state.desktop_windows.close(AppId::new("support"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("support"));
+            } else {
+                state.desktop_windows.close(AppId::new("support"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1320,10 +1394,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.reports.back {
+        if closed.close || closed.minimize || state.reports.back {
             state.reports_open = false;
             state.reports.back = false;
-            state.desktop_windows.close(AppId::new("reports"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("reports"));
+            } else {
+                state.desktop_windows.close(AppId::new("reports"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1341,10 +1420,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.therapie.back {
+        if closed.close || closed.minimize || state.therapie.back {
             state.therapie_open = false;
             state.therapie.back = false;
-            state.desktop_windows.close(AppId::new("therapy"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("therapy"));
+            } else {
+                state.desktop_windows.close(AppId::new("therapy"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1371,10 +1455,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             };
             state.accent_id = preferences.accent_color;
         }
-        if closed || state.settings.back {
+        if closed.close || closed.minimize || state.settings.back {
             state.settings_open = false;
             state.settings.back = false;
-            state.desktop_windows.close(AppId::new("settings"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("settings"));
+            } else {
+                state.desktop_windows.close(AppId::new("settings"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
