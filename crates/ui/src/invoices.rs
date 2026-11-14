@@ -721,7 +721,8 @@ pub fn invoices_window(
     store: &Store,
     now: i64,
 ) {
-    if active && !state.confirm_delete
+    if active
+        && !state.confirm_delete
         && !state.templates.open
         && ctx.input(|input| input.key_pressed(egui::Key::Escape))
     {
