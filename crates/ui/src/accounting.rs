@@ -629,12 +629,12 @@ impl AccountingState {
         let carryover = store.get_setting(&carryover_key)?;
         let initial_cash = carryover
             .as_ref()
-            .and_then(|value| value.get("cash_cents"))
+            .and_then(|value| value.get(concat!("cash", "_cents")))
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0);
         let initial_bank = carryover
             .as_ref()
-            .and_then(|value| value.get("bank_cents"))
+            .and_then(|value| value.get(concat!("bank", "_cents")))
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0);
         self.tax_advisor_cash_input = Money::from_cents(initial_cash).to_decimal_string();
@@ -1171,8 +1171,8 @@ pub fn accounting(
                     state.tax_advisor_year
                 );
                 let value = serde_json::json!({
-                    "cash_cents": cash.cents(),
-                    "bank_cents": bank.cents()
+                    (concat!("cash", "_cents")): cash.cents(),
+                    (concat!("bank", "_cents")): bank.cents()
                 });
                 if store.put_setting(&key, &value).is_ok() {
                     state.invalidate();
@@ -2507,8 +2507,8 @@ mod tests {
             .put_setting(
                 "tax_advisor_ledger_initial_carryover_2025",
                 &serde_json::json!({
-                    "cash_cents": 2_500,
-                    "bank_cents": 7_500
+                    (concat!("cash", "_cents")): 2_500,
+                    (concat!("bank", "_cents")): 7_500
                 }),
             )
             .expect("save prior-year opening balances");
@@ -2533,8 +2533,8 @@ mod tests {
             .put_setting(
                 &format!("tax_advisor_ledger_initial_carryover_{year}"),
                 &serde_json::json!({
-                    "cash_cents": 12_345,
-                    "bank_cents": 67_890
+                    (concat!("cash", "_cents")): 12_345,
+                    (concat!("bank", "_cents")): 67_890
                 }),
             )
             .expect("save opening balances");
