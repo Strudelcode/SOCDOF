@@ -1295,6 +1295,11 @@ impl Store {
         users::insert(&self.conn, user)
     }
 
+    /// Creates the first administrator if no account exists yet.
+    pub fn insert_first_admin(&self, user: &User) -> CoreResult<()> {
+        users::insert_first_admin(&self.conn, user)
+    }
+
     /// Finds a user by login name, ignoring case.
     pub fn find_user_by_username(&self, username: &str) -> CoreResult<Option<User>> {
         users::find_by_username(&self.conn, username)
