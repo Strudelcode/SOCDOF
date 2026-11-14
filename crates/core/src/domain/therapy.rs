@@ -125,6 +125,65 @@ impl TherapySession {
     }
 }
 
+/// One separately recorded practice trip from the legacy TherapyMileage screen.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TherapyTrip {
+    /// Stable identifier.
+    pub id: Uuid,
+    /// Optional client; general practice trips are allowed.
+    pub client_id: Option<Uuid>,
+    /// Calendar date in YYYY-MM-DD format.
+    pub date: String,
+    /// Starting location.
+    pub departure: String,
+    /// Destination.
+    pub destination: String,
+    /// Reason for the trip.
+    pub purpose: String,
+    /// Odometer at departure in thousandths of a kilometre.
+    pub start_km_milli: i64,
+    /// Odometer at arrival in thousandths of a kilometre.
+    pub end_km_milli: i64,
+    /// Individually selected reimbursement rate in cents per kilometre.
+    pub rate_cents_per_km: i64,
+}
+
+impl TherapyTrip {
+    /// Distance driven, clamped at zero like the legacy TypeScript screen.
+    pub fn distance_km_milli(&self) -> i64 {
+        (self.end_km_milli - self.start_km_milli).max(0)
+    }
+
+    /// Reimbursement rounded to the nearest cent.
+    pub fn reimbursement(&self) -> Money {
+        let cents = (i128::from(self.distance_km_milli())
+            * i128::from(self.rate_cents_per_km.max(0))
+            + 500)
+            / 1000;
+        Money::from_cents(cents.min(i128::from(i64::MAX)) as i64)
+    }
+
+    /// Validates the values before persistence.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.date.len() != 10
+            || !self.date.as_bytes().get(4).is_some_and(|value| *value == b'-')
+            || !self.date.as_bytes().get(7).is_some_and(|value| *value == b'-')
+            || !self.date.chars().enumerate().all(|(index, value)| {
+                matches!(index, 4 | 7) || value.is_ascii_digit()
+            })
+        {
+            return Err("trip_date_invalid".to_string());
+        }
+        if self.departure.trim().is_empty() || self.destination.trim().is_empty() {
+            return Err("trip_route_required".to_string());
+        }
+        if self.start_km_milli < 0 || self.end_km_milli < 0 || self.rate_cents_per_km < 0 {
+            return Err("trip_values_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// Amount of one session: treatment time at the hourly rate plus the driven kilometres.
 pub fn session_amount(session: &TherapySession, client: &TherapyClient) -> Money {
     let minutes = session.minutes.max(0);
