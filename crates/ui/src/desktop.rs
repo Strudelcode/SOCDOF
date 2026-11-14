@@ -138,6 +138,11 @@ impl Window {
         self.rect
     }
 
+    /// Rectangle used when restoring a maximized window.
+    pub fn normal_rect(&self) -> Rect {
+        self.restore_rect.unwrap_or(self.rect)
+    }
+
     /// Whether the window is currently minimized.
     pub fn is_minimized(&self) -> bool {
         self.minimized
@@ -381,6 +386,30 @@ impl WindowManager {
             (window.rect.height() + delta.y).clamp(WINDOW_MIN_HEIGHT, work_area.height()),
         );
         window.rect = clamp_rect(Rect::from_min_size(window.rect.min, size), work_area);
+    }
+
+    /// Restores a previously saved normal rectangle and maximize state.
+    ///
+    /// Coordinates are clamped to the current work area so a window saved on a larger or
+    /// differently positioned monitor remains reachable after a display change.
+    pub fn restore_geometry(
+        &mut self,
+        app: AppId,
+        normal_rect: Rect,
+        maximized: bool,
+        work_area: Rect,
+    ) {
+        let Some(window) = self.windows.iter_mut().find(|window| window.app == app) else {
+            return;
+        };
+        let rect = clamp_rect(normal_rect, work_area);
+        if maximized {
+            window.restore_rect = Some(rect);
+            window.rect = work_area;
+        } else {
+            window.restore_rect = None;
+            window.rect = rect;
+        }
     }
 
     /// Updates translated titles after a language switch.
@@ -684,6 +713,8 @@ pub struct DesktopOutcome {
     pub switch_account: Option<String>,
     /// Whether a desktop icon was moved and its layout should be persisted.
     pub icon_positions_changed: bool,
+    /// Whether window geometry changed and should be persisted.
+    pub window_layout_changed: bool,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -1101,15 +1132,18 @@ pub fn desktop(
         }
         if toggle {
             windows.toggle_maximize(app, area);
+            outcome.window_layout_changed = true;
         }
         if raise {
             windows.focus(app);
         }
         if drag != Vec2::ZERO {
             windows.move_by(app, drag, area);
+            outcome.window_layout_changed = true;
         }
         if resize != Vec2::ZERO {
             windows.resize_by(app, resize, area);
+            outcome.window_layout_changed = true;
         }
     }
 
@@ -1693,6 +1727,21 @@ pub fn desktop(
         }
         focus.close_overlay();
         focus.set_focus(None);
+    }
+
+    // Reapply a user's last window geometry after the window manager creates or focuses it.
+    // This happens after input handling so both desktop icons and taskbar/overflow launches use
+    // the same restore path.
+    if let (Some(app), Some(user_id)) = (outcome.open_app, current_user) {
+        if let Ok(layout) = socdof_core::settings_service::desktop_layout(store, user_id) {
+            if let Some(saved) = layout.window_states.get(app.as_str()) {
+                let rect = Rect::from_min_size(
+                    Pos2::new(saved.x as f32, saved.y as f32),
+                    Vec2::new(saved.width as f32, saved.height as f32),
+                );
+                windows.restore_geometry(app, rect, saved.maximized, area);
+            }
+        }
     }
 
     if outcome.open_studio {
