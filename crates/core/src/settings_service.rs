@@ -367,6 +367,7 @@ mod tests {
         };
 
         save_desktop_layout(&store, first, &layout).expect("saved");
+        save_preferences(&store, first, &Preferences::default()).expect("preferences saved");
         let loaded = desktop_layout(&store, first).expect("loaded");
         assert_eq!(loaded.icon_positions.len(), 2);
         assert_eq!(loaded.icon_positions.get("contacts"), Some(&(2, 1)));
@@ -375,7 +376,8 @@ mod tests {
             BTreeMap::new()
         );
 
-        delete_desktop_layout(&store, first).expect("deleted");
+        delete_preferences(&store, first).expect("account preferences deleted");
+        assert!(preferences(&store, first).expect("default preferences").accent_color == "indigo");
         assert!(desktop_layout(&store, first)
             .expect("defaults")
             .icon_positions
