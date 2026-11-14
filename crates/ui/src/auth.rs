@@ -315,7 +315,7 @@ impl AuthState {
 
     /// Opens the locked session with the account password.
     pub fn unlock(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        self.tick(now);
+        self.tick_with_store(store, now)?;
         if self.view != AuthView::Locked {
             return Ok(());
         }
@@ -384,6 +384,30 @@ impl AuthState {
     }
 
     /// Locks an unlocked session after the configured idle time.
+    /// Checks the persisted session as well as its local expiry. This catches revocation from
+    /// another desktop, password reset, account deactivation or permission change.
+    pub fn tick_with_store(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        if matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
+            let active = match self.token.as_deref() {
+                Some(token) => store.session_for_token(token, now)?.is_some(),
+                None => false,
+            };
+            if !active {
+                self.session = None;
+                self.token = None;
+                self.user = None;
+                self.password.clear();
+                self.password_confirm.clear();
+                self.view = AuthView::Login;
+                self.error = None;
+                self.status = Some("auth_session_expired");
+                return Ok(());
+            }
+        }
+        self.tick(now);
+        Ok(())
+    }
+
     pub fn tick(&mut self, now: i64) {
         if !matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
             return;
@@ -1492,6 +1516,21 @@ mod tests {
         state.tick(NOW + 1_900);
         assert_eq!(state.view, AuthView::Locked);
         assert_eq!(state.status, Some("auth_auto_locked"));
+    }
+
+    #[test]
+    fn externally_revoked_session_returns_to_login_on_next_validation() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("user").id;
+        store.sign_out_all(user_id, NOW + 1).expect("revoke all");
+
+        state.tick_with_store(&store, NOW + 2).expect("validate session");
+
+        assert_eq!(state.view, AuthView::Login);
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
+        assert!(state.token.is_none());
     }
 
     #[test]
