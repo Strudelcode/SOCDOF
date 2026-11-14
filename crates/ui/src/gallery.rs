@@ -3354,6 +3354,57 @@ mod tests {
     }
 
     #[test]
+    fn desktop_restores_only_previously_open_native_windows() {
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        let mut layout = settings_service::DesktopLayout::default();
+        layout.window_states.insert(
+            "contacts".to_string(),
+            settings_service::DesktopWindowLayout {
+                x: -500,
+                y: -200,
+                width: 900,
+                height: 600,
+                maximized: true,
+                open: true,
+            },
+        );
+        layout.window_states.insert(
+            "invoices".to_string(),
+            settings_service::DesktopWindowLayout {
+                x: 40,
+                y: 50,
+                width: 1000,
+                height: 700,
+                maximized: false,
+                open: false,
+            },
+        );
+
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+        restore_native_windows(&mut state, &layout, screen, 1_000);
+
+        let contacts = AppId::new("contacts");
+        assert!(state.desktop_windows.is_open(contacts));
+        assert!(state
+            .desktop_windows
+            .window(contacts)
+            .expect("restored contacts window")
+            .is_maximized());
+        let normal = state
+            .desktop_windows
+            .window(contacts)
+            .expect("restored contacts window")
+            .normal_rect();
+        assert!(normal.min.x >= work_area(screen).left());
+        assert!(normal.min.y >= work_area(screen).top());
+        assert_eq!(normal.width(), 900.0);
+        assert_eq!(normal.height(), 600.0);
+        assert!(!state.desktop_windows.is_open(AppId::new("invoices")));
+        assert!(!state.desktop_windows.is_open(AppId::new("settings")));
+    }
+
+    #[test]
     fn guard_blocks_closing_a_dirty_form() {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "teal").expect("state");
         assert_eq!(
