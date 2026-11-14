@@ -323,7 +323,11 @@ impl TherapieState {
         self.trip_departure = "Praxis".to_string();
         self.trip_destination.clear();
         self.trip_purpose = "Hausbesuch / Kliententermin".to_string();
-        let previous_end = self.trips.first().map(|trip| trip.end_km_milli).unwrap_or(0);
+        let previous_end = self
+            .trips
+            .first()
+            .map(|trip| trip.end_km_milli)
+            .unwrap_or(0);
         self.trip_start_km = format!("{:.3}", previous_end as f64 / 1000.0)
             .trim_end_matches('0')
             .trim_end_matches('.')
@@ -366,7 +370,10 @@ impl TherapieState {
         let end = parse_kilometers(&self.trip_end_km);
         let rate = {
             let value = self.trip_rate.trim().replace(',', ".");
-            value.parse::<f64>().ok().filter(|value| value.is_finite() && *value >= 0.0)
+            value
+                .parse::<f64>()
+                .ok()
+                .filter(|value| value.is_finite() && *value >= 0.0)
                 .map(|value| (value * 100.0).round() as i64)
         };
         let (Some(start_km_milli), Some(end_km_milli), Some(rate_cents_per_km)) =
@@ -376,11 +383,14 @@ impl TherapieState {
             self.status = None;
             return Ok(());
         };
-        let existing = self.editing_trip.and_then(|id| {
-            self.trips.iter().find(|trip| trip.id == id).cloned()
-        });
+        let existing = self
+            .editing_trip
+            .and_then(|id| self.trips.iter().find(|trip| trip.id == id).cloned());
         let trip = TherapyTrip {
-            id: existing.as_ref().map(|trip| trip.id).unwrap_or_else(Uuid::new_v4),
+            id: existing
+                .as_ref()
+                .map(|trip| trip.id)
+                .unwrap_or_else(Uuid::new_v4),
             client_id: self.trip_client_id,
             date: self.trip_date.trim().to_string(),
             departure: self.trip_departure.trim().to_string(),
@@ -755,7 +765,11 @@ fn mileage_view(
     state: &mut TherapieState,
     store: &Store,
 ) {
-    let subtitle = format!("{} · {}", state.trips.len(), texts.get("therapie_mileage_subtitle"));
+    let subtitle = format!(
+        "{} · {}",
+        state.trips.len(),
+        texts.get("therapie_mileage_subtitle")
+    );
     screen_header(
         ui,
         theme,
@@ -791,8 +805,20 @@ fn mileage_view(
     let mut clear = false;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("therapie_mileage_editor")).strong());
-        text_field(ui, theme, focus, &mut state.trip_date, texts.get("therapie_trip_date"), "", None);
-        ui.label(RichText::new(texts.get("therapie_trip_client")).size(FONT_SMALL).color(theme.palette.text_muted));
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_date,
+            texts.get("therapie_trip_date"),
+            "",
+            None,
+        );
+        ui.label(
+            RichText::new(texts.get("therapie_trip_client"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
         egui::ComboBox::from_id_source("therapy-mileage-client")
             .selected_text(
                 state
@@ -815,17 +841,81 @@ fn mileage_view(
                     );
                 }
             });
-        text_field(ui, theme, focus, &mut state.trip_departure, texts.get("therapie_trip_departure"), "", None);
-        text_field(ui, theme, focus, &mut state.trip_destination, texts.get("therapie_trip_destination"), "", None);
-        text_field(ui, theme, focus, &mut state.trip_purpose, texts.get("therapie_trip_purpose"), "", None);
-        text_field(ui, theme, focus, &mut state.trip_start_km, texts.get("therapie_trip_start_km"), "", None);
-        text_field(ui, theme, focus, &mut state.trip_end_km, texts.get("therapie_trip_end_km"), "", None);
-        text_field(ui, theme, focus, &mut state.trip_rate, texts.get("therapie_trip_rate"), "", None);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_departure,
+            texts.get("therapie_trip_departure"),
+            "",
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_destination,
+            texts.get("therapie_trip_destination"),
+            "",
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_purpose,
+            texts.get("therapie_trip_purpose"),
+            "",
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_start_km,
+            texts.get("therapie_trip_start_km"),
+            "",
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_end_km,
+            texts.get("therapie_trip_end_km"),
+            "",
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_rate,
+            texts.get("therapie_trip_rate"),
+            "",
+            None,
+        );
         ui.horizontal(|ui| {
-            if button(ui, theme, focus, texts.get("therapie_trip_save"), ButtonVariant::Primary).activated {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("therapie_trip_save"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
                 save = true;
             }
-            if button(ui, theme, focus, texts.get("therapie_trip_clear"), ButtonVariant::Secondary).activated {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("therapie_trip_clear"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
                 clear = true;
             }
         });
@@ -869,7 +959,12 @@ fn mileage_view(
             .cloned()
             .collect();
         if trips.is_empty() {
-            empty_state(ui, theme, texts.get("therapie_mileage_empty"), texts.get("therapie_mileage_empty_hint"));
+            empty_state(
+                ui,
+                theme,
+                texts.get("therapie_mileage_empty"),
+                texts.get("therapie_mileage_empty_hint"),
+            );
         } else {
             let mut edit = None;
             let mut delete = None;
@@ -903,10 +998,26 @@ fn mileage_view(
                         ui.label(format!("{:.2}", trip.rate_cents_per_km as f64 / 100.0));
                         ui.label(money(trip.reimbursement()));
                         ui.horizontal(|ui| {
-                            if button(ui, theme, focus, texts.get("therapie_edit"), ButtonVariant::Ghost).activated {
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("therapie_edit"),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
                                 edit = Some(trip.id);
                             }
-                            if button(ui, theme, focus, texts.get("therapie_session_delete"), ButtonVariant::Ghost).activated {
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("therapie_session_delete"),
+                                ButtonVariant::Ghost,
+                            )
+                            .activated
+                            {
                                 delete = Some(trip.id);
                             }
                         });
@@ -1889,7 +2000,10 @@ mod tests {
         assert_eq!(state.trips[0].reimbursement(), Money::from_cents(1_764));
 
         state.trip_query = "bozen".to_string();
-        assert!(state.trips.iter().any(|trip| trip.destination.to_lowercase().contains(&state.trip_query)));
+        assert!(state
+            .trips
+            .iter()
+            .any(|trip| trip.destination.to_lowercase().contains(&state.trip_query)));
         state.delete_trip(&store, id).expect("delete trip");
         assert!(state.trips.is_empty());
     }
