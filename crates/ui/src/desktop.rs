@@ -683,6 +683,8 @@ pub struct DesktopOutcome {
     pub sign_out: bool,
     /// Account the user picked in the start menu; the host prefills its sign-in name.
     pub switch_account: Option<String>,
+    /// Whether a desktop icon was moved and its layout should be persisted.
+    pub icon_positions_changed: bool,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -806,8 +808,10 @@ pub fn desktop(
                 }
                 if !blocked && response.drag_stopped() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let placed = clamp_rect(Rect::from_center_size(pos, ICON_CELL), area);
-                        icons.place_at(icon.app(), placed.min);
+                        let cell = icons.cell_at(area, pos);
+                        if icons.move_to(icon.app(), cell).is_some() {
+                            outcome.icon_positions_changed = true;
+                        }
                     }
                 }
                 let selected = icons.selected() == index;
