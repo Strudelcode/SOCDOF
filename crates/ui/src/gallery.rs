@@ -29,7 +29,7 @@ use crate::controls::{
     DrawerLabels, PopupState,
 };
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
-use crate::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
+use crate::desktop::{desktop_with_content, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
 use crate::fleet::{fleet, FleetState};
 use crate::focus::FocusState;
@@ -835,7 +835,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     }
 
     if state.desktop_open {
-        let outcome = desktop(
+        let outcome = desktop_with_content(
             ctx,
             DesktopFrame {
                 theme: &theme,
@@ -848,6 +848,38 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_icons,
             &mut state.desktop_windows,
             now,
+            |app, ui, theme, texts, focus, store, now| match app.as_str() {
+                "contacts" => crate::contacts::contacts_content(
+                    ui,
+                    theme,
+                    texts,
+                    focus,
+                    &mut state.contacts,
+                    store,
+                    now,
+                ),
+                "invoices" => crate::invoices::invoices_content(
+                    ui,
+                    theme,
+                    texts,
+                    focus,
+                    &mut state.invoices,
+                    store,
+                    now,
+                ),
+                "settings" => crate::settings::settings_content(
+                    ui,
+                    theme,
+                    texts,
+                    focus,
+                    &mut state.settings,
+                    store,
+                    now,
+                ),
+                _ => {
+                    ui.label(texts.get("desktop_hint"));
+                }
+            },
         );
         if outcome.icon_positions_changed || outcome.window_layout_changed {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
