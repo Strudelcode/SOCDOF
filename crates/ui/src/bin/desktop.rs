@@ -13,6 +13,7 @@ use eframe::egui;
 use socdof_core::domain::settings::ThemeMode;
 use socdof_core::lock::{InstanceLock, LOCK_FILE_NAME};
 use socdof_core::now_millis;
+use socdof_core::settings_service;
 use socdof_core::store::Store;
 use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::invoice_templates::native_asset_picker;
@@ -23,7 +24,7 @@ struct DesktopApp {
     lock: InstanceLock,
     last_heartbeat: Instant,
     follow_system_theme: bool,
-    system_theme_initialized: bool,
+    system_appearance: Option<Appearance>,
 }
 
 impl DesktopApp {
@@ -85,7 +86,7 @@ impl DesktopApp {
             lock,
             last_heartbeat: Instant::now(),
             follow_system_theme,
-            system_theme_initialized: false,
+            system_appearance: None,
         })
     }
 }
@@ -95,13 +96,26 @@ impl eframe::App for DesktopApp {
         // Keep idle-lock checks and the shared-instance heartbeat running even when the user
         // leaves the desktop untouched and egui would otherwise stop repainting.
         ctx.request_repaint_after(Duration::from_secs(1));
-        if self.follow_system_theme && !self.system_theme_initialized {
-            self.state.appearance = if ctx.style().visuals.dark_mode {
+        // Capture the platform appearance before the SOCDOF theme is applied. Resolve the
+        // active user's preference on every frame so changing Theme to System/Light/Dark takes
+        // effect immediately, rather than inheriting the company profile forever.
+        let system_appearance = *self.system_appearance.get_or_insert_with(|| {
+            if ctx.style().visuals.dark_mode {
                 Appearance::Dark
             } else {
                 Appearance::Light
-            };
-            self.system_theme_initialized = true;
+            }
+        });
+        let user_follows_system = self
+            .state
+            .auth
+            .user
+            .as_ref()
+            .and_then(|user| settings_service::preferences(&self.state.store, user.id).ok())
+            .map(|preferences| preferences.theme_mode == ThemeMode::System)
+            .unwrap_or(self.follow_system_theme);
+        if user_follows_system {
+            self.state.appearance = system_appearance;
         }
         if self.last_heartbeat.elapsed() >= Duration::from_secs(5) {
             if let Err(error) = self.lock.heartbeat(now_millis()) {
