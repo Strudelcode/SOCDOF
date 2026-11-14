@@ -171,6 +171,8 @@ pub struct DesktopWindowLayout {
     ///
     /// Missing values in older layout records default to false.
     pub open: bool,
+    /// Whether this open window was minimized.
+    pub minimized: bool,
 }
 
 fn desktop_layout_key(user_id: Uuid) -> String {
