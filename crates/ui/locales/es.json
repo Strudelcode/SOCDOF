@@ -2027,5 +2027,6 @@
   "therapie_trip_values_invalid": "Introduce lecturas del odómetro y una tarifa válidas y no negativas.",
   "therapie_trip_delete_title": "Eliminar viaje",
   "therapie_trip_delete_body": "¿Seguro que quieres eliminar este viaje permanentemente?",
-  "therapie_trip_delete_confirm": "Eliminar viaje"
+  "therapie_trip_delete_confirm": "Eliminar viaje",
+  "projects_task_project_mismatch": "La tarea no pertenece al proyecto seleccionado."
 }
