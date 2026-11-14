@@ -3428,6 +3428,16 @@ mod tests {
             .window(AppId::new("invoices"))
             .expect("restored minimized invoices window")
             .is_minimized());
+        assert_eq!(
+            state.desktop_windows.windows()[0].app(),
+            AppId::new("invoices"),
+            "the lower z-order window must be restored behind the higher one"
+        );
+        assert_eq!(
+            state.desktop_windows.windows()[1].app(),
+            contacts,
+            "the previously frontmost window must be restored last"
+        );
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
