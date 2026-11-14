@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Native desktop authentication now saves first-run language/theme/accent choices to the created account and restores per-account appearance preferences after sign-in, instead of applying them only in memory.
 - Invoice payment capture now rejects cash amounts below the invoice total and blocks card capture when no terminal is configured. Invoice status and payment metadata are persisted atomically in one SQLite transaction.
 
 # Changelog
