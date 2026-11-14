@@ -667,7 +667,9 @@ fn is_quoted_printable_property(line: &str) -> bool {
 
 fn decode_vcard_value(value: &str, parameters: &[&str]) -> String {
     let quoted_printable = parameters.iter().any(|parameter| {
-        parameter.trim().eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
+        parameter
+            .trim()
+            .eq_ignore_ascii_case("ENCODING=QUOTED-PRINTABLE")
             || parameter.trim().eq_ignore_ascii_case("ENCODING=QP")
     });
     if !quoted_printable {
