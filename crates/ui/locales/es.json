@@ -2030,5 +2030,6 @@
   "window_reopen_cancel": "Cancelar",
   "window_reopen_confirm": "Abrir",
   "window_reopen_title": "¿Volver a abrir?",
-  "window_restore": "Restaurar"
+  "window_restore": "Restaurar",
+  "auth_session_expired": "Tu sesión ha finalizado. Vuelve a iniciar sesión."
 }
