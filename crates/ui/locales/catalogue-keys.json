@@ -1384,6 +1384,7 @@
   "restaurant_order_deleted",
   "restaurant_order_for",
   "restaurant_order_saved",
+  "restaurant_paid",
   "restaurant_payment",
   "restaurant_per_person",
   "restaurant_prep",
