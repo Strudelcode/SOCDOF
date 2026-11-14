@@ -93,6 +93,13 @@ impl AppStoreState {
 
     /// Activates or deactivates one module through the core, then reloads the catalogue.
     pub fn toggle(&mut self, store: &Store, module: AppModule) -> bool {
+        // Tests, command actions and keyboard shortcuts may request a toggle before the
+        // catalogue screen has been rendered. Resolve the source of truth lazily instead of
+        // treating an unloaded catalogue as an unknown module.
+        if !self.loaded && self.refresh(store).is_err() {
+            self.error = Some("app_store_error_load");
+            return false;
+        }
         let Some(entry) = self
             .modules
             .iter()
