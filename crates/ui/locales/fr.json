@@ -2031,5 +2031,6 @@
   "window_reopen_confirm": "Ouvrir",
   "window_reopen_title": "Rouvrir ?",
   "window_restore": "Restaurer",
-  "auth_session_expired": "Votre session a pris fin. Veuillez vous reconnecter."
+  "auth_session_expired": "Votre session a pris fin. Veuillez vous reconnecter.",
+  "restaurant_paid": "Payé"
 }
