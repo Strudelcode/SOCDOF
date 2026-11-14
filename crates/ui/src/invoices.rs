@@ -687,8 +687,31 @@ pub fn invoices_content(
 }
 
 /// Renders the full-screen invoices workflow, including refresh and confirmation dialogs.
+/// Renders the full-screen invoices workflow.
 pub fn invoices(
     ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut InvoicesState,
+    store: &Store,
+    now: i64,
+) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            invoices_window(ctx, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete invoices workflow and its dialogs inside a native desktop window.
+pub fn invoices_window(
+    ctx: &Context,
+    ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
     focus: &mut FocusState,
@@ -711,15 +734,7 @@ pub fn invoices(
         state.error = Some("invoices_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            invoices_content(ui, theme, texts, focus, state, store, now);
-        });
+    invoices_content(ui, theme, texts, focus, state, store, now);
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
@@ -1000,7 +1015,6 @@ fn list_view(
         state.select(id);
     }
 }
-
 fn detail_view(
     ui: &mut egui::Ui,
     theme: &Theme,
