@@ -803,7 +803,7 @@ pub fn desktop_with_content(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: impl FnMut(AppId, &mut Ui, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64),
+    mut render_window: impl FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64),
 ) -> DesktopOutcome {
     desktop_impl(ctx, frame, focus, icons, windows, now, Some(&mut render_window))
 }
@@ -1134,7 +1134,7 @@ fn desktop_impl(
                         Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
                     );
                     ui.allocate_ui_at_rect(content_rect, |ui| {
-                        render_window(app, ui, theme, texts, focus, store, now);
+                        render_window(app, ui, ctx, theme, texts, focus, store, now);
                     });
                 } else {
                     let hint = painter.layout_no_wrap(
@@ -2524,7 +2524,7 @@ mod tests {
                 &mut icons,
                 &mut windows,
                 1_000,
-                |app, ui, _theme, _texts, _focus, _store, _now| {
+                |app, ui, _ctx, _theme, _texts, _focus, _store, _now| {
                     rendered_apps.push(app.as_str());
                     ui.label(format!("native content: {}", app.as_str()));
                 },
