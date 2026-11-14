@@ -46,7 +46,7 @@ VIAddVersionKey "FileVersion" "${APP_VERSION}"
 Section "Install"
   SetShellVarContext current
   SetOutPath "$INSTDIR"
-  nsExec::ExecToLog 'taskkill /IM "\${APP_EXE}" /F'
+  nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
   File "${SOURCE_DIR}\${APP_EXE}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
@@ -68,7 +68,7 @@ SectionEnd
 
 Section "Uninstall"
   SetShellVarContext current
-  nsExec::ExecToLog 'taskkill /IM "\${APP_EXE}" /F'
+  nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
   Delete "$DESKTOP\SOCDOF.lnk"
   Delete "$SMPROGRAMS\SOCDOF\SOCDOF.lnk"
   Delete "$SMPROGRAMS\SOCDOF\Uninstall SOCDOF.lnk"
