@@ -959,8 +959,18 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         );
         if outcome.icon_positions_changed || outcome.window_layout_changed {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
-                let mut layout =
-                    settings_service::desktop_layout(&state.store, user_id).unwrap_or_default();
+                let mut layout = match settings_service::desktop_layout(&state.store, user_id) {
+                    Ok(layout) => layout,
+                    Err(error) => {
+                        // Never replace a user's saved desktop with defaults after a transient
+                        // read failure. A later frame can retry the save.
+                        eprintln!(
+                            "SOCDOF could not load desktop layout; skipping save to protect existing data: {error}"
+                        );
+                        state.focus.finish_frame();
+                        return;
+                    }
+                };
                 if outcome.icon_positions_changed {
                     layout.icon_positions = state
                         .desktop_icons
