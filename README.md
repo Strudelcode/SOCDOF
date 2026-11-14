@@ -48,7 +48,7 @@ Alle Geschäftsdaten liegen lokal in einer SQLite-Datenbank unter `%APPDATA%\\SO
 ### 🪟 Windows-Desktop-Erlebnis
 - **Fensterverwaltung (Grundlage)**: Z-Reihenfolge, Fensterzustände, Andocken, Minimieren/Maximieren und pro Benutzer gespeicherte Geometrie sind vorhanden. Die vollständige Einbettung der Moduloberflächen in mehrere gleichzeitig sichtbare Fenster ist noch in Arbeit.
 - **Startmenü & Taskleiste**: Angeheftete Apps, Suche, Systemstatus und Benutzerwechsel.
-- **Tastatursteuerung der Fensterverwaltung**: `Alt` + `Tab` wechselt zwischen sichtbaren Fenstereinträgen, `Alt` + `F4` fordert das Schließen an, `Strg` + `←` / `→` dockt links oder rechts an und `F11` maximiert bzw. restauriert. Die Moduloberflächen sind noch nicht vollständig in diese Fenster eingebettet; Mehrmonitor-Unterstützung ist ebenfalls offen.
+- **Tastatursteuerung der Fensterverwaltung**: `Strg` + `Tab` wechselt zwischen sichtbaren Fenstereinträgen, `Strg` + `W` fordert das Schließen an, `Strg` + `←` / `→` dockt links oder rechts an und `F11` maximiert bzw. restauriert. Die Moduloberflächen sind noch nicht vollständig in diese Fenster eingebettet; Mehrmonitor-Unterstützung ist ebenfalls offen.
 - **Nachtmodus**: Warme Farbtemperatur (1500 K – 5500 K) gegen Augenbelastung.
 - **Personalisierung**: Hintergrundbilder, Mica-Effekt, Akzentfarben und eigene Profilbilder.
 - **Systemmodus beim Start**: Hell, dunkel oder dem System folgend. Die Ersteinrichtung folgt direkt dem System.

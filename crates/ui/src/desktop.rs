@@ -831,8 +831,8 @@ pub fn desktop(
                 let (cycle_windows, close_active, snap_left, snap_right, maximize_active) = ui
                     .input(|input| {
                         (
-                            input.modifiers.alt && input.key_pressed(Key::Tab),
-                            input.modifiers.alt && input.key_pressed(Key::F4),
+                            input.modifiers.command && input.key_pressed(Key::Tab),
+                            input.modifiers.command && input.key_pressed(Key::W),
                             input.modifiers.command && input.key_pressed(Key::ArrowLeft),
                             input.modifiers.command && input.key_pressed(Key::ArrowRight),
                             input.key_pressed(Key::F11),
