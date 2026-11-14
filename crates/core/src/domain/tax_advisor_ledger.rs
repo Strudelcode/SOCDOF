@@ -171,8 +171,8 @@ pub fn build_tax_advisor_transactions(
         if reimbursement.cents() <= 0 {
             continue;
         }
-        let timestamp = date::parse_iso8601(&format!("{}T00:00:00Z", trip.date))
-            .unwrap_or_default();
+        let timestamp =
+            date::parse_iso8601(&format!("{}T00:00:00Z", trip.date)).unwrap_or_default();
         let distance = trip.distance_km_milli() as f64 / 1000.0;
         let departure = if trip.departure.trim().is_empty() {
             "Start"
@@ -1045,8 +1045,7 @@ mod tests {
             end_km_milli: 10_042_000,
             rate_cents_per_km: 38,
         };
-        let transactions =
-            build_tax_advisor_transactions(&[], &[], &[], &[], &[], &[], &[trip]);
+        let transactions = build_tax_advisor_transactions(&[], &[], &[], &[], &[], &[], &[trip]);
         assert_eq!(transactions.len(), 1);
         let transaction = &transactions[0];
         assert_eq!(transaction.date, "2026-06-12");
