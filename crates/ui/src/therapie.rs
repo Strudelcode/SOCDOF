@@ -314,7 +314,7 @@ impl TherapieState {
     /// Clears the mileage editor without changing stored records.
     pub fn clear_trip_draft(&mut self) {
         self.editing_trip = None;
-        self.trip_client_id = self.selected;
+        self.trip_client_id = None;
         self.trip_date = socdof_core::date::format_iso8601(socdof_core::now_millis())
             .split('T')
             .next()
@@ -381,7 +381,7 @@ impl TherapieState {
         });
         let trip = TherapyTrip {
             id: existing.as_ref().map(|trip| trip.id).unwrap_or_else(Uuid::new_v4),
-            client_id: self.trip_client_id.or(self.selected),
+            client_id: self.trip_client_id,
             date: self.trip_date.trim().to_string(),
             departure: self.trip_departure.trim().to_string(),
             destination: self.trip_destination.trim().to_string(),
