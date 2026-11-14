@@ -487,8 +487,31 @@ pub fn contacts_content(
 }
 
 /// Renders the full-screen contacts workflow, including refresh and confirmation dialogs.
+/// Renders the full-screen contacts workflow.
 pub fn contacts(
     ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ContactsState,
+    store: &Store,
+    now: i64,
+) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            contacts_window(ctx, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete contacts workflow and its dialogs inside a native desktop window.
+pub fn contacts_window(
+    ctx: &Context,
+    ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
     focus: &mut FocusState,
@@ -509,15 +532,7 @@ pub fn contacts(
         state.error = Some("contacts_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            contacts_content(ui, theme, texts, focus, state, store, now);
-        });
+    contacts_content(ui, theme, texts, focus, state, store, now);
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
@@ -1079,7 +1094,6 @@ fn list_view(
         state.select(id);
     }
 }
-
 fn detail_view(
     ui: &mut egui::Ui,
     theme: &Theme,
