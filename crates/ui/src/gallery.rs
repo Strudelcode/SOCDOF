@@ -192,11 +192,26 @@ fn restore_native_windows(
     now: i64,
 ) {
     let area = work_area(screen);
-    for slug in ["contacts", "invoices", "settings"] {
-        let Some(saved) = layout.window_states.get(slug).filter(|window| window.open) else {
+    let mut saved_windows = layout
+        .window_states
+        .iter()
+        .filter(|(_, window)| window.open)
+        .collect::<Vec<_>>();
+    saved_windows.sort_by(|(left_slug, left), (right_slug, right)| {
+        left.z_order
+            .cmp(&right.z_order)
+            .then_with(|| left_slug.cmp(right_slug))
+    });
+
+    for (slug, saved) in saved_windows {
+        if !matches!(slug.as_str(), "contacts" | "invoices" | "settings") {
             continue;
-        };
-        let app = AppId::new(slug);
+        }
+        let app = AppId::new(match slug.as_str() {
+            "contacts" => "contacts",
+            "invoices" => "invoices",
+            _ => "settings",
+        });
         let Some(title) = state.desktop_icons.label_of(app) else {
             continue;
         };
@@ -960,7 +975,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         saved.open = false;
                         saved.minimized = false;
                     }
-                    for window in state.desktop_windows.windows() {
+                    for (z_order, window) in state.desktop_windows.windows().iter().enumerate() {
                         let rect = window.normal_rect();
                         layout.window_states.insert(
                             window.app().as_str().to_string(),
@@ -972,6 +987,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 maximized: window.is_maximized(),
                                 open: true,
                                 minimized: window.is_minimized(),
+                                z_order: z_order as u32,
                             },
                         );
                     }
@@ -3370,6 +3386,7 @@ mod tests {
                 maximized: true,
                 open: true,
                 minimized: false,
+                z_order: 2,
             },
         );
         layout.window_states.insert(
@@ -3382,6 +3399,7 @@ mod tests {
                 maximized: false,
                 open: true,
                 minimized: true,
+                z_order: 1,
             },
         );
 
