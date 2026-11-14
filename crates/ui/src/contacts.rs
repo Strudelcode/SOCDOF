@@ -504,7 +504,7 @@ pub fn contacts(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            contacts_window(ctx, ui, theme, texts, focus, state, store, now);
+            contacts_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
 
@@ -512,6 +512,7 @@ pub fn contacts(
 #[allow(clippy::too_many_arguments)]
 pub fn contacts_window(
     ctx: &Context,
+    active: bool,
     ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
@@ -520,7 +521,7 @@ pub fn contacts_window(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             ContactsView::List => state.back = true,
             ContactsView::Detail => state.view = ContactsView::List,
