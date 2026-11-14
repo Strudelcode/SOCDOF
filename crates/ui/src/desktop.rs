@@ -1265,8 +1265,8 @@ fn desktop_impl(
         } else if close {
             windows.request_close(app);
         }
-        if minimize {
-            windows.minimize(app);
+        if minimize && windows.minimize(app) {
+            outcome.window_layout_changed = true;
         }
         if toggle {
             windows.toggle_maximize(app, area);
@@ -1802,7 +1802,9 @@ fn desktop_impl(
         );
         focus.collecting(false);
         if confirm {
-            windows.confirm_close(now);
+            if windows.confirm_close(now).is_some() {
+                outcome.window_layout_changed = true;
+            }
         } else if cancel || focus.escape() || !visible {
             windows.cancel_close();
         }
