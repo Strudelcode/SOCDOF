@@ -1571,6 +1571,32 @@ fn cash_book_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &mut
 
 fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
     let summary = summarize(&state.entries);
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.add_space(8.0);
+        for (label, value, tone) in [
+            ("accounting_revenue", report.revenue_net, Tone::Success),
+            ("accounting_expense", report.purchase_net, Tone::Warning),
+            ("accounting_result", report.operating_profit_net, Tone::Accent),
+            ("accounting_tax_balance", report.vat_liability, Tone::Neutral),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                badge(
+                    ui,
+                    theme,
+                    &money_in_currency(value, &state.currency_symbol),
+                    tone,
+                );
+            });
+        }
+    });
+    ui.add_space(10.0);
     if summary.rows.is_empty() {
         card(ui, theme, |ui| {
             empty_state(
