@@ -908,7 +908,9 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                             eprintln!("SOCDOF could not persist desktop theme: {error}");
                         }
                     }
-                    Err(error) => eprintln!("SOCDOF could not load desktop theme preferences: {error}"),
+                    Err(error) => {
+                        eprintln!("SOCDOF could not load desktop theme preferences: {error}")
+                    }
                 }
             }
         }
