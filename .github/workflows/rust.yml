@@ -228,6 +228,27 @@ jobs:
           Copy-Item $nsis.FullName "artifacts/SOCDOF-$version-windows-x64-setup.exe"
           Copy-Item $msi.FullName "artifacts/SOCDOF-$version-windows-x64.msi"
 
+          # Build a separate per-user installer for the native Rust host. The Tauri installer
+          # above remains available as a transition fallback until native acceptance is complete.
+          $nativeExe = 'target/release/socdof-ui-desktop.exe'
+          if (-not (Test-Path $nativeExe)) { throw "Missing native desktop binary: $nativeExe" }
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            choco install nsis --no-progress -y
+            $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $makensis) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+            if (Test-Path $candidate) { $makensis = Get-Item $candidate }
+          }
+          if (-not $makensis) { throw 'NSIS compiler is unavailable on this runner' }
+          $nativeRelease = (Resolve-Path 'target/release').Path
+          $nativeInstaller = Join-Path (Resolve-Path 'artifacts').Path "SOCDOF-$version-windows-x64-native-setup.exe"
+          & $makensis.Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$nativeRelease" "/DOUTPUT_FILE=$nativeInstaller" 'crates/app/installer/native-windows.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $nativeInstaller)) {
+            throw 'Native Rust desktop installer build failed'
+          }
+
           Get-ChildItem artifacts -File | ForEach-Object {
             if ($_.Length -lt 1000) { throw "Artifact is implausibly small: $($_.Name)" }
             "{0} {1}" -f $_.Name, $_.Length
@@ -294,6 +315,15 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-windows-x64-setup
           path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-windows-x64-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload native Windows installer
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-windows-x64-native-setup
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-windows-x64-native-setup.exe
           if-no-files-found: error
           retention-days: 14
 
