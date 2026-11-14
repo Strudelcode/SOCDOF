@@ -627,7 +627,13 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if interacting {
             state.auth.note_activity(now);
         }
-        state.auth.tick(now);
+        if state.auth.tick_with_store(&state.store, now).is_err() {
+            state.auth.show_login();
+        }
+        if state.auth.view != crate::auth::AuthView::Unlocked {
+            state.desktop_open = false;
+            state.auth_open = true;
+        }
         if state.auth.view == crate::auth::AuthView::Locked {
             state.desktop_open = false;
             state.auth_open = true;
