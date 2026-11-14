@@ -2287,6 +2287,13 @@ mod tests {
         assert_eq!(state.store.product_count().expect("products"), 0);
         assert_eq!(state.store.invoice_count().expect("invoices"), 0);
         assert_eq!(state.store.user_count().expect("users"), 0);
+
+        // Heavy module catalogues are deferred until the user actually opens the app.
+        assert!(state.app_store.modules.is_empty());
+        state
+            .open_desktop_app(AppId::new("app-store"), now_millis())
+            .expect("open App Store");
+        assert_eq!(state.app_store.modules.len(), 18);
     }
 
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
