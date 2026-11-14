@@ -32,7 +32,6 @@ VIAddVersionKey "FileDescription" "${APP_NAME} Native Desktop Installer"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
 
 !define MUI_ABORTWARNING
-!define MUI_PAGE_COMPONENTS
 !define MUI_WELCOMEPAGE_TITLE "Welcome to SOCDOF"
 !define MUI_WELCOMEPAGE_TEXT "This wizard installs the native SOCDOF desktop application for the current Windows user.$\r$\n$\r$\nYour business database remains in your Windows application-data folder and is not removed when you uninstall the application."
 !define MUI_DIRECTORYPAGE_TEXT_TOP "Choose the folder in which SOCDOF should be installed."
