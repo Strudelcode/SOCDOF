@@ -27,7 +27,7 @@ use socdof_core::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOr
 use socdof_core::domain::restaurant::{self, TableOrder};
 use socdof_core::domain::settings::CompanyProfile;
 use socdof_core::domain::support::{SupportTicket, TicketPriority, TicketStatus, TimeEntry};
-use socdof_core::domain::therapy::{TherapyClient, TherapySession};
+use socdof_core::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use socdof_core::domain::user::{User, UserRole};
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::invoice_template;
@@ -1231,6 +1231,28 @@ impl DesktopState {
     /// Lists sessions for one therapy client.
     pub fn therapy_sessions(&self, client_id: Uuid) -> CoreResult<Vec<TherapySession>> {
         self.shell()?.store().therapy_sessions_for_client(client_id)
+    }
+
+    /// Lists every separately recorded practice mileage trip.
+    pub fn therapy_trips(&self) -> CoreResult<Vec<TherapyTrip>> {
+        self.shell()?.store().therapy_trips()
+    }
+
+    /// Creates or updates a practice trip, preserving the caller's per-trip rate.
+    pub fn save_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<TherapyTrip> {
+        trip.validate().map_err(CoreError::Validation)?;
+        let store = self.shell()?.store();
+        if store.therapy_trips()?.iter().any(|item| item.id == trip.id) {
+            store.update_therapy_trip(trip)?;
+        } else {
+            store.insert_therapy_trip(trip)?;
+        }
+        Ok(trip.clone())
+    }
+
+    /// Deletes one practice mileage trip.
+    pub fn delete_therapy_trip(&self, id: Uuid) -> CoreResult<()> {
+        self.shell()?.store().delete_therapy_trip(id)
     }
 
     /// Deletes a therapy client and its session history.
