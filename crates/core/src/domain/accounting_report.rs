@@ -230,10 +230,7 @@ pub fn export_business_accounting_csv(
     currency: &str,
 ) -> String {
     let rows = vec![
-        vec![
-            title.to_string(),
-            company_name.to_string(),
-        ],
+        vec![title.to_string(), company_name.to_string()],
         vec!["Period".to_string(), period.to_string()],
         vec!["Date".to_string(), date_label.to_string()],
         Vec::new(),
