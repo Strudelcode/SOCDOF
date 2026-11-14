@@ -366,37 +366,44 @@ impl GalleryState {
             seed_therapie(&store, &texts)?;
         }
 
+        // Keep the real desktop's login/startup path lightweight. Each app refreshes from the
+        // persistent store when it is opened; the component gallery still eagerly loads its
+        // fixtures so visual and interaction tests keep their established starting state.
         let mut contacts_state = ContactsState::new();
-        contacts_state.refresh(&store)?;
         let mut products_state = ProductsState::new();
-        products_state.refresh(&store)?;
         let mut projects_state = ProjectsState::new();
-        projects_state.refresh(&store)?;
         let mut fleet_state = FleetState::new();
-        fleet_state.refresh(&store)?;
         let mut restaurant_state = crate::restaurant::RestaurantState::new();
-        restaurant_state.refresh(&store)?;
         let mut invoices_state = InvoicesState::new();
-        invoices_state.refresh(&store)?;
         let mut accounting_state = AccountingState::new();
-        accounting_state.refresh(&store, now_millis())?;
         let mut purchases_state = PurchasesState::new();
-        purchases_state.refresh(&store)?;
         let mut pos_state = PosState::new();
-        pos_state.refresh(&store)?;
         let mut appointments_state = AppointmentsState::new();
-        appointments_state.refresh(&store)?;
         let mut users_state = UsersState::new();
-        users_state.refresh(&store)?;
         let mut settings_state = SettingsState::new();
-        settings_state.refresh(&store)?;
+        if seed_demo_data {
+            contacts_state.refresh(&store)?;
+            products_state.refresh(&store)?;
+            projects_state.refresh(&store)?;
+            fleet_state.refresh(&store)?;
+            restaurant_state.refresh(&store)?;
+            invoices_state.refresh(&store)?;
+            accounting_state.refresh(&store, now_millis())?;
+            purchases_state.refresh(&store)?;
+            pos_state.refresh(&store)?;
+            appointments_state.refresh(&store)?;
+            users_state.refresh(&store)?;
+            settings_state.refresh(&store)?;
+        }
         let auth_state = if seed_demo_data {
             AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?
         } else {
             AuthState::new(&store, now_millis())?
         };
         let mut editor_state = EditorState::new();
-        editor_state.reset_for_open(&store)?;
+        if seed_demo_data {
+            editor_state.reset_for_open(&store)?;
+        }
 
         let mut active_modules = app_store::active_modules(&store)?;
         if active_modules.is_empty() {
@@ -412,13 +419,10 @@ impl GalleryState {
         let mut dashboard = DashboardState::new(dashboard_data);
         dashboard.set_active_modules(active_modules);
 
-        let mut app_store_state = AppStoreState::new();
-        app_store_state.refresh(&store)?;
-        let mut support_state = SupportState::new();
-        support_state.refresh(&store)?;
+        let app_store_state = AppStoreState::new();
+        let support_state = SupportState::new();
         let reports_state = ReportsState::new();
-        let mut therapie_state = TherapieState::new();
-        therapie_state.refresh(&store)?;
+        let therapie_state = TherapieState::new();
 
         Ok(Self {
             language,
@@ -566,6 +570,7 @@ impl GalleryState {
             }
             "settings" => {
                 self.settings.reset_for_open();
+                self.settings.refresh(&self.store)?;
                 self.settings_open = true;
             }
             "editor" => {
