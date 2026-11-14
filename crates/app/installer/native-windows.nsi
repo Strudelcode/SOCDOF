@@ -82,6 +82,10 @@ Function .onInit
   ReadRegDWORD $0 HKCU "${UNINSTALL_KEY}" "StartWithWindows"
   ${If} $0 == 1
     SectionSetFlags ${SecStartup} ${SF_SELECTED}
+  ${Else}
+    ; Migrate an existing shortcut from installer versions before the preference was stored.
+    IfFileExists "$SMSTARTUP\SOCDOF.lnk" 0 +2
+    SectionSetFlags ${SecStartup} ${SF_SELECTED}
   ${EndIf}
 FunctionEnd
 
