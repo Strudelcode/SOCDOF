@@ -490,6 +490,7 @@ mod tests {
                         width: 900,
                         height: 640,
                         maximized: true,
+                        open: true,
                     },
                 ),
                 (
