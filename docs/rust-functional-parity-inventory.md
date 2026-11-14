@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-13
 
-**Audit update:** 2026-11-13 — POS receipt VAT totals now persist through schema v17; Therapy now supports editing unbilled sessions (date, start time, duration, distance and notes) and protects invoice-linked history. Projects, Fleet, Restaurant and Therapy have focused parity findings recorded below; the full workspace gate remains open.  
+**Audit update:** 2026-11-14 — Therapy mileage now has schema v18 persistence and Store/Desktop/Tauri CRUD; the native screen and ledger wiring remain open. 2026-11-13 — POS receipt VAT totals now persist through schema v17; Therapy now supports editing unbilled sessions (date, start time, duration, distance and notes) and protects invoice-linked history. Projects, Fleet, Restaurant and Therapy have focused parity findings recorded below; the full workspace gate remains open.  
 **Reference branch:** `feature/rust-native-desktop-host`  
 **Reference application:** `SOCDOF - TS/`  
 **Rust implementation:** `crates/`
@@ -40,7 +40,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/support/ProjectsModule.tsx` | `crates/ui/src/projects.rs`, `crates/app/src/project_bridge.rs`, `crates/core/src/domain/project.rs`, `crates/core/src/store/projects.rs` | Port exists; behavior-by-behavior audit required |
 | `components/sales/RestaurantModule.tsx` | `crates/ui/src/restaurant.rs`, `crates/app/src/restaurant_bridge.rs`, `crates/core/src/domain/restaurant.rs`, `crates/core/src/store/restaurant.rs` | Port exists; behavior-by-behavior audit required |
 | `components/sales/InvoicesModule.tsx`, `InvoiceTemplateModal.tsx`, `InvoicePrintModal.tsx` | `crates/ui/src/invoices.rs`, `invoice_templates.rs`, `invoice_tokens.rs`; `crates/app/src/invoice_bridge.rs`; `crates/core/src/store/invoices.rs`, `invoice_template.rs`, `pdf/` | Existing Rust surface; full parity audit required |
-| `components/therapy/*` | `crates/ui/src/therapie.rs`, `crates/core/src/domain/therapy.rs`, `crates/core/src/store/therapy.rs` | Partial port; session create/edit/delete, date/time editing and invoice-link protections now covered; full sub-workflow audit remains open |
+| `components/therapy/*` | `crates/ui/src/therapie.rs`, `crates/core/src/domain/therapy.rs`, `crates/core/src/store/therapy.rs` | Session create/edit/delete, date/time editing and invoice-link protections covered; schema v18 now persists standalone mileage trips with per-trip rates and CRUD APIs; native egui mileage UI, tax-ledger inclusion, TypeScript rate/preset parity and end-to-end acceptance remain open |
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
 | `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Existing Rust surface; map each TS screen and action |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
