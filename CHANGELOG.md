@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Therapy mileage: added schema v18 and a persistent native trip model with optional client links,
+  route/purpose/date, odometer readings, an individually stored cents-per-kilometre rate and
+  cent-rounded reimbursement. Added Store CRUD, DesktopState/Tauri commands, reset handling and
+  regression tests for custom rates, updates, validation and retaining trip history when a client
+  is deleted. The native egui mileage screen and tax-advisor-ledger integration remain open.
+
+
 All notable changes to SOCDOF are documented here. The release workflow reads
 the section matching the pushed tag; a release fails if this file has no
 matching, non-empty section.
