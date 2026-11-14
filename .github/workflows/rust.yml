@@ -3,8 +3,10 @@ name: Rust
 on:
   pull_request:
     branches: [main]
+  # Feature branches with an open PR are validated by pull_request. Avoid running the same
+  # expensive matrix twice for one commit (push + pull_request), where concurrency cancels one.
   push:
-    branches: [main, feature/rust-native-desktop-host]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
