@@ -46,7 +46,8 @@ VIAddVersionKey "FileVersion" "${APP_VERSION}"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Install"
+Section "SOCDOF application" SecMain
+  SectionIn RO
   SetShellVarContext current
   SetOutPath "$INSTDIR"
   nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
