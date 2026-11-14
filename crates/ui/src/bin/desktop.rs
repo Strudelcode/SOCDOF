@@ -68,6 +68,9 @@ impl DesktopApp {
 
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Keep idle-lock checks and the shared-instance heartbeat running even when the user
+        // leaves the desktop untouched and egui would otherwise stop repainting.
+        ctx.request_repaint_after(Duration::from_secs(1));
         if self.follow_system_theme && !self.system_theme_initialized {
             self.state.appearance = if ctx.style().visuals.dark_mode {
                 Appearance::Dark
