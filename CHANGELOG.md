@@ -7,8 +7,9 @@
   cent-rounded reimbursement. Added Store CRUD, DesktopState/Tauri commands, reset handling and
   regression tests for custom rates, updates, validation and retaining trip history when a client
   is deleted. Therapy mileage is now included in the monthly tax-advisor ledger as a bank expense
-  using each trip's own rate. The native egui mileage screen and exact TypeScript rate/preset parity
-  remain open.
+  using each trip's own rate. The native egui mileage screen now supports create/edit/delete, optional
+  client assignment, search, distance/reimbursement totals and DE/EN/FR/ES labels. Its defaults and
+  rounding are aligned with the legacy TherapyMileage screen and tax-ledger source.
 - Aligned the tax-advisor workbook's running-balance and current-balance formulas with the legacy
   TypeScript R1C1 expressions; Rust keeps dynamically sized SUMIF ranges to avoid truncating large months.
 
