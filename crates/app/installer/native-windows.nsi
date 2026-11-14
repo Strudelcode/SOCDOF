@@ -77,13 +77,23 @@ Section /o "Start SOCDOF when I sign in" SecStartup
   CreateShortCut "$SMSTARTUP\SOCDOF.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
 SectionEnd
 
+Function .onInit
+  ; Restore the user's previous opt-in so upgrades do not silently disable startup.
+  ReadRegDWORD $0 HKCU "${UNINSTALL_KEY}" "StartWithWindows"
+  ${If} $0 == 1
+    SectionSetFlags ${SecStartup} ${SF_SELECTED}
+  ${EndIf}
+FunctionEnd
+
 Function .onInstSuccess
-  ; Treat the startup entry as an explicit opt-in and remove an old one when unchecked on upgrade.
   SectionGetFlags ${SecStartup} $0
   IntOp $0 $0 & ${SF_SELECTED}
+  SetShellVarContext current
   ${If} $0 == 0
-    SetShellVarContext current
     Delete "$SMSTARTUP\SOCDOF.lnk"
+    DeleteRegValue HKCU "${UNINSTALL_KEY}" "StartWithWindows"
+  ${Else}
+    WriteRegDWORD HKCU "${UNINSTALL_KEY}" "StartWithWindows" 1
   ${EndIf}
 FunctionEnd
 
@@ -91,6 +101,7 @@ Section "Uninstall"
   SetShellVarContext current
   nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
   Delete "$DESKTOP\SOCDOF.lnk"
+  Delete "$SMSTARTUP\SOCDOF.lnk"
   Delete "$SMPROGRAMS\SOCDOF\SOCDOF.lnk"
   Delete "$SMPROGRAMS\SOCDOF\Uninstall SOCDOF.lnk"
   RMDir "$SMPROGRAMS\SOCDOF"
