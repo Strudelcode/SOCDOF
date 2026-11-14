@@ -1,5 +1,7 @@
 Unicode true
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
+!include "Sections.nsh"
 
 !ifndef APP_VERSION
   !define APP_VERSION "26.0.0"
@@ -30,6 +32,7 @@ VIAddVersionKey "FileDescription" "${APP_NAME} Native Desktop Installer"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
 
 !define MUI_ABORTWARNING
+!define MUI_PAGE_COMPONENTS
 !define MUI_WELCOMEPAGE_TITLE "Welcome to SOCDOF"
 !define MUI_WELCOMEPAGE_TEXT "This wizard installs the native SOCDOF desktop application for the current Windows user.$\r$\n$\r$\nYour business database remains in your Windows application-data folder and is not removed when you uninstall the application."
 !define MUI_DIRECTORYPAGE_TEXT_TOP "Choose the folder in which SOCDOF should be installed."
@@ -37,6 +40,7 @@ VIAddVersionKey "FileVersion" "${APP_VERSION}"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch SOCDOF now"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -65,6 +69,22 @@ Section "Install"
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
 SectionEnd
+
+Section /o "Start SOCDOF when I sign in" SecStartup
+  SetShellVarContext current
+  CreateDirectory "$SMSTARTUP"
+  CreateShortCut "$SMSTARTUP\\SOCDOF.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${APP_EXE}" 0
+SectionEnd
+
+Function .onInstSuccess
+  ; Treat the startup entry as an explicit opt-in and remove an old one when unchecked on upgrade.
+  SectionGetFlags ${SecStartup} $0
+  IntOp $0 $0 & ${SF_SELECTED}
+  ${If} $0 == 0
+    SetShellVarContext current
+    Delete "$SMSTARTUP\\SOCDOF.lnk"
+  ${EndIf}
+FunctionEnd
 
 Section "Uninstall"
   SetShellVarContext current
