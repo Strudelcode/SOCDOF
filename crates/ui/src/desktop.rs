@@ -803,9 +803,26 @@ pub fn desktop_with_content(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: impl FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool,
+    mut render_window: impl FnMut(
+        AppId,
+        &mut Ui,
+        &Context,
+        &Theme,
+        &UiTexts,
+        &mut FocusState,
+        &SocdofStore,
+        i64,
+    ) -> bool,
 ) -> DesktopOutcome {
-    desktop_impl(ctx, frame, focus, icons, windows, now, Some(&mut render_window))
+    desktop_impl(
+        ctx,
+        frame,
+        focus,
+        icons,
+        windows,
+        now,
+        Some(&mut render_window),
+    )
 }
 
 fn desktop_impl(
@@ -815,7 +832,18 @@ fn desktop_impl(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: Option<&mut dyn FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool>,
+    mut render_window: Option<
+        &mut dyn FnMut(
+            AppId,
+            &mut Ui,
+            &Context,
+            &Theme,
+            &UiTexts,
+            &mut FocusState,
+            &SocdofStore,
+            i64,
+        ) -> bool,
+    >,
 ) -> DesktopOutcome {
     let DesktopFrame {
         theme,
