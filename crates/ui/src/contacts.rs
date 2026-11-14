@@ -509,6 +509,7 @@ pub fn contacts(
 }
 
 /// Renders the complete contacts workflow and its dialogs inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
 pub fn contacts_window(
     ctx: &Context,
     ui: &mut egui::Ui,
