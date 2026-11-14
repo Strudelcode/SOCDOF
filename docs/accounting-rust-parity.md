@@ -15,6 +15,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - Separate native VAT return, open receivables and POS Z-report tabs now mirror the four distinct legacy report areas; the combined Business Report remains available as an overview. All tab labels are translated in DE/EN/FR/ES.
 - The native BWA tab now includes invoice/POS net revenue, purchase net expenses, operating result and VAT liability, alongside the existing journal-account summary.
 - Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability, saved through a native file dialog.
+- Business Report CSV now uses the translated report title, raw legacy period tokens and matching `Accounting_<period>_<date>.csv` filename. CSV quoting is conditional and safely escapes semicolons, quotes and line breaks.
 - Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook. The workbook includes localized DE/EN/FR/ES labels and Excel formulas for income/expense totals, cash/bank balances, transaction running balance and cross-sheet monthly carry-over.
 - Ledger sources: practice billable items, posted/sent/overdue/paid invoices, recorded payment date/method when present, completed POS receipts, non-draft purchases and manually entered journal bookings. Linked invoices are skipped when their billable positions are already represented, preventing duplicate income. Sent/overdue invoices follow the legacy TypeScript rule and are included as posted revenue; a recorded payment overrides the issue date and cash/bank channel.
 - The year selector covers the current year, the previous five years and the next year. Per-year opening cash/bank balances are read from and saved to the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
@@ -25,7 +26,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 ## Remaining parity checks
 
 - [x] Match the legacy period selector's Today and custom date range options, including invalid/impossible date rejection.
-- [ ] Compare the legacy CSV export's headings, locale/date formatting, delimiter, quoting and exact filename.
+- [ ] Verify the report date's local-time formatting against `Date.toLocaleString()`; headings, semicolon delimiter, conditional quoting, period token and filename now match the legacy export contract. Compare complete CSV bytes after timezone handling.
 - [ ] Compare invoice/POS/purchase rounding against real imported legacy datasets, including VAT overrides and mixed rates.
 - [x] Match the legacy tax-ledger rule for sent/overdue/paid invoices and skip draft/cancelled invoices; paid invoices use recorded payment date and tender when present.
 - [ ] Verify open-item behavior for all legacy invoice states and any partial-payment representation.
