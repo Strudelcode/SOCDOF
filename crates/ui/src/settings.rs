@@ -1206,6 +1206,7 @@ pub fn settings_content(
     });
 }
 
+/// Renders the full-screen settings workflow, including refresh and destructive-action dialogs.
 pub fn settings(
     ctx: &Context,
     theme: &Theme,
