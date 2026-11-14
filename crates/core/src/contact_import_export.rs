@@ -719,10 +719,13 @@ fn decode_windows_1252(bytes: &[u8]) -> String {
         '\u{02dc}', '\u{2122}', '\u{0161}', '\u{203a}', '\u{0153}', '\u{009d}',
         '\u{017e}', '\u{0178}',
     ];
-    bytes.iter().map(|byte| match *byte {
-        0x80..=0x9f => EXTENDED[usize::from(*byte - 0x80)],
-        value => char::from(value),
-    }).collect()
+    bytes
+        .iter()
+        .map(|byte| match *byte {
+            0x80..=0x9f => EXTENDED[usize::from(*byte - 0x80)],
+            value => char::from(value),
+        })
+        .collect()
 }
 
 fn vcard_property_values(lines: &[String], wanted: &str) -> Vec<String> {
