@@ -397,21 +397,37 @@ impl ProjectsState {
         task_id: Uuid,
         status: &str,
     ) -> socdof_core::CoreResult<()> {
-        let Some(project_id) = self.selected else {
-            return Ok(());
-        };
-        store.set_project_task_status(project_id, task_id, status)?;
-        touch_project(store, project_id, socdof_core::now_millis())?;
+        let task = store
+            .project_task(task_id)?
+            .ok_or_else(|| socdof_core::CoreError::NotFound(task_id.to_string()))?;
+        if self
+            .selected
+            .is_some_and(|selected_id| selected_id != task.project_id)
+        {
+            return Err(socdof_core::CoreError::Validation(
+                "projects_task_project_mismatch".to_string(),
+            ));
+        }
+        store.set_project_task_status(task.project_id, task_id, status)?;
+        touch_project(store, task.project_id, socdof_core::now_millis())?;
         self.refresh(store)
     }
 
-    /// Deletes a task from the selected project.
+    /// Deletes a task from its owning project, including from the all-projects view.
     pub fn delete_task(&mut self, store: &Store, task_id: Uuid) -> socdof_core::CoreResult<()> {
-        let Some(project_id) = self.selected else {
-            return Ok(());
-        };
-        store.delete_project_task(project_id, task_id)?;
-        touch_project(store, project_id, socdof_core::now_millis())?;
+        let task = store
+            .project_task(task_id)?
+            .ok_or_else(|| socdof_core::CoreError::NotFound(task_id.to_string()))?;
+        if self
+            .selected
+            .is_some_and(|selected_id| selected_id != task.project_id)
+        {
+            return Err(socdof_core::CoreError::Validation(
+                "projects_task_project_mismatch".to_string(),
+            ));
+        }
+        store.delete_project_task(task.project_id, task_id)?;
+        touch_project(store, task.project_id, socdof_core::now_millis())?;
         self.status = Some("projects_task_deleted".to_string());
         self.refresh(store)
     }
@@ -1511,6 +1527,71 @@ mod tests {
         assert!(state.tasks.is_empty());
         state.delete_selected(&store).expect("delete project");
         assert!(state.projects.is_empty());
+    }
+
+    #[test]
+    fn all_projects_view_can_update_and_delete_tasks_without_a_selection() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = ProjectsState::new();
+        state.refresh(&store).expect("refresh");
+
+        state.start_new(1_800_000_000_000);
+        let mut first = state.draft.clone().expect("first project");
+        first.title = "First project".to_string();
+        first.code = "FIRST".to_string();
+        state.draft = Some(first);
+        state.save(&store, 1_800_000_000_001).expect("save first");
+        let first_id = state.selected.expect("first id");
+
+        state.start_task(1_800_000_000_002);
+        let mut first_task = state.task_draft.clone().expect("first task");
+        first_task.title = "First task".to_string();
+        first_task.project_id = first_id;
+        state.task_draft = Some(first_task);
+        state.save_task(&store, 1_800_000_000_003).expect("save first task");
+
+        state.start_new(1_800_000_000_004);
+        let mut second = state.draft.clone().expect("second project");
+        second.title = "Second project".to_string();
+        second.code = "SECOND".to_string();
+        state.draft = Some(second);
+        state.save(&store, 1_800_000_000_005).expect("save second");
+        let second_id = state.selected.expect("second id");
+
+        state.start_task(1_800_000_000_006);
+        let mut second_task = state.task_draft.clone().expect("second task");
+        second_task.title = "Second task".to_string();
+        second_task.project_id = second_id;
+        state.task_draft = Some(second_task);
+        state.save_task(&store, 1_800_000_000_007).expect("save second task");
+        let second_task_id = state
+            .tasks
+            .iter()
+            .find(|task| task.title == "Second task")
+            .expect("second task persisted")
+            .id;
+
+        state.selected = None;
+        state
+            .set_task_status(&store, second_task_id, "done")
+            .expect("update task in all-projects view");
+        assert_eq!(
+            store
+                .project_task(second_task_id)
+                .expect("load task")
+                .expect("task exists")
+                .status,
+            "done"
+        );
+
+        state
+            .delete_task(&store, second_task_id)
+            .expect("delete task in all-projects view");
+        assert!(store
+            .project_task(second_task_id)
+            .expect("load deleted task")
+            .is_none());
+        assert_eq!(store.projects().expect("projects").len(), 2);
     }
 
     #[test]
