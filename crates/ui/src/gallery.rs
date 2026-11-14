@@ -2445,6 +2445,52 @@ mod tests {
     }
 
     #[test]
+    fn standard_user_launcher_hides_and_rejects_ungranted_modules() {
+        use socdof_core::domain::user::{User, UserRole};
+
+        let store = Store::open_in_memory().expect("store");
+        let user = User {
+            id: uuid::Uuid::new_v4(),
+            username: "staff".to_string(),
+            display_name: "Staff member".to_string(),
+            role: UserRole::User,
+            role_id: None,
+            active: true,
+            password_hash: "test-hash".to_string(),
+            must_change_password: false,
+            created_at: now_millis(),
+            updated_at: now_millis(),
+        };
+        store.insert_user(&user).expect("insert standard user");
+        let mut state =
+            GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+                .expect("persistent state");
+        state.auth.user = Some(user);
+
+        state.sync_module_navigation().expect("filter launcher");
+
+        assert!(state
+            .desktop_icons
+            .index_of(AppId::new("contacts"))
+            .is_some());
+        assert!(state
+            .desktop_icons
+            .index_of(AppId::new("settings"))
+            .is_none());
+        assert!(state
+            .desktop_icons
+            .index_of(AppId::new("users"))
+            .is_none());
+        assert!(state
+            .open_desktop_app(AppId::new("settings"), now_millis())
+            .is_err());
+        assert!(state
+            .open_desktop_app(AppId::new("contacts"), now_millis())
+            .is_ok());
+        assert!(state.contacts_open);
+    }
+
+    #[test]
     fn startup_module_resolves_only_known_desktop_apps() {
         assert_eq!(startup_app("invoices"), Some(AppId::new("invoices")));
         assert_eq!(startup_app("dashboard"), Some(AppId::new("dashboard")));
