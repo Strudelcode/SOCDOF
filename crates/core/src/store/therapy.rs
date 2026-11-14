@@ -334,3 +334,76 @@ fn map_session(row: &Row<'_>) -> rusqlite::Result<TherapySession> {
         updated_at: row.get("updated_at")?,
     })
 }
+
+#[cfg(test)]
+mod trip_tests {
+    use super::*;
+    use crate::domain::therapy::TherapyTrip;
+    use crate::money::Money;
+    use crate::store::Store;
+
+    fn trip(client_id: Option<Uuid>) -> TherapyTrip {
+        TherapyTrip {
+            id: Uuid::new_v4(),
+            client_id,
+            date: "2026-11-14".to_string(),
+            departure: "Praxis".to_string(),
+            destination: "Bozen".to_string(),
+            purpose: "Hausbesuch".to_string(),
+            start_km_milli: 12_500_000,
+            end_km_milli: 12_542_000,
+            rate_cents_per_km: 38,
+        }
+    }
+
+    #[test]
+    fn practice_trip_roundtrips_and_keeps_its_individual_rate() {
+        let store = Store::open_in_memory().expect("store");
+        let mut client = TherapyClient::new(1);
+        client.name = "Klient".to_string();
+        client.hourly_rate = Money::from_cents(9_000);
+        store.insert_therapy_client(&client).expect("client");
+
+        let mut trip = trip(Some(client.id));
+        assert_eq!(trip.distance_km_milli(), 42_000);
+        assert_eq!(trip.reimbursement(), Money::from_cents(160));
+        store.insert_therapy_trip(&trip).expect("insert");
+        assert_eq!(store.therapy_trips().expect("list"), vec![trip.clone()]);
+
+        trip.rate_cents_per_km = 42;
+        trip.purpose = "Folgetermin".to_string();
+        store.update_therapy_trip(&trip).expect("update");
+        assert_eq!(store.therapy_trips().expect("reload"), vec![trip.clone()]);
+        assert_eq!(trip.reimbursement(), Money::from_cents(176));
+
+        store.delete_therapy_trip(trip.id).expect("delete");
+        assert!(store.therapy_trips().expect("empty").is_empty());
+    }
+
+    #[test]
+    fn deleting_a_client_preserves_trip_history_and_clears_its_link() {
+        let store = Store::open_in_memory().expect("store");
+        let mut client = TherapyClient::new(1);
+        client.name = "Klient".to_string();
+        store.insert_therapy_client(&client).expect("client");
+        let trip = trip(Some(client.id));
+        store.insert_therapy_trip(&trip).expect("trip");
+
+        store.delete_therapy_client(client.id).expect("delete client");
+        let stored = store.therapy_trips().expect("trips");
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].id, trip.id);
+        assert_eq!(stored[0].client_id, None);
+    }
+
+    #[test]
+    fn rejects_invalid_practice_trip_values() {
+        let store = Store::open_in_memory().expect("store");
+        let mut trip = trip(None);
+        trip.date = "2026-13-40".to_string();
+        assert!(store.insert_therapy_trip(&trip).is_err());
+        trip.date = "2026-11-14".to_string();
+        trip.rate_cents_per_km = -1;
+        assert!(store.insert_therapy_trip(&trip).is_err());
+    }
+}
