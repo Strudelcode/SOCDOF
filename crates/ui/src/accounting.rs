@@ -2344,6 +2344,10 @@ fn form_view(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::theme::Appearance;
+    use socdof_core::domain::settings::Language;
+
     #[test]
     fn accounting_period_legacy_tokens_match_the_typescript_values() {
         assert_eq!(AccountingPeriod::All.legacy_token(), "all");
@@ -2354,10 +2358,6 @@ mod tests {
         assert_eq!(AccountingPeriod::Custom.legacy_token(), "custom");
     }
 
-
-    use super::*;
-    use crate::theme::Appearance;
-    use socdof_core::domain::settings::Language;
 
     fn seeded() -> (Store, AccountingState, UiTexts) {
         let store = Store::open_in_memory().expect("store");
