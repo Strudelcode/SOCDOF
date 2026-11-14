@@ -3,9 +3,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use crate::domain::permission::{
-    AppModule, PermissionLevel, Role, ADMIN_ROLE_ID, USER_ROLE_ID,
-};
+use crate::domain::permission::{AppModule, PermissionLevel, Role, ADMIN_ROLE_ID, USER_ROLE_ID};
 use crate::domain::user::User;
 use crate::error::{CoreError, CoreResult};
 use crate::now_millis;
