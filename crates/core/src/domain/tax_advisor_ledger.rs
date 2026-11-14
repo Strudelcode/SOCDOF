@@ -985,14 +985,7 @@ mod tests {
             make_invoice("DRAFT-1", InvoiceStatus::Draft),
             make_invoice("CANCELLED-1", InvoiceStatus::Cancelled),
         ];
-        let transactions = build_tax_advisor_transactions(
-            &invoices,
-            &[],
-            &[],
-            &[],
-            &[],
-            &[],
-        );
+        let transactions = build_tax_advisor_transactions(&invoices, &[], &[], &[], &[], &[]);
         assert_eq!(transactions.len(), 2);
         assert!(transactions.iter().all(|transaction| {
             transaction.kind == LedgerKind::Income
@@ -1000,8 +993,12 @@ mod tests {
                 && transaction.date == "2026-04-10"
                 && transaction.amount.cents() == 10_000
         }));
-        assert!(transactions.iter().any(|transaction| transaction.description == "Rechnung SENT-1"));
-        assert!(transactions.iter().any(|transaction| transaction.description == "Rechnung OVERDUE-1"));
+        assert!(transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung SENT-1"));
+        assert!(transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung OVERDUE-1"));
     }
 
     #[test]
