@@ -849,38 +849,54 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_windows,
             now,
             |app, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
-                "contacts" => crate::contacts::contacts_window(
-                    ctx,
-                    ui,
-                    theme,
-                    texts,
-                    focus,
-                    &mut state.contacts,
-                    store,
-                    now,
-                ),
-                "invoices" => crate::invoices::invoices_window(
-                    ctx,
-                    ui,
-                    theme,
-                    texts,
-                    focus,
-                    &mut state.invoices,
-                    store,
-                    now,
-                ),
-                "settings" => crate::settings::settings_window(
-                    ctx,
-                    ui,
-                    theme,
-                    texts,
-                    focus,
-                    &mut state.settings,
-                    store,
-                    now,
-                ),
+                "contacts" => {
+                    crate::contacts::contacts_window(
+                        ctx,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.contacts,
+                        store,
+                        now,
+                    );
+                    let back = state.contacts.back;
+                    state.contacts.back = false;
+                    back
+                }
+                "invoices" => {
+                    crate::invoices::invoices_window(
+                        ctx,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.invoices,
+                        store,
+                        now,
+                    );
+                    let back = state.invoices.back;
+                    state.invoices.back = false;
+                    back
+                }
+                "settings" => {
+                    crate::settings::settings_window(
+                        ctx,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.settings,
+                        store,
+                        now,
+                    );
+                    let back = state.settings.back;
+                    state.settings.back = false;
+                    back
+                }
                 _ => {
                     ui.label(texts.get("desktop_hint"));
+                    false
                 }
             },
         );
