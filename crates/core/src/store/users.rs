@@ -36,6 +36,24 @@ pub fn insert(conn: &Connection, user: &User) -> CoreResult<()> {
     Ok(())
 }
 
+/// Creates the first administrator only while the database is still empty.
+/// The count check and insert share one write transaction, preventing parallel first-run setup.
+pub fn insert_first_admin(conn: &Connection, user: &User) -> CoreResult<()> {
+    user.validate().map_err(CoreError::Validation)?;
+    if user.role != UserRole::Admin || !user.active {
+        return Err(CoreError::Validation("first_admin_required".to_string()));
+    }
+
+    let transaction = conn.unchecked_transaction()?;
+    let count: i64 = transaction.query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))?;
+    if count != 0 {
+        return Err(CoreError::Validation("setup_already_completed".to_string()));
+    }
+    insert(&transaction, user)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 /// Finds a user by login name. The comparison ignores case.
 pub fn find_by_username(conn: &Connection, username: &str) -> CoreResult<Option<User>> {
     let sql = format!("SELECT {COLUMNS} FROM users WHERE username = ?1");
@@ -327,5 +345,50 @@ mod tests {
         delete(&conn, id).expect("delete account");
 
         assert_eq!(active_sessions(&conn, id), 0);
+    }
+}
+
+
+#[cfg(test)]
+mod first_admin_tests {
+    use super::*;
+
+    #[test]
+    fn first_admin_can_only_be_created_once() {
+        let conn = Connection::open_in_memory().expect("database");
+        conn.execute_batch(
+            "CREATE TABLE users (
+                id TEXT PRIMARY KEY, username TEXT NOT NULL, display_name TEXT NOT NULL,
+                role TEXT NOT NULL, role_id TEXT, active INTEGER NOT NULL,
+                password_hash TEXT NOT NULL, must_change_password INTEGER NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+            );",
+        )
+        .expect("schema");
+        let first = User {
+            id: Uuid::new_v4(),
+            username: "owner".to_string(),
+            display_name: "Owner".to_string(),
+            role: UserRole::Admin,
+            role_id: None,
+            active: true,
+            password_hash: "argon-hash".to_string(),
+            must_change_password: false,
+            created_at: 1,
+            updated_at: 1,
+        };
+        insert_first_admin(&conn, &first).expect("first admin");
+        let second = User {
+            id: Uuid::new_v4(),
+            username: "second".to_string(),
+            display_name: "Second".to_string(),
+            ..first
+        };
+        assert!(insert_first_admin(&conn, &second).is_err());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM users", [], |row| row.get::<_, i64>(0))
+                .expect("count"),
+            1
+        );
     }
 }
