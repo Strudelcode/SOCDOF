@@ -1990,5 +1990,8 @@
   "accounting_tax_advisor_cash_start": "Opening cash balance",
   "accounting_tax_advisor_bank_start": "Opening bank balance",
   "accounting_tax_advisor_balance_invalid": "Enter valid, non-negative amounts.",
-  "accounting_tax_advisor_year": "Year"
+  "accounting_tax_advisor_year": "Year",
+  "accounting_tab_ustva": "VAT return",
+  "accounting_tab_open_items": "Open items",
+  "accounting_tab_z_report": "Z report"
 }
