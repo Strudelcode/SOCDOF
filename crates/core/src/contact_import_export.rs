@@ -327,16 +327,7 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
     let mut contacts = Vec::new();
     for (index, lines) in cards.iter().enumerate() {
         let property = |wanted: &str| -> Option<String> {
-            lines.iter().find_map(|line| {
-                let (name, value) = line.split_once(':')?;
-                let mut parts = name.split(';');
-                let key = parts.next()?.split('.').next_back()?;
-                if !key.eq_ignore_ascii_case(wanted) {
-                    return None;
-                }
-                let parameters = parts.collect::<Vec<_>>();
-                Some(unescape_vcard(&decode_vcard_value(value, &parameters)))
-            })
+            vcard_property_values(lines, wanted).into_iter().next()
         };
         let fn_name = property("FN").unwrap_or_default().trim().to_string();
         let n = property("N").unwrap_or_default();
@@ -362,17 +353,29 @@ pub fn parse_contacts_vcard(input: &str, default_type: ContactType, now: i64) ->
         } else {
             name
         };
-        let email = property("EMAIL").unwrap_or_default().trim().to_string();
-        let clean_email =
-            (!email.is_empty() && email.contains('@') && valid_email(&email)).then_some(email);
-        let raw_phone = property("TEL").unwrap_or_default();
-        let raw_phone = raw_phone.trim();
-        let phone = raw_phone
-            .strip_prefix("tel:")
-            .or_else(|| raw_phone.strip_prefix("TEL:"))
-            .unwrap_or(raw_phone)
-            .trim()
-            .to_string();
+        let clean_email = vcard_property_values(lines, "EMAIL")
+            .into_iter()
+            .map(|email| email.trim().to_string())
+            .find(|email| !email.is_empty() && email.contains('@') && valid_email(email));
+        let phone = vcard_property_values(lines, "TEL")
+            .into_iter()
+            .map(|phone| {
+                let phone = phone.trim();
+                phone
+                    .strip_prefix("tel:")
+                    .or_else(|| phone.strip_prefix("TEL:"))
+                    .unwrap_or(phone)
+                    .trim()
+                    .to_string()
+            })
+            .find(|phone| {
+                phone
+                    .chars()
+                    .filter(|character| character.is_ascii_digit() || *character == '+')
+                    .count()
+                    >= 3
+            })
+            .unwrap_or_default();
         if name.is_empty() && clean_email.is_none() && phone.is_empty() {
             continue;
         }
@@ -722,6 +725,22 @@ fn decode_windows_1252(bytes: &[u8]) -> String {
     }).collect()
 }
 
+fn vcard_property_values(lines: &[String], wanted: &str) -> Vec<String> {
+    lines
+        .iter()
+        .filter_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            let mut parts = name.split(';');
+            let key = parts.next()?.split('.').next_back()?;
+            if !key.eq_ignore_ascii_case(wanted) {
+                return None;
+            }
+            let parameters = parts.collect::<Vec<_>>();
+            Some(unescape_vcard(&decode_vcard_value(value, &parameters)))
+        })
+        .collect()
+}
+
 fn unescape_vcard(value: &str) -> String {
     let mut out = String::new();
     let mut chars = value.chars();
@@ -852,6 +871,22 @@ mod tests {
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].name.as_deref(), Some("Jörg Müller"));
         assert_eq!(parsed[0].notes.as_deref(), Some("Grüße an die Welt"));
+    }
+
+    #[test]
+    fn selects_first_valid_email_and_phone_from_multiple_vcard_properties() {
+        let vcf = concat!(
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Multiple Channels\r\n",
+            "EMAIL;TYPE=WORK:not-an-email\r\n",
+            "item2.EMAIL;TYPE=HOME:person@example.org\r\n",
+            "TEL;TYPE=HOME:--\r\n",
+            "item3.TEL;TYPE=CELL:tel:+49-12345\r\n",
+            "END:VCARD"
+        );
+        let parsed = parse_contacts_vcard(vcf, ContactType::Customer, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].email.as_deref(), Some("person@example.org"));
+        assert_eq!(parsed[0].phone.as_deref(), Some("+49-12345"));
     }
 
     #[test]
