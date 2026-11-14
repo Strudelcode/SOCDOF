@@ -1034,8 +1034,9 @@ pub fn accounting(
         let csv = if state.tab == AccountingTab::BusinessReport {
             export_business_accounting_csv(
                 &state.business_report,
+                texts.get("accounting_title"),
                 &state.company_name,
-                texts.get(state.period.label_key()),
+                state.period.legacy_token(),
                 &format_date(now),
                 &state.currency_symbol,
             )
@@ -1046,7 +1047,10 @@ pub fn accounting(
         {
             let (year, month, day) = date::civil_from_millis(now);
             let filename = if state.tab == AccountingTab::BusinessReport {
-                format!("buchhaltung_bericht_{year:04}-{month:02}-{day:02}.csv")
+                format!(
+                    "Accounting_{}_{year:04}-{month:02}-{day:02}.csv",
+                    state.period.legacy_token()
+                )
             } else {
                 format!("buchhaltung_buchungen_{year:04}-{month:02}-{day:02}.csv")
             };
