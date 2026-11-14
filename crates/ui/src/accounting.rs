@@ -227,6 +227,12 @@ pub enum AccountingTab {
     Bwa,
     /// Cross-module BWA, VAT, open receivables and POS close.
     BusinessReport,
+    /// VAT advance return breakdown.
+    VatReturn,
+    /// Open customer receivables.
+    OpenItems,
+    /// POS daily close / Z report.
+    ZReport,
 }
 
 impl AccountingTab {
@@ -237,6 +243,9 @@ impl AccountingTab {
             AccountingTab::CashBook => 1,
             AccountingTab::Bwa => 2,
             AccountingTab::BusinessReport => 3,
+            AccountingTab::VatReturn => 4,
+            AccountingTab::OpenItems => 5,
+            AccountingTab::ZReport => 6,
         }
     }
 
@@ -246,6 +255,9 @@ impl AccountingTab {
             1 => AccountingTab::CashBook,
             2 => AccountingTab::Bwa,
             3 => AccountingTab::BusinessReport,
+            4 => AccountingTab::VatReturn,
+            5 => AccountingTab::OpenItems,
+            6 => AccountingTab::ZReport,
             _ => AccountingTab::Journal,
         }
     }
@@ -257,6 +269,9 @@ impl AccountingTab {
             AccountingTab::CashBook => "accounting_tab_cash",
             AccountingTab::Bwa => "accounting_tab_bwa",
             AccountingTab::BusinessReport => "accounting_tab_business",
+            AccountingTab::VatReturn => "accounting_tab_ustva",
+            AccountingTab::OpenItems => "accounting_tab_open_items",
+            AccountingTab::ZReport => "accounting_tab_z_report",
         }
     }
 }
@@ -1275,6 +1290,9 @@ fn list_view(
         AccountingTab::CashBook,
         AccountingTab::Bwa,
         AccountingTab::BusinessReport,
+        AccountingTab::VatReturn,
+        AccountingTab::OpenItems,
+        AccountingTab::ZReport,
     ]
     .iter()
     .map(|tab| texts.get(tab.label_key()))
@@ -1285,7 +1303,10 @@ fn list_view(
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
-        if state.tab != AccountingTab::BusinessReport {
+        if matches!(
+            state.tab,
+            AccountingTab::Journal | AccountingTab::CashBook | AccountingTab::Bwa
+        ) {
             search_field_reserved(
                 ui,
                 theme,
@@ -1404,6 +1425,9 @@ fn list_view(
         AccountingTab::CashBook => cash_book_view(ui, theme, texts, state),
         AccountingTab::Bwa => bwa_view(ui, theme, texts, state),
         AccountingTab::BusinessReport => business_report_view(ui, theme, texts, state),
+        AccountingTab::VatReturn => vat_return_view(ui, theme, texts, state),
+        AccountingTab::OpenItems => open_items_view(ui, theme, texts, state),
+        AccountingTab::ZReport => z_report_view(ui, theme, texts, state),
     }
 }
 
@@ -1778,6 +1802,161 @@ fn business_report_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("accounting_business_pos_close")).strong());
         ui.add_space(6.0);
+        for (label, value) in [
+            ("pos_payment_cash", report.z_report.cash),
+            ("pos_payment_card", report.z_report.card),
+            ("pos_payment_nfc", report.z_report.nfc),
+            ("pos_payment_other", report.z_report.other),
+            ("pos_total_gross", report.z_report.gross),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(RichText::new(money_in_currency(value, &state.currency_symbol)).strong());
+            });
+        }
+        ui.label(
+            RichText::new(format!(
+                "{}: {}",
+                texts.get("accounting_business_receipts"),
+                report.z_report.receipts
+            ))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+    });
+}
+
+fn vat_return_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
+        ui.add_space(8.0);
+        egui::Grid::new("socdof-accounting-vat-return")
+            .num_columns(3)
+            .spacing(egui::vec2(18.0, 8.0))
+            .show(ui, |ui| {
+                for label in [
+                    "accounting_business_tax_rate",
+                    "accounting_business_taxable_basis",
+                    "accounting_business_vat_amount",
+                ] {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .strong()
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                ui.end_row();
+                for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
+                    ui.label(rate);
+                    ui.label(money_in_currency(bucket.net, &state.currency_symbol));
+                    ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
+                    ui.end_row();
+                }
+                ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
+                ui.label(money_in_currency(report.revenue_net, &state.currency_symbol));
+                ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
+                ui.end_row();
+                ui.label(texts.get("accounting_business_input_vat"));
+                ui.label(money_in_currency(report.purchase_net, &state.currency_symbol));
+                ui.label(money_in_currency(report.purchase_tax, &state.currency_symbol));
+                ui.end_row();
+                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label("-");
+                ui.label(
+                    RichText::new(money_in_currency(report.vat_liability, &state.currency_symbol))
+                        .strong(),
+                );
+                ui.end_row();
+            });
+    });
+}
+
+fn open_items_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &AccountingState,
+) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(texts.get("accounting_business_open_items")).strong());
+            badge(
+                ui,
+                theme,
+                &format!(
+                    "{} · {}",
+                    report.open_receivables.len(),
+                    money_in_currency(report.open_receivables_total, &state.currency_symbol)
+                ),
+                if report.open_receivables.is_empty() {
+                    Tone::Success
+                } else {
+                    Tone::Warning
+                },
+            );
+        });
+        if report.open_receivables.is_empty() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("accounting_no_results"),
+                texts.get("accounting_empty_hint"),
+            );
+        } else {
+            ui.add_space(8.0);
+            egui::Grid::new("socdof-accounting-open-items")
+                .num_columns(3)
+                .spacing(egui::vec2(18.0, 8.0))
+                .show(ui, |ui| {
+                    for label in [
+                        "accounting_col_date",
+                        "accounting_col_description",
+                        "accounting_col_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(label))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    ui.end_row();
+                    for item in &report.open_receivables {
+                        ui.horizontal(|ui| {
+                            ui.label(format_date(item.due_at));
+                            if item.overdue {
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get("accounting_business_overdue"),
+                                    Tone::Warning,
+                                );
+                            }
+                        });
+                        ui.label(&item.number);
+                        ui.label(
+                            RichText::new(money_in_currency(item.amount, &state.currency_symbol))
+                                .strong(),
+                        );
+                        ui.end_row();
+                    }
+                });
+        }
+    });
+}
+
+fn z_report_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_pos_close")).strong());
+        ui.add_space(8.0);
         for (label, value) in [
             ("pos_payment_cash", report.z_report.cash),
             ("pos_payment_card", report.z_report.card),
