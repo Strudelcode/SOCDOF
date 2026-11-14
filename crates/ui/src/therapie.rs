@@ -149,6 +149,8 @@ pub struct TherapieState {
     pub invoice_number: String,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
+    /// Trip awaiting explicit deletion confirmation.
+    pub trip_to_delete: Option<Uuid>,
     /// Catalogue key of the validation or storage error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last success message.
@@ -1028,9 +1030,7 @@ fn mileage_view(
                 state.edit_trip(id);
             }
             if let Some(id) = delete {
-                if state.delete_trip(store, id).is_err() {
-                    state.error = Some("therapie_error_load");
-                }
+                state.trip_to_delete = Some(id);
             }
         }
     });
@@ -1120,6 +1120,58 @@ pub fn therapie(
 
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("therapie_error_delete");
+    }
+
+    let mut trip_dialog_open = state.trip_to_delete.is_some();
+    let mut confirm_trip_delete = false;
+    {
+        let focus = &mut *focus;
+        modal(
+            ctx,
+            theme,
+            &mut trip_dialog_open,
+            texts.get("therapie_trip_delete_title"),
+            |ui| {
+                ui.label(texts.get("therapie_trip_delete_body"));
+                ui.add_space(12.0);
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("therapie_trip_delete_confirm"),
+                        ButtonVariant::Danger,
+                    )
+                    .activated
+                    {
+                        confirm_trip_delete = true;
+                        close = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("therapie_delete_cancel"),
+                        ButtonVariant::Secondary,
+                    )
+                    .activated
+                    {
+                        close = true;
+                    }
+                });
+                close
+            },
+        );
+    }
+    if confirm_trip_delete {
+        if let Some(id) = state.trip_to_delete.take() {
+            if state.delete_trip(store, id).is_err() {
+                state.error = Some("therapie_error_load");
+            }
+        }
+    } else if !trip_dialog_open {
+        state.trip_to_delete = None;
     }
 }
 
