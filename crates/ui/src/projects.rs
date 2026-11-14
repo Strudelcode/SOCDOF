@@ -1548,7 +1548,9 @@ mod tests {
         first_task.title = "First task".to_string();
         first_task.project_id = first_id;
         state.task_draft = Some(first_task);
-        state.save_task(&store, 1_800_000_000_003).expect("save first task");
+        state
+            .save_task(&store, 1_800_000_000_003)
+            .expect("save first task");
 
         state.start_new(1_800_000_000_004);
         let mut second = state.draft.clone().expect("second project");
@@ -1563,7 +1565,9 @@ mod tests {
         second_task.title = "Second task".to_string();
         second_task.project_id = second_id;
         state.task_draft = Some(second_task);
-        state.save_task(&store, 1_800_000_000_007).expect("save second task");
+        state
+            .save_task(&store, 1_800_000_000_007)
+            .expect("save second task");
         let second_task_id = state
             .tasks
             .iter()
