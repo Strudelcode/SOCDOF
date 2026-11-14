@@ -377,7 +377,7 @@ mod tests {
         );
 
         delete_preferences(&store, first).expect("account preferences deleted");
-        assert!(preferences(&store, first).expect("default preferences").accent_color == "indigo");
+        assert_eq!(preferences(&store, first).expect("default preferences").accent_color, "indigo");
         assert!(desktop_layout(&store, first)
             .expect("defaults")
             .icon_positions
