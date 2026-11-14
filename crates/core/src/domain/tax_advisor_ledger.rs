@@ -1027,6 +1027,33 @@ mod tests {
     }
 
     #[test]
+    fn therapy_trips_are_bank_expenses_using_each_trips_own_rate() {
+        let trip = TherapyTrip {
+            id: Uuid::new_v4(),
+            client_id: None,
+            date: "2026-06-12".to_string(),
+            departure: "Praxis".to_string(),
+            destination: "Bozen".to_string(),
+            purpose: "Hausbesuch".to_string(),
+            start_km_milli: 10_000_000,
+            end_km_milli: 10_042_000,
+            rate_cents_per_km: 38,
+        };
+        let transactions =
+            build_tax_advisor_transactions(&[], &[], &[], &[], &[], &[], &[trip]);
+        assert_eq!(transactions.len(), 1);
+        let transaction = &transactions[0];
+        assert_eq!(transaction.date, "2026-06-12");
+        assert_eq!(transaction.kind, LedgerKind::Expense);
+        assert_eq!(transaction.channel, LedgerChannel::Bank);
+        assert_eq!(transaction.amount.cents(), 1_596);
+        assert_eq!(
+            transaction.description,
+            "Kilometergeld_Praxis_nach_Bozen (42 km)"
+        );
+    }
+
+    #[test]
     fn monthly_balances_carry_cash_and_bank_forward_separately() {
         let transactions = vec![
             tx(
