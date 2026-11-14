@@ -2358,7 +2358,6 @@ mod tests {
         assert_eq!(AccountingPeriod::Custom.legacy_token(), "custom");
     }
 
-
     fn seeded() -> (Store, AccountingState, UiTexts) {
         let store = Store::open_in_memory().expect("store");
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
