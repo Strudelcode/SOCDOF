@@ -296,6 +296,7 @@
   "auth_role",
   "auth_role_admin",
   "auth_role_user",
+  "auth_session_expired",
   "auth_setup_badge",
   "auth_setup_done",
   "auth_setup_hint",
