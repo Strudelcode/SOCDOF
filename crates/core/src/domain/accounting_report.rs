@@ -223,6 +223,7 @@ pub fn build_business_accounting_report(
 /// Exports the cross-module dashboard using the legacy semicolon-separated report layout.
 pub fn export_business_accounting_csv(
     report: &BusinessAccountingReport,
+    title: &str,
     company_name: &str,
     period: &str,
     date_label: &str,
@@ -230,7 +231,7 @@ pub fn export_business_accounting_csv(
 ) -> String {
     let rows = vec![
         vec![
-            "Accounting, Financials & P&L".to_string(),
+            title.to_string(),
             company_name.to_string(),
         ],
         vec!["Period".to_string(), period.to_string()],
@@ -291,7 +292,11 @@ pub fn export_business_accounting_csv(
 }
 
 fn csv_field(value: &str) -> String {
-    format!("\"{}\"", value.replace('"', "\"\""))
+    if value.contains(';') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
 }
 
 fn add(left: Money, right: Money) -> Money {
@@ -435,13 +440,14 @@ mod tests {
         };
         let csv = export_business_accounting_csv(
             &report,
-            "Example GmbH",
-            "Current month",
+            "Buchhaltung",
+            "Example; GmbH",
+            "current_month",
             "13.11.2026",
             "€",
         );
-        assert!(csv.contains("\"Example GmbH\""));
-        assert!(csv.contains("\"Net (€)\""));
-        assert!(csv.contains("\"Total Revenue\";\"100.00\""));
+        assert!(csv.starts_with("Buchhaltung;\"Example; GmbH\"\nPeriod;current_month"));
+        assert!(csv.contains("Net (€)"));
+        assert!(csv.contains("Total Revenue;100.00"));
     }
 }
