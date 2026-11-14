@@ -18,6 +18,7 @@ use crate::domain::invoice::{Invoice, InvoiceStatus};
 use crate::domain::payment::{InvoicePayment, PaymentMethod};
 use crate::domain::pos::{PaymentMethod as PosPaymentMethod, PosOrder};
 use crate::domain::purchase::{PurchaseOrder, PurchaseOrderStatus};
+use crate::domain::therapy::TherapyTrip;
 use crate::money::Money;
 
 /// Direction of one cash-book transaction.
@@ -137,6 +138,7 @@ pub fn build_tax_advisor_transactions(
     pos_orders: &[PosOrder],
     journal_entries: &[JournalEntry],
     billing_items: &[BillingItem],
+    therapy_trips: &[TherapyTrip],
 ) -> Vec<LedgerTransaction> {
     let payments_by_invoice: HashMap<Uuid, &InvoicePayment> = payments
         .iter()
@@ -160,6 +162,29 @@ pub fn build_tax_advisor_transactions(
                 LedgerChannel::Bank,
             ));
         }
+    }
+
+    // Practice mileage is a bank expense in the legacy tax-advisor ledger. The trip keeps
+    // its own rate, independent of the client's treatment kilometre rate.
+    for trip in therapy_trips {
+        let reimbursement = trip.reimbursement();
+        if reimbursement.cents() <= 0 {
+            continue;
+        }
+        let timestamp = date::parse_iso8601(&format!("{}T00:00:00Z", trip.date))
+            .unwrap_or_default();
+        let distance = trip.distance_km_milli() as f64 / 1000.0;
+        transactions.push(LedgerTransaction::new(
+            timestamp,
+            format!(
+                "Kilometergeld_{}_nach_{} ({distance} km)",
+                if trip.departure.trim().is_empty() { "Start" } else { trip.departure.trim() },
+                if trip.destination.trim().is_empty() { "Ziel" } else { trip.destination.trim() },
+            ),
+            reimbursement,
+            LedgerKind::Expense,
+            LedgerChannel::Bank,
+        ));
     }
 
     for invoice in invoices.iter().filter(|invoice| {
@@ -985,7 +1010,7 @@ mod tests {
             make_invoice("DRAFT-1", InvoiceStatus::Draft),
             make_invoice("CANCELLED-1", InvoiceStatus::Cancelled),
         ];
-        let transactions = build_tax_advisor_transactions(&invoices, &[], &[], &[], &[], &[]);
+        let transactions = build_tax_advisor_transactions(&invoices, &[], &[], &[], &[], &[], &[]);
         assert_eq!(transactions.len(), 2);
         assert!(transactions.iter().all(|transaction| {
             transaction.kind == LedgerKind::Income
