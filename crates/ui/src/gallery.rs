@@ -538,6 +538,30 @@ impl GalleryState {
         Theme::new(self.appearance, &self.accent_id)
     }
 
+    /// Closes every module view before changing the active workspace.
+    ///
+    /// This is also used after account switches so a previous user's screen cannot remain active.
+    fn close_module_views(&mut self) {
+        self.dashboard_open = false;
+        self.contacts_open = false;
+        self.products_open = false;
+        self.projects_open = false;
+        self.fleet_open = false;
+        self.restaurant_open = false;
+        self.invoices_open = false;
+        self.accounting_open = false;
+        self.purchases_open = false;
+        self.pos_open = false;
+        self.appointments_open = false;
+        self.settings_open = false;
+        self.users_open = false;
+        self.editor_open = false;
+        self.app_store_open = false;
+        self.support_open = false;
+        self.reports_open = false;
+        self.therapie_open = false;
+    }
+
     /// Opens the screen of a desktop app and leaves the desktop.
     ///
     /// The desktop reports the launched app; this method reloads the module state from the store so
@@ -557,6 +581,7 @@ impl GalleryState {
                 return Err(CoreError::Validation("permission_denied".to_string()));
             }
         }
+        self.close_module_views();
         self.desktop_open = false;
         match app.as_str() {
             "dashboard" => self.dashboard_open = true,
@@ -767,6 +792,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         }
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;
+            state.close_module_views();
             state.desktop_open = true;
             if state.sync_module_navigation().is_err() {
                 // A permission lookup failure must never expose the previous account's launcher.
