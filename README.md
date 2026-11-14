@@ -39,16 +39,16 @@ SOCDOF/
 
 Ob Kundenverwaltung, Rechnungen, Lagerbestand, ein Restaurant-Kassensystem mit Tischplan, Therapie-Dokumentation oder das Fahrtenbuch: SOCDOF deckt diese Aufgaben ab, **zu 100 % offline**, ohne Pflicht-Cloud-Konto und ohne Abo.
 
-Alle Daten liegen lokal auf deinem Rechner in einer IndexedDB-Datenbank (Dexie.js). Dazu kommen schnelle Suche, Kundenakten und Ein-Klick-Backups als JSON.
+Alle Geschäftsdaten liegen lokal in einer SQLite-Datenbank unter `%APPDATA%\\SOCDOF\\SOCDOF.db` (Windows). Die native Rust-Desktop-Version benötigt kein Cloud-Konto; Datenbank-Backups lassen sich lokal erstellen.
 
 ---
 
 ## 🚀 Funktionen & Module
 
 ### 🪟 Windows-Desktop-Erlebnis
-- **Mehrfenster-Arbeitsfläche**: Fenster öffnen, verschieben, skalieren, andocken, minimieren und maximieren.
+- **Fensterverwaltung**: Apps öffnen, verschieben, skalieren, andocken, minimieren und maximieren; Fensterpositionen werden pro Benutzer gespeichert.
 - **Startmenü & Taskleiste**: Angeheftete Apps, Suche, Systemstatus und Benutzerwechsel.
-- **Mehrere Monitore**: Arbeitsbereiche auf mehrere Bildschirme erweitern und Fenster abtrennen.
+- **Tastatursteuerung**: `Alt` + `Tab` wechselt zwischen geöffneten Fenstern, `Alt` + `F4` fordert das Schließen des aktiven Fensters an, `Strg` + `←` / `→` dockt es links oder rechts an und `F11` maximiert bzw. restauriert es. Mehrmonitor-Unterstützung ist noch nicht abgeschlossen.
 - **Nachtmodus**: Warme Farbtemperatur (1500 K – 5500 K) gegen Augenbelastung.
 - **Personalisierung**: Hintergrundbilder, Mica-Effekt, Akzentfarben und eigene Profilbilder.
 - **Systemmodus beim Start**: Hell, dunkel oder dem System folgend. Die Ersteinrichtung folgt direkt dem System.
