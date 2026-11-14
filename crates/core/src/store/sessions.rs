@@ -110,10 +110,11 @@ pub fn purge_expired(conn: &Connection, now: i64) -> CoreResult<usize> {
 
 /// Current lockout end for an account, if the lockout is still running.
 pub fn locked_until(conn: &Connection, username: &str, now: i64) -> CoreResult<Option<i64>> {
+    let username = username.trim().to_ascii_lowercase();
     let until: Option<i64> = conn
         .query_row(
             "SELECT locked_until FROM auth_attempts WHERE username = ?1",
-            params![username.trim()],
+            params![username],
             |row| row.get(0),
         )
         .optional()?
@@ -124,18 +125,19 @@ pub fn locked_until(conn: &Connection, username: &str, now: i64) -> CoreResult<O
 
 /// Records a failed sign-in and returns the lockout end when the threshold is reached.
 pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResult<Option<i64>> {
+    let username = username.trim().to_ascii_lowercase();
     conn.execute(
         "INSERT INTO auth_attempts (username, failed_count, locked_until, updated_at)
          VALUES (?1, 1, NULL, ?2)
          ON CONFLICT(username) DO UPDATE SET
             failed_count = auth_attempts.failed_count + 1,
             updated_at = excluded.updated_at",
-        params![username.trim(), now],
+        params![username, now],
     )?;
 
     let failed: i64 = conn.query_row(
         "SELECT failed_count FROM auth_attempts WHERE username = ?1",
-        params![username.trim()],
+        params![username],
         |row| row.get(0),
     )?;
 
@@ -143,7 +145,7 @@ pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResu
         let until = now + LOCKOUT_MS;
         conn.execute(
             "UPDATE auth_attempts SET locked_until = ?2, failed_count = 0 WHERE username = ?1",
-            params![username.trim(), until],
+            params![username, until],
         )?;
         return Ok(Some(until));
     }
@@ -153,9 +155,10 @@ pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResu
 
 /// Clears the counter after a successful sign-in.
 pub fn clear_failures(conn: &Connection, username: &str) -> CoreResult<()> {
+    let username = username.trim().to_ascii_lowercase();
     conn.execute(
         "DELETE FROM auth_attempts WHERE username = ?1",
-        params![username.trim()],
+        params![username],
     )?;
     Ok(())
 }
