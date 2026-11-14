@@ -215,7 +215,6 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Role> {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
