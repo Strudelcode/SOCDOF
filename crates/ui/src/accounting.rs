@@ -625,6 +625,7 @@ impl AccountingState {
         }
         let journal_entries = store.list_journal_entries()?;
         let billing_items = store.list_billing_items()?;
+        let therapy_trips = store.therapy_trips()?;
         let ledger_transactions = build_tax_advisor_transactions(
             &invoices,
             &payments,
@@ -632,6 +633,7 @@ impl AccountingState {
             &pos_orders,
             &journal_entries,
             &billing_items,
+            &therapy_trips,
         );
         let (current_year, _, _) = date::civil_from_millis(now);
         let current_year = i32::try_from(current_year).unwrap_or(1970);
