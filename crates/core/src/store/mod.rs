@@ -2225,6 +2225,58 @@ mod tests {
     }
 
     #[test]
+    fn failed_payment_insert_does_not_mark_invoice_paid() {
+        use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use crate::domain::payment::{InvoicePayment, PaymentMethod};
+
+        let store = Store::open_in_memory().expect("store");
+        let mut contact =
+            crate::domain::contact::Contact::new(crate::domain::contact::ContactKind::Company, 0);
+        contact.company_name = Some("Kunde".to_string());
+        store.insert_contact(&contact).expect("contact");
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-atomic".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: 0,
+            due_at: 86_400_000,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+        store
+            .conn
+            .execute_batch(
+                "CREATE TRIGGER reject_invoice_payment
+                 BEFORE INSERT ON invoice_payments
+                 BEGIN SELECT RAISE(ABORT, 'simulated payment storage failure'); END;",
+            )
+            .expect("trigger");
+
+        let payment = InvoicePayment::new(
+            invoice.id,
+            PaymentMethod::Transfer,
+            1_760_000_000_000,
+            "Banküberweisung (Konto)".to_string(),
+        );
+        assert!(store.record_invoice_payment(&payment).is_err());
+        let stored = store
+            .find_invoice(invoice.id)
+            .expect("reload")
+            .expect("invoice");
+        assert_eq!(stored.status, InvoiceStatus::Sent);
+        assert_eq!(store.invoice_payment(invoice.id).expect("payment read"), None);
+    }
+
+    #[test]
     fn migrates_to_current_schema_version() {
         let store = Store::open_in_memory().expect("store");
         assert_eq!(store.schema_version().expect("version"), SCHEMA_VERSION);
