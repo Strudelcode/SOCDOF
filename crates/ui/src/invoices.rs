@@ -686,6 +686,7 @@ pub fn invoices_content(
     });
 }
 
+/// Renders the full-screen invoices workflow, including refresh and confirmation dialogs.
 pub fn invoices(
     ctx: &Context,
     theme: &Theme,
