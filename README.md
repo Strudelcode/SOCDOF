@@ -199,8 +199,11 @@ The first native Rust desktop host is available separately from the Tauri transi
 cargo run -p socdof-ui --features window --bin socdof-ui-desktop
 ```
 
-It opens the persistent SQLite database under the operating-system application-data folder
-(Windows: `%APPDATA%\com.strudelcode.socdof\socdof.db`, matching the existing Tauri data folder). Use `--database <path>` to select another file.
+It opens the persistent SQLite database under the SOCDOF application-data folder
+(Windows: `%APPDATA%\SOCDOF\SOCDOF.db`). Existing native databases in the former
+`com.strudelcode.socdof` folder are copied forward on first launch, including SQLite WAL sidecars;
+the original files are kept as a safety copy. Use `--database <path>`, `--data-dir <folder>` or
+`SOCDOF_DATA_DIR` to select a different data location.
 Unlike the component gallery, the desktop host does not seed example customers, invoices or
 demo accounts; it starts with first-run setup or the existing local login.
 
