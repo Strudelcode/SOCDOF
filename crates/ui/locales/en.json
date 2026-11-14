@@ -2024,5 +2024,8 @@
   "therapie_trip_save": "Save trip",
   "therapie_trip_saved": "Trip saved",
   "therapie_trip_start_km": "Odometer at departure",
-  "therapie_trip_values_invalid": "Enter valid non-negative odometer values and a kilometre rate."
+  "therapie_trip_values_invalid": "Enter valid non-negative odometer values and a kilometre rate.",
+  "therapie_trip_delete_title": "Delete trip",
+  "therapie_trip_delete_body": "Do you really want to permanently delete this trip?",
+  "therapie_trip_delete_confirm": "Delete trip"
 }
