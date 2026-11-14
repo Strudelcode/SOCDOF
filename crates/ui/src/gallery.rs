@@ -956,11 +956,12 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
                 if outcome.window_layout_changed {
                     for slug in ["contacts", "invoices", "settings"] {
-                        layout
+                        let saved = layout
                             .window_states
                             .entry(slug.to_string())
-                            .or_default()
-                            .open = false;
+                            .or_default();
+                        saved.open = false;
+                        saved.minimized = false;
                     }
                     for window in state.desktop_windows.windows() {
                         let rect = window.normal_rect();
