@@ -126,8 +126,9 @@ impl MonthlyLedgerData {
 /// Builds normalized ledger transactions from persisted SOCDOF modules.
 ///
 /// Practice billable items are included before invoices; linked invoices are skipped to prevent
-/// double counting. Unpaid invoices without a practice billing item are excluded as receivables.
-/// Purchases in every state except Draft match the legacy tax-advisor ledger behavior.
+/// double counting. Sent, overdue and paid invoices match the legacy "posted"/"paid" ledger rule;
+/// recorded payments supply the actual date and cash/bank channel when available. Purchases in
+/// every state except Draft match the legacy tax-advisor ledger behavior.
 pub fn build_tax_advisor_transactions(
     invoices: &[Invoice],
     payments: &[InvoicePayment],
@@ -161,17 +162,19 @@ pub fn build_tax_advisor_transactions(
     }
 
     for invoice in invoices.iter().filter(|invoice| {
-        invoice.status == InvoiceStatus::Paid && !represented_invoices.contains(&invoice.id)
+        matches!(
+            invoice.status,
+            InvoiceStatus::Sent | InvoiceStatus::Overdue | InvoiceStatus::Paid
+        ) && !represented_invoices.contains(&invoice.id)
     }) {
-        let Some(payment) = payments_by_invoice.get(&invoice.id) else {
-            continue;
-        };
-        let channel = match payment.method {
+        let payment = payments_by_invoice.get(&invoice.id).copied();
+        let channel = payment.map_or(LedgerChannel::Bank, |payment| match payment.method {
             PaymentMethod::Cash => LedgerChannel::Cash,
             PaymentMethod::Transfer | PaymentMethod::Card => LedgerChannel::Bank,
-        };
+        });
+        let transaction_date = payment.map_or(invoice.issued_at, |payment| payment.paid_at);
         transactions.push(LedgerTransaction::new(
-            payment.paid_at,
+            transaction_date,
             format!("Rechnung {}", invoice.number),
             invoice.total_gross(),
             LedgerKind::Income,
@@ -951,6 +954,53 @@ mod tests {
             kind,
             channel,
         }
+    }
+
+    #[test]
+    fn posted_and_overdue_invoices_match_the_legacy_tax_ledger_rule() {
+        use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+
+        let contact_id = Uuid::new_v4();
+        let make_invoice = |number: &str, status: InvoiceStatus| Invoice {
+            id: Uuid::new_v4(),
+            number: number.to_string(),
+            contact_id,
+            status,
+            issued_at: crate::date::parse_iso8601("2026-04-10T00:00:00Z").unwrap(),
+            due_at: crate::date::parse_iso8601("2026-05-10T00:00:00Z").unwrap(),
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Consulting".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 0,
+            }],
+        };
+        let invoices = vec![
+            make_invoice("SENT-1", InvoiceStatus::Sent),
+            make_invoice("OVERDUE-1", InvoiceStatus::Overdue),
+            make_invoice("DRAFT-1", InvoiceStatus::Draft),
+            make_invoice("CANCELLED-1", InvoiceStatus::Cancelled),
+        ];
+        let transactions = build_tax_advisor_transactions(
+            &invoices,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+        );
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.iter().all(|transaction| {
+            transaction.kind == LedgerKind::Income
+                && transaction.channel == LedgerChannel::Bank
+                && transaction.date == "2026-04-10"
+                && transaction.amount.cents() == 10_000
+        }));
+        assert!(transactions.iter().any(|transaction| transaction.description == "Rechnung SENT-1"));
+        assert!(transactions.iter().any(|transaction| transaction.description == "Rechnung OVERDUE-1"));
     }
 
     #[test]
