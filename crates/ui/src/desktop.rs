@@ -636,9 +636,8 @@ impl IconGrid {
     /// Applies persisted cell positions; unknown apps are ignored.
     pub fn restore_positions(&mut self, positions: &[(AppId, (u32, u32))]) {
         for (app, cell) in positions {
-            if let Some(index) = self.index_of(*app) {
-                self.icons[index].cell = *cell;
-            }
+            let safe_cell = (cell.0.min(ICON_COLUMNS - 1), cell.1.min(255));
+            let _ = self.move_to(*app, safe_cell);
         }
     }
 
@@ -2200,6 +2199,22 @@ mod tests {
                 (AppId::new("products"), (1, 0))
             ]
         );
+    }
+
+    #[test]
+    fn restoring_untrusted_icon_positions_clamps_and_avoids_collisions() {
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("contacts"), "Kontakte", Icon::User),
+            DesktopIcon::new(AppId::new("products"), "Produkte", Icon::Folder),
+        ]);
+        grid.restore_positions(&[
+            (AppId::new("contacts"), (99, 999)),
+            (AppId::new("products"), (5, 255)),
+        ]);
+
+        assert_eq!(grid.icons()[0].cell(), (5, 255));
+        assert_eq!(grid.icons()[1].cell(), (0, 256));
+        assert_ne!(grid.icons()[0].cell(), grid.icons()[1].cell());
     }
 
     #[test]
