@@ -656,7 +656,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             apply_setup_template(state);
         }
         if !was_unlocked && state.auth.view == crate::auth::AuthView::Unlocked {
-            if let Some(user) = state.auth.user.as_ref() {
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
                 let preferences = if wizard_completed {
                     Preferences {
                         language: state.language,
@@ -669,11 +669,11 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         ..Preferences::default()
                     }
                 } else {
-                    settings_service::preferences(&state.store, user.id).unwrap_or_default()
+                    settings_service::preferences(&state.store, user_id).unwrap_or_default()
                 };
                 if wizard_completed {
                     if let Err(error) =
-                        settings_service::save_preferences(&state.store, user.id, &preferences)
+                        settings_service::save_preferences(&state.store, user_id, &preferences)
                     {
                         eprintln!("SOCDOF could not save first-run preferences: {error}");
                     }
