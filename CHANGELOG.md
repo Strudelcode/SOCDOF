@@ -1,6 +1,7 @@
 ## Unreleased
 
-- Native desktop authentication now saves first-run language/theme/accent choices to the created account and restores per-account appearance preferences after sign-in, instead of applying them only in memory.
+- Native desktop authentication now saves first-run language/theme/accent choices to the created account and restores per-account appearance preferences after sign-in, instead of applying them only in memory. Saving Appearance settings now also updates the live desktop shell.
+- Added an initial per-user Windows NSIS installer for the native Rust desktop host: selectable install directory, Start Menu/Desktop shortcuts, uninstall registration, and preservation of the database in the Windows application-data folder. CI builds it as a separate artifact while retaining the Tauri transition installer; runtime/upgrade/uninstall acceptance is still pending.
 - Invoice payment capture now rejects cash amounts below the invoice total and blocks card capture when no terminal is configured. Invoice status and payment metadata are persisted atomically in one SQLite transaction.
 
 # Changelog
