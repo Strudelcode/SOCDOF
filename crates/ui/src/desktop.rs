@@ -782,6 +782,8 @@ pub fn format_clock(millis: i64) -> String {
 ///
 /// The caller owns the grid, the window manager and the shell, so window positions, open windows,
 /// icon positions, wallpaper and widget state survive a language or theme switch.
+
+/// Draws the desktop shell without embedding application content in its windows.
 pub fn desktop(
     ctx: &Context,
     frame: DesktopFrame<'_>,
@@ -789,6 +791,31 @@ pub fn desktop(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
+) -> DesktopOutcome {
+    desktop_impl(ctx, frame, focus, icons, windows, now, None)
+}
+
+/// Draws the desktop and renders each open app inside its corresponding native window.
+pub fn desktop_with_content(
+    ctx: &Context,
+    frame: DesktopFrame<'_>,
+    focus: &mut FocusState,
+    icons: &mut IconGrid,
+    windows: &mut WindowManager,
+    now: i64,
+    mut render_window: impl FnMut(AppId, &mut Ui, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64),
+) -> DesktopOutcome {
+    desktop_impl(ctx, frame, focus, icons, windows, now, Some(&mut render_window))
+}
+
+fn desktop_impl(
+    ctx: &Context,
+    frame: DesktopFrame<'_>,
+    focus: &mut FocusState,
+    icons: &mut IconGrid,
+    windows: &mut WindowManager,
+    now: i64,
+    mut render_window: Option<&mut dyn FnMut(AppId, &mut Ui, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64)>,
 ) -> DesktopOutcome {
     let DesktopFrame {
         theme,
@@ -1101,16 +1128,26 @@ pub fn desktop(
                     title_galley,
                     theme.palette.text,
                 );
-                let hint = painter.layout_no_wrap(
-                    texts.get("desktop_hint").to_owned(),
-                    FontId::proportional(FONT_SMALL),
-                    theme.palette.text_muted,
-                );
-                painter.galley(
-                    Pos2::new(frame.left() + 16.0, frame.top() + TITLE_BAR_HEIGHT + 16.0),
-                    hint,
-                    theme.palette.text_muted,
-                );
+                if let Some(render_window) = render_window.as_deref_mut() {
+                    let content_rect = Rect::from_min_max(
+                        Pos2::new(frame.left() + 12.0, bar.bottom() + 8.0),
+                        Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
+                    );
+                    ui.allocate_ui_at_rect(content_rect, |ui| {
+                        render_window(app, ui, theme, texts, focus, store, now);
+                    });
+                } else {
+                    let hint = painter.layout_no_wrap(
+                        texts.get("desktop_hint").to_owned(),
+                        FontId::proportional(FONT_SMALL),
+                        theme.palette.text_muted,
+                    );
+                    painter.galley(
+                        Pos2::new(frame.left() + 16.0, frame.top() + TITLE_BAR_HEIGHT + 16.0),
+                        hint,
+                        theme.palette.text_muted,
+                    );
+                }
 
                 let mut right = bar.right() - 8.0;
                 let close_rect = Rect::from_center_size(
