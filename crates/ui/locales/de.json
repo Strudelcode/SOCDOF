@@ -1990,5 +1990,8 @@
   "accounting_tax_advisor_cash_start": "Kassa Anfangsbestand",
   "accounting_tax_advisor_bank_start": "Bank Anfangsbestand",
   "accounting_tax_advisor_balance_invalid": "Bitte gültige, nicht negative Beträge eingeben.",
-  "accounting_tax_advisor_year": "Jahr"
+  "accounting_tax_advisor_year": "Jahr",
+  "accounting_tab_ustva": "UStVA",
+  "accounting_tab_open_items": "Offene Posten",
+  "accounting_tab_z_report": "Z-Bericht"
 }
