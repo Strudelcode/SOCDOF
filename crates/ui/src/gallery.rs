@@ -959,53 +959,54 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         );
         if outcome.icon_positions_changed || outcome.window_layout_changed {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
-                let mut layout = match settings_service::desktop_layout(&state.store, user_id) {
-                    Ok(layout) => layout,
+                match settings_service::desktop_layout(&state.store, user_id) {
+                    Ok(mut layout) => {
+                        if outcome.icon_positions_changed {
+                            layout.icon_positions = state
+                                .desktop_icons
+                                .positions()
+                                .into_iter()
+                                .map(|(app, cell)| (app.as_str().to_string(), cell))
+                                .collect();
+                        }
+                        if outcome.window_layout_changed {
+                            for slug in ["contacts", "invoices", "settings"] {
+                                let saved =
+                                    layout.window_states.entry(slug.to_string()).or_default();
+                                saved.open = false;
+                                saved.minimized = false;
+                            }
+                            for (z_order, window) in
+                                state.desktop_windows.windows().iter().enumerate()
+                            {
+                                let rect = window.normal_rect();
+                                layout.window_states.insert(
+                                    window.app().as_str().to_string(),
+                                    settings_service::DesktopWindowLayout {
+                                        x: rect.min.x.round() as i32,
+                                        y: rect.min.y.round() as i32,
+                                        width: rect.width().round().max(320.0) as u32,
+                                        height: rect.height().round().max(220.0) as u32,
+                                        maximized: window.is_maximized(),
+                                        open: true,
+                                        minimized: window.is_minimized(),
+                                        z_order: z_order as u32,
+                                    },
+                                );
+                            }
+                        }
+                        if let Err(error) =
+                            settings_service::save_desktop_layout(&state.store, user_id, &layout)
+                        {
+                            eprintln!("SOCDOF could not save desktop layout: {error}");
+                        }
+                    }
                     Err(error) => {
-                        // Never replace a user's saved desktop with defaults after a transient
-                        // read failure. A later frame can retry the save.
+                        // Do not replace a user's saved layout with defaults after a read failure.
                         eprintln!(
                             "SOCDOF could not load desktop layout; skipping save to protect existing data: {error}"
                         );
-                        state.focus.finish_frame();
-                        return;
                     }
-                };
-                if outcome.icon_positions_changed {
-                    layout.icon_positions = state
-                        .desktop_icons
-                        .positions()
-                        .into_iter()
-                        .map(|(app, cell)| (app.as_str().to_string(), cell))
-                        .collect();
-                }
-                if outcome.window_layout_changed {
-                    for slug in ["contacts", "invoices", "settings"] {
-                        let saved = layout.window_states.entry(slug.to_string()).or_default();
-                        saved.open = false;
-                        saved.minimized = false;
-                    }
-                    for (z_order, window) in state.desktop_windows.windows().iter().enumerate() {
-                        let rect = window.normal_rect();
-                        layout.window_states.insert(
-                            window.app().as_str().to_string(),
-                            settings_service::DesktopWindowLayout {
-                                x: rect.min.x.round() as i32,
-                                y: rect.min.y.round() as i32,
-                                width: rect.width().round().max(320.0) as u32,
-                                height: rect.height().round().max(220.0) as u32,
-                                maximized: window.is_maximized(),
-                                open: true,
-                                minimized: window.is_minimized(),
-                                z_order: z_order as u32,
-                            },
-                        );
-                    }
-                }
-                if let Err(error) =
-                    settings_service::save_desktop_layout(&state.store, user_id, &layout)
-                {
-                    eprintln!("SOCDOF could not save desktop layout: {error}");
                 }
             }
         }
