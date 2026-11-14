@@ -2024,5 +2024,8 @@
   "therapie_trip_save": "Enregistrer le trajet",
   "therapie_trip_saved": "Trajet enregistré",
   "therapie_trip_start_km": "Kilométrage au départ",
-  "therapie_trip_values_invalid": "Saisissez des kilométrages et un taux valides et non négatifs."
+  "therapie_trip_values_invalid": "Saisissez des kilométrages et un taux valides et non négatifs.",
+  "therapie_trip_delete_title": "Supprimer le trajet",
+  "therapie_trip_delete_body": "Voulez-vous vraiment supprimer définitivement ce trajet ?",
+  "therapie_trip_delete_confirm": "Supprimer le trajet"
 }
