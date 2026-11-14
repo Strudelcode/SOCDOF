@@ -7,9 +7,9 @@
 
 use egui::{Context, Id, RichText};
 use socdof_core::app_store;
-use socdof_core::domain::permission::AppModule;
+use socdof_core::domain::permission::{AppModule, PermissionLevel};
 use socdof_core::domain::settings::{Language, ThemeMode};
-use socdof_core::error::CoreResult;
+use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::money::Money;
 use socdof_core::now_millis;
 use socdof_core::settings_service::{self, Preferences};
@@ -543,6 +543,20 @@ impl GalleryState {
     /// The desktop reports the launched app; this method reloads the module state from the store so
     /// the screen shows live rows instead of the last visit.
     fn open_desktop_app(&mut self, app: AppId, now: i64) -> CoreResult<()> {
+        let module = AppModule::from_storage(app.as_str());
+        if let Some(module) = module {
+            let user = self
+                .auth
+                .user
+                .as_ref()
+                .ok_or_else(|| CoreError::Validation("permission_denied".to_string()))?;
+            if !self
+                .store
+                .user_allows(user, module, PermissionLevel::View)?
+            {
+                return Err(CoreError::Validation("permission_denied".to_string()));
+            }
+        }
         self.desktop_open = false;
         match app.as_str() {
             "dashboard" => self.dashboard_open = true,
@@ -628,7 +642,24 @@ impl GalleryState {
 
     /// Reloads the module selection into the dashboard and desktop navigation.
     fn sync_module_navigation(&mut self) -> CoreResult<()> {
-        let active = app_store::active_modules(&self.store)?;
+        let mut active = app_store::active_modules(&self.store)?;
+        if active.is_empty() {
+            active = socdof_core::domain::permission::ALL_MODULES.to_vec();
+        }
+        if let Some(user) = self.auth.user.as_ref() {
+            let mut permitted = Vec::with_capacity(active.len());
+            for module in active {
+                if self
+                    .store
+                    .user_allows(user, module, PermissionLevel::View)?
+                {
+                    permitted.push(module);
+                }
+            }
+            active = permitted;
+        } else {
+            active.clear();
+        }
         self.dashboard.set_active_modules(active.clone());
         self.desktop_icons = desktop_icons(&self.texts, &active);
         Ok(())
@@ -737,6 +768,11 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;
             state.desktop_open = true;
+            if state.sync_module_navigation().is_err() {
+                // A permission lookup failure must never expose the previous account's launcher.
+                state.desktop_icons = IconGrid::new(Vec::new());
+                state.dashboard.set_active_modules(Vec::new());
+            }
             if let Some(app) = startup_module.filter(|app| {
                 state
                     .desktop_icons
