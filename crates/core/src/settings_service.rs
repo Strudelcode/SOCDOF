@@ -391,6 +391,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            ..DesktopLayout::default()
         };
 
         save_desktop_layout(&store, first, &layout).expect("saved");
