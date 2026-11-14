@@ -849,7 +849,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_windows,
             now,
             |app, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
-                "contacts" => crate::contacts::contacts_content(
+                "contacts" => crate::contacts::contacts_window(
+                    ctx,
                     ui,
                     theme,
                     texts,
@@ -858,7 +859,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     store,
                     now,
                 ),
-                "invoices" => crate::invoices::invoices_content(
+                "invoices" => crate::invoices::invoices_window(
+                    ctx,
                     ui,
                     theme,
                     texts,
