@@ -402,10 +402,10 @@ impl RestaurantState {
                 })
                 .collect(),
         };
-        let method = if self.payment_method == "cash" {
-            PosPaymentMethod::Cash
-        } else {
-            PosPaymentMethod::Card
+        let method = match self.payment_method.as_str() {
+            "cash" => PosPaymentMethod::Cash,
+            "nfc" => PosPaymentMethod::Nfc,
+            _ => PosPaymentMethod::Card,
         };
         let receipt = PosOrder {
             id: Uuid::new_v4(),
@@ -1307,6 +1307,35 @@ mod tests {
         assert!(paid.is_hospitality_receipt);
         assert_eq!(paid.hospitality_host, "SOCDOF");
         assert!(paid.cash_change_cents.unwrap() >= 0);
+    }
+
+    #[test]
+    fn nfc_checkout_preserves_mobile_wallet_payment_in_pos_ledger() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = RestaurantState::new();
+        state.refresh(&store).expect("refresh");
+        let dish = state
+            .menu
+            .iter()
+            .find(|item| item.is_available)
+            .expect("available dish")
+            .id;
+        state
+            .add_item(&store, dish, 1_800_000_000_000)
+            .expect("add dish");
+        let order = state.active_order().expect("open order").clone();
+        state.payment_method = "nfc".to_string();
+        state
+            .checkout(&store, order.id, 1_800_000_000_001)
+            .expect("NFC checkout");
+
+        let receipts = store.list_pos_orders().expect("POS receipts");
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].payment_method, PosPaymentMethod::Nfc);
+        assert_eq!(
+            store.restaurant_order(order.id).expect("restaurant order").unwrap().payment_method.as_deref(),
+            Some("nfc")
+        );
     }
 
     #[test]
