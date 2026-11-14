@@ -1211,6 +1211,7 @@ pub fn settings_content(
 #[allow(clippy::too_many_arguments)]
 pub fn settings_window(
     ctx: &Context,
+    active: bool,
     ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
@@ -1219,7 +1220,7 @@ pub fn settings_window(
     store: &Store,
     now: i64,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         if state.restore_confirm {
             state.restore_confirm = false;
         } else if state.delete_target.is_some() {
