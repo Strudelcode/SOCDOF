@@ -2108,8 +2108,7 @@ mod tests {
     fn restored_window_geometry_is_clamped_to_the_current_work_area() {
         let mut manager = WindowManager::new();
         manager.open(window("contacts", 0), 1_000);
-        let offscreen =
-            Rect::from_min_size(Pos2::new(-500.0, -400.0), Vec2::new(2_000.0, 1_500.0));
+        let offscreen = Rect::from_min_size(Pos2::new(-500.0, -400.0), Vec2::new(2_000.0, 1_500.0));
 
         manager.restore_geometry(AppId::new("contacts"), offscreen, false, area());
         assert_eq!(
