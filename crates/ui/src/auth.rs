@@ -193,14 +193,6 @@ impl AuthState {
             return Ok(());
         }
 
-        if let Some(user) = store.find_user_by_username(&username)? {
-            if !user.active {
-                self.password.clear();
-                self.error = Some("auth_error_disabled");
-                return Ok(());
-            }
-        }
-
         match store.login(&username, &self.password, now)? {
             LoginOutcome::Success {
                 user,
