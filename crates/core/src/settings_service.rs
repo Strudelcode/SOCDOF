@@ -5,6 +5,7 @@
 //! later the mobile companion all get the same rules.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::domain::settings::{CompanyProfile, Language, ThemeMode};
@@ -13,6 +14,9 @@ use crate::store::Store;
 
 /// Prefix of the per-user preference keys in the settings table.
 pub const PREFERENCES_PREFIX: &str = "user_preferences:";
+
+/// Prefix of per-user desktop layout records.
+pub const DESKTOP_LAYOUT_PREFIX: &str = "user_desktop_layout:";
 
 /// Key of the update policy.
 pub const UPDATE_SETTINGS_KEY: &str = "update_settings";
@@ -137,6 +141,53 @@ impl Preferences {
 
 fn preferences_key(user_id: Uuid) -> String {
     format!("{PREFERENCES_PREFIX}{user_id}")
+}
+
+/// Persisted desktop icon layout for one account.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopLayout {
+    /// Stable app slug to grid cell (column, row).
+    pub icon_positions: BTreeMap<String, (u32, u32)>,
+}
+
+fn desktop_layout_key(user_id: Uuid) -> String {
+    format!("{DESKTOP_LAYOUT_PREFIX}{user_id}")
+}
+
+/// Loads an account's desktop layout. Unknown or older records safely fall back to defaults.
+pub fn desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<DesktopLayout> {
+    match store.get_setting(&desktop_layout_key(user_id))? {
+        Some(value) => Ok(serde_json::from_value(value).unwrap_or_default()),
+        None => Ok(DesktopLayout::default()),
+    }
+}
+
+/// Saves a normalized desktop layout, ignoring malformed app slugs and excessive grid rows.
+pub fn save_desktop_layout(
+    store: &Store,
+    user_id: Uuid,
+    layout: &DesktopLayout,
+) -> CoreResult<()> {
+    let normalized = DesktopLayout {
+        icon_positions: layout
+            .icon_positions
+            .iter()
+            .filter(|(slug, (column, row))| {
+                !slug.trim().is_empty() && slug.len() <= 64 && **column < 6 && **row < 256
+            })
+            .map(|(slug, cell)| (slug.clone(), *cell))
+            .collect(),
+    };
+    store.put_setting(
+        &desktop_layout_key(user_id),
+        &serde_json::to_value(normalized)?,
+    )
+}
+
+/// Removes a user's desktop layout when their account is deleted.
+pub fn delete_desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<()> {
+    store.remove_setting(&desktop_layout_key(user_id))
 }
 
 /// Loads the company profile (defaults when nothing was saved yet).
@@ -295,6 +346,39 @@ mod tests {
             preferences(&store, first).expect("loaded").language,
             Language::De
         );
+    }
+
+    #[test]
+    fn desktop_layout_is_scoped_to_user_and_sanitized() {
+        let store = Store::open_in_memory().expect("store");
+        let first = Uuid::new_v4();
+        let second = Uuid::new_v4();
+        let layout = DesktopLayout {
+            icon_positions: [
+                ("contacts".to_string(), (2, 1)),
+                ("settings".to_string(), (0, 3)),
+                ("".to_string(), (1, 1)),
+                ("invalid-column".to_string(), (6, 0)),
+                ("invalid-row".to_string(), (0, 256)),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        save_desktop_layout(&store, first, &layout).expect("saved");
+        let loaded = desktop_layout(&store, first).expect("loaded");
+        assert_eq!(loaded.icon_positions.len(), 2);
+        assert_eq!(loaded.icon_positions.get("contacts"), Some(&(2, 1)));
+        assert_eq!(
+            desktop_layout(&store, second).expect("other user").icon_positions,
+            BTreeMap::new()
+        );
+
+        delete_desktop_layout(&store, first).expect("deleted");
+        assert!(desktop_layout(&store, first)
+            .expect("defaults")
+            .icon_positions
+            .is_empty());
     }
 
     #[test]
