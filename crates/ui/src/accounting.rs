@@ -105,6 +105,18 @@ impl AccountingPeriod {
         }
     }
 
+    /// Stable period token used by the legacy Accounting CSV and its filename.
+    pub fn legacy_token(self) -> &'static str {
+        match self {
+            AccountingPeriod::All => "all",
+            AccountingPeriod::Today => "today",
+            AccountingPeriod::Month => "current_month",
+            AccountingPeriod::Quarter => "current_quarter",
+            AccountingPeriod::Year => "current_year",
+            AccountingPeriod::Custom => "custom",
+        }
+    }
+
     /// Half-open timestamp range for the selected period.
     pub fn range(self, now: i64, custom_from: &str, custom_to: &str) -> Option<(i64, i64)> {
         match self {
@@ -2332,6 +2344,17 @@ fn form_view(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn accounting_period_legacy_tokens_match_the_typescript_values() {
+        assert_eq!(AccountingPeriod::All.legacy_token(), "all");
+        assert_eq!(AccountingPeriod::Today.legacy_token(), "today");
+        assert_eq!(AccountingPeriod::Month.legacy_token(), "current_month");
+        assert_eq!(AccountingPeriod::Quarter.legacy_token(), "current_quarter");
+        assert_eq!(AccountingPeriod::Year.legacy_token(), "current_year");
+        assert_eq!(AccountingPeriod::Custom.legacy_token(), "custom");
+    }
+
+
     use super::*;
     use crate::theme::Appearance;
     use socdof_core::domain::settings::Language;
