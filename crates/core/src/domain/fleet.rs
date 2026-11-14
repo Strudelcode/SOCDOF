@@ -473,6 +473,15 @@ mod tests {
     }
 
     #[test]
+    fn logbook_csv_escapes_quotes_and_multiline_fields() {
+        let mut entry = trip(Uuid::new_v4(), Uuid::new_v4(), "business", 12);
+        entry.reason = "Meeting; \"urgent\"\nfollow-up".to_string();
+        let output = csv(&[entry]);
+        assert!(output.contains("\"Meeting; \"\"urgent\"\"\nfollow-up\""));
+        assert!(output.starts_with("\u{feff}Datum;Uhrzeit;Fahrzeug"));
+    }
+
+    #[test]
     fn computes_distance_price_metrics_and_csv() {
         let vehicle = vehicle(Uuid::nil());
         let trips = vec![
