@@ -113,6 +113,8 @@ pub struct TherapieState {
     pub sessions: Vec<TherapySession>,
     /// Persisted practice mileage trips, newest first.
     pub trips: Vec<TherapyTrip>,
+    /// Search query for the mileage logbook.
+    pub trip_query: String,
     /// Date of the mileage trip.
     pub trip_date: String,
     /// Starting point of the mileage trip.
@@ -763,6 +765,24 @@ fn mileage_view(
     messages(ui, theme, texts, state);
     ui.add_space(6.0);
 
+    let total_km_milli: i64 = state.trips.iter().map(TherapyTrip::distance_km_milli).sum();
+    let total_cents: i64 = state.trips.iter().map(|trip| trip.reimbursement().cents()).sum();
+    ui.columns(2, |columns| {
+        kpi(
+            &mut columns[0],
+            theme,
+            texts.get("therapie_mileage_total_distance"),
+            &format!("{:.1} km", total_km_milli as f64 / 1000.0),
+        );
+        kpi(
+            &mut columns[1],
+            theme,
+            texts.get("therapie_mileage_total_reimbursement"),
+            &money(Money::from_cents(total_cents)),
+        );
+    });
+    ui.add_space(10.0);
+
     let mut save = false;
     let mut clear = false;
     card(ui, theme, |ui| {
@@ -797,20 +817,44 @@ fn mileage_view(
     ui.add_space(12.0);
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("therapie_mileage_history")).strong());
-        if state.trips.is_empty() {
+        search_field_reserved(
+            ui,
+            theme,
+            focus,
+            &mut state.trip_query,
+            texts.get("therapie_mileage_search"),
+            240.0,
+        );
+        let needle = state.trip_query.trim().to_lowercase();
+        let trips: Vec<_> = state
+            .trips
+            .iter()
+            .filter(|trip| {
+                needle.is_empty()
+                    || trip.departure.to_lowercase().contains(&needle)
+                    || trip.destination.to_lowercase().contains(&needle)
+                    || trip.purpose.to_lowercase().contains(&needle)
+                    || trip
+                        .client_id
+                        .and_then(|id| state.clients.iter().find(|client| client.id == id))
+                        .is_some_and(|client| client.name.to_lowercase().contains(&needle))
+            })
+            .cloned()
+            .collect();
+        if trips.is_empty() {
             empty_state(ui, theme, texts.get("therapie_mileage_empty"), texts.get("therapie_mileage_empty_hint"));
         } else {
-            let trips = state.trips.clone();
             let mut edit = None;
             let mut delete = None;
             egui::Grid::new("socdof-therapy-mileage")
-                .num_columns(7)
+                .num_columns(8)
                 .spacing(egui::vec2(12.0, 8.0))
                 .show(ui, |ui| {
                     for key in [
                         "therapie_trip_date",
-                        "therapie_trip_departure",
-                        "therapie_trip_destination",
+                        "therapie_trip_route",
+                        "therapie_trip_purpose",
+                        "therapie_trip_odometer",
                         "therapie_trip_distance",
                         "therapie_trip_rate",
                         "therapie_trip_amount",
@@ -821,9 +865,14 @@ fn mileage_view(
                     ui.end_row();
                     for trip in &trips {
                         ui.label(&trip.date);
-                        ui.label(&trip.departure);
-                        ui.label(&trip.destination);
-                        ui.label(format!("{:.2} km", trip.distance_km_milli() as f64 / 1000.0));
+                        ui.label(format!("{} → {}", trip.departure, trip.destination));
+                        ui.label(&trip.purpose);
+                        ui.label(format!(
+                            "{:.1} → {:.1}",
+                            trip.start_km_milli as f64 / 1000.0,
+                            trip.end_km_milli as f64 / 1000.0
+                        ));
+                        ui.label(format!("{:.1} km", trip.distance_km_milli() as f64 / 1000.0));
                         ui.label(format!("{:.2}", trip.rate_cents_per_km as f64 / 100.0));
                         ui.label(money(trip.reimbursement()));
                         ui.horizontal(|ui| {
@@ -1788,6 +1837,34 @@ mod tests {
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("therapie_save")));
         assert!(painted.contains(texts.get("therapie_hourly_rate")));
+    }
+
+    #[test]
+    fn mileage_screen_saves_edits_filters_and_deletes_custom_rate_trips() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = TherapieState::new();
+        state.open_mileage(&store).expect("open mileage");
+        state.trip_date = "2026-11-14".to_string();
+        state.trip_departure = "Praxis".to_string();
+        state.trip_destination = "Bozen".to_string();
+        state.trip_purpose = "Hausbesuch".to_string();
+        state.trip_start_km = "100".to_string();
+        state.trip_end_km = "142".to_string();
+        state.trip_rate = "0,38".to_string();
+        state.save_trip(&store).expect("save trip");
+        assert_eq!(state.trips.len(), 1);
+        assert_eq!(state.trips[0].reimbursement(), Money::from_cents(1_596));
+
+        let id = state.trips[0].id;
+        state.edit_trip(id);
+        state.trip_rate = "0,42".to_string();
+        state.save_trip(&store).expect("update trip");
+        assert_eq!(state.trips[0].reimbursement(), Money::from_cents(1_764));
+
+        state.trip_query = "bozen".to_string();
+        assert!(state.trips.iter().any(|trip| trip.destination.to_lowercase().contains(&state.trip_query)));
+        state.delete_trip(&store, id).expect("delete trip");
+        assert!(state.trips.is_empty());
     }
 
     #[test]
