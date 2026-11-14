@@ -709,6 +709,7 @@ pub fn invoices(
 }
 
 /// Renders the complete invoices workflow and its dialogs inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
 pub fn invoices_window(
     ctx: &Context,
     ui: &mut egui::Ui,
