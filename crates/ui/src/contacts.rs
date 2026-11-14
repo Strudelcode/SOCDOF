@@ -469,6 +469,23 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &ContactsS
 }
 
 /// Renders the contacts screen into the context.
+/// Draws the module's scrollable content into an existing UI, allowing desktop-window hosting.
+pub fn contacts_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ContactsState,
+    store: &Store,
+    now: i64,
+) {
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        ContactsView::List => list_view(ui, theme, texts, focus, state, store, now),
+        ContactsView::Detail => detail_view(ui, theme, texts, focus, state),
+        ContactsView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
+}
+
 pub fn contacts(
     ctx: &Context,
     theme: &Theme,
@@ -498,11 +515,7 @@ pub fn contacts(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                ContactsView::List => list_view(ui, theme, texts, focus, state, store, now),
-                ContactsView::Detail => detail_view(ui, theme, texts, focus, state),
-                ContactsView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
+            contacts_content(ui, theme, texts, focus, state, store, now);
         });
 
     let mut open = state.confirm_delete;
