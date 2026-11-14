@@ -167,7 +167,7 @@ pub fn build_tax_advisor_transactions(
     // Practice mileage is a bank expense in the legacy tax-advisor ledger. The trip keeps
     // its own rate, independent of the client's treatment kilometre rate.
     for trip in therapy_trips {
-        let reimbursement = trip.reimbursement();
+        let reimbursement = trip.reimbursement_at_rate(38);
         if reimbursement.cents() <= 0 {
             continue;
         }
