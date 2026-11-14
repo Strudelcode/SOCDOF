@@ -1242,6 +1242,7 @@ pub fn settings_window(
     restore_modal(ctx, theme, texts, focus, state);
 }
 
+/// Renders the full-screen settings workflow.
 pub fn settings(
     ctx: &Context,
     theme: &Theme,
