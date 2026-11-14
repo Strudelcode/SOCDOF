@@ -234,8 +234,8 @@ mod tests {
     fn login_lockout_is_shared_across_username_case_variants() {
         let conn = attempts_table();
         for attempt in 0..MAX_FAILED_ATTEMPTS {
-            let locked = register_failure(&conn, "Admin", 1_000 + attempt)
-                .expect("record failed login");
+            let locked =
+                register_failure(&conn, "Admin", 1_000 + attempt).expect("record failed login");
             assert_eq!(locked.is_some(), attempt + 1 == MAX_FAILED_ATTEMPTS);
         }
 
