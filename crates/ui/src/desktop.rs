@@ -277,6 +277,33 @@ impl WindowManager {
         true
     }
 
+    /// Cycles focus to the next visible window, skipping minimized windows.
+    ///
+    /// The current topmost window is focused after wrapping around the z-order.
+    pub fn focus_next(&mut self) -> Option<AppId> {
+        if self.dialog_open() {
+            return None;
+        }
+        let visible: Vec<AppId> = self
+            .windows
+            .iter()
+            .filter(|window| !window.minimized)
+            .map(|window| window.app)
+            .collect();
+        if visible.is_empty() {
+            self.active = None;
+            return None;
+        }
+        let next = self
+            .active
+            .and_then(|active| visible.iter().position(|app| *app == active))
+            .map(|index| (index + 1) % visible.len())
+            .unwrap_or(0);
+        let app = visible[next];
+        self.focus(app);
+        Some(app)
+    }
+
     /// Asks for a confirmation before closing a window.
     pub fn request_close(&mut self, app: AppId) -> bool {
         if !self.is_open(app) {
@@ -798,6 +825,39 @@ pub fn desktop(
             ui.set_min_size(area.size());
             paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
             let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+
+            if !blocked {
+                let (cycle_windows, close_active, snap_left, snap_right, maximize_active) =
+                    ui.input(|input| {
+                        (
+                            input.modifiers.alt && input.key_pressed(Key::Tab),
+                            input.modifiers.alt && input.key_pressed(Key::F4),
+                            input.modifiers.command && input.key_pressed(Key::ArrowLeft),
+                            input.modifiers.command && input.key_pressed(Key::ArrowRight),
+                            input.key_pressed(Key::F11),
+                        )
+                    });
+                if cycle_windows {
+                    windows.focus_next();
+                }
+                if let Some(active) = windows.active() {
+                    if close_active {
+                        windows.request_close(active);
+                    }
+                    if snap_left {
+                        windows.snap(active, SnapEdge::Left, area);
+                        outcome.window_layout_changed = true;
+                    }
+                    if snap_right {
+                        windows.snap(active, SnapEdge::Right, area);
+                        outcome.window_layout_changed = true;
+                    }
+                    if maximize_active {
+                        windows.toggle_maximize(active, area);
+                        outcome.window_layout_changed = true;
+                    }
+                }
+            }
 
             if !blocked {
                 let (left, right, up, down) = ui.input(|input| {
@@ -2118,6 +2178,36 @@ mod tests {
                 .rect(),
             area()
         );
+    }
+
+    #[test]
+    fn focus_next_cycles_visible_windows_and_skips_minimized_windows() {
+        let mut manager = WindowManager::new();
+        let contacts = AppId::new("contacts");
+        let invoices = AppId::new("invoices");
+        let settings = AppId::new("settings");
+        manager.open(window("contacts", 0), 1_000);
+        manager.open(window("invoices", 0), 1_000);
+        manager.open(window("settings", 0), 1_000);
+        manager.minimize(invoices);
+
+        assert_eq!(manager.focus_next(), Some(contacts));
+        assert_eq!(manager.active(), Some(contacts));
+        assert_eq!(manager.focus_next(), Some(settings));
+        assert_eq!(manager.active(), Some(settings));
+        assert_eq!(manager.focus_next(), Some(contacts));
+    }
+
+    #[test]
+    fn focus_next_does_not_escape_a_modal_window_confirmation() {
+        let mut manager = WindowManager::new();
+        manager.open(window("contacts", 0), 1_000);
+        manager.open(window("invoices", 0), 1_000);
+        manager.request_close(AppId::new("invoices"));
+
+        assert_eq!(manager.focus_next(), None);
+        assert_eq!(manager.active(), Some(AppId::new("invoices")));
+        assert!(manager.dialog_open());
     }
 
     #[test]
