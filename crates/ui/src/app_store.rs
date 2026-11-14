@@ -494,4 +494,3 @@ mod tests {
         assert!(state.loaded);
     }
 }
-}
