@@ -389,7 +389,9 @@ mod trip_tests {
         let trip = trip(Some(client.id));
         store.insert_therapy_trip(&trip).expect("trip");
 
-        store.delete_therapy_client(client.id).expect("delete client");
+        store
+            .delete_therapy_client(client.id)
+            .expect("delete client");
         let stored = store.therapy_trips().expect("trips");
         assert_eq!(stored.len(), 1);
         assert_eq!(stored[0].id, trip.id);
