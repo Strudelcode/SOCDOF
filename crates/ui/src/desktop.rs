@@ -31,16 +31,7 @@ use crate::tokens::{
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
-type DesktopWindowRenderer<'a> = dyn FnMut(
-    AppId,
-    &mut Ui,
-    &Context,
-    &Theme,
-    &UiTexts,
-    &mut FocusState,
-    &SocdofStore,
-    i64,
-) -> bool
+type DesktopWindowRenderer<'a> = dyn FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool
     + 'a;
 
 /// Height of the taskbar at the bottom of the screen.
