@@ -2024,5 +2024,8 @@
   "therapie_trip_save": "Fahrt speichern",
   "therapie_trip_saved": "Fahrt gespeichert",
   "therapie_trip_start_km": "Kilometerstand bei Start",
-  "therapie_trip_values_invalid": "Bitte gültige, nicht negative Kilometerstände und einen Kilometersatz eingeben."
+  "therapie_trip_values_invalid": "Bitte gültige, nicht negative Kilometerstände und einen Kilometersatz eingeben.",
+  "therapie_trip_delete_title": "Fahrt löschen",
+  "therapie_trip_delete_body": "Möchtest du diese Fahrt wirklich dauerhaft löschen?",
+  "therapie_trip_delete_confirm": "Fahrt löschen"
 }
