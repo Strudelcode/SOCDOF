@@ -167,6 +167,10 @@ pub struct DesktopWindowLayout {
     pub height: u32,
     /// Whether the window was maximized.
     pub maximized: bool,
+    /// Whether this window was open when the user last left the desktop.
+    ///
+    /// Missing values in older layout records default to false.
+    pub open: bool,
 }
 
 fn desktop_layout_key(user_id: Uuid) -> String {
@@ -373,6 +377,46 @@ mod tests {
         assert_eq!(
             preferences(&store, first).expect("loaded").language,
             Language::De
+        );
+    }
+
+    #[test]
+    fn legacy_window_layouts_default_to_closed_and_open_state_round_trips() {
+        let legacy: DesktopWindowLayout = serde_json::from_value(serde_json::json!({
+            "x": 24,
+            "y": 36,
+            "width": 900,
+            "height": 640,
+            "maximized": false
+        }))
+        .expect("legacy layout");
+        assert!(!legacy.open);
+
+        let store = Store::open_in_memory().expect("store");
+        let user_id = Uuid::new_v4();
+        let layout = DesktopLayout {
+            window_states: [(
+                "contacts".to_string(),
+                DesktopWindowLayout {
+                    x: 24,
+                    y: 36,
+                    width: 900,
+                    height: 640,
+                    maximized: true,
+                    open: true,
+                },
+            )]
+            .into_iter()
+            .collect(),
+            ..DesktopLayout::default()
+        };
+        save_desktop_layout(&store, user_id, &layout).expect("save layout");
+        assert_eq!(
+            desktop_layout(&store, user_id)
+                .expect("load layout")
+                .window_states
+                .get("contacts"),
+            layout.window_states.get("contacts")
         );
     }
 
