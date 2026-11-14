@@ -86,14 +86,14 @@ pub fn authenticate(conn: &Connection, username: &str, password: &str) -> CoreRe
 pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
     user.validate().map_err(CoreError::Validation)?;
 
-    let existing: Option<(String, bool)> = conn
+    let existing: Option<(String, Option<String>, bool, String)> = conn
         .query_row(
-            "SELECT role, active FROM users WHERE id = ?1",
+            "SELECT role, role_id, active, username FROM users WHERE id = ?1",
             params![user.id.to_string()],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .optional()?;
-    let Some((role, active)) = existing else {
+    let Some((role, role_id, active, username)) = existing else {
         return Err(CoreError::NotFound(user.id.to_string()));
     };
 
@@ -103,7 +103,8 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
         return Err(CoreError::Validation("last_admin".to_string()));
     }
 
-    let changed = conn.execute(
+    let transaction = conn.unchecked_transaction()?;
+    let changed = transaction.execute(
         "UPDATE users SET username = ?2, display_name = ?3, role = ?4, role_id = ?5,
             active = ?6, must_change_password = ?7, updated_at = ?8
          WHERE id = ?1",
@@ -123,6 +124,21 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
         return Err(CoreError::NotFound(user.id.to_string()));
     }
 
+    // Sessions retain the permissions and identity from sign-in time. Revoke them whenever
+    // account access changes so an old desktop cannot keep using stale privileges.
+    if role != user.role.as_str()
+        || role_id != user.role_id
+        || active != user.active
+        || username != user.username.trim()
+    {
+        transaction.execute(
+            "UPDATE auth_sessions SET revoked_at = ?2
+             WHERE user_id = ?1 AND revoked_at IS NULL",
+            params![user.id.to_string(), now_millis()],
+        )?;
+    }
+
+    transaction.commit()?;
     Ok(())
 }
 
@@ -144,7 +160,14 @@ pub fn delete(conn: &Connection, id: Uuid) -> CoreResult<()> {
         return Err(CoreError::Validation("last_admin".to_string()));
     }
 
-    conn.execute("DELETE FROM users WHERE id = ?1", params![id.to_string()])?;
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute(
+        "UPDATE auth_sessions SET revoked_at = ?2
+         WHERE user_id = ?1 AND revoked_at IS NULL",
+        params![id.to_string(), now_millis()],
+    )?;
+    transaction.execute("DELETE FROM users WHERE id = ?1", params![id.to_string()])?;
+    transaction.commit()?;
     Ok(())
 }
 
@@ -158,16 +181,25 @@ fn admin_count(conn: &Connection) -> CoreResult<i64> {
 
 /// Stores a new password hash and clears the "must change password" flag.
 pub fn set_password(conn: &Connection, id: Uuid, password_hash: &str) -> CoreResult<()> {
-    let changed = conn.execute(
+    let transaction = conn.unchecked_transaction()?;
+    let now = now_millis();
+    let changed = transaction.execute(
         "UPDATE users SET password_hash = ?2, must_change_password = 0, updated_at = ?3
          WHERE id = ?1",
-        params![id.to_string(), password_hash, now_millis()],
+        params![id.to_string(), password_hash, now],
     )?;
 
     if changed == 0 {
         return Err(CoreError::NotFound(id.to_string()));
     }
 
+    // A password reset invalidates every previously issued credential for this account.
+    transaction.execute(
+        "UPDATE auth_sessions SET revoked_at = ?2
+         WHERE user_id = ?1 AND revoked_at IS NULL",
+        params![id.to_string(), now],
+    )?;
+    transaction.commit()?;
     Ok(())
 }
 
@@ -187,4 +219,113 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<User> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn access_store() -> Connection {
+        let conn = Connection::open_in_memory().expect("database");
+        conn.execute_batch(
+            "CREATE TABLE users (
+                id TEXT PRIMARY KEY, username TEXT NOT NULL, display_name TEXT NOT NULL,
+                role TEXT NOT NULL, role_id TEXT, active INTEGER NOT NULL,
+                password_hash TEXT NOT NULL, must_change_password INTEGER NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE auth_sessions (
+                id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token_hash TEXT NOT NULL,
+                created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL, revoked_at INTEGER
+            );",
+        )
+        .expect("schema");
+        conn
+    }
+
+    fn admin(id: Uuid) -> User {
+        User {
+            id,
+            username: "admin".to_string(),
+            display_name: "Administrator".to_string(),
+            role: UserRole::Admin,
+            role_id: None,
+            active: true,
+            password_hash: "hash".to_string(),
+            must_change_password: false,
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    fn add_session(conn: &Connection, user_id: Uuid) {
+        conn.execute(
+            "INSERT INTO auth_sessions
+             (id, user_id, token_hash, created_at, expires_at, last_seen_at, revoked_at)
+             VALUES (?1, ?2, 'token-hash', 1, 999999999, 1, NULL)",
+            params![Uuid::new_v4().to_string(), user_id.to_string()],
+        )
+        .expect("session");
+    }
+
+    fn active_sessions(conn: &Connection, user_id: Uuid) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM auth_sessions WHERE user_id = ?1 AND revoked_at IS NULL",
+            params![user_id.to_string()],
+            |row| row.get(0),
+        )
+        .expect("session count")
+    }
+
+    #[test]
+    fn changing_account_access_revokes_existing_sessions_atomically() {
+        let conn = access_store();
+        let id = Uuid::new_v4();
+        let user = admin(id);
+        insert(&conn, &user).expect("insert user");
+        add_session(&conn, id);
+
+        let mut disabled = user;
+        disabled.active = false;
+        disabled.updated_at = 2;
+        assert!(update(&conn, &disabled).is_err(), "last admin must stay protected");
+        assert_eq!(active_sessions(&conn, id), 1);
+
+        let mut second = admin(Uuid::new_v4());
+        second.username = "admin2".to_string();
+        second.display_name = "Second administrator".to_string();
+        insert(&conn, &second).expect("insert second admin");
+        update(&conn, &disabled).expect("disable account");
+        assert_eq!(active_sessions(&conn, id), 0);
+    }
+
+    #[test]
+    fn password_reset_revokes_all_existing_sessions() {
+        let conn = access_store();
+        let id = Uuid::new_v4();
+        insert(&conn, &admin(id)).expect("insert user");
+        add_session(&conn, id);
+
+        set_password(&conn, id, "new-password-hash").expect("reset password");
+
+        assert_eq!(active_sessions(&conn, id), 0);
+    }
+
+    #[test]
+    fn deleting_account_revokes_sessions_before_removal() {
+        let conn = access_store();
+        let id = Uuid::new_v4();
+        insert(&conn, &admin(id)).expect("insert admin");
+        let mut second = admin(Uuid::new_v4());
+        second.username = "admin2".to_string();
+        second.display_name = "Second administrator".to_string();
+        insert(&conn, &second).expect("insert second admin");
+        add_session(&conn, id);
+
+        delete(&conn, id).expect("delete account");
+
+        assert_eq!(active_sessions(&conn, id), 0);
+    }
 }
