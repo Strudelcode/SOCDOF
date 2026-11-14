@@ -1052,10 +1052,11 @@ mod tests {
     fn payment_validation_blocks_underpaid_cash_and_unconfigured_card() {
         let invoice = invoice();
         let mut company = company();
-        let mut actions = InvoiceActions::default();
-
-        actions.method = 1;
-        actions.cash = "99.99".to_string();
+        let mut actions = InvoiceActions {
+            method: 1,
+            cash: "99.99".to_string(),
+            ..InvoiceActions::default()
+        };
         assert_eq!(
             actions.payment_error(&invoice, &company),
             Some("invoices_payment_error_cash")
