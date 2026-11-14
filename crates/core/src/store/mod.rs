@@ -23,7 +23,7 @@ use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
 use crate::domain::stock::StockMove;
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
-use crate::domain::therapy::{TherapyClient, TherapySession};
+use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::domain::user::User;
 use crate::domain::workspace::{Report, Widget};
 use crate::error::CoreResult;
@@ -53,7 +53,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 17;
+pub const SCHEMA_VERSION: i64 = 18;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -749,6 +749,11 @@ impl Store {
         if version < 17 {
             self.conn.execute_batch(SCHEMA_V17)?;
             version = 17;
+        }
+
+        if version < 18 {
+            self.conn.execute_batch(SCHEMA_V18)?;
+            version = 18;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -1697,6 +1702,26 @@ impl Store {
         therapy::session_count(&self.conn, client_id)
     }
 
+    /// Lists every practice trip, newest first.
+    pub fn therapy_trips(&self) -> CoreResult<Vec<TherapyTrip>> {
+        therapy::list_trips(&self.conn)
+    }
+
+    /// Inserts a practice trip with its own reimbursement rate.
+    pub fn insert_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::insert_trip(&self.conn, trip)
+    }
+
+    /// Replaces a practice trip.
+    pub fn update_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::update_trip(&self.conn, trip)
+    }
+
+    /// Deletes a practice trip.
+    pub fn delete_therapy_trip(&self, id: uuid::Uuid) -> CoreResult<()> {
+        therapy::delete_trip(&self.conn, id)
+    }
+
     /// Puts every still open session of a client on one invoice.
     pub fn link_therapy_sessions(
         &self,
@@ -2100,6 +2125,26 @@ ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
 /// Schema v17: preserve grouped VAT totals on POS receipts.
 const SCHEMA_V17: &str = r#"
 ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v18: persist the TherapyMileage logbook independently from treatment sessions.
+const SCHEMA_V18: &str = r#"
+CREATE TABLE IF NOT EXISTS therapy_trips (
+    id                 TEXT PRIMARY KEY,
+    client_id          TEXT REFERENCES therapy_clients(id) ON DELETE SET NULL,
+    date               TEXT NOT NULL,
+    departure          TEXT NOT NULL,
+    destination        TEXT NOT NULL,
+    purpose            TEXT NOT NULL DEFAULT '',
+    start_km_milli     INTEGER NOT NULL DEFAULT 0,
+    end_km_milli       INTEGER NOT NULL DEFAULT 0,
+    rate_cents_per_km  INTEGER NOT NULL DEFAULT 30
+);
+
+CREATE INDEX IF NOT EXISTS therapy_trips_date
+    ON therapy_trips(date DESC);
+CREATE INDEX IF NOT EXISTS therapy_trips_client
+    ON therapy_trips(client_id, date DESC);
 "#;
 
 #[cfg(test)]
