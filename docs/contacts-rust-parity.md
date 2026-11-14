@@ -23,7 +23,7 @@ This checklist tracks the native Rust port against:
 - [x] CSV export preserves embedded line breaks inside quoted fields; vCard cards with no valid e-mail do not store empty/dummy e-mail values.
 - [x] Blank CSV rows are ignored, duplicate contacts are preserved, and an unmatched quoted tail is discarded without losing complete rows; a 5,000-contact parser regression covers larger imports.
 - [x] Verify vCard 2.1/3.0/4.0 variants, grouped property names, URI telephone values, folded lines and escaped text.
-- [x] Decode vCard 2.1 quoted-printable values and soft line breaks with UTF-8, ISO-8859-1 and Windows-1252 handling. Scan alternative/duplicate EMAIL/TEL properties remains open.
+- [x] Decode vCard 2.1 quoted-printable values and soft line breaks with UTF-8, ISO-8859-1 and Windows-1252 handling. Scan all EMAIL/TEL properties and choose the first valid non-empty value; regression coverage includes invalid-first/valid-second entries.
 - [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
 - [x] Export scope supports all contacts or the current filtered view, with a date-stamped filename.
 - [ ] Compare exact filenames, MIME types and output bytes against the TypeScript reference.
