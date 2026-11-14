@@ -1333,7 +1333,12 @@ mod tests {
         assert_eq!(receipts.len(), 1);
         assert_eq!(receipts[0].payment_method, PosPaymentMethod::Nfc);
         assert_eq!(
-            store.restaurant_order(order.id).expect("restaurant order").unwrap().payment_method.as_deref(),
+            store
+                .restaurant_order(order.id)
+                .expect("restaurant order")
+                .unwrap()
+                .payment_method
+                .as_deref(),
             Some("nfc")
         );
     }
