@@ -1159,21 +1159,11 @@ pub fn restaurant(
                                     order.payment_method.as_deref().unwrap_or("—"),
                                     money(order.total_cents + order.tip_cents, &currency)
                                 ));
-                                if button(
-                                    ui,
-                                    theme,
-                                    focus,
-                                    texts.get("restaurant_delete"),
-                                    ButtonVariant::Danger,
-                                )
-                                .activated
-                                {
-                                    if let Err(e) = store.delete_restaurant_order(order.id) {
-                                        state.error = Some(e.to_string());
-                                    } else {
-                                        let _ = state.refresh(store);
-                                    }
-                                }
+                                ui.label(
+                                    RichText::new(texts.get("restaurant_paid"))
+                                        .size(FONT_SMALL)
+                                        .color(theme.palette.success),
+                                );
                             });
                         }
                         if !state.orders.iter().any(|o| o.status == "paid") {
@@ -1310,6 +1300,10 @@ mod tests {
         let paid = store.restaurant_order(order.id).unwrap().unwrap();
         assert_eq!(paid.status, "paid");
         assert_eq!(paid.tip_cents, 100);
+        assert!(state
+            .cancel_order(&store, order.id)
+            .is_err(), "paid receipts must remain in the archive");
+        assert!(store.restaurant_order(order.id).unwrap().is_some());
         assert!(paid.is_hospitality_receipt);
         assert_eq!(paid.hospitality_host, "SOCDOF");
         assert!(paid.cash_change_cents.unwrap() >= 0);
