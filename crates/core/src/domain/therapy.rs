@@ -168,9 +168,11 @@ impl TherapyTrip {
         let valid_shape = self.date.len() == 10
             && self.date.as_bytes().get(4) == Some(&b'-')
             && self.date.as_bytes().get(7) == Some(&b'-')
-            && self.date.chars().enumerate().all(|(index, value)| {
-                matches!(index, 4 | 7) || value.is_ascii_digit()
-            });
+            && self
+                .date
+                .chars()
+                .enumerate()
+                .all(|(index, value)| matches!(index, 4 | 7) || value.is_ascii_digit());
         let valid_calendar_date = if valid_shape {
             let year = self.date[..4].parse::<i32>().ok();
             let month = self.date[5..7].parse::<u32>().ok();
