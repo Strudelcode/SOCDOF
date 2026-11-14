@@ -173,6 +173,10 @@ pub struct DesktopWindowLayout {
     pub open: bool,
     /// Whether this open window was minimized.
     pub minimized: bool,
+    /// Stacking order from back (zero) to front (larger values).
+    ///
+    /// Missing values in older layout records default to zero.
+    pub z_order: u32,
 }
 
 fn desktop_layout_key(user_id: Uuid) -> String {
@@ -408,6 +412,7 @@ mod tests {
                     maximized: true,
                     open: true,
                     minimized: false,
+                    z_order: 1,
                 },
             )]
             .into_iter()
@@ -496,6 +501,7 @@ mod tests {
                         maximized: true,
                         open: true,
                         minimized: false,
+                        z_order: 1,
                     },
                 ),
                 (
