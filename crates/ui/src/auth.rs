@@ -315,6 +315,10 @@ impl AuthState {
 
     /// Opens the locked session with the account password.
     pub fn unlock(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        self.tick(now);
+        if self.view != AuthView::Locked {
+            return Ok(());
+        }
         let Some(user) = self.user.clone() else {
             self.show_login();
             return Ok(());
@@ -381,6 +385,28 @@ impl AuthState {
 
     /// Locks an unlocked session after the configured idle time.
     pub fn tick(&mut self, now: i64) {
+        if !matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
+            return;
+        }
+
+        // A locked screen must not be able to revive an expired session by checking the password
+        // again. Expiry therefore applies to both the unlocked desktop and the lock screen.
+        let session_valid = self
+            .session
+            .as_ref()
+            .is_some_and(|session| session.revoked_at.is_none() && session.expires_at > now);
+        if !session_valid {
+            self.session = None;
+            self.token = None;
+            self.user = None;
+            self.password.clear();
+            self.password_confirm.clear();
+            self.view = AuthView::Login;
+            self.error = None;
+            self.status = None;
+            return;
+        }
+
         if self.view != AuthView::Unlocked || self.idle_timeout_ms <= 0 {
             return;
         }
@@ -1469,7 +1495,22 @@ mod tests {
     }
 
     #[test]
-    fn disabled_and_unknown_accounts_report_distinct_errors() {
+    fn expired_session_cannot_be_resumed_from_the_lock_screen() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        state.session.as_mut().expect("session").expires_at = NOW + 100;
+        state.lock(NOW);
+
+        state.tick(NOW + 100);
+
+        assert_eq!(state.view, AuthView::Login);
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
+        assert!(state.token.is_none());
+    }
+
+    #[test]
+    fn disabled_and_unknown_accounts_return_the_same_login_error() {
         let store = store_with_admin();
         let disabled = User {
             id: Uuid::new_v4(),
@@ -1489,7 +1530,7 @@ mod tests {
         state.username = "jonas".to_string();
         state.password = "Socdof2026!".to_string();
         state.login(&store, NOW).unwrap();
-        assert_eq!(state.error, Some("auth_error_disabled"));
+        assert_eq!(state.error, Some("auth_error_invalid"));
         assert_ne!(state.view, AuthView::Unlocked);
 
         state.username = "niemand".to_string();
