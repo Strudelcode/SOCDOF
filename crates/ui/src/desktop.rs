@@ -31,6 +31,18 @@ use crate::tokens::{
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
+type DesktopWindowRenderer<'a> = dyn FnMut(
+    AppId,
+    &mut Ui,
+    &Context,
+    &Theme,
+    &UiTexts,
+    &mut FocusState,
+    &SocdofStore,
+    i64,
+) -> bool
+    + 'a;
+
 /// Height of the taskbar at the bottom of the screen.
 pub const TASKBAR_HEIGHT: f32 = 48.0;
 /// Height of a window title bar, matching the legacy window chrome.
@@ -782,7 +794,7 @@ pub fn format_clock(millis: i64) -> String {
 ///
 /// The caller owns the grid, the window manager and the shell, so window positions, open windows,
 /// icon positions, wallpaper and widget state survive a language or theme switch.
-
+///
 /// Draws the desktop shell without embedding application content in its windows.
 pub fn desktop(
     ctx: &Context,
@@ -832,18 +844,7 @@ fn desktop_impl(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: Option<
-        &mut dyn FnMut(
-            AppId,
-            &mut Ui,
-            &Context,
-            &Theme,
-            &UiTexts,
-            &mut FocusState,
-            &SocdofStore,
-            i64,
-        ) -> bool,
-    >,
+    mut render_window: Option<&mut DesktopWindowRenderer<'_>>,
 ) -> DesktopOutcome {
     let DesktopFrame {
         theme,
