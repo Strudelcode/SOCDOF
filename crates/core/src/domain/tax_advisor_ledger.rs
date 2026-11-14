@@ -1,9 +1,10 @@
 //! Monthly tax-advisor cash/bank ledger and Excel SpreadsheetML export.
 //!
 //! The report is a read-only projection of persisted cash movements. Invoice revenue is included
-//! only when a payment record exists, POS receipts use their recorded tender, non-draft purchases
-//! mirror the legacy manager, journal entries supply manual cash/bank bookings, and business fleet
-//! trips use the configured mileage allowance. No source record is changed.
+//! according to the legacy posted/paid rule, POS receipts use their recorded tender, non-draft
+//! purchases mirror the legacy manager, and journal entries supply manual cash/bank bookings.
+//! Linked invoices are skipped when practice billing items already represent them. No source record
+//! is changed.
 
 use std::collections::{HashMap, HashSet};
 
