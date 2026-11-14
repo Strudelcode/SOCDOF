@@ -827,8 +827,8 @@ pub fn desktop(
             let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
             if !blocked {
-                let (cycle_windows, close_active, snap_left, snap_right, maximize_active) =
-                    ui.input(|input| {
+                let (cycle_windows, close_active, snap_left, snap_right, maximize_active) = ui
+                    .input(|input| {
                         (
                             input.modifiers.alt && input.key_pressed(Key::Tab),
                             input.modifiers.alt && input.key_pressed(Key::F4),
