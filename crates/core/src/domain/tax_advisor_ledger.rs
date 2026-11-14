@@ -174,13 +174,19 @@ pub fn build_tax_advisor_transactions(
         let timestamp = date::parse_iso8601(&format!("{}T00:00:00Z", trip.date))
             .unwrap_or_default();
         let distance = trip.distance_km_milli() as f64 / 1000.0;
+        let departure = if trip.departure.trim().is_empty() {
+            "Start"
+        } else {
+            trip.departure.trim()
+        };
+        let destination = if trip.destination.trim().is_empty() {
+            "Ziel"
+        } else {
+            trip.destination.trim()
+        };
         transactions.push(LedgerTransaction::new(
             timestamp,
-            format!(
-                "Kilometergeld_{}_nach_{} ({distance} km)",
-                if trip.departure.trim().is_empty() { "Start" } else { trip.departure.trim() },
-                if trip.destination.trim().is_empty() { "Ziel" } else { trip.destination.trim() },
-            ),
+            format!("Kilometergeld_{departure}_nach_{destination} ({distance} km)"),
             reimbursement,
             LedgerKind::Expense,
             LedgerChannel::Bank,
