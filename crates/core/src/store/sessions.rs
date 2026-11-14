@@ -170,13 +170,16 @@ pub fn login(
     password: &str,
     now: i64,
 ) -> CoreResult<LoginOutcome> {
-    if let Some(until) = locked_until(conn, username, now)? {
+    // Usernames are case-insensitive in the users table. Keep the lockout key canonical too,
+    // otherwise changing the letter case would create a fresh failure counter and bypass lockout.
+    let attempt_key = username.trim().to_ascii_lowercase();
+    if let Some(until) = locked_until(conn, &attempt_key, now)? {
         return Ok(LoginOutcome::Locked { until });
     }
 
     match users::authenticate(conn, username, password)? {
         Some(user) => {
-            clear_failures(conn, username)?;
+            clear_failures(conn, &attempt_key)?;
             let (session, token) = create(conn, &user, now, SESSION_TTL_MS)?;
             Ok(LoginOutcome::Success {
                 user: Box::new(user),
@@ -184,7 +187,7 @@ pub fn login(
                 token,
             })
         }
-        None => match register_failure(conn, username, now)? {
+        None => match register_failure(conn, &attempt_key, now)? {
             Some(until) => Ok(LoginOutcome::Locked { until }),
             None => Ok(LoginOutcome::Invalid),
         },
@@ -204,4 +207,52 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Session> {
         last_seen_at: row.get("last_seen_at")?,
         revoked_at: row.get("revoked_at")?,
     })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn attempts_table() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory database");
+        conn.execute_batch(
+            "CREATE TABLE auth_attempts (
+                username TEXT PRIMARY KEY,
+                failed_count INTEGER NOT NULL,
+                locked_until INTEGER,
+                updated_at INTEGER NOT NULL
+            );",
+        )
+        .expect("auth attempts schema");
+        conn
+    }
+
+    #[test]
+    fn login_lockout_is_shared_across_username_case_variants() {
+        let conn = attempts_table();
+        for attempt in 0..MAX_FAILED_ATTEMPTS {
+            let locked = register_failure(&conn, "Admin", 1_000 + attempt as i64)
+                .expect("record failed login");
+            assert_eq!(locked.is_some(), attempt + 1 == MAX_FAILED_ATTEMPTS);
+        }
+
+        assert!(locked_until(&conn, "ADMIN", 20_000)
+            .expect("read lockout")
+            .is_some());
+        assert!(locked_until(&conn, "aDmIn", 20_000)
+            .expect("read lockout")
+            .is_some());
+    }
+
+    #[test]
+    fn successful_login_clears_case_insensitive_failure_counter() {
+        let conn = attempts_table();
+        register_failure(&conn, "Admin", 1_000).expect("record failed login");
+        clear_failures(&conn, "ADMIN").expect("clear failures");
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM auth_attempts", [], |row| row.get(0))
+            .expect("count attempts");
+        assert_eq!(count, 0);
+    }
 }
