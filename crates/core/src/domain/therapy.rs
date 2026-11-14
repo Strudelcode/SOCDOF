@@ -165,13 +165,33 @@ impl TherapyTrip {
 
     /// Validates the values before persistence.
     pub fn validate(&self) -> Result<(), String> {
-        if self.date.len() != 10
-            || !self.date.as_bytes().get(4).is_some_and(|value| *value == b'-')
-            || !self.date.as_bytes().get(7).is_some_and(|value| *value == b'-')
-            || !self.date.chars().enumerate().all(|(index, value)| {
+        let valid_shape = self.date.len() == 10
+            && self.date.as_bytes().get(4) == Some(&b'-')
+            && self.date.as_bytes().get(7) == Some(&b'-')
+            && self.date.chars().enumerate().all(|(index, value)| {
                 matches!(index, 4 | 7) || value.is_ascii_digit()
-            })
-        {
+            });
+        let valid_calendar_date = if valid_shape {
+            let year = self.date[..4].parse::<i32>().ok();
+            let month = self.date[5..7].parse::<u32>().ok();
+            let day = self.date[8..10].parse::<u32>().ok();
+            match (year, month, day) {
+                (Some(year), Some(month @ 1..=12), Some(day)) => {
+                    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+                    let days = match month {
+                        2 if leap => 29,
+                        2 => 28,
+                        4 | 6 | 9 | 11 => 30,
+                        _ => 31,
+                    };
+                    (1..=days).contains(&day)
+                }
+                _ => false,
+            }
+        } else {
+            false
+        };
+        if !valid_calendar_date {
             return Err("trip_date_invalid".to_string());
         }
         if self.departure.trim().is_empty() || self.destination.trim().is_empty() {
