@@ -237,6 +237,34 @@ pub fn therapy_sessions(
         .map_err(|error| error.to_string())
 }
 
+/// Lists all therapy practice mileage trips.
+#[tauri::command]
+pub fn therapy_trips(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<socdof_core::domain::therapy::TherapyTrip>, String> {
+    state.therapy_trips().map_err(|error| error.to_string())
+}
+
+/// Creates or updates one therapy practice mileage trip.
+#[tauri::command]
+pub fn save_therapy_trip(
+    state: tauri::State<'_, DesktopState>,
+    trip: socdof_core::domain::therapy::TherapyTrip,
+) -> Result<socdof_core::domain::therapy::TherapyTrip, String> {
+    state
+        .save_therapy_trip(&trip)
+        .map_err(|error| error.to_string())
+}
+
+/// Deletes a therapy practice mileage trip.
+#[tauri::command]
+pub fn delete_therapy_trip(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<(), String> {
+    state.delete_therapy_trip(id).map_err(|error| error.to_string())
+}
+
 /// Deletes a therapy client by its identifier.
 #[tauri::command]
 pub fn delete_therapy_client(
