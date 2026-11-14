@@ -1580,8 +1580,16 @@ fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
         for (label, value, tone) in [
             ("accounting_revenue", report.revenue_net, Tone::Success),
             ("accounting_expense", report.purchase_net, Tone::Warning),
-            ("accounting_result", report.operating_profit_net, Tone::Accent),
-            ("accounting_tax_balance", report.vat_liability, Tone::Neutral),
+            (
+                "accounting_result",
+                report.operating_profit_net,
+                Tone::Accent,
+            ),
+            (
+                "accounting_tax_balance",
+                report.vat_liability,
+                Tone::Neutral,
+            ),
         ] {
             ui.horizontal(|ui| {
                 ui.label(
@@ -1893,30 +1901,37 @@ fn vat_return_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Ac
                     ui.end_row();
                 }
                 ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
-                ui.label(money_in_currency(report.revenue_net, &state.currency_symbol));
+                ui.label(money_in_currency(
+                    report.revenue_net,
+                    &state.currency_symbol,
+                ));
                 ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
                 ui.end_row();
                 ui.label(texts.get("accounting_business_input_vat"));
-                ui.label(money_in_currency(report.purchase_net, &state.currency_symbol));
-                ui.label(money_in_currency(report.purchase_tax, &state.currency_symbol));
+                ui.label(money_in_currency(
+                    report.purchase_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(
+                    report.purchase_tax,
+                    &state.currency_symbol,
+                ));
                 ui.end_row();
                 ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
                 ui.label("-");
                 ui.label(
-                    RichText::new(money_in_currency(report.vat_liability, &state.currency_symbol))
-                        .strong(),
+                    RichText::new(money_in_currency(
+                        report.vat_liability,
+                        &state.currency_symbol,
+                    ))
+                    .strong(),
                 );
                 ui.end_row();
             });
     });
 }
 
-fn open_items_view(
-    ui: &mut egui::Ui,
-    theme: &Theme,
-    texts: &UiTexts,
-    state: &AccountingState,
-) {
+fn open_items_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
     let report = &state.business_report;
     card(ui, theme, |ui| {
         ui.horizontal(|ui| {
