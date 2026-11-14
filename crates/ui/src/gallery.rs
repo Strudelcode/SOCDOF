@@ -158,6 +158,30 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
     IconGrid::new(icons)
 }
 
+/// Resolves a persisted start-up module to a stable desktop app identifier.
+fn startup_app(module: &str) -> Option<AppId> {
+    Some(match module {
+        "dashboard" => AppId::new("dashboard"),
+        "contacts" => AppId::new("contacts"),
+        "products" => AppId::new("products"),
+        "projects" => AppId::new("projects"),
+        "fleet" => AppId::new("fleet"),
+        "restaurant" => AppId::new("restaurant"),
+        "invoices" => AppId::new("invoices"),
+        "accounting" => AppId::new("accounting"),
+        "purchases" => AppId::new("purchases"),
+        "pos" => AppId::new("pos"),
+        "calendar" => AppId::new("calendar"),
+        "support" => AppId::new("support"),
+        "reports" => AppId::new("reports"),
+        "therapy" => AppId::new("therapy"),
+        "users" => AppId::new("users"),
+        "settings" => AppId::new("settings"),
+        "editor" => AppId::new("editor"),
+        _ => return None,
+    })
+}
+
 /// Trims the desktop to the layout template chosen in the wizard.
 fn apply_setup_template(state: &mut GalleryState) {
     let apps: &[&str] = match state.auth.template_choice {
@@ -675,6 +699,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if wizard_completed {
             apply_setup_template(state);
         }
+        let mut startup_module = None;
         if !was_unlocked && state.auth.view == crate::auth::AuthView::Unlocked {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
                 let preferences = if wizard_completed {
@@ -705,12 +730,25 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         ThemeMode::System => state.appearance,
                     };
                     state.accent_id = preferences.accent_color;
+                    startup_module = startup_app(&preferences.startup_module);
                 }
             }
         }
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;
             state.desktop_open = true;
+            if let Some(app) = startup_module.filter(|app| {
+                state
+                    .desktop_icons
+                    .index_of(*app)
+                    .is_some()
+            }) {
+                // A stale or disabled start-up module falls back to the desktop instead of
+                // leaving the user on a blank screen.
+                if state.open_desktop_app(app, now).is_err() {
+                    state.desktop_open = true;
+                }
+            }
         }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
@@ -2368,6 +2406,14 @@ mod tests {
         let output = ctx.run(egui::RawInput::default(), |ctx| gallery(ctx, &mut state));
         assert!(output.shapes.len() > 10, "nothing was drawn");
         output.shapes.len()
+    }
+
+    #[test]
+    fn startup_module_resolves_only_known_desktop_apps() {
+        assert_eq!(startup_app("invoices"), Some(AppId::new("invoices")));
+        assert_eq!(startup_app("dashboard"), Some(AppId::new("dashboard")));
+        assert_eq!(startup_app("missing"), None);
+        assert_eq!(startup_app(""), None);
     }
 
     #[test]
