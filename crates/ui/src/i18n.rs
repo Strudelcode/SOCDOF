@@ -2048,6 +2048,7 @@ pub const UI_KEYS: &[&str] = &[
     "therapie_trip_saved",
     "therapie_trip_start_km",
     "therapie_trip_values_invalid",
+    "restaurant_paid",
 ];
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
