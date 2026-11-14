@@ -2273,7 +2273,10 @@ mod tests {
             .expect("reload")
             .expect("invoice");
         assert_eq!(stored.status, InvoiceStatus::Sent);
-        assert_eq!(store.invoice_payment(invoice.id).expect("payment read"), None);
+        assert_eq!(
+            store.invoice_payment(invoice.id).expect("payment read"),
+            None
+        );
     }
 
     #[test]
