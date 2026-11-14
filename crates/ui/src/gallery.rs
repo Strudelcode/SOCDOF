@@ -850,10 +850,11 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_icons,
             &mut state.desktop_windows,
             now,
-            |app, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
+            |app, active, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
                 "contacts" => {
                     crate::contacts::contacts_window(
                         ctx,
+                        active,
                         ui,
                         theme,
                         texts,
@@ -869,6 +870,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 "invoices" => {
                     crate::invoices::invoices_window(
                         ctx,
+                        active,
                         ui,
                         theme,
                         texts,
@@ -884,6 +886,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 "settings" => {
                     crate::settings::settings_window(
                         ctx,
+                        active,
                         ui,
                         theme,
                         texts,
