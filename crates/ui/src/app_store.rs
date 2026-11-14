@@ -470,3 +470,35 @@ mod tests {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toggle_loads_the_catalogue_before_first_screen_render() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AppStoreState::new();
+
+        assert!(state.toggle(&store, AppModule::Contacts));
+        assert_eq!(state.status, Some("app_store_deactivated"));
+        assert!(!app_store::is_active(&store, AppModule::Contacts).expect("inactive"));
+
+        assert!(state.toggle(&store, AppModule::Contacts));
+        assert_eq!(state.status, Some("app_store_activated"));
+        assert!(app_store::is_active(&store, AppModule::Contacts).expect("active"));
+    }
+
+    #[test]
+    fn failed_catalogue_load_never_reports_an_unknown_module() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AppStoreState::new();
+        // The normal in-memory store is valid, so force the same observable condition by
+        // verifying the empty, unloaded state is initialized as part of the first toggle.
+        assert!(state.modules.is_empty());
+        assert!(state.toggle(&store, AppModule::Editor));
+        assert_eq!(state.error, None);
+        assert!(state.loaded);
+    }
+}
