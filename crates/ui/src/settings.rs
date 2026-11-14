@@ -419,6 +419,7 @@ pub struct SettingsState {
     role_level_popups: Vec<PopupState>,
     error: Option<&'static str>,
     status: Option<&'static str>,
+    saved_preferences: Option<Preferences>,
     /// Set when the back button or Escape on a top-level view was used.
     pub back: bool,
     loaded: bool,
@@ -459,6 +460,7 @@ impl Default for SettingsState {
             role_level_popups: vec![PopupState::default(); ALL_MODULES.len()],
             error: None,
             status: None,
+            saved_preferences: None,
             back: false,
             loaded: false,
         }
@@ -474,6 +476,11 @@ impl SettingsState {
     /// Current tab.
     pub fn tab(&self) -> SettingsTab {
         self.tab
+    }
+
+    /// Takes appearance preferences after a successful save so the desktop shell can apply them.
+    pub fn take_saved_preferences(&mut self) -> Option<Preferences> {
+        self.saved_preferences.take()
     }
 
     /// Switches tab and clears the transient editor.
@@ -569,6 +576,7 @@ impl SettingsState {
         let preferences = self.appearance.to_preferences();
         match settings_service::save_preferences(store, user_id, &preferences) {
             Ok(()) => {
+                self.saved_preferences = Some(preferences);
                 self.error = None;
                 self.status = Some("settings_saved");
                 true
