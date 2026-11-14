@@ -366,7 +366,7 @@ mod trip_tests {
 
         let mut trip = trip(Some(client.id));
         assert_eq!(trip.distance_km_milli(), 42_000);
-        assert_eq!(trip.reimbursement(), Money::from_cents(160));
+        assert_eq!(trip.reimbursement(), Money::from_cents(1_596));
         store.insert_therapy_trip(&trip).expect("insert");
         assert_eq!(store.therapy_trips().expect("list"), vec![trip.clone()]);
 
@@ -374,7 +374,7 @@ mod trip_tests {
         trip.purpose = "Folgetermin".to_string();
         store.update_therapy_trip(&trip).expect("update");
         assert_eq!(store.therapy_trips().expect("reload"), vec![trip.clone()]);
-        assert_eq!(trip.reimbursement(), Money::from_cents(176));
+        assert_eq!(trip.reimbursement(), Money::from_cents(1_764));
 
         store.delete_therapy_trip(trip.id).expect("delete");
         assert!(store.therapy_trips().expect("empty").is_empty());
