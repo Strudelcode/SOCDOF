@@ -227,10 +227,6 @@ impl AuthState {
 
     /// Creates the first administrator when the database has no accounts.
     pub fn create_first_admin(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if store.user_count()? > 0 {
-            self.error = Some("auth_error_setup_exists");
-            return Ok(());
-        }
         if self.username.trim().chars().count() < 3 {
             self.error = Some("auth_error_username_short");
             return Ok(());
@@ -271,8 +267,12 @@ impl AuthState {
             });
             return Ok(());
         }
-        if store.insert_user(&user).is_err() {
-            self.error = Some("auth_error_storage");
+        if store.insert_first_admin(&user).is_err() {
+            self.error = Some(if store.user_count().unwrap_or(0) > 0 {
+                "auth_error_setup_exists"
+            } else {
+                "auth_error_storage"
+            });
             return Ok(());
         }
 
