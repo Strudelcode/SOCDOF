@@ -154,12 +154,19 @@ impl TherapyTrip {
         (self.end_km_milli - self.start_km_milli).max(0)
     }
 
-    /// Reimbursement rounded to the nearest cent.
+    /// Reimbursement shown in the mileage screen; legacy UI defaults a missing/zero rate to 0.30.
     pub fn reimbursement(&self) -> Money {
-        let cents = (i128::from(self.distance_km_milli())
-            * i128::from(self.rate_cents_per_km.max(0))
-            + 500)
-            / 1000;
+        self.reimbursement_at_rate(30)
+    }
+
+    /// Reimbursement using an explicit fallback rate, rounded to the nearest cent.
+    pub fn reimbursement_at_rate(&self, fallback_cents_per_km: i64) -> Money {
+        let rate = if self.rate_cents_per_km == 0 {
+            fallback_cents_per_km.max(0)
+        } else {
+            self.rate_cents_per_km.max(0)
+        };
+        let cents = (i128::from(self.distance_km_milli()) * i128::from(rate) + 500) / 1000;
         Money::from_cents(cents.min(i128::from(i64::MAX)) as i64)
     }
 
