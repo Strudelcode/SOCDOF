@@ -35,6 +35,6 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - [ ] Add dedicated manual tax-ledger rows if required beyond the existing journal form.
 - [ ] Compare exact Excel XML layout, formula ranges/behavior, filenames, monthly CSV bytes and locale/date formatting against the TypeScript reference.
 - [x] Include practice billing items and suppress linked invoice duplicates.
-- [ ] Port therapy practice trips with their per-trip mileage rate; the generic fleet logbook uses a different fixed allowance and is intentionally not substituted.
+- [x] Include persisted therapy practice trips as bank expenses in the monthly tax-advisor ledger, using each trip's own rate and the legacy route description; regression coverage checks date, channel, amount and description. The native egui mileage editor and exact TypeScript rate precision/preset behavior remain open.
 
 The Accounting module is not parity-signed-off until the remaining checks and full cross-platform CI pass.
