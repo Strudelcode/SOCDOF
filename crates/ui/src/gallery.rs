@@ -29,7 +29,9 @@ use crate::controls::{
     DrawerLabels, PopupState,
 };
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
-use crate::desktop::{desktop_with_content, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
+use crate::desktop::{
+    desktop_with_content, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager,
+};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
 use crate::fleet::{fleet, FleetState};
 use crate::focus::FocusState;
