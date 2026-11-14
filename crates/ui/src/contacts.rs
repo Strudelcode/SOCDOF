@@ -486,6 +486,7 @@ pub fn contacts_content(
     });
 }
 
+/// Renders the full-screen contacts workflow, including refresh and confirmation dialogs.
 pub fn contacts(
     ctx: &Context,
     theme: &Theme,
