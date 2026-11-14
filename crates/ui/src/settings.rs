@@ -1207,6 +1207,40 @@ pub fn settings_content(
 }
 
 /// Renders the full-screen settings workflow, including refresh and destructive-action dialogs.
+/// Renders settings in a native desktop window, including refresh and confirmation dialogs.
+pub fn settings_window(
+    ctx: &Context,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        if state.restore_confirm {
+            state.restore_confirm = false;
+        } else if state.delete_target.is_some() {
+            state.delete_target = None;
+        } else if state.user_editor.is_some() {
+            state.user_editor = None;
+        } else if state.role_editor.is_some() {
+            state.role_editor = None;
+        } else {
+            state.back = true;
+        }
+    }
+
+    if state.refresh(store).is_err() {
+        state.error = Some("settings_error_load");
+    }
+
+    settings_content(ui, theme, texts, focus, state, store, now);
+    delete_modal(ctx, theme, texts, focus, state, store);
+    restore_modal(ctx, theme, texts, focus, state);
+}
+
 pub fn settings(
     ctx: &Context,
     theme: &Theme,
