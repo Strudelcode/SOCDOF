@@ -491,14 +491,12 @@ mod tests {
     }
 
     #[test]
-    fn failed_catalogue_load_never_reports_an_unknown_module() {
+    fn required_modules_remain_protected_after_lazy_initialization() {
         let store = Store::open_in_memory().expect("store");
         let mut state = AppStoreState::new();
-        // The normal in-memory store is valid, so force the same observable condition by
-        // verifying the empty, unloaded state is initialized as part of the first toggle.
-        assert!(state.modules.is_empty());
-        assert!(state.toggle(&store, AppModule::Editor));
-        assert_eq!(state.error, None);
+
+        assert!(!state.toggle(&store, AppModule::Dashboard));
+        assert_eq!(state.error, Some("app_store_error_required"));
         assert!(state.loaded);
     }
 }
