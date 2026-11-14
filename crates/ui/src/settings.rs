@@ -2712,6 +2712,11 @@ mod tests {
             .expect("prefs");
         assert_eq!(prefs.language, Language::Es);
         assert_eq!(prefs.theme_mode, ThemeMode::Dark);
+        let applied = state
+            .take_saved_preferences()
+            .expect("saved preferences are returned to the desktop shell");
+        assert_eq!(applied, prefs);
+        assert!(state.take_saved_preferences().is_none());
     }
 
     #[test]
