@@ -2083,6 +2083,25 @@ mod tests {
     }
 
     #[test]
+    fn restoring_saved_geometry_preserves_maximize_restore_rectangle() {
+        let mut manager = WindowManager::new();
+        manager.open(window("contacts", 0), 1_000);
+        let saved = Rect::from_min_size(Pos2::new(120.0, 90.0), Vec2::new(920.0, 640.0));
+
+        manager.restore_geometry(AppId::new("contacts"), saved, true, area());
+        let restored = manager.window(AppId::new("contacts")).expect("window");
+        assert_eq!(restored.rect(), area());
+        assert!(restored.is_maximized());
+        assert_eq!(restored.normal_rect(), saved);
+
+        manager.toggle_maximize(AppId::new("contacts"), area());
+        assert_eq!(
+            manager.window(AppId::new("contacts")).expect("window").rect(),
+            saved
+        );
+    }
+
+    #[test]
     fn maximize_remembers_and_restores_the_rectangle() {
         let mut manager = WindowManager::new();
         manager.open(window("contacts", 0), 1_000);
