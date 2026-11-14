@@ -4,6 +4,7 @@
 //! legacy JSON keys where possible so the import of existing data stays a straight mapping.
 
 pub mod accounting;
+pub mod accounting_report;
 pub mod appointment;
 pub mod billing;
 pub mod contact;
@@ -27,6 +28,7 @@ pub mod session;
 pub mod settings;
 pub mod stock;
 pub mod support;
+pub mod tax_advisor_ledger;
 pub mod therapy;
 pub mod user;
 pub mod workspace;

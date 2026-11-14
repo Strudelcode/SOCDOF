@@ -2,9 +2,9 @@
 // Phase 9 budget check: measures the artifacts this checkout actually builds.
 //
 // Every limit and its measurement context live in scripts/budgets.json. The script exits with 1
-// when a measurable budget is exceeded, so CI and a local run fail the same way. Artifacts that
-// need a display or the Tauri toolchain (installer, installed size, idle RAM/CPU) are reported as
-// "not built here" instead of being guessed; the desktop and gui-smoke CI jobs run them.
+// when a measurable budget is exceeded, so CI and a local run fail the same way. The native
+// executable is measured in the desktop job; idle RAM/CPU requires a display and is measured by
+// gui-smoke. The retained Tauri fallback is built and uploaded separately.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -70,34 +70,26 @@ function coldStart() {
   measure("cold start (median)", median, limit("cold_start_ms", budget.median_ms), "ms");
 }
 
-function installerBudgets() {
-  const dir = join(root, "crates/app/src-tauri/target/release/bundle");
-  const artifacts = files(dir).filter((file) => /\.(AppImage|deb|msi|exe|dmg)$/i.test(file));
-  if (!artifacts.length) {
-    rows.push({ label: "installer", value: "not built here (needs Tauri + GTK/WebKit)", cap: "", unit: "", ok: true });
-    rows.push({ label: "installed", value: "not built here (needs Tauri + GTK/WebKit)", cap: "", unit: "", ok: true });
+function nativeDesktopBudgets() {
+  // The Tauri bundle is a migration fallback and intentionally remains available until parity is
+  // accepted. The native Rust host is the release target for the new size gates.
+  const binary = join(root, "target/release/socdof-ui-desktop");
+  if (!existsSync(binary)) {
+    rows.push({ label: "native desktop binary", value: "not built here", cap: "", unit: "", ok: true });
+    rows.push({ label: "native installed footprint", value: "not built here", cap: "", unit: "", ok: true });
     return;
   }
-  const largest = artifacts
-    .map((file) => ({ file, bytes: statSync(file).size }))
-    .sort((a, b) => b.bytes - a.bytes)[0];
-  measure(`installer ${basename(largest.file)}`, largest.bytes, limit("installer_bytes", budgets.installer.max_bytes), "bytes");
-
-  const target = join(tmpdir(), `socdof-installed-${process.pid}`);
-  rmSync(target, { recursive: true, force: true });
-  mkdirSync(target, { recursive: true });
-  try {
-    if (largest.file.endsWith(".deb")) {
-      execFileSync("dpkg-deb", ["-x", largest.file, target]);
-    } else if (largest.file.endsWith(".AppImage")) {
-      execFileSync("chmod", ["+x", largest.file]);
-      execFileSync(largest.file, ["--appimage-extract"], { cwd: target });
-    }
-    const bytes = files(target).reduce((sum, file) => sum + statSync(file).size, 0);
-    if (bytes > 0) measure("installed", bytes, limit("installed_bytes", budgets.installed.max_bytes), "bytes");
-  } finally {
-    rmSync(target, { recursive: true, force: true });
-  }
+  const bytes = statSync(binary).size;
+  measure("native desktop binary", bytes, limit("native_binary_bytes", budgets.native_binary.max_bytes), "bytes");
+  // The current native distribution is a single executable plus OS-provided shared libraries.
+  // Its unpacked application footprint is therefore the executable itself; the installer cap is
+  // intentionally kept separate for a future platform installer.
+  measure(
+    "native installed footprint",
+    bytes,
+    limit("installed_bytes", budgets.installed.max_bytes),
+    "bytes",
+  );
 }
 
 function runtimeBudgets() {
@@ -124,7 +116,7 @@ if (!only || only === "bundles") {
   bundle("web bundle", join(root, budgets.web_bundle.path), "wasm_raw_bytes", "wasm_gzip_bytes");
 }
 if (!only || only === "cold_start") coldStart();
-if (!only || only === "artifacts") installerBudgets();
+if (!only || only === "artifacts") nativeDesktopBudgets();
 if (!only || only === "runtime") runtimeBudgets();
 if (!only || only === "bundles") {
   rows.push({ label: "large dataset (50k/100k frames)", value: "cargo test -p socdof-ui --test performance", cap: "", unit: "", ok: true });

@@ -23,7 +23,7 @@ use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
 use crate::domain::stock::StockMove;
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
-use crate::domain::therapy::{TherapyClient, TherapySession};
+use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::domain::user::User;
 use crate::domain::workspace::{Report, Widget};
 use crate::error::CoreResult;
@@ -53,7 +53,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 15;
+pub const SCHEMA_VERSION: i64 = 18;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -741,6 +741,21 @@ impl Store {
             version = 15;
         }
 
+        if version < 16 {
+            self.conn.execute_batch(SCHEMA_V16)?;
+            version = 16;
+        }
+
+        if version < 17 {
+            self.conn.execute_batch(SCHEMA_V17)?;
+            version = 17;
+        }
+
+        if version < 18 {
+            self.conn.execute_batch(SCHEMA_V18)?;
+            version = 18;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -1063,6 +1078,11 @@ impl Store {
     /// Searches contacts through the FTS5 index, falling back to substring matching.
     pub fn search_contacts(&self, query: &str) -> CoreResult<Vec<Contact>> {
         search::contacts(&self.conn, query)
+    }
+
+    /// Removes legacy placeholder e-mail addresses created by flawed older imports.
+    pub fn sanitize_legacy_contact_emails(&self) -> CoreResult<usize> {
+        contacts::sanitize_legacy_emails(&self.conn)
     }
 
     // --- Text editor documents -------------------------------------------------------------
@@ -1682,6 +1702,26 @@ impl Store {
         therapy::session_count(&self.conn, client_id)
     }
 
+    /// Lists every practice trip, newest first.
+    pub fn therapy_trips(&self) -> CoreResult<Vec<TherapyTrip>> {
+        therapy::list_trips(&self.conn)
+    }
+
+    /// Inserts a practice trip with its own reimbursement rate.
+    pub fn insert_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::insert_trip(&self.conn, trip)
+    }
+
+    /// Replaces a practice trip.
+    pub fn update_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::update_trip(&self.conn, trip)
+    }
+
+    /// Deletes a practice trip.
+    pub fn delete_therapy_trip(&self, id: uuid::Uuid) -> CoreResult<()> {
+        therapy::delete_trip(&self.conn, id)
+    }
+
     /// Puts every still open session of a client on one invoice.
     pub fn link_therapy_sessions(
         &self,
@@ -2077,6 +2117,36 @@ CREATE INDEX IF NOT EXISTS therapy_sessions_client
     ON therapy_sessions (client_id, started_at);
 "#;
 
+/// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
+const SCHEMA_V16: &str = r#"
+ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v17: preserve grouped VAT totals on POS receipts.
+const SCHEMA_V17: &str = r#"
+ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v18: persist the TherapyMileage logbook independently from treatment sessions.
+const SCHEMA_V18: &str = r#"
+CREATE TABLE IF NOT EXISTS therapy_trips (
+    id                 TEXT PRIMARY KEY,
+    client_id          TEXT REFERENCES therapy_clients(id) ON DELETE SET NULL,
+    date               TEXT NOT NULL,
+    departure          TEXT NOT NULL,
+    destination        TEXT NOT NULL,
+    purpose            TEXT NOT NULL DEFAULT '',
+    start_km_milli     INTEGER NOT NULL DEFAULT 0,
+    end_km_milli       INTEGER NOT NULL DEFAULT 0,
+    rate_cents_per_km  INTEGER NOT NULL DEFAULT 30
+);
+
+CREATE INDEX IF NOT EXISTS therapy_trips_date
+    ON therapy_trips(date DESC);
+CREATE INDEX IF NOT EXISTS therapy_trips_client
+    ON therapy_trips(client_id, date DESC);
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2084,6 +2154,7 @@ mod tests {
     use crate::domain::appointment::{Appointment, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
+    use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
     use crate::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
     use crate::domain::settings::ThemeMode;
@@ -2120,6 +2191,7 @@ mod tests {
             due_at: 86_400_000,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2186,6 +2258,7 @@ mod tests {
             due_at: now_millis(),
             currency_symbol: "€".to_string(),
             note: Some("Danke für den Auftrag".to_string()),
+            tax_total_override_cents: None,
             lines: vec![
                 InvoiceLine {
                     description: "Beratung".to_string(),
@@ -2236,6 +2309,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: Vec::new(),
         };
 
@@ -2340,6 +2414,7 @@ mod tests {
             paid_at: 10,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             cash_given: Some(Money::from_cents(1_000)),
             lines: vec![PosOrderLine {
                 product_id: Some(product.id),
@@ -2486,6 +2561,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2651,6 +2727,90 @@ mod tests {
         };
         assert!(store.adjust_stock(&too_much).is_err());
         assert_eq!(store.list_products().expect("list")[0].stock, 6);
+    }
+
+    #[test]
+    fn built_in_roles_gain_new_modules_without_losing_existing_grants() {
+        let store = Store::open_in_memory().expect("store");
+        let mut administrator = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("administrator")
+            .expect("administrator exists");
+        let original_contacts = administrator.level(AppModule::Contacts);
+        administrator.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&administrator.permissions)
+                        .expect("serialize old grants"),
+                    administrator.id.to_string(),
+                ],
+            )
+            .expect("simulate old admin role");
+
+        let mut standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("standard role")
+            .expect("standard role exists");
+        standard.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&standard.permissions).expect("serialize old grants"),
+                    standard.id.to_string(),
+                ],
+            )
+            .expect("simulate old standard role");
+
+        permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
+
+        let upgraded_admin = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("find")
+            .expect("admin");
+        let upgraded_standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("find")
+            .expect("standard");
+        assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
+        assert_eq!(
+            upgraded_admin.level(AppModule::Projects),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Projects),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Fleet),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Fleet),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Restaurant),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Restaurant),
+            PermissionLevel::Edit
+        );
     }
 
     #[test]

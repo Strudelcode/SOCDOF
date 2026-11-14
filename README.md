@@ -191,6 +191,19 @@ cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
 ```
 
+The native launcher now includes the Restaurant module alongside the existing business apps; its menu, table orders, kitchen flow and checkout use the shared SQLite store.
+
+The first native Rust desktop host is available separately from the Tauri transition build:
+
+```bash
+cargo run -p socdof-ui --features window --bin socdof-ui-desktop
+```
+
+It opens the persistent SQLite database under the operating-system application-data folder
+(Windows: `%APPDATA%\com.strudelcode.socdof\socdof.db`, matching the existing Tauri data folder). Use `--database <path>` to select another file.
+Unlike the component gallery, the desktop host does not seed example customers, invoices or
+demo accounts; it starts with first-run setup or the existing local login.
+
 Desktop prerequisites (Ubuntu/Debian):
 
 ```bash

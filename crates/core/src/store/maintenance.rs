@@ -14,7 +14,8 @@ use crate::error::CoreResult;
 /// Configuration lives outside this list on purpose: `settings`, `users`, `roles`, `auth_sessions`,
 /// `auth_attempts` and `app_meta` survive a reset, so the application stays signed in and keeps its
 /// configuration.
-pub const BUSINESS_TABLES: [&str; 19] = [
+pub const BUSINESS_TABLES: [&str; 20] = [
+    "therapy_trips",
     "invoice_lines",
     "stock_moves",
     "pos_order_lines",

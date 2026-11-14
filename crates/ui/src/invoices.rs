@@ -191,6 +191,7 @@ impl InvoiceDraft {
                 due_at: now + DUE_DAYS * DAY_MS,
                 currency_symbol: "€".to_string(),
                 note: None,
+                tax_total_override_cents: None,
                 lines: Vec::new(),
             },
         };
@@ -406,6 +407,11 @@ impl InvoicesState {
         Ok(())
     }
 
+    /// Marks the list dirty after another module creates an invoice.
+    pub fn invalidate(&mut self) {
+        self.reload = true;
+    }
+
     /// Selected invoice, if it is still part of the loaded list.
     pub fn current(&self) -> Option<&Invoice> {
         self.selected
@@ -568,6 +574,7 @@ fn sample_invoice(
         due_at: issued_at + DUE_DAYS * DAY_MS,
         currency_symbol: "€".to_string(),
         note,
+        tax_total_override_cents: None,
         lines,
     }
 }

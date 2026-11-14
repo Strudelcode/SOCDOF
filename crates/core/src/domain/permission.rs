@@ -41,10 +41,16 @@ pub enum AppModule {
     Editor,
     /// Documentation and changelog.
     Documentation,
+    /// Project portfolio and task management.
+    Projects,
+    /// Vehicle fleet, digital logbook and fuel records.
+    Fleet,
+    /// Restaurant floor plan, kitchen and hospitality checkout.
+    Restaurant,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 15] = [
+pub const ALL_MODULES: [AppModule; 18] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -60,6 +66,9 @@ pub const ALL_MODULES: [AppModule; 15] = [
     AppModule::Therapy,
     AppModule::Editor,
     AppModule::Documentation,
+    AppModule::Projects,
+    AppModule::Fleet,
+    AppModule::Restaurant,
 ];
 
 impl AppModule {
@@ -81,6 +90,9 @@ impl AppModule {
             AppModule::Therapy => "therapy",
             AppModule::Editor => "editor",
             AppModule::Documentation => "documentation",
+            AppModule::Projects => "projects",
+            AppModule::Fleet => "fleet",
+            AppModule::Restaurant => "restaurant",
         }
     }
 
@@ -220,6 +232,9 @@ impl Role {
             (AppModule::Therapy, PermissionLevel::Edit),
             (AppModule::Editor, PermissionLevel::Edit),
             (AppModule::Documentation, PermissionLevel::View),
+            (AppModule::Projects, PermissionLevel::Edit),
+            (AppModule::Fleet, PermissionLevel::Edit),
+            (AppModule::Restaurant, PermissionLevel::Edit),
         ];
 
         Role {
@@ -293,6 +308,9 @@ mod tests {
         assert!(role.allows(AppModule::Invoices, PermissionLevel::Edit));
         assert!(!role.allows(AppModule::Invoices, PermissionLevel::Manage));
         assert!(role.allows(AppModule::Reports, PermissionLevel::View));
+        assert!(role.allows(AppModule::Projects, PermissionLevel::Edit));
+        assert!(role.allows(AppModule::Fleet, PermissionLevel::Edit));
+        assert!(role.allows(AppModule::Restaurant, PermissionLevel::Edit));
     }
 
     #[test]

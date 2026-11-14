@@ -1,8 +1,10 @@
 name: Rust
 
 on:
-  # Automatic triggers are intentionally disabled while the Rust rewrite is
-  # merged. Run this workflow manually from the Actions tab when needed.
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feature/rust-native-desktop-host]
   workflow_dispatch:
 
 permissions:
@@ -119,6 +121,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
             xdotool \
             libssl-dev \
             patchelf \
@@ -136,6 +139,10 @@ jobs:
 
       - name: Format desktop crate
         run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
+
+      - name: Build native Rust desktop host
+        if: runner.os != 'macOS'
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
       - name: Build Tauri bundles
         working-directory: crates/app
@@ -166,16 +173,16 @@ jobs:
           sha256sum artifacts/SOCDOF-* > artifacts/SHA256SUMS-linux.txt
           ls -lh artifacts
 
-      - name: Check installer size budgets
+      - name: Check native Rust desktop size budgets
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/installer-budgets.txt
+          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/native-size-budgets.txt
           {
-            echo '### Installer size budgets'
+            echo '### Native Rust desktop size budgets'
             echo '```text'
-            cat artifacts/installer-budgets.txt
+            cat artifacts/native-size-budgets.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -359,6 +366,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
             libssl-dev \
             patchelf \
             xvfb \
@@ -373,6 +381,9 @@ jobs:
       - name: Build frontend
         working-directory: crates/app
         run: npm run build
+
+      - name: Build native Rust desktop host (release)
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
       - name: Build Tauri binary
         working-directory: crates/app
@@ -395,7 +406,7 @@ jobs:
           export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
-          export APP_BIN="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+          export APP_BIN="$PWD/target/release/socdof-ui-desktop"
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
@@ -813,7 +824,7 @@ jobs:
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
-          version: latest
+          version: v0.22.1
 
       - name: Build web bundle
         working-directory: crates/web

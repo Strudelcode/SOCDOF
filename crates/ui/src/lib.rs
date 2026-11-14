@@ -13,8 +13,8 @@
 //! stylesheet, the appearance/theme engine, the Rust-drawn icon set, the component kit with the
 //! input controls, keyboard focus with token focus rings, a small form framework, the
 //! four-language UI catalogue and the component gallery that renders every state. With the `window`
-//! feature the gallery also runs as a real eframe window (`socdof-ui-gallery`); the default build
-//! stays window free so tests need no desktop libraries.
+//! feature the component gallery runs as `socdof-ui-gallery` and the persistent application runs as
+//! `socdof-ui-desktop`; the default build stays window free so tests need no desktop libraries.
 //!
 //! The primitives are pinned by deterministic snapshots ([`snapshot::capture`]): paint commands are
 //! reduced to stable text and compared with golden files, so a geometry, color or text change is
@@ -34,6 +34,7 @@ pub mod controls;
 pub mod dashboard;
 pub mod desktop;
 pub mod editor;
+pub mod fleet;
 pub mod focus;
 pub mod form;
 pub mod gallery;
@@ -46,8 +47,10 @@ pub mod invoices;
 pub mod migration;
 pub mod pos;
 pub mod products;
+pub mod projects;
 pub mod purchases;
 pub mod reports;
+pub mod restaurant;
 pub mod richtext;
 pub mod settings;
 pub mod shell;
@@ -93,6 +96,7 @@ pub use desktop::{
 pub use editor::{
     editor, seed_documents, DocumentDraft, EditorState, SAMPLE_NOW_MS as EDITOR_SAMPLE_NOW_MS,
 };
+pub use fleet::{fleet, FleetState, FleetView};
 pub use focus::{focus_ring, FocusState};
 pub use form::{CloseDecision, Field, FormState, UnsavedGuard};
 pub use gallery::{gallery, GalleryState};
@@ -104,10 +108,12 @@ pub use invoices::{
 };
 pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
+pub use projects::{projects, ProjectsState, ProjectsView};
 pub use purchases::{
     purchases, seed_purchases, PurchaseDraft, PurchaseLineDraft, PurchasesState, PurchasesView,
 };
 pub use reports::{reports, ReportsState};
+pub use restaurant::{restaurant, RestaurantState, RestaurantView};
 pub use settings::{
     seed_settings, settings, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
 };

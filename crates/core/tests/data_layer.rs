@@ -68,6 +68,7 @@ fn invoice(number: &str, buyer: &Contact) -> Invoice {
         due_at: NOW,
         currency_symbol: "€".to_string(),
         note: Some("Danke".to_string()),
+        tax_total_override_cents: None,
         lines: vec![InvoiceLine {
             description: "Beratung".to_string(),
             quantity_milli: 1_000,
@@ -147,6 +148,7 @@ fn pos_receipt_rolls_back_when_the_stock_is_missing() {
         paid_at: NOW,
         currency_symbol: "€".to_string(),
         note: None,
+        tax_total_override_cents: None,
         cash_given: None,
         lines: vec![PosOrderLine {
             product_id: Some(product.id),

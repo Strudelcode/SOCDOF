@@ -77,10 +77,12 @@ pub enum Icon {
     Shield,
     /// Shopping bag, the point of sale module.
     Bag,
+    /// Car silhouette, the fleet module.
+    Car,
 }
 
 /// Every icon of the set, used by the gallery and the tests.
-pub const ALL_ICONS: [Icon; 34] = [
+pub const ALL_ICONS: [Icon; 35] = [
     Icon::Search,
     Icon::Plus,
     Icon::Edit,
@@ -115,6 +117,7 @@ pub const ALL_ICONS: [Icon; 34] = [
     Icon::Book,
     Icon::Shield,
     Icon::Bag,
+    Icon::Car,
 ];
 
 impl Icon {
@@ -429,6 +432,27 @@ impl Icon {
                     p(0.64, 0.22),
                     p(0.64, 0.32),
                 ]);
+            }
+            Icon::Car => {
+                polyline(vec![
+                    p(0.1, 0.62),
+                    p(0.2, 0.43),
+                    p(0.3, 0.25),
+                    p(0.7, 0.25),
+                    p(0.82, 0.43),
+                    p(0.92, 0.62),
+                    p(0.92, 0.78),
+                    p(0.08, 0.78),
+                    p(0.1, 0.62),
+                ]);
+                polyline(vec![
+                    p(0.3, 0.27),
+                    p(0.27, 0.58),
+                    p(0.73, 0.58),
+                    p(0.7, 0.27),
+                ]);
+                painter.circle_stroke(p(0.27, 0.78), rect.width() * 0.09, stroke);
+                painter.circle_stroke(p(0.73, 0.78), rect.width() * 0.09, stroke);
             }
             Icon::Wifi => {
                 for (spread, radius) in [(0.55, 0.44), (0.8, 0.3)] {

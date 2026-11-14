@@ -8,7 +8,7 @@ license.workspace = true
 
 [features]
 default = []
-# Window host for the gallery. Off by default so tests and clippy need no desktop libraries.
+# Native eframe window hosts for the gallery and persistent desktop. Off by default so tests and clippy need no desktop libraries.
 window = ["dep:eframe", "dialogs"]
 # Native file dialog only; compiles without the window host so the picker is testable/buildable.
 dialogs = ["dep:rfd"]
@@ -25,6 +25,11 @@ uuid = "1"
 [[bin]]
 name = "socdof-ui-gallery"
 path = "src/bin/gallery.rs"
+required-features = ["window"]
+
+[[bin]]
+name = "socdof-ui-desktop"
+path = "src/bin/desktop.rs"
 required-features = ["window"]
 
 [[bin]]

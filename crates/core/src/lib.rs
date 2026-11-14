@@ -8,6 +8,7 @@ pub mod autosave;
 pub mod backup;
 pub mod backup_scheduler;
 pub mod barcode;
+pub mod contact_import_export;
 pub mod csv;
 pub mod date;
 pub mod document_layout;

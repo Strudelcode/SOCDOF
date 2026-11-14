@@ -369,8 +369,8 @@ mod tests {
         let store = Store::open_in_memory().expect("store");
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
-        assert_eq!(state.modules.len(), 15);
-        assert_eq!(state.active_count(), 15);
+        assert_eq!(state.modules.len(), 18);
+        assert_eq!(state.active_count(), 18);
         let mut texts = texts();
         state.query = "therapie".to_string();
         let filtered = state.filtered(&texts);
@@ -394,6 +394,11 @@ mod tests {
         assert!(!app_store::is_active(&store, AppModule::Contacts).expect("state"));
         assert!(state.toggle(&store, AppModule::Contacts));
         assert!(app_store::is_active(&store, AppModule::Contacts).expect("state"));
+
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(!app_store::is_active(&store, AppModule::Restaurant).expect("restaurant inactive"));
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(app_store::is_active(&store, AppModule::Restaurant).expect("restaurant active"));
     }
 
     #[test]

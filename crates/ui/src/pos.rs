@@ -39,9 +39,10 @@ const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 const HOUR_MS: i64 = 60 * 60 * 1_000;
 
 /// Payment methods in display and storage order.
-const PAYMENTS: [PaymentMethod; 5] = [
+const PAYMENTS: [PaymentMethod; 6] = [
     PaymentMethod::Cash,
     PaymentMethod::Card,
+    PaymentMethod::Nfc,
     PaymentMethod::BankTransfer,
     PaymentMethod::Invoice,
     PaymentMethod::Other,
@@ -200,6 +201,7 @@ impl PosDraft {
             paid_at: now,
             currency_symbol: "€".to_string(),
             note: non_empty(&self.note),
+            tax_total_override_cents: None,
             cash_given,
             lines,
             legacy_id: None,
@@ -268,6 +270,7 @@ fn payment_key(method: PaymentMethod) -> &'static str {
     match method {
         PaymentMethod::Cash => "pos_payment_cash",
         PaymentMethod::Card => "pos_payment_card",
+        PaymentMethod::Nfc => "pos_payment_nfc",
         PaymentMethod::BankTransfer => "pos_payment_bank_transfer",
         PaymentMethod::Invoice => "pos_payment_invoice",
         PaymentMethod::Other => "pos_payment_other",
@@ -278,6 +281,7 @@ fn payment_tone(method: PaymentMethod) -> Tone {
     match method {
         PaymentMethod::Cash => Tone::Success,
         PaymentMethod::Card => Tone::Accent,
+        PaymentMethod::Nfc => Tone::Accent,
         PaymentMethod::BankTransfer => Tone::Neutral,
         PaymentMethod::Invoice => Tone::Warning,
         PaymentMethod::Other => Tone::Neutral,
@@ -565,6 +569,7 @@ fn sample_order(
         paid_at,
         currency_symbol: "€".to_string(),
         note,
+        tax_total_override_cents: None,
         cash_given,
         lines,
         legacy_id: None,
@@ -801,6 +806,7 @@ fn list_view(
                 ("pos_summary_gross", money("€", day.gross)),
                 ("pos_summary_cash", money("€", day.cash)),
                 ("pos_summary_card", money("€", day.card)),
+                ("pos_summary_nfc", money("€", day.nfc)),
             ] {
                 ui.vertical(|ui| {
                     ui.label(
@@ -1571,12 +1577,14 @@ mod tests {
 
     #[test]
     fn renders_the_list_the_detail_and_the_form() {
+        assert_eq!(payment_key(PaymentMethod::Nfc), "pos_payment_nfc");
         let (store, mut state, texts) = seeded();
 
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("pos_title")));
         assert!(painted.contains("BON-2026-0001"));
         assert!(painted.contains(texts.get("pos_summary_title")));
+        assert!(painted.contains(texts.get("pos_summary_nfc")));
         assert!(painted.contains(texts.get("pos_payment_cash")));
         assert!(painted.contains("40,16 €"));
 

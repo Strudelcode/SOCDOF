@@ -14,6 +14,8 @@ pub enum PaymentMethod {
     Cash,
     /// Card payment at the terminal.
     Card,
+    /// Contactless NFC or mobile wallet payment.
+    Nfc,
     /// Bank transfer after the sale (B2B).
     BankTransfer,
     /// Put on the customer's account as an invoice.
@@ -28,6 +30,7 @@ impl PaymentMethod {
         match self {
             PaymentMethod::Cash => "cash",
             PaymentMethod::Card => "card",
+            PaymentMethod::Nfc => "nfc",
             PaymentMethod::BankTransfer => "bank_transfer",
             PaymentMethod::Invoice => "invoice",
             PaymentMethod::Other => "other",
@@ -39,6 +42,7 @@ impl PaymentMethod {
         match value {
             "cash" => Some(PaymentMethod::Cash),
             "card" => Some(PaymentMethod::Card),
+            "nfc" => Some(PaymentMethod::Nfc),
             "bank_transfer" => Some(PaymentMethod::BankTransfer),
             "invoice" => Some(PaymentMethod::Invoice),
             "other" => Some(PaymentMethod::Other),
@@ -96,6 +100,9 @@ pub struct PosOrder {
     pub currency_symbol: String,
     /// Free text note.
     pub note: Option<String>,
+    /// Optional stored VAT override for grouped-tax legacy checkouts.
+    #[serde(default)]
+    pub tax_total_override_cents: Option<i64>,
     /// Cash handed over by the customer, when the order was paid in cash.
     #[serde(default)]
     pub cash_given: Option<Money>,
@@ -113,7 +120,9 @@ impl PosOrder {
 
     /// Sum of the tax amounts of all positions.
     pub fn total_tax(&self) -> Money {
-        self.lines.iter().map(PosOrderLine::tax).sum()
+        self.tax_total_override_cents
+            .map(Money::from_cents)
+            .unwrap_or_else(|| self.lines.iter().map(PosOrderLine::tax).sum())
     }
 
     /// Net plus tax, the amount the customer paid.
@@ -174,6 +183,12 @@ impl PosOrder {
         if self.lines.is_empty() {
             return Err("lines_required".to_string());
         }
+        if self
+            .tax_total_override_cents
+            .is_some_and(|amount| amount < 0)
+        {
+            return Err("tax_total_override_negative".to_string());
+        }
         if let Some(cash_given) = self.cash_given {
             if cash_given.cents() < 0 {
                 return Err("cash_given_negative".to_string());
@@ -215,6 +230,8 @@ pub struct PosSummary {
     pub cash: Money,
     /// Gross amount paid by card.
     pub card: Money,
+    /// Gross amount paid by NFC or mobile wallet.
+    pub nfc: Money,
     /// Gross amount paid by bank transfer.
     pub bank_transfer: Money,
     /// Gross amount put on an invoice.
@@ -236,6 +253,7 @@ impl Default for PosSummary {
             gross: Money::ZERO,
             cash: Money::ZERO,
             card: Money::ZERO,
+            nfc: Money::ZERO,
             bank_transfer: Money::ZERO,
             invoice: Money::ZERO,
             other: Money::ZERO,
@@ -256,6 +274,7 @@ pub fn summarize(orders: &[PosOrder]) -> PosSummary {
         match order.payment_method {
             PaymentMethod::Cash => summary.cash = summary.cash + order.total_gross(),
             PaymentMethod::Card => summary.card = summary.card + order.total_gross(),
+            PaymentMethod::Nfc => summary.nfc = summary.nfc + order.total_gross(),
             PaymentMethod::BankTransfer => {
                 summary.bank_transfer = summary.bank_transfer + order.total_gross()
             }
@@ -285,6 +304,7 @@ mod tests {
             paid_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             cash_given: None,
             legacy_id: None,
             lines: vec![
@@ -341,14 +361,17 @@ mod tests {
         cash.cash_given = Some(Money::from_cents(1_000));
         let mut card = sample();
         card.payment_method = PaymentMethod::Card;
+        let mut nfc = sample();
+        nfc.payment_method = PaymentMethod::Nfc;
 
-        let summary = summarize(&[cash, card]);
-        assert_eq!(summary.receipts, 2);
-        assert_eq!(summary.net, Money::from_cents(1_050));
-        assert_eq!(summary.tax, Money::from_cents(80));
-        assert_eq!(summary.gross, Money::from_cents(1_130));
+        let summary = summarize(&[cash, card, nfc]);
+        assert_eq!(summary.receipts, 3);
+        assert_eq!(summary.net, Money::from_cents(1_575));
+        assert_eq!(summary.tax, Money::from_cents(120));
+        assert_eq!(summary.gross, Money::from_cents(1_695));
         assert_eq!(summary.cash, Money::from_cents(565));
         assert_eq!(summary.card, Money::from_cents(565));
+        assert_eq!(summary.nfc, Money::from_cents(565));
         assert_eq!(summary.change, Money::from_cents(435));
     }
 
@@ -370,6 +393,7 @@ mod tests {
         for method in [
             PaymentMethod::Cash,
             PaymentMethod::Card,
+            PaymentMethod::Nfc,
             PaymentMethod::BankTransfer,
             PaymentMethod::Invoice,
             PaymentMethod::Other,

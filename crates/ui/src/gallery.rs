@@ -30,6 +30,7 @@ use crate::controls::{
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
 use crate::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
+use crate::fleet::{fleet, FleetState};
 use crate::focus::FocusState;
 use crate::form::{CloseDecision, Field, FormState, UnsavedGuard};
 use crate::i18n::UiTexts;
@@ -37,6 +38,7 @@ use crate::icons::Icon;
 use crate::invoices::{invoices, seed_invoices, InvoicesState};
 use crate::pos::{pos, seed_pos, PosState};
 use crate::products::{products, seed_products, ProductsState};
+use crate::projects::{projects, ProjectsState};
 use crate::purchases::{purchases, seed_purchases, PurchasesState};
 use crate::reports::{reports as reports_screen, ReportsState};
 use crate::settings::{seed_settings, settings, SettingsState};
@@ -127,6 +129,9 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Dashboard, "dashboard"),
         (AppModule::Contacts, "contacts"),
         (AppModule::Products, "products"),
+        (AppModule::Projects, "projects"),
+        (AppModule::Fleet, "fleet"),
+        (AppModule::Restaurant, "restaurant"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -240,6 +245,18 @@ pub struct GalleryState {
     pub products: ProductsState,
     /// Whether the products screen is shown instead of the gallery.
     pub products_open: bool,
+    /// Project portfolio and task management state.
+    pub projects: ProjectsState,
+    /// Whether the project management screen is open.
+    pub projects_open: bool,
+    /// Vehicle fleet, logbook and fuel state.
+    pub fleet: FleetState,
+    /// Restaurant floor plan, menu, kitchen and checkout state.
+    pub restaurant: crate::restaurant::RestaurantState,
+    /// Whether the fleet screen is open.
+    pub fleet_open: bool,
+    /// Whether the restaurant screen is open.
+    pub restaurant_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -292,13 +309,38 @@ pub struct GalleryState {
     pub auth: AuthState,
     /// Whether the authentication screen is shown instead of the gallery.
     pub auth_open: bool,
-    /// In-memory database behind the sample screens.
+    /// Database backing the UI; in-memory for gallery fixtures and persistent for the desktop host.
     pub store: Store,
 }
 
 impl GalleryState {
-    /// Builds the initial state for a language, appearance and accent.
+    /// Builds the sample state used by the component gallery and visual snapshots.
     pub fn new(language: Language, appearance: Appearance, accent_id: &str) -> CoreResult<Self> {
+        let store = Store::open_in_memory()?;
+        Self::build(language, appearance, accent_id, store, true)
+    }
+
+    /// Builds the real application state around an existing persistent database.
+    ///
+    /// Unlike GalleryState::new, this constructor never inserts sample business records or
+    /// demo credentials. Existing accounts are shown at the login screen; a new database starts
+    /// in the first-run setup flow.
+    pub fn from_store(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+    ) -> CoreResult<Self> {
+        Self::build(language, appearance, accent_id, store, false)
+    }
+
+    fn build(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+        seed_demo_data: bool,
+    ) -> CoreResult<Self> {
         let texts = load_texts(language)?;
         let form = FormState::new(vec![
             Field::new(texts.get("field_company"), texts.get("field_company_hint"))
@@ -308,54 +350,80 @@ impl GalleryState {
                 .required()
                 .email(),
         ]);
-        let store = Store::open_in_memory()?;
-        seed_sample(&store, &texts)?;
-        seed_products(&store, &texts)?;
+
+        if seed_demo_data {
+            seed_sample(&store, &texts)?;
+            seed_products(&store, &texts)?;
+            seed_invoices(&store, &texts)?;
+            seed_accounting(&store, &texts)?;
+            seed_purchases(&store, &texts)?;
+            seed_pos(&store, &texts)?;
+            seed_appointments(&store, &texts)?;
+            UsersState::seed(&store)?;
+            seed_settings(&store, &texts)?;
+            seed_documents(&store, &texts)?;
+            seed_support(&store, &texts)?;
+            seed_therapie(&store, &texts)?;
+        }
+
+        // Keep the real desktop's login/startup path lightweight. Each app refreshes from the
+        // persistent store when it is opened; the component gallery still eagerly loads its
+        // fixtures so visual and interaction tests keep their established starting state.
         let mut contacts_state = ContactsState::new();
-        contacts_state.refresh(&store)?;
         let mut products_state = ProductsState::new();
-        products_state.refresh(&store)?;
-        seed_invoices(&store, &texts)?;
+        let mut projects_state = ProjectsState::new();
+        let mut fleet_state = FleetState::new();
+        let mut restaurant_state = crate::restaurant::RestaurantState::new();
         let mut invoices_state = InvoicesState::new();
-        invoices_state.refresh(&store)?;
-        seed_accounting(&store, &texts)?;
         let mut accounting_state = AccountingState::new();
-        accounting_state.refresh(&store, now_millis())?;
-        seed_purchases(&store, &texts)?;
         let mut purchases_state = PurchasesState::new();
-        purchases_state.refresh(&store)?;
-        seed_pos(&store, &texts)?;
         let mut pos_state = PosState::new();
-        pos_state.refresh(&store)?;
-        seed_appointments(&store, &texts)?;
         let mut appointments_state = AppointmentsState::new();
-        appointments_state.refresh(&store)?;
-        UsersState::seed(&store)?;
         let mut users_state = UsersState::new();
-        users_state.refresh(&store)?;
-        seed_settings(&store, &texts)?;
         let mut settings_state = SettingsState::new();
-        settings_state.refresh(&store)?;
-        let auth_state = AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?;
-        seed_documents(&store, &texts)?;
+        if seed_demo_data {
+            contacts_state.refresh(&store)?;
+            products_state.refresh(&store)?;
+            projects_state.refresh(&store)?;
+            fleet_state.refresh(&store)?;
+            restaurant_state.refresh(&store)?;
+            invoices_state.refresh(&store)?;
+            accounting_state.refresh(&store, now_millis())?;
+            purchases_state.refresh(&store)?;
+            pos_state.refresh(&store)?;
+            appointments_state.refresh(&store)?;
+            users_state.refresh(&store)?;
+            settings_state.refresh(&store)?;
+        }
+        let auth_state = if seed_demo_data {
+            AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?
+        } else {
+            AuthState::new(&store, now_millis())?
+        };
         let mut editor_state = EditorState::new();
-        editor_state.reset_for_open(&store)?;
+        if seed_demo_data {
+            editor_state.reset_for_open(&store)?;
+        }
+
         let mut active_modules = app_store::active_modules(&store)?;
         if active_modules.is_empty() {
             active_modules = socdof_core::domain::permission::ALL_MODULES.to_vec();
         }
         let desktop_icons = desktop_icons(&texts, &active_modules);
-        let mut dashboard = DashboardState::new(DashboardData::sample(&texts));
+        let dashboard_data = if seed_demo_data {
+            DashboardData::sample(&texts)
+        } else {
+            let (company, counts, invoices, low_stock) = store.dashboard_snapshot(now_millis())?;
+            DashboardData::new(company, counts, invoices, low_stock)
+        };
+        let mut dashboard = DashboardState::new(dashboard_data);
         dashboard.set_active_modules(active_modules);
-        let mut app_store_state = AppStoreState::new();
-        app_store_state.refresh(&store)?;
-        seed_support(&store, &texts)?;
-        let mut support_state = SupportState::new();
-        support_state.refresh(&store)?;
+
+        let app_store_state = AppStoreState::new();
+        let support_state = SupportState::new();
         let reports_state = ReportsState::new();
-        seed_therapie(&store, &texts)?;
-        let mut therapie_state = TherapieState::new();
-        therapie_state.refresh(&store)?;
+        let therapie_state = TherapieState::new();
+
         Ok(Self {
             language,
             appearance,
@@ -388,6 +456,12 @@ impl GalleryState {
             contacts_open: false,
             products: products_state,
             products_open: false,
+            projects: projects_state,
+            projects_open: false,
+            fleet: fleet_state,
+            fleet_open: false,
+            restaurant: restaurant_state,
+            restaurant_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -413,7 +487,7 @@ impl GalleryState {
             therapie: therapie_state,
             therapie_open: false,
             auth: auth_state,
-            auth_open: false,
+            auth_open: !seed_demo_data,
             store,
         })
     }
@@ -455,11 +529,24 @@ impl GalleryState {
                 self.products.refresh(&self.store)?;
                 self.products_open = true;
             }
+            "projects" => {
+                self.projects.reset_for_open(&self.store)?;
+                self.projects_open = true;
+            }
+            "fleet" => {
+                self.fleet.reset_for_open(&self.store)?;
+                self.fleet_open = true;
+            }
+            "restaurant" => {
+                self.restaurant.reset_for_open(&self.store)?;
+                self.restaurant_open = true;
+            }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
                 self.invoices_open = true;
             }
             "accounting" => {
+                self.accounting.invalidate();
                 self.accounting.refresh(&self.store, now)?;
                 self.accounting_open = true;
             }
@@ -483,6 +570,7 @@ impl GalleryState {
             }
             "settings" => {
                 self.settings.reset_for_open();
+                self.settings.refresh(&self.store)?;
                 self.settings_open = true;
             }
             "editor" => {
@@ -564,6 +652,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.take_wizard_completed() {
             apply_setup_template(state);
         }
+        if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
+            state.auth_open = false;
+            state.desktop_open = true;
+        }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
             state.auth.back = false;
@@ -593,14 +685,17 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if outcome.lock {
             state.auth.lock(now);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.sign_out {
             let _ = state.auth.sign_out(&state.store, now);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if let Some(username) = outcome.switch_account.clone() {
             state.auth.begin_switch(&username);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.toggle_theme {
             state.appearance = if state.appearance.is_dark() {
@@ -652,6 +747,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 DashboardAction::OpenAccounting => {
                     state.dashboard_open = false;
                     state.dashboard.back = false;
+                    state.accounting.invalidate();
                     state.accounting_open = true;
                 }
                 DashboardAction::OpenPurchases => {
@@ -754,6 +850,88 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             state.products_open = false;
             state.products.back = false;
             state.desktop_windows.close(AppId::new("products"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.projects_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "projects", |focus| {
+            projects(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.projects,
+                &state.store,
+                now,
+            );
+        });
+        if let Some(invoice_id) = state.projects.created_invoice.take() {
+            state.projects_open = false;
+            state.desktop_windows.close(AppId::new("projects"), now);
+            state.invoices.invalidate();
+            match state.invoices.refresh(&state.store) {
+                Ok(()) => {
+                    state.invoices.select(invoice_id);
+                    state.invoices_open = true;
+                }
+                Err(error) => state.projects.error = Some(error.to_string()),
+            }
+        }
+        if closed || state.projects.back {
+            state.projects_open = false;
+            state.projects.back = false;
+            state.desktop_windows.close(AppId::new("projects"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.fleet_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "fleet", |focus| {
+            fleet(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.fleet,
+                &state.store,
+                now,
+            );
+        });
+        if closed || state.fleet.back {
+            state.fleet_open = false;
+            state.fleet.back = false;
+            state.desktop_windows.close(AppId::new("fleet"), now);
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.restaurant_open {
+        let closed = app_view(
+            ctx,
+            &theme,
+            &texts,
+            &mut state.focus,
+            "restaurant",
+            |focus| {
+                crate::restaurant::restaurant(
+                    ctx,
+                    &theme,
+                    &texts,
+                    focus,
+                    &mut state.restaurant,
+                    &state.store,
+                    now,
+                );
+            },
+        );
+        if closed || state.restaurant.back {
+            state.restaurant_open = false;
+            state.restaurant.back = false;
+            state.desktop_windows.close(AppId::new("restaurant"), now);
         }
         state.focus.finish_frame();
         return;
@@ -1265,6 +1443,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     )
                     .activated
                     {
+                        state.accounting.invalidate();
                         state.accounting_open = true;
                         state.accounting.view = crate::accounting::AccountingView::List;
                     }
@@ -2096,6 +2275,27 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn persistent_state_uses_the_supplied_store_without_demo_records() {
+        let store = Store::open_in_memory().expect("store");
+        let state = GalleryState::from_store(Language::De, Appearance::Dark, "indigo", store)
+            .expect("persistent state");
+
+        assert!(state.auth_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Setup);
+        assert_eq!(state.store.contact_count().expect("contacts"), 0);
+        assert_eq!(state.store.product_count().expect("products"), 0);
+        assert_eq!(state.store.invoice_count().expect("invoices"), 0);
+        assert_eq!(state.store.user_count().expect("users"), 0);
+
+        // Heavy module catalogues are deferred until the user actually opens the app.
+        assert!(state.app_store.modules.is_empty());
+        state
+            .open_desktop_app(AppId::new("app-store"), now_millis())
+            .expect("open App Store");
+        assert_eq!(state.app_store.modules.len(), 18);
+    }
+
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(language, appearance, "indigo").expect("gallery state");
@@ -2573,7 +2773,7 @@ mod tests {
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
         assert!(state.app_store_open, "App Store did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
-        assert_eq!(state.app_store.modules.len(), 15);
+        assert_eq!(state.app_store.modules.len(), 18);
     }
 
     #[test]

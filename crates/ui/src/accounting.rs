@@ -1,13 +1,14 @@
-//! Accounting module screen: journal, cash book, BWA and CSV export.
+//! Accounting module screen: journal, cash book, journal BWA, cross-module business report and CSV export.
 //!
 //! The screen works on the core store and the core accounting aggregate:
 //! [`Store::journal_entries_between`]/[`Store::search_journal_entries`] load the entries,
 //! [`Store::insert_journal_entry`], [`Store::update_journal_entry`] and
 //! [`Store::delete_journal_entry`] write them, while
 //! [`socdof_core::domain::accounting::summarize`] builds the BWA,
-//! [`socdof_core::domain::accounting::cash_book`] the running cash balance and
-//! [`socdof_core::domain::accounting::export_csv`] the export. No business logic lives in the
-//! screen.
+//! [`socdof_core::domain::accounting::cash_book`] the running cash balance,
+//! [`socdof_core::domain::accounting_report::build_business_accounting_report`] the legacy-style
+//! invoice/POS/purchase report and [`socdof_core::domain::accounting::export_csv`] the journal
+//! export. No business logic lives in the screen.
 //!
 //! Views are list (journal, cash book or BWA), detail and form. Every control registers in the
 //! shared [`FocusState`], every visible string comes from the catalogue and all painting uses the
@@ -18,6 +19,15 @@ use socdof_core::date;
 use socdof_core::domain::accounting::{
     cash_book, export_csv, summarize, BookingChannel, JournalEntry, JournalKind,
 };
+use socdof_core::domain::accounting_report::{
+    build_business_accounting_report, export_business_accounting_csv, BusinessAccountingReport,
+    ReportRange,
+};
+use socdof_core::domain::invoice::InvoiceStatus;
+use socdof_core::domain::tax_advisor_ledger::{
+    build_tax_advisor_transactions, build_yearly_ledger, export_monthly_ledger_csv,
+    export_tax_advisor_excel_xml, MonthlyLedgerData,
+};
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -26,7 +36,7 @@ use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, tabs, ButtonVariant, Tone,
 };
 use crate::controls::{select, text_field, PopupState};
-use crate::dashboard::Period;
+use crate::dashboard::Period as DashboardPeriod;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -38,6 +48,173 @@ pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
 /// Length of one day in milliseconds.
 const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 
+/// Date period used by the Accounting module, including its legacy custom range.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AccountingPeriod {
+    /// Every stored document.
+    #[default]
+    All,
+    /// Current UTC calendar day.
+    Today,
+    /// Current calendar month.
+    Month,
+    /// Current calendar quarter.
+    Quarter,
+    /// Current calendar year.
+    Year,
+    /// User-selected inclusive date range.
+    Custom,
+}
+
+impl AccountingPeriod {
+    /// Periods in display order.
+    pub const ALL: [AccountingPeriod; 6] = [
+        AccountingPeriod::All,
+        AccountingPeriod::Today,
+        AccountingPeriod::Month,
+        AccountingPeriod::Quarter,
+        AccountingPeriod::Year,
+        AccountingPeriod::Custom,
+    ];
+
+    /// Position in the period tab bar.
+    pub fn index(self) -> usize {
+        Self::ALL
+            .iter()
+            .position(|period| *period == self)
+            .unwrap_or(0)
+    }
+
+    /// Period from a tab position, falling back to all documents.
+    pub fn from_index(index: usize) -> Self {
+        Self::ALL
+            .get(index)
+            .copied()
+            .unwrap_or(AccountingPeriod::All)
+    }
+
+    /// Catalogue key of the period label.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            AccountingPeriod::All => "dashboard_period_all",
+            AccountingPeriod::Today => "accounting_period_today",
+            AccountingPeriod::Month => "dashboard_period_month",
+            AccountingPeriod::Quarter => "dashboard_period_quarter",
+            AccountingPeriod::Year => "dashboard_period_year",
+            AccountingPeriod::Custom => "accounting_period_custom",
+        }
+    }
+
+    /// Half-open timestamp range for the selected period.
+    pub fn range(self, now: i64, custom_from: &str, custom_to: &str) -> Option<(i64, i64)> {
+        match self {
+            AccountingPeriod::All => Some((i64::MIN, i64::MAX)),
+            AccountingPeriod::Today => {
+                let (year, month, day) = date::civil_from_millis(now);
+                let start = date::days_from_civil(year, month, day) * DAY_MS;
+                Some((start, start + DAY_MS))
+            }
+            AccountingPeriod::Month => Some(DashboardPeriod::Month.range(now)),
+            AccountingPeriod::Quarter => Some(DashboardPeriod::Quarter.range(now)),
+            AccountingPeriod::Year => Some(DashboardPeriod::Year.range(now)),
+            AccountingPeriod::Custom => {
+                let from = parse_date_start(custom_from)?;
+                let to = parse_date_start(custom_to)?.checked_add(DAY_MS)?;
+                (from < to).then_some((from, to))
+            }
+        }
+    }
+}
+
+fn safe_file_component(value: &str) -> String {
+    let cleaned = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if cleaned.trim_matches('_').is_empty() {
+        "Praxis".to_string()
+    } else {
+        cleaned
+    }
+}
+
+fn ledger_month_names(language: &str) -> Vec<String> {
+    let names = match language {
+        "en" => [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
+        "fr" => [
+            "Janvier",
+            "Février",
+            "Mars",
+            "Avril",
+            "Mai",
+            "Juin",
+            "Juillet",
+            "Août",
+            "Septembre",
+            "Octobre",
+            "Novembre",
+            "Décembre",
+        ],
+        "es" => [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre",
+        ],
+        _ => [
+            "Januar",
+            "Februar",
+            "März",
+            "April",
+            "Mai",
+            "Juni",
+            "Juli",
+            "August",
+            "September",
+            "Oktober",
+            "November",
+            "Dezember",
+        ],
+    };
+    names.iter().map(|name| (*name).to_string()).collect()
+}
+
+fn parse_date_start(value: &str) -> Option<i64> {
+    let value = value.trim();
+    if value.len() != 10 {
+        return None;
+    }
+    let iso = format!("{value}T00:00:00Z");
+    date::parse_iso8601(&iso)
+}
+
 /// Section of the accounting screen.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum AccountingTab {
@@ -48,6 +225,14 @@ pub enum AccountingTab {
     CashBook,
     /// Revenue and expenses grouped by account.
     Bwa,
+    /// Cross-module BWA, VAT, open receivables and POS close.
+    BusinessReport,
+    /// VAT advance return breakdown.
+    VatReturn,
+    /// Open customer receivables.
+    OpenItems,
+    /// POS daily close / Z report.
+    ZReport,
 }
 
 impl AccountingTab {
@@ -57,6 +242,10 @@ impl AccountingTab {
             AccountingTab::Journal => 0,
             AccountingTab::CashBook => 1,
             AccountingTab::Bwa => 2,
+            AccountingTab::BusinessReport => 3,
+            AccountingTab::VatReturn => 4,
+            AccountingTab::OpenItems => 5,
+            AccountingTab::ZReport => 6,
         }
     }
 
@@ -65,6 +254,10 @@ impl AccountingTab {
         match index {
             1 => AccountingTab::CashBook,
             2 => AccountingTab::Bwa,
+            3 => AccountingTab::BusinessReport,
+            4 => AccountingTab::VatReturn,
+            5 => AccountingTab::OpenItems,
+            6 => AccountingTab::ZReport,
             _ => AccountingTab::Journal,
         }
     }
@@ -75,6 +268,10 @@ impl AccountingTab {
             AccountingTab::Journal => "accounting_tab_journal",
             AccountingTab::CashBook => "accounting_tab_cash",
             AccountingTab::Bwa => "accounting_tab_bwa",
+            AccountingTab::BusinessReport => "accounting_tab_business",
+            AccountingTab::VatReturn => "accounting_tab_ustva",
+            AccountingTab::OpenItems => "accounting_tab_open_items",
+            AccountingTab::ZReport => "accounting_tab_z_report",
         }
     }
 }
@@ -219,6 +416,10 @@ fn money(amount: Money) -> String {
     amount.format_localized("€")
 }
 
+fn money_in_currency(amount: Money, currency: &str) -> String {
+    amount.format_localized(currency)
+}
+
 fn kind_key(kind: JournalKind) -> &'static str {
     match kind {
         JournalKind::Income => "accounting_kind_income",
@@ -246,11 +447,45 @@ pub struct AccountingState {
     /// Selected section.
     pub tab: AccountingTab,
     /// Selected period.
-    pub period: Period,
+    pub period: AccountingPeriod,
+    /// Custom range start (`YYYY-MM-DD`).
+    pub custom_from: String,
+    /// Custom range end (`YYYY-MM-DD`, inclusive).
+    pub custom_to: String,
     /// Search text; empty lists every entry of the period.
     pub query: String,
     /// Entries of the loaded period and query.
     pub entries: Vec<JournalEntry>,
+    /// Cross-module invoice, purchase and POS aggregates for the legacy Accounting dashboard.
+    pub business_report: BusinessAccountingReport,
+    /// Company name used in the business report export.
+    pub company_name: String,
+    /// Company currency used by the cross-module report.
+    pub currency_symbol: String,
+    /// Selected calendar year used for the monthly tax-advisor ledger.
+    pub tax_advisor_year: i32,
+    /// Dropdown state of the ledger year selector.
+    pub tax_advisor_year_popup: PopupState,
+    /// Owner or company name printed on the tax-advisor workbook.
+    pub tax_advisor_owner: String,
+    /// Language used for the tax-advisor workbook labels.
+    pub tax_advisor_language: String,
+    /// Twelve monthly cash/bank ledgers for the current year.
+    pub tax_advisor_months: Vec<MonthlyLedgerData>,
+    /// Set when the twelve-sheet Excel export is requested.
+    pub tax_advisor_export: bool,
+    /// Selected month for the single-month CSV export.
+    pub tax_advisor_month_index: usize,
+    /// Popup state of the monthly CSV selector.
+    pub tax_advisor_month_popup: PopupState,
+    /// Set when the selected month CSV export is requested.
+    pub tax_advisor_month_csv_export: bool,
+    /// Whether the opening cash/bank balance editor is open.
+    pub tax_advisor_carryover_open: bool,
+    /// Editable opening cash balance.
+    pub tax_advisor_cash_input: String,
+    /// Editable opening bank balance.
+    pub tax_advisor_bank_input: String,
     /// Selected entry, shown by the detail view.
     pub selected: Option<Uuid>,
     /// Current view.
@@ -272,7 +507,8 @@ pub struct AccountingState {
     /// Set when the back button was activated.
     pub back: bool,
     loaded_query: String,
-    loaded_period: Period,
+    loaded_period: AccountingPeriod,
+    loaded_tax_advisor_year: i32,
     reload: bool,
 }
 
@@ -280,9 +516,26 @@ impl Default for AccountingState {
     fn default() -> Self {
         Self {
             tab: AccountingTab::Journal,
-            period: Period::All,
+            period: AccountingPeriod::All,
+            custom_from: String::new(),
+            custom_to: String::new(),
             query: String::new(),
             entries: Vec::new(),
+            business_report: BusinessAccountingReport::default(),
+            company_name: String::new(),
+            currency_symbol: "€".to_string(),
+            tax_advisor_year: 0,
+            tax_advisor_year_popup: PopupState::default(),
+            tax_advisor_owner: String::new(),
+            tax_advisor_language: "de".to_string(),
+            tax_advisor_months: Vec::new(),
+            tax_advisor_export: false,
+            tax_advisor_month_index: 0,
+            tax_advisor_month_popup: PopupState::default(),
+            tax_advisor_month_csv_export: false,
+            tax_advisor_carryover_open: false,
+            tax_advisor_cash_input: "0.00".to_string(),
+            tax_advisor_bank_input: "0.00".to_string(),
             selected: None,
             view: AccountingView::List,
             draft: AccountingDraft::default(),
@@ -294,7 +547,8 @@ impl Default for AccountingState {
             status: None,
             back: false,
             loaded_query: String::new(),
-            loaded_period: Period::All,
+            loaded_period: AccountingPeriod::All,
+            loaded_tax_advisor_year: 0,
             reload: true,
         }
     }
@@ -306,13 +560,27 @@ impl AccountingState {
         Self::default()
     }
 
+    /// Marks journal and cross-module document aggregates stale before the screen is reopened.
+    pub fn invalidate(&mut self) {
+        self.reload = true;
+    }
+
     /// Reloads the entries when the period, the query or a write changed them.
     pub fn refresh(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if !self.reload && self.loaded_period == self.period && self.loaded_query == self.query {
+        if !self.reload
+            && self.loaded_period == self.period
+            && self.loaded_query == self.query
+            && self.loaded_tax_advisor_year == self.tax_advisor_year
+        {
             return Ok(());
         }
 
-        let (from, to) = self.period.range(now);
+        let Some((from, to)) = self.period.range(now, &self.custom_from, &self.custom_to) else {
+            self.entries.clear();
+            self.business_report = BusinessAccountingReport::default();
+            self.error = Some("accounting_error_period");
+            return Ok(());
+        };
         let mut entries = store.journal_entries_between(from, to)?;
         let term = self.query.trim().to_lowercase();
         if !term.is_empty() {
@@ -328,8 +596,88 @@ impl AccountingState {
         }
 
         self.entries = entries;
+
+        let company = store.company_profile()?;
+        self.company_name = company.name.clone();
+        self.currency_symbol = if company.currency.trim().is_empty() {
+            "€".to_string()
+        } else {
+            company.currency.clone()
+        };
+        self.tax_advisor_owner = if company.bank_account_holder.trim().is_empty() {
+            company.name.clone()
+        } else {
+            company.bank_account_holder.clone()
+        };
+        self.tax_advisor_language = company.language.as_str().to_string();
+
+        let invoices = store.list_invoices()?;
+        let purchases = store.list_purchase_orders()?;
+        let pos_orders = store.list_pos_orders()?;
+        let mut payments = Vec::new();
+        for invoice in invoices
+            .iter()
+            .filter(|invoice| invoice.status == InvoiceStatus::Paid)
+        {
+            if let Some(payment) = store.invoice_payment(invoice.id)? {
+                payments.push(payment);
+            }
+        }
+        let journal_entries = store.list_journal_entries()?;
+        let billing_items = store.list_billing_items()?;
+        let therapy_trips = store.therapy_trips()?;
+        let ledger_transactions = build_tax_advisor_transactions(
+            &invoices,
+            &payments,
+            &purchases,
+            &pos_orders,
+            &journal_entries,
+            &billing_items,
+            &therapy_trips,
+        );
+        let (current_year, _, _) = date::civil_from_millis(now);
+        let current_year = i32::try_from(current_year).unwrap_or(1970);
+        if self.tax_advisor_year == 0 {
+            self.tax_advisor_year = current_year;
+        }
+        let ledger_year = self.tax_advisor_year;
+        let month_names = ledger_month_names(company.language.as_str());
+        let carryover_key = format!("tax_advisor_ledger_initial_carryover_{ledger_year}");
+        let carryover = store.get_setting(&carryover_key)?;
+        let initial_cash = carryover
+            .as_ref()
+            .and_then(|value| value.get(concat!("cash", "_cents")))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0);
+        let initial_bank = carryover
+            .as_ref()
+            .and_then(|value| value.get(concat!("bank", "_cents")))
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0);
+        self.tax_advisor_cash_input = Money::from_cents(initial_cash).to_decimal_string();
+        self.tax_advisor_bank_input = Money::from_cents(initial_bank).to_decimal_string();
+        self.tax_advisor_months = build_yearly_ledger(
+            ledger_year,
+            &ledger_transactions,
+            &month_names,
+            Money::from_cents(initial_cash),
+            Money::from_cents(initial_bank),
+        );
+        self.business_report = build_business_accounting_report(
+            &invoices,
+            &purchases,
+            &pos_orders,
+            ReportRange {
+                from: Some(from),
+                to: Some(to),
+            },
+            now,
+        );
+
+        self.error = None;
         self.loaded_query = self.query.clone();
         self.loaded_period = self.period;
+        self.loaded_tax_advisor_year = self.tax_advisor_year;
         self.reload = false;
         Ok(())
     }
@@ -584,18 +932,145 @@ pub fn accounting(
         )
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                AccountingView::List => list_view(ui, theme, texts, focus, state),
+                AccountingView::List => list_view(ui, theme, texts, focus, state, now),
                 AccountingView::Detail => detail_view(ui, theme, texts, focus, state),
                 AccountingView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
         });
 
+    if state.tax_advisor_month_csv_export {
+        if let Some(month) = state
+            .tax_advisor_months
+            .get(state.tax_advisor_month_index.min(11))
+        {
+            let csv = export_monthly_ledger_csv(month, &state.tax_advisor_owner);
+            let safe_owner = safe_file_component(&state.tax_advisor_owner);
+            let filename = format!(
+                "Kassenbuch_{}_{}_{}_{}.csv",
+                safe_owner,
+                month.year,
+                month.month + 1,
+                safe_file_component(&month.month_name)
+            );
+            #[cfg(feature = "dialogs")]
+            {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_file_name(&filename)
+                    .add_filter("CSV", &["csv"])
+                    .save_file()
+                {
+                    if std::fs::write(path, csv.as_bytes()).is_ok() {
+                        state.status = Some("accounting_saved");
+                        state.error = None;
+                    } else {
+                        state.error = Some("accounting_error_save");
+                        state.status = None;
+                    }
+                }
+            }
+            #[cfg(not(feature = "dialogs"))]
+            {
+                let _ = filename;
+                ctx.output_mut(|output| output.copied_text = csv);
+                state.error = None;
+                state.status = Some("accounting_exported");
+            }
+        }
+        state.tax_advisor_month_csv_export = false;
+    }
+
+    if state.tax_advisor_export {
+        let workbook = export_tax_advisor_excel_xml(
+            state.tax_advisor_year,
+            &state.tax_advisor_owner,
+            &state.currency_symbol,
+            &state.tax_advisor_language,
+            &state.tax_advisor_months,
+        );
+        let safe_owner = state
+            .tax_advisor_owner
+            .chars()
+            .map(|character| {
+                if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                    character
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        let owner = if safe_owner.trim_matches('_').is_empty() {
+            "Praxis".to_string()
+        } else {
+            safe_owner
+        };
+        let filename = format!("Ein_und_Ausgaben_{}_{}.xls", owner, state.tax_advisor_year);
+        #[cfg(feature = "dialogs")]
+        {
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter("Excel SpreadsheetML", &["xls"])
+                .save_file()
+            {
+                if std::fs::write(path, workbook.as_bytes()).is_ok() {
+                    state.status = Some("accounting_saved");
+                    state.error = None;
+                } else {
+                    state.error = Some("accounting_error_save");
+                    state.status = None;
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            let _ = filename;
+            ctx.output_mut(|output| output.copied_text = workbook);
+            state.error = None;
+            state.status = Some("accounting_exported");
+        }
+        state.tax_advisor_export = false;
+    }
+
     if state.export {
-        let csv = export_csv(&state.entries);
-        ctx.output_mut(|output| output.copied_text = csv);
+        let csv = if state.tab == AccountingTab::BusinessReport {
+            export_business_accounting_csv(
+                &state.business_report,
+                &state.company_name,
+                texts.get(state.period.label_key()),
+                &format_date(now),
+                &state.currency_symbol,
+            )
+        } else {
+            export_csv(&state.entries)
+        };
+        #[cfg(feature = "dialogs")]
+        {
+            let (year, month, day) = date::civil_from_millis(now);
+            let filename = if state.tab == AccountingTab::BusinessReport {
+                format!("buchhaltung_bericht_{year:04}-{month:02}-{day:02}.csv")
+            } else {
+                format!("buchhaltung_buchungen_{year:04}-{month:02}-{day:02}.csv")
+            };
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter("CSV", &["csv"])
+                .save_file()
+            {
+                if std::fs::write(path, csv).is_ok() {
+                    state.status = Some("accounting_saved");
+                    state.error = None;
+                } else {
+                    state.error = Some("accounting_error_save");
+                    state.status = None;
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            ctx.output_mut(|output| output.copied_text = csv);
+            state.error = None;
+            state.status = Some("accounting_exported");
+        }
         state.export = false;
-        state.error = None;
-        state.status = Some("accounting_exported");
     }
 
     let mut open = state.confirm_delete;
@@ -642,6 +1117,96 @@ pub fn accounting(
     }
     state.confirm_delete = open;
 
+    let mut carryover_open = state.tax_advisor_carryover_open;
+    let mut save_carryover = false;
+    {
+        let focus = &mut *focus;
+        modal(
+            ctx,
+            theme,
+            &mut carryover_open,
+            texts.get("accounting_tax_advisor_opening_title"),
+            |ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_cash_input,
+                    texts.get("accounting_tax_advisor_cash_start"),
+                    "0.00",
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_bank_input,
+                    texts.get("accounting_tax_advisor_bank_start"),
+                    "0.00",
+                    None,
+                );
+                ui.add_space(10.0);
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("accounting_save"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        save_carryover = true;
+                        close = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("accounting_cancel"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        close = true;
+                    }
+                });
+                close
+            },
+        );
+    }
+    state.tax_advisor_carryover_open = carryover_open;
+
+    if save_carryover {
+        let cash = Money::parse(&state.tax_advisor_cash_input);
+        let bank = Money::parse(&state.tax_advisor_bank_input);
+        match (cash, bank) {
+            (Some(cash), Some(bank)) if cash.cents() >= 0 && bank.cents() >= 0 => {
+                let key = format!(
+                    "tax_advisor_ledger_initial_carryover_{}",
+                    state.tax_advisor_year
+                );
+                let value = serde_json::json!({
+                    (concat!("cash", "_cents")): cash.cents(),
+                    (concat!("bank", "_cents")): bank.cents()
+                });
+                if store.put_setting(&key, &value).is_ok() {
+                    state.invalidate();
+                    if state.refresh(store, now).is_ok() {
+                        state.status = Some("accounting_saved");
+                        state.error = None;
+                    } else {
+                        state.error = Some("accounting_error_save");
+                    }
+                } else {
+                    state.error = Some("accounting_error_save");
+                }
+            }
+            _ => state.error = Some("accounting_tax_advisor_balance_invalid"),
+        }
+    }
+
     if confirm && state.delete_selected(store, now).is_err() {
         state.error = Some("accounting_error_delete");
     }
@@ -653,6 +1218,7 @@ fn list_view(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut AccountingState,
+    now: i64,
 ) {
     let subtitle = format!(
         "{} · {}",
@@ -673,12 +1239,51 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut period_index = state.period.index();
-    let period_labels: Vec<&str> = Period::ALL
+    let period_labels: Vec<&str> = AccountingPeriod::ALL
         .iter()
         .map(|period| texts.get(period.label_key()))
         .collect();
     if tabs(ui, theme, focus, &period_labels, &mut period_index) {
-        state.period = Period::from_index(period_index);
+        state.period = AccountingPeriod::from_index(period_index);
+        if state.period == AccountingPeriod::Custom {
+            let today = date::format_iso8601(now)[..10].to_string();
+            if state.custom_from.is_empty() {
+                state.custom_from = today.clone();
+            }
+            if state.custom_to.is_empty() {
+                state.custom_to = today;
+            }
+        }
+        state.reload = true;
+    }
+    if state.period == AccountingPeriod::Custom {
+        ui.horizontal(|ui| {
+            let from_changed = text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.custom_from,
+                texts.get("accounting_period_from"),
+                "YYYY-MM-DD",
+                None,
+            )
+            .response
+            .changed();
+            let to_changed = text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.custom_to,
+                texts.get("accounting_period_to"),
+                "YYYY-MM-DD",
+                None,
+            )
+            .response
+            .changed();
+            if from_changed || to_changed {
+                state.reload = true;
+            }
+        });
     }
     ui.add_space(4.0);
     let mut tab_index = state.tab.index();
@@ -686,6 +1291,10 @@ fn list_view(
         AccountingTab::Journal,
         AccountingTab::CashBook,
         AccountingTab::Bwa,
+        AccountingTab::BusinessReport,
+        AccountingTab::VatReturn,
+        AccountingTab::OpenItems,
+        AccountingTab::ZReport,
     ]
     .iter()
     .map(|tab| texts.get(tab.label_key()))
@@ -696,26 +1305,113 @@ fn list_view(
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("accounting_search"),
-            150.0,
-        );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("accounting_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            state.start_new();
+        if matches!(
+            state.tab,
+            AccountingTab::Journal | AccountingTab::CashBook | AccountingTab::Bwa
+        ) {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("accounting_search"),
+                150.0,
+            );
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                state.start_new();
+            }
         }
-        if button(
+        if state.tab == AccountingTab::BusinessReport {
+            let (current_year, _, _) = date::civil_from_millis(now);
+            let current_year = i32::try_from(current_year).unwrap_or(1970);
+            let year_values: Vec<String> = (current_year - 5..=current_year + 1)
+                .map(|year| year.to_string())
+                .collect();
+            let year_labels: Vec<&str> = year_values.iter().map(String::as_str).collect();
+            ui.label(texts.get("accounting_tax_advisor_year"));
+            let mut year_index = state
+                .tax_advisor_year
+                .saturating_sub(current_year - 5)
+                .clamp(0, 6) as usize;
+            if select(
+                ui,
+                theme,
+                focus,
+                &mut state.tax_advisor_year_popup,
+                "accounting-tax-advisor-year",
+                &mut year_index,
+                &year_labels,
+            ) {
+                state.tax_advisor_year = current_year - 5 + year_index as i32;
+                state.reload = true;
+            }
+
+            let month_labels: Vec<&str> = state
+                .tax_advisor_months
+                .iter()
+                .map(|month| month.month_name.as_str())
+                .collect();
+            let mut month_index = state.tax_advisor_month_index.min(11);
+            if select(
+                ui,
+                theme,
+                focus,
+                &mut state.tax_advisor_month_popup,
+                "accounting-tax-advisor-month",
+                &mut month_index,
+                &month_labels,
+            ) {
+                state.tax_advisor_month_index = month_index;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_csv_month"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                state.tax_advisor_month_csv_export = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_opening_balance"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                state.tax_advisor_carryover_open = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("accounting_tax_advisor_export"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                state.tax_advisor_export = true;
+            }
+        }
+        if matches!(
+            state.tab,
+            AccountingTab::Journal
+                | AccountingTab::CashBook
+                | AccountingTab::Bwa
+                | AccountingTab::BusinessReport
+        ) && button(
             ui,
             theme,
             focus,
@@ -736,6 +1432,10 @@ fn list_view(
         AccountingTab::Journal => journal_table(ui, theme, texts, focus, state),
         AccountingTab::CashBook => cash_book_view(ui, theme, texts, state),
         AccountingTab::Bwa => bwa_view(ui, theme, texts, state),
+        AccountingTab::BusinessReport => business_report_view(ui, theme, texts, state),
+        AccountingTab::VatReturn => vat_return_view(ui, theme, texts, state),
+        AccountingTab::OpenItems => open_items_view(ui, theme, texts, state),
+        AccountingTab::ZReport => z_report_view(ui, theme, texts, state),
     }
 }
 
@@ -873,6 +1573,40 @@ fn cash_book_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &mut
 
 fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
     let summary = summarize(&state.entries);
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.add_space(8.0);
+        for (label, value, tone) in [
+            ("accounting_revenue", report.revenue_net, Tone::Success),
+            ("accounting_expense", report.purchase_net, Tone::Warning),
+            (
+                "accounting_result",
+                report.operating_profit_net,
+                Tone::Accent,
+            ),
+            (
+                "accounting_tax_balance",
+                report.vat_liability,
+                Tone::Neutral,
+            ),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                badge(
+                    ui,
+                    theme,
+                    &money_in_currency(value, &state.currency_symbol),
+                    tone,
+                );
+            });
+        }
+    });
+    ui.add_space(10.0);
     if summary.rows.is_empty() {
         card(ui, theme, |ui| {
             empty_state(
@@ -886,7 +1620,7 @@ fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
     }
 
     card(ui, theme, |ui| {
-        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.label(RichText::new(texts.get("accounting_tab_business")).strong());
         ui.add_space(6.0);
         for (label, value, tone) in [
             ("accounting_revenue", summary.revenue_net, Tone::Success),
@@ -937,6 +1671,366 @@ fn bwa_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
                     ui.end_row();
                 }
             });
+    });
+}
+
+fn business_report_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &AccountingState,
+) {
+    let report = &state.business_report;
+
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_bwa_title")).strong());
+        ui.add_space(8.0);
+        for (label, value, tone) in [
+            ("accounting_revenue", report.revenue_net, Tone::Success),
+            ("accounting_expense", report.purchase_net, Tone::Warning),
+            (
+                "accounting_result",
+                report.operating_profit_net,
+                Tone::Accent,
+            ),
+            (
+                "accounting_tax_balance",
+                report.vat_liability,
+                Tone::Neutral,
+            ),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                badge(
+                    ui,
+                    theme,
+                    &money_in_currency(value, &state.currency_symbol),
+                    tone,
+                );
+            });
+        }
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
+        ui.add_space(6.0);
+        egui::Grid::new("socdof-business-vat")
+            .num_columns(3)
+            .spacing(egui::vec2(16.0, 6.0))
+            .show(ui, |ui| {
+                for label in [
+                    "accounting_business_tax_rate",
+                    "accounting_business_taxable_basis",
+                    "accounting_business_vat_amount",
+                ] {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .strong()
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                ui.end_row();
+                for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
+                    ui.label(rate);
+                    ui.label(money_in_currency(bucket.net, &state.currency_symbol));
+                    ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
+                    ui.end_row();
+                }
+                ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
+                ui.label(money_in_currency(
+                    report.revenue_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
+                ui.end_row();
+                ui.label(texts.get("accounting_business_input_vat"));
+                ui.label(money_in_currency(
+                    report.purchase_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(
+                    report.purchase_tax,
+                    &state.currency_symbol,
+                ));
+                ui.end_row();
+                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label("-");
+                ui.label(
+                    RichText::new(money_in_currency(
+                        report.vat_liability,
+                        &state.currency_symbol,
+                    ))
+                    .strong(),
+                );
+                ui.end_row();
+            });
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(texts.get("accounting_business_open_items")).strong());
+            badge(
+                ui,
+                theme,
+                &format!(
+                    "{} · {}",
+                    report.open_receivables.len(),
+                    money_in_currency(report.open_receivables_total, &state.currency_symbol)
+                ),
+                if report.open_receivables.is_empty() {
+                    Tone::Success
+                } else {
+                    Tone::Warning
+                },
+            );
+        });
+        if report.open_receivables.is_empty() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("accounting_no_results"),
+                texts.get("accounting_empty_hint"),
+            );
+        } else {
+            ui.add_space(6.0);
+            egui::Grid::new("socdof-business-open-items")
+                .num_columns(3)
+                .spacing(egui::vec2(16.0, 6.0))
+                .show(ui, |ui| {
+                    for label in [
+                        "accounting_col_date",
+                        "accounting_col_description",
+                        "accounting_col_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(label))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    ui.end_row();
+                    for item in &report.open_receivables {
+                        ui.horizontal(|ui| {
+                            ui.label(format_date(item.due_at));
+                            if item.overdue {
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get("accounting_business_overdue"),
+                                    Tone::Warning,
+                                );
+                            }
+                        });
+                        ui.label(&item.number);
+                        ui.label(
+                            RichText::new(money_in_currency(item.amount, &state.currency_symbol))
+                                .strong(),
+                        );
+                        ui.end_row();
+                    }
+                });
+        }
+    });
+
+    ui.add_space(10.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_pos_close")).strong());
+        ui.add_space(6.0);
+        for (label, value) in [
+            ("pos_payment_cash", report.z_report.cash),
+            ("pos_payment_card", report.z_report.card),
+            ("pos_payment_nfc", report.z_report.nfc),
+            ("pos_payment_other", report.z_report.other),
+            ("pos_total_gross", report.z_report.gross),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(RichText::new(money_in_currency(value, &state.currency_symbol)).strong());
+            });
+        }
+        ui.label(
+            RichText::new(format!(
+                "{}: {}",
+                texts.get("accounting_business_receipts"),
+                report.z_report.receipts
+            ))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+    });
+}
+
+fn vat_return_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
+        ui.add_space(8.0);
+        egui::Grid::new("socdof-accounting-vat-return")
+            .num_columns(3)
+            .spacing(egui::vec2(18.0, 8.0))
+            .show(ui, |ui| {
+                for label in [
+                    "accounting_business_tax_rate",
+                    "accounting_business_taxable_basis",
+                    "accounting_business_vat_amount",
+                ] {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .strong()
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                ui.end_row();
+                for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
+                    ui.label(rate);
+                    ui.label(money_in_currency(bucket.net, &state.currency_symbol));
+                    ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
+                    ui.end_row();
+                }
+                ui.label(RichText::new(texts.get("accounting_business_output_vat")).strong());
+                ui.label(money_in_currency(
+                    report.revenue_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(report.output_vat, &state.currency_symbol));
+                ui.end_row();
+                ui.label(texts.get("accounting_business_input_vat"));
+                ui.label(money_in_currency(
+                    report.purchase_net,
+                    &state.currency_symbol,
+                ));
+                ui.label(money_in_currency(
+                    report.purchase_tax,
+                    &state.currency_symbol,
+                ));
+                ui.end_row();
+                ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+                ui.label("-");
+                ui.label(
+                    RichText::new(money_in_currency(
+                        report.vat_liability,
+                        &state.currency_symbol,
+                    ))
+                    .strong(),
+                );
+                ui.end_row();
+            });
+    });
+}
+
+fn open_items_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(texts.get("accounting_business_open_items")).strong());
+            badge(
+                ui,
+                theme,
+                &format!(
+                    "{} · {}",
+                    report.open_receivables.len(),
+                    money_in_currency(report.open_receivables_total, &state.currency_symbol)
+                ),
+                if report.open_receivables.is_empty() {
+                    Tone::Success
+                } else {
+                    Tone::Warning
+                },
+            );
+        });
+        if report.open_receivables.is_empty() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("accounting_no_results"),
+                texts.get("accounting_empty_hint"),
+            );
+        } else {
+            ui.add_space(8.0);
+            egui::Grid::new("socdof-accounting-open-items")
+                .num_columns(3)
+                .spacing(egui::vec2(18.0, 8.0))
+                .show(ui, |ui| {
+                    for label in [
+                        "accounting_col_date",
+                        "accounting_col_description",
+                        "accounting_col_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(label))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    ui.end_row();
+                    for item in &report.open_receivables {
+                        ui.horizontal(|ui| {
+                            ui.label(format_date(item.due_at));
+                            if item.overdue {
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get("accounting_business_overdue"),
+                                    Tone::Warning,
+                                );
+                            }
+                        });
+                        ui.label(&item.number);
+                        ui.label(
+                            RichText::new(money_in_currency(item.amount, &state.currency_symbol))
+                                .strong(),
+                        );
+                        ui.end_row();
+                    }
+                });
+        }
+    });
+}
+
+fn z_report_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
+    let report = &state.business_report;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("accounting_business_pos_close")).strong());
+        ui.add_space(8.0);
+        for (label, value) in [
+            ("pos_payment_cash", report.z_report.cash),
+            ("pos_payment_card", report.z_report.card),
+            ("pos_payment_nfc", report.z_report.nfc),
+            ("pos_payment_other", report.z_report.other),
+            ("pos_total_gross", report.z_report.gross),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(RichText::new(money_in_currency(value, &state.currency_symbol)).strong());
+            });
+        }
+        ui.label(
+            RichText::new(format!(
+                "{}: {}",
+                texts.get("accounting_business_receipts"),
+                report.z_report.receipts
+            ))
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
     });
 }
 
@@ -1332,7 +2426,7 @@ mod tests {
         assert_eq!(state.entries.len(), 1);
 
         state.query.clear();
-        state.period = Period::Month;
+        state.period = AccountingPeriod::Month;
         state.refresh(&store, SAMPLE_NOW_MS).expect("period");
         assert_eq!(state.entries.len(), 4);
     }
@@ -1366,9 +2460,15 @@ mod tests {
 
         state.tab = AccountingTab::Bwa;
         let painted = render(&mut state, &store);
-        assert!(painted.contains(texts.get("accounting_bwa_title")));
+        assert!(painted.contains(texts.get("accounting_tab_business")));
         assert!(painted.contains(texts.get("accounting_sample_account_revenue")));
         assert!(painted.contains(texts.get("accounting_result")));
+
+        state.tab = AccountingTab::BusinessReport;
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("accounting_bwa_title")));
+        assert!(painted.contains(texts.get("accounting_business_pos_close")));
+        assert!(painted.contains(texts.get("accounting_business_open_items")));
     }
 
     #[test]
@@ -1396,5 +2496,324 @@ mod tests {
         assert!(csv.starts_with("booked_at,description,account,counter_account"));
         assert!(csv.contains(texts.get("accounting_sample_income")));
         assert_eq!(csv.lines().count(), 5);
+    }
+
+    #[test]
+    fn business_report_refreshes_from_persisted_invoices_purchases_and_pos() {
+        use socdof_core::domain::billing::{BillingItem, BillingKind};
+        use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
+        use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use socdof_core::domain::payment::{InvoicePayment, PaymentMethod as InvoicePaymentMethod};
+        use socdof_core::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
+        use socdof_core::domain::purchase::{
+            PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus,
+        };
+
+        let store = Store::open_in_memory().expect("store");
+        let now = SAMPLE_NOW_MS;
+        let mut company = store.company_profile().expect("company profile");
+        company.name = "Accounting GmbH".to_string();
+        company.currency = "$".to_string();
+        store
+            .save_company_profile(&company)
+            .expect("save company profile");
+        let mut state = AccountingState::new();
+        state.refresh(&store, now).expect("initial refresh");
+        let mut contact = Contact::new(ContactKind::Person, now);
+        contact.name = Some("Accounting Customer".to_string());
+        contact.contact_type = ContactType::Both;
+        store.insert_contact(&contact).expect("contact");
+
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-001".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: now,
+            due_at: now + DAY_MS,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+
+        let paid_invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-002".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Paid,
+            issued_at: now - DAY_MS,
+            due_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Paid service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(4_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store.insert_invoice(&paid_invoice).expect("paid invoice");
+        store
+            .record_invoice_payment(&InvoicePayment::new(
+                paid_invoice.id,
+                InvoicePaymentMethod::Cash,
+                now,
+                "cash receipt".to_string(),
+            ))
+            .expect("record payment");
+
+        let linked_invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-REPORT-003".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Paid,
+            issued_at: now,
+            due_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Linked service".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(2_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store
+            .insert_invoice(&linked_invoice)
+            .expect("linked invoice");
+        store
+            .record_invoice_payment(&InvoicePayment::new(
+                linked_invoice.id,
+                InvoicePaymentMethod::Card,
+                now,
+                "card receipt".to_string(),
+            ))
+            .expect("record linked invoice payment");
+
+        let purchase = PurchaseOrder {
+            id: Uuid::new_v4(),
+            number: "PUR-REPORT-001".to_string(),
+            vendor_id: contact.id,
+            status: PurchaseOrderStatus::Received,
+            order_date: now,
+            expected_at: None,
+            currency_symbol: "€".to_string(),
+            note: None,
+            lines: vec![PurchaseOrderLine {
+                product_id: None,
+                description: "Supplies".to_string(),
+                quantity_milli: 1_000,
+                unit_cost: Money::from_cents(2_000),
+                tax_rate_bp: 1_900,
+            }],
+            legacy_id: None,
+            created_at: now,
+            updated_at: now,
+        };
+        store.insert_purchase_order(&purchase).expect("purchase");
+
+        let pos = PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: "POS-REPORT-001".to_string(),
+            contact_id: None,
+            payment_method: PaymentMethod::Nfc,
+            paid_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            cash_given: None,
+            lines: vec![PosOrderLine {
+                product_id: None,
+                description: "Coffee".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(5_000),
+                tax_rate_bp: 700,
+            }],
+            legacy_id: None,
+        };
+        store.insert_pos_order(&pos, &[]).expect("POS receipt");
+
+        let mut journal = JournalEntry::new(now);
+        journal.description = "Manual cash entry".to_string();
+        journal.account = "Kassa".to_string();
+        journal.counter_account = "Erlöse".to_string();
+        journal.amount = Money::from_cents(1_000);
+        journal.tax_rate_bp = 0;
+        journal.kind = JournalKind::Income;
+        journal.channel = BookingChannel::Cash;
+        store
+            .insert_journal_entry(&journal)
+            .expect("manual journal entry");
+
+        let billing = BillingItem {
+            id: Uuid::new_v4(),
+            contact_id: contact.id,
+            invoice_id: None,
+            kind: BillingKind::TherapySession,
+            code: "THERAPY".to_string(),
+            description: "Praxis consultation".to_string(),
+            service_date: now,
+            quantity_milli: 1_000,
+            unit_price: Money::from_cents(1_000),
+            tax_rate_bp: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        store
+            .insert_billing_item(&billing)
+            .expect("practice billing");
+
+        let linked_billing = BillingItem {
+            id: Uuid::new_v4(),
+            contact_id: contact.id,
+            invoice_id: Some(linked_invoice.id),
+            kind: BillingKind::Service,
+            code: "LINKED".to_string(),
+            description: "Linked practice service".to_string(),
+            service_date: now,
+            quantity_milli: 1_000,
+            unit_price: Money::from_cents(2_380),
+            tax_rate_bp: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        store
+            .insert_billing_item(&linked_billing)
+            .expect("linked practice billing");
+
+        state.invalidate();
+        state.refresh(&store, now).expect("refresh business report");
+        assert_eq!(state.company_name, "Accounting GmbH");
+        assert_eq!(state.currency_symbol, "$");
+        assert_eq!(state.business_report.invoice_net.cents(), 16_000);
+        assert_eq!(state.business_report.purchase_net.cents(), 2_000);
+        assert_eq!(state.business_report.pos_net.cents(), 5_000);
+        assert_eq!(state.business_report.open_receivables.len(), 1);
+        assert_eq!(state.business_report.z_report.nfc.cents(), 5_350);
+        let month = &state.tax_advisor_months[date::civil_from_millis(now).1 as usize - 1];
+        assert_eq!(month.income_cash.cents(), 5_760);
+        assert_eq!(month.income_bank.cents(), 8_730);
+        assert_eq!(month.expense_bank.cents(), 2_380);
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-002"));
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Manual cash entry"));
+        assert!(month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Praxis-Honorar – Praxis consultation"));
+        assert!(month.transactions.iter().any(
+            |transaction| transaction.description == "Praxis-Honorar – Linked practice service"
+        ));
+        assert!(!month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-003"));
+        assert!(!month
+            .transactions
+            .iter()
+            .any(|transaction| transaction.description == "Rechnung 2026-REPORT-001"));
+    }
+
+    #[test]
+    fn tax_advisor_ledger_can_load_a_previous_year() {
+        let store = Store::open_in_memory().expect("store");
+        store
+            .put_setting(
+                "tax_advisor_ledger_initial_carryover_2025",
+                &serde_json::json!({
+                    (concat!("cash", "_cents")): 2_500,
+                    (concat!("bank", "_cents")): 7_500
+                }),
+            )
+            .expect("save prior-year opening balances");
+        let mut state = AccountingState::new();
+        state.tax_advisor_year = 2025;
+        state
+            .refresh(&store, SAMPLE_NOW_MS)
+            .expect("refresh prior year");
+        assert_eq!(state.tax_advisor_year, 2025);
+        assert_eq!(state.tax_advisor_months[0].year, 2025);
+        assert_eq!(
+            state.tax_advisor_months[0].carry_over_total().cents(),
+            10_000
+        );
+    }
+
+    #[test]
+    fn tax_advisor_opening_balances_load_from_persistent_settings() {
+        let store = Store::open_in_memory().expect("store");
+        let (year, _, _) = date::civil_from_millis(SAMPLE_NOW_MS);
+        store
+            .put_setting(
+                &format!("tax_advisor_ledger_initial_carryover_{year}"),
+                &serde_json::json!({
+                    (concat!("cash", "_cents")): 12_345,
+                    (concat!("bank", "_cents")): 67_890
+                }),
+            )
+            .expect("save opening balances");
+        let mut state = AccountingState::new();
+        state.refresh(&store, SAMPLE_NOW_MS).expect("refresh");
+        let month = &state.tax_advisor_months[0];
+        assert_eq!(month.carry_over_cash.cents(), 12_345);
+        assert_eq!(month.carry_over_bank.cents(), 67_890);
+        assert_eq!(state.tax_advisor_cash_input, "123.45");
+        assert_eq!(state.tax_advisor_bank_input, "678.90");
+    }
+
+    #[test]
+    fn accounting_tabs_expose_the_legacy_vat_open_items_and_z_report_views() {
+        let tabs = [
+            AccountingTab::Journal,
+            AccountingTab::CashBook,
+            AccountingTab::Bwa,
+            AccountingTab::BusinessReport,
+            AccountingTab::VatReturn,
+            AccountingTab::OpenItems,
+            AccountingTab::ZReport,
+        ];
+        for (index, tab) in tabs.into_iter().enumerate() {
+            assert_eq!(tab.index(), index);
+            assert_eq!(AccountingTab::from_index(index), tab);
+            assert!(!tab.label_key().is_empty());
+        }
+        assert_eq!(AccountingTab::from_index(99), AccountingTab::Journal);
+    }
+
+    #[test]
+    fn accounting_periods_cover_today_and_custom_inclusive_dates() {
+        let now = date::days_from_civil(2026, 11, 13) * DAY_MS + 14 * 60 * 60 * 1_000;
+        let today_start = date::days_from_civil(2026, 11, 13) * DAY_MS;
+        assert_eq!(
+            AccountingPeriod::Today.range(now, "", ""),
+            Some((today_start, today_start + DAY_MS))
+        );
+
+        let from = date::days_from_civil(2026, 11, 1) * DAY_MS;
+        let to_exclusive = date::days_from_civil(2026, 11, 4) * DAY_MS;
+        assert_eq!(
+            AccountingPeriod::Custom.range(now, "2026-11-01", "2026-11-03"),
+            Some((from, to_exclusive))
+        );
+        assert!(AccountingPeriod::Custom
+            .range(now, "2026-11-04", "2026-11-03")
+            .is_none());
+        assert!(AccountingPeriod::Custom
+            .range(now, "2026-02-31", "2026-03-01")
+            .is_none());
     }
 }

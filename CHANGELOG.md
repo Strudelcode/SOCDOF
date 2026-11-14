@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Therapy mileage: added schema v18 and a persistent native trip model with optional client links,
+  route/purpose/date, odometer readings, an individually stored cents-per-kilometre rate and
+  cent-rounded reimbursement. Added Store CRUD, DesktopState/Tauri commands, reset handling and
+  regression tests for custom rates, updates, validation and retaining trip history when a client
+  is deleted. Therapy mileage is now included in the monthly tax-advisor ledger as a bank expense
+  using each trip's own rate. The native egui mileage screen now supports create/edit/delete, optional
+  client assignment, search, distance/reimbursement totals and DE/EN/FR/ES labels. Its defaults and
+  rounding are aligned with the legacy TherapyMileage screen and tax-ledger source.
+- Aligned the tax-advisor workbook's running-balance and current-balance formulas with the legacy
+  TypeScript R1C1 expressions; Rust keeps dynamically sized SUMIF ranges to avoid truncating large months.
+
+
 All notable changes to SOCDOF are documented here. The release workflow reads
 the section matching the pushed tag; a release fails if this file has no
 matching, non-empty section.
@@ -9,6 +23,36 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 `0.1.0`–`0.30.0` sections stay untouched and document everything before 26.
 
 ## [26.0.0] - unreleased
+
+### Added
+
+- Native Accounting business report: invoice/POS revenue and VAT, purchase input tax and expenses, operating result, 7%/19% VAT bases, open receivables and POS Z-report tender totals. The report refreshes on reopen, supports Today and custom date ranges, uses the company currency and saves the financial summary as CSV. A native tax-advisor export now creates a 12-sheet Excel-compatible workbook with live monthly total/balance formulas and cross-sheet carry-over references, plus selected-month CSV with monthly cash/bank totals, selectable years, editable persisted opening balances and source transactions from practice billings, sent/overdue/paid invoices (using recorded payment date and tender when available), POS, purchases and journal bookings, with linked invoice duplicates suppressed. The BWA tab also includes invoice/POS revenue minus purchase expenses while retaining the journal-account summary. Remaining parity checks are tracked in `docs/accounting-rust-parity.md`. The Accounting screen also exposes separate VAT return, open receivables and POS Z-report tabs in DE/EN/FR/ES.
+
+
+### Added
+
+- Native Contacts workflow: batch creation with atomic multi-row persistence, CSV import with an editable preview and category assignment, Outlook/Google/Apple-style header recognition, vCard 2.1/3.0/4.0 import, and CSV/vCard export through native file dialogs. vCard parsing now handles grouped properties, URI telephone values, truncated final cards and malformed email rejection; export folds long UTF-8 lines safely. The import/export engine is in the Rust core with parser and round-trip tests; all new UI labels are translated in DE/EN/FR/ES.
+
+### Fixed
+
+- Projects KPI parity: native Rust counts only tasks attached to the listed projects, matching
+  the TypeScript portfolio calculation. A regression test covers unrelated task records.
+- Fleet deletion parity: deleting a vehicle preserves its historical logbook trips and fuel
+  receipts, matching the TypeScript module. The persistence integration test now covers this.
+- Restaurant VAT parity: native order totals now aggregate net amounts by tax rate before rounding,
+  matching the TypeScript calculation. A cent-level regression test covers two small 7% lines.
+- Restaurant invoice parity: the v16 SQLite migration stores an optional invoice VAT override, so
+  the paid ERP invoice and POS ledger receipt retain the same grouped tax total after reload. Added a checkout
+  integration test for the one-cent rounding case (invoice schema v16, POS schema v17).
+- Therapy session parity: the native practice screen can now edit open sessions, persists the
+  changes through the existing SQLite update path, and prevents edits to sessions already linked
+  to an invoice. Added a regression test and DE/EN/FR/ES labels.
+- Therapy date parity: open sessions can now update their session date and start time as well as
+  duration, distance and notes. Invalid civil dates/times are rejected without overwriting the
+  stored session; the new fields are translated in DE/EN/FR/ES.
+- POS payment parity: NFC/mobile-wallet is now a distinct payment method, persists as `nfc`,
+  appears in the checkout selector and contributes to its own daily-close total. Added DE/EN/FR/ES labels and storage/summary tests.
+
 
 ### Known issues
 
@@ -22,6 +66,15 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   `RUST_MIGRATION.md` §2.1.
 
 ### Added
+
+- Native Rust Restaurant app: floor plan for all 13 legacy tables, indoor/terrace/bar/takeaway filters, open table tickets, menu CRUD and availability, kitchen workflow, item quantities and kitchen notes, server assignment, cash/card/NFC checkout, tips, split totals, GoBD hospitality receipts, atomic invoice/POS posting, daily Z-report KPIs and paid-receipt CSV export. Added to the App Store and role permissions with DE/EN/FR/ES labels.
+- Native Rust Fleet app: vehicle register, trip logbook, business/private/commute mileage, fuel and charging receipts, odometer updates, tax allowance metrics and GoBD-style CSV export. Registered in the App Store and role permissions with DE/EN/FR/ES translations.
+- Native Rust Projects app: persistent project/customer linking, project/task CRUD, task status transitions, billable-hour calculations, project KPIs, CSV export and draft invoice generation through the shared invoice templates. Registered in the module catalogue and role permissions; translated in DE/EN/FR/ES.
+
+- First persistent native egui desktop host: `socdof-ui-desktop` opens the real SQLite database,
+  acquires the legacy-compatible single-instance lock, restores the saved language/theme/accent and
+  enters the real first-run setup or local login flow. It does not insert gallery fixtures or demo
+  credentials; the component gallery remains a separate development tool.
 
 - FatturaPA XML import in the invoice screen: `fattura_import.ts` parses FatturaPA 1.2 documents
   (seller, buyer, document type, lines, VAT, due date, IBAN, CUP/CIG and bollo), reuses or creates
@@ -317,6 +370,11 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
   `app.exit` used to leave a fresh instance lock behind, so the next start failed with `lock_busy`;
   the lock is now released on `RunEvent::Exit`, and a lock whose local pid is gone counts as
   abandoned.
+
+### Fixed
+
+- Projects KPI parity: native Rust now counts only tasks attached to the listed projects, matching
+  the TypeScript portfolio calculation. Added a regression test for unrelated task records.
 
 ## [0.30.0] - 2026-11-08
 
