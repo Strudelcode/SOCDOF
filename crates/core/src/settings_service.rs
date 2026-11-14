@@ -170,7 +170,7 @@ pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout)
             .icon_positions
             .iter()
             .filter(|(slug, (column, row))| {
-                !slug.trim().is_empty() && slug.len() <= 64 && **column < 6 && **row < 256
+                !slug.trim().is_empty() && slug.len() <= 64 && *column < 6 && *row < 256
             })
             .map(|(slug, cell)| (slug.clone(), *cell))
             .collect(),
