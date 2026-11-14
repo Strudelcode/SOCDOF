@@ -310,16 +310,23 @@ impl TherapieState {
     /// Clears the mileage editor without changing stored records.
     pub fn clear_trip_draft(&mut self) {
         self.editing_trip = None;
-        self.trip_date = socdof_core::date::format_iso8601(SAMPLE_NOW_MS)
+        self.trip_date = socdof_core::date::format_iso8601(socdof_core::now_millis())
             .split('T')
             .next()
             .unwrap_or("2026-01-01")
             .to_string();
-        self.trip_departure.clear();
+        self.trip_departure = "Praxis".to_string();
         self.trip_destination.clear();
-        self.trip_purpose.clear();
-        self.trip_start_km.clear();
-        self.trip_end_km.clear();
+        self.trip_purpose = "Hausbesuch / Kliententermin".to_string();
+        let previous_end = self.trips.first().map(|trip| trip.end_km_milli).unwrap_or(0);
+        self.trip_start_km = format!("{:.3}", previous_end as f64 / 1000.0)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string();
+        self.trip_end_km = format!("{:.3}", (previous_end + 15_000) as f64 / 1000.0)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string();
         self.trip_rate = "0,30".to_string();
     }
 
