@@ -258,11 +258,10 @@ pub fn save_therapy_trip(
 
 /// Deletes a therapy practice mileage trip.
 #[tauri::command]
-pub fn delete_therapy_trip(
-    state: tauri::State<'_, DesktopState>,
-    id: Uuid,
-) -> Result<(), String> {
-    state.delete_therapy_trip(id).map_err(|error| error.to_string())
+pub fn delete_therapy_trip(state: tauri::State<'_, DesktopState>, id: Uuid) -> Result<(), String> {
+    state
+        .delete_therapy_trip(id)
+        .map_err(|error| error.to_string())
 }
 
 /// Deletes a therapy client by its identifier.
