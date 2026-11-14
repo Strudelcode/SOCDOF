@@ -31,7 +31,17 @@ use crate::tokens::{
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
-type DesktopWindowRenderer<'a> = dyn FnMut(AppId, bool, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool
+type DesktopWindowRenderer<'a> = dyn FnMut(
+        AppId,
+        bool,
+        &mut Ui,
+        &Context,
+        &Theme,
+        &UiTexts,
+        &mut FocusState,
+        &SocdofStore,
+        i64,
+    ) -> bool
     + 'a;
 
 /// Height of the taskbar at the bottom of the screen.
@@ -1156,7 +1166,8 @@ fn desktop_impl(
                         Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
                     );
                     ui.allocate_ui_at_rect(content_rect, |ui| {
-                        app_back = render_window(app, is_active, ui, ctx, theme, texts, focus, store, now);
+                        app_back =
+                            render_window(app, is_active, ui, ctx, theme, texts, focus, store, now);
                     });
                 } else {
                     let hint = painter.layout_no_wrap(
