@@ -149,6 +149,24 @@ fn preferences_key(user_id: Uuid) -> String {
 pub struct DesktopLayout {
     /// Stable app slug to grid cell (column, row).
     pub icon_positions: BTreeMap<String, (u32, u32)>,
+    /// Last normal window rectangle and maximize state, keyed by app slug.
+    pub window_states: BTreeMap<String, DesktopWindowLayout>,
+}
+
+/// Geometry restored when an application window is opened again.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopWindowLayout {
+    /// Horizontal position in desktop points.
+    pub x: i32,
+    /// Vertical position in desktop points.
+    pub y: i32,
+    /// Normal window width in desktop points.
+    pub width: u32,
+    /// Normal window height in desktop points.
+    pub height: u32,
+    /// Whether the window was maximized.
+    pub maximized: bool,
 }
 
 fn desktop_layout_key(user_id: Uuid) -> String {
@@ -173,6 +191,19 @@ pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout)
                 !slug.trim().is_empty() && slug.len() <= 64 && *column < 6 && *row < 256
             })
             .map(|(slug, cell)| (slug.clone(), *cell))
+            .collect(),
+        window_states: layout
+            .window_states
+            .iter()
+            .filter(|(slug, window)| {
+                !slug.trim().is_empty()
+                    && slug.len() <= 64
+                    && (-32_768..=32_768).contains(&window.x)
+                    && (-32_768..=32_768).contains(&window.y)
+                    && (320..=16_384).contains(&window.width)
+                    && (220..=16_384).contains(&window.height)
+            })
+            .map(|(slug, window)| (slug.clone(), *window))
             .collect(),
     };
     store.put_setting(
@@ -385,6 +416,45 @@ mod tests {
             .expect("defaults")
             .icon_positions
             .is_empty());
+    }
+
+    #[test]
+    fn desktop_window_geometry_is_persisted_per_user_and_sanitized() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let layout = DesktopLayout {
+            window_states: [
+                (
+                    "contacts".to_string(),
+                    DesktopWindowLayout {
+                        x: 120,
+                        y: 80,
+                        width: 900,
+                        height: 640,
+                        maximized: true,
+                    },
+                ),
+                (
+                    "invalid".to_string(),
+                    DesktopWindowLayout {
+                        width: 120,
+                        height: 100,
+                        ..DesktopWindowLayout::default()
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, user, &layout).expect("save");
+        let saved = desktop_layout(&store, user).expect("load");
+        assert_eq!(saved.window_states.len(), 1);
+        assert_eq!(
+            saved.window_states.get("contacts"),
+            layout.window_states.get("contacts")
+        );
     }
 
     #[test]
