@@ -301,8 +301,8 @@ impl TherapieState {
 
     /// Opens the practice mileage logbook.
     pub fn open_mileage(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
-        self.clear_trip_draft();
         self.trips = store.therapy_trips()?;
+        self.clear_trip_draft();
         self.view = TherapieView::Mileage;
         self.error = None;
         self.status = None;
