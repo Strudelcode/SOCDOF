@@ -2531,7 +2531,7 @@ mod tests {
                 |app, ui, _ctx, _theme, _texts, _focus, _store, _now| {
                     rendered_apps.push(app.as_str());
                     ui.label(format!("native content: {}", app.as_str()));
-                    false
+                    app.as_str() == "contacts"
                 },
             );
             assert!(!outcome.back);
@@ -2540,5 +2540,7 @@ mod tests {
         assert!(output.shapes.len() > 40, "desktop drew little");
         assert!(rendered_apps.contains(&"contacts"));
         assert!(rendered_apps.contains(&"invoices"));
+        assert!(!windows.is_open(AppId::new("contacts")));
+        assert!(windows.is_open(AppId::new("invoices")));
     }
 }
