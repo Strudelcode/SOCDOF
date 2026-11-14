@@ -112,11 +112,14 @@ Deine Geschäftsdaten gehören dir.
 
 ## 📥 Installation & Downloads
 
-Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
+Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
 
-1. **Setup-Installer (`SOCDOF Setup ... .exe`)**: Installation mit Desktop-Verknüpfung, Startmenü und Auto-Updater.
-2. **Portable Version (`SOCDOF ... .exe`)**: Eine einzelne EXE ohne Installation, mit Selbst-Update.
-3. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+1. **Native Rust Windows-Installation (`SOCDOF-<Version>-windows-x64-native-setup.exe`)**: Benutzerbezogene Installation unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, Startmenü- und Desktop-Verknüpfung sowie optionaler Autostart.
+2. **Tauri-Übergangsinstaller und MSI**: Bleiben während der nativen Abnahme als Rückfalloption verfügbar.
+3. **Portable Version**: Eine Installation ohne Setup; die Datenablage wird separat konfiguriert.
+4. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+
+Der native Installer ersetzt bei einer Aktualisierung die Programmdatei im bestehenden Installationsordner. Die Geschäftsdatenbank liegt getrennt unter `%APPDATA%\\SOCDOF` und bleibt auch bei einer Deinstallation erhalten. Der Autostart ist eine optionale Komponente und wird beim Entfernen der Anwendung ebenfalls entfernt.
 
 ---
 
