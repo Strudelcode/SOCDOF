@@ -119,7 +119,7 @@ Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https:/
 3. **Portable Version**: Eine Installation ohne Setup; die Datenablage wird separat konfiguriert.
 4. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
 
-Der native Installer ersetzt bei einer Aktualisierung die Programmdatei im bestehenden Installationsordner. Die Geschäftsdatenbank liegt getrennt unter `%APPDATA%\\SOCDOF` und bleibt auch bei einer Deinstallation erhalten. Der Autostart ist eine optionale Komponente und wird beim Entfernen der Anwendung ebenfalls entfernt.
+Der native Installer ersetzt bei einer Aktualisierung die Programmdatei im bestehenden Installationsordner. Die Geschäftsdatenbank liegt getrennt unter `%APPDATA%\\SOCDOF` und bleibt auch bei einer Deinstallation erhalten. Der Autostart ist eine optionale Opt-in-Komponente. Die Auswahl bleibt bei Updates erhalten; beim Entfernen der Anwendung wird die Verknüpfung ebenfalls entfernt.
 
 ---
 
