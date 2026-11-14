@@ -469,12 +469,6 @@ mod tests {
             assert!(output.expect("frame").shapes.len() > 5);
         }
     }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 
     #[test]
     fn toggle_loads_the_catalogue_before_first_screen_render() {
@@ -499,4 +493,5 @@ mod tests {
         assert_eq!(state.error, Some("app_store_error_required"));
         assert!(state.loaded);
     }
+}
 }
