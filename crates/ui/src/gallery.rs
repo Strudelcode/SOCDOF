@@ -8,7 +8,8 @@
 use egui::{Context, Id, RichText};
 use socdof_core::app_store;
 use socdof_core::domain::permission::AppModule;
-use socdof_core::domain::settings::Language;
+use socdof_core::domain::settings::{Language, ThemeMode};
+use socdof_core::settings_service::{self, Preferences};
 use socdof_core::error::CoreResult;
 use socdof_core::money::Money;
 use socdof_core::now_millis;
@@ -622,6 +623,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if state.auth.import_pending {
             let _ = state.auth.run_pending_import(&state.store);
         }
+        let was_unlocked = state.auth.view == crate::auth::AuthView::Unlocked;
         auth(
             ctx,
             &theme,
@@ -631,10 +633,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &state.store,
             now,
         );
-        // The wizard collects language, appearance, accent and layout; the host owns them, so it
-        // applies the choices as soon as the user leaves the step that made them.
+        // The wizard collects language, appearance, accent and layout; apply them immediately
+        // and persist the account preferences so they survive the next application start.
         if let Some(language) = state.auth.language_choice.take() {
-            state.language = language;
+            let _ = state.set_language(language);
         }
         if let Some(appearance) = state.auth.appearance_choice.take() {
             state.appearance = appearance;
@@ -649,8 +651,41 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             custom.revision = now as u64;
             state.shell.wallpaper.custom = Some(custom);
         }
-        if state.auth.take_wizard_completed() {
+        let wizard_completed = state.auth.take_wizard_completed();
+        if wizard_completed {
             apply_setup_template(state);
+        }
+        if !was_unlocked && state.auth.view == crate::auth::AuthView::Unlocked {
+            if let Some(user) = state.auth.user.as_ref() {
+                let preferences = if wizard_completed {
+                    Preferences {
+                        language: state.language,
+                        theme_mode: if state.appearance.is_dark() {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::Light
+                        },
+                        accent_color: state.accent_id.clone(),
+                        ..Preferences::default()
+                    }
+                } else {
+                    settings_service::preferences(&state.store, user.id).unwrap_or_default()
+                };
+                if wizard_completed {
+                    if let Err(error) =
+                        settings_service::save_preferences(&state.store, user.id, &preferences)
+                    {
+                        eprintln!("SOCDOF could not save first-run preferences: {error}");
+                    }
+                } else {
+                    let _ = state.set_language(preferences.language);
+                    state.appearance = match preferences.theme_mode {
+                        ThemeMode::Dark => Appearance::Dark,
+                        ThemeMode::Light | ThemeMode::System => Appearance::Light,
+                    };
+                    state.accent_id = preferences.accent_color;
+                }
+            }
         }
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;
