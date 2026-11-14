@@ -164,11 +164,7 @@ pub fn desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<DesktopLayout>
 }
 
 /// Saves a normalized desktop layout, ignoring malformed app slugs and excessive grid rows.
-pub fn save_desktop_layout(
-    store: &Store,
-    user_id: Uuid,
-    layout: &DesktopLayout,
-) -> CoreResult<()> {
+pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout) -> CoreResult<()> {
     let normalized = DesktopLayout {
         icon_positions: layout
             .icon_positions
@@ -372,12 +368,19 @@ mod tests {
         assert_eq!(loaded.icon_positions.len(), 2);
         assert_eq!(loaded.icon_positions.get("contacts"), Some(&(2, 1)));
         assert_eq!(
-            desktop_layout(&store, second).expect("other user").icon_positions,
+            desktop_layout(&store, second)
+                .expect("other user")
+                .icon_positions,
             BTreeMap::new()
         );
 
         delete_preferences(&store, first).expect("account preferences deleted");
-        assert_eq!(preferences(&store, first).expect("default preferences").accent_color, "indigo");
+        assert_eq!(
+            preferences(&store, first)
+                .expect("default preferences")
+                .accent_color,
+            "indigo"
+        );
         assert!(desktop_layout(&store, first)
             .expect("defaults")
             .icon_positions
