@@ -406,6 +406,7 @@ mod tests {
                     height: 640,
                     maximized: true,
                     open: true,
+                    minimized: false,
                 },
             )]
             .into_iter()
@@ -493,6 +494,7 @@ mod tests {
                         height: 640,
                         maximized: true,
                         open: true,
+                        minimized: false,
                     },
                 ),
                 (
