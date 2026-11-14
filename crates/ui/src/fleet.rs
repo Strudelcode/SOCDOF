@@ -355,9 +355,33 @@ impl FleetState {
         self.refresh(store)
     }
 
-    /// Exports the complete logbook with the core GoBD CSV format.
+    /// Returns the trips matching the current logbook filters.
+    pub fn filtered_trips(&self) -> Vec<FleetTrip> {
+        let query = self.query.trim().to_lowercase();
+        self.trips
+            .iter()
+            .filter(|trip| {
+                self.selected_vehicle_filter
+                    .map_or(true, |id| trip.vehicle_id == id)
+                    && (self.purpose_filter == "all" || trip.purpose == self.purpose_filter)
+                    && (self.date_from.is_empty()
+                        || trip.date.as_str() >= self.date_from.as_str())
+                    && (self.date_to.is_empty() || trip.date.as_str() <= self.date_to.as_str())
+                    && (query.is_empty()
+                        || trip.vehicle_plate.to_lowercase().contains(&query)
+                        || trip.driver.to_lowercase().contains(&query)
+                        || trip.start_location.to_lowercase().contains(&query)
+                        || trip.end_location.to_lowercase().contains(&query)
+                        || trip.reason.to_lowercase().contains(&query)
+                        || trip.customer_name.to_lowercase().contains(&query))
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Exports the currently filtered logbook with the core GoBD CSV format.
     pub fn export_csv(&self, path: &std::path::Path) -> socdof_core::CoreResult<u64> {
-        let content = csv(&self.trips);
+        let content = csv(&self.filtered_trips());
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -470,26 +494,7 @@ pub fn fleet(
         })
         .cloned()
         .collect();
-    let visible_trips: Vec<FleetTrip> = state
-        .trips
-        .iter()
-        .filter(|trip| {
-            state
-                .selected_vehicle_filter
-                .map_or(true, |id| trip.vehicle_id == id)
-                && (state.purpose_filter == "all" || trip.purpose == state.purpose_filter)
-                && (state.date_from.is_empty() || trip.date.as_str() >= state.date_from.as_str())
-                && (state.date_to.is_empty() || trip.date.as_str() <= state.date_to.as_str())
-                && (query.is_empty()
-                    || trip.vehicle_plate.to_lowercase().contains(&query)
-                    || trip.driver.to_lowercase().contains(&query)
-                    || trip.start_location.to_lowercase().contains(&query)
-                    || trip.end_location.to_lowercase().contains(&query)
-                    || trip.reason.to_lowercase().contains(&query)
-                    || trip.customer_name.to_lowercase().contains(&query))
-        })
-        .cloned()
-        .collect();
+    let visible_trips = state.filtered_trips();
     let stats = metrics(&visible_trips, &state.fuel, &state.vehicles);
     let visible_fuel: Vec<FleetFuel> = state
         .fuel
