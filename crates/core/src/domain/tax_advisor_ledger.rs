@@ -436,7 +436,7 @@ fn ledger_export_texts(language: &str) -> LedgerExportTexts {
 }
 
 /// Excel R1C1 formula for the running balance in the transaction table.
-const LEDGER_BALANCE_FORMULA: &str = "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)),R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6),&quot;&quot;)";
+const LEDGER_BALANCE_FORMULA: &str = "=IF(AND(RC2&lt;&gt;&quot;&quot;,OR(RC5&lt;&gt;&quot;&quot;,RC6&lt;&gt;&quot;&quot;)), R5C7+SUMIF(R11C2:RC2,&quot;?*&quot;,R11C5:RC5)-SUMIF(R11C2:RC2,&quot;?*&quot;,R11C6:RC6), &quot;&quot;)";
 
 /// Exports the twelve monthly sheets as Excel-compatible SpreadsheetML (.xls).
 pub fn export_tax_advisor_excel_xml(
@@ -609,12 +609,12 @@ pub fn export_tax_advisor_excel_xml(
                 (
                     &month.current_balance_cash.to_decimal_string(),
                     "Formula",
-                    "=R5C5+R6C5-R7C5",
+                    "=R[-3]C+R[-2]C-R[-1]C",
                 ),
                 (
                     &month.current_balance_bank.to_decimal_string(),
                     "Formula",
-                    "=R5C6+R6C6-R7C6",
+                    "=R[-3]C+R[-2]C-R[-1]C",
                 ),
                 (
                     &month.current_balance_total().to_decimal_string(),
@@ -1132,6 +1132,8 @@ mod tests {
         assert!(xml.contains("€"));
         assert!(xml.contains("ss:Formula"));
         assert!(xml.contains("SUMIF"));
+        assert!(xml.contains(")), R5C7+SUMIF"));
+        assert!(xml.contains("R[-3]C+R[-2]C-R[-1]C"));
         assert!(xml.contains("&apos;M1&apos;!R8C5"));
         let english = export_tax_advisor_excel_xml(2026, "Muster & Partner", "€", "en", &months);
         assert!(english.contains("Income and Expenses"));
