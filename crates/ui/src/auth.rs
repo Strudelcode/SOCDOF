@@ -389,7 +389,21 @@ impl AuthState {
     pub fn tick_with_store(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
         if matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
             let active = match self.token.as_deref() {
-                Some(token) => store.session_for_token(token, now)?.is_some(),
+                Some(token) => match store.session_for_token(token, now) {
+                    Ok(session) => session.is_some(),
+                    Err(error) => {
+                        // Fail closed if the database cannot confirm the session.
+                        self.session = None;
+                        self.token = None;
+                        self.user = None;
+                        self.password.clear();
+                        self.password_confirm.clear();
+                        self.view = AuthView::Login;
+                        self.error = None;
+                        self.status = Some("auth_session_expired");
+                        return Err(error);
+                    }
+                },
                 None => false,
             };
             if !active {
