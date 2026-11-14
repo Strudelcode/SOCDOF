@@ -94,8 +94,8 @@ pub use dashboard::{
 };
 pub use desktop::{
     default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId,
-    DesktopFrame, DesktopIcon,
-    DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window, WindowManager,
+    DesktopFrame, DesktopIcon, DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window,
+    WindowManager,
 };
 pub use editor::{
     editor, seed_documents, DocumentDraft, EditorState, SAMPLE_NOW_MS as EDITOR_SAMPLE_NOW_MS,
@@ -109,8 +109,7 @@ pub use icons::{Icon, ALL_ICONS};
 pub use invoice_templates::{templates_modal, InvoiceTemplatesState};
 pub use invoices::{
     invoices, invoices_content, invoices_window, seed_invoices, InvoiceDraft, InvoiceLineDraft,
-    InvoicesState,
-    InvoicesView,
+    InvoicesState, InvoicesView,
 };
 pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
