@@ -14,7 +14,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - Native Accounting UI Business Report tab backed by the core aggregate, refreshed whenever the app is reopened.
 - Business Report amounts use the company profile currency; its CSV export includes company name, selected period, date, revenue, purchases, operating result and VAT liability, saved through a native file dialog.
 - Native monthly tax-advisor ledger core: 12 monthly sheets, separate cash/bank income and expenses, sequential month-to-month carry-over, monthly CSV export and Excel-compatible 12-sheet SpreadsheetML workbook. The workbook includes localized DE/EN/FR/ES labels and Excel formulas for income/expense totals, cash/bank balances, transaction running balance and cross-sheet monthly carry-over.
-- Ledger sources: practice billable items, recorded invoice payments (actual payment date/method), completed POS receipts, non-draft purchases and manually entered journal bookings. Linked invoices are skipped when their billable positions are already represented, preventing duplicate income. Unpaid invoices without a billing item remain receivables.
+- Ledger sources: practice billable items, posted/sent/overdue/paid invoices, recorded payment date/method when present, completed POS receipts, non-draft purchases and manually entered journal bookings. Linked invoices are skipped when their billable positions are already represented, preventing duplicate income. Sent/overdue invoices follow the legacy TypeScript rule and are included as posted revenue; a recorded payment overrides the issue date and cash/bank channel.
 - The year selector covers the current year, the previous five years and the next year. Per-year opening cash/bank balances are read from and saved to the persistent setting `tax_advisor_ledger_initial_carryover_<year>`; missing settings safely default to zero.
 - Native Accounting toolbar now offers the 12-sheet workbook and a selected-month CSV through native save dialogs; all four languages have the new labels.
 - Opening cash and bank balances can be edited in the Accounting screen and persist in the existing settings table per year.
@@ -25,6 +25,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - [x] Match the legacy period selector's Today and custom date range options, including invalid/impossible date rejection.
 - [ ] Compare the legacy CSV export's headings, locale/date formatting, delimiter, quoting and exact filename.
 - [ ] Compare invoice/POS/purchase rounding against real imported legacy datasets, including VAT overrides and mixed rates.
+- [x] Match the legacy tax-ledger rule for sent/overdue/paid invoices and skip draft/cancelled invoices; paid invoices use recorded payment date and tender when present.
 - [ ] Verify open-item behavior for all legacy invoice states and any partial-payment representation.
 - [ ] Verify local-timezone boundaries against the legacy browser implementation, then review the UI side by side in DE/EN/FR/ES and both themes.
 - [x] Add the native 12-sheet monthly tax-advisor Excel export and sequential cash/bank carry-over.
