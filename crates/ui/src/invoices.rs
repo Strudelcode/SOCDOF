@@ -669,6 +669,23 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &InvoicesS
 }
 
 /// Renders the invoices screen into the context.
+/// Draws the module's scrollable content into an existing UI, allowing desktop-window hosting.
+pub fn invoices_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut InvoicesState,
+    store: &Store,
+    now: i64,
+) {
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        InvoicesView::List => list_view(ui, theme, texts, focus, state, store, now),
+        InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
+}
+
 pub fn invoices(
     ctx: &Context,
     theme: &Theme,
@@ -700,11 +717,7 @@ pub fn invoices(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                InvoicesView::List => list_view(ui, theme, texts, focus, state, store, now),
-                InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
+            invoices_content(ui, theme, texts, focus, state, store, now);
         });
 
     let mut open = state.confirm_delete;
