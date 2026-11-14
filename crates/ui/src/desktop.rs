@@ -815,7 +815,7 @@ fn desktop_impl(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
-    mut render_window: Option<&mut dyn FnMut(AppId, &mut Ui, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64)>,
+    mut render_window: Option<&mut dyn FnMut(AppId, &mut Ui, &Context, &Theme, &UiTexts, &mut FocusState, &SocdofStore, i64) -> bool>,
 ) -> DesktopOutcome {
     let DesktopFrame {
         theme,
