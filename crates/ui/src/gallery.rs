@@ -9,10 +9,10 @@ use egui::{Context, Id, RichText};
 use socdof_core::app_store;
 use socdof_core::domain::permission::AppModule;
 use socdof_core::domain::settings::{Language, ThemeMode};
-use socdof_core::settings_service::{self, Preferences};
 use socdof_core::error::CoreResult;
 use socdof_core::money::Money;
 use socdof_core::now_millis;
+use socdof_core::settings_service::{self, Preferences};
 
 use crate::accounting::{accounting, seed_accounting, AccountingState};
 use crate::app_store::{app_store as app_store_screen, AppStoreState};
