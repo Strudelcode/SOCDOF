@@ -104,14 +104,22 @@ pub fn authenticate(conn: &Connection, username: &str, password: &str) -> CoreRe
 pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
     user.validate().map_err(CoreError::Validation)?;
 
-    let existing: Option<(String, Option<String>, bool, String)> = conn
+    let existing: Option<(String, Option<String>, bool, String, String)> = conn
         .query_row(
-            "SELECT role, role_id, active, username FROM users WHERE id = ?1",
+            "SELECT role, role_id, active, username, password_hash FROM users WHERE id = ?1",
             params![user.id.to_string()],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
         )
         .optional()?;
-    let Some((role, role_id, active, username)) = existing else {
+    let Some((role, role_id, active, username, password_hash)) = existing else {
         return Err(CoreError::NotFound(user.id.to_string()));
     };
 
@@ -124,7 +132,7 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
     let transaction = conn.unchecked_transaction()?;
     let changed = transaction.execute(
         "UPDATE users SET username = ?2, display_name = ?3, role = ?4, role_id = ?5,
-            active = ?6, must_change_password = ?7, updated_at = ?8
+            active = ?6, must_change_password = ?7, password_hash = ?8, updated_at = ?9
          WHERE id = ?1",
         params![
             user.id.to_string(),
@@ -134,6 +142,7 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
             user.role_id,
             user.active,
             user.must_change_password,
+            user.password_hash,
             user.updated_at,
         ],
     )?;
@@ -148,6 +157,7 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
         || role_id != user.role_id
         || active != user.active
         || username != user.username.trim()
+        || password_hash != user.password_hash
     {
         transaction.execute(
             "UPDATE auth_sessions SET revoked_at = ?2
@@ -319,6 +329,30 @@ mod tests {
         insert(&conn, &second).expect("insert second admin");
         update(&conn, &disabled).expect("disable account");
         assert_eq!(active_sessions(&conn, id), 0);
+    }
+
+    #[test]
+    fn updating_password_hash_and_account_revokes_sessions_in_one_transaction() {
+        let conn = access_store();
+        let id = Uuid::new_v4();
+        let user = admin(id);
+        insert(&conn, &user).expect("insert user");
+        add_session(&conn, id);
+
+        let mut changed = user;
+        changed.password_hash = "replacement-hash".to_string();
+        changed.username = "new-admin".to_string();
+        changed.updated_at = 2;
+        update(&conn, &changed).expect("update user and password");
+        assert_eq!(active_sessions(&conn, id), 0);
+        let stored: String = conn
+            .query_row(
+                "SELECT password_hash FROM users WHERE id = ?1",
+                params![id.to_string()],
+                |row| row.get(0),
+            )
+            .expect("stored password hash");
+        assert_eq!(stored, "replacement-hash");
     }
 
     #[test]
