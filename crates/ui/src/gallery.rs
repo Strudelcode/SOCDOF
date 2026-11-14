@@ -621,7 +621,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
 
     // Authentication remains active while the desktop is visible. The login renderer cannot
     // own the idle timer because it is not called during normal desktop frames.
-    if state.desktop_open && state.auth.view == crate::auth::AuthView::Unlocked {
+    if !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked {
         let interacting =
             ctx.input(|input| input.pointer.any_down() || !input.events.is_empty());
         if interacting {
