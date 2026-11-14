@@ -7,9 +7,9 @@
 |---|---|
 | **Branch** | `feature/rust-native-desktop-host` |
 | **Started** | 2026-11-07 |
-| **State** | 2026-11-13, a persistent native egui desktop host is now wired to the real SQLite store and authentication flow. The Tauri webview remains the packaged default until native parity, shell integrations and packaging are verified. The visual gate stays **open**; see §15.7. |
-| **Current phase** | Phase 10 — **functional parity expansion before GUI polish**. The native host now includes Projects, Fleet and Restaurant on the persistent SQLite store; this pass prioritizes remaining app workflows, edge cases and parity tests before visual refinement. The existing visual gate remains open; see §15.7. |
-| **Overall progress** | Core persistence and 18 permission modules are present; native desktop functional parity is still in progress. Projects, Fleet and Restaurant have been integrated into the egui launcher. Remaining work includes full parity audits, unfinished native app surfaces, shell/OS integrations, visual acceptance and packaging. |
+| **State** | 2026-11-14, the native egui host now uses the real SQLite store and login/setup flow. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance remains open; see §15.7. |
+| **Current phase** | Phase 11 — **application foundation first**. Prioritize login/account lifecycle, settings persistence, desktop shell/navigation, visual consistency, startup behavior and a reliable Windows installer before resuming remaining app-level parity work. |
+| **Overall progress** | Core persistence, authentication, settings modules and 18 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -17,6 +17,21 @@
 
 ---
 
+
+## 1.1 Reprioritized delivery order — application foundation first
+
+The next implementation passes intentionally stop adding small app-specific features until the native application feels like a complete desktop product. Work in this order:
+
+1. **Startup and authentication:** first-run setup, login, account switching, lock/unlock, sign-out, session expiry and useful recovery/error states.
+2. **Account and settings persistence:** per-account language/theme/accent/startup preferences, company profile, users/roles, backups and settings that survive a full restart.
+3. **Desktop shell:** app launcher, navigation, taskbar/window controls, focus/z-order, keyboard shortcuts, notifications, wallpaper and desktop state restoration.
+4. **Visual system:** compare the real startup/login/desktop/settings screens with the legacy app in both themes and all four languages; fix layout, spacing, typography, icons and responsive behavior before polishing individual apps.
+5. **Windows distribution:** build a native-host installer/portable package, choose and persist the install/data paths, create shortcuts, verify first launch and upgrades, preserve the Windows application-data folder and test clean uninstall behavior. Keep the Tauri package as a transition fallback until the native package passes these checks; do not label the native host as the production installer before then.
+6. **Resume app parity:** continue the remaining app workflows only after the above gates are demonstrably working.
+
+A feature is not considered complete merely because its screen exists: it must be exercised through the real desktop startup path, persist across restart where appropriate, and be covered by an automated test or a documented manual acceptance check.
+
+---
 ## 1. Why this branch exists
 
 The shipped application is ~112,800 lines of TypeScript/TSX in 126 files, bundled into a 3.9 MB
