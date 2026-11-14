@@ -128,16 +128,10 @@ impl eframe::App for DesktopApp {
 }
 
 fn database_path() -> Result<PathBuf, Box<dyn Error>> {
-    database_path_from_args(
-        std::env::args_os().skip(1),
-        default_data_root()?,
-    )
+    database_path_from_args(std::env::args_os().skip(1), default_data_root()?)
 }
 
-fn database_path_from_args<I>(
-    args: I,
-    default_root: PathBuf,
-) -> Result<PathBuf, Box<dyn Error>>
+fn database_path_from_args<I>(args: I, default_root: PathBuf) -> Result<PathBuf, Box<dyn Error>>
 where
     I: IntoIterator<Item = OsString>,
 {
@@ -217,8 +211,7 @@ fn migrate_legacy_database(source: &Path, destination: &Path) -> Result<(), Box<
     for suffix in ["-wal", "-shm"] {
         let source_sidecar = PathBuf::from(format!("{}{}", source.display(), suffix));
         if source_sidecar.exists() {
-            let destination_sidecar =
-                PathBuf::from(format!("{}{}", destination.display(), suffix));
+            let destination_sidecar = PathBuf::from(format!("{}{}", destination.display(), suffix));
             std::fs::copy(source_sidecar, destination_sidecar)?;
         }
     }
