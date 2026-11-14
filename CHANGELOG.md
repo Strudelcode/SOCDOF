@@ -24,6 +24,10 @@
 - Restaurant NFC/mobile-wallet checkout now posts `nfc` to the POS ledger instead of
   incorrectly downgrading it to `card`. Added an end-to-end checkout regression test for both the
   restaurant order and linked POS receipt.
+- Accounting business-report CSV now uses the translated report title, the TypeScript period
+  tokens (`all`, `today`, `current_month`, `current_quarter`, `current_year`, `custom`) and the
+  matching `Accounting_<period>_<date>.csv` filename. CSV fields are quoted only when required,
+  with embedded quotes and line breaks escaped safely.
 
 
 All notable changes to SOCDOF are documented here. The release workflow reads
