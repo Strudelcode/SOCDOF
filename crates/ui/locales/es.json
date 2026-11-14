@@ -2024,5 +2024,8 @@
   "therapie_trip_save": "Guardar viaje",
   "therapie_trip_saved": "Viaje guardado",
   "therapie_trip_start_km": "Kilometraje al salir",
-  "therapie_trip_values_invalid": "Introduce lecturas del odómetro y una tarifa válidas y no negativas."
+  "therapie_trip_values_invalid": "Introduce lecturas del odómetro y una tarifa válidas y no negativas.",
+  "therapie_trip_delete_title": "Eliminar viaje",
+  "therapie_trip_delete_body": "¿Seguro que quieres eliminar este viaje permanentemente?",
+  "therapie_trip_delete_confirm": "Eliminar viaje"
 }
