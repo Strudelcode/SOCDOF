@@ -82,7 +82,8 @@ pub use components::{
     Activated, ButtonVariant, SortState, Toast, Toasts, Tone,
 };
 pub use contacts::{
-    contacts, contacts_content, contacts_window, seed_sample, ContactDraft, ContactsState, ContactsView,
+    contacts, contacts_content, contacts_window, seed_sample, ContactDraft, ContactsState,
+    ContactsView,
 };
 pub use controls::{
     calendar, checkbox, drawer, drop_zone, menu, password_field, select, switch, text_field,
@@ -92,7 +93,8 @@ pub use dashboard::{
     dashboard, DashboardAction, DashboardData, DashboardState, Period, SAMPLE_NOW_MS,
 };
 pub use desktop::{
-    default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId, DesktopFrame, DesktopIcon,
+    default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId,
+    DesktopFrame, DesktopIcon,
     DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window, WindowManager,
 };
 pub use editor::{
@@ -106,7 +108,8 @@ pub use i18n::{UiTexts, UI_KEYS};
 pub use icons::{Icon, ALL_ICONS};
 pub use invoice_templates::{templates_modal, InvoiceTemplatesState};
 pub use invoices::{
-    invoices, invoices_content, invoices_window, seed_invoices, InvoiceDraft, InvoiceLineDraft, InvoicesState,
+    invoices, invoices_content, invoices_window, seed_invoices, InvoiceDraft, InvoiceLineDraft,
+    InvoicesState,
     InvoicesView,
 };
 pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
