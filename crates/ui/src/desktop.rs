@@ -1883,6 +1883,10 @@ fn desktop_impl(
             }
         }
     }
+    if outcome.open_app.is_some() {
+        // Opening or focusing a window must persist its open state, even before it is moved.
+        outcome.window_layout_changed = true;
+    }
 
     if outcome.open_studio {
         outcome.open_studio = false;
