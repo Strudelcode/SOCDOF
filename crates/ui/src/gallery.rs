@@ -956,10 +956,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
                 if outcome.window_layout_changed {
                     for slug in ["contacts", "invoices", "settings"] {
-                        let saved = layout
-                            .window_states
-                            .entry(slug.to_string())
-                            .or_default();
+                        let saved = layout.window_states.entry(slug.to_string()).or_default();
                         saved.open = false;
                         saved.minimized = false;
                     }
