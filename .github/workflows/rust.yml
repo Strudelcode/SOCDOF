@@ -121,6 +121,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
             xdotool \
             libssl-dev \
             patchelf \
@@ -365,6 +366,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
             libssl-dev \
             patchelf \
             xvfb \
