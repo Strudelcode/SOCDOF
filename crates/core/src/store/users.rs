@@ -239,7 +239,6 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<User> {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,7 +307,10 @@ mod tests {
         let mut disabled = user;
         disabled.active = false;
         disabled.updated_at = 2;
-        assert!(update(&conn, &disabled).is_err(), "last admin must stay protected");
+        assert!(
+            update(&conn, &disabled).is_err(),
+            "last admin must stay protected"
+        );
         assert_eq!(active_sessions(&conn, id), 1);
 
         let mut second = admin(Uuid::new_v4());
@@ -347,7 +349,6 @@ mod tests {
         assert_eq!(active_sessions(&conn, id), 0);
     }
 }
-
 
 #[cfg(test)]
 mod first_admin_tests {
