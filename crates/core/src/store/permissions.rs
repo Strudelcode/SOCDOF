@@ -214,3 +214,98 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Role> {
         updated_at: row.get("updated_at")?,
     })
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::permission::{AppModule, PermissionLevel};
+    use crate::domain::user::UserRole;
+
+    fn role_store() -> Connection {
+        let conn = Connection::open_in_memory().expect("database");
+        conn.execute_batch(
+            "CREATE TABLE roles (
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
+                is_builtin INTEGER NOT NULL, permissions TEXT NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY, username TEXT NOT NULL, role TEXT NOT NULL, role_id TEXT,
+                active INTEGER NOT NULL, display_name TEXT NOT NULL, password_hash TEXT NOT NULL,
+                must_change_password INTEGER NOT NULL, created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE auth_sessions (
+                id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token_hash TEXT NOT NULL,
+                created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL, revoked_at INTEGER
+            );",
+        )
+        .expect("schema");
+        conn
+    }
+
+    fn assigned_user(conn: &Connection, role_id: Uuid) -> Uuid {
+        let id = Uuid::new_v4();
+        conn.execute(
+            "INSERT INTO users
+             (id, username, role, role_id, active, display_name, password_hash,
+              must_change_password, created_at, updated_at)
+             VALUES (?1, 'worker', 'user', ?2, 1, 'Worker', 'hash', 0, 1, 1)",
+            params![id.to_string(), role_id.to_string()],
+        )
+        .expect("user");
+        conn.execute(
+            "INSERT INTO auth_sessions
+             (id, user_id, token_hash, created_at, expires_at, last_seen_at, revoked_at)
+             VALUES (?1, ?2, 'token', 1, 999999999, 1, NULL)",
+            params![Uuid::new_v4().to_string(), id.to_string()],
+        )
+        .expect("session");
+        id
+    }
+
+    fn session_revoked(conn: &Connection, user_id: Uuid) -> bool {
+        conn.query_row(
+            "SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE user_id = ?1",
+            params![user_id.to_string()],
+            |row| row.get(0),
+        )
+        .expect("session")
+    }
+
+    #[test]
+    fn editing_custom_role_revokes_assigned_users_sessions() {
+        let conn = role_store();
+        let mut role = Role::new("Support", 1);
+        insert(&conn, &role).expect("role");
+        let user_id = assigned_user(&conn, role.id);
+
+        role.set(AppModule::Contacts, PermissionLevel::View);
+        role.updated_at = 2;
+        update(&conn, &role).expect("update role");
+
+        assert!(session_revoked(&conn, user_id));
+    }
+
+    #[test]
+    fn deleting_custom_role_revokes_sessions_and_resets_assignment() {
+        let conn = role_store();
+        let role = Role::new("Temporary", 1);
+        insert(&conn, &role).expect("role");
+        let user_id = assigned_user(&conn, role.id);
+
+        delete(&conn, role.id).expect("delete role");
+
+        assert!(session_revoked(&conn, user_id));
+        let role_id: Option<String> = conn
+            .query_row(
+                "SELECT role_id FROM users WHERE id = ?1",
+                params![user_id.to_string()],
+                |row| row.get(0),
+            )
+            .expect("role assignment");
+        assert!(role_id.is_none());
+    }
+}
