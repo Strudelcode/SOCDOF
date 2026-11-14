@@ -1167,6 +1167,45 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SettingsS
 }
 
 /// Renders the settings screen.
+/// Draws settings into an existing UI so it can be hosted inside a desktop window.
+pub fn settings_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        header(ui, theme, texts, focus, state);
+        ui.add_space(8.0);
+        messages(ui, theme, texts, state);
+        ui.add_space(6.0);
+
+        let mut selected = state.tab.index();
+        let labels: Vec<&str> = SettingsTab::ALL
+            .iter()
+            .map(|tab| texts.get(tab.label_key()))
+            .collect();
+        if tabs(ui, theme, focus, &labels, &mut selected) {
+            state.set_tab(SettingsTab::from_index(selected));
+        }
+        ui.add_space(10.0);
+
+        match state.tab {
+            SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
+            SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
+            SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
+            SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
+            SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
+        }
+    });
+}
+
 pub fn settings(
     ctx: &Context,
     theme: &Theme,
@@ -1201,37 +1240,7 @@ pub fn settings(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                header(ui, theme, texts, focus, state);
-                ui.add_space(8.0);
-                messages(ui, theme, texts, state);
-                ui.add_space(6.0);
-
-                let mut selected = state.tab.index();
-                let labels: Vec<&str> = SettingsTab::ALL
-                    .iter()
-                    .map(|tab| texts.get(tab.label_key()))
-                    .collect();
-                if tabs(ui, theme, focus, &labels, &mut selected) {
-                    state.set_tab(SettingsTab::from_index(selected));
-                }
-                ui.add_space(10.0);
-
-                match state.tab {
-                    SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
-                    SettingsTab::Appearance => {
-                        appearance_tab(ui, theme, texts, focus, state, store)
-                    }
-                    SettingsTab::Security => {
-                        security_tab(ui, theme, texts, focus, state, store, now)
-                    }
-                    SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
-                    SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
-                }
-            });
+            settings_content(ui, theme, texts, focus, state, store, now);
         });
 
     delete_modal(ctx, theme, texts, focus, state, store);
