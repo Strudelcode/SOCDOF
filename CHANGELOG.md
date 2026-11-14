@@ -1,3 +1,7 @@
+## Unreleased
+
+- Invoice payment capture now rejects cash amounts below the invoice total and blocks card capture when no terminal is configured. Invoice status and payment metadata are persisted atomically in one SQLite transaction.
+
 # Changelog
 
 ## Unreleased
