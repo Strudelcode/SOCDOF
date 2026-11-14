@@ -3,7 +3,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use crate::domain::therapy::{TherapyClient, TherapySession};
+use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
 
@@ -197,6 +197,97 @@ pub fn link_invoice(
         params![client_id.to_string(), invoice_id.to_string(), now],
     )?;
     Ok(changed)
+}
+
+/// Inserts one practice trip.
+pub fn insert_trip(conn: &Connection, trip: &TherapyTrip) -> CoreResult<()> {
+    trip.validate().map_err(CoreError::Validation)?;
+    conn.execute(
+        "INSERT INTO therapy_trips
+            (id, client_id, date, departure, destination, purpose, start_km_milli,
+             end_km_milli, rate_cents_per_km)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            trip.id.to_string(),
+            trip.client_id.map(|id| id.to_string()),
+            trip.date,
+            trip.departure.trim(),
+            trip.destination.trim(),
+            trip.purpose.trim(),
+            trip.start_km_milli,
+            trip.end_km_milli,
+            trip.rate_cents_per_km,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Replaces an existing practice trip.
+pub fn update_trip(conn: &Connection, trip: &TherapyTrip) -> CoreResult<()> {
+    trip.validate().map_err(CoreError::Validation)?;
+    let changed = conn.execute(
+        "UPDATE therapy_trips SET client_id = ?2, date = ?3, departure = ?4,
+            destination = ?5, purpose = ?6, start_km_milli = ?7, end_km_milli = ?8,
+            rate_cents_per_km = ?9 WHERE id = ?1",
+        params![
+            trip.id.to_string(),
+            trip.client_id.map(|id| id.to_string()),
+            trip.date,
+            trip.departure.trim(),
+            trip.destination.trim(),
+            trip.purpose.trim(),
+            trip.start_km_milli,
+            trip.end_km_milli,
+            trip.rate_cents_per_km,
+        ],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(trip.id.to_string()));
+    }
+    Ok(())
+}
+
+/// Deletes one practice trip.
+pub fn delete_trip(conn: &Connection, id: Uuid) -> CoreResult<()> {
+    let changed = conn.execute(
+        "DELETE FROM therapy_trips WHERE id = ?1",
+        params![id.to_string()],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(id.to_string()));
+    }
+    Ok(())
+}
+
+/// Loads all practice trips, newest first.
+pub fn list_trips(conn: &Connection) -> CoreResult<Vec<TherapyTrip>> {
+    let mut statement = conn.prepare(
+        "SELECT id, client_id, date, departure, destination, purpose, start_km_milli,
+                end_km_milli, rate_cents_per_km
+         FROM therapy_trips ORDER BY date DESC, rowid DESC",
+    )?;
+    let rows = statement.query_map([], |row| {
+        let id: String = row.get("id")?;
+        let client_id: Option<String> = row.get("client_id")?;
+        Ok(TherapyTrip {
+            id: Uuid::parse_str(&id).map_err(|_| rusqlite::Error::InvalidQuery)?,
+            client_id: client_id
+                .as_deref()
+                .and_then(|value| Uuid::parse_str(value).ok()),
+            date: row.get("date")?,
+            departure: row.get("departure")?,
+            destination: row.get("destination")?,
+            purpose: row.get("purpose")?,
+            start_km_milli: row.get("start_km_milli")?,
+            end_km_milli: row.get("end_km_milli")?,
+            rate_cents_per_km: row.get("rate_cents_per_km")?,
+        })
+    })?;
+    let mut trips = Vec::new();
+    for row in rows {
+        trips.push(row?);
+    }
+    Ok(trips)
 }
 
 fn collect_sessions(
