@@ -800,6 +800,21 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 // A permission lookup failure must never expose the previous account's launcher.
                 state.desktop_icons = IconGrid::new(Vec::new());
                 state.dashboard.set_active_modules(Vec::new());
+            } else if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                if let Ok(layout) = settings_service::desktop_layout(&state.store, user_id) {
+                    let positions = state
+                        .desktop_icons
+                        .icons()
+                        .iter()
+                        .filter_map(|icon| {
+                            layout
+                                .icon_positions
+                                .get(icon.app().as_str())
+                                .map(|cell| (icon.app(), *cell))
+                        })
+                        .collect::<Vec<_>>();
+                    state.desktop_icons.restore_positions(&positions);
+                }
             }
             if let Some(app) =
                 startup_module.filter(|app| state.desktop_icons.index_of(*app).is_some())
@@ -834,6 +849,23 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_windows,
             now,
         );
+        if outcome.icon_positions_changed {
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                let mut layout =
+                    settings_service::desktop_layout(&state.store, user_id).unwrap_or_default();
+                layout.icon_positions = state
+                    .desktop_icons
+                    .positions()
+                    .into_iter()
+                    .map(|(app, cell)| (app.as_str().to_string(), cell))
+                    .collect();
+                if let Err(error) =
+                    settings_service::save_desktop_layout(&state.store, user_id, &layout)
+                {
+                    eprintln!("SOCDOF could not save desktop icon layout: {error}");
+                }
+            }
+        }
         if outcome.back {
             state.desktop_open = false;
         }
