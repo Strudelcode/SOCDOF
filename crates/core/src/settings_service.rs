@@ -420,6 +420,19 @@ mod tests {
     }
 
     #[test]
+    fn older_desktop_layout_records_default_missing_window_states() {
+        let legacy = serde_json::json!({
+            "icon_positions": {
+                "contacts": [2, 1]
+            }
+        });
+        let layout: DesktopLayout =
+            serde_json::from_value(legacy).expect("legacy layout remains readable");
+        assert_eq!(layout.icon_positions.get("contacts"), Some(&(2, 1)));
+        assert!(layout.window_states.is_empty());
+    }
+
+    #[test]
     fn desktop_window_geometry_is_persisted_per_user_and_sanitized() {
         let store = Store::open_in_memory().expect("store");
         let user = Uuid::new_v4();
