@@ -5,7 +5,7 @@
 //! screens. It is drawn entirely by Rust: there is no HTML, no CSS and no JavaScript involved. With
 //! the `window` feature the same function runs inside the eframe window host.
 
-use egui::{Context, Id, RichText};
+use egui::{Context, Id, Pos2, Rect, RichText, Vec2};
 use socdof_core::app_store;
 use socdof_core::domain::permission::{AppModule, PermissionLevel};
 use socdof_core::domain::settings::{Language, ThemeMode};
@@ -30,7 +30,8 @@ use crate::controls::{
 };
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
 use crate::desktop::{
-    desktop_with_content, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager,
+    desktop_with_content, work_area, AppId, DesktopFrame, DesktopIcon, IconGrid, Window,
+    WindowManager,
 };
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
 use crate::fleet::{fleet, FleetState};
@@ -181,6 +182,38 @@ fn startup_app(module: &str) -> Option<AppId> {
         "editor" => AppId::new("editor"),
         _ => return None,
     })
+}
+
+/// Restores only native windows that were open for this account at the previous exit.
+fn restore_native_windows(
+    state: &mut GalleryState,
+    layout: &settings_service::DesktopLayout,
+    screen: Rect,
+    now: i64,
+) {
+    let area = work_area(screen);
+    for slug in ["contacts", "invoices", "settings"] {
+        let Some(saved) = layout.window_states.get(slug).filter(|window| window.open) else {
+            continue;
+        };
+        let app = AppId::new(slug);
+        let Some(title) = state.desktop_icons.label_of(app) else {
+            continue;
+        };
+
+        let width = (saved.width as f32).clamp(320.0, area.width());
+        let height = (saved.height as f32).clamp(220.0, area.height());
+        let x = (saved.x as f32).clamp(area.left(), (area.right() - width).max(area.left()));
+        let y = (saved.y as f32).clamp(area.top(), (area.bottom() - height).max(area.top()));
+        let rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(width, height));
+
+        state
+            .desktop_windows
+            .open(Window::new(app, title, rect), now);
+        if saved.maximized {
+            state.desktop_windows.toggle_maximize(app, area);
+        }
+    }
 }
 
 /// Trims the desktop to the layout template chosen in the wizard.
@@ -816,6 +849,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         })
                         .collect::<Vec<_>>();
                     state.desktop_icons.restore_positions(&positions);
+                    restore_native_windows(state, &layout, ctx.screen_rect(), now);
                 }
             }
             if let Some(app) =
@@ -918,6 +952,13 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         .collect();
                 }
                 if outcome.window_layout_changed {
+                    for slug in ["contacts", "invoices", "settings"] {
+                        layout
+                            .window_states
+                            .entry(slug.to_string())
+                            .or_default()
+                            .open = false;
+                    }
                     for window in state.desktop_windows.windows() {
                         let rect = window.normal_rect();
                         layout.window_states.insert(
@@ -928,6 +969,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 width: rect.width().round().max(320.0) as u32,
                                 height: rect.height().round().max(220.0) as u32,
                                 maximized: window.is_maximized(),
+                                open: true,
                             },
                         );
                     }
