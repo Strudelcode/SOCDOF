@@ -421,6 +421,8 @@ fn kpi_card(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str, hint: &s
 }
 
 /// Renders the dashboard into the context.
+
+/// Renders dashboard in the full application work area.
 pub fn dashboard(
     ctx: &Context,
     theme: &Theme,
@@ -429,9 +431,6 @@ pub fn dashboard(
     state: &mut DashboardState,
     now: i64,
 ) {
-    let summary = state.summary(now);
-    let symbol = state.data.currency().to_string();
-
     egui::CentralPanel::default()
         .frame(
             egui::Frame::none()
@@ -439,6 +438,26 @@ pub fn dashboard(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
+            dashboard_window(ctx, true, ui, theme, texts, focus, state, now);
+        });
+}
+
+/// Renders dashboard inside one native desktop child window.
+pub fn dashboard_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut DashboardState,
+    now: i64,
+) {
+    let _ = active;
+    let summary = state.summary(now);
+    let symbol = state.data.currency().to_string();
+
+    
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let subtitle = format!(
                     "{} · {}",
@@ -664,7 +683,7 @@ pub fn dashboard(
                     }
                 });
             });
-        });
+        
 }
 
 #[cfg(test)]
