@@ -469,6 +469,8 @@ jobs:
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
           export APP_BIN="$PWD/target/release/socdof-ui-desktop"
+          # Keep glibc allocator arenas bounded for the native host idle-memory budget.
+          export MALLOC_ARENA_MAX=1
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
