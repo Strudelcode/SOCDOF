@@ -2,10 +2,7 @@ Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "Sections.nsh"
-!include "StrFunc.nsh"
-${StrStr}
-${UnStrFunc}
-${UnStrStr}
+
 
 !ifndef APP_VERSION
   !define APP_VERSION "26.0.0"
@@ -84,20 +81,19 @@ SectionEnd
 
 Function .onInit
   ; Never force-kill the app during an update: the user may have unsaved form state.
-  nsExec::ExecToStack '"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH'
+  nsExec::ExecToStack '"$SYSDIR\cmd.exe" /C ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH | "$SYSDIR\findstr.exe" /I /C:"${APP_EXE}"'
   Pop $0
   Pop $1
-  StrCmp $0 "0" installer_tasklist_ok
+  StrCmp $0 "0" installer_app_running
+  StrCmp $0 "1" installer_app_closed
   IfSilent installer_check_failed
   MessageBox MB_ICONSTOP|MB_OK "Could not check whether SOCDOF is running. Close it manually and retry."
 installer_check_failed:
   Abort
-installer_tasklist_ok:
-  ${StrStr} $2 $1 "${APP_EXE}"
-  StrCmp $2 "" installer_app_closed
-  IfSilent installer_app_running
-  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before installing or updating. The installer will not terminate the running application."
 installer_app_running:
+  IfSilent installer_app_running_abort
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before installing or updating. The installer will not terminate the running application."
+installer_app_running_abort:
   Abort
 installer_app_closed:
   ; Restore the user's previous opt-in so upgrades do not silently disable startup.
@@ -113,20 +109,19 @@ FunctionEnd
 
 Function un.onInit
   ; Refuse to uninstall a running app instead of forcibly terminating it and risking unsaved work.
-  nsExec::ExecToStack '"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH'
+  nsExec::ExecToStack '"$SYSDIR\cmd.exe" /C ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH | "$SYSDIR\findstr.exe" /I /C:"${APP_EXE}"'
   Pop $0
   Pop $1
-  StrCmp $0 "0" uninstaller_tasklist_ok
+  StrCmp $0 "0" uninstaller_app_running
+  StrCmp $0 "1" uninstaller_app_closed
   IfSilent uninstaller_check_failed
   MessageBox MB_ICONSTOP|MB_OK "Could not check whether SOCDOF is running. Close it manually and retry."
 uninstaller_check_failed:
   Abort
-uninstaller_tasklist_ok:
-  ${UnStrStr} $2 $1 "${APP_EXE}"
-  StrCmp $2 "" uninstaller_app_closed
-  IfSilent uninstaller_app_running
-  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before uninstalling. The uninstaller will not terminate the running application."
 uninstaller_app_running:
+  IfSilent uninstaller_app_running_abort
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before uninstalling. The uninstaller will not terminate the running application."
+uninstaller_app_running_abort:
   Abort
 uninstaller_app_closed:
 FunctionEnd

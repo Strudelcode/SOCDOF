@@ -160,3 +160,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** `StrFunc.nsh` generated the installer-side `StrStr` helper, but the uninstaller initialization function called that helper without registering its uninstall-side counterpart.
 - **Fix:** register the uninstall string helpers after `${UnStrFunc}` and call `${UnStrStr}` from `un.onInit`; keep `${StrStr}` for the installer.
 - **Verification:** run 1242 reproduced the compiler error; the corrected NSIS source is committed for the next Windows build.
+
+
+## RUST-CI-022 — NSIS 3.13 does not provide the expected StrFunc uninstaller macro
+
+- **First observed:** workflow run 1246, job `Desktop (windows-latest)`, step `Stage Windows release artifacts`.
+- **Symptom:** after correcting the installer/uninstaller call prefix, NSIS 3.13 failed earlier in preprocessing with `Invalid command: "${UnStrFunc}"`.
+- **Root cause:** the StrFunc header shipped by the runner's NSIS 3.13 package does not expose the optional installer/uninstaller separator macro used by older StrFunc variants.
+- **Fix:** remove the StrFunc dependency entirely. The installer and uninstaller now run `tasklist.exe` through `cmd.exe` and use the Windows `findstr.exe` exit code (0 = app running, 1 = not running), with any other exit code treated as a safe abort.
+- **Verification:** run 1246 reproduced the NSIS preprocessing failure; the built-in Windows command approach is committed for the next build.

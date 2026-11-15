@@ -2234,3 +2234,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 - Added a five-minute step timeout and a five-second forced cleanup grace to both native-dialog smoke processes so a future modal regression cannot leave the Linux GUI job waiting indefinitely.
 - **Additional effort estimate:** approximately 0.05 hours for smoke-process timeout hardening.
+
+
+## 2026-11-15 — NSIS process-check portability correction
+
+- Replaced the optional StrFunc uninstaller helper with the Windows-native `tasklist.exe | findstr.exe` process check because the NSIS 3.13 package on the CI runner does not include the expected `UnStrFunc` macro.
+- Installer and uninstaller still refuse to proceed while SOCDOF is running; they never force-kill the process.
+- **Verification state:** next Windows build must compile the NSIS script and run the full install/upgrade/uninstall smoke.
+- **Effort estimate:** approximately 0.2 hours for compiler-log diagnosis and replacing the unavailable helper.
