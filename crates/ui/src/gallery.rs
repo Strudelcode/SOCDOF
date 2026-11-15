@@ -5,7 +5,7 @@
 //! screens. It is drawn entirely by Rust: there is no HTML, no CSS and no JavaScript involved. With
 //! the `window` feature the same function runs inside the eframe window host.
 
-use egui::{Context, Id, Pos2, Rect, RichText, Vec2};
+use egui::{Context, Id, Key, Modifiers, Pos2, Rect, RichText, Vec2};
 use socdof_core::app_store;
 use socdof_core::domain::permission::{AppModule, PermissionLevel};
 use socdof_core::domain::settings::{Language, ThemeMode};
@@ -746,12 +746,50 @@ impl GalleryState {
 }
 
 /// Renders the gallery into the context.
+
+/// Handles the documented application-wide keyboard shortcuts for the native desktop.
+///
+/// The shortcuts are consumed here rather than by individual app screens, so they behave the
+/// same regardless of which module window currently owns keyboard focus.
+fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
+    let (fullscreen, palette, lock, escape) = ctx.input_mut(|input| {
+        (
+            input.consume_key(Modifiers::NONE, Key::F11),
+            input.consume_key(Modifiers::CTRL, Key::K),
+            input.consume_key(Modifiers::CTRL, Key::L),
+            input.consume_key(Modifiers::NONE, Key::Escape),
+        )
+    });
+
+    let desktop_ready = !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked;
+    if fullscreen && desktop_ready {
+        let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+    }
+    if palette && desktop_ready {
+        state.shell.open_palette();
+    }
+    if lock && desktop_ready {
+        state.shell.close_overlays();
+        state.auth.lock(now);
+        state.auth_open = true;
+        state.desktop_open = false;
+        state.close_module_views();
+        state.desktop_windows = WindowManager::new();
+    }
+    if escape && desktop_ready && state.shell.overlay_open() {
+        state.shell.close_overlays();
+    }
+}
+
 pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     state.focus.begin_frame(ctx);
     let theme = state.theme();
     theme.apply(ctx);
     let texts = state.texts.clone();
     let now = now_millis();
+
+    handle_global_shortcuts(ctx, state, now);
 
     // Authentication remains active while the desktop is visible. The login renderer cannot
     // own the idle timer because it is not called during normal desktop frames.

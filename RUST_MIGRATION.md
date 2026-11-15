@@ -2317,3 +2317,13 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - This verifies the SQLite persistence boundary rather than only the in-memory form state.
 - **Verification state:** committed; pending cross-platform CI.
 - **Effort estimate:** approximately 0.1 hours for test hardening and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native desktop global keyboard shortcuts
+
+- Added shell-level keyboard handling to the native egui host for F11 fullscreen, Ctrl+K command palette, Ctrl+L session lock and Escape overlay dismissal.
+- The shortcuts are consumed centrally, so individual app views do not need duplicate handlers. Locking returns to the existing authentication screen and clears open module windows without revoking the session.
+- Updated the parity inventory to distinguish implemented in-app shortcuts from the still-open OS tray/startup integration.
+- **Verification state:** committed; cross-platform compile and test CI is required because the local environment has no Rust toolchain.
+- **Effort estimate:** approximately 0.4 hours for shell event-path review, implementation and documentation. CI runtime is excluded.
