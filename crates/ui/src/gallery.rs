@@ -3462,6 +3462,21 @@ mod tests {
                 z_order: 1,
             },
         );
+        for (slug, z_order) in [("accounting", 0), ("pos", 3), ("therapy", 4)] {
+            layout.window_states.insert(
+                slug.to_string(),
+                settings_service::DesktopWindowLayout {
+                    x: 80,
+                    y: 70,
+                    width: 820,
+                    height: 560,
+                    maximized: false,
+                    open: true,
+                    minimized: false,
+                    z_order,
+                },
+            );
+        }
 
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
         restore_native_windows(&mut state, &layout, screen, 1_000);
@@ -3488,16 +3503,17 @@ mod tests {
             .window(AppId::new("invoices"))
             .expect("restored minimized invoices window")
             .is_minimized());
+        assert!(state.desktop_windows.is_open(AppId::new("accounting")));
+        assert!(state.desktop_windows.is_open(AppId::new("pos")));
+        assert!(state.desktop_windows.is_open(AppId::new("therapy")));
         assert_eq!(
             state.desktop_windows.windows()[0].app(),
-            AppId::new("invoices"),
-            "the lower z-order window must be restored behind the higher one"
+            AppId::new("accounting")
         );
-        assert_eq!(
-            state.desktop_windows.windows()[1].app(),
-            contacts,
-            "the previously frontmost window must be restored last"
-        );
+        assert_eq!(state.desktop_windows.windows()[1].app(), AppId::new("invoices"));
+        assert_eq!(state.desktop_windows.windows()[2].app(), contacts);
+        assert_eq!(state.desktop_windows.windows()[3].app(), AppId::new("pos"));
+        assert_eq!(state.desktop_windows.windows()[4].app(), AppId::new("therapy"));
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
