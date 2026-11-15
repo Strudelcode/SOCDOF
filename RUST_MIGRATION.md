@@ -2174,3 +2174,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated `docs/rust-ci-knowledge-base.md` with the observed symptoms, causes, fixes and pending verification for all three failures.
 - **Verification state:** changes are committed to the PR branch; a new full CI run must pass before the foundation is called stable.
 - **Effort estimate:** approximately 0.6 hours of hands-on investigation, implementation and documentation. CI queue/runtime is excluded. This is an estimate, not a stopwatch measurement; future entries use the same convention.
+
+
+## 2026-11-15 — Native Windows installer safety and smoke coverage
+
+- The native NSIS installer and uninstaller now check whether `socdof-ui-desktop.exe` is running and ask the user to close it before proceeding. They no longer force-kill the application, avoiding loss of unsaved form state during upgrades or uninstall.
+- Added a Windows CI installer smoke that installs silently into a custom path containing spaces, checks the executable, shortcuts and uninstall registration, runs the installed executable's `--help` entry point, simulates an existing autostart preference across an upgrade, then uninstalls and verifies that the AppData marker survives.
+- **Verification state:** implementation is committed for the next Windows Actions run; no installer runtime pass is claimed until the smoke step succeeds.
+- **Effort estimate:** approximately 0.5 hours for installer safety, test automation and workflow integration; CI runtime is excluded.

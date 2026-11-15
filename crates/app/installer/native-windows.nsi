@@ -2,6 +2,8 @@ Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "Sections.nsh"
+!include "StrFunc.nsh"
+${StrStr}
 
 !ifndef APP_VERSION
   !define APP_VERSION "26.0.0"
@@ -50,7 +52,6 @@ Section "SOCDOF application" SecMain
   SectionIn RO
   SetShellVarContext current
   SetOutPath "$INSTDIR"
-  nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
   SetOverwrite on
   File /oname=${APP_EXE} "${SOURCE_DIR}\${APP_EXE}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -78,6 +79,23 @@ Section /o "Start SOCDOF when I sign in" SecStartup
 SectionEnd
 
 Function .onInit
+  ; Never force-kill the app during an update: the user may have unsaved form state.
+  nsExec::ExecToStack '"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH'
+  Pop $0
+  Pop $1
+  StrCmp $0 "0" installer_tasklist_ok
+  IfSilent installer_check_failed
+  MessageBox MB_ICONSTOP|MB_OK "Could not check whether SOCDOF is running. Close it manually and retry."
+installer_check_failed:
+  Abort
+installer_tasklist_ok:
+  ${StrStr} $2 $1 "${APP_EXE}"
+  StrCmp $2 "" installer_app_closed
+  IfSilent installer_app_running
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before installing or updating. The installer will not terminate the running application."
+installer_app_running:
+  Abort
+installer_app_closed:
   ; Restore the user's previous opt-in so upgrades do not silently disable startup.
   ReadRegDWORD $0 HKCU "${UNINSTALL_KEY}" "StartWithWindows"
   ${If} $0 == 1
@@ -87,6 +105,26 @@ Function .onInit
     IfFileExists "$SMSTARTUP\SOCDOF.lnk" 0 +2
     SectionSetFlags ${SecStartup} ${SF_SELECTED}
   ${EndIf}
+FunctionEnd
+
+Function un.onInit
+  ; Refuse to uninstall a running app instead of forcibly terminating it and risking unsaved work.
+  nsExec::ExecToStack '"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH'
+  Pop $0
+  Pop $1
+  StrCmp $0 "0" uninstaller_tasklist_ok
+  IfSilent uninstaller_check_failed
+  MessageBox MB_ICONSTOP|MB_OK "Could not check whether SOCDOF is running. Close it manually and retry."
+uninstaller_check_failed:
+  Abort
+uninstaller_tasklist_ok:
+  ${StrStr} $2 $1 "${APP_EXE}"
+  StrCmp $2 "" uninstaller_app_closed
+  IfSilent uninstaller_app_running
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before uninstalling. The uninstaller will not terminate the running application."
+uninstaller_app_running:
+  Abort
+uninstaller_app_closed:
 FunctionEnd
 
 Function .onInstSuccess
@@ -103,7 +141,6 @@ FunctionEnd
 
 Section "Uninstall"
   SetShellVarContext current
-  nsExec::ExecToLog "taskkill /IM ${APP_EXE} /F"
   Delete "$DESKTOP\SOCDOF.lnk"
   Delete "$SMSTARTUP\SOCDOF.lnk"
   Delete "$SMPROGRAMS\SOCDOF\SOCDOF.lnk"

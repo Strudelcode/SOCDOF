@@ -367,6 +367,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Smoke-test native Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $installer = "artifacts/SOCDOF-$version-windows-x64-native-setup.exe"
+          ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
       - name: Upload native Windows installer
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v6
