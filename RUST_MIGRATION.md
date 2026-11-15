@@ -2193,3 +2193,10 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 - Installer smoke cleanup was hardened: a failed assertion now runs the fallback uninstaller before removing its temporary install directory, and the passing path asserts that uninstall removed the install directory.
 - **Additional effort estimate:** approximately 0.1 hours for test cleanup and post-uninstall verification.
+
+
+## 2026-11-15 — Publisher metadata alignment
+
+- Set the native NSIS installer and Tauri bundle publisher metadata to the repository's required identity, **Yuri / Strudel** (organization: **Strudelcode**).
+- Kept code signing separate from publisher metadata. The current environment has no Authenticode certificate or signing secrets, so Windows artifacts remain unsigned; this is documented as a release prerequisite rather than generating an untrusted self-signed CI certificate.
+- **Effort estimate:** approximately 0.1 hours for metadata alignment and release documentation.

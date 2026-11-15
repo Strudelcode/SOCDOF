@@ -29,6 +29,8 @@ SetCompressor /SOLID lzma
 
 VIProductVersion "${APP_VERSION}.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
+VIAddVersionKey "CompanyName" "Yuri / Strudel"
+VIAddVersionKey "LegalCopyright" "Copyright © 2026 Yuri / Strudel"
 VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "FileDescription" "${APP_NAME} Native Desktop Installer"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
@@ -63,7 +65,7 @@ Section "SOCDOF application" SecMain
 
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME} (Native)"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Strudelcode"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Yuri / Strudel"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\${APP_EXE}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""

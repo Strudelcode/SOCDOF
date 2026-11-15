@@ -88,8 +88,10 @@ macOS builds in CI are currently unsigned. They can be built and smoke-tested,
 but Gatekeeper will warn on first launch and macOS auto-update installation
 needs a properly signed and notarized `.app`. Add an Apple Developer ID
 certificate and notarization credentials before treating the macOS artifact as
-a normal end-user release. Windows SmartScreen similarly benefits from an
-Authenticode certificate, although it is not required for the Tauri updater.
+a normal end-user release. Windows artifacts currently carry publisher metadata for **Yuri / Strudel**
+but are not Authenticode-signed in CI. SmartScreen may therefore warn on first
+launch. Add the developer code-signing certificate and protected signing
+secrets before treating the Windows installer as a signed public release.
 
 ## Local verification
 
