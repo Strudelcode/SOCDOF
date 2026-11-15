@@ -1101,7 +1101,7 @@ fn desktop_impl(
         let mut app_back = false;
 
         egui::Area::new(Id::new(("socdof-window", app.as_str())))
-            .order(egui::Order::Middle)
+            .order(egui::Order::Foreground)
             .fixed_pos(rect.min)
             .show(ctx, |ui| {
                 let (frame, _) = ui.allocate_exact_size(rect.size(), Sense::hover());
