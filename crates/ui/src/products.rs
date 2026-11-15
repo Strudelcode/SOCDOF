@@ -569,6 +569,7 @@ pub fn products(
 }
 
 /// Renders products inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn products_window(
     ctx: &Context,
     active: bool,
@@ -592,13 +593,11 @@ pub fn products_window(
         state.error = Some("products_error_load");
     }
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                ProductsView::List => list_view(ui, theme, texts, focus, state),
-                ProductsView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                ProductsView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        ProductsView::List => list_view(ui, theme, texts, focus, state),
+        ProductsView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        ProductsView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
