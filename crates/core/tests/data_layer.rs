@@ -672,7 +672,6 @@ fn full_text_search_finds_contacts_products_and_invoices() {
     assert_eq!(store.search_contacts("Neue").expect("contacts").len(), 1);
 }
 
-
 #[test]
 fn stock_increase_rejects_integer_overflow_without_changing_inventory() {
     let store = store();
