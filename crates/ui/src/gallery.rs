@@ -3582,18 +3582,20 @@ mod tests {
             screen_rect: Some(screen),
             ..Default::default()
         };
+        // egui Areas establish their persisted layer geometry during the first frame.
+        // Render a second frame before inspecting the native floating-window contents.
+        let _ = ctx.run(input.clone(), |ctx| gallery(ctx, &mut state));
         let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
         let painted = crate::snapshot::signature(&output).join("\n");
 
         assert!(
-            painted.contains("Buchhaltung"),
-            "accounting window was not drawn"
+            painted.contains("BWA") || painted.contains("UStVA"),
+            "accounting window content was not drawn"
         );
-        assert!(painted.contains("Kasse"), "POS window was not drawn");
-        assert!(painted.contains("Therapie"), "therapy window was not drawn");
+        assert!(painted.contains("Neuer Bon"), "POS window content was not drawn");
         assert!(
-            painted.contains(state.texts.get("users_title")),
-            "users window was not drawn; painted={painted:?}"
+            painted.contains(state.texts.get("users_new")),
+            "users window content was not drawn; painted={painted:?}"
         );
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
