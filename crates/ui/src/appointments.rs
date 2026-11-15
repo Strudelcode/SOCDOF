@@ -773,6 +773,7 @@ pub fn appointments(
 }
 
 /// Renders appointments inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn appointments_window(
     ctx: &Context,
     active: bool,
@@ -796,17 +797,11 @@ pub fn appointments_window(
         state.error = Some("appointments_error_load");
     }
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| match state.screen {
-                AppointmentsDetail::Calendar => {
-                    calendar_view(ui, theme, texts, focus, state, store, now)
-                }
-                AppointmentsDetail::Detail => {
-                    detail_view(ui, theme, texts, focus, state, store, now)
-                }
-                AppointmentsDetail::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        
+    egui::ScrollArea::vertical().show(ui, |ui| match state.screen {
+        AppointmentsDetail::Calendar => calendar_view(ui, theme, texts, focus, state, store, now),
+        AppointmentsDetail::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        AppointmentsDetail::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
