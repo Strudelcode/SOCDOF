@@ -68,14 +68,26 @@ impl Money {
             return None;
         }
 
-        let whole = if whole_part.is_empty() { 0 } else { whole_part.parse::<i64>().ok()? };
+        let whole = if whole_part.is_empty() {
+            0
+        } else {
+            whole_part.parse::<i64>().ok()?
+        };
         let scale = 10_i64.checked_pow(decimal_places)?;
-        let mut fraction = if fraction_part.is_empty() { 0 } else { fraction_part.parse::<i64>().ok()? };
+        let mut fraction = if fraction_part.is_empty() {
+            0
+        } else {
+            fraction_part.parse::<i64>().ok()?
+        };
         for _ in fraction_part.len()..decimal_places as usize {
             fraction = fraction.checked_mul(10)?;
         }
         let value = whole.checked_mul(scale)?.checked_add(fraction)?;
-        if negative { value.checked_neg() } else { Some(value) }
+        if negative {
+            value.checked_neg()
+        } else {
+            Some(value)
+        }
     }
 
     /// Parses user input such as `1234.56`, `1.234,56` or `-12,50`.
