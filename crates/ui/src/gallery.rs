@@ -3531,6 +3531,43 @@ mod tests {
     }
 
     #[test]
+    fn native_desktop_renders_accounting_pos_and_therapy_windows() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+        for (index, slug) in ["accounting", "pos", "therapy"].into_iter().enumerate() {
+            let app = AppId::new(slug);
+            let title = state
+                .desktop_icons
+                .label_of(app)
+                .expect("module icon")
+                .to_owned();
+            let rect = default_window_rect(work_area(screen), index);
+            state
+                .desktop_windows
+                .open(Window::new(app, title, rect), 1_000);
+        }
+
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+        let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
+        let painted = crate::snapshot::signature(&output).join("\\n");
+
+        assert!(painted.contains("Buchhaltung"), "accounting window was not drawn");
+        assert!(painted.contains("Kasse"), "POS window was not drawn");
+        assert!(painted.contains("Therapie"), "therapy window was not drawn");
+        assert!(state.desktop_windows.is_open(AppId::new("accounting")));
+        assert!(state.desktop_windows.is_open(AppId::new("pos")));
+        assert!(state.desktop_windows.is_open(AppId::new("therapy")));
+        assert!(output.shapes.len() > 80, "native module windows drew too few shapes");
+    }
+
+    #[test]
     fn guard_blocks_closing_a_dirty_form() {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "teal").expect("state");
         assert_eq!(
