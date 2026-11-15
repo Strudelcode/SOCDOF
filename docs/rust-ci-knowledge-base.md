@@ -61,8 +61,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Idle RAM/CPU budget`.
 - **Measured:** 123,392 KiB RSS against 122,880 KiB; idle CPU is 0.00% against 0.50%.
 - **Interpretation:** only 512 KiB over the current cap. The previous one-second repaint issue is no longer the CPU cause; the CPU budget now passes.
-- **Next checks:** measure after allocator trimming, inspect whether startup-only allocations are retained, and compare repeated samples before changing application architecture. Do not raise `scripts/budgets.json` to hide the result.
-- **Status:** open until the native process passes the unchanged RAM limit in CI.
+- **Attempted fix:** the Linux smoke process and the native portable `run-socdof.sh` launcher now set `MALLOC_ARENA_MAX=1`, `MALLOC_TRIM_THRESHOLD_=0` and `MALLOC_MMAP_THRESHOLD_=131072` to limit allocator retention and return freed startup allocations. The 120 MiB budget remains unchanged.
+- **Files changed:** `.github/workflows/rust.yml` and the generated Linux native archive launcher.
+- **Next checks:** measure the process again. If it remains over budget, profile startup allocations and defer unused module state; do not raise `scripts/budgets.json` to hide the result.
+- **Status:** implemented; awaiting Linux GUI-smoke result.
 
 ## Release and data-safety rules
 
