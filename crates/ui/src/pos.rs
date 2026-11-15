@@ -219,22 +219,13 @@ fn non_empty(value: &str) -> Option<String> {
 }
 
 fn parse_quantity(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || value <= 0.0 {
-        return None;
-    }
-    let milli = (value * 1_000.0).round() as i64;
-    (milli > 0).then_some(milli)
+    let quantity = Money::parse_scaled_decimal(input, 3)?;
+    (quantity > 0).then_some(quantity)
 }
 
 fn parse_percent_bp(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return None;
-    }
-    Some((value * 100.0).round() as i64)
+    let basis_points = Money::parse_scaled_decimal(input, 2)?;
+    (0..=10_000).contains(&basis_points).then_some(basis_points)
 }
 
 fn milli_text(milli: i64) -> String {
