@@ -2189,3 +2189,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - The migration branch already has a `push` trigger, so a commit push and the corresponding pull-request `synchronize` event were starting identical cross-platform matrices twice.
 - Kept pull-request validation for opening, reopening and marking the PR ready; commit updates are validated by the branch push trigger. This prevents duplicate full CI runs without removing a validation path.
 - **Effort estimate:** approximately 0.1 hours; workflow review and documentation. CI queue time is excluded.
+
+
+- Installer smoke cleanup was hardened: a failed assertion now runs the fallback uninstaller before removing its temporary install directory, and the passing path asserts that uninstall removed the install directory.
+- **Additional effort estimate:** approximately 0.1 hours for test cleanup and post-uninstall verification.

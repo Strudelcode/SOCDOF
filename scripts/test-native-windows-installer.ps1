@@ -37,8 +37,8 @@ try {
     Set-Content -LiteralPath $dataMarker -Value 'SOCDOF user data must survive uninstall.' -Encoding UTF8
 
     # /D must be the final NSIS argument. Its value deliberately contains spaces.
-    Invoke-Nsis -Path $installer -Arguments "/S /D=$installDir"
     $installed = $true
+    Invoke-Nsis -Path $installer -Arguments "/S /D=$installDir"
 
     $exe = Join-Path $installDir 'socdof-ui-desktop.exe'
     $uninstaller = Join-Path $installDir 'Uninstall.exe'
@@ -68,6 +68,7 @@ try {
     Invoke-Nsis -Path $uninstaller -Arguments '/S'
     $installed = $false
 
+    if (Test-Path -LiteralPath $installDir) { throw 'Uninstall left the installation directory behind.' }
     if (Test-Path -LiteralPath $exe) { throw 'Uninstall left the native executable behind.' }
     if (Test-Path -LiteralPath $desktopLink) { throw 'Uninstall left the Desktop shortcut behind.' }
     if (Test-Path -LiteralPath (Join-Path $startMenuDir 'SOCDOF.lnk')) { throw 'Uninstall left the Start Menu shortcut behind.' }
@@ -78,17 +79,18 @@ try {
     Write-Host 'Native Windows installer smoke passed: custom path, executable, shortcuts, registry, upgrade preference and AppData preservation.'
 }
 finally {
+    # If an assertion fails mid-test, run the fallback uninstaller before deleting its files.
+    if ($installed) {
+        $fallbackUninstaller = Join-Path $installDir 'Uninstall.exe'
+        if (Test-Path -LiteralPath $fallbackUninstaller) {
+            try { Start-Process -FilePath $fallbackUninstaller -ArgumentList '/S' -Wait | Out-Null } catch { }
+        }
+    }
     # Clean only the test marker; never remove the user's SOCDOF data directory.
     if (Test-Path -LiteralPath $dataMarker) {
         Remove-Item -LiteralPath $dataMarker -Force
     }
     if (Test-Path -LiteralPath $smokeRoot) {
         Remove-Item -LiteralPath $smokeRoot -Recurse -Force
-    }
-    if ($installed) {
-        $fallbackUninstaller = Join-Path $installDir 'Uninstall.exe'
-        if (Test-Path -LiteralPath $fallbackUninstaller) {
-            try { Start-Process -FilePath $fallbackUninstaller -ArgumentList '/S' -Wait | Out-Null } catch { }
-        }
     }
 }
