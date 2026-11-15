@@ -120,10 +120,9 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 
 - **First observed:** workflow run 1235 (0.8% over 5 seconds); re-measured in run 1236 (0.67% over 30 seconds).
 - **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Idle RAM/CPU budget`.
-- **Measured in run 1236:** RSS was 120,652 KiB against 122,880 KiB and passed. CPU remained 0.67% against the unchanged 0.5% limit over a 30-second sample, so simply extending the sample did not resolve it.
-- **Cause:** the native host scheduled a full egui redraw every 10 seconds even on the static first-run login/setup screen. The shared-instance heartbeat check also ran from that UI update loop. Three full redraws in the 30-second sample kept the idle process above the budget.
-- **Fix:** use a 15-second repaint cadence while login/setup/locked screens are static, retain one-second repaint only while a lockout countdown is active, and keep the active desktop's existing 10-second refresh. The heartbeat is still refreshed on each host update, within the 30-second stale-lock window. The CPU threshold is not relaxed.
-- **Verification:** run 1236 confirmed the 30-second measurement and the failure; the new auth-screen cadence is awaiting the next GUI-smoke run.
+- **Measured:** run 1236 recorded 0.67% CPU (failure); duplicate run 1237 recorded 0.47% and run 1242 passed with the original cadence, showing that the result was close to the threshold and somewhat runner-sensitive. Run 1246 measured 0.27% CPU and 119,912 KiB RSS after the cadence change; both are within the existing budgets.
+- **Likely contributor and fix:** static login/setup screens no longer force a full redraw every 10 seconds. They now repaint every 15 seconds, with one-second updates only during lockout countdowns; the active desktop keeps its 10-second refresh. Heartbeats remain within the 30-second stale-lock window. The CPU threshold was not relaxed.
+- **Verification:** the 15-second auth-screen cadence passed the 30-second idle CPU/RSS budget in run 1246.
 
 ## RUST-CI-018 — Repeated rustfmt drift after the previous formatting repair (2026-11-15)
 
@@ -158,8 +157,8 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **First observed:** workflow run 1242, job `Desktop (windows-latest)`, step `Stage Windows release artifacts`.
 - **Symptom:** NSIS stopped while compiling `native-windows.nsi` with `Call must be used with function names starting with "un."`.
 - **Root cause:** `StrFunc.nsh` generated the installer-side `StrStr` helper, but the uninstaller initialization function called that helper without registering its uninstall-side counterpart.
-- **Fix:** register the uninstall string helpers after `${UnStrFunc}` and call `${UnStrStr}` from `un.onInit`; keep `${StrStr}` for the installer.
-- **Verification:** run 1242 reproduced the compiler error; the corrected NSIS source is committed for the next Windows build.
+- **Initial attempted fix:** register an uninstall-side StrFunc helper. The runner's NSIS 3.13 package does not define `${UnStrFunc}`; that approach was rejected and superseded by RUST-CI-022.
+- **Verification:** the initial helper registration failed in run 1246; see RUST-CI-022 for the portable replacement.
 
 
 ## RUST-CI-022 — NSIS 3.13 does not provide the expected StrFunc uninstaller macro
@@ -169,3 +168,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the StrFunc header shipped by the runner's NSIS 3.13 package does not expose the optional installer/uninstaller separator macro used by older StrFunc variants.
 - **Fix:** remove the StrFunc dependency entirely. The installer and uninstaller now run `tasklist.exe` through `cmd.exe` and use the Windows `findstr.exe` exit code (0 = app running, 1 = not running), with any other exit code treated as a safe abort.
 - **Verification:** run 1246 reproduced the NSIS preprocessing failure; the built-in Windows command approach is committed for the next build.
+
+
+## RUST-CI-023 — GUI smoke incorrectly required user-imported templates on a fresh profile (2026-11-15)
+
+- **First observed:** workflow run 1246, GUI smoke job, step `Native dialog bridge`.
+- **Symptom:** the chosen folder/open/save-validation, message acknowledgement and confirmation paths all completed. The smoke then failed with `external template folder is empty`; the cancellation process was never reached.
+- **Root cause:** the smoke test required at least one external invoice template even though a fresh SOCDOF profile correctly starts with zero user-imported templates and the UI has an explicit empty state. Built-in invoice templates are tested separately and were present.
+- **Fix:** treat an empty external-template list as a valid first-run state; when a user-imported template exists, still read and validate the first one.
+- **Verification:** run 1246 confirmed the dialog paths through confirmation and exposed the empty-state assertion; the updated smoke is committed for the next run.

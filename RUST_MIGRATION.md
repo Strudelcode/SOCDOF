@@ -2206,7 +2206,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 - The 30-second GUI-smoke sample still measured 0.67% CPU (RSS remained within budget), proving the earlier short-window hypothesis was insufficient.
 - Reduced idle redraws on static login/setup/locked screens from every 10 seconds to every 15 seconds. A lockout countdown keeps one-second updates; the active desktop retains its existing ten-second repaint. This preserves the 30-second lock stale timeout and does not change the CPU budget.
-- **Verification state:** the optimization is committed; the next GUI-smoke run must pass the 0.5% idle CPU limit.
+- **Verification:** run 1246 measured 0.27% idle CPU and 119,912 KiB RSS, both within the unchanged budgets.
 - **Effort estimate:** approximately 0.2 hours for measurement analysis, targeted UI scheduling change and CI documentation.
 
 
@@ -2215,7 +2215,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Reproduced the GUI-smoke timeout from the uploaded `socdof-gui-smoke` artifact. The dialog log proved that folder selection, file selection and save-path validation worked; execution stopped because the smoke path opened a real message box and the workflow combined chosen and cancelled expectations in one process.
 - Updated smoke-mode message handling so it never blocks on a human dialog, completed the chosen/validation flow with explicit confirmation, and added a separate process for folder/open/save cancellation and cancelled confirmation.
 - Updated the CI knowledge base with the failure evidence and fix.
-- **Verification state:** fix committed; next GUI-smoke run must prove both processes finish and all markers appear.
+- **Partial verification:** run 1246 completed the chosen folder/open/save-validation, message acknowledgement and confirmation paths. It then exposed an invalid test assumption that a fresh profile must contain an external template; the cancellation process is still pending.
 - **Effort estimate:** approximately 0.4 hours for artifact inspection, root-cause analysis, smoke-flow repair and documentation.
 
 
@@ -2242,3 +2242,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Installer and uninstaller still refuse to proceed while SOCDOF is running; they never force-kill the process.
 - **Verification state:** next Windows build must compile the NSIS script and run the full install/upgrade/uninstall smoke.
 - **Effort estimate:** approximately 0.2 hours for compiler-log diagnosis and replacing the unavailable helper.
+
+
+## 2026-11-15 — First-run external-template empty state
+
+- The GUI smoke reached the expected first-run state with zero user-imported external templates. The UI already supports this empty state; only the smoke assertion was wrong.
+- Updated the smoke to validate a template when one exists while accepting a genuinely empty first-run folder.
+- **Verification state:** committed; next GUI-smoke run must complete both the chosen and cancellation processes.
+- **Effort estimate:** approximately 0.2 hours for artifact inspection, first-run behavior analysis, test correction and documentation.

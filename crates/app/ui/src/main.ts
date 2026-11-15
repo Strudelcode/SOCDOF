@@ -1726,15 +1726,15 @@ async function runSmokeDialogs(expectation: "chosen" | "cancel"): Promise<void> 
     );
   }
   const externalTemplates = await invoke<{ filename: string }[]>("list_external_templates");
-  if (externalTemplates.length === 0) {
-    throw new Error("smoke external template folder is empty");
-  }
-  const externalTemplate = await invoke<{ success: boolean; error: string | null }>(
-    "read_external_template",
-    { filename: externalTemplates[0].filename },
-  );
-  if (!externalTemplate.success) {
-    throw new Error(`smoke external template read failed: ${externalTemplate.error ?? "unknown"}`);
+  // A clean first-run profile has no user-imported templates; the UI intentionally shows its empty state.
+  if (externalTemplates.length > 0) {
+    const externalTemplate = await invoke<{ success: boolean; error: string | null }>(
+      "read_external_template",
+      { filename: externalTemplates[0].filename },
+    );
+    if (!externalTemplate.success) {
+      throw new Error(`smoke external template read failed: ${externalTemplate.error ?? "unknown"}`);
+    }
   }
   for (const [kind, reply] of [
     ["folder", folder],
