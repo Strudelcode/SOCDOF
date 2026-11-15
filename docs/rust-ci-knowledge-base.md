@@ -203,3 +203,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - Added `xdotool` to the GUI-smoke environment and now require a visible `SOCDOF` window, the expected title, and at least the configured 760×560 minimum geometry before sampling idle resource use.
 - The native window evidence and idle log are retained with the GUI-smoke artifact.
 - **Verification state:** committed; the next Linux GUI-smoke run must pass this visible-window assertion.
+
+
+## RUST-CI-025 — Shortcut smoke could not enumerate the visible Tauri window (2026-11-15)
+
+- **First observed:** workflow run 1250, commit `90831d67148c0ad56c3268a368cb46906a77b7f0`.
+- **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Shortcut dispatch`.
+- **Symptom:** the smoke reported `no SOCDOF window appeared for ready` after its 40-second search. The same process log proves that the splash closed, the main window became visible, the window state was restored and the tray was created.
+- **Root cause:** the GUI-smoke dependency list did not explicitly install `xdotool`, although the shortcut test depends on it to find and focus the X11 window. Its stderr was suppressed in the polling loop, so a missing executable was reported as a missing application window.
+- **Fix:** install `xdotool` in the GUI-smoke environment and fail immediately with a clear dependency error if it is unavailable. The native-host smoke also uses it to prove that a visible SOCDOF window exists and meets the minimum geometry.
+- **Verification:** run 1250 confirmed the application startup path and isolated the window-enumeration failure; the explicit dependency check awaits run 1255.

@@ -2275,3 +2275,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - This closes the gap where a process could remain alive without successfully presenting the native desktop shell. The Xvfb smoke retains the window marker and startup log as artifacts.
 - **Verification state:** committed; pending the next Linux GUI-smoke run.
 - **Effort estimate:** approximately 0.2 hours for workflow hardening and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — GUI smoke X11 dependency correction
+
+- Run 1250 passed all cross-platform tests, desktop builds, Windows native installer smoke, Linux package staging and resource budgets. The GUI smoke passed Tauri startup, splash handshake, native dialogs and the complete tray menu including the corrected quit action.
+- The shortcut-dispatch step then timed out while searching for the X11 window. Its application log independently showed that the main window was visible; the smoke environment had not explicitly installed the `xdotool` binary required to enumerate and focus it.
+- Added `xdotool` to the GUI-smoke packages and an immediate executable/version check so missing tooling can no longer masquerade as a failed application launch.
+- **Verification state:** committed; pending the next GUI-smoke run.
+- **Effort estimate:** approximately 0.1 hours for log correlation, dependency correction and CI documentation. CI runtime is excluded.

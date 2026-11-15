@@ -482,6 +482,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
+          command -v xdotool >/dev/null || { echo "xdotool is required for native window and shortcut smoke"; exit 1; }
+          xdotool -v
           Xvfb :99 -screen 0 1280x800x24 > artifacts/xvfb.log 2>&1 &
           xvfb_pid=$!
           trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
