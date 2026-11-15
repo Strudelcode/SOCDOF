@@ -706,6 +706,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Purchases
 }
 
 /// Renders the purchases screen into the context.
+
+/// Renders purchases in the full application work area.
 pub fn purchases(
     ctx: &Context,
     theme: &Theme,
@@ -715,7 +717,30 @@ pub fn purchases(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            purchases_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders purchases inside one native desktop child window.
+pub fn purchases_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PurchasesState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             PurchasesView::List => state.back = true,
             PurchasesView::Detail => state.view = PurchasesView::List,
@@ -727,19 +752,13 @@ pub fn purchases(
         state.error = Some("purchases_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
                 PurchasesView::List => list_view(ui, theme, texts, focus, state, now),
                 PurchasesView::Detail => detail_view(ui, theme, texts, focus, state, store),
                 PurchasesView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
-        });
+        
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
