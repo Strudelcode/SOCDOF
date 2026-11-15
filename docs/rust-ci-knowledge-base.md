@@ -38,7 +38,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 | RUST-CI-006 | Linux native GUI failed to start under Xvfb with missing XKB library | CI image lacked the X11 XKB runtime library | Install `libxkbcommon-x11-0` in both native desktop and GUI-smoke environments | Linux desktop build and GUI smoke |
 | RUST-CI-007 | WASM build failed on bulk-memory/nontrapping-float flags | CI used Trunk 0.19.1, which did not pass the configured wasm-opt flags correctly | Pin Trunk 0.22.1 and retain the Binaryen feature flags in the web build | Web/WASM job |
 | RUST-CI-008 | Idle CPU exceeded its budget due frequent repainting | Native desktop scheduled a full repaint every second although the clock only needs minute precision | Display the clock as HH:MM and schedule idle repaint/heartbeat checks every 10 seconds; keep the independent five-second lock heartbeat | GUI smoke CPU budget |
-| RUST-CI-009 | Native Linux archive checksum step failed | Wildcard checksum input included the checksum output file itself | Generate the manifest from sorted top-level `SOCDOF-*` files only, excluding the manifest | Linux release staging |
+| RUST-CI-009 | Native Linux archive checksum step failed | Wildcard checksum input included the checksum output file itself | Generate the manifest from sorted top-level `SOCDOF-*` files only, exclude the manifest, then verify it with `sha256sum -c`; also inspect the native archive for its launcher and executable | Linux release staging |
 
 ## Active investigations
 
