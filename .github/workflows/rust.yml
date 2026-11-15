@@ -185,8 +185,6 @@ jobs:
           export MALLOC_ARENA_MAX=1
           export MALLOC_TRIM_THRESHOLD_=0
           export MALLOC_MMAP_THRESHOLD_=131072
-          export G_SLICE=always-malloc
-          export G_DEBUG=gc-friendly
           exec "$(dirname "$0")/socdof-ui-desktop" "$@"
           EOF
           chmod +x "$native_dir/run-socdof.sh"
