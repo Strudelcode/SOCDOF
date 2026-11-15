@@ -46,7 +46,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
 | `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Product CRUD, stock in/out, labels and reorder are present; exact tax-rate parsing and stock overflow handling are covered. The standalone TypeScript `StockMovesModule` double-entry journal (source/destination locations, reference, location filters, CSV/print) is not yet represented as a native Rust screen; treat as an open parity gap |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
-| `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager, per-user icon/window persistence and global F11/Ctrl+K/Ctrl+L/Escape shortcuts are implemented; independent module rendering inside multiple simultaneous windows, OS tray/startup integration and full workflow parity remain open |
+| `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager, per-user icon/window persistence and global F11/Ctrl+K/Ctrl+L/Escape shortcuts are implemented and the palette/lock/dismiss/auth-gating paths have headless regression coverage; independent module rendering inside multiple simultaneous windows, OS tray/startup integration and full workflow parity remain open |
 | `src/lib/*` | `crates/core/src/*`, `crates/app/src/*`, `crates/ui/src/*` | Cross-cutting; map every exported function and side effect |
 
 ## Full TypeScript source inventory
@@ -220,3 +220,15 @@ The native egui desktop host now consumes the documented global shortcuts at the
 - `Escape` dismisses the active shell overlays.
 
 The Tauri compatibility shell retains its existing shortcut bridge. This native implementation is separate so the Rust host does not depend on the legacy webview event layer. OS-level tray/startup integration and multi-window module acceptance remain open.
+
+
+
+## Native shell keyboard regression tests
+
+The application-wide egui handler has direct headless tests for:
+- Ctrl+K opening the command palette while closing competing shell overlays.
+- Ctrl+L closing open module windows, returning to the locked authentication view and preserving the active session identifier.
+- Escape dismissing the palette without signing out.
+- Ctrl+K and Ctrl+L having no effect while first-run authentication is visible.
+
+The F11 action is emitted as a viewport fullscreen command and remains covered by the platform GUI smoke path.

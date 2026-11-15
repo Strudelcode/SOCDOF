@@ -2860,6 +2860,105 @@ mod tests {
         assert_eq!(state.app_store.modules.len(), 18);
     }
 
+    fn send_shortcut(
+        ctx: &Context,
+        state: &mut GalleryState,
+        key: Key,
+        modifiers: Modifiers,
+    ) {
+        let input = egui::RawInput {
+            events: vec![egui::Event::Key {
+                key,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            }],
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| handle_global_shortcuts(ctx, state, now_millis()));
+    }
+
+    #[test]
+    fn global_command_palette_shortcut_works_from_the_native_desktop() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+
+        send_shortcut(&ctx, &mut state, Key::K, Modifiers::CTRL);
+
+        assert!(state.shell.palette.is_open());
+        assert!(!state.shell.start.is_open());
+        assert!(!state.shell.tray.is_open());
+    }
+
+    #[test]
+    fn global_lock_shortcut_preserves_the_session_and_closes_desktop_windows() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        state
+            .open_desktop_app(AppId::new("contacts"), now_millis())
+            .expect("open contacts");
+        assert!(!state.desktop_windows.windows().is_empty());
+        let session_id = state.auth.session.as_ref().expect("active session").id;
+
+        send_shortcut(&ctx, &mut state, Key::L, Modifiers::CTRL);
+
+        assert!(state.auth_open);
+        assert!(!state.desktop_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Locked);
+        assert_eq!(
+            state.auth.session.as_ref().expect("preserved session").id,
+            session_id
+        );
+        assert!(state.desktop_windows.windows().is_empty());
+        assert!(!state.contacts_open);
+    }
+
+    #[test]
+    fn escape_dismisses_the_shell_palette_without_signing_out() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        state.shell.open_palette();
+        let session_id = state.auth.session.as_ref().expect("active session").id;
+
+        send_shortcut(&ctx, &mut state, Key::Escape, Modifiers::NONE);
+
+        assert!(!state.shell.palette.is_open());
+        assert_eq!(state.auth.view, crate::auth::AuthView::Unlocked);
+        assert_eq!(
+            state.auth.session.as_ref().expect("active session").id,
+            session_id
+        );
+    }
+
+    #[test]
+    fn global_shortcuts_are_ignored_while_authentication_is_visible() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::from_store(
+                Language::En,
+                Appearance::Dark,
+                "indigo",
+                Store::open_in_memory().expect("store"),
+            )
+            .expect("setup state");
+
+        send_shortcut(&ctx, &mut state, Key::K, Modifiers::CTRL);
+        send_shortcut(&ctx, &mut state, Key::L, Modifiers::CTRL);
+
+        assert!(state.auth_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Setup);
+        assert!(!state.shell.palette.is_open());
+    }
+
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(language, appearance, "indigo").expect("gallery state");

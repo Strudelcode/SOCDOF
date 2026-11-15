@@ -262,3 +262,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the new private global-shortcut helper was inserted between the existing gallery rustdoc and the public `gallery` function. Rust attached the docs to the helper, leaving the public API undocumented.
 - **Fix:** moved the helper's documentation to its private function and restored an explicit API doc comment immediately above `pub fn gallery`.
 - **Verification:** correction committed; next workflow run must verify all targets.
+
+
+
+## RUST-CI-031 — Native global shortcut behavior regression coverage
+
+- Added headless egui tests for Ctrl+K opening the command palette and closing competing overlays, Ctrl+L locking the session while preserving its token and clearing module windows, Escape dismissing the palette without signing out, and all global shortcuts being ignored while setup/login is visible.
+- These tests exercise the actual shell event handler rather than only testing the abstract shortcut resolver.
+- **Verification:** committed; Linux, Windows and WASM checks pending.

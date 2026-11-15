@@ -2336,3 +2336,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Moved the helper documentation to its function and restored the public gallery API documentation directly above the function.
 - **Verification state:** committed; next full CI run required.
 - **Effort estimate:** approximately 0.1 hours for cross-platform CI diagnosis, source correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native shortcut behavior tests
+
+- Added direct headless egui tests for command-palette opening, lock-session behavior and preserved session identity, Escape dismissal and authentication-screen shortcut gating.
+- The tests call the same private handler used by the real native desktop frame, rather than validating only a separate chord resolver.
+- **Verification state:** committed; full CI run pending.
+- **Effort estimate:** approximately 0.3 hours for state-flow review, headless test implementation and documentation. CI runtime is excluded.
