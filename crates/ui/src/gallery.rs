@@ -3558,13 +3558,19 @@ mod tests {
         let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
         let painted = crate::snapshot::signature(&output).join("\n");
 
-        assert!(painted.contains("Buchhaltung"), "accounting window was not drawn");
+        assert!(
+            painted.contains("Buchhaltung"),
+            "accounting window was not drawn"
+        );
         assert!(painted.contains("Kasse"), "POS window was not drawn");
         assert!(painted.contains("Therapie"), "therapy window was not drawn");
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
-        assert!(output.shapes.len() > 80, "native module windows drew too few shapes");
+        assert!(
+            output.shapes.len() > 80,
+            "native module windows drew too few shapes"
+        );
     }
 
     #[test]
