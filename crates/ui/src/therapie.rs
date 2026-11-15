@@ -1040,6 +1040,7 @@ fn mileage_view(
 }
 
 /// Renders the therapy screen into the context.
+/// Renders the therapy screen into the context.
 pub fn therapie(
     ctx: &Context,
     theme: &Theme,
@@ -1049,7 +1050,31 @@ pub fn therapie(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            therapie_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete therapy workflow inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
+pub fn therapie_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut TherapieState,
+    store: &Store,
+    now: i64,
+) {
+    if active && state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             TherapieView::List => state.back = true,
             TherapieView::Detail => state.view = TherapieView::List,
@@ -1062,20 +1087,12 @@ pub fn therapie(
         state.error = Some("therapie_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                TherapieView::List => list_view(ui, theme, texts, focus, state, store),
-                TherapieView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                TherapieView::Form => form_view(ui, theme, texts, focus, state, store, now),
-                TherapieView::Mileage => mileage_view(ui, theme, texts, focus, state, store),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        TherapieView::List => list_view(ui, theme, texts, focus, state, store),
+        TherapieView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        TherapieView::Form => form_view(ui, theme, texts, focus, state, store, now),
+        TherapieView::Mileage => mileage_view(ui, theme, texts, focus, state, store),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
