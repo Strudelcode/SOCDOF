@@ -915,6 +915,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Accountin
 }
 
 /// Renders the accounting screen into the context.
+/// Renders the accounting screen into the context.
 pub fn accounting(
     ctx: &Context,
     theme: &Theme,
@@ -924,7 +925,31 @@ pub fn accounting(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            accounting_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete accounting workflow inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
+pub fn accounting_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AccountingState,
+    store: &Store,
+    now: i64,
+) {
+    if active && state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             AccountingView::List => state.back = true,
             AccountingView::Detail => state.view = AccountingView::List,
@@ -936,19 +961,11 @@ pub fn accounting(
         state.error = Some("accounting_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                AccountingView::List => list_view(ui, theme, texts, focus, state, now),
-                AccountingView::Detail => detail_view(ui, theme, texts, focus, state),
-                AccountingView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        AccountingView::List => list_view(ui, theme, texts, focus, state, now),
+        AccountingView::Detail => detail_view(ui, theme, texts, focus, state),
+        AccountingView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     if state.tax_advisor_month_csv_export {
         if let Some(month) = state
