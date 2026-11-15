@@ -1,12 +1,13 @@
 name: Rust
 
 on:
+  # Validate PR creation/reopening and the moment a draft becomes ready. Subsequent commits
+  # on the migration branch are checked by the push trigger below, avoiding duplicate matrices.
   pull_request:
     branches: [main]
-  # Feature branches with an open PR are validated by pull_request. Avoid running the same
-  # expensive matrix twice for one commit (push + pull_request), where concurrency cancels one.
+    types: [opened, reopened, ready_for_review]
   push:
-    branches: [main]
+    branches: [main, feature/rust-native-desktop-host]
   workflow_dispatch:
 
 permissions:
