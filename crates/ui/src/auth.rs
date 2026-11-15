@@ -1759,8 +1759,6 @@ mod lock_conflict_tests {
 #[cfg(test)]
 mod auth_flow_tests {
     use super::*;
-    use socdof_core::domain::session::MAX_FAILED_ATTEMPTS;
-    use socdof_core::store::Store;
 
     fn empty_store() -> Store {
         Store::open_in_memory().expect("in-memory store")
