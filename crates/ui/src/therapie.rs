@@ -1074,7 +1074,7 @@ pub fn therapie_window(
     store: &Store,
     now: i64,
 ) {
-    if active && state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             TherapieView::List => state.back = true,
             TherapieView::Detail => state.view = TherapieView::List,
