@@ -2308,3 +2308,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - The smoke used `xdotool key --window`, which bypasses the normal focused-window input route. It now activates/focuses the SOCDOF window and sends F11/F12 through ordinary X11 keyboard input.
 - **Verification state:** committed; pending a fresh GUI-smoke run.
 - **Effort estimate:** approximately 0.2 hours for workflow-log diagnosis, input-path correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Lockout persistence across restart regression
+
+- Strengthened the authentication regression test to recreate `AuthState` after lockout and verify that a correct password is still rejected before the stored deadline. The same fresh state then signs in successfully after expiry.
+- This verifies the SQLite persistence boundary rather than only the in-memory form state.
+- **Verification state:** committed; pending cross-platform CI.
+- **Effort estimate:** approximately 0.1 hours for test hardening and documentation. CI runtime is excluded.

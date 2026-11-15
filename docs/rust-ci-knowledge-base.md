@@ -243,3 +243,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** `xdotool key --window` sends a synthetic event directly to a target X11 client. That does not reliably follow the normal focused-window keyboard path used by WebKit/egui event handling.
 - **Fix:** activate and focus the discovered window, then send F11 and F12 as normal X11 keyboard events using `xdotool key --clearmodifiers`. The assertions for fullscreen dispatch, unknown-key handling and locked-session rejection remain unchanged.
 - **Verification:** workflow correction committed; the next GUI-smoke run must show the F11/F12 dispatch markers in both ready and locked contexts.
+
+
+
+## RUST-CI-029 — Verify authentication lockout across an application restart
+
+- **Follow-up:** the corrected lockout test now recreates `AuthState` after the threshold is reached, attempts the correct password before expiry and confirms SQLite still rejects the login. It then retries after expiry and confirms a real session is created.
+- **Purpose:** distinguish a genuinely persistent store-level lockout from a deadline held only in the current UI state.
+- **Verification:** committed for the next Linux and Windows test runs.

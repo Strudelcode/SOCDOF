@@ -1846,15 +1846,26 @@ mod auth_flow_tests {
         assert_eq!(login.error, Some("auth_error_locked"));
         assert_eq!(login.view, AuthView::Login);
 
-        login.password = "correct horse battery".to_string();
-        login
+        // Recreate the auth state to model closing and relaunching the application.
+        // The next login must still be rejected by the SQLite-backed lockout record.
+        let mut restarted = AuthState::new(&store, locked_until - 1).expect("restarted auth state");
+        restarted.username = "owner".to_string();
+        restarted.password = "correct horse battery".to_string();
+        restarted
+            .login(&store, locked_until - 1)
+            .expect("locked login is a handled outcome");
+        assert_eq!(restarted.locked_until, Some(locked_until));
+        assert_eq!(restarted.error, Some("auth_error_locked"));
+
+        restarted.password = "correct horse battery".to_string();
+        restarted
             .login(&store, locked_until + 1)
             .expect("login after lockout");
-        assert_eq!(login.view, AuthView::Unlocked);
+        assert_eq!(restarted.view, AuthView::Unlocked);
         assert_eq!(
-            login.user.as_ref().expect("signed-in user").username,
+            restarted.user.as_ref().expect("signed-in user").username,
             "owner"
         );
-        assert!(login.session.is_some());
+        assert!(restarted.session.is_some());
     }
 }
