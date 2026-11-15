@@ -177,7 +177,6 @@ fn startup_app(module: &str) -> Option<AppId> {
         "support" => AppId::new("support"),
         "reports" => AppId::new("reports"),
         "therapy" => AppId::new("therapy"),
-            "users" => AppId::new("users"),
         "users" => AppId::new("users"),
         "settings" => AppId::new("settings"),
         "editor" => AppId::new("editor"),
@@ -3585,7 +3584,7 @@ mod tests {
         assert!(painted.contains("Kasse"), "POS window was not drawn");
         assert!(painted.contains("Therapie"), "therapy window was not drawn");
         assert!(
-            painted.contains(&state.texts.get("users_title")),
+            painted.contains(state.texts.get("users_title")),
             "users window was not drawn"
         );
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
