@@ -3487,7 +3487,7 @@ mod tests {
                 z_order: 1,
             },
         );
-        for (slug, z_order) in [("accounting", 0), ("pos", 3), ("therapy", 4)] {
+        for (slug, z_order) in [("accounting", 0), ("pos", 3), ("therapy", 4), ("users", 5)] {
             layout.window_states.insert(
                 slug.to_string(),
                 settings_service::DesktopWindowLayout {
@@ -3546,6 +3546,7 @@ mod tests {
             state.desktop_windows.windows()[4].app(),
             AppId::new("therapy")
         );
+        assert_eq!(state.desktop_windows.windows()[5].app(), AppId::new("users"));
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
@@ -3590,6 +3591,7 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
+        assert!(state.desktop_windows.is_open(AppId::new("users")));
         assert!(
             output.shapes.len() > 80,
             "native module windows drew too few shapes"
