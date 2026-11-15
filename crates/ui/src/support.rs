@@ -577,6 +577,7 @@ pub fn support(
 }
 
 /// Renders support inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn support_window(
     ctx: &Context,
     active: bool,
@@ -600,13 +601,11 @@ pub fn support_window(
         state.error = Some("support_error_load");
     }
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                SupportView::List => list_view(ui, theme, texts, focus, state),
-                SupportView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                SupportView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        SupportView::List => list_view(ui, theme, texts, focus, state),
+        SupportView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        SupportView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
