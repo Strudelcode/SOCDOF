@@ -538,7 +538,9 @@ pub fn users(
                 .fill(theme.palette.background)
                 .inner_margin(egui::Margin::same(24.0)),
         )
-        .show(ctx, |ui| users_window(ctx, true, ui, theme, texts, focus, state, store, now));
+        .show(ctx, |ui| {
+            users_window(ctx, true, ui, theme, texts, focus, state, store, now)
+        });
 }
 
 /// Renders user management inside a native desktop application window.
