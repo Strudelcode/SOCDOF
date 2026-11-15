@@ -2217,3 +2217,9 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated the CI knowledge base with the failure evidence and fix.
 - **Verification state:** fix committed; next GUI-smoke run must prove both processes finish and all markers appear.
 - **Effort estimate:** approximately 0.4 hours for artifact inspection, root-cause analysis, smoke-flow repair and documentation.
+
+
+## 2026-11-15 — Workflow YAML correction
+
+- Corrected the indentation of the newly added dialog-smoke artifact paths after GitHub rejected the workflow before creating any jobs.
+- **Effort estimate:** approximately 0.1 hours; YAML diagnosis, correction and CI knowledge-base entry.

@@ -920,9 +920,9 @@ jobs:
             artifacts/splash-failure.log
             artifacts/keys-*.log
             artifacts/dialogs.log
-          artifacts/dialogs-cancel.log
-          artifacts/dialogs-report.json
-          artifacts/dialogs-cancel-report.json
+            artifacts/dialogs-cancel.log
+            artifacts/dialogs-report.json
+            artifacts/dialogs-cancel-report.json
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

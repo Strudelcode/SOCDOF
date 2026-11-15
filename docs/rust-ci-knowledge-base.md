@@ -142,3 +142,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** smoke-mode `show_message` still opened a real blocking native message box when its optional environment variable was absent. The workflow never set a confirmation answer. It also asserted a cancelled folder result in the same run whose environment selected a folder, while the webview smoke function expected the chosen flow.
 - **Fix:** suppress blocking message windows whenever the app is in smoke mode; explicitly drive confirmation outcomes; run chosen/validation and cancellation cases in separate fresh processes; and let the chosen flow accept the deliberately expected `parent_missing` save result while the workflow asserts that exact error.
 - **Verification:** run 1237 reproduced the hang; the corrected two-process smoke is committed and awaits the next GUI-smoke run.
+
+
+## RUST-CI-020 — Workflow YAML rejected before job creation (2026-11-15)
+
+- **First observed:** workflow run 1244, commit `808101a3cedc3b0559edba031b68efdd38717c9c`.
+- **Symptom:** GitHub Actions marked the workflow run failed immediately and created no jobs.
+- **Root cause:** the four new dialog-smoke artifact paths were inserted with less indentation than the other entries under the upload-artifact `path: |` block, making the workflow YAML invalid.
+- **Fix:** aligned all dialog log/report paths with the existing artifact list.
+- **Verification:** run 1244 failed before job creation; the corrected workflow is committed and awaits the next push-triggered run.
