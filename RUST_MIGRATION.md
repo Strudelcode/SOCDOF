@@ -2367,3 +2367,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated the parity inventory to state precisely what is now implemented and what remains unaccepted.
 - **Verification state:** committed; full cross-platform CI pending.
 - **Effort estimate:** approximately 2.0 hours for eight render adapters, dispatcher integration, regression expansion and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Active child-window keyboard isolation
+
+- Added a headless regression that opens Projects and Fleet together, focuses Fleet, sends Escape and verifies only the active Fleet window closes while Projects remains open.
+- This protects module drafts/navigation from key events intended for a different child window.
+- **Verification state:** committed; current-head CI pending.
+- **Effort estimate:** approximately 0.2 hours for focus-path test and documentation. CI runtime is excluded.
