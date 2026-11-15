@@ -3592,7 +3592,10 @@ mod tests {
             painted.contains("BWA") || painted.contains("UStVA"),
             "accounting window content was not drawn"
         );
-        assert!(painted.contains("Neuer Bon"), "POS window content was not drawn");
+        assert!(
+            painted.contains("Neuer Bon"),
+            "POS window content was not drawn"
+        );
         assert!(
             painted.contains(state.texts.get("users_new")),
             "users window content was not drawn; painted={painted:?}"
