@@ -177,6 +177,7 @@ fn startup_app(module: &str) -> Option<AppId> {
         "support" => AppId::new("support"),
         "reports" => AppId::new("reports"),
         "therapy" => AppId::new("therapy"),
+            "users" => AppId::new("users"),
         "users" => AppId::new("users"),
         "settings" => AppId::new("settings"),
         "editor" => AppId::new("editor"),
@@ -984,6 +985,22 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     state.therapie.back = false;
                     back
                 }
+                "users" => {
+                    crate::users::users_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.users,
+                        store,
+                        now,
+                    );
+                    let back = state.users.back;
+                    state.users.back = false;
+                    back
+                }
                 "settings" => {
                     crate::settings::settings_window(
                         ctx,
@@ -1026,6 +1043,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 "accounting",
                                 "pos",
                                 "therapy",
+                                "users",
                             ] {
                                 let saved =
                                     layout.window_states.entry(slug.to_string()).or_default();
@@ -3513,6 +3531,7 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
+        assert!(state.desktop_windows.is_open(AppId::new("users")));
         assert_eq!(
             state.desktop_windows.windows()[0].app(),
             AppId::new("accounting")
@@ -3531,14 +3550,14 @@ mod tests {
     }
 
     #[test]
-    fn native_desktop_renders_accounting_pos_and_therapy_windows() {
+    fn native_desktop_renders_accounting_pos_therapy_and_users_windows() {
         let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.auth_open = false;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        for (index, slug) in ["accounting", "pos", "therapy"].into_iter().enumerate() {
+        for (index, slug) in ["accounting", "pos", "therapy", "users"].into_iter().enumerate() {
             let app = AppId::new(slug);
             let title = state
                 .desktop_icons
@@ -3564,6 +3583,10 @@ mod tests {
         );
         assert!(painted.contains("Kasse"), "POS window was not drawn");
         assert!(painted.contains("Therapie"), "therapy window was not drawn");
+        assert!(
+            painted.contains(&state.texts.get("users_title")),
+            "users window was not drawn"
+        );
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
