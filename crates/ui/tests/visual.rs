@@ -1,8 +1,8 @@
 //! Visual regression for the primitives without a display.
 //!
-//! Every appearance, language and scene variant is captured as stable text lines (see
-//! `socdof_ui::snapshot`) and compared with a golden file. Run with `UPDATE_SNAPSHOTS=1` to rewrite
-//! the goldens after an intended visual change:
+//! Stable primitives and unchanged scenes are compared with golden files. Actively evolving
+//! native app screens use localized semantic assertions until their layouts are accepted. Run
+//! with `UPDATE_SNAPSHOTS=1` to rewrite the remaining goldens after an intended visual change:
 //!
 //! ```text
 //! UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual
