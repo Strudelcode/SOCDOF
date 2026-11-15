@@ -270,3 +270,14 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - Added headless egui tests for Ctrl+K opening the command palette and closing competing overlays, Ctrl+L locking the session while preserving its token and clearing module windows, Escape dismissing the palette without signing out, and all global shortcuts being ignored while setup/login is visible.
 - These tests exercise the actual shell event handler rather than only testing the abstract shortcut resolver.
 - **Verification:** committed; Linux, Windows and WASM checks pending.
+
+
+
+## RUST-CI-032 — Xvfb shortcut smoke inherited an Alt modifier
+
+- **First observed:** workflow run 1260, commit `01eaaea15e8629c74a70e97510d35920202085ac`.
+- **Failing gate:** GUI smoke, step `Shortcut dispatch`.
+- **Symptom:** the native shortcut resolver recorded `chord=Alt+F11 action=none reason=unknown`; the smoke expected the unmodified F11 fullscreen action.
+- **Root cause:** the Xvfb focus/activation path left Alt in the synthetic keyboard modifier state. `xdotool key --clearmodifiers` alone did not reliably clear it before the key event reached the application.
+- **Fix:** explicitly send key-up events for Alt, Super, Ctrl and Shift before F11 and F12, and release them again after the sequence. The application continues to reject Alt+F11 as an unbound chord; no production shortcut behavior was relaxed.
+- **Verification:** workflow change committed; next GUI-smoke run must record `chord=F11 action=toggle_fullscreen` and the locked-session rejection.
