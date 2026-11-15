@@ -3769,6 +3769,61 @@ mod tests {
     }
 
     #[test]
+    fn escape_in_the_active_module_window_does_not_close_other_modules() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Login;
+        state.desktop_open = true;
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+
+        for (index, slug) in ["projects", "fleet"].into_iter().enumerate() {
+            let app = AppId::new(slug);
+            let title = state
+                .desktop_icons
+                .label_of(app)
+                .expect("module icon")
+                .to_owned();
+            let rect = crate::desktop::default_window_rect(work_area(screen), index);
+            state
+                .desktop_windows
+                .open(Window::new(app, title, rect), 1_000);
+        }
+        assert_eq!(
+            state.desktop_windows.active(),
+            Some(AppId::new("fleet")),
+            "the last opened module should own keyboard focus"
+        );
+
+        let initial = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+        let _ = ctx.run(initial, |ctx| gallery(ctx, &mut state));
+        let escape = egui::RawInput {
+            screen_rect: Some(screen),
+            events: vec![egui::Event::Key {
+                key: Key::Escape,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }],
+            ..Default::default()
+        };
+        let _ = ctx.run(escape, |ctx| gallery(ctx, &mut state));
+
+        assert!(
+            state.desktop_windows.is_open(AppId::new("projects")),
+            "Escape in Fleet closed the background Projects window"
+        );
+        assert!(
+            !state.desktop_windows.is_open(AppId::new("fleet")),
+            "Escape did not close the active Fleet window"
+        );
+    }
+
+    #[test]
     fn native_desktop_renders_all_registered_business_module_windows() {
         let ctx = crate::theme::headless_context();
         let mut state =
