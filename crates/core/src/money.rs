@@ -44,7 +44,7 @@ impl Money {
         let (negative, body) = match compact.as_bytes()[0] {
             b'-' => (true, &compact[1..]),
             b'+' => (false, &compact[1..]),
-            _ => (false, compact.as_str()),
+            _ => (false, compact),
         };
         if body.is_empty() {
             return None;
@@ -55,7 +55,10 @@ impl Money {
             Some(index) => (&body[..index], &body[index + 1..]),
             None => (body, ""),
         };
-        if fraction_part.bytes().any(|byte| byte == b'.' || byte == b',') {
+        if fraction_part
+            .bytes()
+            .any(|byte| byte == b'.' || byte == b',')
+        {
             return None;
         }
         if whole_part.is_empty() && fraction_part.is_empty() {
@@ -257,7 +260,10 @@ mod tests {
         assert_eq!(Money::parse_scaled_decimal("1,234", 2), None);
         assert_eq!(Money::parse_scaled_decimal("1.2,3", 2), None);
         assert_eq!(Money::parse_scaled_decimal("1 000", 2), None);
-        assert_eq!(Money::parse_scaled_decimal("999999999999999999999", 2), None);
+        assert_eq!(
+            Money::parse_scaled_decimal("999999999999999999999", 2),
+            None
+        );
     }
 
     #[test]
