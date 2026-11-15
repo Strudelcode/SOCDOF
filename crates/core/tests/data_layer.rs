@@ -671,3 +671,24 @@ fn full_text_search_finds_contacts_products_and_invoices() {
     assert!(store.search_contacts("Alpen").expect("contacts").is_empty());
     assert_eq!(store.search_contacts("Neue").expect("contacts").len(), 1);
 }
+
+
+#[test]
+fn stock_increase_rejects_integer_overflow_without_changing_inventory() {
+    let store = store();
+    let product = create_product(&store, "Grenzbestand", i64::MAX);
+    let movement = StockMove {
+        id: Uuid::new_v4(),
+        product_id: product.id,
+        kind: StockMoveKind::In,
+        quantity: 1,
+        reason: Some("overflow regression".to_string()),
+        created_at: NOW + 1,
+    };
+
+    assert!(store.adjust_stock(&movement).is_err());
+    assert_eq!(
+        store.find_product(product.id).expect("product").expect("exists").stock,
+        i64::MAX
+    );
+}
