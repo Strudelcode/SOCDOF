@@ -2230,3 +2230,7 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Fixed the Windows native installer compile error by registering and using the separate StrFunc uninstaller helper in `un.onInit`.
 - **Verification state:** the Windows NSIS compile must pass in the next run before installer smoke is considered testable.
 - **Effort estimate:** approximately 0.1 hours for log diagnosis and the NSIS helper correction.
+
+
+- Added a five-minute step timeout and a five-second forced cleanup grace to both native-dialog smoke processes so a future modal regression cannot leave the Linux GUI job waiting indefinitely.
+- **Additional effort estimate:** approximately 0.05 hours for smoke-process timeout hardening.

@@ -664,6 +664,7 @@ jobs:
 
       - name: Native dialog bridge
         shell: bash
+        timeout-minutes: 5
         run: |
           set -euo pipefail
           mkdir -p artifacts/dialog-target artifacts/xdg-dialogs artifacts/xdg-dialogs-cancel
@@ -683,7 +684,7 @@ jobs:
           export SOCDOF_SMOKE_DIALOG_SAVE="$PWD/artifacts/dialog-target/missing/backup.socdofbak"
           export SOCDOF_SMOKE_DIALOG_CONFIRM=yes
           SOCDOF_SMOKE_REPORT="$PWD/artifacts/dialogs-report.json" \
-            timeout 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            timeout --kill-after=5s 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
               "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/dialogs.log 2>&1
 
           # A separate process exercises cancellation and a cancelled confirmation.
@@ -693,7 +694,7 @@ jobs:
           export SOCDOF_SMOKE_DIALOG_SAVE=cancel
           export SOCDOF_SMOKE_DIALOG_CONFIRM=cancel
           SOCDOF_SMOKE_REPORT="$PWD/artifacts/dialogs-cancel-report.json" \
-            timeout 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            timeout --kill-after=5s 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
               "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/dialogs-cancel.log 2>&1
 
           python3 - <<'PY'
