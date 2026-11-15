@@ -173,12 +173,8 @@ impl ProductDraft {
 }
 
 fn parse_percent_bp(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return None;
-    }
-    Some((value * 100.0).round() as i64)
+    let basis_points = Money::parse_scaled_decimal(input, 2)?;
+    (0..=10_000).contains(&basis_points).then_some(basis_points)
 }
 
 fn parse_count(input: &str) -> Option<i64> {
@@ -1765,6 +1761,18 @@ mod tests {
             store.find_product(coffee.id).expect("find").unwrap().stock,
             15
         );
+    }
+
+    #[test]
+    fn parses_tax_rates_exactly_without_float_rounding() {
+        assert_eq!(parse_percent_bp("19"), Some(1_900));
+        assert_eq!(parse_percent_bp("19,5"), Some(1_950));
+        assert_eq!(parse_percent_bp("0,01"), Some(1));
+        assert_eq!(parse_percent_bp("100"), Some(10_000));
+        assert_eq!(parse_percent_bp("100,01"), None);
+        assert_eq!(parse_percent_bp("19,001"), None);
+        assert_eq!(parse_percent_bp("1e2"), None);
+        assert_eq!(parse_percent_bp("-1"), None);
     }
 
     #[test]
