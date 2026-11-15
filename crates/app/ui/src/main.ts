@@ -1741,10 +1741,15 @@ async function runSmokeDialogs(expectation: "chosen" | "cancel"): Promise<void> 
     ["open", open],
     ["save", save],
   ] as const) {
-    if (reply.outcome !== expected) {
+    const saveParentMissing =
+      kind === "save" &&
+      expected === "chosen" &&
+      reply.outcome === "error" &&
+      reply.error === "parent_missing";
+    if (!saveParentMissing && reply.outcome !== expected) {
       throw new Error(`smoke ${kind} dialog returned ${reply.outcome}, expected ${expected}`);
     }
-    if (expected === "chosen" && !reply.path) {
+    if (expected === "chosen" && !saveParentMissing && !reply.path) {
       throw new Error(`smoke ${kind} dialog returned no path`);
     }
   }

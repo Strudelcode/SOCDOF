@@ -1371,7 +1371,8 @@ pub fn pick_save_file(app: tauri::AppHandle, suggested_name: String) -> DialogRe
 /// Shows a message box.
 #[tauri::command]
 pub fn show_message(app: tauri::AppHandle, text: String, title: String) -> DialogReply {
-    if smoke_selection("SOCDOF_SMOKE_DIALOG_MESSAGE").is_none() {
+    // Smoke runs must never open a blocking native window that requires a human to acknowledge it.
+    if smoke_report_path().is_none() {
         app.dialog().message(&text).title(&title).blocking_show();
     }
     dialog_reply(&DialogKind::Message, None)

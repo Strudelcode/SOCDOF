@@ -2208,3 +2208,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Reduced idle redraws on static login/setup/locked screens from every 10 seconds to every 15 seconds. A lockout countdown keeps one-second updates; the active desktop retains its existing ten-second repaint. This preserves the 30-second lock stale timeout and does not change the CPU budget.
 - **Verification state:** the optimization is committed; the next GUI-smoke run must pass the 0.5% idle CPU limit.
 - **Effort estimate:** approximately 0.2 hours for measurement analysis, targeted UI scheduling change and CI documentation.
+
+
+## 2026-11-15 — Native dialog CI smoke repair
+
+- Reproduced the GUI-smoke timeout from the uploaded `socdof-gui-smoke` artifact. The dialog log proved that folder selection, file selection and save-path validation worked; execution stopped because the smoke path opened a real message box and the workflow combined chosen and cancelled expectations in one process.
+- Updated smoke-mode message handling so it never blocks on a human dialog, completed the chosen/validation flow with explicit confirmation, and added a separate process for folder/open/save cancellation and cancelled confirmation.
+- Updated the CI knowledge base with the failure evidence and fix.
+- **Verification state:** fix committed; next GUI-smoke run must prove both processes finish and all markers appear.
+- **Effort estimate:** approximately 0.4 hours for artifact inspection, root-cause analysis, smoke-flow repair and documentation.

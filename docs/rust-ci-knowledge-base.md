@@ -133,3 +133,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** new exact-decimal regression tests and their surrounding source were committed without running the workspace formatter after the final edits.
 - **Fix:** applied the formatter's requested line wrapping, removed the extra blank lines and corrected the comment indentation; no behavior was changed by this part of the patch.
 - **Verification:** formatter-equivalent changes are committed; the next Format job must pass before this entry is closed.
+
+
+## RUST-CI-019 — Native dialog smoke hung on an unhandled message box and mixed expectations (2026-11-15)
+
+- **First observed:** workflow run 1237, GUI smoke job, step `Native dialog bridge`.
+- **Symptom:** the chosen folder and open-file paths completed, and the save validator correctly returned `parent_missing`; the process then waited until the 120-second timeout. The log contained neither the message acknowledgement nor the expected cancellation marker.
+- **Root cause:** smoke-mode `show_message` still opened a real blocking native message box when its optional environment variable was absent. The workflow never set a confirmation answer. It also asserted a cancelled folder result in the same run whose environment selected a folder, while the webview smoke function expected the chosen flow.
+- **Fix:** suppress blocking message windows whenever the app is in smoke mode; explicitly drive confirmation outcomes; run chosen/validation and cancellation cases in separate fresh processes; and let the chosen flow accept the deliberately expected `parent_missing` save result while the workflow asserts that exact error.
+- **Verification:** run 1237 reproduced the hang; the corrected two-process smoke is committed and awaits the next GUI-smoke run.
