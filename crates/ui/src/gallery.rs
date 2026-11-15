@@ -3556,7 +3556,7 @@ mod tests {
             ..Default::default()
         };
         let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
-        let painted = crate::snapshot::signature(&output).join("\\n");
+        let painted = crate::snapshot::signature(&output).join("\n");
 
         assert!(painted.contains("Buchhaltung"), "accounting window was not drawn");
         assert!(painted.contains("Kasse"), "POS window was not drawn");
