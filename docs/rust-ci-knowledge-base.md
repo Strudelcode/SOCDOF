@@ -213,3 +213,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the GUI-smoke dependency list did not explicitly install `xdotool`, although the shortcut test depends on it to find and focus the X11 window. Its stderr was suppressed in the polling loop, so a missing executable was reported as a missing application window.
 - **Fix:** install `xdotool` in the GUI-smoke environment and fail immediately with a clear dependency error if it is unavailable. The native-host smoke also uses it to prove that a visible SOCDOF window exists and meets the minimum geometry.
 - **Verification:** run 1250 confirmed the application startup path and isolated the window-enumeration failure; the explicit dependency check awaits run 1255.
+
+
+## RUST-CI-026 — New authentication regression tests needed rustfmt and Clippy cleanup (2026-11-15)
+
+- **First observed:** workflow run 1254, commit `1de08c13280ef2f5370652d8d9be1c3a2b97c4e3`.
+- **Failing jobs:** `Format` and `Test (ubuntu-latest)`.
+- **Symptoms:** rustfmt requested removal of one extra blank line and wrapping two long assertions. Clippy rejected `i64::from(attempt)` as a useless conversion because the loop counter is already `i64`.
+- **Root cause:** the new authentication regression tests were added after the previous formatting/Clippy pass without running the full formatter and linter on the final test code.
+- **Fix:** apply the exact rustfmt layout and use the already typed `i64` loop counter directly. Test behavior and warning policy are unchanged.
+- **Verification:** run 1254 exposed both issues; the correction is committed for run 1256.

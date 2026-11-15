@@ -2284,3 +2284,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Added `xdotool` to the GUI-smoke packages and an immediate executable/version check so missing tooling can no longer masquerade as a failed application launch.
 - **Verification state:** committed; pending the next GUI-smoke run.
 - **Effort estimate:** approximately 0.1 hours for log correlation, dependency correction and CI documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — Authentication test lint correction
+
+- Run 1254 caught two formatting-only differences and one Clippy `useless_conversion` warning in the newly added auth-flow regression tests.
+- Applied rustfmt's exact wrapping/blank-line changes and removed the redundant conversion from the `i64` retry counter. No application logic or test coverage was weakened.
+- **Verification state:** committed; next full CI run must pass Format, Clippy and both platform test jobs.
+- **Effort estimate:** approximately 0.1 hours for CI log diagnosis, lint correction and documentation. CI runtime is excluded.

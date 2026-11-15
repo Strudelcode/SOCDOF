@@ -1755,7 +1755,6 @@ mod lock_conflict_tests {
     }
 }
 
-
 #[cfg(test)]
 mod auth_flow_tests {
     use super::*;
@@ -1783,7 +1782,10 @@ mod auth_flow_tests {
 
         assert_eq!(store.user_count().expect("user count"), 1);
         assert_eq!(auth.view, AuthView::Unlocked);
-        assert_eq!(auth.user.as_ref().expect("signed-in user").role, UserRole::Admin);
+        assert_eq!(
+            auth.user.as_ref().expect("signed-in user").role,
+            UserRole::Admin
+        );
         assert!(auth.session.is_some());
         assert!(auth.token.is_some());
         assert_ne!(
@@ -1833,7 +1835,7 @@ mod auth_flow_tests {
         login.password = "incorrect password".to_string();
         for attempt in 0..MAX_FAILED_ATTEMPTS {
             login
-                .login(&store, 2_000 + i64::from(attempt) * 1_000)
+                .login(&store, 2_000 + attempt * 1_000)
                 .expect("failed login is a handled outcome");
         }
 
@@ -1846,7 +1848,10 @@ mod auth_flow_tests {
             .login(&store, locked_until + 1)
             .expect("login after lockout");
         assert_eq!(login.view, AuthView::Unlocked);
-        assert_eq!(login.user.as_ref().expect("signed-in user").username, "owner");
+        assert_eq!(
+            login.user.as_ref().expect("signed-in user").username,
+            "owner"
+        );
         assert!(login.session.is_some());
     }
 }
