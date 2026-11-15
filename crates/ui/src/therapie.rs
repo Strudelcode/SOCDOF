@@ -2097,5 +2097,4 @@ mod tests {
         assert_eq!(parse_rate_cents_per_km("-0,01"), None);
         assert_eq!(parse_rate_cents_per_km("1e2"), None);
     }
-
 }

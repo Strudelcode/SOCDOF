@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `feature/rust-native-desktop-host` |
 | **Started** | 2026-11-07 |
-| **State** | 2026-11-14, the native egui host now uses the real SQLite store and login/setup flow. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance remains open; see §15.7. |
+| **State** | 2026-11-15, the native egui host uses the real SQLite store and login/setup flow; CI run 1235 has been triaged and corrective changes are committed for re-verification. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance remains open; see §15.7. |
 | **Current phase** | Phase 11 — **application foundation first**. Prioritize login/account lifecycle, settings persistence, desktop shell/navigation, visual consistency, startup behavior and a reliable Windows installer before resuming remaining app-level parity work. |
 | **Overall progress** | Core persistence, authentication, settings modules and 18 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
@@ -2163,3 +2163,14 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
   one-cent VAT and 15-cent gross total.
 
 - 2026-11-14 (native desktop interaction pass) — added keyboard-first window management to the egui shell: Ctrl+Tab cycles visible windows while skipping minimized windows, Ctrl+W requests the normal close-confirmation flow, Ctrl+Left/Ctrl+Right snaps the active window to either half of the work area, and F11 toggles maximize/restore. The window manager exposes a tested focus-cycle operation and refuses to change focus while a modal close/reopen confirmation is active. README desktop claims were corrected to describe the current SQLite data path and to mark multi-monitor support as unfinished rather than implemented. Regression tests cover wrap-around, minimized-window skipping and modal focus trapping. CI format initially caught one rustfmt line-wrap difference; corrected in the follow-up commit. The real module-content-in-window refactor remains open: module screens still use context-level panels and are not yet embedded in independent desktop windows.
+
+
+## 2026-11-15 — CI stabilization and work-time record
+
+- Investigated workflow run 1235 on PR #22, commit `044d23fe52e4cb581be807179585aa596f44b370`, using the full logs for Format, Windows tests and Linux GUI smoke.
+- Corrected the four rustfmt differences without changing application behavior.
+- Fixed the Windows-only visual golden comparison by normalizing CRLF checkout files to LF before strict comparison; added a regression test rather than weakening or regenerating the goldens.
+- Changed the idle CPU measurement window from five to thirty seconds to reduce phase sensitivity to periodic idle wake-ups. The 0.5% CPU and 120 MiB RSS limits remain unchanged.
+- Updated `docs/rust-ci-knowledge-base.md` with the observed symptoms, causes, fixes and pending verification for all three failures.
+- **Verification state:** changes are committed to the PR branch; a new full CI run must pass before the foundation is called stable.
+- **Effort estimate:** approximately 0.6 hours of hands-on investigation, implementation and documentation. CI queue/runtime is excluded. This is an estimate, not a stopwatch measurement; future entries use the same convention.

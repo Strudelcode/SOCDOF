@@ -2867,5 +2867,4 @@ mod tests {
         assert_eq!(parse_percent_bp("1e2"), None);
         assert_eq!(parse_percent_bp("-1"), None);
     }
-
 }

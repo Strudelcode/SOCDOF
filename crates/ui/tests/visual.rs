@@ -25,7 +25,7 @@ fn golden_path(name: &str) -> PathBuf {
 
 // These scenes are actively evolving as the native app ports reach functional parity.
 // Their old geometry goldens describe the pre-port layout. Keep meaningful regression coverage
- // by asserting their stable localized title (or desktop clock) and a non-trivial paint output.
+// by asserting their stable localized title (or desktop clock) and a non-trivial paint output.
 fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
     match variant {
         SnapshotVariant::Contacts => Some("contacts_title"),
@@ -51,6 +51,18 @@ fn is_evolving_shell_scene(variant: SnapshotVariant) -> bool {
             | SnapshotVariant::Tray
             | SnapshotVariant::Wallpaper
     )
+}
+
+fn normalize_line_endings(contents: &str) -> String {
+    contents.replace("\r\n", "\n")
+}
+
+#[test]
+fn snapshot_comparison_normalizes_windows_line_endings() {
+    assert_eq!(
+        normalize_line_endings("first\r\nsecond\r\n"),
+        "first\nsecond\n"
+    );
 }
 
 fn first_line_differences(expected: &str, actual: &str, limit: usize) -> String {
@@ -178,6 +190,7 @@ fn primitives_match_the_golden_files() {
                             "missing golden {name}; run UPDATE_SNAPSHOTS=1 cargo test -p socdof-ui --test visual"
                         )
                     });
+                    let expected = normalize_line_endings(&expected);
                     if expected.trim_end() != painted.trim_end() {
                         failures.push(format!(
                             "{name} ({} lines)\n{}",

@@ -112,9 +112,13 @@ function runtimeBudgets() {
       .split(/\s+/);
     return Number(stat[11]) + Number(stat[12]);
   };
+  // A five-second window can over-weight one scheduled idle wake-up (clock refresh or lock
+  // heartbeat) on a hosted runner. Average over 30 seconds instead; the product budget remains
+  // unchanged, and sustained background CPU use still fails the same threshold.
+  const sampleSeconds = 30;
   const before = ticks();
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
-  const percent = ((ticks() - before) / 100 / 5) * 100;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sampleSeconds * 1000);
+  const percent = ((ticks() - before) / 100 / sampleSeconds) * 100;
   measure("idle ram", rss, limit("idle_ram_kib", budgets.idle_ram.max_kib), "KiB");
   measure("idle cpu", Number(percent.toFixed(2)), limit("idle_cpu_percent", budgets.idle_cpu.max_percent), "%");
 }

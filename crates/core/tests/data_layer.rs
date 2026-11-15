@@ -687,7 +687,11 @@ fn stock_increase_rejects_integer_overflow_without_changing_inventory() {
 
     assert!(store.adjust_stock(&movement).is_err());
     assert_eq!(
-        store.find_product(product.id).expect("product").expect("exists").stock,
+        store
+            .find_product(product.id)
+            .expect("product")
+            .expect("exists")
+            .stock,
         i64::MAX
     );
 }

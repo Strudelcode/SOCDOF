@@ -104,3 +104,32 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - Therapy mileage now parses kilometres to integer thousandths and reimbursement rates to integer cents using the same strict decimal parser. Excess precision and scientific notation are rejected rather than rounded or silently accepted.
 - Added regression tests for decimal comma/point, range limits, excess precision, negative input and exponent notation.
 - **Verification:** Current-head CI pending; do not mark these changes green until the next run completes.
+
+
+## RUST-CI-016 — Windows snapshot comparison is sensitive to checkout line endings (2026-11-15)
+
+- **First observed:** workflow run 1235, commit `044d23fe52e4cb581be807179585aa596f44b370`.
+- **Failing job:** `Test (windows-latest)`, test `primitives_match_the_golden_files`.
+- **Symptom:** dozens of golden files differed on Windows while the Linux test passed. The reported first-line diff was empty for each affected file, showing that the text lines were identical even though the raw strings compared unequal.
+- **Root cause:** Windows checkout line endings (`CRLF`) were compared directly with the renderer's normalized `LF` output. The diagnostic used `str::lines()`, which hides this distinction, so it could not show a visible line-level difference.
+- **Fix:** normalize golden-file line endings from `CRLF` to `LF` before comparing. Keep the actual text, geometry and colour goldens strict; do not refresh snapshots or skip the Windows test.
+- **Regression coverage:** added a focused CRLF-normalization test in `crates/ui/tests/visual.rs`.
+- **Verification:** run 1235 exposed the failure; the corrected Windows and Linux test jobs are awaiting the next Actions run.
+
+## RUST-CI-017 — Idle CPU budget sampling was too short and phase-sensitive (2026-11-15)
+
+- **First observed:** workflow run 1235, commit `044d23fe52e4cb581be807179585aa596f44b370`.
+- **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Idle RAM/CPU budget`.
+- **Measured:** RSS was 121,064 KiB against 122,880 KiB and passed. CPU was 0.8% against the unchanged 0.5% limit in a single five-second sample.
+- **Cause:** a five-second window is sensitive to the phase of periodic idle work (the shell's scheduled redraw and the independent lock heartbeat) and can over-weight one wake-up on a hosted runner. This is a measurement-resolution issue to validate, not permission to relax the product budget.
+- **Fix:** measure average process CPU over 30 seconds. Keep the 0.5% limit and the five-second lock heartbeat unchanged; sustained idle CPU above the limit will still fail.
+- **Verification:** the longer sample is committed; the next Linux GUI-smoke run must confirm the result.
+
+## RUST-CI-018 — Repeated rustfmt drift after the previous formatting repair (2026-11-15)
+
+- **First observed:** workflow run 1235, commit `044d23fe52e4cb581be807179585aa596f44b370`.
+- **Failing job:** `Format`, command `cargo fmt --all -- --check`.
+- **Symptom:** formatting drift in `crates/core/tests/data_layer.rs`, `crates/ui/src/accounting.rs`, `crates/ui/src/therapie.rs` and `crates/ui/tests/visual.rs`.
+- **Root cause:** new exact-decimal regression tests and their surrounding source were committed without running the workspace formatter after the final edits.
+- **Fix:** applied the formatter's requested line wrapping, removed the extra blank lines and corrected the comment indentation; no behavior was changed by this part of the patch.
+- **Verification:** formatter-equivalent changes are committed; the next Format job must pass before this entry is closed.
