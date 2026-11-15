@@ -992,7 +992,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
                 "projects" => {
                     crate::projects::projects_window(
-                        ctx, active, ui, theme, texts, focus, &mut state.projects, store, now,
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.projects,
+                        store,
+                        now,
                     );
                     let back = state.projects.back;
                     state.projects.back = false;
@@ -1000,7 +1008,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
                 "fleet" => {
                     crate::fleet::fleet_window(
-                        ctx, active, ui, theme, texts, focus, &mut state.fleet, store, now,
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.fleet,
+                        store,
+                        now,
                     );
                     let back = state.fleet.back;
                     state.fleet.back = false;
@@ -1008,56 +1024,142 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
                 "restaurant" => {
                     crate::restaurant::restaurant_window(
-                        ctx, active, ui, theme, texts, focus, &mut state.restaurant, store, now,
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.restaurant,
+                        store,
+                        now,
                     );
                     let back = state.restaurant.back;
                     state.restaurant.back = false;
                     back
                 }
                 "products" => {
-                    crate::products::products_window(ctx, active, ui, theme, texts, focus, &mut state.products, store, now);
+                    crate::products::products_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.products,
+                        store,
+                        now,
+                    );
                     let back = state.products.back;
                     state.products.back = false;
                     back
                 }
                 "purchases" => {
-                    crate::purchases::purchases_window(ctx, active, ui, theme, texts, focus, &mut state.purchases, store, now);
+                    crate::purchases::purchases_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.purchases,
+                        store,
+                        now,
+                    );
                     let back = state.purchases.back;
                     state.purchases.back = false;
                     back
                 }
                 "calendar" => {
-                    crate::appointments::appointments_window(ctx, active, ui, theme, texts, focus, &mut state.appointments, store, now);
+                    crate::appointments::appointments_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.appointments,
+                        store,
+                        now,
+                    );
                     let back = state.appointments.back;
                     state.appointments.back = false;
                     back
                 }
                 "editor" => {
-                    crate::editor::editor_window(ctx, active, ui, theme, texts, focus, &mut state.editor, store, now);
+                    crate::editor::editor_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.editor,
+                        store,
+                        now,
+                    );
                     let back = state.editor.back;
                     state.editor.back = false;
                     back
                 }
                 "app-store" => {
-                    crate::app_store::app_store_window(ctx, active, ui, theme, texts, focus, &mut state.app_store, store);
+                    crate::app_store::app_store_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.app_store,
+                        store,
+                    );
                     let back = state.app_store.back;
                     state.app_store.back = false;
                     back
                 }
                 "support" => {
-                    crate::support::support_window(ctx, active, ui, theme, texts, focus, &mut state.support, store, now);
+                    crate::support::support_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.support,
+                        store,
+                        now,
+                    );
                     let back = state.support.back;
                     state.support.back = false;
                     back
                 }
                 "reports" => {
-                    crate::reports::reports_window(ctx, active, ui, theme, texts, focus, &mut state.reports, store, now);
+                    crate::reports::reports_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.reports,
+                        store,
+                        now,
+                    );
                     let back = state.reports.back;
                     state.reports.back = false;
                     back
                 }
                 "dashboard" => {
-                    crate::dashboard::dashboard_window(ctx, active, ui, theme, texts, focus, &mut state.dashboard, now);
+                    crate::dashboard::dashboard_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.dashboard,
+                        now,
+                    );
                     false
                 }
                 "pos" => {
@@ -2930,29 +3032,26 @@ mod tests {
         assert_eq!(state.app_store.modules.len(), 18);
     }
 
-    fn send_shortcut(
-        ctx: &Context,
-        state: &mut GalleryState,
-        key: Key,
-        modifiers: Modifiers,
-    ) {
+    fn send_shortcut(ctx: &Context, state: &mut GalleryState, key: Key, modifiers: Modifiers) {
         let input = egui::RawInput {
             events: vec![egui::Event::Key {
                 key,
+                physical_key: None,
                 pressed: true,
                 repeat: false,
                 modifiers,
             }],
             ..Default::default()
         };
-        let _ = ctx.run(input, |ctx| handle_global_shortcuts(ctx, state, now_millis()));
+        let _ = ctx.run(input, |ctx| {
+            handle_global_shortcuts(ctx, state, now_millis())
+        });
     }
 
     #[test]
     fn global_command_palette_shortcut_works_from_the_native_desktop() {
         let ctx = crate::theme::headless_context();
-        let mut state =
-            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.desktop_open = true;
 
@@ -2966,8 +3065,7 @@ mod tests {
     #[test]
     fn global_lock_shortcut_preserves_the_session_and_closes_desktop_windows() {
         let ctx = crate::theme::headless_context();
-        let mut state =
-            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.desktop_open = true;
         state
@@ -2992,8 +3090,7 @@ mod tests {
     #[test]
     fn escape_dismisses_the_shell_palette_without_signing_out() {
         let ctx = crate::theme::headless_context();
-        let mut state =
-            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.desktop_open = true;
         state.shell.open_palette();
@@ -3012,14 +3109,13 @@ mod tests {
     #[test]
     fn global_shortcuts_are_ignored_while_authentication_is_visible() {
         let ctx = crate::theme::headless_context();
-        let mut state =
-            GalleryState::from_store(
-                Language::En,
-                Appearance::Dark,
-                "indigo",
-                Store::open_in_memory().expect("store"),
-            )
-            .expect("setup state");
+        let mut state = GalleryState::from_store(
+            Language::En,
+            Appearance::Dark,
+            "indigo",
+            Store::open_in_memory().expect("store"),
+        )
+        .expect("setup state");
 
         send_shortcut(&ctx, &mut state, Key::K, Modifiers::CTRL);
         send_shortcut(&ctx, &mut state, Key::L, Modifiers::CTRL);
@@ -3741,8 +3837,20 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
         assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
-        for slug in ["products", "purchases", "calendar", "editor", "app-store", "support", "reports", "dashboard"] {
-            assert!(state.desktop_windows.is_open(AppId::new(slug)), "{slug} window did not remain open");
+        for slug in [
+            "products",
+            "purchases",
+            "calendar",
+            "editor",
+            "app-store",
+            "support",
+            "reports",
+            "dashboard",
+        ] {
+            assert!(
+                state.desktop_windows.is_open(AppId::new(slug)),
+                "{slug} window did not remain open"
+            );
         }
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
@@ -3771,8 +3879,7 @@ mod tests {
     #[test]
     fn escape_in_the_active_module_window_does_not_close_other_modules() {
         let ctx = crate::theme::headless_context();
-        let mut state =
-            GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Login;
         state.desktop_open = true;
@@ -3805,6 +3912,7 @@ mod tests {
             screen_rect: Some(screen),
             events: vec![egui::Event::Key {
                 key: Key::Escape,
+                physical_key: None,
                 pressed: true,
                 repeat: false,
                 modifiers: Modifiers::NONE,
@@ -3832,9 +3940,25 @@ mod tests {
         state.auth.view = crate::auth::AuthView::Login;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        for (index, slug) in ["accounting", "pos", "therapy", "users", "projects", "fleet", "restaurant", "products", "purchases", "calendar", "editor", "app-store", "support", "reports", "dashboard"]
-            .into_iter()
-            .enumerate()
+        for (index, slug) in [
+            "accounting",
+            "pos",
+            "therapy",
+            "users",
+            "projects",
+            "fleet",
+            "restaurant",
+            "products",
+            "purchases",
+            "calendar",
+            "editor",
+            "app-store",
+            "support",
+            "reports",
+            "dashboard",
+        ]
+        .into_iter()
+        .enumerate()
         {
             let app = AppId::new(slug);
             let title = state
