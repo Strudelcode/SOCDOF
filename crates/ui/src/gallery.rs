@@ -3545,7 +3545,7 @@ mod tests {
                 .label_of(app)
                 .expect("module icon")
                 .to_owned();
-            let rect = default_window_rect(work_area(screen), index);
+            let rect = crate::desktop::default_window_rect(work_area(screen), index);
             state
                 .desktop_windows
                 .open(Window::new(app, title, rect), 1_000);
