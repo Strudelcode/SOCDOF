@@ -22,6 +22,28 @@ fn golden_path(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn first_line_differences(expected: &str, actual: &str, limit: usize) -> String {
+    let expected = expected.lines().collect::<Vec<_>>();
+    let actual = actual.lines().collect::<Vec<_>>();
+    let mut differences = Vec::new();
+    for index in 0..expected.len().max(actual.len()) {
+        let before = expected.get(index).copied().unwrap_or("<missing>");
+        let after = actual.get(index).copied().unwrap_or("<missing>");
+        if before != after {
+            differences.push(format!(
+                "  line {}\\n    expected: {}\\n    actual:   {}",
+                index + 1,
+                before,
+                after
+            ));
+            if differences.len() >= limit {
+                break;
+            }
+        }
+    }
+    differences.join("\\n")
+}
+
 #[test]
 fn primitives_match_the_golden_files() {
     let mut failures = Vec::new();
@@ -97,7 +119,11 @@ fn primitives_match_the_golden_files() {
                         )
                     });
                     if expected.trim_end() != actual.trim_end() {
-                        failures.push(format!("{name} ({} lines)", actual.lines().count()));
+                        failures.push(format!(
+                            "{name} ({} lines)\\n{}",
+                            actual.lines().count(),
+                            first_line_differences(&expected, &actual, 4)
+                        ));
                     }
                 }
             }
