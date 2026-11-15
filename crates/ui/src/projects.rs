@@ -529,6 +529,7 @@ pub fn projects(
 }
 
 /// Renders projects inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn projects_window(
     ctx: &Context,
     active: bool,
@@ -604,843 +605,823 @@ pub fn projects_window(
         .cloned()
         .collect();
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                crate::chrome::module_header(
-                    ui,
-                    theme,
-                    texts,
-                    focus,
-                    crate::chrome::ModuleHeader {
-                        app: crate::chrome::app_chrome("projects"),
-                        title: texts.get("projects_title"),
-                        subtitle: texts.get("projects_subtitle"),
-                        status: None,
-                    },
-                    &mut state.back,
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        crate::chrome::module_header(
+            ui,
+            theme,
+            texts,
+            focus,
+            crate::chrome::ModuleHeader {
+                app: crate::chrome::app_chrome("projects"),
+                title: texts.get("projects_title"),
+                subtitle: texts.get("projects_subtitle"),
+                status: None,
+            },
+            &mut state.back,
+        );
+        ui.add_space(10.0);
+
+        ui.horizontal_wrapped(|ui| {
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_active"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
                 );
-                ui.add_space(10.0);
-
-                ui.horizontal_wrapped(|ui| {
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_active"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(stats.active_projects_count.to_string());
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_budget"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(money(stats.total_budget_cents, &currency));
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_tasks"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(format!(
-                            "{} / {}",
-                            stats.completed_tasks_count, stats.total_tasks_count
-                        ));
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_billable"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(money(stats.billable_revenue_cents, &currency));
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_logged"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(hours(stats.total_logged_hours_milli));
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_estimated"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(hours(stats.total_estimated_hours_milli));
-                    });
-                    card(ui, theme, |ui| {
-                        ui.label(
-                            RichText::new(texts.get("projects_kpi_completion"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.heading(format!("{}%", stats.completion_rate));
-                    });
-                });
-                ui.add_space(10.0);
-                messages(ui, theme, texts, state);
-                ui.horizontal_wrapped(|ui| {
-                    for (view, key) in [
-                        (ProjectsView::Portfolio, "projects_view_portfolio"),
-                        (ProjectsView::Kanban, "projects_view_kanban"),
-                        (ProjectsView::Tasks, "projects_view_tasks"),
-                    ] {
-                        if ui
-                            .selectable_label(state.view == view, texts.get(key))
-                            .clicked()
-                        {
-                            state.view = view;
-                        }
-                    }
-                    ui.separator();
-                    egui::ComboBox::from_id_source("projects-filter-project")
-                        .selected_text(
+                ui.heading(stats.active_projects_count.to_string());
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_budget"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(money(stats.total_budget_cents, &currency));
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_tasks"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(format!(
+                    "{} / {}",
+                    stats.completed_tasks_count, stats.total_tasks_count
+                ));
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_billable"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(money(stats.billable_revenue_cents, &currency));
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_logged"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(hours(stats.total_logged_hours_milli));
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_estimated"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(hours(stats.total_estimated_hours_milli));
+            });
+            card(ui, theme, |ui| {
+                ui.label(
+                    RichText::new(texts.get("projects_kpi_completion"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.heading(format!("{}%", stats.completion_rate));
+            });
+        });
+        ui.add_space(10.0);
+        messages(ui, theme, texts, state);
+        ui.horizontal_wrapped(|ui| {
+            for (view, key) in [
+                (ProjectsView::Portfolio, "projects_view_portfolio"),
+                (ProjectsView::Kanban, "projects_view_kanban"),
+                (ProjectsView::Tasks, "projects_view_tasks"),
+            ] {
+                if ui
+                    .selectable_label(state.view == view, texts.get(key))
+                    .clicked()
+                {
+                    state.view = view;
+                }
+            }
+            ui.separator();
+            egui::ComboBox::from_id_source("projects-filter-project")
+                .selected_text(
+                    state
+                        .selected
+                        .and_then(|id| {
                             state
-                                .selected
-                                .and_then(|id| {
-                                    state
-                                        .projects
-                                        .iter()
-                                        .find(|project| project.id == id)
-                                        .map(|project| project.title.clone())
-                                })
-                                .unwrap_or_else(|| {
-                                    texts.get("projects_filter_all_projects").to_string()
-                                }),
-                        )
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut state.selected,
-                                None,
-                                texts.get("projects_filter_all_projects"),
-                            );
-                            for project in &state.projects {
-                                ui.selectable_value(
-                                    &mut state.selected,
-                                    Some(project.id),
-                                    &project.title,
-                                );
-                            }
-                        });
-                    egui::ComboBox::from_id_source("projects-filter-status")
-                        .selected_text(if state.status_filter == "all" {
-                            texts.get("projects_filter_all")
-                        } else {
-                            texts.get(status_label(&state.status_filter))
+                                .projects
+                                .iter()
+                                .find(|project| project.id == id)
+                                .map(|project| project.title.clone())
                         })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut state.status_filter,
-                                "all".to_string(),
-                                texts.get("projects_filter_all"),
-                            );
-                            for (value, key) in [
-                                ("active", "projects_status_active"),
-                                ("planning", "projects_status_planning"),
-                                ("review", "projects_status_review"),
-                                ("completed", "projects_status_completed"),
-                                ("on_hold", "projects_status_on_hold"),
-                                ("cancelled", "projects_status_cancelled"),
-                            ] {
-                                ui.selectable_value(
-                                    &mut state.status_filter,
-                                    value.to_string(),
-                                    texts.get(key),
-                                );
-                            }
-                        });
-                    egui::ComboBox::from_id_source("projects-filter-category")
-                        .selected_text(if state.category_filter == "all" {
-                            texts.get("projects_filter_all")
-                        } else {
-                            texts.get(category_key(&state.category_filter))
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut state.category_filter,
-                                "all".to_string(),
-                                texts.get("projects_filter_all"),
-                            );
-                            for value in [
-                                "client_work",
-                                "internal",
-                                "maintenance",
-                                "development",
-                                "marketing",
-                            ] {
-                                ui.selectable_value(
-                                    &mut state.category_filter,
-                                    value.to_string(),
-                                    texts.get(category_key(value)),
-                                );
-                            }
-                        });
+                        .unwrap_or_else(|| texts.get("projects_filter_all_projects").to_string()),
+                )
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut state.selected,
+                        None,
+                        texts.get("projects_filter_all_projects"),
+                    );
+                    for project in &state.projects {
+                        ui.selectable_value(&mut state.selected, Some(project.id), &project.title);
+                    }
                 });
+            egui::ComboBox::from_id_source("projects-filter-status")
+                .selected_text(if state.status_filter == "all" {
+                    texts.get("projects_filter_all")
+                } else {
+                    texts.get(status_label(&state.status_filter))
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut state.status_filter,
+                        "all".to_string(),
+                        texts.get("projects_filter_all"),
+                    );
+                    for (value, key) in [
+                        ("active", "projects_status_active"),
+                        ("planning", "projects_status_planning"),
+                        ("review", "projects_status_review"),
+                        ("completed", "projects_status_completed"),
+                        ("on_hold", "projects_status_on_hold"),
+                        ("cancelled", "projects_status_cancelled"),
+                    ] {
+                        ui.selectable_value(
+                            &mut state.status_filter,
+                            value.to_string(),
+                            texts.get(key),
+                        );
+                    }
+                });
+            egui::ComboBox::from_id_source("projects-filter-category")
+                .selected_text(if state.category_filter == "all" {
+                    texts.get("projects_filter_all")
+                } else {
+                    texts.get(category_key(&state.category_filter))
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut state.category_filter,
+                        "all".to_string(),
+                        texts.get("projects_filter_all"),
+                    );
+                    for value in [
+                        "client_work",
+                        "internal",
+                        "maintenance",
+                        "development",
+                        "marketing",
+                    ] {
+                        ui.selectable_value(
+                            &mut state.category_filter,
+                            value.to_string(),
+                            texts.get(category_key(value)),
+                        );
+                    }
+                });
+        });
 
-                if let Some(task) = state.task_draft.as_mut() {
-                    card(ui, theme, |ui| {
-                        ui.heading(texts.get("projects_task_edit"));
-                        egui::ComboBox::from_id_source("projects-task-project")
+        if let Some(task) = state.task_draft.as_mut() {
+            card(ui, theme, |ui| {
+                ui.heading(texts.get("projects_task_edit"));
+                egui::ComboBox::from_id_source("projects-task-project")
+                    .selected_text(
+                        project_options
+                            .iter()
+                            .find(|project| project.id == task.project_id)
+                            .map(|project| project.title.clone())
+                            .unwrap_or_default(),
+                    )
+                    .show_ui(ui, |ui| {
+                        for project in &project_options {
+                            ui.selectable_value(&mut task.project_id, project.id, &project.title);
+                        }
+                    });
+                ui.text_edit_singleline(&mut task.title);
+                ui.text_edit_multiline(&mut task.description);
+                ui.horizontal(|ui| {
+                    ui.label(texts.get("projects_assignee"));
+                    ui.text_edit_singleline(&mut task.assignee);
+                    ui.label(texts.get("projects_due"));
+                    ui.text_edit_singleline(&mut task.due_date);
+                });
+                egui::ComboBox::from_id_source("projects-task-status")
+                    .selected_text(texts.get(task_status_key(&task.status)))
+                    .show_ui(ui, |ui| {
+                        for (value, key) in [
+                            ("todo", "projects_task_todo"),
+                            ("in_progress", "projects_task_progress"),
+                            ("review", "projects_task_review"),
+                            ("done", "projects_task_done"),
+                        ] {
+                            ui.selectable_value(
+                                &mut task.status,
+                                value.to_string(),
+                                texts.get(key),
+                            );
+                        }
+                    });
+                egui::ComboBox::from_id_source("projects-task-priority")
+                    .selected_text(texts.get(priority_key(&task.priority)))
+                    .show_ui(ui, |ui| {
+                        for value in ["low", "medium", "high", "urgent"] {
+                            ui.selectable_value(
+                                &mut task.priority,
+                                value.to_string(),
+                                texts.get(priority_key(value)),
+                            );
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    ui.label(texts.get("projects_estimated_hours"));
+                    let mut estimated = (task.estimated_hours_milli as f64 / 1_000.0).to_string();
+                    if ui.text_edit_singleline(&mut estimated).changed() {
+                        task.estimated_hours_milli = ((estimated
+                            .replace(',', ".")
+                            .parse::<f64>()
+                            .unwrap_or(0.0)
+                            .max(0.0))
+                            * 1_000.0)
+                            .round() as i64;
+                    }
+                    ui.label(texts.get("projects_logged_hours"));
+                    let mut logged = (task.logged_hours_milli as f64 / 1_000.0).to_string();
+                    if ui.text_edit_singleline(&mut logged).changed() {
+                        task.logged_hours_milli = ((logged
+                            .replace(',', ".")
+                            .parse::<f64>()
+                            .unwrap_or(0.0)
+                            .max(0.0))
+                            * 1_000.0)
+                            .round() as i64;
+                    }
+                    ui.checkbox(&mut task.billable, texts.get("projects_billable"));
+                });
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("projects_save"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        save_task = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("projects_cancel"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        cancel_task = true;
+                    }
+                });
+            });
+        }
+
+        if let Some(project) = state.draft.as_mut() {
+            card(ui, theme, |ui| {
+                ui.heading(texts.get("projects_edit"));
+                egui::Grid::new("projects-project-form")
+                    .num_columns(2)
+                    .spacing([10.0, 8.0])
+                    .show(ui, |ui| {
+                        ui.label(texts.get("projects_name"));
+                        ui.text_edit_singleline(&mut project.title);
+                        ui.end_row();
+                        ui.label(texts.get("projects_code"));
+                        ui.text_edit_singleline(&mut project.code);
+                        ui.end_row();
+                        ui.label(texts.get("projects_client"));
+                        ui.text_edit_singleline(&mut project.client_name);
+                        ui.end_row();
+                        ui.label(texts.get("projects_contact"));
+                        egui::ComboBox::from_id_source("projects-contact")
                             .selected_text(
-                                project_options
-                                    .iter()
-                                    .find(|project| project.id == task.project_id)
-                                    .map(|project| project.title.clone())
-                                    .unwrap_or_default(),
+                                project
+                                    .contact_id
+                                    .and_then(|id| {
+                                        contacts
+                                            .iter()
+                                            .find(|contact| contact.id == id)
+                                            .map(|contact| contact.display_name())
+                                    })
+                                    .unwrap_or_else(|| {
+                                        texts.get("projects_no_contact").to_string()
+                                    }),
                             )
                             .show_ui(ui, |ui| {
-                                for project in &project_options {
+                                ui.selectable_value(
+                                    &mut project.contact_id,
+                                    None,
+                                    texts.get("projects_no_contact"),
+                                );
+                                for contact in &contacts {
                                     ui.selectable_value(
-                                        &mut task.project_id,
-                                        project.id,
-                                        &project.title,
+                                        &mut project.contact_id,
+                                        Some(contact.id),
+                                        contact.display_name(),
                                     );
                                 }
                             });
-                        ui.text_edit_singleline(&mut task.title);
-                        ui.text_edit_multiline(&mut task.description);
-                        ui.horizontal(|ui| {
-                            ui.label(texts.get("projects_assignee"));
-                            ui.text_edit_singleline(&mut task.assignee);
-                            ui.label(texts.get("projects_due"));
-                            ui.text_edit_singleline(&mut task.due_date);
-                        });
-                        egui::ComboBox::from_id_source("projects-task-status")
-                            .selected_text(texts.get(task_status_key(&task.status)))
+                        ui.end_row();
+                        ui.label(texts.get("projects_description"));
+                        ui.text_edit_multiline(&mut project.description);
+                        ui.end_row();
+                        ui.label(texts.get("projects_category"));
+                        egui::ComboBox::from_id_source("projects-category")
+                            .selected_text(texts.get(category_key(&project.category)))
                             .show_ui(ui, |ui| {
+                                for value in [
+                                    "client_work",
+                                    "internal",
+                                    "maintenance",
+                                    "development",
+                                    "marketing",
+                                ] {
+                                    ui.selectable_value(
+                                        &mut project.category,
+                                        value.to_string(),
+                                        texts.get(category_key(value)),
+                                    );
+                                }
+                            });
+                        ui.end_row();
+                        ui.label(texts.get("projects_status"));
+                        egui::ComboBox::from_id_source("projects-status")
+                            .selected_text(texts.get(status_label(&project.status)))
+                            .show_ui(ui, |ui| {
+                                for (value, key) in [
+                                    ("active", "projects_status_active"),
+                                    ("planning", "projects_status_planning"),
+                                    ("review", "projects_status_review"),
+                                    ("completed", "projects_status_completed"),
+                                    ("on_hold", "projects_status_on_hold"),
+                                    ("cancelled", "projects_status_cancelled"),
+                                ] {
+                                    ui.selectable_value(
+                                        &mut project.status,
+                                        value.to_string(),
+                                        texts.get(key),
+                                    );
+                                }
+                            });
+                        ui.end_row();
+                        ui.label(texts.get("projects_priority"));
+                        egui::ComboBox::from_id_source("projects-priority")
+                            .selected_text(texts.get(priority_key(&project.priority)))
+                            .show_ui(ui, |ui| {
+                                for value in ["low", "medium", "high"] {
+                                    ui.selectable_value(
+                                        &mut project.priority,
+                                        value.to_string(),
+                                        texts.get(priority_key(value)),
+                                    );
+                                }
+                            });
+                        ui.end_row();
+                        ui.label(texts.get("projects_budget"));
+                        let mut budget = format!("{:.2}", project.budget_cents as f64 / 100.0);
+                        if ui.text_edit_singleline(&mut budget).changed() {
+                            project.budget_cents = ((budget
+                                .replace(',', ".")
+                                .parse::<f64>()
+                                .unwrap_or(0.0)
+                                .max(0.0))
+                                * 100.0)
+                                .round() as i64;
+                        }
+                        ui.end_row();
+                        ui.label(texts.get("projects_hourly_rate"));
+                        let mut rate = format!("{:.2}", project.hourly_rate_cents as f64 / 100.0);
+                        if ui.text_edit_singleline(&mut rate).changed() {
+                            project.hourly_rate_cents = ((rate
+                                .replace(',', ".")
+                                .parse::<f64>()
+                                .unwrap_or(0.0)
+                                .max(0.0))
+                                * 100.0)
+                                .round()
+                                as i64;
+                        }
+                        ui.end_row();
+                        ui.label(texts.get("projects_start_date"));
+                        ui.text_edit_singleline(&mut project.start_date);
+                        ui.end_row();
+                        ui.label(texts.get("projects_deadline"));
+                        ui.text_edit_singleline(&mut project.deadline);
+                        ui.end_row();
+                        ui.label(texts.get("projects_color"));
+                        ui.text_edit_singleline(&mut project.color);
+                        ui.end_row();
+                    });
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("projects_save"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        save_project = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("projects_cancel"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        cancel_project = true;
+                    }
+                });
+            });
+        } else if state.view == ProjectsView::Portfolio {
+            ui.horizontal(|ui| {
+                ui.heading(texts.get("projects_portfolio"));
+                #[cfg(feature = "dialogs")]
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("projects_export"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    export_csv = true;
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("projects_new"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        new_project = true;
+                    }
+                });
+            });
+            ui.horizontal(|ui| {
+                ui.label(texts.get("projects_search"));
+                ui.text_edit_singleline(&mut state.query);
+            });
+            ui.columns(2, |columns| {
+                card(&mut columns[0], theme, |ui| {
+                    ui.heading(format!(
+                        "{} ({})",
+                        texts.get("projects_list"),
+                        filtered.len()
+                    ));
+                    egui::ScrollArea::vertical()
+                        .max_height(520.0)
+                        .show(ui, |ui| {
+                            for project in &filtered {
+                                let selected = state.selected == Some(project.id);
+                                let label = format!(
+                                    "{}\n{} · {}",
+                                    project.title,
+                                    project.code,
+                                    texts.get(status_label(&project.status))
+                                );
+                                if ui.selectable_label(selected, label).clicked() {
+                                    state.selected = Some(project.id);
+                                    state.confirm_delete = false;
+                                }
+                            }
+                        });
+                });
+                card(&mut columns[1], theme, |ui| {
+                    if let Some(project) = state.current().cloned() {
+                        ui.horizontal(|ui| {
+                            ui.heading(&project.title);
+                            badge(
+                                ui,
+                                theme,
+                                texts.get(status_label(&project.status)),
+                                Tone::Accent,
+                            );
+                        });
+                        ui.label(format!("{} · {}", project.code, project.client_name));
+                        ui.label(&project.description);
+                        ui.label(format!(
+                            "{}: {}",
+                            texts.get("projects_budget"),
+                            money(project.budget_cents, &currency)
+                        ));
+                        ui.label(format!(
+                            "{}: {}",
+                            texts.get("projects_deadline"),
+                            if project.deadline.is_empty() {
+                                "—"
+                            } else {
+                                &project.deadline
+                            }
+                        ));
+                        ui.horizontal(|ui| {
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("projects_edit"),
+                                ButtonVariant::Secondary,
+                            )
+                            .activated
+                            {
+                                edit_project = true;
+                            }
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("projects_new_task"),
+                                ButtonVariant::Primary,
+                            )
+                            .activated
+                            {
+                                new_task = true;
+                            }
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("projects_bill_project"),
+                                ButtonVariant::Secondary,
+                            )
+                            .activated
+                            {
+                                bill_project = Some(project.id);
+                            }
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("projects_delete"),
+                                ButtonVariant::Danger,
+                            )
+                            .activated
+                            {
+                                state.confirm_delete = true;
+                            }
+                        });
+                        if state.confirm_delete {
+                            ui.label(texts.get("projects_delete_confirm"));
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("projects_delete_yes"),
+                                ButtonVariant::Danger,
+                            )
+                            .activated
+                            {
+                                delete_project = true;
+                            }
+                        }
+                        ui.separator();
+                        ui.heading(texts.get("projects_tasks"));
+                        for task in state.current_tasks() {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(RichText::new(&task.title).strong());
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get(task_status_key(&task.status)),
+                                    Tone::Neutral,
+                                );
+                                ui.label(format!(
+                                    "{} · {}",
+                                    task.assignee,
+                                    hours(task.logged_hours_milli)
+                                ));
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_edit"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    edit_task = Some(task.id);
+                                }
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_delete"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    delete_task = Some(task.id);
+                                }
+                            });
+                            ui.horizontal(|ui| {
                                 for (value, key) in [
                                     ("todo", "projects_task_todo"),
                                     ("in_progress", "projects_task_progress"),
                                     ("review", "projects_task_review"),
                                     ("done", "projects_task_done"),
                                 ] {
-                                    ui.selectable_value(
-                                        &mut task.status,
-                                        value.to_string(),
-                                        texts.get(key),
-                                    );
+                                    if task.status != value
+                                        && button(
+                                            ui,
+                                            theme,
+                                            focus,
+                                            texts.get(key),
+                                            ButtonVariant::Ghost,
+                                        )
+                                        .activated
+                                    {
+                                        change_task = Some((task.id, value));
+                                    }
                                 }
                             });
-                        egui::ComboBox::from_id_source("projects-task-priority")
-                            .selected_text(texts.get(priority_key(&task.priority)))
-                            .show_ui(ui, |ui| {
-                                for value in ["low", "medium", "high", "urgent"] {
-                                    ui.selectable_value(
-                                        &mut task.priority,
-                                        value.to_string(),
-                                        texts.get(priority_key(value)),
-                                    );
-                                }
-                            });
-                        ui.horizontal(|ui| {
-                            ui.label(texts.get("projects_estimated_hours"));
-                            let mut estimated =
-                                (task.estimated_hours_milli as f64 / 1_000.0).to_string();
-                            if ui.text_edit_singleline(&mut estimated).changed() {
-                                task.estimated_hours_milli = ((estimated
-                                    .replace(',', ".")
-                                    .parse::<f64>()
-                                    .unwrap_or(0.0)
-                                    .max(0.0))
-                                    * 1_000.0)
-                                    .round()
-                                    as i64;
-                            }
-                            ui.label(texts.get("projects_logged_hours"));
-                            let mut logged = (task.logged_hours_milli as f64 / 1_000.0).to_string();
-                            if ui.text_edit_singleline(&mut logged).changed() {
-                                task.logged_hours_milli = ((logged
-                                    .replace(',', ".")
-                                    .parse::<f64>()
-                                    .unwrap_or(0.0)
-                                    .max(0.0))
-                                    * 1_000.0)
-                                    .round()
-                                    as i64;
-                            }
-                            ui.checkbox(&mut task.billable, texts.get("projects_billable"));
-                        });
-                        ui.horizontal(|ui| {
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("projects_save"),
-                                ButtonVariant::Primary,
-                            )
-                            .activated
-                            {
-                                save_task = true;
-                            }
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("projects_cancel"),
-                                ButtonVariant::Ghost,
-                            )
-                            .activated
-                            {
-                                cancel_task = true;
-                            }
-                        });
-                    });
+                        }
+                    } else {
+                        ui.label(texts.get("projects_select"));
+                    }
+                });
+            });
+        } else if state.view == ProjectsView::Kanban {
+            ui.horizontal(|ui| {
+                ui.heading(texts.get("projects_view_kanban"));
+                ui.label(texts.get("projects_search"));
+                ui.text_edit_singleline(&mut state.query);
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("projects_new_task"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    new_task = true;
                 }
-
-                if let Some(project) = state.draft.as_mut() {
-                    card(ui, theme, |ui| {
-                        ui.heading(texts.get("projects_edit"));
-                        egui::Grid::new("projects-project-form")
-                            .num_columns(2)
-                            .spacing([10.0, 8.0])
-                            .show(ui, |ui| {
-                                ui.label(texts.get("projects_name"));
-                                ui.text_edit_singleline(&mut project.title);
-                                ui.end_row();
-                                ui.label(texts.get("projects_code"));
-                                ui.text_edit_singleline(&mut project.code);
-                                ui.end_row();
-                                ui.label(texts.get("projects_client"));
-                                ui.text_edit_singleline(&mut project.client_name);
-                                ui.end_row();
-                                ui.label(texts.get("projects_contact"));
-                                egui::ComboBox::from_id_source("projects-contact")
-                                    .selected_text(
-                                        project
-                                            .contact_id
-                                            .and_then(|id| {
-                                                contacts
-                                                    .iter()
-                                                    .find(|contact| contact.id == id)
-                                                    .map(|contact| contact.display_name())
-                                            })
-                                            .unwrap_or_else(|| {
-                                                texts.get("projects_no_contact").to_string()
-                                            }),
-                                    )
-                                    .show_ui(ui, |ui| {
-                                        ui.selectable_value(
-                                            &mut project.contact_id,
-                                            None,
-                                            texts.get("projects_no_contact"),
-                                        );
-                                        for contact in &contacts {
-                                            ui.selectable_value(
-                                                &mut project.contact_id,
-                                                Some(contact.id),
-                                                contact.display_name(),
-                                            );
-                                        }
-                                    });
-                                ui.end_row();
-                                ui.label(texts.get("projects_description"));
-                                ui.text_edit_multiline(&mut project.description);
-                                ui.end_row();
-                                ui.label(texts.get("projects_category"));
-                                egui::ComboBox::from_id_source("projects-category")
-                                    .selected_text(texts.get(category_key(&project.category)))
-                                    .show_ui(ui, |ui| {
-                                        for value in [
-                                            "client_work",
-                                            "internal",
-                                            "maintenance",
-                                            "development",
-                                            "marketing",
-                                        ] {
-                                            ui.selectable_value(
-                                                &mut project.category,
-                                                value.to_string(),
-                                                texts.get(category_key(value)),
-                                            );
-                                        }
-                                    });
-                                ui.end_row();
-                                ui.label(texts.get("projects_status"));
-                                egui::ComboBox::from_id_source("projects-status")
-                                    .selected_text(texts.get(status_label(&project.status)))
-                                    .show_ui(ui, |ui| {
-                                        for (value, key) in [
-                                            ("active", "projects_status_active"),
-                                            ("planning", "projects_status_planning"),
-                                            ("review", "projects_status_review"),
-                                            ("completed", "projects_status_completed"),
-                                            ("on_hold", "projects_status_on_hold"),
-                                            ("cancelled", "projects_status_cancelled"),
-                                        ] {
-                                            ui.selectable_value(
-                                                &mut project.status,
-                                                value.to_string(),
-                                                texts.get(key),
-                                            );
-                                        }
-                                    });
-                                ui.end_row();
-                                ui.label(texts.get("projects_priority"));
-                                egui::ComboBox::from_id_source("projects-priority")
-                                    .selected_text(texts.get(priority_key(&project.priority)))
-                                    .show_ui(ui, |ui| {
-                                        for value in ["low", "medium", "high"] {
-                                            ui.selectable_value(
-                                                &mut project.priority,
-                                                value.to_string(),
-                                                texts.get(priority_key(value)),
-                                            );
-                                        }
-                                    });
-                                ui.end_row();
-                                ui.label(texts.get("projects_budget"));
-                                let mut budget =
-                                    format!("{:.2}", project.budget_cents as f64 / 100.0);
-                                if ui.text_edit_singleline(&mut budget).changed() {
-                                    project.budget_cents = ((budget
-                                        .replace(',', ".")
-                                        .parse::<f64>()
-                                        .unwrap_or(0.0)
-                                        .max(0.0))
-                                        * 100.0)
-                                        .round()
-                                        as i64;
-                                }
-                                ui.end_row();
-                                ui.label(texts.get("projects_hourly_rate"));
-                                let mut rate =
-                                    format!("{:.2}", project.hourly_rate_cents as f64 / 100.0);
-                                if ui.text_edit_singleline(&mut rate).changed() {
-                                    project.hourly_rate_cents = ((rate
-                                        .replace(',', ".")
-                                        .parse::<f64>()
-                                        .unwrap_or(0.0)
-                                        .max(0.0))
-                                        * 100.0)
-                                        .round()
-                                        as i64;
-                                }
-                                ui.end_row();
-                                ui.label(texts.get("projects_start_date"));
-                                ui.text_edit_singleline(&mut project.start_date);
-                                ui.end_row();
-                                ui.label(texts.get("projects_deadline"));
-                                ui.text_edit_singleline(&mut project.deadline);
-                                ui.end_row();
-                                ui.label(texts.get("projects_color"));
-                                ui.text_edit_singleline(&mut project.color);
-                                ui.end_row();
-                            });
-                        ui.horizontal(|ui| {
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("projects_save"),
-                                ButtonVariant::Primary,
-                            )
-                            .activated
+            });
+            ui.columns(4, |columns| {
+                for (index, (status, key)) in [
+                    ("todo", "projects_task_todo"),
+                    ("in_progress", "projects_task_progress"),
+                    ("review", "projects_task_review"),
+                    ("done", "projects_task_done"),
+                ]
+                .iter()
+                .enumerate()
+                {
+                    card(&mut columns[index], theme, |ui| {
+                        ui.heading(texts.get(key));
+                        for task in visible_tasks.iter().filter(|task| task.status == *status) {
+                            ui.separator();
+                            ui.label(RichText::new(&task.title).strong());
+                            if let Some(project) = state
+                                .projects
+                                .iter()
+                                .find(|project| project.id == task.project_id)
                             {
-                                save_project = true;
+                                ui.label(
+                                    RichText::new(&project.code)
+                                        .size(FONT_SMALL)
+                                        .color(theme.palette.text_muted),
+                                );
                             }
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("projects_cancel"),
-                                ButtonVariant::Ghost,
-                            )
-                            .activated
-                            {
-                                cancel_project = true;
-                            }
-                        });
-                    });
-                } else if state.view == ProjectsView::Portfolio {
-                    ui.horizontal(|ui| {
-                        ui.heading(texts.get("projects_portfolio"));
-                        #[cfg(feature = "dialogs")]
-                        if button(
-                            ui,
-                            theme,
-                            focus,
-                            texts.get("projects_export"),
-                            ButtonVariant::Secondary,
-                        )
-                        .activated
-                        {
-                            export_csv = true;
-                        }
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("projects_new"),
-                                ButtonVariant::Primary,
-                            )
-                            .activated
-                            {
-                                new_project = true;
-                            }
-                        });
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label(texts.get("projects_search"));
-                        ui.text_edit_singleline(&mut state.query);
-                    });
-                    ui.columns(2, |columns| {
-                        card(&mut columns[0], theme, |ui| {
-                            ui.heading(format!(
-                                "{} ({})",
-                                texts.get("projects_list"),
-                                filtered.len()
+                            ui.label(format!(
+                                "{} · {}",
+                                task.assignee,
+                                hours(task.logged_hours_milli)
                             ));
-                            egui::ScrollArea::vertical()
-                                .max_height(520.0)
-                                .show(ui, |ui| {
-                                    for project in &filtered {
-                                        let selected = state.selected == Some(project.id);
-                                        let label = format!(
-                                            "{}\n{} · {}",
-                                            project.title,
-                                            project.code,
-                                            texts.get(status_label(&project.status))
-                                        );
-                                        if ui.selectable_label(selected, label).clicked() {
-                                            state.selected = Some(project.id);
-                                            state.confirm_delete = false;
-                                        }
-                                    }
-                                });
-                        });
-                        card(&mut columns[1], theme, |ui| {
-                            if let Some(project) = state.current().cloned() {
-                                ui.horizontal(|ui| {
-                                    ui.heading(&project.title);
-                                    badge(
-                                        ui,
-                                        theme,
-                                        texts.get(status_label(&project.status)),
-                                        Tone::Accent,
-                                    );
-                                });
-                                ui.label(format!("{} · {}", project.code, project.client_name));
-                                ui.label(&project.description);
-                                ui.label(format!(
-                                    "{}: {}",
-                                    texts.get("projects_budget"),
-                                    money(project.budget_cents, &currency)
-                                ));
-                                ui.label(format!(
-                                    "{}: {}",
-                                    texts.get("projects_deadline"),
-                                    if project.deadline.is_empty() {
-                                        "—"
-                                    } else {
-                                        &project.deadline
-                                    }
-                                ));
-                                ui.horizontal(|ui| {
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("projects_edit"),
-                                        ButtonVariant::Secondary,
-                                    )
-                                    .activated
-                                    {
-                                        edit_project = true;
-                                    }
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("projects_new_task"),
-                                        ButtonVariant::Primary,
-                                    )
-                                    .activated
-                                    {
-                                        new_task = true;
-                                    }
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("projects_bill_project"),
-                                        ButtonVariant::Secondary,
-                                    )
-                                    .activated
-                                    {
-                                        bill_project = Some(project.id);
-                                    }
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("projects_delete"),
-                                        ButtonVariant::Danger,
-                                    )
-                                    .activated
-                                    {
-                                        state.confirm_delete = true;
-                                    }
-                                });
-                                if state.confirm_delete {
-                                    ui.label(texts.get("projects_delete_confirm"));
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("projects_delete_yes"),
-                                        ButtonVariant::Danger,
-                                    )
-                                    .activated
-                                    {
-                                        delete_project = true;
-                                    }
-                                }
-                                ui.separator();
-                                ui.heading(texts.get("projects_tasks"));
-                                for task in state.current_tasks() {
-                                    ui.horizontal_wrapped(|ui| {
-                                        ui.label(RichText::new(&task.title).strong());
-                                        badge(
-                                            ui,
-                                            theme,
-                                            texts.get(task_status_key(&task.status)),
-                                            Tone::Neutral,
-                                        );
-                                        ui.label(format!(
-                                            "{} · {}",
-                                            task.assignee,
-                                            hours(task.logged_hours_milli)
-                                        ));
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get("projects_task_edit"),
-                                            ButtonVariant::Ghost,
-                                        )
-                                        .activated
-                                        {
-                                            edit_task = Some(task.id);
-                                        }
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get("projects_task_delete"),
-                                            ButtonVariant::Ghost,
-                                        )
-                                        .activated
-                                        {
-                                            delete_task = Some(task.id);
-                                        }
-                                    });
-                                    ui.horizontal(|ui| {
-                                        for (value, key) in [
-                                            ("todo", "projects_task_todo"),
-                                            ("in_progress", "projects_task_progress"),
-                                            ("review", "projects_task_review"),
-                                            ("done", "projects_task_done"),
-                                        ] {
-                                            if task.status != value
-                                                && button(
-                                                    ui,
-                                                    theme,
-                                                    focus,
-                                                    texts.get(key),
-                                                    ButtonVariant::Ghost,
-                                                )
-                                                .activated
-                                            {
-                                                change_task = Some((task.id, value));
-                                            }
-                                        }
-                                    });
-                                }
-                            } else {
-                                ui.label(texts.get("projects_select"));
-                            }
-                        });
-                    });
-                } else if state.view == ProjectsView::Kanban {
-                    ui.horizontal(|ui| {
-                        ui.heading(texts.get("projects_view_kanban"));
-                        ui.label(texts.get("projects_search"));
-                        ui.text_edit_singleline(&mut state.query);
-                        if button(
-                            ui,
-                            theme,
-                            focus,
-                            texts.get("projects_new_task"),
-                            ButtonVariant::Primary,
-                        )
-                        .activated
-                        {
-                            new_task = true;
-                        }
-                    });
-                    ui.columns(4, |columns| {
-                        for (index, (status, key)) in [
-                            ("todo", "projects_task_todo"),
-                            ("in_progress", "projects_task_progress"),
-                            ("review", "projects_task_review"),
-                            ("done", "projects_task_done"),
-                        ]
-                        .iter()
-                        .enumerate()
-                        {
-                            card(&mut columns[index], theme, |ui| {
-                                ui.heading(texts.get(key));
-                                for task in
-                                    visible_tasks.iter().filter(|task| task.status == *status)
+                            ui.horizontal_wrapped(|ui| {
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_edit"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
                                 {
-                                    ui.separator();
-                                    ui.label(RichText::new(&task.title).strong());
-                                    if let Some(project) = state
-                                        .projects
-                                        .iter()
-                                        .find(|project| project.id == task.project_id)
-                                    {
-                                        ui.label(
-                                            RichText::new(&project.code)
-                                                .size(FONT_SMALL)
-                                                .color(theme.palette.text_muted),
-                                        );
-                                    }
-                                    ui.label(format!(
-                                        "{} · {}",
-                                        task.assignee,
-                                        hours(task.logged_hours_milli)
-                                    ));
-                                    ui.horizontal_wrapped(|ui| {
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get("projects_task_edit"),
-                                            ButtonVariant::Ghost,
-                                        )
-                                        .activated
-                                        {
-                                            edit_task = Some(task.id);
-                                        }
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get("projects_task_delete"),
-                                            ButtonVariant::Ghost,
-                                        )
-                                        .activated
-                                        {
-                                            delete_task = Some(task.id);
-                                        }
-                                    });
-                                    ui.horizontal_wrapped(|ui| {
-                                        for (next_status, next_key) in [
-                                            ("todo", "projects_task_todo"),
-                                            ("in_progress", "projects_task_progress"),
-                                            ("review", "projects_task_review"),
-                                            ("done", "projects_task_done"),
-                                        ] {
-                                            if task.status != next_status
-                                                && button(
-                                                    ui,
-                                                    theme,
-                                                    focus,
-                                                    texts.get(next_key),
-                                                    ButtonVariant::Ghost,
-                                                )
-                                                .activated
-                                            {
-                                                change_task = Some((task.id, next_status));
-                                            }
-                                        }
-                                    });
+                                    edit_task = Some(task.id);
+                                }
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_delete"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    delete_task = Some(task.id);
                                 }
                             });
-                        }
-                    });
-                } else {
-                    ui.horizontal(|ui| {
-                        ui.heading(texts.get("projects_view_tasks"));
-                        ui.label(texts.get("projects_search"));
-                        ui.text_edit_singleline(&mut state.query);
-                        if button(
-                            ui,
-                            theme,
-                            focus,
-                            texts.get("projects_new_task"),
-                            ButtonVariant::Primary,
-                        )
-                        .activated
-                        {
-                            new_task = true;
-                        }
-                    });
-                    card(ui, theme, |ui| {
-                        egui::Grid::new("projects-all-tasks")
-                            .striped(true)
-                            .num_columns(5)
-                            .show(ui, |ui| {
-                                for heading in [
-                                    "projects_task_title",
-                                    "projects_client",
-                                    "projects_assignee",
-                                    "projects_status",
-                                    "projects_logged_hours",
+                            ui.horizontal_wrapped(|ui| {
+                                for (next_status, next_key) in [
+                                    ("todo", "projects_task_todo"),
+                                    ("in_progress", "projects_task_progress"),
+                                    ("review", "projects_task_review"),
+                                    ("done", "projects_task_done"),
                                 ] {
-                                    ui.label(RichText::new(texts.get(heading)).strong());
-                                }
-                                ui.end_row();
-                                for task in &visible_tasks {
-                                    ui.label(&task.title);
-                                    let project_name = state
-                                        .projects
-                                        .iter()
-                                        .find(|project| project.id == task.project_id)
-                                        .map(|project| project.title.as_str())
-                                        .unwrap_or("—");
-                                    ui.label(project_name);
-                                    ui.label(&task.assignee);
-                                    ui.label(texts.get(task_status_key(&task.status)));
-                                    ui.horizontal(|ui| {
-                                        ui.label(hours(task.logged_hours_milli));
-                                        if button(
+                                    if task.status != next_status
+                                        && button(
                                             ui,
                                             theme,
                                             focus,
-                                            texts.get("projects_task_edit"),
+                                            texts.get(next_key),
                                             ButtonVariant::Ghost,
                                         )
                                         .activated
-                                        {
-                                            edit_task = Some(task.id);
-                                        }
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get("projects_task_delete"),
-                                            ButtonVariant::Ghost,
-                                        )
-                                        .activated
-                                        {
-                                            delete_task = Some(task.id);
-                                        }
-                                    });
-                                    ui.end_row();
+                                    {
+                                        change_task = Some((task.id, next_status));
+                                    }
                                 }
                             });
+                        }
                     });
                 }
             });
-        
+        } else {
+            ui.horizontal(|ui| {
+                ui.heading(texts.get("projects_view_tasks"));
+                ui.label(texts.get("projects_search"));
+                ui.text_edit_singleline(&mut state.query);
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("projects_new_task"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    new_task = true;
+                }
+            });
+            card(ui, theme, |ui| {
+                egui::Grid::new("projects-all-tasks")
+                    .striped(true)
+                    .num_columns(5)
+                    .show(ui, |ui| {
+                        for heading in [
+                            "projects_task_title",
+                            "projects_client",
+                            "projects_assignee",
+                            "projects_status",
+                            "projects_logged_hours",
+                        ] {
+                            ui.label(RichText::new(texts.get(heading)).strong());
+                        }
+                        ui.end_row();
+                        for task in &visible_tasks {
+                            ui.label(&task.title);
+                            let project_name = state
+                                .projects
+                                .iter()
+                                .find(|project| project.id == task.project_id)
+                                .map(|project| project.title.as_str())
+                                .unwrap_or("—");
+                            ui.label(project_name);
+                            ui.label(&task.assignee);
+                            ui.label(texts.get(task_status_key(&task.status)));
+                            ui.horizontal(|ui| {
+                                ui.label(hours(task.logged_hours_milli));
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_edit"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    edit_task = Some(task.id);
+                                }
+                                if button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    texts.get("projects_task_delete"),
+                                    ButtonVariant::Ghost,
+                                )
+                                .activated
+                                {
+                                    delete_task = Some(task.id);
+                                }
+                            });
+                            ui.end_row();
+                        }
+                    });
+            });
+        }
+    });
 
     if new_project {
         state.start_new(now);
