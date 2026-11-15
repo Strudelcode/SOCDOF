@@ -2182,3 +2182,10 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Added a Windows CI installer smoke that installs silently into a custom path containing spaces, checks the executable, shortcuts and uninstall registration, runs the installed executable's `--help` entry point, simulates an existing autostart preference across an upgrade, then uninstalls and verifies that the AppData marker survives.
 - **Verification state:** implementation is committed for the next Windows Actions run; no installer runtime pass is claimed until the smoke step succeeds.
 - **Effort estimate:** approximately 0.5 hours for installer safety, test automation and workflow integration; CI runtime is excluded.
+
+
+## 2026-11-15 — CI trigger de-duplication
+
+- The migration branch already has a `push` trigger, so a commit push and the corresponding pull-request `synchronize` event were starting identical cross-platform matrices twice.
+- Kept pull-request validation for opening, reopening and marking the PR ready; commit updates are validated by the branch push trigger. This prevents duplicate full CI runs without removing a validation path.
+- **Effort estimate:** approximately 0.1 hours; workflow review and documentation. CI queue time is excluded.
