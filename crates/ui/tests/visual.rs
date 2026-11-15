@@ -171,7 +171,7 @@ fn primitives_match_the_golden_files() {
                     if let Some(parent) = path.parent() {
                         fs::create_dir_all(parent).expect("golden directory");
                     }
-                    fs::write(&path, format!("{actual}\n")).expect("write golden");
+                    fs::write(&path, format!("{painted}\n")).expect("write golden");
                 } else {
                     let expected = fs::read_to_string(&path).unwrap_or_else(|_| {
                         panic!(
@@ -181,7 +181,7 @@ fn primitives_match_the_golden_files() {
                     if expected.trim_end() != painted.trim_end() {
                         failures.push(format!(
                             "{name} ({} lines)\n{}",
-                            actual.lines().count(),
+                            painted.lines().count(),
                             first_line_differences(&expected, &painted, 4)
                         ));
                     }
