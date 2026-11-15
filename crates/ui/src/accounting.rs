@@ -949,7 +949,7 @@ pub fn accounting_window(
     store: &Store,
     now: i64,
 ) {
-    if active && state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             AccountingView::List => state.back = true,
             AccountingView::Detail => state.view = AccountingView::List,
