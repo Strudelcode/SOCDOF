@@ -65,7 +65,8 @@ pub mod wallpaper;
 pub mod widgets;
 
 pub use accounting::{
-    accounting, seed_accounting, AccountingDraft, AccountingState, AccountingTab, AccountingView,
+    accounting, accounting_window, seed_accounting, AccountingDraft, AccountingState,
+    AccountingTab, AccountingView,
 };
 pub use app_store::{app_store, AppStoreState};
 pub use appointments::{
@@ -111,7 +112,7 @@ pub use invoices::{
     invoices, invoices_content, invoices_window, seed_invoices, InvoiceDraft, InvoiceLineDraft,
     InvoicesState, InvoicesView,
 };
-pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
+pub use pos::{pos, pos_window, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
 pub use projects::{projects, ProjectsState, ProjectsView};
 pub use purchases::{
