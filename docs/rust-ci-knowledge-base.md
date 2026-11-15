@@ -195,3 +195,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - Added focused UI-state tests for the native first-run/authentication flow: an empty database opens the setup wizard; first-admin creation hashes the password and creates a real signed-in session; the next launch opens login; stale concurrent setup forms cannot create a second administrator; failed attempts trigger the persistent lockout and the correct password works after expiry.
 - These tests exercise the actual `AuthState` and SQLite `Store`, not a mocked login form.
 - **Verification state:** committed for the next cross-platform test run.
+
+
+## Native egui host visible-window smoke coverage (2026-11-15)
+
+- The idle-budget process check already launched the real `socdof-ui-desktop` binary under Xvfb, but it only proved that a process existed. It did not assert that the native window was actually visible.
+- Added `xdotool` to the GUI-smoke environment and now require a visible `SOCDOF` window, the expected title, and at least the configured 760×560 minimum geometry before sampling idle resource use.
+- The native window evidence and idle log are retained with the GUI-smoke artifact.
+- **Verification state:** committed; the next Linux GUI-smoke run must pass this visible-window assertion.

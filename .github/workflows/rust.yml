@@ -454,6 +454,7 @@ jobs:
             librsvg2-dev \
             libxdo-dev \
             libxkbcommon-x11-0 \
+            xdotool \
             libssl-dev \
             patchelf \
             xvfb \
@@ -502,6 +503,33 @@ jobs:
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
+
+          # The native egui host must create a real, visible SOCDOF window; a live process
+          # alone is not sufficient evidence that the installed desktop shell opened.
+          window_id=""
+          for _ in $(seq 1 30); do
+            window_id=$(xdotool search --onlyvisible --name SOCDOF 2>/dev/null | head -n 1 || true)
+            if [ -n "$window_id" ]; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$window_id" ]; then
+            echo "native SOCDOF window did not become visible"
+            cat artifacts/idle.log
+            kill "$app_pid" 2>/dev/null || true
+            exit 1
+          fi
+          window_title=$(xdotool getwindowname "$window_id")
+          test "$window_title" = "SOCDOF"
+          window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+          window_width=$(printf '%s\\n' "$window_geometry" | sed -n 's/^WIDTH=//p')
+          window_height=$(printf '%s\\n' "$window_geometry" | sed -n 's/^HEIGHT=//p')
+          test "$window_width" -ge 760
+          test "$window_height" -ge 560
+          printf 'SOCDOF_NATIVE_WINDOW visible=1 title=%s width=%s height=%s id=%s\\n' \
+            "$window_title" "$window_width" "$window_height" "$window_id" \
+            | tee artifacts/native-window.txt
           sleep 15
           {
             echo "### Native desktop memory profile (PID $app_pid)"
@@ -925,6 +953,9 @@ jobs:
             artifacts/dialogs-report.json
             artifacts/dialogs-cancel-report.json
             artifacts/tray.log
+            artifacts/idle.log
+            artifacts/native-window.txt
+            artifacts/runtime-budgets.txt
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14

@@ -2267,3 +2267,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Added regression tests against the real in-memory SQLite store and `AuthState`: first administrator creation and password hashing, successful initial session, login on the next start, stale setup race rejection, persistent failed-login lockout and successful login after expiry.
 - **Verification state:** committed; Linux and Windows workspace test jobs must pass before treating this coverage as verified.
 - **Effort estimate:** approximately 0.3 hours for startup/auth path inspection, test implementation and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — Native desktop window startup verification
+
+- Strengthened the native egui desktop smoke: the idle-resource test now waits for an actual visible `SOCDOF` window, checks its title and verifies the 760×560 minimum window geometry before taking resource measurements.
+- This closes the gap where a process could remain alive without successfully presenting the native desktop shell. The Xvfb smoke retains the window marker and startup log as artifacts.
+- **Verification state:** committed; pending the next Linux GUI-smoke run.
+- **Effort estimate:** approximately 0.2 hours for workflow hardening and documentation. CI runtime is excluded.
