@@ -188,3 +188,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** after `finish_smoke` has validated and persisted the complete report, it now dispatches the same `TrayCommand::Quit` handler when the tray smoke is enabled. This tests the actual quit action at the safe end of the scenario; no smoke assertion or application behavior is weakened.
 - **Additional diagnostics:** retain `artifacts/tray.log` in the uploaded GUI-smoke evidence.
 - **Verification:** run 1249 proved show-window and backup dispatch and isolated the missing final quit marker. The corrected behavior awaits the next full GUI-smoke run.
+
+
+## Authentication foundation regression coverage (2026-11-15)
+
+- Added focused UI-state tests for the native first-run/authentication flow: an empty database opens the setup wizard; first-admin creation hashes the password and creates a real signed-in session; the next launch opens login; stale concurrent setup forms cannot create a second administrator; failed attempts trigger the persistent lockout and the correct password works after expiry.
+- These tests exercise the actual `AuthState` and SQLite `Store`, not a mocked login form.
+- **Verification state:** committed for the next cross-platform test run.

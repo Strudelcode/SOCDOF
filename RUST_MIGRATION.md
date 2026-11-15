@@ -2259,3 +2259,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Added the tray log to the uploaded diagnostic artifact.
 - **Verification state:** code and documentation committed; next full CI run must pass the complete GUI smoke, including tray quit, before the foundation is considered CI-green.
 - **Effort estimate:** approximately 0.2 hours for log diagnosis, command-flow correction and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — First-run administrator and login regression tests
+
+- Audited the native egui host startup path: it opens the four-step first-run setup when the database has no users and routes subsequent launches through login. The first-admin insert is transactionally restricted to an empty users table.
+- Added regression tests against the real in-memory SQLite store and `AuthState`: first administrator creation and password hashing, successful initial session, login on the next start, stale setup race rejection, persistent failed-login lockout and successful login after expiry.
+- **Verification state:** committed; Linux and Windows workspace test jobs must pass before treating this coverage as verified.
+- **Effort estimate:** approximately 0.3 hours for startup/auth path inspection, test implementation and documentation. CI runtime is excluded.

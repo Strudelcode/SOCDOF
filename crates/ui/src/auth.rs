@@ -1754,3 +1754,101 @@ mod lock_conflict_tests {
         assert_eq!(conflict.owner, None);
     }
 }
+
+
+#[cfg(test)]
+mod auth_flow_tests {
+    use super::*;
+    use socdof_core::domain::session::MAX_FAILED_ATTEMPTS;
+    use socdof_core::store::Store;
+
+    fn empty_store() -> Store {
+        Store::open_in_memory().expect("in-memory store")
+    }
+
+    fn configure_first_admin(auth: &mut AuthState) {
+        auth.username = "owner".to_string();
+        auth.display_name = "SOCDOF Owner".to_string();
+        auth.password = "correct horse battery".to_string();
+        auth.password_confirm = auth.password.clone();
+    }
+
+    #[test]
+    fn first_run_creates_the_first_admin_and_opens_a_real_session() {
+        let store = empty_store();
+        let mut auth = AuthState::new(&store, 1_000).expect("initial auth state");
+        assert_eq!(auth.view, AuthView::Setup);
+
+        configure_first_admin(&mut auth);
+        auth.create_first_admin(&store, 1_000)
+            .expect("create first administrator");
+
+        assert_eq!(store.user_count().expect("user count"), 1);
+        assert_eq!(auth.view, AuthView::Unlocked);
+        assert_eq!(auth.user.as_ref().expect("signed-in user").role, UserRole::Admin);
+        assert!(auth.session.is_some());
+        assert!(auth.token.is_some());
+        assert_ne!(
+            store
+                .find_user_by_username("owner")
+                .expect("find owner")
+                .expect("stored owner")
+                .password_hash,
+            "correct horse battery"
+        );
+
+        let next_start = AuthState::new(&store, 2_000).expect("next startup");
+        assert_eq!(next_start.view, AuthView::Login);
+    }
+
+    #[test]
+    fn concurrent_first_run_forms_cannot_create_two_administrators() {
+        let store = empty_store();
+        let mut first = AuthState::new(&store, 1_000).expect("first setup");
+        let mut stale = AuthState::new(&store, 1_000).expect("stale setup");
+        configure_first_admin(&mut first);
+        configure_first_admin(&mut stale);
+        stale.username = "second-owner".to_string();
+
+        first
+            .create_first_admin(&store, 1_000)
+            .expect("first administrator");
+        stale
+            .create_first_admin(&store, 1_001)
+            .expect("stale setup is rejected as a handled validation state");
+
+        assert_eq!(store.user_count().expect("user count"), 1);
+        assert_eq!(stale.error, Some("auth_error_setup_exists"));
+    }
+
+    #[test]
+    fn login_lockout_expires_and_the_correct_password_then_succeeds() {
+        let store = empty_store();
+        let mut setup = AuthState::new(&store, 1_000).expect("initial setup");
+        configure_first_admin(&mut setup);
+        setup
+            .create_first_admin(&store, 1_000)
+            .expect("create administrator");
+
+        let mut login = AuthState::new(&store, 2_000).expect("login state");
+        login.username = "owner".to_string();
+        login.password = "incorrect password".to_string();
+        for attempt in 0..MAX_FAILED_ATTEMPTS {
+            login
+                .login(&store, 2_000 + i64::from(attempt) * 1_000)
+                .expect("failed login is a handled outcome");
+        }
+
+        let locked_until = login.locked_until.expect("persistent lockout");
+        assert_eq!(login.error, Some("auth_error_locked"));
+        assert_eq!(login.view, AuthView::Login);
+
+        login.password = "correct horse battery".to_string();
+        login
+            .login(&store, locked_until + 1)
+            .expect("login after lockout");
+        assert_eq!(login.view, AuthView::Unlocked);
+        assert_eq!(login.user.as_ref().expect("signed-in user").username, "owner");
+        assert!(login.session.is_some());
+    }
+}
