@@ -178,6 +178,7 @@ pub fn reports(
 }
 
 /// Renders reports inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn reports_window(
     ctx: &Context,
     active: bool,
@@ -197,9 +198,7 @@ pub fn reports_window(
         state.error = Some("reports_error_load");
     }
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state));
-        
+    egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state));
 }
 
 fn body(
