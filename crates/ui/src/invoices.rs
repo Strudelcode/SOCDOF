@@ -1708,4 +1708,15 @@ mod tests {
         assert!(statuses.contains(&InvoiceStatus::Paid));
         assert!(statuses.contains(&InvoiceStatus::Draft));
     }
+
+    #[test]
+    fn rejects_values_with_more_precision_than_the_store_can_keep() {
+        assert_eq!(parse_quantity("1,125"), Some(1_125));
+        assert_eq!(parse_quantity("1.125"), Some(1_125));
+        assert_eq!(parse_quantity("1.1259"), None);
+        assert_eq!(parse_quantity("0"), None);
+        assert_eq!(parse_percent_bp("19,00"), Some(1_900));
+        assert_eq!(parse_percent_bp("19.001"), None);
+        assert_eq!(parse_percent_bp("101"), None);
+    }
 }
