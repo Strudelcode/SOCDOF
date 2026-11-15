@@ -3545,7 +3545,10 @@ mod tests {
             state.desktop_windows.windows()[4].app(),
             AppId::new("therapy")
         );
-        assert_eq!(state.desktop_windows.windows()[5].app(), AppId::new("users"));
+        assert_eq!(
+            state.desktop_windows.windows()[5].app(),
+            AppId::new("users")
+        );
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
@@ -3557,7 +3560,10 @@ mod tests {
         state.auth_open = false;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        for (index, slug) in ["accounting", "pos", "therapy", "users"].into_iter().enumerate() {
+        for (index, slug) in ["accounting", "pos", "therapy", "users"]
+            .into_iter()
+            .enumerate()
+        {
             let app = AppId::new(slug);
             let title = state
                 .desktop_icons
