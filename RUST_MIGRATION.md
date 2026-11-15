@@ -2345,3 +2345,14 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - The tests call the same private handler used by the real native desktop frame, rather than validating only a separate chord resolver.
 - **Verification state:** committed; full CI run pending.
 - **Effort estimate:** approximately 0.3 hours for state-flow review, headless test implementation and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native multi-window rendering for Projects, Fleet and Restaurant
+
+- Extracted the three module screens' existing render bodies from their full-work-area CentralPanel wrappers into reusable child-window renderers. The original public screen functions now remain compatibility wrappers, preserving their layout and interaction path.
+- Added the renderers to the native desktop dispatcher, with per-window active state and isolated `back` handling.
+- Expanded the native multi-window headless regression to open Accounting, POS, Therapy, Users, Projects, Fleet and Restaurant concurrently and verify the module titles are painted.
+- Updated the parity inventory to identify the next still-missing module-window adapters instead of marking all desktop windows complete.
+- **Verification state:** committed; workspace Clippy, Linux/Windows tests, native builds and GUI smoke pending.
+- **Effort estimate:** approximately 1.2 hours for source extraction, dispatcher integration, regression coverage and documentation. CI runtime is excluded.

@@ -990,6 +990,30 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     state.accounting.back = false;
                     back
                 }
+                "projects" => {
+                    crate::projects::projects_window(
+                        ctx, active, ui, theme, texts, focus, &mut state.projects, store, now,
+                    );
+                    let back = state.projects.back;
+                    state.projects.back = false;
+                    back
+                }
+                "fleet" => {
+                    crate::fleet::fleet_window(
+                        ctx, active, ui, theme, texts, focus, &mut state.fleet, store, now,
+                    );
+                    let back = state.fleet.back;
+                    state.fleet.back = false;
+                    back
+                }
+                "restaurant" => {
+                    crate::restaurant::restaurant_window(
+                        ctx, active, ui, theme, texts, focus, &mut state.restaurant, store, now,
+                    );
+                    let back = state.restaurant.back;
+                    state.restaurant.back = false;
+                    back
+                }
                 "pos" => {
                     crate::pos::pos_window(
                         ctx,
@@ -3668,6 +3692,9 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
         assert!(state.desktop_windows.is_open(AppId::new("users")));
+        assert!(state.desktop_windows.is_open(AppId::new("projects")));
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+        assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
         assert_eq!(
             state.desktop_windows.windows()[0].app(),
             AppId::new("accounting")
@@ -3690,7 +3717,7 @@ mod tests {
     }
 
     #[test]
-    fn native_desktop_renders_accounting_pos_therapy_and_users_windows() {
+    fn native_desktop_renders_all_recently_ported_business_module_windows() {
         let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
@@ -3698,7 +3725,7 @@ mod tests {
         state.auth.view = crate::auth::AuthView::Login;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        for (index, slug) in ["accounting", "pos", "therapy", "users"]
+        for (index, slug) in ["accounting", "pos", "therapy", "users", "projects", "fleet", "restaurant"]
             .into_iter()
             .enumerate()
         {
@@ -3735,6 +3762,18 @@ mod tests {
         assert!(
             painted.contains(state.texts.get("users_new")),
             "users window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("projects_title")),
+            "projects window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("fleet_title")),
+            "fleet window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("restaurant_title")),
+            "restaurant window content was not drawn; painted={painted:?}"
         );
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));

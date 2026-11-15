@@ -437,6 +437,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &FleetStat
 }
 
 /// Renders the native fleet register, logbook, fuel ledger and analytics.
+
+/// Renders fleet in the full application work area.
 pub fn fleet(
     ctx: &Context,
     theme: &Theme,
@@ -446,7 +448,29 @@ pub fn fleet(
     store: &Store,
     now: i64,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            fleet_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+pub fn fleet_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut FleetState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         if state.vehicle_draft.is_some() {
             state.vehicle_draft = None;
         } else if state.trip_draft.is_some() {
@@ -506,13 +530,7 @@ pub fn fleet(
         .cloned()
         .collect();
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical().show(ui, |ui| {
                 crate::chrome::module_header(
                     ui,
@@ -1294,7 +1312,7 @@ pub fn fleet(
                     });
                 }
             });
-        });
+        
 
     if let Some(pending) = request_delete {
         state.confirm_delete = Some(pending);

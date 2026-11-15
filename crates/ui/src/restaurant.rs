@@ -471,6 +471,8 @@ fn feedback(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Restauran
 }
 
 /// Renders the native restaurant module and processes its UI actions.
+
+/// Renders restaurant in the full application work area.
 pub fn restaurant(
     ctx: &Context,
     theme: &Theme,
@@ -480,7 +482,29 @@ pub fn restaurant(
     store: &Store,
     now: i64,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            restaurant_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+pub fn restaurant_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut RestaurantState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         if state.dish_draft.is_some() {
             state.dish_draft = None;
         } else {
@@ -494,13 +518,7 @@ pub fn restaurant(
         .company_profile()
         .map(|profile| profile.currency)
         .unwrap_or_else(|_| "€".into());
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical().show(ui, |ui| {
                 crate::chrome::module_header(
                     ui,
@@ -1172,7 +1190,7 @@ pub fn restaurant(
                     }
                 }
             });
-        });
+        
 }
 
 #[cfg(feature = "dialogs")]

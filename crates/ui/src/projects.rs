@@ -506,6 +506,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &ProjectsS
 }
 
 /// Renders the native project portfolio with project CRUD and task/Kanban actions.
+
+/// Renders projects in the full application work area.
 pub fn projects(
     ctx: &Context,
     theme: &Theme,
@@ -515,7 +517,29 @@ pub fn projects(
     store: &Store,
     now: i64,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            projects_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+pub fn projects_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ProjectsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         if state.task_draft.is_some() {
             state.task_draft = None;
         } else if state.draft.is_some() {
@@ -579,13 +603,7 @@ pub fn projects(
         .cloned()
         .collect();
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical().show(ui, |ui| {
                 crate::chrome::module_header(
                     ui,
@@ -1421,7 +1439,7 @@ pub fn projects(
                     });
                 }
             });
-        });
+        
 
     if new_project {
         state.start_new(now);

@@ -46,7 +46,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
 | `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Product CRUD, stock in/out, labels and reorder are present; exact tax-rate parsing and stock overflow handling are covered. The standalone TypeScript `StockMovesModule` double-entry journal (source/destination locations, reference, location filters, CSV/print) is not yet represented as a native Rust screen; treat as an open parity gap |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
-| `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager, per-user icon/window persistence and global F11/Ctrl+K/Ctrl+L/Escape shortcuts are implemented and the palette/lock/dismiss/auth-gating paths have headless regression coverage; independent module rendering inside multiple simultaneous windows, OS tray/startup integration and full workflow parity remain open |
+| `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager, per-user icon/window persistence and global F11/Ctrl+K/Ctrl+L/Escape shortcuts are implemented. Independent native windows now render Contacts, Projects, Fleet, Restaurant, Invoices, Accounting, POS, Therapy, Users and Settings; the remaining launcher modules still need dedicated window adapters and side-by-side acceptance. OS tray/startup integration and full workflow parity remain open |
 | `src/lib/*` | `crates/core/src/*`, `crates/app/src/*`, `crates/ui/src/*` | Cross-cutting; map every exported function and side effect |
 
 ## Full TypeScript source inventory
@@ -232,3 +232,13 @@ The application-wide egui handler has direct headless tests for:
 - Ctrl+K and Ctrl+L having no effect while first-run authentication is visible.
 
 The F11 action is emitted as a viewport fullscreen command and remains covered by the platform GUI smoke path.
+
+
+
+## Native module windows: Projects, Fleet and Restaurant (2026-11-15)
+
+- Refactored the Projects, Fleet and Restaurant screens into reusable window-content renderers plus full-work-area wrappers. The existing standalone screens retain their original background, padding and scrolling behavior.
+- Added active-window-aware Escape handling so a key event from another module window cannot cancel or navigate the wrong module's draft.
+- Registered all three content renderers in the native desktop's multi-window dispatcher. Their independent state objects, store refresh, CRUD forms, exports, checkout and module-specific dialogs remain attached to their own windows.
+- Extended the headless native-window regression to open and render seven concurrent modules, asserting the actual Projects, Fleet and Restaurant titles are present in the rendered output.
+- Remaining desktop-window adapters include Dashboard, Products, Purchases, Calendar, Editor, App Store, Support and Reports. This change does not claim all modules are complete.
