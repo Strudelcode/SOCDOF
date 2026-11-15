@@ -185,6 +185,8 @@ jobs:
           export MALLOC_ARENA_MAX=1
           export MALLOC_TRIM_THRESHOLD_=0
           export MALLOC_MMAP_THRESHOLD_=131072
+          export G_SLICE=always-malloc
+          export G_DEBUG=gc-friendly
           exec "$(dirname "$0")/socdof-ui-desktop" "$@"
           EOF
           chmod +x "$native_dir/run-socdof.sh"
@@ -489,6 +491,13 @@ jobs:
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
           sleep 15
+          {
+            echo "### Native desktop memory profile (PID $app_pid)"
+            grep -E '^(VmRSS|RssAnon|RssFile|RssShmem|VmData|VmSwap):' "/proc/$app_pid/status" || true
+            if test -r "/proc/$app_pid/smaps_rollup"; then
+              cat "/proc/$app_pid/smaps_rollup"
+            fi
+          } | tee artifacts/runtime-memory-profile.txt
           node scripts/check-budgets.mjs --scope=runtime --pid "$app_pid" | tee artifacts/runtime-budgets.txt
           kill "$app_pid" 2>/dev/null || true
           sleep 1
