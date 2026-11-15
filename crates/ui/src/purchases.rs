@@ -729,6 +729,7 @@ pub fn purchases(
 }
 
 /// Renders purchases inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn purchases_window(
     ctx: &Context,
     active: bool,
@@ -752,13 +753,11 @@ pub fn purchases_window(
         state.error = Some("purchases_error_load");
     }
 
-    
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                PurchasesView::List => list_view(ui, theme, texts, focus, state, now),
-                PurchasesView::Detail => detail_view(ui, theme, texts, focus, state, store),
-                PurchasesView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        PurchasesView::List => list_view(ui, theme, texts, focus, state, now),
+        PurchasesView::Detail => detail_view(ui, theme, texts, focus, state, store),
+        PurchasesView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
