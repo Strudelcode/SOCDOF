@@ -494,6 +494,7 @@ pub fn restaurant(
 }
 
 /// Renders restaurant inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
 pub fn restaurant_window(
     ctx: &Context,
     active: bool,
@@ -519,679 +520,647 @@ pub fn restaurant_window(
         .company_profile()
         .map(|profile| profile.currency)
         .unwrap_or_else(|_| "€".into());
-    
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                crate::chrome::module_header(
+
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        crate::chrome::module_header(
+            ui,
+            theme,
+            texts,
+            focus,
+            crate::chrome::ModuleHeader {
+                app: crate::chrome::app_chrome("restaurant"),
+                title: texts.get("restaurant_title"),
+                subtitle: texts.get("restaurant_subtitle"),
+                status: None,
+            },
+            &mut state.back,
+        );
+        #[cfg(feature = "dialogs")]
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("restaurant_export"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            match export_csv(store) {
+                Ok(Some(path)) => {
+                    state.status = Some(format!("{}: {}", texts.get("restaurant_exported"), path))
+                }
+                Ok(None) => {}
+                Err(error) => state.error = Some(error.to_string()),
+            }
+        }
+        let open = state.orders.iter().filter(|o| o.status != "paid").count();
+        let kitchen = state
+            .orders
+            .iter()
+            .filter(|o| o.status == "ordered" || o.status == "preparing")
+            .count();
+        let today_key = socdof_core::date::civil_from_millis(now);
+        let today_paid: Vec<&TableOrder> = state
+            .orders
+            .iter()
+            .filter(|o| {
+                o.status == "paid"
+                    && o.paid_at
+                        .is_some_and(|at| socdof_core::date::civil_from_millis(at) == today_key)
+            })
+            .collect();
+        let revenue: i64 = today_paid.iter().map(|o| o.total_cents).sum();
+        let cash_sales: i64 = today_paid
+            .iter()
+            .filter(|o| o.payment_method.as_deref() == Some("cash"))
+            .map(|o| o.total_cents)
+            .sum();
+        let card_sales = revenue - cash_sales;
+        let tax_total: i64 = today_paid.iter().map(|o| o.tax_total_cents).sum();
+        ui.horizontal_wrapped(|ui| {
+            for (label, value) in [
+                (texts.get("restaurant_kpi_open"), open.to_string()),
+                (texts.get("restaurant_kpi_kitchen"), kitchen.to_string()),
+                (
+                    texts.get("restaurant_kpi_revenue"),
+                    money(revenue, &currency),
+                ),
+                (
+                    texts.get("restaurant_kpi_menu"),
+                    state.menu.len().to_string(),
+                ),
+                (
+                    texts.get("restaurant_kpi_today_orders"),
+                    today_paid.len().to_string(),
+                ),
+                (
+                    texts.get("restaurant_kpi_cash"),
+                    money(cash_sales, &currency),
+                ),
+                (
+                    texts.get("restaurant_kpi_card"),
+                    money(card_sales, &currency),
+                ),
+                (texts.get("restaurant_kpi_tax"), money(tax_total, &currency)),
+            ] {
+                crate::components::card(ui, theme, |ui| {
+                    ui.label(
+                        RichText::new(label)
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.heading(value);
+                });
+            }
+        });
+        feedback(ui, theme, texts, state);
+        ui.horizontal_wrapped(|ui| {
+            for (view, key) in [
+                (RestaurantView::Tables, "restaurant_tab_tables"),
+                (RestaurantView::Kitchen, "restaurant_tab_kitchen"),
+                (RestaurantView::Menu, "restaurant_tab_menu"),
+                (RestaurantView::History, "restaurant_tab_history"),
+            ] {
+                if ui
+                    .selectable_label(state.view == view, texts.get(key))
+                    .clicked()
+                {
+                    state.view = view;
+                }
+            }
+            if state.view == RestaurantView::Menu
+                && button(
                     ui,
                     theme,
-                    texts,
                     focus,
-                    crate::chrome::ModuleHeader {
-                        app: crate::chrome::app_chrome("restaurant"),
-                        title: texts.get("restaurant_title"),
-                        subtitle: texts.get("restaurant_subtitle"),
-                        status: None,
-                    },
-                    &mut state.back,
-                );
-                #[cfg(feature = "dialogs")]
-                if button(
-                    ui,
-                    theme,
-                    focus,
-                    texts.get("restaurant_export"),
-                    ButtonVariant::Secondary,
+                    texts.get("restaurant_new_dish"),
+                    ButtonVariant::Primary,
                 )
                 .activated
-                {
-                    match export_csv(store) {
-                        Ok(Some(path)) => {
-                            state.status =
-                                Some(format!("{}: {}", texts.get("restaurant_exported"), path))
-                        }
-                        Ok(None) => {}
-                        Err(error) => state.error = Some(error.to_string()),
-                    }
-                }
-                let open = state.orders.iter().filter(|o| o.status != "paid").count();
-                let kitchen = state
-                    .orders
-                    .iter()
-                    .filter(|o| o.status == "ordered" || o.status == "preparing")
-                    .count();
-                let today_key = socdof_core::date::civil_from_millis(now);
-                let today_paid: Vec<&TableOrder> = state
-                    .orders
-                    .iter()
-                    .filter(|o| {
-                        o.status == "paid"
-                            && o.paid_at.is_some_and(|at| {
-                                socdof_core::date::civil_from_millis(at) == today_key
-                            })
-                    })
-                    .collect();
-                let revenue: i64 = today_paid.iter().map(|o| o.total_cents).sum();
-                let cash_sales: i64 = today_paid
-                    .iter()
-                    .filter(|o| o.payment_method.as_deref() == Some("cash"))
-                    .map(|o| o.total_cents)
-                    .sum();
-                let card_sales = revenue - cash_sales;
-                let tax_total: i64 = today_paid.iter().map(|o| o.tax_total_cents).sum();
+            {
+                state.start_new_dish(now);
+            }
+        });
+        ui.separator();
+        match state.view {
+            RestaurantView::Tables => {
                 ui.horizontal_wrapped(|ui| {
-                    for (label, value) in [
-                        (texts.get("restaurant_kpi_open"), open.to_string()),
-                        (texts.get("restaurant_kpi_kitchen"), kitchen.to_string()),
-                        (
-                            texts.get("restaurant_kpi_revenue"),
-                            money(revenue, &currency),
-                        ),
-                        (
-                            texts.get("restaurant_kpi_menu"),
-                            state.menu.len().to_string(),
-                        ),
-                        (
-                            texts.get("restaurant_kpi_today_orders"),
-                            today_paid.len().to_string(),
-                        ),
-                        (
-                            texts.get("restaurant_kpi_cash"),
-                            money(cash_sales, &currency),
-                        ),
-                        (
-                            texts.get("restaurant_kpi_card"),
-                            money(card_sales, &currency),
-                        ),
-                        (texts.get("restaurant_kpi_tax"), money(tax_total, &currency)),
-                    ] {
-                        crate::components::card(ui, theme, |ui| {
-                            ui.label(
-                                RichText::new(label)
-                                    .size(FONT_SMALL)
-                                    .color(theme.palette.text_muted),
-                            );
-                            ui.heading(value);
-                        });
-                    }
-                });
-                feedback(ui, theme, texts, state);
-                ui.horizontal_wrapped(|ui| {
-                    for (view, key) in [
-                        (RestaurantView::Tables, "restaurant_tab_tables"),
-                        (RestaurantView::Kitchen, "restaurant_tab_kitchen"),
-                        (RestaurantView::Menu, "restaurant_tab_menu"),
-                        (RestaurantView::History, "restaurant_tab_history"),
+                    for (area, key) in [
+                        ("all", "restaurant_area_all"),
+                        ("indoor", "restaurant_area_indoor"),
+                        ("terrace", "restaurant_area_terrace"),
+                        ("bar", "restaurant_area_bar"),
+                        ("togo", "restaurant_area_togo"),
                     ] {
                         if ui
-                            .selectable_label(state.view == view, texts.get(key))
+                            .selectable_label(state.area_filter == area, texts.get(key))
                             .clicked()
                         {
-                            state.view = view;
+                            state.area_filter = area.into();
                         }
                     }
-                    if state.view == RestaurantView::Menu
-                        && button(
+                });
+                let tables: Vec<_> = state
+                    .tables
+                    .iter()
+                    .filter(|t| state.area_filter == "all" || t.area == state.area_filter)
+                    .cloned()
+                    .collect();
+                egui::Grid::new("restaurant-floor")
+                    .num_columns(4)
+                    .spacing([10.0, 10.0])
+                    .show(ui, |ui| {
+                        for (i, table) in tables.iter().enumerate() {
+                            let order = state
+                                .orders
+                                .iter()
+                                .find(|o| o.table_number == table.name && o.status != "paid");
+                            let label = format!(
+                                "{}\n{}",
+                                table.name,
+                                order
+                                    .map(|o| texts.get(status_key(&o.status)))
+                                    .unwrap_or(texts.get("restaurant_free"))
+                            );
+                            if ui
+                                .selectable_label(state.selected_table == table.name, label)
+                                .clicked()
+                            {
+                                state.selected_table = table.name.clone();
+                            }
+                            if i % 4 == 3 {
+                                ui.end_row();
+                            }
+                        }
+                    });
+                ui.separator();
+                ui.heading(format!(
+                    "{} {}",
+                    texts.get("restaurant_order_for"),
+                    state.selected_table
+                ));
+                if let Some(order) = state.active_order().cloned() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(texts.get("restaurant_server"));
+                        let mut server = order.server_name.clone();
+                        if ui
+                            .add(egui::TextEdit::singleline(&mut server).desired_width(130.0))
+                            .lost_focus()
+                        {
+                            if let Err(e) = state.set_server(store, order.id, &server, now) {
+                                state.error = Some(e.to_string());
+                            }
+                        }
+                        ui.label(texts.get(status_key(&order.status)));
+                        if button(
                             ui,
                             theme,
                             focus,
-                            texts.get("restaurant_new_dish"),
-                            ButtonVariant::Primary,
+                            texts.get("restaurant_send_kitchen"),
+                            ButtonVariant::Secondary,
                         )
                         .activated
-                    {
-                        state.start_new_dish(now);
-                    }
-                });
-                ui.separator();
-                match state.view {
-                    RestaurantView::Tables => {
+                        {
+                            if let Err(e) = state.set_status(store, order.id, "preparing", now) {
+                                state.error = Some(e.to_string());
+                            }
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("restaurant_cancel_order"),
+                            ButtonVariant::Danger,
+                        )
+                        .activated
+                        {
+                            if let Err(e) = state.cancel_order(store, order.id) {
+                                state.error = Some(e.to_string());
+                            }
+                        }
+                    });
+                    for item in &order.items {
                         ui.horizontal_wrapped(|ui| {
-                            for (area, key) in [
-                                ("all", "restaurant_area_all"),
-                                ("indoor", "restaurant_area_indoor"),
-                                ("terrace", "restaurant_area_terrace"),
-                                ("bar", "restaurant_area_bar"),
-                                ("togo", "restaurant_area_togo"),
-                            ] {
-                                if ui
-                                    .selectable_label(state.area_filter == area, texts.get(key))
-                                    .clicked()
+                            ui.label(format!(
+                                "{} {} ×{} · {}",
+                                item.emoji,
+                                item.name,
+                                item.qty,
+                                money(item.gross().cents(), &currency)
+                            ));
+                            if ui.small_button("−").clicked() {
+                                if let Err(e) =
+                                    state.set_quantity(store, order.id, item.id, item.qty - 1, now)
                                 {
-                                    state.area_filter = area.into();
+                                    state.error = Some(e.to_string());
+                                }
+                            }
+                            if ui.small_button("+").clicked() {
+                                if let Err(e) =
+                                    state.set_quantity(store, order.id, item.id, item.qty + 1, now)
+                                {
+                                    state.error = Some(e.to_string());
                                 }
                             }
                         });
-                        let tables: Vec<_> = state
-                            .tables
-                            .iter()
-                            .filter(|t| state.area_filter == "all" || t.area == state.area_filter)
-                            .cloned()
-                            .collect();
-                        egui::Grid::new("restaurant-floor")
-                            .num_columns(4)
-                            .spacing([10.0, 10.0])
-                            .show(ui, |ui| {
-                                for (i, table) in tables.iter().enumerate() {
-                                    let order = state.orders.iter().find(|o| {
-                                        o.table_number == table.name && o.status != "paid"
-                                    });
-                                    let label = format!(
-                                        "{}\n{}",
-                                        table.name,
-                                        order
-                                            .map(|o| texts.get(status_key(&o.status)))
-                                            .unwrap_or(texts.get("restaurant_free"))
+                        let mut notes = item.notes.clone();
+                        ui.horizontal(|ui| {
+                            ui.label(texts.get("restaurant_item_note"));
+                            if ui
+                                .add(egui::TextEdit::singleline(&mut notes).desired_width(260.0))
+                                .lost_focus()
+                            {
+                                if let Err(e) =
+                                    state.set_notes(store, order.id, item.id, &notes, now)
+                                {
+                                    state.error = Some(e.to_string());
+                                }
+                            }
+                        });
+                    }
+                    ui.label(format!(
+                        "{}: {}",
+                        texts.get("restaurant_total"),
+                        money(order.total_cents, &currency)
+                    ));
+                    ui.label(format!(
+                        "{}: {}",
+                        texts.get("restaurant_per_person"),
+                        money(
+                            (order.total_cents + state.tip_cents.max(0)) / state.split_count.max(1),
+                            &currency
+                        )
+                    ));
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(texts.get("restaurant_payment"));
+                        egui::ComboBox::from_id_source("restaurant-payment")
+                            .selected_text(state.payment_method.clone())
+                            .show_ui(ui, |ui| {
+                                for method in ["cash", "card", "nfc"] {
+                                    ui.selectable_value(
+                                        &mut state.payment_method,
+                                        method.into(),
+                                        method,
                                     );
-                                    if ui
-                                        .selectable_label(state.selected_table == table.name, label)
-                                        .clicked()
-                                    {
-                                        state.selected_table = table.name.clone();
-                                    }
-                                    if i % 4 == 3 {
-                                        ui.end_row();
-                                    }
                                 }
                             });
-                        ui.separator();
-                        ui.heading(format!(
-                            "{} {}",
-                            texts.get("restaurant_order_for"),
-                            state.selected_table
+                        ui.label(texts.get("restaurant_tip_cents"));
+                        ui.add(
+                            egui::DragValue::new(&mut state.tip_cents).clamp_range(0..=10_000_000),
+                        );
+                        ui.label(texts.get("restaurant_split_count"));
+                        ui.add(egui::DragValue::new(&mut state.split_count).clamp_range(1..=50));
+                        if state.payment_method == "cash" {
+                            ui.label(texts.get("restaurant_cash_given"));
+                            ui.add(
+                                egui::DragValue::new(&mut state.cash_given_cents)
+                                    .clamp_range(0..=100_000_000),
+                            );
+                        }
+                    });
+                    ui.checkbox(&mut state.hospitality, texts.get("restaurant_hospitality"));
+                    if state.hospitality {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(texts.get("restaurant_host"));
+                            ui.text_edit_singleline(&mut state.hospitality_host);
+                            ui.label(texts.get("restaurant_occasion"));
+                            ui.text_edit_singleline(&mut state.hospitality_occasion);
+                            ui.label(texts.get("restaurant_guests"));
+                            ui.text_edit_singleline(&mut state.hospitality_guests);
+                        });
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("restaurant_checkout"),
+                        ButtonVariant::Primary,
+                    )
+                    .activated
+                    {
+                        match state.checkout(store, order.id, now) {
+                            Ok(_) => {}
+                            Err(e) => state.error = Some(e.to_string()),
+                        }
+                    }
+                } else {
+                    ui.label(texts.get("restaurant_no_order"));
+                }
+                ui.separator();
+                ui.heading(texts.get("restaurant_quick_menu"));
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(texts.get("restaurant_search"));
+                    ui.text_edit_singleline(&mut state.query);
+                    egui::ComboBox::from_id_source("restaurant-quick-category")
+                        .selected_text(if state.category_filter == "all" {
+                            texts.get("restaurant_all").to_string()
+                        } else {
+                            state.category_filter.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut state.category_filter,
+                                "all".to_string(),
+                                texts.get("restaurant_all"),
+                            );
+                            for category in restaurant::CATEGORIES {
+                                ui.selectable_value(
+                                    &mut state.category_filter,
+                                    category.to_string(),
+                                    category,
+                                );
+                            }
+                        });
+                });
+                ui.horizontal_wrapped(|ui| {
+                    for dish in state
+                        .menu
+                        .iter()
+                        .filter(|d| {
+                            d.is_available
+                                && (state.query.is_empty()
+                                    || d.name.to_lowercase().contains(&state.query.to_lowercase()))
+                                && (state.category_filter == "all"
+                                    || d.category == state.category_filter)
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                    {
+                        if ui
+                            .button(format!(
+                                "{} {} · {}",
+                                dish.emoji,
+                                dish.name,
+                                money(dish.gross().cents(), &currency)
+                            ))
+                            .clicked()
+                        {
+                            if let Err(e) = state.add_item(store, dish.id, now) {
+                                state.error = Some(e.to_string());
+                            }
+                        }
+                    }
+                });
+            }
+            RestaurantView::Kitchen => {
+                let orders: Vec<_> = state
+                    .orders
+                    .iter()
+                    .filter(|o| o.status != "paid")
+                    .cloned()
+                    .collect();
+                for order in &orders {
+                    crate::components::card(ui, theme, |ui| {
+                        ui.heading(&order.table_number);
+                        ui.label(format!(
+                            "{}: {}",
+                            texts.get("restaurant_server"),
+                            order.server_name
                         ));
-                        if let Some(order) = state.active_order().cloned() {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(texts.get("restaurant_server"));
-                                let mut server = order.server_name.clone();
-                                if ui
-                                    .add(
-                                        egui::TextEdit::singleline(&mut server)
-                                            .desired_width(130.0),
-                                    )
-                                    .lost_focus()
-                                {
-                                    if let Err(e) = state.set_server(store, order.id, &server, now)
-                                    {
-                                        state.error = Some(e.to_string());
-                                    }
-                                }
-                                ui.label(texts.get(status_key(&order.status)));
+                        for item in &order.items {
+                            ui.label(format!("{} ×{} {}", item.name, item.qty, item.notes));
+                        }
+                        ui.horizontal_wrapped(|ui| {
+                            for (status, key) in [
+                                ("ordered", "restaurant_status_ordered"),
+                                ("preparing", "restaurant_status_preparing"),
+                                ("ready", "restaurant_status_ready"),
+                                ("served", "restaurant_status_served"),
+                            ] {
                                 if button(
                                     ui,
                                     theme,
                                     focus,
-                                    texts.get("restaurant_send_kitchen"),
+                                    texts.get(key),
                                     ButtonVariant::Secondary,
                                 )
                                 .activated
                                 {
-                                    if let Err(e) =
-                                        state.set_status(store, order.id, "preparing", now)
-                                    {
+                                    if let Err(e) = state.set_status(store, order.id, status, now) {
                                         state.error = Some(e.to_string());
                                     }
                                 }
-                                if button(
-                                    ui,
-                                    theme,
-                                    focus,
-                                    texts.get("restaurant_cancel_order"),
-                                    ButtonVariant::Danger,
-                                )
-                                .activated
-                                {
-                                    if let Err(e) = state.cancel_order(store, order.id) {
-                                        state.error = Some(e.to_string());
-                                    }
-                                }
-                            });
-                            for item in &order.items {
-                                ui.horizontal_wrapped(|ui| {
-                                    ui.label(format!(
-                                        "{} {} ×{} · {}",
-                                        item.emoji,
-                                        item.name,
-                                        item.qty,
-                                        money(item.gross().cents(), &currency)
-                                    ));
-                                    if ui.small_button("−").clicked() {
-                                        if let Err(e) = state.set_quantity(
-                                            store,
-                                            order.id,
-                                            item.id,
-                                            item.qty - 1,
-                                            now,
-                                        ) {
-                                            state.error = Some(e.to_string());
-                                        }
-                                    }
-                                    if ui.small_button("+").clicked() {
-                                        if let Err(e) = state.set_quantity(
-                                            store,
-                                            order.id,
-                                            item.id,
-                                            item.qty + 1,
-                                            now,
-                                        ) {
-                                            state.error = Some(e.to_string());
-                                        }
-                                    }
-                                });
-                                let mut notes = item.notes.clone();
-                                ui.horizontal(|ui| {
-                                    ui.label(texts.get("restaurant_item_note"));
-                                    if ui
-                                        .add(
-                                            egui::TextEdit::singleline(&mut notes)
-                                                .desired_width(260.0),
-                                        )
-                                        .lost_focus()
-                                    {
-                                        if let Err(e) =
-                                            state.set_notes(store, order.id, item.id, &notes, now)
-                                        {
-                                            state.error = Some(e.to_string());
-                                        }
-                                    }
-                                });
                             }
-                            ui.label(format!(
-                                "{}: {}",
-                                texts.get("restaurant_total"),
-                                money(order.total_cents, &currency)
-                            ));
-                            ui.label(format!(
-                                "{}: {}",
-                                texts.get("restaurant_per_person"),
-                                money(
-                                    (order.total_cents + state.tip_cents.max(0))
-                                        / state.split_count.max(1),
-                                    &currency
-                                )
-                            ));
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(texts.get("restaurant_payment"));
-                                egui::ComboBox::from_id_source("restaurant-payment")
-                                    .selected_text(state.payment_method.clone())
+                        });
+                    });
+                }
+                if orders.is_empty() {
+                    ui.label(texts.get("restaurant_kitchen_empty"));
+                }
+            }
+            RestaurantView::Menu => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(texts.get("restaurant_search"));
+                    ui.text_edit_singleline(&mut state.query);
+                    egui::ComboBox::from_id_source("restaurant-menu-category")
+                        .selected_text(if state.category_filter == "all" {
+                            texts.get("restaurant_all").to_string()
+                        } else {
+                            state.category_filter.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut state.category_filter,
+                                "all".to_string(),
+                                texts.get("restaurant_all"),
+                            );
+                            for category in restaurant::CATEGORIES {
+                                ui.selectable_value(
+                                    &mut state.category_filter,
+                                    category.to_string(),
+                                    category,
+                                );
+                            }
+                        });
+                });
+                let mut save_dish = false;
+                let mut cancel_dish = false;
+                if let Some(dish) = state.dish_draft.as_mut() {
+                    crate::components::card(ui, theme, |ui| {
+                        ui.heading(texts.get("restaurant_dish_editor"));
+                        egui::Grid::new("restaurant-dish-form")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label(texts.get("restaurant_name"));
+                                ui.text_edit_singleline(&mut dish.name);
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_category"));
+                                egui::ComboBox::from_id_source("restaurant-dish-cat")
+                                    .selected_text(dish.category.clone())
                                     .show_ui(ui, |ui| {
-                                        for method in ["cash", "card", "nfc"] {
+                                        for cat in restaurant::CATEGORIES {
                                             ui.selectable_value(
-                                                &mut state.payment_method,
-                                                method.into(),
-                                                method,
+                                                &mut dish.category,
+                                                cat.into(),
+                                                cat,
                                             );
                                         }
                                     });
-                                ui.label(texts.get("restaurant_tip_cents"));
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_price_cents"));
                                 ui.add(
-                                    egui::DragValue::new(&mut state.tip_cents)
-                                        .clamp_range(0..=10_000_000),
+                                    egui::DragValue::new(&mut dish.price_cents)
+                                        .clamp_range(0..=100_000_000),
                                 );
-                                ui.label(texts.get("restaurant_split_count"));
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_tax_bp"));
                                 ui.add(
-                                    egui::DragValue::new(&mut state.split_count)
-                                        .clamp_range(1..=50),
+                                    egui::DragValue::new(&mut dish.tax_rate_bp)
+                                        .clamp_range(0..=10_000),
                                 );
-                                if state.payment_method == "cash" {
-                                    ui.label(texts.get("restaurant_cash_given"));
-                                    ui.add(
-                                        egui::DragValue::new(&mut state.cash_given_cents)
-                                            .clamp_range(0..=100_000_000),
-                                    );
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_ingredients"));
+                                ui.text_edit_singleline(&mut dish.ingredients);
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_allergens"));
+                                let mut allergens = dish.allergens.join(", ");
+                                if ui.text_edit_singleline(&mut allergens).changed() {
+                                    dish.allergens = allergens
+                                        .split(',')
+                                        .map(|value| value.trim().to_string())
+                                        .filter(|value| !value.is_empty())
+                                        .collect();
                                 }
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_prep"));
+                                ui.add(
+                                    egui::DragValue::new(&mut dish.prep_time_minutes)
+                                        .clamp_range(0..=600),
+                                );
+                                ui.end_row();
+                                ui.label(texts.get("restaurant_available"));
+                                ui.checkbox(&mut dish.is_available, "");
+                                ui.end_row();
                             });
-                            ui.checkbox(
-                                &mut state.hospitality,
-                                texts.get("restaurant_hospitality"),
-                            );
-                            if state.hospitality {
-                                ui.horizontal_wrapped(|ui| {
-                                    ui.label(texts.get("restaurant_host"));
-                                    ui.text_edit_singleline(&mut state.hospitality_host);
-                                    ui.label(texts.get("restaurant_occasion"));
-                                    ui.text_edit_singleline(&mut state.hospitality_occasion);
-                                    ui.label(texts.get("restaurant_guests"));
-                                    ui.text_edit_singleline(&mut state.hospitality_guests);
-                                });
+                        ui.horizontal(|ui| {
+                            if button(
+                                ui,
+                                theme,
+                                focus,
+                                texts.get("restaurant_save"),
+                                ButtonVariant::Primary,
+                            )
+                            .activated
+                            {
+                                save_dish = true;
                             }
                             if button(
                                 ui,
                                 theme,
                                 focus,
-                                texts.get("restaurant_checkout"),
-                                ButtonVariant::Primary,
+                                texts.get("restaurant_cancel"),
+                                ButtonVariant::Ghost,
                             )
                             .activated
                             {
-                                match state.checkout(store, order.id, now) {
-                                    Ok(_) => {}
-                                    Err(e) => state.error = Some(e.to_string()),
-                                }
-                            }
-                        } else {
-                            ui.label(texts.get("restaurant_no_order"));
-                        }
-                        ui.separator();
-                        ui.heading(texts.get("restaurant_quick_menu"));
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(texts.get("restaurant_search"));
-                            ui.text_edit_singleline(&mut state.query);
-                            egui::ComboBox::from_id_source("restaurant-quick-category")
-                                .selected_text(if state.category_filter == "all" {
-                                    texts.get("restaurant_all").to_string()
-                                } else {
-                                    state.category_filter.clone()
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut state.category_filter,
-                                        "all".to_string(),
-                                        texts.get("restaurant_all"),
-                                    );
-                                    for category in restaurant::CATEGORIES {
-                                        ui.selectable_value(
-                                            &mut state.category_filter,
-                                            category.to_string(),
-                                            category,
-                                        );
-                                    }
-                                });
-                        });
-                        ui.horizontal_wrapped(|ui| {
-                            for dish in state
-                                .menu
-                                .iter()
-                                .filter(|d| {
-                                    d.is_available
-                                        && (state.query.is_empty()
-                                            || d.name
-                                                .to_lowercase()
-                                                .contains(&state.query.to_lowercase()))
-                                        && (state.category_filter == "all"
-                                            || d.category == state.category_filter)
-                                })
-                                .cloned()
-                                .collect::<Vec<_>>()
-                            {
-                                if ui
-                                    .button(format!(
-                                        "{} {} · {}",
-                                        dish.emoji,
-                                        dish.name,
-                                        money(dish.gross().cents(), &currency)
-                                    ))
-                                    .clicked()
-                                {
-                                    if let Err(e) = state.add_item(store, dish.id, now) {
-                                        state.error = Some(e.to_string());
-                                    }
-                                }
+                                cancel_dish = true;
                             }
                         });
-                    }
-                    RestaurantView::Kitchen => {
-                        let orders: Vec<_> = state
-                            .orders
-                            .iter()
-                            .filter(|o| o.status != "paid")
-                            .cloned()
-                            .collect();
-                        for order in &orders {
-                            crate::components::card(ui, theme, |ui| {
-                                ui.heading(&order.table_number);
-                                ui.label(format!(
-                                    "{}: {}",
-                                    texts.get("restaurant_server"),
-                                    order.server_name
-                                ));
-                                for item in &order.items {
-                                    ui.label(format!("{} ×{} {}", item.name, item.qty, item.notes));
-                                }
-                                ui.horizontal_wrapped(|ui| {
-                                    for (status, key) in [
-                                        ("ordered", "restaurant_status_ordered"),
-                                        ("preparing", "restaurant_status_preparing"),
-                                        ("ready", "restaurant_status_ready"),
-                                        ("served", "restaurant_status_served"),
-                                    ] {
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            texts.get(key),
-                                            ButtonVariant::Secondary,
-                                        )
-                                        .activated
-                                        {
-                                            if let Err(e) =
-                                                state.set_status(store, order.id, status, now)
-                                            {
-                                                state.error = Some(e.to_string());
-                                            }
-                                        }
-                                    }
-                                });
-                            });
-                        }
-                        if orders.is_empty() {
-                            ui.label(texts.get("restaurant_kitchen_empty"));
-                        }
-                    }
-                    RestaurantView::Menu => {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(texts.get("restaurant_search"));
-                            ui.text_edit_singleline(&mut state.query);
-                            egui::ComboBox::from_id_source("restaurant-menu-category")
-                                .selected_text(if state.category_filter == "all" {
-                                    texts.get("restaurant_all").to_string()
-                                } else {
-                                    state.category_filter.clone()
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut state.category_filter,
-                                        "all".to_string(),
-                                        texts.get("restaurant_all"),
-                                    );
-                                    for category in restaurant::CATEGORIES {
-                                        ui.selectable_value(
-                                            &mut state.category_filter,
-                                            category.to_string(),
-                                            category,
-                                        );
-                                    }
-                                });
-                        });
-                        let mut save_dish = false;
-                        let mut cancel_dish = false;
-                        if let Some(dish) = state.dish_draft.as_mut() {
-                            crate::components::card(ui, theme, |ui| {
-                                ui.heading(texts.get("restaurant_dish_editor"));
-                                egui::Grid::new("restaurant-dish-form").num_columns(2).show(
-                                    ui,
-                                    |ui| {
-                                        ui.label(texts.get("restaurant_name"));
-                                        ui.text_edit_singleline(&mut dish.name);
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_category"));
-                                        egui::ComboBox::from_id_source("restaurant-dish-cat")
-                                            .selected_text(dish.category.clone())
-                                            .show_ui(ui, |ui| {
-                                                for cat in restaurant::CATEGORIES {
-                                                    ui.selectable_value(
-                                                        &mut dish.category,
-                                                        cat.into(),
-                                                        cat,
-                                                    );
-                                                }
-                                            });
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_price_cents"));
-                                        ui.add(
-                                            egui::DragValue::new(&mut dish.price_cents)
-                                                .clamp_range(0..=100_000_000),
-                                        );
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_tax_bp"));
-                                        ui.add(
-                                            egui::DragValue::new(&mut dish.tax_rate_bp)
-                                                .clamp_range(0..=10_000),
-                                        );
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_ingredients"));
-                                        ui.text_edit_singleline(&mut dish.ingredients);
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_allergens"));
-                                        let mut allergens = dish.allergens.join(", ");
-                                        if ui.text_edit_singleline(&mut allergens).changed() {
-                                            dish.allergens = allergens
-                                                .split(',')
-                                                .map(|value| value.trim().to_string())
-                                                .filter(|value| !value.is_empty())
-                                                .collect();
-                                        }
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_prep"));
-                                        ui.add(
-                                            egui::DragValue::new(&mut dish.prep_time_minutes)
-                                                .clamp_range(0..=600),
-                                        );
-                                        ui.end_row();
-                                        ui.label(texts.get("restaurant_available"));
-                                        ui.checkbox(&mut dish.is_available, "");
-                                        ui.end_row();
-                                    },
-                                );
-                                ui.horizontal(|ui| {
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("restaurant_save"),
-                                        ButtonVariant::Primary,
-                                    )
-                                    .activated
-                                    {
-                                        save_dish = true;
-                                    }
-                                    if button(
-                                        ui,
-                                        theme,
-                                        focus,
-                                        texts.get("restaurant_cancel"),
-                                        ButtonVariant::Ghost,
-                                    )
-                                    .activated
-                                    {
-                                        cancel_dish = true;
-                                    }
-                                });
-                            });
-                        }
-                        if save_dish {
-                            if let Err(error) = state.save_dish(store) {
-                                state.error = Some(error.to_string());
-                            }
-                        }
-                        if cancel_dish {
-                            state.dish_draft = None;
-                        }
-                        let dishes: Vec<_> = state
-                            .menu
-                            .iter()
-                            .filter(|d| {
-                                (state.query.is_empty()
-                                    || d.name.to_lowercase().contains(&state.query.to_lowercase())
-                                    || d.ingredients
-                                        .to_lowercase()
-                                        .contains(&state.query.to_lowercase()))
-                                    && (state.category_filter == "all"
-                                        || d.category == state.category_filter)
-                            })
-                            .cloned()
-                            .collect();
-                        for dish in dishes {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(format!(
-                                    "{} {} · {}",
-                                    dish.emoji,
-                                    dish.name,
-                                    money(dish.gross().cents(), &currency)
-                                ));
-                                if ui
-                                    .button(if dish.is_available {
-                                        texts.get("restaurant_available")
-                                    } else {
-                                        texts.get("restaurant_unavailable")
-                                    })
-                                    .clicked()
-                                {
-                                    let mut changed = dish.clone();
-                                    changed.is_available = !changed.is_available;
-                                    if let Err(e) = store.update_restaurant_menu_item(&changed) {
-                                        state.error = Some(e.to_string());
-                                    } else {
-                                        let _ = state.refresh(store);
-                                    }
-                                }
-                                if button(
-                                    ui,
-                                    theme,
-                                    focus,
-                                    texts.get("restaurant_edit"),
-                                    ButtonVariant::Secondary,
-                                )
-                                .activated
-                                {
-                                    state.edit_dish(dish.id);
-                                }
-                                if button(
-                                    ui,
-                                    theme,
-                                    focus,
-                                    texts.get("restaurant_delete"),
-                                    ButtonVariant::Danger,
-                                )
-                                .activated
-                                {
-                                    if let Err(e) = state.delete_dish(store, dish.id) {
-                                        state.error = Some(e.to_string());
-                                    }
-                                }
-                            });
-                        }
-                    }
-                    RestaurantView::History => {
-                        let mut paid: Vec<_> = state
-                            .orders
-                            .iter()
-                            .filter(|o| o.status == "paid")
-                            .cloned()
-                            .collect();
-                        paid.sort_by_key(|o| std::cmp::Reverse(o.paid_at.unwrap_or(o.opened_at)));
-                        for order in paid {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(format!(
-                                    "{} · {} · {} · {}",
-                                    order.table_number,
-                                    order.receipt_number.as_deref().unwrap_or("—"),
-                                    order.payment_method.as_deref().unwrap_or("—"),
-                                    money(order.total_cents + order.tip_cents, &currency)
-                                ));
-                                ui.label(
-                                    RichText::new(texts.get("restaurant_paid"))
-                                        .size(FONT_SMALL)
-                                        .color(theme.palette.success),
-                                );
-                            });
-                        }
-                        if !state.orders.iter().any(|o| o.status == "paid") {
-                            ui.label(texts.get("restaurant_history_empty"));
-                        }
+                    });
+                }
+                if save_dish {
+                    if let Err(error) = state.save_dish(store) {
+                        state.error = Some(error.to_string());
                     }
                 }
-            });
-        
+                if cancel_dish {
+                    state.dish_draft = None;
+                }
+                let dishes: Vec<_> = state
+                    .menu
+                    .iter()
+                    .filter(|d| {
+                        (state.query.is_empty()
+                            || d.name.to_lowercase().contains(&state.query.to_lowercase())
+                            || d.ingredients
+                                .to_lowercase()
+                                .contains(&state.query.to_lowercase()))
+                            && (state.category_filter == "all"
+                                || d.category == state.category_filter)
+                    })
+                    .cloned()
+                    .collect();
+                for dish in dishes {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!(
+                            "{} {} · {}",
+                            dish.emoji,
+                            dish.name,
+                            money(dish.gross().cents(), &currency)
+                        ));
+                        if ui
+                            .button(if dish.is_available {
+                                texts.get("restaurant_available")
+                            } else {
+                                texts.get("restaurant_unavailable")
+                            })
+                            .clicked()
+                        {
+                            let mut changed = dish.clone();
+                            changed.is_available = !changed.is_available;
+                            if let Err(e) = store.update_restaurant_menu_item(&changed) {
+                                state.error = Some(e.to_string());
+                            } else {
+                                let _ = state.refresh(store);
+                            }
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("restaurant_edit"),
+                            ButtonVariant::Secondary,
+                        )
+                        .activated
+                        {
+                            state.edit_dish(dish.id);
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("restaurant_delete"),
+                            ButtonVariant::Danger,
+                        )
+                        .activated
+                        {
+                            if let Err(e) = state.delete_dish(store, dish.id) {
+                                state.error = Some(e.to_string());
+                            }
+                        }
+                    });
+                }
+            }
+            RestaurantView::History => {
+                let mut paid: Vec<_> = state
+                    .orders
+                    .iter()
+                    .filter(|o| o.status == "paid")
+                    .cloned()
+                    .collect();
+                paid.sort_by_key(|o| std::cmp::Reverse(o.paid_at.unwrap_or(o.opened_at)));
+                for order in paid {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!(
+                            "{} · {} · {} · {}",
+                            order.table_number,
+                            order.receipt_number.as_deref().unwrap_or("—"),
+                            order.payment_method.as_deref().unwrap_or("—"),
+                            money(order.total_cents + order.tip_cents, &currency)
+                        ));
+                        ui.label(
+                            RichText::new(texts.get("restaurant_paid"))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.success),
+                        );
+                    });
+                }
+                if !state.orders.iter().any(|o| o.status == "paid") {
+                    ui.label(texts.get("restaurant_history_empty"));
+                }
+            }
+        }
+    });
 }
 
 #[cfg(feature = "dialogs")]
