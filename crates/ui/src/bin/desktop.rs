@@ -93,9 +93,19 @@ impl DesktopApp {
 
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Keep idle-lock checks and the shared-instance heartbeat running even when the user
-        // leaves the desktop untouched and egui would otherwise stop repainting.
-        ctx.request_repaint_after(Duration::from_secs(10));
+        // Login/setup screens are static while idle; repaint them less often. A temporary
+        // lockout countdown still needs one-second updates. The active desktop has its own
+        // ten-second repaint schedule in desktop_with_content.
+        let repaint_after = if self.state.auth_open {
+            if self.state.auth.locked_until.is_some() {
+                Duration::from_secs(1)
+            } else {
+                Duration::from_secs(15)
+            }
+        } else {
+            Duration::from_secs(10)
+        };
+        ctx.request_repaint_after(repaint_after);
         // Capture the platform appearance before the SOCDOF theme is applied. Resolve the
         // active user's preference on every frame so changing Theme to System/Light/Dark takes
         // effect immediately, rather than inheriting the company profile forever.

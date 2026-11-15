@@ -116,14 +116,14 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression coverage:** added a focused CRLF-normalization test in `crates/ui/tests/visual.rs`.
 - **Verification:** run 1235 exposed the failure; the corrected Windows and Linux test jobs are awaiting the next Actions run.
 
-## RUST-CI-017 — Idle CPU budget sampling was too short and phase-sensitive (2026-11-15)
+## RUST-CI-017 — Idle CPU budget exposed unnecessary auth-screen redraws (2026-11-15)
 
-- **First observed:** workflow run 1235, commit `044d23fe52e4cb581be807179585aa596f44b370`.
+- **First observed:** workflow run 1235 (0.8% over 5 seconds); re-measured in run 1236 (0.67% over 30 seconds).
 - **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Idle RAM/CPU budget`.
-- **Measured:** RSS was 121,064 KiB against 122,880 KiB and passed. CPU was 0.8% against the unchanged 0.5% limit in a single five-second sample.
-- **Cause:** a five-second window is sensitive to the phase of periodic idle work (the shell's scheduled redraw and the independent lock heartbeat) and can over-weight one wake-up on a hosted runner. This is a measurement-resolution issue to validate, not permission to relax the product budget.
-- **Fix:** measure average process CPU over 30 seconds. Keep the 0.5% limit and the five-second lock heartbeat unchanged; sustained idle CPU above the limit will still fail.
-- **Verification:** the longer sample is committed; the next Linux GUI-smoke run must confirm the result.
+- **Measured in run 1236:** RSS was 120,652 KiB against 122,880 KiB and passed. CPU remained 0.67% against the unchanged 0.5% limit over a 30-second sample, so simply extending the sample did not resolve it.
+- **Cause:** the native host scheduled a full egui redraw every 10 seconds even on the static first-run login/setup screen. The shared-instance heartbeat check also ran from that UI update loop. Three full redraws in the 30-second sample kept the idle process above the budget.
+- **Fix:** use a 15-second repaint cadence while login/setup/locked screens are static, retain one-second repaint only while a lockout countdown is active, and keep the active desktop's existing 10-second refresh. The heartbeat is still refreshed on each host update, within the 30-second stale-lock window. The CPU threshold is not relaxed.
+- **Verification:** run 1236 confirmed the 30-second measurement and the failure; the new auth-screen cadence is awaiting the next GUI-smoke run.
 
 ## RUST-CI-018 — Repeated rustfmt drift after the previous formatting repair (2026-11-15)
 

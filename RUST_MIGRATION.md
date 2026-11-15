@@ -2200,3 +2200,11 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Set the native NSIS installer and Tauri bundle publisher metadata to the repository's required identity, **Yuri / Strudel** (organization: **Strudelcode**).
 - Kept code signing separate from publisher metadata. The current environment has no Authenticode certificate or signing secrets, so Windows artifacts remain unsigned; this is documented as a release prerequisite rather than generating an untrusted self-signed CI certificate.
 - **Effort estimate:** approximately 0.1 hours for metadata alignment and release documentation.
+
+
+## 2026-11-15 — Native host idle repaint optimization
+
+- The 30-second GUI-smoke sample still measured 0.67% CPU (RSS remained within budget), proving the earlier short-window hypothesis was insufficient.
+- Reduced idle redraws on static login/setup/locked screens from every 10 seconds to every 15 seconds. A lockout countdown keeps one-second updates; the active desktop retains its existing ten-second repaint. This preserves the 30-second lock stale timeout and does not change the CPU budget.
+- **Verification state:** the optimization is committed; the next GUI-smoke run must pass the 0.5% idle CPU limit.
+- **Effort estimate:** approximately 0.2 hours for measurement analysis, targeted UI scheduling change and CI documentation.
