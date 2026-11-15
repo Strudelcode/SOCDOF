@@ -745,8 +745,6 @@ impl GalleryState {
     }
 }
 
-/// Renders the gallery into the context.
-
 /// Handles the documented application-wide keyboard shortcuts for the native desktop.
 ///
 /// The shortcuts are consumed here rather than by individual app screens, so they behave the
@@ -782,6 +780,7 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
     }
 }
 
+/// Renders the gallery or active desktop screen into the egui context.
 pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     state.focus.begin_frame(ctx);
     let theme = state.theme();

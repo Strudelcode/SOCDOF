@@ -251,3 +251,14 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Follow-up:** the corrected lockout test now recreates `AuthState` after the threshold is reached, attempts the correct password before expiry and confirms SQLite still rejects the login. It then retries after expiry and confirms a real session is created.
 - **Purpose:** distinguish a genuinely persistent store-level lockout from a deadline held only in the current UI state.
 - **Verification:** committed for the next Linux and Windows test runs.
+
+
+
+## RUST-CI-030 — Global shortcut helper displaced gallery API documentation
+
+- **First observed:** workflow run 1259, commit `b5d3d1a699699ba3468d0acd5a1298734d474d1a`.
+- **Failing gates:** Clippy on Linux and Windows; native desktop build on Linux and Windows; GUI smoke native-host build; WASM/Trunk build.
+- **Symptom:** all targets failed with `missing documentation for a function` on public `gallery`, and Clippy additionally reported `empty_line_after_doc_comments`.
+- **Root cause:** the new private global-shortcut helper was inserted between the existing gallery rustdoc and the public `gallery` function. Rust attached the docs to the helper, leaving the public API undocumented.
+- **Fix:** moved the helper's documentation to its private function and restored an explicit API doc comment immediately above `pub fn gallery`.
+- **Verification:** correction committed; next workflow run must verify all targets.

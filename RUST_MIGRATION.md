@@ -2327,3 +2327,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated the parity inventory to distinguish implemented in-app shortcuts from the still-open OS tray/startup integration.
 - **Verification state:** committed; cross-platform compile and test CI is required because the local environment has no Rust toolchain.
 - **Effort estimate:** approximately 0.4 hours for shell event-path review, implementation and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Global shortcut rustdoc placement correction
+
+- The first build after adding native shell shortcuts found that the helper had been inserted between the existing public gallery documentation and its function. This caused missing-doc errors across Linux, Windows, and WASM, plus a Clippy empty-doc-line warning.
+- Moved the helper documentation to its function and restored the public gallery API documentation directly above the function.
+- **Verification state:** committed; next full CI run required.
+- **Effort estimate:** approximately 0.1 hours for cross-platform CI diagnosis, source correction and documentation. CI runtime is excluded.
