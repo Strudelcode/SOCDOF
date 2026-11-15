@@ -31,7 +31,7 @@ fn first_line_differences(expected: &str, actual: &str, limit: usize) -> String 
         let after = actual.get(index).copied().unwrap_or("<missing>");
         if before != after {
             differences.push(format!(
-                "  line {}\\n    expected: {}\\n    actual:   {}",
+                "  line {}\n    expected: {}\n    actual:   {}",
                 index + 1,
                 before,
                 after
@@ -41,7 +41,7 @@ fn first_line_differences(expected: &str, actual: &str, limit: usize) -> String 
             }
         }
     }
-    differences.join("\\n")
+    differences.join("\n")
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn primitives_match_the_golden_files() {
                     });
                     if expected.trim_end() != actual.trim_end() {
                         failures.push(format!(
-                            "{name} ({} lines)\\n{}",
+                            "{name} ({} lines)\n{}",
                             actual.lines().count(),
                             first_line_differences(&expected, &actual, 4)
                         ));
