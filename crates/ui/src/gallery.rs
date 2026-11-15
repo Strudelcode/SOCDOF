@@ -1019,7 +1019,14 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 .collect();
                         }
                         if outcome.window_layout_changed {
-                            for slug in ["contacts", "invoices", "settings", "accounting", "pos", "therapy"] {
+                            for slug in [
+                                "contacts",
+                                "invoices",
+                                "settings",
+                                "accounting",
+                                "pos",
+                                "therapy",
+                            ] {
                                 let saved =
                                     layout.window_states.entry(slug.to_string()).or_default();
                                 saved.open = false;
@@ -3510,10 +3517,16 @@ mod tests {
             state.desktop_windows.windows()[0].app(),
             AppId::new("accounting")
         );
-        assert_eq!(state.desktop_windows.windows()[1].app(), AppId::new("invoices"));
+        assert_eq!(
+            state.desktop_windows.windows()[1].app(),
+            AppId::new("invoices")
+        );
         assert_eq!(state.desktop_windows.windows()[2].app(), contacts);
         assert_eq!(state.desktop_windows.windows()[3].app(), AppId::new("pos"));
-        assert_eq!(state.desktop_windows.windows()[4].app(), AppId::new("therapy"));
+        assert_eq!(
+            state.desktop_windows.windows()[4].app(),
+            AppId::new("therapy")
+        );
         assert!(!state.desktop_windows.is_open(AppId::new("settings")));
     }
 
