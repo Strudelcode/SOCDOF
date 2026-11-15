@@ -1014,6 +1014,52 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     state.restaurant.back = false;
                     back
                 }
+                "products" => {
+                    crate::products::products_window(ctx, active, ui, theme, texts, focus, &mut state.products, store, now);
+                    let back = state.products.back;
+                    state.products.back = false;
+                    back
+                }
+                "purchases" => {
+                    crate::purchases::purchases_window(ctx, active, ui, theme, texts, focus, &mut state.purchases, store, now);
+                    let back = state.purchases.back;
+                    state.purchases.back = false;
+                    back
+                }
+                "calendar" => {
+                    crate::appointments::appointments_window(ctx, active, ui, theme, texts, focus, &mut state.appointments, store, now);
+                    let back = state.appointments.back;
+                    state.appointments.back = false;
+                    back
+                }
+                "editor" => {
+                    crate::editor::editor_window(ctx, active, ui, theme, texts, focus, &mut state.editor, store, now);
+                    let back = state.editor.back;
+                    state.editor.back = false;
+                    back
+                }
+                "app-store" => {
+                    crate::app_store::app_store_window(ctx, active, ui, theme, texts, focus, &mut state.app_store, store);
+                    let back = state.app_store.back;
+                    state.app_store.back = false;
+                    back
+                }
+                "support" => {
+                    crate::support::support_window(ctx, active, ui, theme, texts, focus, &mut state.support, store, now);
+                    let back = state.support.back;
+                    state.support.back = false;
+                    back
+                }
+                "reports" => {
+                    crate::reports::reports_window(ctx, active, ui, theme, texts, focus, &mut state.reports, store, now);
+                    let back = state.reports.back;
+                    state.reports.back = false;
+                    back
+                }
+                "dashboard" => {
+                    crate::dashboard::dashboard_window(ctx, active, ui, theme, texts, focus, &mut state.dashboard, now);
+                    false
+                }
                 "pos" => {
                     crate::pos::pos_window(
                         ctx,
@@ -3695,6 +3741,9 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
         assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
+        for slug in ["products", "purchases", "calendar", "editor", "app-store", "support", "reports", "dashboard"] {
+            assert!(state.desktop_windows.is_open(AppId::new(slug)), "{slug} window did not remain open");
+        }
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
         assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
@@ -3720,7 +3769,7 @@ mod tests {
     }
 
     #[test]
-    fn native_desktop_renders_all_recently_ported_business_module_windows() {
+    fn native_desktop_renders_all_registered_business_module_windows() {
         let ctx = crate::theme::headless_context();
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
@@ -3728,7 +3777,7 @@ mod tests {
         state.auth.view = crate::auth::AuthView::Login;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        for (index, slug) in ["accounting", "pos", "therapy", "users", "projects", "fleet", "restaurant"]
+        for (index, slug) in ["accounting", "pos", "therapy", "users", "projects", "fleet", "restaurant", "products", "purchases", "calendar", "editor", "app-store", "support", "reports", "dashboard"]
             .into_iter()
             .enumerate()
         {
@@ -3778,6 +3827,21 @@ mod tests {
             painted.contains(state.texts.get("restaurant_title")),
             "restaurant window content was not drawn; painted={painted:?}"
         );
+        for key in [
+            "products_title",
+            "purchases_title",
+            "appointments_title",
+            "editor_title",
+            "app_store_title",
+            "support_title",
+            "reports_title",
+            "dashboard_title",
+        ] {
+            assert!(
+                painted.contains(state.texts.get(key)),
+                "{key} window content was not drawn; painted={painted:?}"
+            );
+        }
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
         assert!(state.desktop_windows.is_open(AppId::new("therapy")));
