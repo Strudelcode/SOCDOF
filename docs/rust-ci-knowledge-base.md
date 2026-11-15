@@ -151,3 +151,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the four new dialog-smoke artifact paths were inserted with less indentation than the other entries under the upload-artifact `path: |` block, making the workflow YAML invalid.
 - **Fix:** aligned all dialog log/report paths with the existing artifact list.
 - **Verification:** run 1244 failed before job creation; the corrected workflow is committed and awaits the next push-triggered run.
+
+
+## RUST-CI-021 — Native NSIS build called an installer-only string helper from the uninstaller (2026-11-15)
+
+- **First observed:** workflow run 1242, job `Desktop (windows-latest)`, step `Stage Windows release artifacts`.
+- **Symptom:** NSIS stopped while compiling `native-windows.nsi` with `Call must be used with function names starting with "un."`.
+- **Root cause:** `StrFunc.nsh` generated the installer-side `StrStr` helper, but the uninstaller initialization function called that helper without registering its uninstall-side counterpart.
+- **Fix:** register the uninstall string helpers after `${UnStrFunc}` and call `${UnStrStr}` from `un.onInit`; keep `${StrStr}` for the installer.
+- **Verification:** run 1242 reproduced the compiler error; the corrected NSIS source is committed for the next Windows build.

@@ -2223,3 +2223,10 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 - Corrected the indentation of the newly added dialog-smoke artifact paths after GitHub rejected the workflow before creating any jobs.
 - **Effort estimate:** approximately 0.1 hours; YAML diagnosis, correction and CI knowledge-base entry.
+
+
+## 2026-11-15 — NSIS installer/uninstaller helper correction
+
+- Fixed the Windows native installer compile error by registering and using the separate StrFunc uninstaller helper in `un.onInit`.
+- **Verification state:** the Windows NSIS compile must pass in the next run before installer smoke is considered testable.
+- **Effort estimate:** approximately 0.1 hours for log diagnosis and the NSIS helper correction.

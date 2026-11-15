@@ -4,6 +4,8 @@ Unicode true
 !include "Sections.nsh"
 !include "StrFunc.nsh"
 ${StrStr}
+${UnStrFunc}
+${UnStrStr}
 
 !ifndef APP_VERSION
   !define APP_VERSION "26.0.0"
@@ -120,7 +122,7 @@ Function un.onInit
 uninstaller_check_failed:
   Abort
 uninstaller_tasklist_ok:
-  ${StrStr} $2 $1 "${APP_EXE}"
+  ${UnStrStr} $2 $1 "${APP_EXE}"
   StrCmp $2 "" uninstaller_app_closed
   IfSilent uninstaller_app_running
   MessageBox MB_ICONEXCLAMATION|MB_OK "Close SOCDOF before uninstalling. The uninstaller will not terminate the running application."
