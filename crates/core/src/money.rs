@@ -36,7 +36,7 @@ impl Money {
         if decimal_places > 9 {
             return None;
         }
-        let compact: String = input.chars().filter(|character| !character.is_whitespace()).collect();
+        let compact = input.trim();
         if compact.is_empty() {
             return None;
         }
@@ -50,15 +50,14 @@ impl Money {
             return None;
         }
 
-        let mut separators = body.match_indices(['.', ',']);
-        let separator = separators.next().map(|(index, value)| (index, value));
-        if separators.next().is_some() {
-            return None;
-        }
+        let separator = body.bytes().position(|byte| byte == b'.' || byte == b',');
         let (whole_part, fraction_part) = match separator {
-            Some((index, _)) => (&body[..index], &body[index + 1..]),
+            Some(index) => (&body[..index], &body[index + 1..]),
             None => (body, ""),
         };
+        if fraction_part.bytes().any(|byte| byte == b'.' || byte == b',') {
+            return None;
+        }
         if whole_part.is_empty() && fraction_part.is_empty() {
             return None;
         }
