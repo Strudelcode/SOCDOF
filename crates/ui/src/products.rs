@@ -546,6 +546,8 @@ fn money(amount: Money) -> String {
 }
 
 /// Renders the products screen into the context.
+
+/// Renders products in the full application work area.
 pub fn products(
     ctx: &Context,
     theme: &Theme,
@@ -555,7 +557,30 @@ pub fn products(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            products_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders products inside one native desktop child window.
+pub fn products_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ProductsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             ProductsView::List => state.back = true,
             ProductsView::Detail => state.view = ProductsView::List,
@@ -567,19 +592,13 @@ pub fn products(
         state.error = Some("products_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical().show(ui, |ui| match state.view {
                 ProductsView::List => list_view(ui, theme, texts, focus, state),
                 ProductsView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
                 ProductsView::Form => form_view(ui, theme, texts, focus, state, store, now),
             });
-        });
+        
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
