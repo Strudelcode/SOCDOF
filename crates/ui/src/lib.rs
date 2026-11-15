@@ -133,7 +133,7 @@ pub use studio::{studio_drawer, StudioCounts, StudioDraft, StudioState, StudioTa
 pub use support::{seed_sample as seed_support, support, SupportState, SupportView, TicketDraft};
 pub use theme::{Appearance, Palette, Theme};
 pub use therapie::{
-    seed_sample as seed_therapie, therapie, ClientDraft, TherapieState, TherapieView,
+    seed_sample as seed_therapie, therapie, therapie_window, ClientDraft, TherapieState, TherapieView,
 };
 pub use tokens::{AccentPreset, CompanionColor};
 pub use users::{seed_users, users, UserDraft, UsersState, UsersView};
