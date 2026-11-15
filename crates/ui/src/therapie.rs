@@ -372,14 +372,7 @@ impl TherapieState {
     pub fn save_trip(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         let start = parse_kilometers(&self.trip_start_km);
         let end = parse_kilometers(&self.trip_end_km);
-        let rate = {
-            let value = self.trip_rate.trim().replace(',', ".");
-            value
-                .parse::<f64>()
-                .ok()
-                .filter(|value| value.is_finite() && *value >= 0.0)
-                .map(|value| (value * 100.0).round() as i64)
-        };
+        let rate = parse_rate_cents_per_km(&self.trip_rate);
         let (Some(start_km_milli), Some(end_km_milli), Some(rate_cents_per_km)) =
             (start, end, rate)
         else {
@@ -646,15 +639,17 @@ impl TherapieState {
 
 /// Parses typed kilometres into thousandths; empty input counts as no travel.
 fn parse_kilometers(input: &str) -> Option<i64> {
-    let trimmed = input.trim().replace(',', ".");
+    let trimmed = input.trim();
     if trimmed.is_empty() {
         return Some(0);
     }
-    let value: f64 = trimmed.parse().ok()?;
-    if value < 0.0 || !value.is_finite() {
-        return None;
-    }
-    Some((value * 1000.0).round() as i64)
+    let kilometers_milli = Money::parse_scaled_decimal(trimmed, 3)?;
+    (kilometers_milli >= 0).then_some(kilometers_milli)
+}
+
+fn parse_rate_cents_per_km(input: &str) -> Option<i64> {
+    let rate_cents = Money::parse_scaled_decimal(input, 2)?;
+    (rate_cents >= 0).then_some(rate_cents)
 }
 
 fn validation_key(code: &str) -> &'static str {
@@ -2086,4 +2081,21 @@ mod tests {
         seed_sample(&store, &texts).expect("second seed");
         assert_eq!(store.list_therapy_clients().expect("clients").len(), 2);
     }
+
+    #[test]
+    fn parses_mileage_and_rates_as_exact_scaled_integers() {
+        assert_eq!(parse_kilometers("100"), Some(100_000));
+        assert_eq!(parse_kilometers("100,125"), Some(100_125));
+        assert_eq!(parse_kilometers("100.1259"), None);
+        assert_eq!(parse_kilometers(""), Some(0));
+        assert_eq!(parse_kilometers("-1"), None);
+        assert_eq!(parse_kilometers("1e3"), None);
+
+        assert_eq!(parse_rate_cents_per_km("0,38"), Some(38));
+        assert_eq!(parse_rate_cents_per_km("1.25"), Some(125));
+        assert_eq!(parse_rate_cents_per_km("0.001"), None);
+        assert_eq!(parse_rate_cents_per_km("-0,01"), None);
+        assert_eq!(parse_rate_cents_per_km("1e2"), None);
+    }
+
 }
