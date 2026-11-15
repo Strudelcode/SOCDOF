@@ -523,12 +523,11 @@ jobs:
           window_title=$(xdotool getwindowname "$window_id")
           test "$window_title" = "SOCDOF"
           window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
-          window_width=$(printf '%s\\n' "$window_geometry" | sed -n 's/^WIDTH=//p')
-          window_height=$(printf '%s\\n' "$window_geometry" | sed -n 's/^HEIGHT=//p')
+          window_width=$(echo "$window_geometry" | sed -n 's/^WIDTH=//p')
+          window_height=$(echo "$window_geometry" | sed -n 's/^HEIGHT=//p')
           test "$window_width" -ge 760
           test "$window_height" -ge 560
-          printf 'SOCDOF_NATIVE_WINDOW visible=1 title=%s width=%s height=%s id=%s\\n' \
-            "$window_title" "$window_width" "$window_height" "$window_id" \
+          echo "SOCDOF_NATIVE_WINDOW visible=1 title=$window_title width=$window_width height=$window_height id=$window_id" \
             | tee artifacts/native-window.txt
           sleep 15
           {
