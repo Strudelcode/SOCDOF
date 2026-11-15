@@ -2376,3 +2376,13 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - This protects module drafts/navigation from key events intended for a different child window.
 - **Verification state:** committed; current-head CI pending.
 - **Effort estimate:** approximately 0.2 hours for focus-path test and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Explicit Xvfb modifier release for shortcut smoke
+
+- Run 1260 passed Linux/Windows tests, Linux/Windows/macOS desktop builds, formatting and WASM, but the GUI shortcut smoke saw `Alt+F11` instead of plain F11.
+- Artifact inspection of `keys-ready.log` and `keys-locked.log` confirmed the resolver correctly rejected the modified chord. The problem was synthetic X11 modifier state, not the application's shortcut resolver.
+- The workflow now releases Alt, Super, Ctrl and Shift before and after each key sequence, then sends F11/F12 through the focused window.
+- **Verification state:** committed; next full CI run pending.
+- **Effort estimate:** approximately 0.3 hours for artifact download, event-marker diagnosis, workflow correction and documentation. CI runtime is excluded.
