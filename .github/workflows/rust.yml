@@ -191,7 +191,7 @@ jobs:
           tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$native_dir")"
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz")" -gt 1000000
 
-          sha256sum artifacts/SOCDOF-* > artifacts/SHA256SUMS-linux.txt
+          find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 sha256sum > artifacts/SHA256SUMS-linux.txt
           ls -lh artifacts
 
       - name: Check native Rust desktop size budgets
