@@ -172,6 +172,25 @@ jobs:
           chmod +x "artifacts/SOCDOF-${version}-linux-x86_64.AppImage"
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64.AppImage")" -gt 1000000
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-amd64.deb")" -gt 1000000
+
+          # Ship the actual native Rust desktop host as a separate portable archive.
+          native_dir="artifacts/SOCDOF-${version}-linux-x86_64-native"
+          mkdir -p "$native_dir"
+          cp target/release/socdof-ui-desktop "$native_dir/"
+          chmod +x "$native_dir/socdof-ui-desktop"
+          cat > "$native_dir/README.txt" <<'EOF'
+          SOCDOF native Rust desktop (Linux x86_64)
+
+          Run: ./socdof-ui-desktop
+          Optional data directory: ./socdof-ui-desktop --data-dir "$HOME/.local/share"
+          Default database: $XDG_DATA_HOME/SOCDOF/SOCDOF.db or ~/.local/share/SOCDOF/SOCDOF.db
+
+          This portable build requires the system GTK, Wayland/X11 and OpenGL libraries used by
+          eframe/winit. Keep your SOCDOF database and backups when upgrading.
+          EOF
+          tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$native_dir")"
+          test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz")" -gt 1000000
+
           sha256sum artifacts/SOCDOF-* > artifacts/SHA256SUMS-linux.txt
           ls -lh artifacts
 
@@ -292,6 +311,15 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-linux-amd64.deb
           path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-linux-amd64.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Linux native Rust portable archive
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-linux-x86_64-native
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-linux-x86_64-native.tar.gz
           if-no-files-found: error
           retention-days: 14
 
