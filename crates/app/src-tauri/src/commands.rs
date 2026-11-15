@@ -1086,7 +1086,14 @@ pub fn finish_smoke(
         report.contact_name,
         report.product_sku
     ));
-    app.exit(0);
+    // In the tray smoke, dispatch Quit only after every UI/data assertion and the
+    // validated report have completed. Calling it from smoke_tray_run would terminate
+    // the process before the later FatturaPA/back-office checks could run.
+    if std::env::var_os("SOCDOF_SMOKE_TRAY").is_some() {
+        crate::run_tray_command(&app, "quit", socdof_app::tray::TrayCommand::Quit);
+    } else {
+        app.exit(0);
+    }
     Ok(())
 }
 

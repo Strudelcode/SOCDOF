@@ -2250,3 +2250,12 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated the smoke to validate a template when one exists while accepting a genuinely empty first-run folder.
 - **Verification state:** committed; next GUI-smoke run must complete both the chosen and cancellation processes.
 - **Effort estimate:** approximately 0.2 hours for artifact inspection, first-run behavior analysis, test correction and documentation.
+
+
+## 2026-11-15 — Tray quit smoke ordering
+
+- Run 1249 passed formatting, WASM, Linux/Windows tests and all three desktop build jobs. The only remaining failure was the GUI-smoke tray assertion: show-window and backup were dispatched, but quit was intentionally skipped because the frontend still had FatturaPA and back-office checks to execute.
+- Moved the smoke-only quit dispatch to the successful end of `finish_smoke`, after report validation and persistence. It uses the exact same `run_tray_command` / `TrayCommand::Quit` handler as the platform tray menu. This preserves the complete UI smoke and ensures the process exits through the tested quit action.
+- Added the tray log to the uploaded diagnostic artifact.
+- **Verification state:** code and documentation committed; next full CI run must pass the complete GUI smoke, including tray quit, before the foundation is considered CI-green.
+- **Effort estimate:** approximately 0.2 hours for log diagnosis, command-flow correction and documentation. CI runtime is excluded.

@@ -177,3 +177,14 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the smoke test required at least one external invoice template even though a fresh SOCDOF profile correctly starts with zero user-imported templates and the UI has an explicit empty state. Built-in invoice templates are tested separately and were present.
 - **Fix:** treat an empty external-template list as a valid first-run state; when a user-imported template exists, still read and validate the first one.
 - **Verification:** run 1246 confirmed the dialog paths through confirmation and exposed the empty-state assertion; the updated smoke is committed for the next run.
+
+
+## RUST-CI-024 — GUI smoke asserted tray Quit before the smoke could finish (2026-11-15)
+
+- **First observed:** workflow run 1249, commit `043ca1e7dbf1404b4c653d4812931ae8fd86b29d`.
+- **Failing job:** `GUI smoke (Linux, Xvfb)`, step `System tray menu`.
+- **Symptom:** the show-window and create-backup actions ran and produced their expected markers, but the final assertion failed with `the quit action did not run`.
+- **Root cause:** the frontend intentionally called `smoke_tray_run(includeQuit: false)` before the later FatturaPA and back-office smoke checks. The quit entry was skipped there because `app.exit(0)` would terminate the application before those checks and before `finish_smoke` could validate and write its report. The workflow nevertheless expected the quit marker.
+- **Fix:** after `finish_smoke` has validated and persisted the complete report, it now dispatches the same `TrayCommand::Quit` handler when the tray smoke is enabled. This tests the actual quit action at the safe end of the scenario; no smoke assertion or application behavior is weakened.
+- **Additional diagnostics:** retain `artifacts/tray.log` in the uploaded GUI-smoke evidence.
+- **Verification:** run 1249 proved show-window and backup dispatch and isolated the missing final quit marker. The corrected behavior awaits the next full GUI-smoke run.

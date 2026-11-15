@@ -924,6 +924,7 @@ jobs:
             artifacts/dialogs-cancel.log
             artifacts/dialogs-report.json
             artifacts/dialogs-cancel-report.json
+            artifacts/tray.log
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14
