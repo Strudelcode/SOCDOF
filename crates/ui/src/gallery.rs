@@ -204,14 +204,15 @@ fn restore_native_windows(
     });
 
     for (slug, saved) in saved_windows {
-        if !matches!(slug.as_str(), "contacts" | "invoices" | "settings") {
-            continue;
-        }
-        let app = AppId::new(match slug.as_str() {
-            "contacts" => "contacts",
-            "invoices" => "invoices",
-            _ => "settings",
-        });
+        let app = match slug.as_str() {
+            "contacts" => AppId::new("contacts"),
+            "invoices" => AppId::new("invoices"),
+            "settings" => AppId::new("settings"),
+            "accounting" => AppId::new("accounting"),
+            "pos" => AppId::new("pos"),
+            "therapy" => AppId::new("therapy"),
+            _ => continue,
+        };
         let Some(title) = state.desktop_icons.label_of(app) else {
             continue;
         };
@@ -935,6 +936,54 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     state.invoices.back = false;
                     back
                 }
+                "accounting" => {
+                    crate::accounting::accounting_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.accounting,
+                        store,
+                        now,
+                    );
+                    let back = state.accounting.back;
+                    state.accounting.back = false;
+                    back
+                }
+                "pos" => {
+                    crate::pos::pos_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.pos,
+                        store,
+                        now,
+                    );
+                    let back = state.pos.back;
+                    state.pos.back = false;
+                    back
+                }
+                "therapy" => {
+                    crate::therapie::therapie_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.therapie,
+                        store,
+                        now,
+                    );
+                    let back = state.therapie.back;
+                    state.therapie.back = false;
+                    back
+                }
                 "settings" => {
                     crate::settings::settings_window(
                         ctx,
@@ -970,7 +1019,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 .collect();
                         }
                         if outcome.window_layout_changed {
-                            for slug in ["contacts", "invoices", "settings"] {
+                            for slug in ["contacts", "invoices", "settings", "accounting", "pos", "therapy"] {
                                 let saved =
                                     layout.window_states.entry(slug.to_string()).or_default();
                                 saved.open = false;
