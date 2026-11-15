@@ -896,8 +896,9 @@ fn desktop_impl(
                             input.key_pressed(Key::F11),
                         )
                     });
-                if cycle_windows {
-                    windows.focus_next();
+                if cycle_windows && windows.focus_next().is_some() {
+                    // Ctrl+Tab changes which window is on top; persist the new stacking order.
+                    outcome.window_layout_changed = true;
                 }
                 if let Some(active) = windows.active() {
                     if close_active {
@@ -1272,8 +1273,9 @@ fn desktop_impl(
             windows.toggle_maximize(app, area);
             outcome.window_layout_changed = true;
         }
-        if raise {
-            windows.focus(app);
+        if raise && windows.focus(app) {
+            // Clicking a window title bar raises it above its siblings.
+            outcome.window_layout_changed = true;
         }
         if drag != Vec2::ZERO {
             windows.move_by(app, drag, area);
@@ -1742,7 +1744,10 @@ fn desktop_impl(
             shell.task_view.close();
         }
         if let Some(app) = focus_app {
-            windows.focus(app);
+            if windows.focus(app) {
+                // The task view can reorder windows without opening a new app.
+                outcome.window_layout_changed = true;
+            }
             shell.task_view.close();
         }
     }
