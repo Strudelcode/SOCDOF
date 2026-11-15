@@ -73,3 +73,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - Do not remove or overwrite the user's existing SQLite database during migration. Preserve database and WAL/SHM sidecars, acquire the compatible instance lock, and keep backups.
 - A green format or cross-platform compile job is not a release sign-off. Require Linux and Windows tests, WASM, GUI smoke, size budgets, and verified installer artifacts.
 - Keep the PR in Draft while any active blocker or unreviewed parity gap remains.
+
+
+## RUST-CI-013 — Stock arithmetic overflow (2026-11-15)
+
+- **Symptom:** A valid positive stock receipt could overflow the signed 64-bit stock counter when the stored quantity was already near `i64::MAX`.
+- **Root cause:** `current + movement.kind.delta(quantity)` used unchecked arithmetic. Debug builds could panic and optimized builds could wrap, potentially corrupting inventory.
+- **Fix:** `crates/core/src/store/products.rs` now uses `checked_add` and returns the validation code `stock_overflow`; the transaction is not committed.
+- **Regression coverage:** `crates/core/tests/data_layer.rs` verifies that the operation fails and the stored quantity remains unchanged.
+- **Verification:** Committed on the migration branch; current-head Actions result is not yet available.
