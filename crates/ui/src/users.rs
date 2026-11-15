@@ -532,7 +532,32 @@ pub fn users(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| users_window(ctx, true, ui, theme, texts, focus, state, store, now));
+}
+
+/// Renders user management inside a native desktop application window.
+///
+/// Keyboard navigation is active only for the focused desktop window; inactive windows still
+/// refresh their persisted data but cannot consume Escape from the active application.
+#[allow(clippy::too_many_arguments)]
+pub fn users_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut UsersState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             UsersView::List => state.back = true,
             UsersView::Detail => state.view = UsersView::List,
@@ -546,19 +571,11 @@ pub fn users(
         state.error = Some("users_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                UsersView::List => list_view(ui, theme, texts, focus, state),
-                UsersView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                UsersView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        UsersView::List => list_view(ui, theme, texts, focus, state),
+        UsersView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        UsersView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
