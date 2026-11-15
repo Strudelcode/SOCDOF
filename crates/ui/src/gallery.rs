@@ -211,6 +211,7 @@ fn restore_native_windows(
             "accounting" => AppId::new("accounting"),
             "pos" => AppId::new("pos"),
             "therapy" => AppId::new("therapy"),
+            "users" => AppId::new("users"),
             _ => continue,
         };
         let Some(title) = state.desktop_icons.label_of(app) else {
@@ -3591,7 +3592,7 @@ mod tests {
         assert!(painted.contains("Therapie"), "therapy window was not drawn");
         assert!(
             painted.contains(state.texts.get("users_title")),
-            "users window was not drawn"
+            "users window was not drawn; painted={painted:?}"
         );
         assert!(state.desktop_windows.is_open(AppId::new("accounting")));
         assert!(state.desktop_windows.is_open(AppId::new("pos")));
