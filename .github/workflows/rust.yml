@@ -853,11 +853,15 @@ jobs:
             DISPLAY=:91 xdotool windowactivate --sync "$window" 2>/dev/null || true
             DISPLAY=:91 xdotool windowfocus "$window" 2>/dev/null || true
             sleep 1
-            # Send real X11 keyboard events to the focused window. --window injects
-            # directly into the X client and can bypass WebKit's normal key event path.
+            # Xvfb can retain Alt from the window activation/focus transition. Release every
+            # modifier explicitly before sending the unmodified documented shortcuts.
+            DISPLAY=:91 xdotool keyup Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
+            # Send real X11 keyboard events to the focused window; do not target a client directly.
             DISPLAY=:91 xdotool key --clearmodifiers F11 || true
             sleep 1
+            DISPLAY=:91 xdotool keyup Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
             DISPLAY=:91 xdotool key --clearmodifiers F12 || true
+            DISPLAY=:91 xdotool keyup F11 F12 Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
             sleep 1
             kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
             wait "$app_pid" 2>/dev/null || true
