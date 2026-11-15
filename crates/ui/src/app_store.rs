@@ -200,6 +200,8 @@ fn header(
 }
 
 /// Renders the App Store into the context.
+
+/// Renders app_store in the full application work area.
 pub fn app_store(
     ctx: &Context,
     theme: &Theme,
@@ -208,13 +210,6 @@ pub fn app_store(
     state: &mut AppStoreState,
     store: &Store,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-        state.back = true;
-    }
-    if state.refresh(store).is_err() {
-        state.error = Some("app_store_error_load");
-    }
-
     egui::CentralPanel::default()
         .frame(
             egui::Frame::none()
@@ -222,6 +217,29 @@ pub fn app_store(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
+            app_store_window(ctx, true, ui, theme, texts, focus, state, store);
+        });
+}
+
+/// Renders app_store inside one native desktop child window.
+pub fn app_store_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AppStoreState,
+    store: &Store,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        state.back = true;
+    }
+    if state.refresh(store).is_err() {
+        state.error = Some("app_store_error_load");
+    }
+
+    
             egui::ScrollArea::vertical().show(ui, |ui| {
                 header(ui, theme, texts, focus, state);
                 ui.add_space(10.0);
@@ -359,7 +377,7 @@ pub fn app_store(
                     });
                 }
             });
-        });
+        
 }
 
 #[cfg(test)]
