@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep an expensive cross-platform matrix running while newer commits queue for validation.
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
