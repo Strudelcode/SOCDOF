@@ -782,13 +782,12 @@ pub fn default_window_rect(work_area: Rect, index: usize) -> Rect {
     clamp_rect(Rect::from_min_size(min, size), work_area)
 }
 
-/// Formats a millisecond timestamp as an `HH:MM:SS` clock label (UTC, so snapshots stay stable).
+/// Formats a millisecond timestamp as an `HH:MM` clock label (UTC, so snapshots stay stable).
 pub fn format_clock(millis: i64) -> String {
-    let total_seconds = millis.div_euclid(1_000);
-    let hours = total_seconds.div_euclid(3_600).rem_euclid(24);
-    let minutes = total_seconds.div_euclid(60).rem_euclid(60);
-    let seconds = total_seconds.rem_euclid(60);
-    format!("{hours:02}:{minutes:02}:{seconds:02}")
+    let total_minutes = millis.div_euclid(60_000);
+    let hours = total_minutes.div_euclid(60).rem_euclid(24);
+    let minutes = total_minutes.rem_euclid(60);
+    format!("{hours:02}:{minutes:02}")
 }
 
 /// Draws the desktop shell and reports what the host should do next.
@@ -872,8 +871,9 @@ fn desktop_impl(
             shell.start.set_accounts(accounts);
         }
     }
-    // The taskbar shows a clock with seconds, so the shell repaints once a second even while idle.
-    ctx.request_repaint_after(std::time::Duration::from_millis(1_000));
+    // Minute precision keeps the desktop responsive without forcing a full UI redraw every second.
+    // The native host still checks idle locking and refreshes its instance heartbeat periodically.
+    ctx.request_repaint_after(std::time::Duration::from_secs(10));
 
     crate::studio::studio_drawer(ctx, theme, texts, focus, &mut shell.studio, store);
 
@@ -2520,9 +2520,9 @@ mod tests {
 
     #[test]
     fn the_clock_is_a_stable_utc_label() {
-        assert_eq!(format_clock(0), "00:00:00");
-        assert_eq!(format_clock(1_000_000_000), "13:46:40");
-        assert_eq!(format_clock(86_399_000), "23:59:59");
+        assert_eq!(format_clock(0), "00:00");
+        assert_eq!(format_clock(1_000_000_000), "13:46");
+        assert_eq!(format_clock(86_399_000), "23:59");
     }
 
     #[test]
