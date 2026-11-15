@@ -678,6 +678,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &PosState)
 }
 
 /// Renders the POS screen into the context.
+/// Renders the POS screen into the context.
 pub fn pos(
     ctx: &Context,
     theme: &Theme,
@@ -687,7 +688,31 @@ pub fn pos(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_cancel && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            pos_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete POS workflow inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
+pub fn pos_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    store: &Store,
+    now: i64,
+) {
+    if active && state.confirm_cancel && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             PosView::List => state.back = true,
             PosView::Detail => state.view = PosView::List,
@@ -699,19 +724,11 @@ pub fn pos(
         state.error = Some("pos_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                PosView::List => list_view(ui, theme, texts, focus, state, now),
-                PosView::Detail => detail_view(ui, theme, texts, focus, state),
-                PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        PosView::List => list_view(ui, theme, texts, focus, state, now),
+        PosView::Detail => detail_view(ui, theme, texts, focus, state),
+        PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_cancel;
     let mut confirm = false;
