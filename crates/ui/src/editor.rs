@@ -923,6 +923,8 @@ fn spell_panel(
 }
 
 /// Renders the text editor into the context.
+
+/// Renders editor in the full application work area.
 pub fn editor(
     ctx: &Context,
     theme: &Theme,
@@ -932,7 +934,30 @@ pub fn editor(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            editor_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders editor inside one native desktop child window.
+pub fn editor_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut EditorState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete
         && !state.has_pending_discard()
         && ctx.input(|input| input.key_pressed(egui::Key::Escape))
     {
@@ -943,13 +968,7 @@ pub fn editor(
     }
 
     let mut actions = Actions::default();
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
+    
             egui::ScrollArea::vertical()
                 .id_source("editor-screen")
                 .show(ui, |ui| {
@@ -969,7 +988,7 @@ pub fn editor(
                         });
                     });
                 });
-        });
+        
 
     if actions.save || ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {
         if let Err(error) = state.save(store, now) {
