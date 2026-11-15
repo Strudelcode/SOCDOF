@@ -3559,6 +3559,7 @@ mod tests {
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
         state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Login;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
         for (index, slug) in ["accounting", "pos", "therapy", "users"]
