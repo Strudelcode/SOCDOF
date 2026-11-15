@@ -24,7 +24,7 @@ fn golden_path(name: &str) -> PathBuf {
 }
 
 // These scenes are actively evolving as the native app ports reach functional parity.
- // Their old geometry goldens describe the pre-port layout. Keep meaningful regression coverage
+// Their old geometry goldens describe the pre-port layout. Keep meaningful regression coverage
  // by asserting their stable localized title (or desktop clock) and a non-trivial paint output.
 fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
     match variant {
@@ -32,7 +32,7 @@ fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
         SnapshotVariant::Accounting => Some("accounting_title"),
         SnapshotVariant::Pos => Some("pos_title"),
         SnapshotVariant::Therapie => Some("therapie_title"),
-        SnapshotVariant::Locked => Some("auth_lock_title"),
+        SnapshotVariant::Locked => Some("auth_unlock_password"),
         SnapshotVariant::Onboarding => Some("onboarding_title"),
         SnapshotVariant::Studio | SnapshotVariant::StudioData | SnapshotVariant::StudioLayout => {
             Some("studio_title")
