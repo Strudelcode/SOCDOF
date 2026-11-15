@@ -2356,3 +2356,14 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Updated the parity inventory to identify the next still-missing module-window adapters instead of marking all desktop windows complete.
 - **Verification state:** committed; workspace Clippy, Linux/Windows tests, native builds and GUI smoke pending.
 - **Effort estimate:** approximately 1.2 hours for source extraction, dispatcher integration, regression coverage and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Complete registered launcher module window dispatch
+
+- Added reusable child-window renderers for Products, Purchases, Calendar/Appointments, Editor, App Store, Support, Reports and Dashboard, preserving each original full-work-area renderer as a compatibility wrapper.
+- Connected all eight modules to the native WindowManager dispatcher with isolated module state and active-window Back/Escape routing.
+- The desktop dispatcher now renders all 18 registered launcher modules. The expanded headless regression opens fifteen concurrent modules and verifies translated titles and retained WindowManager entries.
+- Updated the parity inventory to state precisely what is now implemented and what remains unaccepted.
+- **Verification state:** committed; full cross-platform CI pending.
+- **Effort estimate:** approximately 2.0 hours for eight render adapters, dispatcher integration, regression expansion and documentation. CI runtime is excluded.
