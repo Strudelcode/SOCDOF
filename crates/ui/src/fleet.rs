@@ -459,6 +459,7 @@ pub fn fleet(
         });
 }
 
+/// Renders fleet inside one native desktop child window.
 pub fn fleet_window(
     ctx: &Context,
     active: bool,

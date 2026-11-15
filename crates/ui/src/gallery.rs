@@ -3695,6 +3695,9 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
         assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
+        assert!(state.desktop_windows.is_open(AppId::new("projects")));
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+        assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
         assert_eq!(
             state.desktop_windows.windows()[0].app(),
             AppId::new("accounting")

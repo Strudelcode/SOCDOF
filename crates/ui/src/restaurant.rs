@@ -493,6 +493,7 @@ pub fn restaurant(
         });
 }
 
+/// Renders restaurant inside one native desktop child window.
 pub fn restaurant_window(
     ctx: &Context,
     active: bool,

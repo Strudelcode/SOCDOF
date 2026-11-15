@@ -528,6 +528,7 @@ pub fn projects(
         });
 }
 
+/// Renders projects inside one native desktop child window.
 pub fn projects_window(
     ctx: &Context,
     active: bool,
