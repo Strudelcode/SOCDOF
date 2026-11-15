@@ -82,3 +82,25 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** `crates/core/src/store/products.rs` now uses `checked_add` and returns the validation code `stock_overflow`; the transaction is not committed.
 - **Regression coverage:** `crates/core/tests/data_layer.rs` verifies that the operation fails and the stored quantity remains unchanged.
 - **Verification:** Committed on the migration branch; current-head Actions result is not yet available.
+
+
+## RUST-CI-014 — Locked-session semantic visual assertion (2026-11-15)
+
+- **Symptom:** Run 1223 passed all 304 UI unit tests and 10 keyboard tests, but the visual regression test stopped at the Locked scene because it could not find the expected title `auth_lock_title`.
+- **Root cause:** The native lock screen is intentionally a clock/avatar/password screen. It does not render a separate `auth_lock_title` heading; the stable visible label is `auth_unlock_password`.
+- **Fix:** `crates/ui/tests/visual.rs` now asserts the actual unlock-password label for the Locked scene. This keeps the semantic regression check meaningful instead of removing the scene.
+- **Verification:** The fix is committed on the current branch; the next full-head CI run is pending.
+
+## RUST-CI-015 — Rust formatting drift in new regression tests (2026-11-15)
+
+- **Symptom:** Run 1223 failed `cargo fmt --all -- --check` on `crates/core/tests/data_layer.rs` and `crates/ui/tests/visual.rs`.
+- **Root cause:** An extra blank line and one-space indentation before a Rust line comment differed from rustfmt output.
+- **Fix:** Applied the exact formatting changes; no test logic was changed.
+- **Verification:** The formatting correction is committed; the next full-head CI run is pending.
+
+## Numeric input precision follow-up (2026-11-15)
+
+- Accounting tax percentages now use `Money::parse_scaled_decimal(..., 2)` and exact basis-point range validation instead of floating-point parsing.
+- Therapy mileage now parses kilometres to integer thousandths and reimbursement rates to integer cents using the same strict decimal parser. Excess precision and scientific notation are rejected rather than rounded or silently accepted.
+- Added regression tests for decimal comma/point, range limits, excess precision, negative input and exponent notation.
+- **Verification:** Current-head CI pending; do not mark these changes green until the next run completes.
