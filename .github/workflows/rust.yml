@@ -178,11 +178,22 @@ jobs:
           mkdir -p "$native_dir"
           cp target/release/socdof-ui-desktop "$native_dir/"
           chmod +x "$native_dir/socdof-ui-desktop"
+          cat > "$native_dir/run-socdof.sh" <<'EOF'
+          #!/bin/sh
+          set -eu
+          # Bound glibc arenas and return freed startup allocations to the OS.
+          export MALLOC_ARENA_MAX=1
+          export MALLOC_TRIM_THRESHOLD_=0
+          export MALLOC_MMAP_THRESHOLD_=131072
+          exec "$(dirname "$0")/socdof-ui-desktop" "$@"
+          EOF
+          chmod +x "$native_dir/run-socdof.sh"
           cat > "$native_dir/README.txt" <<'EOF'
           SOCDOF native Rust desktop (Linux x86_64)
 
-          Run: ./socdof-ui-desktop
-          Optional data directory: ./socdof-ui-desktop --data-dir "$HOME/.local/share"
+          Recommended: ./run-socdof.sh
+          Direct launch: ./socdof-ui-desktop
+          Optional data directory: ./run-socdof.sh --data-dir "$HOME/.local/share/SOCDOF"
           Default database: $XDG_DATA_HOME/SOCDOF/SOCDOF.db or ~/.local/share/SOCDOF/SOCDOF.db
 
           This portable build requires the system GTK, Wayland/X11 and OpenGL libraries used by
@@ -469,8 +480,11 @@ jobs:
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
           export APP_BIN="$PWD/target/release/socdof-ui-desktop"
-          # Keep glibc allocator arenas bounded for the native host idle-memory budget.
+          # Bound glibc arenas and return freed startup allocations to the OS.
+          # The same settings are shipped in the Linux portable launch script.
           export MALLOC_ARENA_MAX=1
+          export MALLOC_TRIM_THRESHOLD_=0
+          export MALLOC_MMAP_THRESHOLD_=131072
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
