@@ -2292,3 +2292,19 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - Applied rustfmt's exact wrapping/blank-line changes and removed the redundant conversion from the `i64` retry counter. No application logic or test coverage was weakened.
 - **Verification state:** committed; next full CI run must pass Format, Clippy and both platform test jobs.
 - **Effort estimate:** approximately 0.1 hours for CI log diagnosis, lint correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Authentication lockout test interaction correction
+
+- Run 1256 exposed that the new lockout regression test entered the invalid password once and then attempted multiple submissions without re-entering it. The real authentication form clears the password after each attempt, so the test only generated one failed credential check.
+- Updated the test to re-enter the wrong password before every submission. The lockout remains enforced by the persistent SQLite store; no production authentication behavior was changed.
+- **Verification state:** committed; pending the next Linux and Windows test run.
+- **Effort estimate:** approximately 0.1 hours for cross-platform log analysis, test correction and documentation. CI runtime is excluded.
+
+## 2026-11-15 — Keyboard shortcut smoke uses focused X11 input
+
+- Run 1256 passed the desktop builds, native packaging, WASM build and formatting, but the GUI smoke did not observe its F11 shortcut marker.
+- The smoke used `xdotool key --window`, which bypasses the normal focused-window input route. It now activates/focuses the SOCDOF window and sends F11/F12 through ordinary X11 keyboard input.
+- **Verification state:** committed; pending a fresh GUI-smoke run.
+- **Effort estimate:** approximately 0.2 hours for workflow-log diagnosis, input-path correction and documentation. CI runtime is excluded.

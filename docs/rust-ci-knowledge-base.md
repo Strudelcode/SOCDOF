@@ -223,3 +223,23 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the new authentication regression tests were added after the previous formatting/Clippy pass without running the full formatter and linter on the final test code.
 - **Fix:** apply the exact rustfmt layout and use the already typed `i64` loop counter directly. Test behavior and warning policy are unchanged.
 - **Verification:** run 1254 exposed both issues; the correction is committed for run 1256.
+
+
+
+## RUST-CI-027 — Authentication lockout regression test submitted only one password (2026-11-15)
+
+- **First observed:** workflow run 1256, commit `32498f6a00254aa4241dd5a12e059085ee9a525c`.
+- **Failing jobs:** `Test (ubuntu-latest)` and `Test (windows-latest)`.
+- **Symptom:** 308 UI tests passed, but `login_lockout_expires_and_the_correct_password_then_succeeds` panicked because no lockout deadline was set.
+- **Root cause:** `AuthState::login` deliberately clears the password after every submitted attempt. The test populated the password once before a loop, so only its first iteration counted as a failed attempt; the remaining iterations correctly returned the required-field validation outcome.
+- **Fix:** re-enter the invalid password before each simulated submission. This preserves the production behavior and tests the same interaction sequence as a user submitting the form repeatedly.
+- **Verification:** correction committed; the next Linux and Windows test jobs must confirm the persistent lockout and post-expiry successful login.
+
+## RUST-CI-028 — Shortcut smoke injected keys directly instead of through focused X11 input
+
+- **First observed:** workflow run 1256, commit `32498f6a00254aa4241dd5a12e059085ee9a525c`.
+- **Failing job:** `GUI smoke (Linux, Xvfb)`, step `Shortcut dispatch`.
+- **Symptom:** the application window was found and focused, but the expected `SOCDOF_SHORTCUT` marker for F11 was absent.
+- **Root cause:** `xdotool key --window` sends a synthetic event directly to a target X11 client. That does not reliably follow the normal focused-window keyboard path used by WebKit/egui event handling.
+- **Fix:** activate and focus the discovered window, then send F11 and F12 as normal X11 keyboard events using `xdotool key --clearmodifiers`. The assertions for fullscreen dispatch, unknown-key handling and locked-session rejection remain unchanged.
+- **Verification:** workflow correction committed; the next GUI-smoke run must show the F11/F12 dispatch markers in both ready and locked contexts.

@@ -850,11 +850,14 @@ jobs:
               kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
               return 1
             fi
+            DISPLAY=:91 xdotool windowactivate --sync "$window" 2>/dev/null || true
             DISPLAY=:91 xdotool windowfocus "$window" 2>/dev/null || true
             sleep 1
-            DISPLAY=:91 xdotool key --window "$window" F11 || true
+            # Send real X11 keyboard events to the focused window. --window injects
+            # directly into the X client and can bypass WebKit's normal key event path.
+            DISPLAY=:91 xdotool key --clearmodifiers F11 || true
             sleep 1
-            DISPLAY=:91 xdotool key --window "$window" F12 || true
+            DISPLAY=:91 xdotool key --clearmodifiers F12 || true
             sleep 1
             kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
             wait "$app_pid" 2>/dev/null || true

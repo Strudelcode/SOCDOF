@@ -1834,6 +1834,9 @@ mod auth_flow_tests {
         login.username = "owner".to_string();
         login.password = "incorrect password".to_string();
         for attempt in 0..MAX_FAILED_ATTEMPTS {
+            // AuthState clears the password after every submission, just like the real form.
+            // Re-enter it so each loop iteration represents a distinct failed sign-in attempt.
+            login.password = "incorrect password".to_string();
             login
                 .login(&store, 2_000 + attempt * 1_000)
                 .expect("failed login is a handled outcome");
