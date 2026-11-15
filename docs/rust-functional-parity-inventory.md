@@ -242,3 +242,12 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - Registered all three content renderers in the native desktop's multi-window dispatcher. Their independent state objects, store refresh, CRUD forms, exports, checkout and module-specific dialogs remain attached to their own windows.
 - Extended the headless native-window regression to open and render seven concurrent modules, asserting the actual Projects, Fleet and Restaurant titles are present in the rendered output.
 - Remaining desktop-window adapters include Dashboard, Products, Purchases, Calendar, Editor, App Store, Support and Reports. This change does not claim all modules are complete.
+
+
+
+## Full native launcher window dispatcher (2026-11-15)
+
+- The native multi-window dispatcher now has renderers for all 18 registered launcher entries: Dashboard, Contacts, Products, Projects, Fleet, Restaurant, Invoices, Accounting, Purchases, POS, Calendar, Users, Editor, App Store, Support, Reports, Therapy and Settings.
+- Each module retains its own state object and its own Back/Escape behavior. The original single-screen renderers remain as compatibility wrappers around the same content functions.
+- The headless acceptance path opens fifteen independent module windows in one desktop frame sequence and asserts each module's translated title is present. It also verifies that the windows remain registered in the WindowManager.
+- Documentation-specific surfaces and full workflow parity are still subject to separate acceptance; this does not imply the whole TypeScript application is fully ported.
