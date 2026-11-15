@@ -109,7 +109,7 @@ function runtimeBudgets() {
       .split(")")
       .at(-1)
       .trim()
-      .split(/\\s+/);
+      .split(/\s+/);
     return Number(stat[11]) + Number(stat[12]);
   };
   const before = ticks();
