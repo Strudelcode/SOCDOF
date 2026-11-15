@@ -101,8 +101,16 @@ function runtimeBudgets() {
   }
   const rss = Number(/VmRSS:\s+(\d+)/.exec(readFileSync(`/proc/${pid}/status`, "utf8"))?.[1] ?? 0);
   const ticks = () => {
-    const stat = readFileSync(`/proc/${pid}/stat`, "utf8").split(" ");
-    return Number(stat[13]) + Number(stat[14]);
+    // /proc/<pid>/stat starts with pid and a parenthesized comm field. Split after the
+    // final ')' so process names containing spaces do not shift the indexes. The fields
+    // after state are zero-based here: utime=11 and stime=12. 13/14 are child CPU time.
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8")
+      .trim()
+      .split(")")
+      .at(-1)
+      .trim()
+      .split(/\\s+/);
+    return Number(stat[11]) + Number(stat[12]);
   };
   const before = ticks();
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
