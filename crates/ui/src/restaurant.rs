@@ -469,9 +469,7 @@ fn feedback(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Restauran
         );
     }
 }
-
 /// Renders the native restaurant module and processes its UI actions.
-
 /// Renders restaurant in the full application work area.
 pub fn restaurant(
     ctx: &Context,
@@ -492,7 +490,6 @@ pub fn restaurant(
             restaurant_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders restaurant inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn restaurant_window(
