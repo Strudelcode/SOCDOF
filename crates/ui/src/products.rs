@@ -544,9 +544,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &ProductsS
 fn money(amount: Money) -> String {
     amount.format_localized("€")
 }
-
 /// Renders the products screen into the context.
-
 /// Renders products in the full application work area.
 pub fn products(
     ctx: &Context,
@@ -567,7 +565,6 @@ pub fn products(
             products_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders products inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn products_window(
