@@ -419,9 +419,7 @@ fn kpi_card(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str, hint: &s
         );
     });
 }
-
 /// Renders the dashboard into the context.
-
 /// Renders dashboard in the full application work area.
 pub fn dashboard(
     ctx: &Context,
@@ -441,7 +439,6 @@ pub fn dashboard(
             dashboard_window(ctx, true, ui, theme, texts, focus, state, now);
         });
 }
-
 /// Renders dashboard inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn dashboard_window(
