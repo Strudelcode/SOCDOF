@@ -153,9 +153,7 @@ fn kpi(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str) {
         ui.label(RichText::new(value).size(FONT_TITLE).strong());
     });
 }
-
 /// Renders the reports screen into the context.
-
 /// Renders reports in the full application work area.
 pub fn reports(
     ctx: &Context,
@@ -176,7 +174,6 @@ pub fn reports(
             reports_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders reports inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn reports_window(
