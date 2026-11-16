@@ -504,9 +504,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &ProjectsS
         );
     }
 }
-
 /// Renders the native project portfolio with project CRUD and task/Kanban actions.
-
 /// Renders projects in the full application work area.
 pub fn projects(
     ctx: &Context,
@@ -527,7 +525,6 @@ pub fn projects(
             projects_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders projects inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn projects_window(
