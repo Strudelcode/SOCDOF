@@ -552,9 +552,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SupportSt
         badge(ui, theme, texts.get(key), Tone::Danger);
     }
 }
-
 /// Renders the support screen into the context.
-
 /// Renders support in the full application work area.
 pub fn support(
     ctx: &Context,
@@ -575,7 +573,6 @@ pub fn support(
             support_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders support inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn support_window(
