@@ -435,9 +435,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &FleetStat
         );
     }
 }
-
 /// Renders the native fleet register, logbook, fuel ledger and analytics.
-
 /// Renders fleet in the full application work area.
 pub fn fleet(
     ctx: &Context,
@@ -458,7 +456,6 @@ pub fn fleet(
             fleet_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders fleet inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn fleet_window(
