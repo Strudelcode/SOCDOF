@@ -704,9 +704,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Purchases
         badge(ui, theme, texts.get(key), Tone::Danger);
     }
 }
-
 /// Renders the purchases screen into the context.
-
 /// Renders purchases in the full application work area.
 pub fn purchases(
     ctx: &Context,
@@ -727,7 +725,6 @@ pub fn purchases(
             purchases_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders purchases inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn purchases_window(
