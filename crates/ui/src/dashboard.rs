@@ -582,9 +582,9 @@ pub fn dashboard_window(
                     {
                         state.action = Some(action);
                     }
+                }
             });
         });
-                }
 
         ui.add_space(12.0);
         card(ui, theme, |ui| {
