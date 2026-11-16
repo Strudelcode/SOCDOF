@@ -921,9 +921,7 @@ fn spell_panel(
         }
     });
 }
-
 /// Renders the text editor into the context.
-
 /// Renders editor in the full application work area.
 pub fn editor(
     ctx: &Context,
@@ -944,7 +942,6 @@ pub fn editor(
             editor_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
 }
-
 /// Renders editor inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn editor_window(
