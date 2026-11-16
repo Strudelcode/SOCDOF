@@ -198,9 +198,7 @@ fn header(
         &mut state.back,
     );
 }
-
 /// Renders the App Store into the context.
-
 /// Renders app_store in the full application work area.
 pub fn app_store(
     ctx: &Context,
@@ -220,7 +218,6 @@ pub fn app_store(
             app_store_window(ctx, true, ui, theme, texts, focus, state, store);
         });
 }
-
 /// Renders app_store inside one native desktop child window.
 #[allow(clippy::too_many_arguments)]
 pub fn app_store_window(
