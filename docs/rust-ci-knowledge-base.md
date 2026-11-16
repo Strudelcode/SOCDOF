@@ -291,3 +291,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression coverage:** the existing Dashboard render and quick-action tests remain intact; the full workspace parser/build/test matrix is the verification gate.
 - **Verification:** fix committed as `c0e5dbd9a0155c72ad7566a1813d3f6f85238224`; run 1292 is checking that code commit. Do not mark resolved until Format, Clippy, Linux/Windows tests, WASM, desktop builds and GUI smoke pass.
 - **Effort estimate:** approximately 0.2 hours for CI log inspection, exact source correction and documentation; Actions queue/runtime excluded.
+
+## RUST-CI-026 — Clippy rejected empty lines between renderer documentation blocks (2026-11-16)
+
+- **First observed:** workflow run 1292, commit `c0e5dbd9a0155c72ad7566a1813d3f6f85238224`, Linux workspace Clippy job.
+- **Affected native window adapters:** App Store, Appointments, Dashboard, Editor, Fleet, Products, Projects, Purchases, Reports, Restaurant and Support.
+- **Symptom:** Clippy's `empty_line_after_doc_comments` lint failed with `-D warnings` where the compatibility renderer documentation had an empty line separating adjacent doc-comment blocks.
+- **Fix:** normalize the renderer documentation into one consecutive Rust doc-comment block. Existing function docs, renderer behavior and test coverage are retained; no lint suppression was added.
+- **Commits:** renderer documentation normalization was pushed in the follow-up commits on the migration branch, latest at `f6ac6e218b3b59761927442a83cf08c23f4a4194`.
+- **Verification:** run 1292 was superseded by later pushes. Run 1309 is queued for the latest branch head; keep this issue open until Clippy and the complete cross-platform test/build matrix pass.
+- **Effort estimate:** approximately 0.3 hours for Clippy log inspection, cross-file documentation cleanup and knowledge-base update; Actions queue/runtime excluded.
