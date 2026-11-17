@@ -47,12 +47,18 @@ jobs:
       - name: Install NSIS
         shell: pwsh
         run: |
-          if (-not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
+          $ErrorActionPreference = "Stop"
+          $nsis = "C:\Program Files (x86)\NSIS"
+          $compiler = Join-Path $nsis "makensis.exe"
+          if (-not (Test-Path -LiteralPath $compiler)) {
             choco install nsis --no-progress -y
           }
-          if (-not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
-            throw "NSIS compiler is unavailable"
+          if (-not (Test-Path -LiteralPath $compiler)) {
+            throw "NSIS compiler was not installed at the expected path: $compiler"
           }
+          $nsis >> $env:GITHUB_PATH
+          & $compiler /VERSION
+          if ($LASTEXITCODE -ne 0) { throw "NSIS compiler failed its version check" }
 
       - name: Create Windows installer
         shell: pwsh
@@ -62,7 +68,8 @@ jobs:
           $version = '${{ steps.version.outputs.value }}'
           $installer = Join-Path (Resolve-Path artifacts).Path "SOCDOF-$version-windows-x64-native-setup.exe"
           $source = (Resolve-Path target/release).Path
-          & (Get-Command makensis.exe).Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" "crates/app/installer/native-windows.nsi"
+          $compiler = "C:\Program Files (x86)\NSIS\makensis.exe"
+          & $compiler "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" "crates/app/installer/native-windows.nsi"
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) {
             throw "Native NSIS installer build failed"
           }
