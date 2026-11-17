@@ -1520,7 +1520,7 @@ fn settings_section_heading(
         ui.horizontal(|ui| {
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
             ui.painter().circle_filled(icon_rect.center(), 22.0, theme.accent.light);
-            settings_tab_icon(tab).draw(
+            tab_icon(tab).draw(
                 ui.painter(),
                 egui::Rect::from_center_size(icon_rect.center(), Vec2::splat(22.0)),
                 theme.accent_text(),
@@ -1683,6 +1683,42 @@ fn settings_active_content(
         SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Shortcuts => shortcuts_tab(ui, theme, texts),
     }
+}
+
+/// Renders settings in a native desktop window, including refresh and confirmation dialogs.
+#[allow(clippy::too_many_arguments)]
+pub fn settings_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        if state.restore_confirm {
+            state.restore_confirm = false;
+        } else if state.delete_target.is_some() {
+            state.delete_target = None;
+        } else if state.user_editor.is_some() {
+            state.user_editor = None;
+        } else if state.role_editor.is_some() {
+            state.role_editor = None;
+        } else {
+            state.back = true;
+        }
+    }
+
+    if state.refresh(store).is_err() {
+        state.error = Some("settings_error_load");
+    }
+
+    settings_content(ui, theme, texts, focus, state, store, now);
+    delete_modal(ctx, theme, texts, focus, state, store);
+    restore_modal(ctx, theme, texts, focus, state);
 }
 
 /// Renders the full-screen settings workflow.
@@ -3541,7 +3577,7 @@ mod tests {
             .expect("prefs");
         assert_eq!(prefs.language, Language::Es);
         assert_eq!(prefs.theme_mode, ThemeMode::Dark);
-        assert_eq!(prefs.accent, "rose");
+        assert_eq!(prefs.accent_color, "rose");
         let applied = state
             .take_saved_preferences()
             .expect("saved preferences are returned to the desktop shell");
