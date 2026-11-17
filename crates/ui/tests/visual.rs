@@ -38,6 +38,8 @@ fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
         SnapshotVariant::Accounting => Some("accounting_title"),
         SnapshotVariant::Pos => Some("pos_title"),
         SnapshotVariant::Therapie => Some("therapie_title"),
+        SnapshotVariant::Login => Some("auth_login_title"),
+        SnapshotVariant::Setup => Some("auth_setup_title"),
         SnapshotVariant::Locked => Some("auth_unlock_password"),
         SnapshotVariant::Onboarding => Some("onboarding_title"),
         SnapshotVariant::Studio | SnapshotVariant::StudioData | SnapshotVariant::StudioLayout => {
