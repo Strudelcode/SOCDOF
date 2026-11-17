@@ -115,6 +115,7 @@ jobs:
         uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
+            . -> target
             crates/app/src-tauri -> target
           key: release-${{ matrix.platform }}
 
@@ -171,6 +172,97 @@ jobs:
           else
             npm run tauri -- build --config src-tauri/tauri.release.conf.json
           fi
+
+      - name: Build native Rust Linux portable distribution
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+          version='${{ needs.prepare.outputs.version }}'
+          dir="artifacts/SOCDOF-${version}-linux-x86_64-native"
+          mkdir -p "$dir"
+          cp target/release/socdof-ui-desktop "$dir/"
+          chmod +x "$dir/socdof-ui-desktop"
+          cat > "$dir/run-socdof.sh" <<'EOF'
+          #!/bin/sh
+          set -eu
+          script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+          export SOCDOF_DATA_DIR="${SOCDOF_DATA_DIR:-$script_dir/data}"
+          mkdir -p "$SOCDOF_DATA_DIR"
+          export MALLOC_ARENA_MAX=1
+          export MALLOC_TRIM_THRESHOLD_=0
+          export MALLOC_MMAP_THRESHOLD_=131072
+          exec "$script_dir/socdof-ui-desktop" "$@"
+          EOF
+          chmod +x "$dir/run-socdof.sh"
+          cat > "$dir/README.txt" <<'EOF'
+          SOCDOF native Rust desktop for Linux x86_64
+          Start with ./run-socdof.sh. The portable data folder is ./data by default.
+          Set SOCDOF_DATA_DIR to use a different data directory.
+          Requires the host GTK, X11/Wayland and OpenGL runtime libraries.
+          EOF
+          sh -n "$dir/run-socdof.sh"
+          tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$dir")"
+          test -s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz"
+
+      - name: Build native Rust Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+          $version = '${{ needs.prepare.outputs.version }}'
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            choco install nsis --no-progress -y
+            $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $makensis) { throw 'NSIS compiler is unavailable' }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          $installer = Join-Path (Resolve-Path artifacts).Path "SOCDOF-$version-windows-x64-native-setup.exe"
+          $source = (Resolve-Path target/release).Path
+          & $makensis.Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" 'crates/app/installer/native-windows.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw 'Native NSIS installer build failed' }
+          ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
+      - name: Build native Rust macOS universal application disk image
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ needs.prepare.outputs.version }}'
+          cargo build --release --target aarch64-apple-darwin -p socdof-ui --features window --bin socdof-ui-desktop
+          cargo build --release --target x86_64-apple-darwin -p socdof-ui --features window --bin socdof-ui-desktop
+          mkdir -p artifacts/SOCDOF.app/Contents/MacOS artifacts/SOCDOF.app/Contents/Resources
+          lipo -create \
+            target/aarch64-apple-darwin/release/socdof-ui-desktop \
+            target/x86_64-apple-darwin/release/socdof-ui-desktop \
+            -output artifacts/SOCDOF.app/Contents/MacOS/SOCDOF
+          chmod +x artifacts/SOCDOF.app/Contents/MacOS/SOCDOF
+          cat > artifacts/SOCDOF.app/Contents/Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>SOCDOF</string>
+            <key>CFBundleDisplayName</key><string>SOCDOF</string>
+            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
+            <key>CFBundleExecutable</key><string>SOCDOF</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>$version</string>
+            <key>CFBundleVersion</key><string>$version</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+          </dict></plist>
+          EOF
+          cat > artifacts/SOCDOF.app/Contents/Resources/README.txt <<'EOF'
+          SOCDOF native Rust desktop (Universal macOS)
+          Drag SOCDOF.app into Applications. User data is stored in
+          ~/Library/Application Support/SOCDOF unless SOCDOF_DATA_DIR is set.
+          This build is currently unsigned and may require the user to approve its first launch.
+          EOF
+          hdiutil create -volname "SOCDOF Native" -srcfolder artifacts/SOCDOF.app -ov -format UDZO \
+            "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
+          test -s "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
 
       - name: Stage release assets
         run: >-

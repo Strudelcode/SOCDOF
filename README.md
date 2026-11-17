@@ -114,12 +114,14 @@ Deine Geschäftsdaten gehören dir.
 
 Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
 
-1. **Native Rust Windows-Installation (`SOCDOF-<Version>-windows-x64-native-setup.exe`)**: Benutzerbezogene Installation unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, Startmenü- und Desktop-Verknüpfung sowie optionaler Autostart.
-2. **Tauri-Übergangsinstaller und MSI**: Bleiben während der nativen Abnahme als Rückfalloption verfügbar.
-3. **Portable Version**: Eine Installation ohne Setup; die Datenablage wird separat konfiguriert.
-4. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+1. **Native Rust Windows-Installation** (`SOCDOF-<Version>-windows-x64-native-setup.exe`): benutzerbezogen unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, mit Startmenü, Desktop-Verknüpfung und optionalem Autostart.
+2. **Native Linux-Version** (`SOCDOF-<Version>-linux-x86_64-native.tar.gz`): portable Rust-Desktop-Version mit eigenem Datenordner.
+3. **Native macOS-Version** (`SOCDOF-<Version>-macos-universal-native.dmg`): universelle Rust-App für Apple Silicon und Intel.
+4. **Tauri-Übergangsinstaller und MSI/DMG/AppImage**: bleiben als Rückfalloption verfügbar.
+5. **Portable Windows-Version**: ZIP ohne Setup, mit eigenem `data`-Ordner und Launcher.
+6. **Web-App**: im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
 
-Der native Installer ersetzt bei einer Aktualisierung die Programmdatei im bestehenden Installationsordner. Die Geschäftsdatenbank liegt getrennt unter `%APPDATA%\\SOCDOF` und bleibt auch bei einer Deinstallation erhalten. Der Autostart ist eine optionale Opt-in-Komponente. Die Auswahl bleibt bei Updates erhalten; beim Entfernen der Anwendung wird die Verknüpfung ebenfalls entfernt.
+Alle Desktop-Varianten verwenden dieselbe Pfadlogik. Installierte Windows-Versionen verwenden standardmäßig `%APPDATA%\\SOCDOF\\SOCDOF.db`; portable Versionen verwenden ihren eigenen `data`-Ordner. Mit `--data-dir`, `--database` oder `SOCDOF_DATA_DIR` kann der Speicherort überschrieben werden. Die Geschäftsdatenbank bleibt bei der Deinstallation installierter Varianten erhalten. Der Autostart ist eine optionale Opt-in-Komponente. Die Auswahl bleibt bei Updates erhalten; beim Entfernen der Anwendung wird die Verknüpfung ebenfalls entfernt.
 
 ---
 
