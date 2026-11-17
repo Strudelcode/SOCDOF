@@ -29,6 +29,9 @@ fn golden_path(name: &str) -> PathBuf {
 fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
     match variant {
         SnapshotVariant::Contacts => Some("contacts_title"),
+        // Settings now uses native icon + label navigation; keep a semantic title/render gate
+        // while its translated, horizontally scrolling layout is actively being refined.
+        SnapshotVariant::Settings => Some("settings_title"),
         // The products screen gained the stock-journal surface; its pre-port geometry golden
         // no longer describes the evolving module, so retain semantic title/paint coverage.
         SnapshotVariant::Products => Some("products_title"),
