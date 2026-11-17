@@ -332,7 +332,14 @@ impl AuthState {
         updated_user.password_hash = password_hash;
         updated_user.must_change_password = false;
         updated_user.updated_at = now;
-        store.update_user(&updated_user)?;
+        let session_id = self
+            .session
+            .as_ref()
+            .map(|session| session.id)
+            .ok_or_else(|| {
+                socdof_core::CoreError::Validation("auth_session_required".to_string())
+            })?;
+        store.update_user_preserving_session(&updated_user, session_id, now)?;
         self.user = Some(updated_user);
         self.recovery_new_password.clear();
         self.recovery_confirm_password.clear();
