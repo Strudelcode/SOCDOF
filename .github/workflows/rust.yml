@@ -157,6 +157,21 @@ jobs:
         if: runner.os != 'macOS'
         run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
+      - name: Build native Rust desktop host (macOS universal)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target aarch64-apple-darwin
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target x86_64-apple-darwin
+          mkdir -p artifacts
+          lipo -create \
+            target/aarch64-apple-darwin/release/socdof-ui-desktop \
+            target/x86_64-apple-darwin/release/socdof-ui-desktop \
+            -output artifacts/socdof-ui-desktop-universal
+          file artifacts/socdof-ui-desktop-universal
+          lipo -verify_arch arm64 x86_64 artifacts/socdof-ui-desktop-universal
+
       - name: Build Tauri bundles
         working-directory: crates/app
         shell: bash
