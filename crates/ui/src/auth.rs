@@ -325,12 +325,15 @@ impl AuthState {
                 self.recovery_answer_two.trim().to_owned(),
             ],
         )?;
-        store.set_password(user.id, &password_hash)?;
-        if let Some(user) = self.user.as_mut() {
-            user.password_hash = password_hash;
-            user.must_change_password = false;
-            user.updated_at = now;
-        }
+        // A first-login password change is performed by the authenticated user. Unlike an
+        // administrator reset or recovery, it must preserve this active session, matching the
+        // TypeScript changePassword flow.
+        let mut updated_user = user.clone();
+        updated_user.password_hash = password_hash;
+        updated_user.must_change_password = false;
+        updated_user.updated_at = now;
+        store.update_user(&updated_user)?;
+        self.user = Some(updated_user);
         self.recovery_new_password.clear();
         self.recovery_confirm_password.clear();
         self.recovery_answer_one.clear();
@@ -2237,6 +2240,10 @@ mod tests {
             .expect("find")
             .expect("user");
         assert!(!stored.must_change_password);
+        assert!(store
+            .session_for_token(state.token.as_deref().expect("active token"), NOW + 3)
+            .expect("session remains valid")
+            .is_some());
         assert!(socdof_core::security::verify_password(
             "A-new-strong-password-2026!",
             &stored.password_hash
