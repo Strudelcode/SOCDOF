@@ -3235,6 +3235,9 @@ mod tests {
             Some("business")
         );
 
+        // Saving invalidates the settings cache; the next UI frame reloads it from SQLite.
+        // Mirror that lifecycle before reopening the editor in this round-trip test.
+        state.refresh(&store).expect("reload users after save");
         state.edit_user(user.id, &store);
         assert_eq!(
             state
