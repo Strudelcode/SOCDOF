@@ -2205,9 +2205,7 @@ fn theme_choice(
             Stroke::new(1.5_f32, theme.accent.base),
         );
     }
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label)
-    });
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label));
     if activated {
         *selected = index;
     }
